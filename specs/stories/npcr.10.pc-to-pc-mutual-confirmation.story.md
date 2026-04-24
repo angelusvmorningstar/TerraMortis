@@ -1,7 +1,7 @@
 ---
 id: npcr.10
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.6, npcr.7]
 ---
@@ -70,3 +70,18 @@ Directionality: symmetric kinds (coterie, ally, rival) produce one active edge r
 - 403 on confirm/decline from wrong PC
 - Quinn verification pass
 - `bmad-code-review` required (new endpoints + auth boundary)
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft from the epic.
+- **2026-04-24 r2**: implemented. Notes:
+  - **Picker mode**: added as a third chip ("Another PC") alongside "Existing NPC" / "New NPC (pending)" in the existing Add Relationship form — rather than a separate PC-PC picker flow. PC list sourced from `GET /api/characters/public` (already exposed to all authenticated users). Self-reference blocked client-side.
+  - **Eligible kinds for PC-PC**: the subset where `typicalEndpoints.b === 'any'` (Lineage family + Political family + 'romantic' + 'other'). Mortal kinds (`family`, `contact`, `retainer`, `correspondent`) stay NPC-only. Touchstone is already excluded elsewhere.
+  - **Duplicate-check scope expanded** to `status IN ('active', 'pending_confirmation')` so a player can't re-propose while a prior proposal is still unresolved. Applies to PC-NPC too.
+  - **Initial status**: PC-PC player POSTs land as `pending_confirmation` with first history row `change: 'proposed'`. ST PC-PC POSTs remain `active` by design — ST can impose edges without asking.
+  - **Transition endpoints**: `POST /:id/confirm` and `POST /:id/decline` registered above the ST guard. Gate: caller must be endpoint `b` (or ST), and the edge must be in `pending_confirmation`. Atomic update via `findOneAndUpdate({status: 'pending_confirmation'})` prevents double-apply.
+  - **Banner**: rendered at the top of the Relationships tab for any edge where `b.type='pc'`, `b.id === char._id`, `status='pending_confirmation'`. Accept/Decline buttons hit the transition endpoints.
+  - **Initiator chip**: existing `statusChip` for pending_confirmation now shows "Awaiting {other PC}" when caller is the initiator (endpoint a). Falls back to "awaiting confirmation" for recipient-side cards; the banner is the actionable surface there.
+  - **Directionality**: kind codes carry direction semantics — e.g. `sire` means "a is sire of b", `childe` means "a is childe of b". Initiator picks the kind that matches their intended role. No separate role switch needed.

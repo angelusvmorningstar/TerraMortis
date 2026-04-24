@@ -154,6 +154,7 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
   if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
 
   // Player-specific constraints
+  let playerPcPc = false;
   if (!isSt) {
     const charIds = (req.user?.character_ids || []).map(String);
     if (body.a?.type !== 'pc' || !charIds.includes(String(body.a?.id))) {
@@ -162,37 +163,56 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
         message: 'Player-created edges must have a.type=pc with a.id matching one of your characters',
       });
     }
-    if (body.b?.type !== 'npc') {
-      return res.status(400).json({
-        error: 'VALIDATION_ERROR',
-        message: 'Player-created edges require b.type=npc',
-      });
-    }
     if (body.kind === 'touchstone') {
       return res.status(400).json({
         error: 'VALIDATION_ERROR',
         message: "Touchstones are managed from the character sheet, not the Relationships tab",
       });
     }
+    // NPCR.10: allow b.type='pc' for PC-to-PC edges when kind accepts any
+    // endpoint type (Lineage / Political / 'romantic' / 'other'). Mortal
+    // kinds (family, contact, retainer, correspondent) remain NPC-only.
+    if (body.b?.type === 'pc') {
+      const pcPcKinds = new Set(['sire','childe','grand-sire','clan-mate','coterie','ally','rival','enemy','mentor','debt-holder','debt-bearer','romantic','other']);
+      if (!pcPcKinds.has(body.kind)) {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: `Kind '${body.kind}' does not support PC-to-PC edges.`,
+        });
+      }
+      playerPcPc = true;
+    } else if (body.b?.type !== 'npc') {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Player-created edges require b.type=npc or b.type=pc',
+      });
+    }
   }
 
-  // Strict duplicate-active-edge check: same a, b, and kind, status='active'.
+  // Duplicate check spans active + pending_confirmation so a player cannot
+  // re-propose while a prior proposal is still awaiting response.
   const dup = await col().findOne({
     'a.type': body.a.type, 'a.id': String(body.a.id),
     'b.type': body.b.type, 'b.id': String(body.b.id),
     kind: body.kind,
-    status: 'active',
+    status: { $in: ['active', 'pending_confirmation'] },
   });
   if (dup) {
     return res.status(409).json({
       error: 'CONFLICT',
-      message: 'An active edge with these endpoints and kind already exists.',
+      message: dup.status === 'pending_confirmation'
+        ? 'A proposal with these endpoints and kind is already awaiting confirmation.'
+        : 'An active edge with these endpoints and kind already exists.',
       existing_id: String(dup._id),
     });
   }
 
   const actor = actorFromReq(req);
   const now = nowIso();
+  // NPCR.10: PC-PC player POSTs land as pending_confirmation. ST POSTs and
+  // player PC-NPC POSTs land as active. ST PC-PC POSTs skip confirmation by
+  // design (ST can impose edges without asking).
+  const initialStatus = playerPcPc ? 'pending_confirmation' : 'active';
   const doc = {
     a: body.a,
     b: body.b,
@@ -200,9 +220,9 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     direction: body.direction || 'a_to_b',
     state: body.state || '',
     st_hidden: !!body.st_hidden,
-    status: 'active',
+    status: initialStatus,
     created_by: actor,
-    history: [{ at: now, by: actor, change: 'created' }],
+    history: [{ at: now, by: actor, change: initialStatus === 'pending_confirmation' ? 'proposed' : 'created' }],
     created_at: now,
     updated_at: now,
   };
@@ -222,6 +242,64 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
   const created = await col().findOne({ _id: result.insertedId });
   res.status(201).json(created);
 });
+
+// NPCR.10: PC-PC mutual-confirmation endpoints. Both accept/decline live
+// above the ST guard because player (endpoint b) must be able to call
+// them. Caller must be the PC on endpoint b AND edge must be in
+// status='pending_confirmation'; any other state is a 403 or 409.
+async function _applyConfirmationTransition(req, res, nextStatus, changeLabel) {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
+
+  const existing = await col().findOne({ _id: oid });
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Relationship not found' });
+
+  const role = req.user?.role;
+  const isSt = role === 'st' || role === 'dev';
+  const charIds = (req.user?.character_ids || []).map(String);
+
+  if (!isSt) {
+    if (existing.b?.type !== 'pc' || !charIds.includes(String(existing.b?.id))) {
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Only the recipient PC can confirm or decline this proposal.',
+      });
+    }
+  }
+  if (existing.status !== 'pending_confirmation') {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: `Edge is ${existing.status}, not pending confirmation.`,
+    });
+  }
+
+  const actor = actorFromReq(req);
+  const now = nowIso();
+  const historyRow = {
+    at: now,
+    by: actor,
+    change: changeLabel,
+    fields: [{ name: 'status', before: existing.status, after: nextStatus }],
+  };
+  const result = await col().findOneAndUpdate(
+    { _id: oid, status: 'pending_confirmation' },
+    {
+      $set: { status: nextStatus, updated_at: now },
+      $push: { history: historyRow },
+    },
+    { returnDocument: 'after' }
+  );
+  if (!result) {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'Edge state changed while we were responding. Reload and retry.',
+    });
+  }
+  res.json(result);
+}
+
+router.post('/:id/confirm', (req, res) => _applyConfirmationTransition(req, res, 'active', 'confirmed'));
+router.post('/:id/decline', (req, res) => _applyConfirmationTransition(req, res, 'rejected', 'declined'));
 
 // PUT /:id — edit edge. Split auth (NPCR.9):
 //   ST: any tracked field can change; existing full-body flow applies.

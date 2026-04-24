@@ -140,16 +140,16 @@ describe('POST /api/relationships — player auth + validation', () => {
     expect(res.status).toBe(403);
   });
 
-  it('400 when b.type is not npc', async () => {
+  it('400 when b.type=pc for a mortal-only kind (NPCR.10 allows PC-PC only for supported kinds)', async () => {
     const res = await request(app)
       .post('/api/relationships')
       .set('X-Test-User', playerUser([MY_CHAR]))
       .send(validPlayerBody({
         b: { type: 'pc', id: OTHER_CHAR },
-        kind: 'coterie',
+        kind: 'family', // mortal-only kind
       }));
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/b\.type=npc/);
+    expect(res.body.message).toMatch(/PC-to-PC/i);
   });
 
   it("400 when kind='touchstone' (players use the sheet picker)", async () => {

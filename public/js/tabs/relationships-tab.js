@@ -55,6 +55,16 @@ function playerCreatableKinds() {
   });
 }
 
+// NPCR.10: PC-PC-eligible kinds are the subset where b can be 'any'
+// (Lineage + Political + 'romantic' + 'other'). Mortal kinds that are
+// b='npc'-only (family, contact, retainer, correspondent) stay excluded.
+function playerPcPcKinds() {
+  return RELATIONSHIP_KINDS.filter(k => {
+    if (k.code === 'touchstone') return false;
+    return k.typicalEndpoints?.b === 'any';
+  });
+}
+
 const LAST_SEEN_PREFIX    = 'tm:rel_last_seen:';
 const DISMISSED_PREFIX    = 'tm:rel_dismissed_updates:';
 const COLLAPSED_PREFIX    = 'tm:rel_family_collapsed:';
@@ -138,10 +148,17 @@ function dispositionLabel(d) {
   return '—';
 }
 
-function statusChip(edge) {
+function statusChip(edge, char) {
   if (edge.status === 'active') return '';
   if (edge.status === 'pending_confirmation') {
-    return '<span class="rel-status-chip pending">awaiting confirmation</span>';
+    // If this char is endpoint a (the initiator), they're "awaiting" the
+    // other PC. If they're endpoint b, the banner handles it; chip on the
+    // card is a fallback.
+    const isInitiator = edge.a?.type === 'pc' && String(edge.a?.id) === String(char?._id);
+    const label = isInitiator
+      ? 'Awaiting ' + (edge._other_name || 'other PC')
+      : 'awaiting confirmation';
+    return `<span class="rel-status-chip pending">${esc(label)}</span>`;
   }
   if (edge.status === 'retired') {
     return '<span class="rel-status-chip retired">retired</span>';
@@ -215,7 +232,32 @@ export async function renderRelationshipsTab(el, char) {
     return;
   }
 
+  // NPCR.10: pending incoming banners — edges where this char is endpoint b
+  // and status='pending_confirmation'. Rendered above the family sections so
+  // the user sees actionable items first.
+  const incoming = edges.filter(e =>
+    e.status === 'pending_confirmation' &&
+    e.b?.type === 'pc' &&
+    String(e.b?.id) === String(char._id)
+  );
   let html = '';
+  for (const edge of incoming) {
+    const kindLabel = kindByCode(edge.kind)?.label || edge.kind;
+    const proposer = edge._other_name || '(another character)';
+    html += `
+      <div class="rel-pending-banner" role="alert" data-edge-id="${esc(String(edge._id))}">
+        <div class="rel-pending-text">
+          <strong>${esc(proposer)}</strong> wants to connect as <strong>${esc(kindLabel)}</strong>.
+          ${edge.state ? `<div class="rel-pending-state">${esc(edge.state)}</div>` : ''}
+        </div>
+        <div class="rel-pending-actions">
+          <button type="button" class="rel-add-btn primary" data-act="confirm-edge" data-edge-id="${esc(String(edge._id))}">Accept</button>
+          <button type="button" class="rel-add-btn muted" data-act="decline-edge" data-edge-id="${esc(String(edge._id))}">Decline</button>
+        </div>
+      </div>
+    `;
+  }
+
   for (const family of FAMILIES) {
     const bucket = grouped[family];
     if (bucket.length === 0) continue;
@@ -286,7 +328,7 @@ function renderEdgeCard(edge, lastSeen, dismissed, char) {
         </div>
         <div class="rel-edge-head-chips">
           ${dispChip}
-          ${statusChip(edge)}
+          ${statusChip(edge, char)}
           ${showNew ? '<span class="rel-new-badge" title="Added since your last visit">New</span>' : ''}
           ${showUpdated ? `<span class="rel-updated-chip" data-act="dismiss-update" data-at="${esc(stUpdate.at)}" title="Dismiss">Updated ✕</span>` : ''}
         </div>
@@ -397,6 +439,48 @@ function attachHandlers(root, charId, char, edges) {
       text.textContent = full.textContent;
       wrap.classList.remove('truncated');
       moreBtn.remove();
+    });
+  });
+
+  // NPCR.10 accept/decline on incoming pending banners
+  root.querySelectorAll('[data-act="confirm-edge"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const edgeId = btn.dataset.edgeId;
+      btn.disabled = true;
+      const { status, ok, body: resBody } = await apiRaw('POST', `/api/relationships/${edgeId}/confirm`, {});
+      if (ok) {
+        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+        return;
+      }
+      btn.disabled = false;
+      const banner = btn.closest('.rel-pending-banner');
+      if (banner && !banner.querySelector('.rel-error')) {
+        const err = document.createElement('div');
+        err.className = 'rel-error';
+        err.setAttribute('role', 'alert');
+        err.textContent = resBody?.message || `Accept failed (HTTP ${status}).`;
+        banner.insertBefore(err, banner.firstChild);
+      }
+    });
+  });
+  root.querySelectorAll('[data-act="decline-edge"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const edgeId = btn.dataset.edgeId;
+      btn.disabled = true;
+      const { status, ok, body: resBody } = await apiRaw('POST', `/api/relationships/${edgeId}/decline`, {});
+      if (ok) {
+        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+        return;
+      }
+      btn.disabled = false;
+      const banner = btn.closest('.rel-pending-banner');
+      if (banner && !banner.querySelector('.rel-error')) {
+        const err = document.createElement('div');
+        err.className = 'rel-error';
+        err.setAttribute('role', 'alert');
+        err.textContent = resBody?.message || `Decline failed (HTTP ${status}).`;
+        banner.insertBefore(err, banner.firstChild);
+      }
     });
   });
 
@@ -515,7 +599,8 @@ async function openAddPicker(el, char) {
   _tabState.error = null;
   _tabState.submitting = false;
   _tabState.draft = {
-    npc_id: '', new_name: '', new_relationship_note: '', new_general_note: '',
+    npc_id: '', pc_id: '',
+    new_name: '', new_relationship_note: '', new_general_note: '',
     kind: '', disposition: '', state: '', custom_label: '',
   };
   renderAddPanel(el, char);
@@ -525,6 +610,15 @@ async function openAddPicker(el, char) {
     } catch (err) {
       _tabState.error = 'Failed to load NPC list: ' + (err?.message || 'unknown error');
       _tabState.npcs = [];
+    }
+    renderAddPanel(el, char);
+  }
+  if (!_tabState.pcs) {
+    try {
+      _tabState.pcs = await apiGet('/api/characters/public');
+    } catch (err) {
+      console.warn('[relationships-tab] Failed to load PC directory:', err);
+      _tabState.pcs = [];
     }
     renderAddPanel(el, char);
   }
@@ -548,9 +642,12 @@ function renderAddPanel(el, char) {
   if (_tabState.mode !== 'add') { panel.innerHTML = ''; return; }
 
   const loading = _tabState.npcs === null;
+  const pcsLoading = _tabState.pcs === null;
   const draft = _tabState.draft;
   const npcMode = _tabState.npc_mode;
-  const kinds = playerCreatableKinds();
+  // PC mode uses a different kind list (b='any' only). Other modes use the
+  // broader PC-to-NPC list.
+  const kinds = npcMode === 'pc' ? playerPcPcKinds() : playerCreatableKinds();
 
   const npcOpts = (_tabState.npcs || [])
     .filter(n => n.status === 'active' || n.status === 'pending')
@@ -575,9 +672,10 @@ function renderAddPanel(el, char) {
       <div class="rel-add-form-head">New relationship</div>
       ${_tabState.error ? `<div class="rel-error" role="alert">${esc(_tabState.error)}</div>` : ''}
 
-      <div class="rel-add-mode-chips" role="radiogroup" aria-label="NPC source">
+      <div class="rel-add-mode-chips" role="radiogroup" aria-label="Connection target">
         <button type="button" class="rel-add-mode-chip${npcMode === 'existing' ? ' on' : ''}" data-npc-mode="existing">Existing NPC</button>
         <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
+        <button type="button" class="rel-add-mode-chip${npcMode === 'pc' ? ' on' : ''}" data-npc-mode="pc">Another PC</button>
       </div>
 
       ${npcMode === 'existing' ? `
@@ -590,7 +688,7 @@ function renderAddPanel(el, char) {
                  ${npcOpts}
                </select>`}
         </label>
-      ` : `
+      ` : npcMode === 'new' ? `
         <label class="rel-add-field">
           <span class="rel-add-field-label">Name *</span>
           <input class="rel-add-input" data-field="new_name" value="${esc(draft.new_name)}" placeholder="NPC name" />
@@ -604,6 +702,23 @@ function renderAddPanel(el, char) {
           <input class="rel-add-input" data-field="new_general_note" value="${esc(draft.new_general_note)}" placeholder="Short description for the register" />
         </label>
         <div class="rel-add-hint">The ST will review this NPC; it appears in your relationships immediately.</div>
+      ` : `
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">Character *</span>
+          ${pcsLoading
+            ? '<div class="rel-add-loading">Loading characters…</div>'
+            : `<select class="rel-add-input" data-field="pc_id">
+                 <option value="">(pick a character)</option>
+                 ${(_tabState.pcs || [])
+                   .filter(p => String(p._id) !== String(char._id))
+                   .sort((a, b) => String((a.moniker || a.name)).localeCompare(String(b.moniker || b.name), undefined, { sensitivity: 'base' }))
+                   .map(p => {
+                     const label = (p.honorific ? p.honorific + ' ' : '') + (p.moniker || p.name || '');
+                     return `<option value="${esc(String(p._id))}"${String(draft.pc_id) === String(p._id) ? ' selected' : ''}>${esc(label.trim())}</option>`;
+                   }).join('')}
+               </select>`}
+        </label>
+        <div class="rel-add-hint">They will see this proposal in their own Relationships tab and can Accept or Decline. The edge stays in "awaiting confirmation" until they respond.</div>
       `}
 
       <label class="rel-add-field">
@@ -677,21 +792,35 @@ async function saveAddEdge(el, char) {
     return;
   }
 
-  // Validate NPC source up front.
-  let npcIdForEdge = null;
+  // Validate target source up front.
+  let targetType = 'npc';
+  let targetIdForEdge = null;
   if (_tabState.npc_mode === 'existing') {
     if (!draft.npc_id) {
       _tabState.error = 'Pick an NPC before saving.';
       renderAddPanel(el, char);
       return;
     }
-    npcIdForEdge = String(draft.npc_id);
-  } else {
+    targetIdForEdge = String(draft.npc_id);
+  } else if (_tabState.npc_mode === 'new') {
     if (!String(draft.new_name || '').trim()) {
       _tabState.error = 'Name is required for a new NPC.';
       renderAddPanel(el, char);
       return;
     }
+  } else if (_tabState.npc_mode === 'pc') {
+    if (!draft.pc_id) {
+      _tabState.error = 'Pick a character before proposing.';
+      renderAddPanel(el, char);
+      return;
+    }
+    if (String(draft.pc_id) === String(char._id)) {
+      _tabState.error = 'You cannot propose a relationship with yourself.';
+      renderAddPanel(el, char);
+      return;
+    }
+    targetType = 'pc';
+    targetIdForEdge = String(draft.pc_id);
   }
 
   _tabState.submitting = true;
@@ -699,7 +828,6 @@ async function saveAddEdge(el, char) {
   renderAddPanel(el, char);
 
   try {
-    // Step 1 (new-NPC only): quick-add the pending NPC first.
     if (_tabState.npc_mode === 'new') {
       const quickBody = {
         name: String(draft.new_name).trim(),
@@ -722,15 +850,14 @@ async function saveAddEdge(el, char) {
         renderAddPanel(el, char);
         return;
       }
-      npcIdForEdge = String(qbody._id);
-      // Keep the new NPC in _tabState.npcs so subsequent interactions see it.
+      targetIdForEdge = String(qbody._id);
       if (Array.isArray(_tabState.npcs)) _tabState.npcs.push(qbody);
     }
 
     // Step 2: create the relationship edge.
     const edgeBody = {
-      a: { type: 'pc',  id: String(char._id) },
-      b: { type: 'npc', id: npcIdForEdge },
+      a: { type: 'pc',         id: String(char._id) },
+      b: { type: targetType,   id: targetIdForEdge },
       kind: draft.kind,
       direction: 'a_to_b',
       state: String(draft.state || ''),
@@ -748,7 +875,7 @@ async function saveAddEdge(el, char) {
     }
 
     if (status === 409) {
-      _tabState.error = resBody?.message || 'A relationship with this NPC and kind already exists.';
+      _tabState.error = resBody?.message || 'A relationship with this target and kind already exists.';
     } else if (status === 403) {
       _tabState.error = 'You do not have permission to create this relationship.';
     } else {
