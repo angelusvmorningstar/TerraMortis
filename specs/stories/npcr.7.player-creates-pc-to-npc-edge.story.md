@@ -1,7 +1,7 @@
 ---
 id: npcr.7
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.6]
 ---
@@ -62,6 +62,19 @@ The first player-writable operation on the relationships graph. Quick-add (creat
 - Player can create a PC-to-NPC edge end-to-end
 - 403 verified for POST with someone else's character_id
 - 409 verified for duplicate active edge
-- NPC picker filters to status='active' and excludes archived/pending
+- NPC picker filters to status IN ('active', 'pending') — excludes archived (r2 correction)
 - Quinn verification pass
 - `bmad-code-review` required (auth boundary)
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft from the epic. Spec said `created_by={type:'pc', id:myChar}`; said picker filters to `status='active'` only; did not specify touchstone exclusion or how broad the NPC listing should be.
+- **2026-04-24 r2**: implemented. Corrections + decisions:
+  - **`created_by.type='pc'` rejected** — NPCR.2 locked `actorSchema.type` enum to `['st', 'player']`, so player-created edges now carry `created_by={type:'player', id:discord_user_id}` plus a new optional schema field `created_by_char_id: string` set to the PC endpoint id. NPCR.9 reads `created_by_char_id` for edit-rights scoping. (NPCR.9 spec needs the same correction when it lands.)
+  - **Touchstone kind excluded** from the player picker. Touchstones live on `character.touchstones[]` and are managed by the NPCR.4 sheet picker. Server-side: POST with `kind='touchstone'` as a player returns 400 with a message redirecting the user to the character sheet.
+  - **NPC directory endpoint**: new `GET /api/npcs/directory`, any authenticated user, returns minimal projection (`_id, name, description, status, is_correspondent`) for NPCs with `status IN ('active', 'pending')` — includes pending so player-quick-added NPCs from NPCR.8 remain pickable.
+  - **Duplicate-edge policy**: strict `{a.type, a.id, b.type, b.id, kind, status='active'}` uniqueness. Reversed endpoints are a *different* edge (a/b carry directional meaning). Same NPC mentoring multiple PCs is allowed (distinct `a.id`).
+  - **Kind dropdown** is grouped by family (Lineage / Political / Mortal / Other) via `<optgroup>`, matching the admin editor pattern.
+  - Test helper (`server/tests/helpers/test-app.js`) did not mount `/api/npcs`; added the mount to unblock the new test file.

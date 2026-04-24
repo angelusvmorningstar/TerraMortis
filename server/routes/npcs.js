@@ -12,6 +12,20 @@ function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
 }
 
+// NPCR.7: player-readable NPC directory. Returns minimal fields for all
+// active / pending NPCs so a player can pick one when creating a new edge
+// from the Relationships tab. Must register BEFORE the ST-only router.use.
+router.get('/directory', async (req, res) => {
+  const docs = await col()
+    .find(
+      { status: { $in: ['active', 'pending'] } },
+      { projection: { name: 1, description: 1, status: 1, is_correspondent: 1 } }
+    )
+    .sort({ name: 1 })
+    .toArray();
+  res.json(docs);
+});
+
 // DTOSL.2: player-readable endpoint (must register BEFORE the ST-only
 // router.use below). Returns NPCs linked to the given character. The
 // caller must own the character (character_ids contains the id). ST

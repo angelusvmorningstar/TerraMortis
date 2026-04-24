@@ -126,6 +126,103 @@ router.get('/for-character/:characterId', async (req, res) => {
   res.json(docs);
 });
 
+// POST / — create edge. Split auth:
+//   ST: any endpoints, any kind.
+//   Player: a.type='pc' with a.id in caller's character_ids, b.type='npc',
+//           kind !== 'touchstone' (touchstones live on character.touchstones[]
+//           via the sheet picker from NPCR.4), created_by={type:'player', id:discord_id},
+//           created_by_char_id = a.id (for NPCR.9 edit-rights scoping).
+// Both auths: strict 409 CONFLICT on a duplicate active {a, b, kind} edge.
+router.post('/', validate(relationshipSchema), async (req, res) => {
+  const body = req.body;
+  const role = req.user?.role;
+  const isSt = role === 'st' || role === 'dev';
+
+  if (sameEndpoint(body.a, body.b)) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'Endpoints must differ (same type and id on both sides)',
+    });
+  }
+  if (customLabelMissing(body)) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: "kind='other' requires a non-empty custom_label",
+    });
+  }
+  const tsErr = touchstoneShapeError(body);
+  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
+
+  // Player-specific constraints
+  if (!isSt) {
+    const charIds = (req.user?.character_ids || []).map(String);
+    if (body.a?.type !== 'pc' || !charIds.includes(String(body.a?.id))) {
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Player-created edges must have a.type=pc with a.id matching one of your characters',
+      });
+    }
+    if (body.b?.type !== 'npc') {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Player-created edges require b.type=npc',
+      });
+    }
+    if (body.kind === 'touchstone') {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: "Touchstones are managed from the character sheet, not the Relationships tab",
+      });
+    }
+  }
+
+  // Strict duplicate-active-edge check: same a, b, and kind, status='active'.
+  const dup = await col().findOne({
+    'a.type': body.a.type, 'a.id': String(body.a.id),
+    'b.type': body.b.type, 'b.id': String(body.b.id),
+    kind: body.kind,
+    status: 'active',
+  });
+  if (dup) {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'An active edge with these endpoints and kind already exists.',
+      existing_id: String(dup._id),
+    });
+  }
+
+  const actor = actorFromReq(req);
+  const now = nowIso();
+  const doc = {
+    a: body.a,
+    b: body.b,
+    kind: body.kind,
+    direction: body.direction || 'a_to_b',
+    state: body.state || '',
+    st_hidden: !!body.st_hidden,
+    status: 'active',
+    created_by: actor,
+    history: [{ at: now, by: actor, change: 'created' }],
+    created_at: now,
+    updated_at: now,
+  };
+  if (body.kind === 'other' && body.custom_label) {
+    doc.custom_label = String(body.custom_label).trim();
+  }
+  if (body.disposition) doc.disposition = body.disposition;
+  if (body.kind === 'touchstone') {
+    doc.touchstone_meta = { humanity: body.touchstone_meta.humanity };
+  }
+  // NPCR.7: stamp the owning char id on player-created edges for NPCR.9 scoping.
+  if (!isSt) {
+    doc.created_by_char_id = String(body.a.id);
+  }
+
+  const result = await col().insertOne(doc);
+  const created = await col().findOne({ _id: result.insertedId });
+  res.status(201).json(created);
+});
+
 // All other routes ST-only.
 router.use(requireRole('st'));
 
@@ -178,54 +275,6 @@ router.get('/:id', async (req, res) => {
   const doc = await col().findOne({ _id: oid });
   if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Relationship not found' });
   res.json(doc);
-});
-
-// POST / — create edge
-router.post('/', validate(relationshipSchema), async (req, res) => {
-  const body = req.body;
-  if (sameEndpoint(body.a, body.b)) {
-    return res.status(400).json({
-      error: 'VALIDATION_ERROR',
-      message: 'Endpoints must differ (same type and id on both sides)',
-    });
-  }
-  if (customLabelMissing(body)) {
-    return res.status(400).json({
-      error: 'VALIDATION_ERROR',
-      message: "kind='other' requires a non-empty custom_label",
-    });
-  }
-  const tsErr = touchstoneShapeError(body);
-  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
-
-  const actor = actorFromReq(req);
-  const now = nowIso();
-  const doc = {
-    a: body.a,
-    b: body.b,
-    kind: body.kind,
-    direction: body.direction || 'a_to_b',
-    state: body.state || '',
-    st_hidden: !!body.st_hidden,
-    status: 'active',
-    created_by: actor,
-    history: [{ at: now, by: actor, change: 'created' }],
-    created_at: now,
-    updated_at: now,
-  };
-  // Only store custom_label when kind === 'other', regardless of what the client sent.
-  if (body.kind === 'other' && body.custom_label) {
-    doc.custom_label = String(body.custom_label).trim();
-  }
-  if (body.disposition) doc.disposition = body.disposition;
-  // touchstone_meta only when kind='touchstone'; strip anything else the client sent.
-  if (body.kind === 'touchstone') {
-    doc.touchstone_meta = { humanity: body.touchstone_meta.humanity };
-  }
-
-  const result = await col().insertOne(doc);
-  const created = await col().findOne({ _id: result.insertedId });
-  res.status(201).json(created);
 });
 
 // PUT /:id — edit edge; appends history row with field delta

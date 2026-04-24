@@ -104,6 +104,10 @@ export const relationshipSchema = {
     st_hidden:    { type: 'boolean' },
     status:       { type: 'string', enum: STATUS_ENUM },
     created_by:   actorSchema,
+    // NPCR.7: optional character id on player-created edges. Set when a
+    // player POSTs an edge from one of their characters; absent on ST
+    // POSTs. Used by NPCR.9 to scope edit rights to the creating char.
+    created_by_char_id: { type: 'string' },
     history:      { type: 'array', items: historyItemSchema },
     touchstone_meta: touchstoneMetaSchema,
     created_at:   { type: 'string' },

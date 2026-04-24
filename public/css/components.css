@@ -554,8 +554,35 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ── NPCR.6 Player Relationships tab ── */
 .rel-tab{padding:14px 16px 40px;max-width:860px;margin:0 auto;}
 .rel-tab-head{border-bottom:1px solid var(--bdr);padding-bottom:10px;margin-bottom:12px;}
+.rel-tab-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .rel-tab-title{font-family:var(--fh);font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin:0;}
 .rel-tab-sub{font-family:var(--ft);font-size:12px;color:var(--txt3);margin-top:3px;}
+
+/* NPCR.7 Add Relationship picker */
+.rel-add-btn{background:none;border:1px solid var(--accent);border-radius:4px;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;align-self:flex-start;}
+.rel-add-btn:hover{background:var(--gold2-a12);}
+.rel-add-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.rel-add-btn.primary:hover{opacity:.85;background:var(--accent);}
+.rel-add-btn.muted{border-color:var(--bdr);color:var(--txt3);}
+.rel-add-btn.muted:hover{border-color:var(--bdr2);color:var(--txt);background:var(--surf2);}
+
+.rel-add-form{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;}
+.rel-add-form-head{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding-bottom:6px;border-bottom:1px solid var(--bdr);}
+.rel-add-field{display:flex;flex-direction:column;gap:4px;}
+.rel-add-field-label{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.rel-add-input{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt);font-family:var(--ft);font-size:13px;padding:6px 10px;outline:none;}
+.rel-add-input:focus{border-color:var(--accent);}
+.rel-add-textarea{resize:vertical;min-height:60px;font-family:var(--ft);line-height:1.5;}
+.rel-add-loading{font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;padding:6px;}
+.rel-add-actions{display:flex;gap:8px;margin-top:4px;}
+
+.rel-disp-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.rel-disp-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
+.rel-disp-chip:hover{border-color:var(--bdr2);color:var(--txt);}
+.rel-disp-chip.positive.on{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
+.rel-disp-chip.neutral.on{color:var(--txt);border-color:var(--bdr2);}
+.rel-disp-chip.negative.on{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+.rel-disp-chip.clear.on{color:var(--accent);border-color:var(--accent);}
 .rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
 .rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
 .rel-empty p{margin:0 0 6px;}
