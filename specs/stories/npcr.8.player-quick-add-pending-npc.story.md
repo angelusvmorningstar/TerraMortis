@@ -1,7 +1,7 @@
 ---
 id: npcr.8
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.6, npcr.7]
 ---
@@ -61,7 +61,21 @@ Completes the player edge-creation flow. New `POST /api/npcs/quick-add` endpoint
 - Player quick-add → NPC + edge created in one flow, end-to-end browser-tested
 - Rate limit (30s) verified
 - Cap (20 pending per player) verified
-- Admin Pending filter shows new NPCs with badge
+- Admin Pending filter shows new NPCs with badge (already shipped in NPCR.1; verify)
 - ST approval flow (pending → active) verified
 - Quinn verification pass
 - `bmad-code-review` required (new player endpoint)
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft from the epic. Spec said the edge carries `created_by={type:'pc', id:myChar}`; implied a two-phase UX ("inline form appears with fields Name, Relationship note, General note" → then "kind (player picks after quick-add)").
+- **2026-04-24 r2**: implemented. Notes:
+  - **`created_by.type='pc'` rejected** — same NPCR.2 schema constraint as NPCR.7. Player-created edges carry `created_by={type:'player', id:discord}` plus `created_by_char_id: myChar`. No story-spec change to the edge shape is needed beyond what NPCR.7 already locked in.
+  - **Admin side already shipped** via NPCR.1: `public/js/admin/npc-register.js` already has the pending filter chip (line 104), the pending status CSS class, and a creator label at line 425 rendering `charNameFor(created_by.character_id)`. No admin work in this story.
+  - **NPC schema already prepared** via DTOSL.5 stub: `investigation.schema.js` line 64 already defines `created_by: {type:'player'|'st', player_id, character_id}`. No schema change.
+  - **One-form UX** with a mode toggle at the top of the picker: "Existing NPC" vs "New NPC (pending)". Single Save submits both (client orchestrates `POST /api/npcs/quick-add` → use returned `_id` → `POST /api/relationships`). If the edge POST fails after the NPC is created, the pending NPC persists and the ST sees it in the register — acceptable per design call.
+  - **Rate limit key** is `req.user.player_id` (Mongo id) falling back to `req.user.id` (Discord) — stable across Discord account changes.
+  - **Client-side throttling**: Save button disables during the in-flight request; server enforces the real 30s gate.
+  - **Test helper**: exported `_resetQuickAddRateLimit` from `routes/npcs.js` so tests can clear in-memory state between blocks. `beforeEach` also deletes player-created NPCs from `p-player-*` test ids to keep the cap test deterministic.

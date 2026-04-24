@@ -25,9 +25,22 @@ function resetTabState(charId) {
   _tabState = {
     charId: String(charId),
     mode: 'closed',
-    draft: { npc_id: '', kind: '', disposition: '', state: '', custom_label: '' },
-    npcs: null, // lazy-loaded on picker open
+    // NPCR.7 + NPCR.8: picker has two sub-modes — pick an existing NPC or
+    // quick-add a new pending one. npc_mode = 'existing' | 'new'.
+    npc_mode: 'existing',
+    draft: {
+      npc_id: '',
+      new_name: '',
+      new_relationship_note: '',
+      new_general_note: '',
+      kind: '',
+      disposition: '',
+      state: '',
+      custom_label: '',
+    },
+    npcs: null,
     error: null,
+    submitting: false,
   };
 }
 
@@ -327,8 +340,13 @@ function attachHandlers(root, charId) {
 
 async function openAddPicker(el, char) {
   _tabState.mode = 'add';
+  _tabState.npc_mode = 'existing';
   _tabState.error = null;
-  _tabState.draft = { npc_id: '', kind: '', disposition: '', state: '', custom_label: '' };
+  _tabState.submitting = false;
+  _tabState.draft = {
+    npc_id: '', new_name: '', new_relationship_note: '', new_general_note: '',
+    kind: '', disposition: '', state: '', custom_label: '',
+  };
   renderAddPanel(el, char);
   if (!_tabState.npcs) {
     try {
@@ -339,6 +357,12 @@ async function openAddPicker(el, char) {
     }
     renderAddPanel(el, char);
   }
+}
+
+function setNpcMode(el, char, mode) {
+  _tabState.npc_mode = mode === 'new' ? 'new' : 'existing';
+  _tabState.error = null;
+  renderAddPanel(el, char);
 }
 
 function closeAddPicker(el, char) {
@@ -354,19 +378,15 @@ function renderAddPanel(el, char) {
 
   const loading = _tabState.npcs === null;
   const draft = _tabState.draft;
+  const npcMode = _tabState.npc_mode;
   const kinds = playerCreatableKinds();
 
-  // Exclude NPCs already linked via an active non-touchstone edge with the
-  // same char, to cut down duplicate-409 surprises. We don't know the current
-  // edges here without re-passing them — the simpler approach is to let the
-  // server 409 on duplicates and show the inline error. Filter by status only.
   const npcOpts = (_tabState.npcs || [])
     .filter(n => n.status === 'active' || n.status === 'pending')
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }))
     .map(n => `<option value="${esc(String(n._id))}"${String(draft.npc_id) === String(n._id) ? ' selected' : ''}>${esc(n.name || '(unnamed)')}${n.status === 'pending' ? ' (pending)' : ''}</option>`)
     .join('');
 
-  // Grouped kind select via <optgroup>.
   const kindGroups = FAMILIES.map(family => {
     const bucket = kinds.filter(k => k.family === family);
     if (bucket.length === 0) return '';
@@ -377,20 +397,44 @@ function renderAddPanel(el, char) {
   }).join('');
 
   const showCustomLabel = draft.kind === 'other';
+  const saveLabel = _tabState.submitting ? 'Saving…' : 'Save';
 
   panel.innerHTML = `
     <section class="rel-add-form" role="dialog" aria-label="Add relationship">
       <div class="rel-add-form-head">New relationship</div>
       ${_tabState.error ? `<div class="rel-error" role="alert">${esc(_tabState.error)}</div>` : ''}
-      <label class="rel-add-field">
-        <span class="rel-add-field-label">NPC *</span>
-        ${loading
-          ? '<div class="rel-add-loading">Loading NPCs…</div>'
-          : `<select class="rel-add-input" data-field="npc_id">
-               <option value="">(pick an NPC)</option>
-               ${npcOpts}
-             </select>`}
-      </label>
+
+      <div class="rel-add-mode-chips" role="radiogroup" aria-label="NPC source">
+        <button type="button" class="rel-add-mode-chip${npcMode === 'existing' ? ' on' : ''}" data-npc-mode="existing">Existing NPC</button>
+        <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
+      </div>
+
+      ${npcMode === 'existing' ? `
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">NPC *</span>
+          ${loading
+            ? '<div class="rel-add-loading">Loading NPCs…</div>'
+            : `<select class="rel-add-input" data-field="npc_id">
+                 <option value="">(pick an NPC)</option>
+                 ${npcOpts}
+               </select>`}
+        </label>
+      ` : `
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">Name *</span>
+          <input class="rel-add-input" data-field="new_name" value="${esc(draft.new_name)}" placeholder="NPC name" />
+        </label>
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">Relationship note (optional)</span>
+          <input class="rel-add-input" data-field="new_relationship_note" value="${esc(draft.new_relationship_note)}" placeholder="What's the situation with them?" />
+        </label>
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">General note (optional)</span>
+          <input class="rel-add-input" data-field="new_general_note" value="${esc(draft.new_general_note)}" placeholder="Short description for the register" />
+        </label>
+        <div class="rel-add-hint">The ST will review this NPC; it appears in your relationships immediately.</div>
+      `}
+
       <label class="rel-add-field">
         <span class="rel-add-field-label">Kind *</span>
         <select class="rel-add-input" data-field="kind">
@@ -418,8 +462,8 @@ function renderAddPanel(el, char) {
         <textarea class="rel-add-input rel-add-textarea" data-field="state" rows="3" placeholder="How does this relationship stand?">${esc(draft.state)}</textarea>
       </label>
       <div class="rel-add-actions">
-        <button type="button" class="rel-add-btn primary" data-act="save-add">Save</button>
-        <button type="button" class="rel-add-btn muted" data-act="cancel-add">Cancel</button>
+        <button type="button" class="rel-add-btn primary" data-act="save-add"${_tabState.submitting ? ' disabled' : ''}>${esc(saveLabel)}</button>
+        <button type="button" class="rel-add-btn muted" data-act="cancel-add"${_tabState.submitting ? ' disabled' : ''}>Cancel</button>
       </div>
     </section>
   `;
@@ -428,7 +472,6 @@ function renderAddPanel(el, char) {
   panel.querySelectorAll('[data-field]').forEach(input => {
     const handler = () => {
       _tabState.draft[input.dataset.field] = input.value;
-      // Re-render when kind changes so the custom_label field shows/hides.
       if (input.dataset.field === 'kind') renderAddPanel(el, char);
     };
     input.addEventListener('change', handler);
@@ -445,43 +488,103 @@ function renderAddPanel(el, char) {
       chip.classList.add('on');
     });
   });
+  panel.querySelectorAll('.rel-add-mode-chip').forEach(chip => {
+    chip.addEventListener('click', () => setNpcMode(el, char, chip.dataset.npcMode));
+  });
   panel.querySelector('[data-act="cancel-add"]')?.addEventListener('click', () => closeAddPicker(el, char));
   panel.querySelector('[data-act="save-add"]')?.addEventListener('click', () => saveAddEdge(el, char));
 }
 
 async function saveAddEdge(el, char) {
+  if (_tabState.submitting) return; // Guard against double-click.
   const draft = _tabState.draft;
-  if (!draft.npc_id) { _tabState.error = 'Pick an NPC before saving.'; renderAddPanel(el, char); return; }
-  if (!draft.kind)   { _tabState.error = 'Pick a kind before saving.';   renderAddPanel(el, char); return; }
+
+  if (!draft.kind) { _tabState.error = 'Pick a kind before saving.'; renderAddPanel(el, char); return; }
   if (draft.kind === 'other' && !String(draft.custom_label).trim()) {
     _tabState.error = 'Custom label is required for kind=other.';
     renderAddPanel(el, char);
     return;
   }
 
-  const body = {
-    a: { type: 'pc',  id: String(char._id) },
-    b: { type: 'npc', id: String(draft.npc_id) },
-    kind: draft.kind,
-    direction: 'a_to_b',
-    state: String(draft.state || ''),
-    st_hidden: false,
-  };
-  if (draft.disposition) body.disposition = draft.disposition;
-  if (draft.kind === 'other') body.custom_label = String(draft.custom_label).trim();
-
-  const { status, ok, body: resBody } = await apiRaw('POST', '/api/relationships', body);
-  if (ok && status === 201) {
-    closeAddPicker(el, char);
-    renderRelationshipsTab(el, char);
-    return;
-  }
-  if (status === 409) {
-    _tabState.error = resBody?.message || 'A relationship with this NPC and kind already exists.';
-  } else if (status === 403) {
-    _tabState.error = 'You do not have permission to create this relationship.';
+  // Validate NPC source up front.
+  let npcIdForEdge = null;
+  if (_tabState.npc_mode === 'existing') {
+    if (!draft.npc_id) {
+      _tabState.error = 'Pick an NPC before saving.';
+      renderAddPanel(el, char);
+      return;
+    }
+    npcIdForEdge = String(draft.npc_id);
   } else {
-    _tabState.error = resBody?.message || `Save failed (HTTP ${status}).`;
+    if (!String(draft.new_name || '').trim()) {
+      _tabState.error = 'Name is required for a new NPC.';
+      renderAddPanel(el, char);
+      return;
+    }
   }
+
+  _tabState.submitting = true;
+  _tabState.error = null;
   renderAddPanel(el, char);
+
+  try {
+    // Step 1 (new-NPC only): quick-add the pending NPC first.
+    if (_tabState.npc_mode === 'new') {
+      const quickBody = {
+        name: String(draft.new_name).trim(),
+        relationship_note: String(draft.new_relationship_note || '').trim(),
+        general_note: String(draft.new_general_note || '').trim(),
+        character_id: String(char._id),
+      };
+      const { status: qs, ok: qok, body: qbody } = await apiRaw('POST', '/api/npcs/quick-add', quickBody);
+      if (!qok) {
+        if (qs === 429) {
+          _tabState.error = qbody?.message || 'Please wait before creating another NPC.';
+        } else if (qs === 403) {
+          _tabState.error = 'You cannot create an NPC for that character.';
+        } else if (qs === 400) {
+          _tabState.error = qbody?.message || 'NPC name is required.';
+        } else {
+          _tabState.error = qbody?.message || `Quick-add failed (HTTP ${qs}).`;
+        }
+        _tabState.submitting = false;
+        renderAddPanel(el, char);
+        return;
+      }
+      npcIdForEdge = String(qbody._id);
+      // Keep the new NPC in _tabState.npcs so subsequent interactions see it.
+      if (Array.isArray(_tabState.npcs)) _tabState.npcs.push(qbody);
+    }
+
+    // Step 2: create the relationship edge.
+    const edgeBody = {
+      a: { type: 'pc',  id: String(char._id) },
+      b: { type: 'npc', id: npcIdForEdge },
+      kind: draft.kind,
+      direction: 'a_to_b',
+      state: String(draft.state || ''),
+      st_hidden: false,
+    };
+    if (draft.disposition) edgeBody.disposition = draft.disposition;
+    if (draft.kind === 'other') edgeBody.custom_label = String(draft.custom_label).trim();
+
+    const { status, ok, body: resBody } = await apiRaw('POST', '/api/relationships', edgeBody);
+    if (ok && status === 201) {
+      _tabState.submitting = false;
+      closeAddPicker(el, char);
+      renderRelationshipsTab(el, char);
+      return;
+    }
+
+    if (status === 409) {
+      _tabState.error = resBody?.message || 'A relationship with this NPC and kind already exists.';
+    } else if (status === 403) {
+      _tabState.error = 'You do not have permission to create this relationship.';
+    } else {
+      _tabState.error = resBody?.message || `Edge save failed (HTTP ${status}).`;
+    }
+  } finally {
+    _tabState.submitting = false;
+    renderAddPanel(el, char);
+  }
 }

@@ -583,6 +583,13 @@ html:not([data-theme="dark"]) .edit-icon {
 .rel-disp-chip.neutral.on{color:var(--txt);border-color:var(--bdr2);}
 .rel-disp-chip.negative.on{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
 .rel-disp-chip.clear.on{color:var(--accent);border-color:var(--accent);}
+
+/* NPCR.8 NPC-source mode toggle */
+.rel-add-mode-chips{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0;}
+.rel-add-mode-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:11px;letter-spacing:.06em;padding:5px 12px;}
+.rel-add-mode-chip:hover{border-color:var(--bdr2);color:var(--txt);}
+.rel-add-mode-chip.on{background:var(--gold2-a12);color:var(--accent);border-color:var(--accent);}
+.rel-add-hint{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;padding:0 2px;}
 .rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
 .rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
 .rel-empty p{margin:0 0 6px;}
