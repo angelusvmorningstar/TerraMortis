@@ -1930,8 +1930,7 @@ function _activeMoreChar() {
   const chars = suiteState.chars || [];
   // Prefer the explicitly-selected character (updated by _switchChar). This
   // makes the More-grid tabs track whatever the header / sidebar selector
-  // currently shows, regardless of role. Falls back to the first owned char
-  // for players on initial mount before any selection has been made.
+  // currently shows, regardless of role.
   const selected = suiteState.sheetChar || suiteState.rollChar || null;
   if (role !== 'st') {
     const info = getPlayerInfo();
@@ -1940,7 +1939,14 @@ function _activeMoreChar() {
     if (selectedOwned) return selected;
     return chars.find(c => ids.includes(String(c._id)) || ids.includes(c._id)) || null;
   }
-  return selected || chars[0] || null;
+  // ST fallback: use the same alphabetically-sorted ordering the sidebar
+  // dropdown shows, not suiteState.chars[0] which is API insertion order.
+  // Otherwise the dropdown's visible default and _activeMoreChar disagree
+  // when sheetChar is null (e.g. stale localStorage pointing at a char
+  // that no longer exists).
+  if (selected) return selected;
+  const visible = _visibleChars();
+  return visible[0]?.c || chars[0] || null;
 }
 
 // ── Sheet tab — character picker and player sheet (nav-2-1) ──────────────────
