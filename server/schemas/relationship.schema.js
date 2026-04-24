@@ -12,6 +12,9 @@
  *
  * kind='other' requires a non-empty custom_label — enforced at the
  * route layer (the schema allows custom_label for any kind).
+ *
+ * kind='touchstone' requires touchstone_meta.humanity (1..10) and
+ * endpoints shaped as one pc + one npc — enforced at the route layer.
  */
 
 export const KIND_ENUM = [
@@ -60,6 +63,15 @@ const fieldDeltaSchema = {
   },
 };
 
+const touchstoneMetaSchema = {
+  type: 'object',
+  required: ['humanity'],
+  additionalProperties: false,
+  properties: {
+    humanity: { type: 'integer', minimum: 1, maximum: 10 },
+  },
+};
+
 const historyItemSchema = {
   type: 'object',
   required: ['at', 'by', 'change'],
@@ -93,6 +105,7 @@ export const relationshipSchema = {
     status:       { type: 'string', enum: STATUS_ENUM },
     created_by:   actorSchema,
     history:      { type: 'array', items: historyItemSchema },
+    touchstone_meta: touchstoneMetaSchema,
     created_at:   { type: 'string' },
     updated_at:   { type: 'string' },
   },

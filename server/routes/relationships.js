@@ -32,6 +32,19 @@ function customLabelMissing(body) {
   return body.kind === 'other' && (!body.custom_label || !String(body.custom_label).trim());
 }
 
+function touchstoneShapeError(body) {
+  if (body.kind !== 'touchstone') return null;
+  const hum = body.touchstone_meta?.humanity;
+  if (!Number.isInteger(hum) || hum < 1 || hum > 10) {
+    return "kind='touchstone' requires touchstone_meta.humanity (integer 1..10)";
+  }
+  const types = [body.a?.type, body.b?.type].sort();
+  if (types[0] !== 'npc' || types[1] !== 'pc') {
+    return "kind='touchstone' requires one pc and one npc endpoint";
+  }
+  return null;
+}
+
 // All routes ST-only. Player-readable endpoints land in NPCR.6.
 router.use(requireRole('st'));
 
@@ -101,6 +114,8 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
       message: "kind='other' requires a non-empty custom_label",
     });
   }
+  const tsErr = touchstoneShapeError(body);
+  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
 
   const actor = actorFromReq(req);
   const now = nowIso();
@@ -122,6 +137,10 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     doc.custom_label = String(body.custom_label).trim();
   }
   if (body.disposition) doc.disposition = body.disposition;
+  // touchstone_meta only when kind='touchstone'; strip anything else the client sent.
+  if (body.kind === 'touchstone') {
+    doc.touchstone_meta = { humanity: body.touchstone_meta.humanity };
+  }
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -143,6 +162,8 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
   if (customLabelMissing(body)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
   }
+  const tsErr = touchstoneShapeError(body);
+  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
 
   // Guard against resurrecting a retired edge from stale client cache.
   // Allow only explicit status='retired' echoes (no-op) through.
@@ -160,11 +181,13 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
   const kindForSave = body.kind ?? existing.kind;
   if (kindForSave !== 'other') body.custom_label = '';
   else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
+  // When kind shifts away from 'touchstone', drop any stale touchstone_meta echoed by the client.
+  if (kindForSave !== 'touchstone') body.touchstone_meta = null;
 
-  const CLEARABLE = new Set(['custom_label', 'disposition']);
+  const CLEARABLE = new Set(['custom_label', 'disposition', 'touchstone_meta']);
   const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
 
-  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status'];
+  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status', 'touchstone_meta'];
 
   const fields = [];
   const updates = {};

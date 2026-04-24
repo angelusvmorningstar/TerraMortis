@@ -234,6 +234,8 @@ export const characterSchema = {
     },
 
     // ── Touchstones ───────────────────────────────────────────
+    // Legacy free-text shape. Deprecated by NPCR.4; remains live until
+    // NPCR.5 migration flips each character to touchstone_edge_ids.
     touchstones: {
       type: 'array',
       items: {
@@ -247,6 +249,15 @@ export const characterSchema = {
         },
         additionalProperties: false
       }
+    },
+
+    // NPCR.4 Shape B bridge: IDs of relationships collection edges with
+    // kind='touchstone' where this character is one endpoint. Presence of
+    // this field (even as []) signals the character is on the new model;
+    // absence means legacy touchstones[] is authoritative (read-only).
+    touchstone_edge_ids: {
+      type: 'array',
+      items: { type: 'string' }
     },
 
     // ── Banes ─────────────────────────────────────────────────

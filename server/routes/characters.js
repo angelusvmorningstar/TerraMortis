@@ -25,6 +25,35 @@ function parseId(id) {
   }
 }
 
+/**
+ * NPCR.4: validate that every id in touchstone_edge_ids[] points to an
+ * active relationship edge with kind='touchstone' and the character on
+ * one endpoint. Returns null on success, or an error message string.
+ */
+async function validateTouchstoneEdgeIds(ids, characterId) {
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  const rels = getCollection('relationships');
+  const oids = [];
+  for (const id of ids) {
+    try { oids.push(new ObjectId(String(id))); }
+    catch { return `touchstone_edge_ids contains invalid id '${id}'`; }
+  }
+  const edges = await rels.find({ _id: { $in: oids } }).toArray();
+  const foundById = new Map(edges.map(e => [String(e._id), e]));
+  const charIdStr = String(characterId);
+  for (const id of ids) {
+    const edge = foundById.get(String(id));
+    if (!edge) return `touchstone edge '${id}' not found`;
+    if (edge.kind !== 'touchstone') return `edge '${id}' is kind='${edge.kind}', expected 'touchstone'`;
+    if (edge.status === 'retired') return `edge '${id}' is retired`;
+    const onEdge =
+      (edge.a?.type === 'pc' && String(edge.a.id) === charIdStr) ||
+      (edge.b?.type === 'pc' && String(edge.b.id) === charIdStr);
+    if (!onEdge) return `edge '${id}' does not have this character as an endpoint`;
+  }
+  return null;
+}
+
 // GET /api/characters — ST gets all, player gets only their characters
 // ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
@@ -235,6 +264,9 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
   doc.pending_approval = !isFirst;
   doc.retired = false;
   doc.created_at = new Date().toISOString();
+  // NPCR.4: new characters start on Shape B (relationship-backed touchstones);
+  // edges cannot yet exist at creation time, so force empty.
+  doc.touchstone_edge_ids = [];
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -252,6 +284,9 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
+  // NPCR.4: new characters start on Shape B (relationship-backed touchstones);
+  // edges cannot yet exist at creation time, so force empty.
+  doc.touchstone_edge_ids = [];
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -266,6 +301,14 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
   const { _id, willpower, ...updates } = req.body;
+
+  // NPCR.4: if the save includes touchstone_edge_ids, verify each edge
+  // exists, is kind='touchstone', not retired, and has this character
+  // as one endpoint.
+  if (Object.prototype.hasOwnProperty.call(updates, 'touchstone_edge_ids')) {
+    const err = await validateTouchstoneEdgeIds(updates.touchstone_edge_ids, oid);
+    if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
+  }
 
   const result = await col().findOneAndUpdate(
     { _id: oid },
