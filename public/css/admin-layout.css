@@ -7617,6 +7617,81 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   background: var(--gold2, var(--accent));
 }
 
+.npcr-badge.flag {
+  background: var(--crim, #8B0000);
+  color: var(--txt-on-dark, #fff);
+}
+
+.npcr-card.flagged {
+  border-left: 3px solid var(--crim, #8B0000);
+}
+
+.npcr-chip-btn.flagged {
+  color: var(--crim, #8B0000);
+  border-color: var(--crim, #8B0000);
+}
+
+.npcr-chip-btn.flagged.on {
+  background: var(--crim, #8B0000);
+  color: var(--txt-on-dark, #fff);
+  border-color: var(--crim, #8B0000);
+}
+
+.npcr-chip-flagged {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-on-dark, #fff);
+  background: var(--crim, #8B0000);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.npcr-flags-section {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--surf1, rgba(139, 0, 0, 0.06));
+  border: 1px solid var(--crim, #8B0000);
+  border-radius: 3px;
+}
+
+.npcr-flags-head {
+  font-weight: 600;
+  color: var(--crim, #8B0000);
+  margin-bottom: 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.npcr-flag-row {
+  padding: 8px 0;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.npcr-flag-row:first-of-type {
+  border-top: none;
+}
+
+.npcr-flag-meta {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.npcr-flag-reason {
+  font-size: 13px;
+  color: var(--txt, #fff);
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+}
+
+.npcr-flag-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .npcr-card-desc {
   font-size: 13px;
   color: var(--txt2, var(--txt));

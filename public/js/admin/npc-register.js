@@ -11,6 +11,7 @@ const UNLINKED = '__unlinked__';
 
 let _chars = [];
 let _npcs = [];
+let _openFlags = [];     // NPCR.3: all flags with status='open'
 let _selectedCharId = ALL;
 let _selectedNpcId = null;
 let _search = '';
@@ -28,12 +29,29 @@ export function initNpcRegister(chars) {
 
 async function loadNpcs() {
   try {
-    _npcs = await apiGet('/api/npcs');
+    const [npcs, flags] = await Promise.all([
+      apiGet('/api/npcs'),
+      apiGet('/api/npc-flags?status=open').catch(() => []),
+    ]);
+    _npcs = npcs;
+    _openFlags = Array.isArray(flags) ? flags : [];
   } catch (err) {
     console.error('[npc-register] load error:', err);
     _npcs = [];
+    _openFlags = [];
   }
   renderShell();
+}
+
+// ── Flags helpers ───────────────────────────────────────────────────────────
+
+function flagsForNpc(npcId) {
+  const id = String(npcId);
+  return _openFlags.filter(f => String(f.npc_id) === id);
+}
+
+function openFlagCount(npcId) {
+  return flagsForNpc(npcId).length;
 }
 
 // ── Indexing ────────────────────────────────────────────────────────────────
@@ -71,6 +89,8 @@ function visibleNpcs() {
     list = list.filter(n => n.is_correspondent);
   } else if (_activeChip === 'suggested') {
     list = list.filter(n => Array.isArray(n.st_suggested_for) && n.st_suggested_for.length > 0);
+  } else if (_activeChip === 'flagged') {
+    list = list.filter(n => openFlagCount(n._id) > 0);
   }
   if (_search) {
     const q = _search.toLowerCase();
@@ -174,10 +194,12 @@ function renderHeader() {
   const header = document.getElementById('npcr-main-header');
   if (!header) return;
   const list = visibleNpcs();
+  const flaggedTotal = _openFlags.length;
   const chips = [
-    ['pending', 'Pending'],
-    ['correspondents', 'Correspondents'],
-    ['suggested', 'Suggested'],
+    ['pending', 'Pending', null],
+    ['correspondents', 'Correspondents', null],
+    ['suggested', 'Suggested', null],
+    ['flagged', 'Flagged', flaggedTotal > 0 ? flaggedTotal : null],
   ];
   header.innerHTML = `
     <div class="npcr-main-head-row">
@@ -187,7 +209,12 @@ function renderHeader() {
     <div class="npcr-toolbar">
       <input type="search" id="npcr-search" class="npcr-search" placeholder="Search name or description..." value="${esc(_search)}" />
       <div class="npcr-chips-filter">
-        ${chips.map(([k, l]) => `<button class="npcr-chip-btn${_activeChip === k ? ' on' : ''}" data-chip="${k}">${esc(l)}</button>`).join('')}
+        ${chips.map(([k, l, n]) => {
+          const isFlag = k === 'flagged';
+          const cls = `npcr-chip-btn${_activeChip === k ? ' on' : ''}${isFlag && n > 0 ? ' flagged' : ''}`;
+          const count = (n != null) ? ` · ${n}` : '';
+          return `<button class="${cls}" data-chip="${k}">${esc(l)}${count}</button>`;
+        }).join('')}
       </div>
     </div>
   `;
@@ -261,15 +288,18 @@ function updateCardSelection() {
 function cardHtml(n) {
   const isCorr = !!n.is_correspondent;
   const suggestedCount = Array.isArray(n.st_suggested_for) ? n.st_suggested_for.length : 0;
+  const flagCount = openFlagCount(n._id);
   const status = n.status || 'active';
   const statusCls = status === 'pending' ? ' pending'
                   : status === 'inactive' || status === 'destroyed' ? ' inactive' : '';
-  let h = `<button class="npcr-card" data-npc-id="${esc(n._id)}">`;
+  const flaggedCls = flagCount > 0 ? ' flagged' : '';
+  let h = `<button class="npcr-card${flaggedCls}" data-npc-id="${esc(n._id)}">`;
   h += `<div class="npcr-card-head">`;
   h += `<span class="npcr-card-name">${esc(n.name)}</span>`;
   h += `<span class="npcr-card-status${statusCls}">${esc(status)}</span>`;
   h += `</div>`;
   const badges = [];
+  if (flagCount > 0) badges.push(`<span class="npcr-badge flag" title="${flagCount} open flag${flagCount === 1 ? '' : 's'}">F${flagCount}</span>`);
   if (isCorr) badges.push('<span class="npcr-badge corr" title="Correspondent">C</span>');
   if (suggestedCount > 0) badges.push(`<span class="npcr-badge sug" title="ST-suggested for ${suggestedCount} character${suggestedCount === 1 ? '' : 's'}">S${suggestedCount}</span>`);
   if (badges.length) h += `<div class="npcr-card-badges">${badges.join('')}</div>`;
@@ -297,9 +327,14 @@ function renderDetail() {
   const linkedIds = Array.isArray(npc.linked_character_ids) ? npc.linked_character_ids : [];
   const suggestedFor = Array.isArray(npc.st_suggested_for) ? npc.st_suggested_for : [];
 
+  const npcFlags = isNew ? [] : flagsForNpc(npc._id);
+
   let h = '<div class="npcr-detail-form">';
   h += `<div class="npcr-detail-err" id="npcr-detail-err"></div>`;
-  h += `<div class="npcr-detail-title">${isNew ? 'New NPC' : esc(npc.name || '')}</div>`;
+  const flaggedChip = npcFlags.length > 0
+    ? ` <span class="npcr-chip-flagged">Flagged · ${npcFlags.length}</span>`
+    : '';
+  h += `<div class="npcr-detail-title">${isNew ? 'New NPC' : esc(npc.name || '')}${flaggedChip}</div>`;
 
   h += `<label class="npcr-field">
     <span class="npcr-field-label">Name *</span>
@@ -343,6 +378,21 @@ function renderDetail() {
     </div>`;
   }
 
+  if (!isNew && npcFlags.length > 0) {
+    h += `<div class="npcr-flags-section">`;
+    h += `<div class="npcr-flags-head">Open flags (${npcFlags.length})</div>`;
+    for (const f of npcFlags) {
+      const who = charNameFor(f.flagged_by?.character_id);
+      const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
+      h += `<div class="npcr-flag-row" data-flag-id="${esc(f._id)}">`;
+      h += `<div class="npcr-flag-meta"><b>${esc(who)}</b> <span class="npcr-meta-label">${esc(when)}</span></div>`;
+      h += `<div class="npcr-flag-reason">${esc(f.reason || '')}</div>`;
+      h += `<div class="npcr-flag-actions"><button class="npcr-btn dim" data-act="resolve-flag" data-flag-id="${esc(f._id)}">Resolve</button></div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
   if (!isNew) {
     h += `<div class="npcr-rels-mount" id="npcr-rels-mount"></div>`;
   }
@@ -382,6 +432,9 @@ function renderDetail() {
   document.getElementById('npcr-save')?.addEventListener('click', () => saveNpc(isNew));
   if (!isNew) {
     document.getElementById('npcr-retire')?.addEventListener('click', () => retireNpc(npc._id));
+    detail.querySelectorAll('[data-act="resolve-flag"]').forEach(btn => {
+      btn.addEventListener('click', () => resolveFlag(btn.dataset.flagId));
+    });
   }
 
   if (isNew) document.getElementById('npcr-f-name')?.focus();
@@ -451,5 +504,20 @@ async function retireNpc(id) {
   } catch (err) {
     console.error('[npc-register] retire error:', err);
     if (errEl) errEl.textContent = 'Retire failed: ' + (err?.message || 'unknown error');
+  }
+}
+
+async function resolveFlag(flagId) {
+  const note = prompt('Resolution note (optional):', '');
+  if (note === null) return; // cancelled
+  const errEl = document.getElementById('npcr-detail-err');
+  if (errEl) errEl.textContent = '';
+  try {
+    await apiPut(`/api/npc-flags/${flagId}/resolve`, { resolution_note: note.trim() });
+    _openFlags = _openFlags.filter(f => String(f._id) !== String(flagId));
+    renderShell();
+  } catch (err) {
+    console.error('[npc-register] resolve error:', err);
+    if (errEl) errEl.textContent = 'Resolve failed: ' + (err?.message || 'unknown error');
   }
 }
