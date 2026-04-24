@@ -1,12 +1,19 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
+import Ajv from 'ajv';
 import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
-import { STATUS_ENUM } from '../schemas/npc_flag.schema.js';
+import { npcFlagSchema, STATUS_ENUM } from '../schemas/npc_flag.schema.js';
 
 const router = Router();
 const col = () => getCollection('npc_flags');
 const relCol = () => getCollection('relationships');
+
+const REASON_MAX_LENGTH = 2000;
+const NOTE_MAX_LENGTH = 2000;
+
+const ajv = new Ajv({ allErrors: true, coerceTypes: false });
+const validateFlagDoc = ajv.compile(npcFlagSchema);
 
 function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
@@ -63,6 +70,12 @@ router.post('/', async (req, res) => {
   if (!trimmedReason) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'reason is required' });
   }
+  if (trimmedReason.length > REASON_MAX_LENGTH) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `reason exceeds maximum length of ${REASON_MAX_LENGTH} characters`,
+    });
+  }
 
   // Caller must own the character
   const ownedIds = (req.user.character_ids || []).map(id => String(id));
@@ -73,9 +86,12 @@ router.post('/', async (req, res) => {
     });
   }
 
-  // Relationship-gate: an active edge must exist between this PC and this NPC
+  // Relationship-gate: an active, non-hidden edge must exist between this PC
+  // and this NPC. st_hidden edges are excluded so they cannot be confirmed
+  // via the flag-exists signal.
   const edge = await relCol().findOne({
     status: 'active',
+    st_hidden: { $ne: true },
     $or: [
       { 'a.type': 'pc', 'a.id': String(character_id), 'b.type': 'npc', 'b.id': String(npc_id) },
       { 'b.type': 'pc', 'b.id': String(character_id), 'a.type': 'npc', 'a.id': String(npc_id) },
@@ -88,7 +104,9 @@ router.post('/', async (req, res) => {
     });
   }
 
-  // Uniqueness: one open flag per (character, npc)
+  // Fast-path uniqueness check — still racy, so the real guard is the
+  // partial unique index on (npc_id, flagged_by.character_id, status:'open').
+  // Catch duplicate-key on insert below to cover the race window.
   const existing = await col().findOne({
     npc_id: String(npc_id),
     'flagged_by.character_id': String(character_id),
@@ -98,6 +116,7 @@ router.post('/', async (req, res) => {
     return res.status(409).json({
       error: 'CONFLICT',
       message: 'You have already flagged this NPC — resolve the existing flag first',
+      existing_flag_id: String(existing._id),
     });
   }
 
@@ -117,8 +136,29 @@ router.post('/', async (req, res) => {
     created_at: nowIso(),
   };
 
-  const result = await col().insertOne(doc);
-  const created = await col().findOne({ _id: result.insertedId });
+  // Defensive: the constructed doc must pass schema validation. Guards against
+  // future field additions drifting from the declared shape.
+  if (!validateFlagDoc(doc)) {
+    console.error('[npc-flags] constructed doc failed schema validation:', validateFlagDoc.errors);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Flag construction failed validation' });
+  }
+
+  let insertedId;
+  try {
+    const result = await col().insertOne(doc);
+    insertedId = result.insertedId;
+  } catch (err) {
+    // Partial unique index on status:'open' → duplicate open flag from race
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        error: 'CONFLICT',
+        message: 'You have already flagged this NPC — resolve the existing flag first',
+      });
+    }
+    throw err;
+  }
+
+  const created = await col().findOne({ _id: insertedId });
   res.status(201).json(created);
 });
 
@@ -127,19 +167,28 @@ router.put('/:id/resolve', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
 
+  const note = typeof req.body?.resolution_note === 'string'
+    ? req.body.resolution_note.trim()
+    : '';
+  if (note.length > NOTE_MAX_LENGTH) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `resolution_note exceeds maximum length of ${NOTE_MAX_LENGTH} characters`,
+    });
+  }
+
   const existing = await col().findOne({ _id: oid });
   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Flag not found' });
 
   if (existing.status === 'resolved') {
+    // Return the resolved doc so the client can surface who resolved it and
+    // with what note, instead of a generic error message.
     return res.status(409).json({
       error: 'CONFLICT',
       message: 'Flag already resolved',
+      flag: existing,
     });
   }
-
-  const note = typeof req.body?.resolution_note === 'string'
-    ? req.body.resolution_note.trim()
-    : '';
 
   const updates = {
     status: 'resolved',
@@ -154,9 +203,13 @@ router.put('/:id/resolve', requireRole('st'), async (req, res) => {
     { returnDocument: 'after' }
   );
   if (!result) {
+    // Another writer landed between our read and update. Re-fetch so the
+    // client can surface the actual resolved state.
+    const latest = await col().findOne({ _id: oid });
     return res.status(409).json({
       error: 'CONFLICT',
       message: 'Flag was modified by another request',
+      flag: latest,
     });
   }
   res.json(result);

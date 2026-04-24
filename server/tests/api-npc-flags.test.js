@@ -11,9 +11,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
 import { ObjectId } from 'mongodb';
+import Ajv from 'ajv';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
+import { npcFlagSchema } from '../schemas/npc_flag.schema.js';
 
 let app;
 const CREATED_FLAG_IDS = [];
@@ -23,15 +25,15 @@ const PC_OTHER = new ObjectId().toHexString();
 const NPC_LINKED   = new ObjectId().toHexString();
 const NPC_UNLINKED = new ObjectId().toHexString();
 
-async function seedActiveEdge(pcId, npcId) {
+async function seedActiveEdge(pcId, npcId, opts = {}) {
   const rel = {
     a: { type: 'pc',  id: pcId },
     b: { type: 'npc', id: npcId },
     kind: 'contact',
     direction: 'a_to_b',
     state: '',
-    st_hidden: false,
-    status: 'active',
+    st_hidden: opts.st_hidden === true,
+    status: opts.status || 'active',
     created_by: { type: 'st', id: 'seed' },
     history: [{ at: new Date().toISOString(), by: { type: 'st', id: 'seed' }, change: 'created' }],
     created_at: new Date().toISOString(),
@@ -45,6 +47,19 @@ async function seedActiveEdge(pcId, npcId) {
 beforeAll(async () => {
   await setupDb();
   app = createTestApp();
+  // Mirror the production unique partial index in tm_suite_test so the
+  // duplicate-key path is exercised end-to-end. Drop first in case a prior
+  // run created a non-unique version of the same name.
+  const flagsCol = getCollection('npc_flags');
+  try { await flagsCol.dropIndex('open_flag_uniqueness'); } catch { /* no-op */ }
+  await flagsCol.createIndex(
+    { npc_id: 1, 'flagged_by.character_id': 1 },
+    {
+      name: 'open_flag_uniqueness',
+      unique: true,
+      partialFilterExpression: { status: 'open' },
+    },
+  );
   await seedActiveEdge(PC_ID, NPC_LINKED);
 });
 
@@ -247,13 +262,16 @@ describe('PUT /api/npc-flags/:id/resolve', () => {
     expect(res.body.resolution_note).toBeUndefined();
   });
 
-  it('409 when already resolved', async () => {
+  it('409 when already resolved — returns the resolved doc in body.flag', async () => {
     const flagId = CREATED_FLAG_IDS[0];
     const res = await request(app)
       .put(`/api/npc-flags/${flagId}/resolve`)
       .set('X-Test-User', stUser())
       .send({});
     expect(res.status).toBe(409);
+    expect(res.body.flag).toBeDefined();
+    expect(res.body.flag.status).toBe('resolved');
+    expect(res.body.flag.resolution_note).toBe('spoke with player, adjusted NPC');
   });
 
   it('404 on unknown id', async () => {
@@ -270,5 +288,112 @@ describe('PUT /api/npc-flags/:id/resolve', () => {
       .set('X-Test-User', stUser())
       .send({});
     expect(res.status).toBe(400);
+  });
+});
+
+// ── Review-findings hardening (NPCR.3) ──────────────────────────────────────
+
+describe('Hardening — review findings', () => {
+  it('[P10] persisted flag round-trips through npcFlagSchema via AJV', async () => {
+    const ajv = new Ajv({ allErrors: true, coerceTypes: false });
+    const validate = ajv.compile(npcFlagSchema);
+
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    await seedActiveEdge(pc, npc);
+
+    const postRes = await request(app)
+      .post('/api/npc-flags')
+      .set('X-Test-User', playerUser([pc]))
+      .send({ npc_id: npc, character_id: pc, reason: 'round-trip test' });
+    expect(postRes.status).toBe(201);
+    CREATED_FLAG_IDS.push(postRes.body._id);
+
+    // Read back from the DB directly, not just the API response, to verify
+    // the stored document — not just the wire format — matches the schema.
+    const stored = await getCollection('npc_flags').findOne({ _id: new ObjectId(postRes.body._id) });
+    const forValidation = { ...stored, _id: String(stored._id) };
+    const ok = validate(forValidation);
+    if (!ok) console.error(validate.errors);
+    expect(ok).toBe(true);
+  });
+
+  it('[P11] st_hidden edges do not satisfy the flag-gate (403)', async () => {
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    // Seed ONLY an st_hidden edge between this PC and NPC — no visible edge.
+    await seedActiveEdge(pc, npc, { st_hidden: true });
+
+    const res = await request(app)
+      .post('/api/npc-flags')
+      .set('X-Test-User', playerUser([pc]))
+      .send({ npc_id: npc, character_id: pc, reason: 'should be blocked' });
+    expect(res.status).toBe(403);
+  });
+
+  it('[P11] retired edges do not satisfy the flag-gate (403)', async () => {
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    await seedActiveEdge(pc, npc, { status: 'retired' });
+
+    const res = await request(app)
+      .post('/api/npc-flags')
+      .set('X-Test-User', playerUser([pc]))
+      .send({ npc_id: npc, character_id: pc, reason: 'retired edge test' });
+    expect(res.status).toBe(403);
+  });
+
+  it('[P2] rejects reason > 2000 chars with 400', async () => {
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    await seedActiveEdge(pc, npc);
+    const res = await request(app)
+      .post('/api/npc-flags')
+      .set('X-Test-User', playerUser([pc]))
+      .send({ npc_id: npc, character_id: pc, reason: 'x'.repeat(2001) });
+    expect(res.status).toBe(400);
+  });
+
+  it('[P2] rejects resolution_note > 2000 chars with 400', async () => {
+    // Create a fresh open flag to resolve
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    await seedActiveEdge(pc, npc);
+    const postRes = await request(app)
+      .post('/api/npc-flags')
+      .set('X-Test-User', playerUser([pc]))
+      .send({ npc_id: npc, character_id: pc, reason: 'open flag' });
+    CREATED_FLAG_IDS.push(postRes.body._id);
+
+    const res = await request(app)
+      .put(`/api/npc-flags/${postRes.body._id}/resolve`)
+      .set('X-Test-User', stUser())
+      .send({ resolution_note: 'x'.repeat(2001) });
+    expect(res.status).toBe(400);
+  });
+
+  it('[P1] DB-level unique partial index blocks concurrent duplicate open flags', async () => {
+    const pc = new ObjectId().toHexString();
+    const npc = new ObjectId().toHexString();
+    await seedActiveEdge(pc, npc);
+
+    // Race two POSTs through the server. Partial unique index on
+    // status:'open' means one inserts, the other hits 11000 → 409.
+    const [a, b] = await Promise.all([
+      request(app)
+        .post('/api/npc-flags')
+        .set('X-Test-User', playerUser([pc]))
+        .send({ npc_id: npc, character_id: pc, reason: 'racer A' }),
+      request(app)
+        .post('/api/npc-flags')
+        .set('X-Test-User', playerUser([pc]))
+        .send({ npc_id: npc, character_id: pc, reason: 'racer B' }),
+    ]);
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual([201, 409]);
+
+    // Track whichever succeeded for teardown
+    const winner = a.status === 201 ? a : b;
+    CREATED_FLAG_IDS.push(winner.body._id);
   });
 });

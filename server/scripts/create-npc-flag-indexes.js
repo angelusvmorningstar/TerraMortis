@@ -5,8 +5,10 @@
 // Creates:
 //   { status: 1 }                                   filter open vs resolved queues
 //   { npc_id: 1 }                                   list flags for a given NPC
-//   { npc_id: 1, 'flagged_by.character_id': 1,
-//     status: 1 }                                   uniqueness probe for open flags
+//   { npc_id: 1, 'flagged_by.character_id': 1 }     unique partial on status:'open' —
+//                                                   the database-level guard against
+//                                                   duplicate open flags from the
+//                                                   same character on the same NPC
 //   { created_at: -1 }                              sort the open queue
 //
 // Idempotent: createIndex is a no-op if the exact index already exists.
@@ -36,9 +38,16 @@ async function createIndexes() {
     const results = await Promise.all([
       col.createIndex({ status: 1 },     { name: 'status_1' }),
       col.createIndex({ npc_id: 1 },     { name: 'npc_id_1' }),
+      // Unique partial index: database-level guarantee of one open flag per
+      // (npc_id, flagged_by.character_id). Resolved flags are exempt from
+      // uniqueness so the same character can re-flag after an ST resolves.
       col.createIndex(
-        { npc_id: 1, 'flagged_by.character_id': 1, status: 1 },
-        { name: 'flag_uniqueness_probe' },
+        { npc_id: 1, 'flagged_by.character_id': 1 },
+        {
+          name: 'open_flag_uniqueness',
+          unique: true,
+          partialFilterExpression: { status: 'open' },
+        },
       ),
       col.createIndex({ created_at: -1 }, { name: 'created_at_-1' }),
     ]);

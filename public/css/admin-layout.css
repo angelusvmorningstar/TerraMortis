@@ -7692,6 +7692,77 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   gap: 6px;
 }
 
+/* Resolved flag rows (session-only) render muted in place. */
+.npcr-flag-row.resolved {
+  opacity: 0.6;
+  background: var(--surf1, rgba(255, 255, 255, 0.03));
+}
+
+.npcr-flag-row.resolved .npcr-flag-reason {
+  text-decoration: line-through;
+  color: var(--txt2, var(--txt));
+}
+
+.npcr-flag-resolved-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--txt2, var(--txt));
+  background: var(--surf2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 2px;
+}
+
+.npcr-flag-resolution-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--txt2, var(--txt));
+  font-style: italic;
+}
+
+/* Themed modal for resolve-note entry (replaces prompt()). */
+.npcr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.npcr-modal {
+  background: var(--surf2, #1a1814);
+  border: 1px solid var(--accent, #E0C47A);
+  border-radius: 4px;
+  min-width: 360px;
+  max-width: 520px;
+  width: 90%;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.npcr-modal-title {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  color: var(--accent, #E0C47A);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.npcr-modal-body {
+  margin-bottom: 12px;
+}
+
+.npcr-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .npcr-card-desc {
   font-size: 13px;
   color: var(--txt2, var(--txt));

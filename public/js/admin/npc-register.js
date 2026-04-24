@@ -2,7 +2,7 @@
    Two-pane layout: PC picker left, NPC grid + detail right.
    Data loads lazily on first entry; subsequent entries re-render from cache. */
 
-import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiDelete, apiRaw } from '../data/api.js';
 import { esc, sortName, displayName } from '../data/helpers.js';
 import { renderRelationshipsSection } from './relationship-editor.js';
 
@@ -11,7 +11,9 @@ const UNLINKED = '__unlinked__';
 
 let _chars = [];
 let _npcs = [];
-let _openFlags = [];     // NPCR.3: all flags with status='open'
+let _openFlags = [];               // flags with status='open' from server
+let _sessionResolved = new Map();  // flag_id -> flag (resolved this session, kept for muted display)
+let _flagCountByNpc = new Map();   // npc_id -> open flag count, rebuilt when _openFlags changes
 let _selectedCharId = ALL;
 let _selectedNpcId = null;
 let _search = '';
@@ -35,23 +37,39 @@ async function loadNpcs() {
     ]);
     _npcs = npcs;
     _openFlags = Array.isArray(flags) ? flags : [];
+    _sessionResolved.clear(); // fresh load invalidates session-resolved cache
   } catch (err) {
     console.error('[npc-register] load error:', err);
     _npcs = [];
     _openFlags = [];
+    _sessionResolved.clear();
   }
+  rebuildFlagIndex();
   renderShell();
 }
 
 // ── Flags helpers ───────────────────────────────────────────────────────────
 
+function rebuildFlagIndex() {
+  _flagCountByNpc = new Map();
+  for (const f of _openFlags) {
+    const key = String(f.npc_id);
+    _flagCountByNpc.set(key, (_flagCountByNpc.get(key) || 0) + 1);
+  }
+}
+
 function flagsForNpc(npcId) {
   const id = String(npcId);
-  return _openFlags.filter(f => String(f.npc_id) === id);
+  const open = _openFlags.filter(f => String(f.npc_id) === id);
+  const resolved = [];
+  for (const f of _sessionResolved.values()) {
+    if (String(f.npc_id) === id) resolved.push(f);
+  }
+  return { open, resolved };
 }
 
 function openFlagCount(npcId) {
-  return flagsForNpc(npcId).length;
+  return _flagCountByNpc.get(String(npcId)) || 0;
 }
 
 // ── Indexing ────────────────────────────────────────────────────────────────
@@ -193,6 +211,13 @@ function renderMain() {
 function renderHeader() {
   const header = document.getElementById('npcr-main-header');
   if (!header) return;
+
+  // If Flagged filter is active but no open flags remain, auto-clear the chip
+  // so the grid doesn't show "No NPCs in this bucket." misleadingly.
+  if (_activeChip === 'flagged' && _openFlags.length === 0) {
+    _activeChip = null;
+  }
+
   const list = visibleNpcs();
   const flaggedTotal = _openFlags.length;
   const chips = [
@@ -211,8 +236,9 @@ function renderHeader() {
       <div class="npcr-chips-filter">
         ${chips.map(([k, l, n]) => {
           const isFlag = k === 'flagged';
-          const cls = `npcr-chip-btn${_activeChip === k ? ' on' : ''}${isFlag && n > 0 ? ' flagged' : ''}`;
-          const count = (n != null) ? ` · ${n}` : '';
+          const hasCount = typeof n === 'number' && n > 0;
+          const cls = `npcr-chip-btn${_activeChip === k ? ' on' : ''}${isFlag && hasCount ? ' flagged' : ''}`;
+          const count = hasCount ? ` · ${n}` : '';
           return `<button class="${cls}" data-chip="${k}">${esc(l)}${count}</button>`;
         }).join('')}
       </div>
@@ -309,8 +335,9 @@ function cardHtml(n) {
 }
 
 function charNameFor(id) {
+  if (!id) return '(unknown character)';
   const c = _chars.find(x => String(x._id) === String(id));
-  return c ? displayName(c) : `(${id})`;
+  return c ? displayName(c) : '(unknown character)';
 }
 
 function renderDetail() {
@@ -327,12 +354,13 @@ function renderDetail() {
   const linkedIds = Array.isArray(npc.linked_character_ids) ? npc.linked_character_ids : [];
   const suggestedFor = Array.isArray(npc.st_suggested_for) ? npc.st_suggested_for : [];
 
-  const npcFlags = isNew ? [] : flagsForNpc(npc._id);
+  const flags = isNew ? { open: [], resolved: [] } : flagsForNpc(npc._id);
+  const totalFlagRows = flags.open.length + flags.resolved.length;
 
   let h = '<div class="npcr-detail-form">';
   h += `<div class="npcr-detail-err" id="npcr-detail-err"></div>`;
-  const flaggedChip = npcFlags.length > 0
-    ? ` <span class="npcr-chip-flagged">Flagged · ${npcFlags.length}</span>`
+  const flaggedChip = flags.open.length > 0
+    ? ` <span class="npcr-chip-flagged">Flagged · ${flags.open.length}</span>`
     : '';
   h += `<div class="npcr-detail-title">${isNew ? 'New NPC' : esc(npc.name || '')}${flaggedChip}</div>`;
 
@@ -378,18 +406,11 @@ function renderDetail() {
     </div>`;
   }
 
-  if (!isNew && npcFlags.length > 0) {
+  if (!isNew && totalFlagRows > 0) {
     h += `<div class="npcr-flags-section">`;
-    h += `<div class="npcr-flags-head">Open flags (${npcFlags.length})</div>`;
-    for (const f of npcFlags) {
-      const who = charNameFor(f.flagged_by?.character_id);
-      const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
-      h += `<div class="npcr-flag-row" data-flag-id="${esc(f._id)}">`;
-      h += `<div class="npcr-flag-meta"><b>${esc(who)}</b> <span class="npcr-meta-label">${esc(when)}</span></div>`;
-      h += `<div class="npcr-flag-reason">${esc(f.reason || '')}</div>`;
-      h += `<div class="npcr-flag-actions"><button class="npcr-btn dim" data-act="resolve-flag" data-flag-id="${esc(f._id)}">Resolve</button></div>`;
-      h += `</div>`;
-    }
+    h += `<div class="npcr-flags-head">Flags (${flags.open.length} open${flags.resolved.length ? ', ' + flags.resolved.length + ' resolved this session' : ''})</div>`;
+    for (const f of flags.open) h += flagRowHtml(f, false);
+    for (const f of flags.resolved) h += flagRowHtml(f, true);
     h += `</div>`;
   }
 
@@ -451,6 +472,71 @@ function renderDetail() {
   }
 }
 
+function flagRowHtml(f, resolved) {
+  const who = charNameFor(f.flagged_by?.character_id);
+  const when = f.created_at ? new Date(f.created_at).toLocaleString() : '';
+  const cls = resolved ? 'npcr-flag-row resolved' : 'npcr-flag-row';
+  let h = `<div class="${cls}" data-flag-id="${esc(f._id)}">`;
+  h += `<div class="npcr-flag-meta"><b>${esc(who)}</b> <span class="npcr-meta-label">${esc(when)}</span>`;
+  if (resolved) {
+    const resolvedWhen = f.resolved_at ? new Date(f.resolved_at).toLocaleString() : '';
+    h += ` <span class="npcr-flag-resolved-badge">Resolved${resolvedWhen ? ' · ' + esc(resolvedWhen) : ''}</span>`;
+  }
+  h += `</div>`;
+  h += `<div class="npcr-flag-reason">${esc(f.reason || '')}</div>`;
+  if (resolved && f.resolution_note) {
+    h += `<div class="npcr-flag-resolution-note"><span class="npcr-meta-label">Resolution:</span> ${esc(f.resolution_note)}</div>`;
+  }
+  if (!resolved) {
+    h += `<div class="npcr-flag-actions"><button class="npcr-btn dim" data-act="resolve-flag" data-flag-id="${esc(f._id)}">Resolve</button></div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+// ── Resolve modal ──────────────────────────────────────────────────────────
+
+function openResolveModal() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'npcr-modal-overlay';
+    overlay.innerHTML = `
+      <div class="npcr-modal" role="dialog" aria-labelledby="npcr-modal-title">
+        <div class="npcr-modal-title" id="npcr-modal-title">Resolve flag</div>
+        <div class="npcr-modal-body">
+          <label class="npcr-field">
+            <span class="npcr-field-label">Resolution note (optional)</span>
+            <textarea id="npcr-modal-note" class="npcr-textarea" rows="4" maxlength="2000"></textarea>
+          </label>
+        </div>
+        <div class="npcr-modal-actions">
+          <button class="npcr-btn muted" data-act="cancel">Cancel</button>
+          <button class="npcr-btn save" data-act="confirm">Resolve</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const textarea = overlay.querySelector('#npcr-modal-note');
+    setTimeout(() => textarea?.focus(), 0);
+
+    function close(result) {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close(null);
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) close(textarea.value.trim());
+    }
+    document.addEventListener('keydown', onKey);
+
+    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(null));
+    overlay.querySelector('[data-act="confirm"]').addEventListener('click', () => close(textarea.value.trim()));
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+  });
+}
+
 async function saveNpc(isNew) {
   const errEl = document.getElementById('npcr-detail-err');
   if (errEl) errEl.textContent = '';
@@ -508,16 +594,39 @@ async function retireNpc(id) {
 }
 
 async function resolveFlag(flagId) {
-  const note = prompt('Resolution note (optional):', '');
+  const note = await openResolveModal();
   if (note === null) return; // cancelled
   const errEl = document.getElementById('npcr-detail-err');
   if (errEl) errEl.textContent = '';
-  try {
-    await apiPut(`/api/npc-flags/${flagId}/resolve`, { resolution_note: note.trim() });
+
+  // Use apiRaw so we can inspect status codes (409 race, 404 gone) and
+  // surface the server's resolved-doc payload to the user rather than a
+  // generic error.
+  const { status, ok, body } = await apiRaw('PUT', `/api/npc-flags/${flagId}/resolve`, { resolution_note: note });
+
+  if (ok) {
     _openFlags = _openFlags.filter(f => String(f._id) !== String(flagId));
+    _sessionResolved.set(String(flagId), body);
+    rebuildFlagIndex();
     renderShell();
-  } catch (err) {
-    console.error('[npc-register] resolve error:', err);
-    if (errEl) errEl.textContent = 'Resolve failed: ' + (err?.message || 'unknown error');
+    return;
   }
+
+  // 409 = already resolved by another ST (body.flag carries the resolved doc)
+  // 404 = flag was deleted; drop from cache
+  if (status === 409 || status === 404) {
+    _openFlags = _openFlags.filter(f => String(f._id) !== String(flagId));
+    if (body?.flag) _sessionResolved.set(String(flagId), body.flag);
+    rebuildFlagIndex();
+    renderShell();
+    if (errEl) {
+      errEl.textContent = body?.flag
+        ? 'Already resolved by another ST.'
+        : 'This flag no longer exists — the list has been refreshed.';
+    }
+    return;
+  }
+
+  console.error('[npc-register] resolve error:', status, body);
+  if (errEl) errEl.textContent = 'Resolve failed: ' + (body?.message || `status ${status}`);
 }
