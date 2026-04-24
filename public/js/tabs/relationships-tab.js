@@ -246,7 +246,7 @@ export async function renderRelationshipsTab(el, char) {
       <div class="rel-tab-head">
         <div class="rel-tab-head-row">
           <div>
-            <h2 class="rel-tab-title">Relationships</h2>
+            <h2 class="rel-tab-title">NPCs</h2>
             <div class="rel-tab-sub">Edges involving ${esc(char.moniker || char.name)}.</div>
           </div>
           <button class="rel-add-btn" type="button" data-act="open-add">+ Add Relationship</button>

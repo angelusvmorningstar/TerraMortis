@@ -340,11 +340,11 @@ function collectResponses() {
   const psNpcId   = document.getElementById('dt-personal_story_npc_id');
   const psNpcName = document.getElementById('dt-personal_story_npc_name');
   const psNote    = document.getElementById('dt-personal_story_note');
-  const psDir     = document.querySelector('input[name="personal_story_direction"]:checked');
+  // NPCR.12 r3: personal_story_direction retired (Story direction radios
+  // removed). Existing legacy submissions still carry the field.
   responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
   responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
   responses['personal_story_note']     = psNote    ? psNote.value    : '';
-  responses['personal_story_direction'] = psDir    ? psDir.value     : 'continue';
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -2733,7 +2733,7 @@ function renderPersonalStorySection(saved) {
                    || saved['personal_story_note']
                    || saved['correspondence']
                    || '';
-  const savedDir   = saved['personal_story_direction'] || 'continue';
+  // NPCR.12 r3: personal_story_direction no longer read — Story direction radios removed.
 
   // Only active edges are pickable. _myRelationships was loaded in
   // renderDowntimeTab from /api/relationships/for-character/:id.
@@ -2794,22 +2794,9 @@ function renderPersonalStorySection(saved) {
   h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
   h += '</div>';
 
-  // Story direction radios — preserved from legacy (cheap signal for the ST).
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I would like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += '<label class="dt-npc-dir-option">';
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += '</label>';
-  }
-  h += '</div></div>';
+  // NPCR.12 r3: Story direction radios retired — subsumed by the NPCs tab
+  // (players flag NPCs for review via NPCR.11, edit their own edges via
+  // NPCR.9, or propose direction shifts by editing edge state text).
 
   h += '</div></div>';
   return h;
