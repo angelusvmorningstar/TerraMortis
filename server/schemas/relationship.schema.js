@@ -45,7 +45,7 @@ const actorSchema = {
   additionalProperties: false,
   properties: {
     type: { type: 'string', enum: ['st', 'player'] },
-    id:   { type: 'string' },
+    id:   { type: 'string', minLength: 1 },
   },
 };
 
@@ -84,11 +84,11 @@ export const relationshipSchema = {
     a:            endpointSchema,
     b:            endpointSchema,
     kind:         { type: 'string', enum: KIND_ENUM },
-    custom_label: { type: 'string' },
+    custom_label: { type: 'string', maxLength: 200 },
     direction:    { type: 'string', enum: DIRECTION_ENUM },
     // disposition: string enum for setting; null to clear (route $unsets on null).
     disposition:  { oneOf: [{ type: 'string', enum: DISPOSITION_ENUM }, { type: 'null' }] },
-    state:        { type: 'string' },
+    state:        { type: 'string', maxLength: 4000 },
     st_hidden:    { type: 'boolean' },
     status:       { type: 'string', enum: STATUS_ENUM },
     created_by:   actorSchema,

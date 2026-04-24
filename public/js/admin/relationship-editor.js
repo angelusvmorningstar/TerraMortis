@@ -22,8 +22,13 @@ let _loaded = false;
 
 export function renderRelationshipsSection(host, { npcId, chars, npcs }) {
   if (!host || !npcId) return;
-  // Reset state if the host NPC changed
-  if (npcId !== _npcId) {
+  // Reset state if the host NPC changed. Warn if an open edit form
+  // would be discarded so a mid-edit click doesn't silently lose input.
+  if (String(npcId) !== String(_npcId)) {
+    if (_editingId !== null && _npcId !== null) {
+      const ok = confirm('You have an open relationship-edit form. Discard changes?');
+      if (!ok) return;
+    }
     _edges = [];
     _editingId = null;
     _loaded = false;
@@ -163,8 +168,10 @@ function rowHtml(edge) {
   if (edge.state) h += `<div class="npcr-rels-state">${esc(edge.state)}</div>`;
   if (edge.disposition) h += `<div class="npcr-rels-disp">Disposition: <b>${esc(edge.disposition)}</b></div>`;
   h += `<div class="npcr-rels-row-actions">`;
-  h += `<button class="npcr-btn dim" data-act="edit" data-edge-id="${esc(edge._id)}">Edit</button>`;
+  // Retired edges are read-only: hide Edit (ambiguous — server rejects PUT
+  // on retired anyway). History remains visible via the History button.
   if (edge.status !== 'retired') {
+    h += `<button class="npcr-btn dim" data-act="edit" data-edge-id="${esc(edge._id)}">Edit</button>`;
     h += `<button class="npcr-btn dim" data-act="retire" data-edge-id="${esc(edge._id)}">Retire</button>`;
   }
   if (edge.history?.length > 1) {
@@ -436,6 +443,10 @@ async function saveEdge(formId) {
 
   if (!otherId) return setError('Pick the other party.');
   if (kind === 'other' && !customLabel) return setError("kind='other' requires a custom label.");
+  // Mirror server-side endpoint-identity check for instant feedback.
+  if (otherType === 'npc' && String(otherId) === _npcId) {
+    return setError('An edge must connect two different endpoints.');
+  }
 
   // On create, this NPC is side a; on edit, preserve the original sides.
   let a, b;

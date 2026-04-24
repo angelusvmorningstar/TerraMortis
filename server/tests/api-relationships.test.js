@@ -263,6 +263,73 @@ describe('PUT /api/relationships/:id', () => {
   });
 });
 
+// ── Hardening (NPCR.2 review patches) ───────────────────────────────────────
+
+describe('GET query-param validation', () => {
+  it('rejects malformed ObjectId on endpoint with 400', async () => {
+    const res = await request(app)
+      .get('/api/relationships?endpoint=not-an-oid')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('rejects malformed ObjectId on a_id with 400', async () => {
+    const res = await request(app)
+      .get('/api/relationships?a_id=nope')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects unknown kind with 400', async () => {
+    const res = await request(app)
+      .get('/api/relationships?kind=bogus-kind')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects unknown status with 400', async () => {
+    const res = await request(app)
+      .get('/api/relationships?status=bogus-status')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts valid filters', async () => {
+    const res = await request(app)
+      .get('/api/relationships?kind=mentor&status=active')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('Schema length caps', () => {
+  it('rejects state > 4000 chars with 400', async () => {
+    const res = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+        state: 'x'.repeat(4001),
+      }));
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects custom_label > 200 chars with 400', async () => {
+    const res = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+        kind: 'other',
+        custom_label: 'x'.repeat(201),
+      }));
+    expect(res.status).toBe(400);
+  });
+});
+
 // ── Bug fixes (NPCR.2 review) ───────────────────────────────────────────────
 
 describe('PUT bug fixes', () => {

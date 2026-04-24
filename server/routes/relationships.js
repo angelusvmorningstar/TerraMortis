@@ -3,7 +3,11 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { relationshipSchema } from '../schemas/relationship.schema.js';
+import {
+  relationshipSchema,
+  KIND_ENUM,
+  STATUS_ENUM,
+} from '../schemas/relationship.schema.js';
 
 const router = Router();
 const col = () => getCollection('relationships');
@@ -39,6 +43,28 @@ router.use(requireRole('st'));
 //   ?status=<enum>        filter by status
 router.get('/', async (req, res) => {
   const { endpoint, a_id, b_id, kind, status } = req.query;
+
+  for (const [name, val] of [['endpoint', endpoint], ['a_id', a_id], ['b_id', b_id]]) {
+    if (val !== undefined && !ObjectId.isValid(String(val))) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `Invalid ObjectId in query param '${name}'`,
+      });
+    }
+  }
+  if (kind !== undefined && !KIND_ENUM.includes(String(kind))) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `Unknown kind '${kind}'`,
+    });
+  }
+  if (status !== undefined && !STATUS_ENUM.includes(String(status))) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `Unknown status '${status}'`,
+    });
+  }
+
   const filter = {};
   if (endpoint) {
     filter.$or = [{ 'a.id': String(endpoint) }, { 'b.id': String(endpoint) }];
