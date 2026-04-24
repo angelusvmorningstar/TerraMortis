@@ -321,7 +321,7 @@ function renderTouchstoneAddForm(c, anchor, existingCount) {
   let h = '<div class="sh-ts-picker">';
   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
 
-  h += '<label class="sh-ts-picker-field sh-ts-picker-check">';
+  h += '<label class="sh-ts-picker-check">';
   h += '<input type="checkbox"' + (draft.is_character ? ' checked' : '')
     + ' onchange="shTouchstonePickerToggleCharacter(this.checked)"> ';
   h += '<span>This touchstone is a character (link or create an NPC)</span>';
