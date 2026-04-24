@@ -1843,6 +1843,121 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .qf-btn-approve:hover { opacity: .85; }
 
+/* Archive document Edit button (ST only) — lives in the detail-view header. */
+.arc-btn-edit {
+  padding: 4px 12px;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--fl);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background .15s;
+}
+
+.arc-btn-edit:hover { background: var(--gold-a10); }
+
+/* Archive inline editor (ORD-3) — ST-only contentEditable pane with toolbar. */
+.arc-editor {
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px;
+}
+
+.arc-editor-toolbar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 8px;
+  background: var(--surf);
+  border: 1px solid var(--surf2);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+.arc-editor-toolbar button {
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 13px;
+  border-radius: 2px;
+  min-width: 28px;
+}
+
+.arc-editor-toolbar button:hover {
+  border-color: var(--gold-a10);
+  background: var(--surf2);
+}
+
+.arc-toolbar-sep {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--surf2);
+  margin: 0 4px;
+}
+
+.arc-toolbar-spacer { flex: 1; }
+
+.arc-editor-toolbar .arc-btn-save {
+  background: var(--accent);
+  color: var(--txt-on-dark);
+  border-color: var(--accent);
+  padding: 4px 16px;
+}
+
+.arc-editor-toolbar .arc-btn-save:hover {
+  opacity: .9;
+  background: var(--accent);
+}
+
+.arc-editor-toolbar .arc-btn-cancel {
+  color: var(--txt2);
+}
+
+.arc-editor-content[contenteditable="true"] {
+  min-height: 400px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--surf2);
+  border-radius: 0 0 4px 4px;
+  outline: none;
+}
+
+.arc-editor-content[contenteditable="true"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-a8);
+}
+
+.arc-editor-status {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--txt2);
+  min-height: 20px;
+}
+
+.arc-editor-status-error { color: var(--crim); }
+
+/* Back-to-index link at the top of ordeal, questionnaire, archive detail panes. */
+.qf-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--fl);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  opacity: .7;
+  transition: opacity .2s;
+}
+
+.qf-back-btn:hover { opacity: 1; }
+
 /* Locked fields — character sheet is authoritative */
 
 .qf-field-locked { opacity: .85; }

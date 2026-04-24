@@ -52,18 +52,14 @@ function scheduleSave() {
 function collectResponses() {
   const responses = {};
 
-  // Collect sheet-derived values
-  for (const [key, val] of Object.entries(sheetValues)) {
-    if (val) responses[key] = val;
-  }
-
-  // Collect discord from auth (always current)
-  if (discordUsername) responses.discord_nickname = discordUsername;
-
-  // Collect all rendered inputs (facebook_name is in opener with id q-facebook_name)
+  // Sheet-derived fields (clan, covenant, mask, dirge, blood_potency, apparent_age,
+  // character_name, high_concept) and player-identity fields (player_name,
+  // discord_nickname) are not stored here per ORD.1. They live on the character
+  // schema and the player record; the opener and char-header blocks read them
+  // live at render time.
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
-      if (SHEET_FIELDS[q.key]) continue; // already collected above
+      if (SHEET_FIELDS[q.key]) continue; // live-rendered from char sheet; not captured
       if (q.type === 'checkbox' || q.type === 'character_select') {
         const checked = [...document.querySelectorAll(`input[name="q-${q.key}"]:checked`)]
           .map(el => el.value);

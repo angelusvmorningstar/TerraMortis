@@ -273,9 +273,12 @@ function ordealCard(def, status) {
   const icon       = done ? '&#10003;' : (submitted || inReview) ? '&#9679;' : draft ? '&#9998;' : '&#9675;';
   const xp         = done ? '+3 XP' : '';
 
-  // Only offer form click if not yet approved
-  const formAttr  = def.hasForm && !done ? ` data-form="${def.formType}"` : '';
-  const clickHint = def.hasForm && !done ? '<span class="ordeal-action">Open &rarr;</span>' : '';
+  // Every ordeal stays reopenable after approval so players can review their submitted
+  // answers and ST feedback; STs get an Edit button inside the form to make changes.
+  const formAttr  = def.hasForm ? ` data-form="${def.formType}"` : '';
+  const clickHint = def.hasForm
+    ? `<span class="ordeal-action">${done ? 'View' : 'Open'} &rarr;</span>`
+    : '';
 
   const feedbackHtml = renderFeedback(status.submission);
 

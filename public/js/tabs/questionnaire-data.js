@@ -3,6 +3,16 @@
  * The 'key' on each question becomes the field name in MongoDB.
  * ordeal: 'questionnaire' or 'history' — which ordeal this section counts toward.
  *
+ * Fields whose value lives authoritatively on the character schema or the player record
+ * (player_name, discord_nickname, character_name, high_concept, clan, bloodline, covenant,
+ * blood_potency, apparent_age, mask, dirge, touchstones) have been removed per ORD.1.
+ * Those values are read from the character sheet at render time and never captured here.
+ *
+ * Relationship fields — sires, mortal family, allies/coterie/enemies lists, boons and
+ * debts — have been retired per ORD.2. Those are now tracked as typed edges in the
+ * NPCR relationships graph (accessible via the NPCs tab). The questionnaire keeps
+ * only narrative stance (opposed_covenant, intolerable_behaviours) and secrets for now.
+ *
  * Question types:
  *   text      — single-line input
  *   textarea  — multi-line input
@@ -15,15 +25,6 @@
  * are preserved in read-only display via renderReadOnlyField fallback.
  */
 
-export const MASKS_DIRGES = [
-  'Authoritarian', 'Child', 'Competitor', 'Conformist', 'Conspirator',
-  'Courtesan', 'Cult Leader', 'Deviant', 'Follower', 'Guru',
-  'Idealist', 'Jester', 'Junkie', 'Martyr', 'Masochist',
-  'Monster', 'Nomad', 'Nurturer', 'Penitent', 'Perfectionist',
-  'Questioner', 'Rebel', 'Scholar', 'Social Chameleon', 'Spy',
-  'Survivor', 'Visionary',
-];
-
 export const QUESTIONNAIRE_SECTIONS = [
   {
     key: 'player_info',
@@ -32,25 +33,11 @@ export const QUESTIONNAIRE_SECTIONS = [
     intro: null,
     questions: [
       {
-        key: 'player_name',
-        label: 'Player Name',
-        type: 'text',
-        required: true,
-        desc: 'Your name (the player), not your character\'s name.',
-      },
-      {
         key: 'facebook_name',
         label: 'Facebook Profile Name (if different to real name)',
         type: 'text',
         required: false,
         desc: 'If you\'re in our Facebook group under a different name, please let us know.',
-      },
-      {
-        key: 'discord_nickname',
-        label: 'Discord Nickname',
-        type: 'text',
-        required: false,
-        desc: 'Your Discord username.',
       },
       // ── Gaming Preferences (structured) ──
       {
@@ -119,85 +106,22 @@ export const QUESTIONNAIRE_SECTIONS = [
     intro: 'Help us understand who your character is.',
     questions: [
       {
-        key: 'character_name',
-        label: '1. Character Name',
-        type: 'text',
-        required: true,
-        desc: 'Use this format: <Title> <First Name> <"Alias"> <Last Name>. Complete as much as you have.',
-      },
-      {
-        key: 'high_concept',
-        label: '2. High Concept',
-        type: 'text',
-        required: true,
-        desc: 'A brief phrase that captures your character\'s core identity.',
-      },
-      {
-        key: 'clan',
-        label: '3. Clan',
-        type: 'radio',
-        required: true,
-        desc: 'Your character\'s vampiric lineage.',
-        options: [
-          { value: 'Daeva',     label: 'Daeva: seductive predators' },
-          { value: 'Gangrel',   label: 'Gangrel: savage survivalists' },
-          { value: 'Mekhet',   label: 'Mekhet: shadows and secrets' },
-          { value: 'Nosferatu', label: 'Nosferatu: haunters and nightmares' },
-          { value: 'Ventrue',   label: 'Ventrue: lords and masters' },
-        ],
-      },
-      {
-        key: 'bloodline',
-        label: '4. Bloodline',
-        type: 'text',
-        required: false,
-        desc: 'Optional. Bloodlines carry significant drawbacks.',
-      },
-      {
         key: 'bloodline_rationale',
-        label: '5. Bloodline Rationale',
+        label: 'Bloodline Rationale',
         type: 'textarea',
         required: false,
         desc: 'Why this bloodline would enhance your character\'s story.',
       },
       {
-        key: 'covenant',
-        label: '6. Covenant',
-        type: 'radio',
-        required: true,
-        desc: 'Your character\'s political and ideological affiliation.',
-        options: [
-          { value: 'Carthian Movement',   label: 'The Carthian Movement: revolutionaries and modernists' },
-          { value: 'Circle of the Crone', label: 'The Circle of the Crone: pagan blood cultists' },
-          { value: 'Invictus',            label: 'The Invictus: aristocracy of the undead' },
-          { value: 'Lancea et Sanctum',   label: 'The Lancea et Sanctum: the vampire church' },
-          { value: 'Unaligned',           label: 'Unaligned' },
-        ],
-      },
-      {
         key: 'covenant_factions',
-        label: '7. Covenant Factions',
+        label: 'Covenant Factions',
         type: 'text',
         required: false,
         desc: 'If your character aligns with a specific internal faction, note it here.',
       },
       {
-        key: 'blood_potency',
-        label: '9. Blood Potency',
-        type: 'text',
-        required: false,
-        desc: 'This chronicle caps Blood Potency at 2.',
-      },
-      {
-        key: 'apparent_age',
-        label: '10. Apparent Age',
-        type: 'text',
-        required: false,
-        desc: 'How old does your character appear?',
-      },
-      {
         key: 'conflict_approach',
-        label: '11. Preferred Approach to Conflict',
+        label: 'Preferred Approach to Conflict',
         type: 'radio',
         required: false,
         desc: 'When faced with opposition, how do you typically respond?',
@@ -206,22 +130,6 @@ export const QUESTIONNAIRE_SECTIONS = [
           { value: 'Seductive',   label: 'Manipulation: deception, proxies, and emotional exploitation' },
           { value: 'Competitive', label: 'Superiority: proving dominance through contests and challenges' },
         ],
-      },
-      {
-        key: 'mask',
-        label: '12a. Mask',
-        type: 'select',
-        required: false,
-        desc: 'The false persona your character shows to others.',
-        options: MASKS_DIRGES.map(m => ({ value: m, label: m })),
-      },
-      {
-        key: 'dirge',
-        label: '12b. Dirge',
-        type: 'select',
-        required: false,
-        desc: 'Your character\'s true vampiric nature. Must differ from Mask.',
-        options: MASKS_DIRGES.map(m => ({ value: m, label: m })),
       },
     ],
   },
@@ -234,42 +142,42 @@ export const QUESTIONNAIRE_SECTIONS = [
     questions: [
       {
         key: 'court_motivation',
-        label: '14. What motivates your character to attend Court?',
+        label: 'What motivates your character to attend Court?',
         type: 'textarea',
         required: true,
         desc: 'Why does your character play these dangerous political games?',
       },
       {
         key: 'ambitions_sydney',
-        label: '15. What does your character hope to achieve in Sydney?',
+        label: 'What does your character hope to achieve in Sydney?',
         type: 'textarea',
         required: true,
         desc: 'Are they establishing territory, escaping their past, climbing the ladder, or simply surviving?',
       },
       {
         key: 'why_sydney',
-        label: '16. Why did your character come to Sydney?',
+        label: 'Why did your character come to Sydney?',
         type: 'textarea',
         required: true,
         desc: 'Was their arrival voluntary or forced?',
       },
       {
         key: 'why_covenant',
-        label: '17. Why did your character join their Covenant?',
+        label: 'Why did your character join their Covenant?',
         type: 'textarea',
         required: false,
         desc: 'Was it genuine belief, pragmatic necessity, or social pressure?',
       },
       {
         key: 'covenant_goals',
-        label: '18. Goals within their Covenant?',
+        label: 'Goals within their Covenant?',
         type: 'textarea',
         required: false,
         desc: 'Are they seeking advancement, secrets, protection, or reform?',
       },
       {
         key: 'clan_goals',
-        label: '19. Goals within their Clan?',
+        label: 'Goals within their Clan?',
         type: 'textarea',
         required: false,
         desc: 'Do they embrace or rebel against clan traditions?',
@@ -277,7 +185,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       // ── Aspired position (structured) ──
       {
         key: 'aspired_role_tag',
-        label: '20a. Position your character aspires to hold',
+        label: 'Position your character aspires to hold',
         type: 'radio',
         required: false,
         desc: 'Court offices carry obligations as well as status. Consider whether your character wants formal authority or prefers to work behind the scenes.',
@@ -293,7 +201,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'aspired_position',
-        label: '20b. Elaborate on your ambitions',
+        label: 'Elaborate on your ambitions',
         type: 'textarea',
         required: false,
         desc: 'Do they seek formal authority or prefer indirect influence?',
@@ -301,7 +209,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       // ── View on Traditions (structured) ──
       {
         key: 'view_traditions_tag',
-        label: '21a. View on the Traditions',
+        label: 'View on the Traditions',
         type: 'radio',
         required: false,
         desc: 'The Traditions are the laws of Kindred society: Masquerade, Progeny, Amaranth, and the rest. Breaking them risks Final Death.',
@@ -313,7 +221,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'view_traditions',
-        label: '21b. Elaborate',
+        label: 'Elaborate',
         type: 'textarea',
         required: false,
         desc: 'Sacred laws, outdated restrictions, or necessary evils?',
@@ -321,7 +229,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       // ── View on Elysium (structured) ──
       {
         key: 'view_elysium_tag',
-        label: '22a. Does your character respect the sanctity of Elysium?',
+        label: 'Does your character respect the sanctity of Elysium?',
         type: 'radio',
         required: false,
         desc: 'Elysium is neutral ground; violence and political aggression are forbidden within its walls. It is where Kindred gather, negotiate, and perform.',
@@ -333,7 +241,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'view_elysium',
-        label: '22b. Elaborate',
+        label: 'Elaborate',
         type: 'textarea',
         required: false,
         desc: 'Do they honour this sanctuary genuinely or only when watched?',
@@ -341,7 +249,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       // ── View on mortals (structured) ──
       {
         key: 'view_mortals_tag',
-        label: '23a. How does your character view mortals and ghouls?',
+        label: 'How does your character view mortals and ghouls?',
         type: 'radio',
         required: false,
         desc: 'Maintaining connections to mortal life supports Humanity. How your character relates to the living shapes their Beast and their politics.',
@@ -354,7 +262,7 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'view_mortals',
-        label: '23b. Elaborate',
+        label: 'Elaborate',
         type: 'textarea',
         required: false,
         desc: 'Are they tools, food, or reminders of lost humanity?',
@@ -366,74 +274,40 @@ export const QUESTIONNAIRE_SECTIONS = [
     key: 'character_history',
     title: 'Character History',
     ordeal: 'history',
-    intro: 'Only the Touchstone question is required; the rest can grow through play.',
+    intro: 'Your sire, mortal family, and other NPC connections are tracked in the NPCs tab. This section is for narrative backstory.',
     questions: [
       {
         key: 'embrace_story',
-        label: '24. Describe your Embrace',
+        label: 'Describe your Embrace',
         type: 'textarea',
         required: false,
         desc: 'How did they die and rise? Was it violent, seductive, or clinical?',
       },
       {
-        key: 'sire_name',
-        label: '25a. Your sire\'s name',
-        type: 'text',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'sire_story',
-        label: '25b. Your relationship with your sire',
-        type: 'textarea',
-        required: false,
-        desc: 'Their current status. Why did they Embrace your character? What do you owe them?',
-      },
-      {
         key: 'early_city',
-        label: '26a. City of Embrace',
+        label: 'City of Embrace',
         type: 'text',
         required: false,
         desc: 'Where were you Embraced?',
       },
       {
         key: 'early_nights',
-        label: '26b. First Nights',
+        label: 'First Nights',
         type: 'textarea',
         required: false,
         desc: 'Which city shaped your early experiences as Kindred? What defined those nights?',
       },
       {
         key: 'last_city_politics',
-        label: '27. Political Landscape of Last City',
+        label: 'Political Landscape of Last City',
         type: 'textarea',
         required: false,
         desc: 'Who ruled? Did a single covenant dominate?',
       },
-      {
-        key: 'mortal_family',
-        label: '28. Mortal Family',
-        type: 'dynamic_list',
-        required: false,
-        desc: 'Add any relatives still alive. You can add as many as you like.',
-        addLabel: '+ Add a family member',
-        subfields: [
-          { key: 'name',         label: 'Name',         type: 'text' },
-          { key: 'relationship', label: 'Relationship', type: 'text' },
-          { key: 'description',  label: 'Watch, contact, or avoid?', type: 'textarea' },
-        ],
-      },
-      {
-        key: 'touchstones',
-        label: '29. Current Touchstones',
-        type: 'textarea',
-        required: true,
-        desc: 'A Touchstone connects your character to their humanity. Describe this connection.',
-      },
       // ── Hunting style (structured) ──
       {
         key: 'hunting_method_tags',
-        label: '30a. Hunting Methods',
+        label: 'Hunting Methods',
         type: 'checkbox',
         required: false,
         desc: 'Select all methods your character uses.',
@@ -448,21 +322,21 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'hunting_style_note',
-        label: '30b. Hunting Style: Details',
+        label: 'Hunting Style: Details',
         type: 'textarea',
         required: false,
         desc: 'Preferred prey, territories, ethical lines you won\'t cross.',
       },
       {
         key: 'first_kill',
-        label: '31. First Kill',
+        label: 'First Kill',
         type: 'textarea',
         required: false,
         desc: 'Tell us about a time when feeding went too far.',
       },
       {
         key: 'common_indulgences',
-        label: '32. Common Indulgences',
+        label: 'Common Indulgences',
         type: 'textarea',
         required: false,
         desc: 'Beyond blood, what fills their nights?',
@@ -474,54 +348,12 @@ export const QUESTIONNAIRE_SECTIONS = [
     key: 'character_connections',
     title: 'Character Connections',
     ordeal: 'questionnaire',
-    intro: 'Connections create immediate story hooks. Rivals and enemies are as valuable as allies.',
+    intro: 'Allies, coterie, enemies, and favours owed are tracked in the NPCs tab. This section covers narrative stance and secrets only.',
     questions: [
-      {
-        key: 'allies_characters',
-        label: '33a. Allied or friendly characters',
-        type: 'character_select',
-        required: false,
-        desc: 'Select any PCs your character trusts or works with.',
-      },
-      {
-        key: 'allies',
-        label: '33b. Notes on these alliances',
-        type: 'textarea',
-        required: false,
-        desc: 'Any context, history, or caveats worth noting?',
-      },
-      {
-        key: 'coterie_characters',
-        label: '34a. Coterie members',
-        type: 'character_select',
-        required: false,
-        desc: 'Select any PCs you have formally bound yourself to for mutual support.',
-      },
-      {
-        key: 'coterie',
-        label: '34b. About your coterie',
-        type: 'textarea',
-        required: false,
-        desc: 'What holds the coterie together? What are the tensions?',
-      },
-      {
-        key: 'enemies_characters',
-        label: '35a. Rivals or enemies',
-        type: 'character_select',
-        required: false,
-        desc: 'Select any PCs your character opposes, distrusts, or competes with.',
-      },
-      {
-        key: 'enemies',
-        label: '35b. Notes on these conflicts',
-        type: 'textarea',
-        required: false,
-        desc: 'What is the nature of the conflict? Is it personal, political, or both?',
-      },
       // ── Opposed covenant (structured) ──
       {
         key: 'opposed_covenant_tag',
-        label: '36a. Any covenant you particularly oppose?',
+        label: 'Any covenant you particularly oppose?',
         type: 'select',
         required: false,
         desc: null,
@@ -536,33 +368,21 @@ export const QUESTIONNAIRE_SECTIONS = [
       },
       {
         key: 'opposed_covenant',
-        label: '36b. Why do you want to see them fail?',
+        label: 'Why do you want to see them fail?',
         type: 'textarea',
         required: false,
         desc: null,
       },
       {
         key: 'intolerable_behaviours',
-        label: '37. Kindred behaviours your character does not tolerate?',
+        label: 'Kindred behaviours your character does not tolerate?',
         type: 'textarea',
         required: false,
         desc: 'Are there specific actions or attitudes that disgust or enrage your character?',
       },
       {
-        key: 'boons_debts',
-        label: '38. Favours owed',
-        type: 'dynamic_list',
-        required: false,
-        desc: 'Add each favour separately. Include both debts you hold and debts owed to others.',
-        addLabel: '+ Add a favour',
-        subfields: [
-          { key: 'character',   label: 'Character',   type: 'character_picker' },
-          { key: 'description', label: 'The favour',  type: 'textarea' },
-        ],
-      },
-      {
         key: 'secrets',
-        label: '39. Dangerous secrets',
+        label: 'Dangerous secrets',
         type: 'dynamic_list',
         required: false,
         desc: 'Add each secret separately. Include secrets you hold over others and secrets others hold over you.',

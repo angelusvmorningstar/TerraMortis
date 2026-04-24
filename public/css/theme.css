@@ -97,8 +97,8 @@
   --green-dk:#1b5e20;--green-dk-bg:rgba(27,94,32,.12);--green-dk-bdr:rgba(27,94,32,.35);
   --warn-dk:#7a5c00;--warn-dk-bg:rgba(122,92,0,.12);
 
-  /* Reading pane — warm parchment surfaces (questionnaires, player portal, dossiers) */
-  /* Always light — no dark override needed; index.html never uses .reading-pane */
+  /* Reading pane — warm parchment surfaces (questionnaires, player portal, dossiers).
+     Used in both light (parchment tokens below) and dark (overrides at bottom of file). */
   --rp-bg:#F0E6D4;--rp-surf:#FFF8EE;--rp-surf2:#E8DCC8;
   --rp-txt:#2A1F14;--rp-txt2:#3A2A1A;--rp-txt3:#7A6A50;
   --rp-head:#5A1A1A;--rp-accent:#8B0000;--rp-placeholder:#9A8A70;
@@ -269,6 +269,14 @@
   /* Ticket badge overrides — feature/question use brighter variants on dark */
   --tk-feature-bg:rgba(130,80,180,.2);--tk-feature-fg:#b080d8;
   --tk-question-bg:rgba(60,170,160,.2);--tk-question-fg:#60c8be;
+
+  /* Reading pane — mode-aware. In dark mode the pane inherits the app surface
+     rather than forcing parchment. Used by archive detail, questionnaire,
+     downtime doc cards. */
+  --rp-bg:var(--surf);--rp-surf:var(--surf2);--rp-surf2:var(--surf3);
+  --rp-txt:var(--txt);--rp-txt2:var(--txt2);--rp-txt3:var(--txt3);
+  --rp-head:var(--gold2);--rp-accent:var(--accent);--rp-placeholder:var(--txt3);
+  --rp-bdr:var(--bdr);--rp-bdr2:var(--bdr2);
 }
 
 /* ── Cross-app navigation buttons ── */

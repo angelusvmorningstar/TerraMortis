@@ -3,6 +3,8 @@
 import { apiGet } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { renderSheet } from '../editor/sheet.js';
+import { openInlineEditor } from '../editor/archive-inline-editor.js';
+import { isSTRole } from '../auth/discord.js';
 
 const TYPE_LABELS = {
   dossier:           'Dossier',
@@ -111,18 +113,41 @@ async function openDocDetail(docId) {
     return;
   }
 
+  renderDocDetail(doc);
+}
+
+function renderDocDetail(doc) {
   const subtitle = doc.type === 'downtime_response' ? ` \u2014 Cycle ${doc.cycle}` : '';
+  const canEdit  = isSTRole();
 
   let h = '<div class="arc-detail">';
   h += `<button class="qf-back-btn" id="arc-back">&larr; Back to Archive</button>`;
   h += `<div class="arc-detail-header">`;
   h += `<div class="arc-detail-title">${esc(doc.title || TYPE_LABELS[doc.type] || doc.type)}${esc(subtitle)}</div>`;
+  if (canEdit) {
+    h += '<button class="arc-btn-edit" id="arc-edit">Edit</button>';
+  }
   h += '</div>';
   h += `<div class="arc-detail-body reading-pane">${doc.content_html}</div>`;
   h += '</div>';
 
   _el.innerHTML = h;
+
   document.getElementById('arc-back').addEventListener('click', renderArchiveList);
+
+  if (canEdit) {
+    document.getElementById('arc-edit').addEventListener('click', () => {
+      openInlineEditor(_el, doc._id, doc.content_html || '', {
+        onSaved: (html) => {
+          doc.content_html = html;
+          renderDocDetail(doc);
+        },
+        onCancelled: () => {
+          renderDocDetail(doc);
+        },
+      });
+    });
+  }
 }
 
 // ── Retired character sheet view ──────────────────────────────────────────────
