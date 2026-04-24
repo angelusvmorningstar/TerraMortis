@@ -1928,12 +1928,19 @@ function _updateThemeIcon() {
 function _activeMoreChar() {
   const role = getRole();
   const chars = suiteState.chars || [];
+  // Prefer the explicitly-selected character (updated by _switchChar). This
+  // makes the More-grid tabs track whatever the header / sidebar selector
+  // currently shows, regardless of role. Falls back to the first owned char
+  // for players on initial mount before any selection has been made.
+  const selected = suiteState.sheetChar || suiteState.rollChar || null;
   if (role !== 'st') {
     const info = getPlayerInfo();
     const ids = info?.character_ids || [];
+    const selectedOwned = selected && ids.some(id => String(id) === String(selected._id));
+    if (selectedOwned) return selected;
     return chars.find(c => ids.includes(String(c._id)) || ids.includes(c._id)) || null;
   }
-  return suiteState.rollChar || chars[0] || null;
+  return selected || chars[0] || null;
 }
 
 // ── Sheet tab — character picker and player sheet (nav-2-1) ──────────────────
