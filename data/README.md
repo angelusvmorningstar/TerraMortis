@@ -1,15 +1,13 @@
 # data/
 
-**MongoDB is the live data source. Files here are seed/reference only.**
+**MongoDB is the live data source. Files here are reference only.**
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `chars_v2.json` | v2 schema seed — used by `server/migrate.js` to drop+reseed MongoDB |
-| `chars_v3.json` | v3 schema working copy — reference only |
-| `chars_v2_backup.json` | Safety backup of v2 seed |
-| `backup/` | Point-in-time backups |
+| `archive/` | Frozen reference (pre-v2 character JSON) |
+| `dev-fixtures/` | Downtime cycles, submissions, sessions for local dev seeding |
 | `imports/` | Raw import source files |
-| `exports/` | Dated character exports from MongoDB (read-only snapshots) |
+| `reference/` | Static rules reference (merit tables, vitae, offices) |
 | `Terra Mortis Character Master (v3.0).xlsx` | Master spreadsheet reference |
 | `TM Characters.pdf` | Print reference |
 

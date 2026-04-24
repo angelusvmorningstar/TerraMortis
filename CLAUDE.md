@@ -21,7 +21,6 @@ Terra Mortis TM Suite is a browser-based character management system for a Vampi
 - **Local frontend:** `npx http-server public -p 8080`
 - **Local API:** `cd server && npm run dev` (needs `server/.env` with MongoDB URI + Discord credentials)
 - **No test framework.** Verify changes manually in-browser.
-- **Seed MongoDB:** `cd server && node migrate.js` (drops and re-inserts from `data/chars_v2.json`)
 
 ## Deployment
 
@@ -65,7 +64,7 @@ Express 5, ES modules. Routes: `/api/characters`, `/api/territories`, `/api/down
 
 ## v2 Schema
 
-Source of truth: `schemas/schema_v2_proposal.md`. 31 characters in `data/chars_v2.json`.
+Source of truth: `schemas/schema_v2_proposal.md`. Live data in MongoDB `tm_suite.characters`.
 
 Key design rules:
 - Attributes: always `{ dots, bonus }` objects
@@ -132,15 +131,14 @@ Key rules:
 
 **MongoDB Atlas is the live data source.** Never treat local files as a substitute for querying the database.
 
-| File | Status | Purpose |
-|------|--------|---------|
+| Location | Status | Purpose |
+|----------|--------|---------|
 | MongoDB `tm_suite` | **LIVE** | All character, territory, downtime, session data |
-| `data/chars_v2.json` | Seed only | Used by `server/migrate.js` to drop+reseed MongoDB; not kept in sync |
-| `data/chars_v3.json` | Reference | Working copy; not live |
-| `data/exports/` | Snapshots | Dated exports — read-only, not current |
+| `data/dev-fixtures/` | Dev seed | Downtime cycles, submissions, sessions for local dev |
+| `data/reference/` | Reference | Static rules reference (merit tables, vitae, offices) |
 | `st-working/` | ST ops | Downtime docs, prompt refs, retrospectives — not code |
 
-When you need current character or game data, query the API or check MongoDB directly. Do not read `data/*.json` files expecting them to reflect live state.
+When you need current character or game data, query the API or check MongoDB directly.
 
 ## Key schema files
 

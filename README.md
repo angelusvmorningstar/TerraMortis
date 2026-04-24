@@ -32,9 +32,8 @@ npx http-server public -p 8080
 
 | Location | Description |
 |----------|-------------|
-| `data/chars_v2.json` | 31 characters in v2 schema (seeded to MongoDB via `server/migrate.js`) |
-| `archive/tm_characters.json` | 31 characters in legacy format (reference only) |
 | MongoDB `tm_suite` | Live data: characters, territories, downtime, game sessions, session logs |
+| `archive/tm_characters.json` | 31 characters in pre-v2 format (frozen reference) |
 
 ### Character Schema (v2)
 
