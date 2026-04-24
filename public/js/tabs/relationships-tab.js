@@ -12,6 +12,7 @@
 
 import { apiGet, apiPost, apiRaw } from '../data/api.js';
 import { esc } from '../data/helpers.js';
+import { isSTRole } from '../auth/discord.js';
 import {
   FAMILIES,
   RELATIONSHIP_KINDS,
@@ -812,11 +813,14 @@ function renderAddPanel(el, char) {
           <span class="rel-add-field-label">NPC *</span>
           ${loading
             ? '<div class="rel-add-loading">Loading NPCs…</div>'
-            : `<select class="rel-add-input" data-field="npc_id">
-                 <option value="">(pick an NPC)</option>
-                 ${npcOpts}
-               </select>`}
+            : (_tabState.npcs && _tabState.npcs.length === 0 && !isSTRole())
+              ? `<div class="rel-add-hint">You haven't created any NPCs yet. Use <strong>New NPC (pending)</strong> to add one, or ask the ST to link you to a register NPC.</div>`
+              : `<select class="rel-add-input" data-field="npc_id">
+                   <option value="">(pick an NPC)</option>
+                   ${npcOpts}
+                 </select>`}
         </label>
+        ${!isSTRole() && _tabState.npcs && _tabState.npcs.length > 0 ? `<div class="rel-add-hint">Only NPCs you have quick-added appear here. STs handle links to register NPCs.</div>` : ''}
       ` : npcMode === 'new' ? `
         <label class="rel-add-field">
           <span class="rel-add-field-label">Name *</span>

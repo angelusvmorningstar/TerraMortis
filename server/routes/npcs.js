@@ -92,15 +92,25 @@ export function _resetQuickAddRateLimit() {
   _quickAddLastAt.clear();
 }
 
-// NPCR.7: player-readable NPC directory. Returns minimal fields for all
-// active / pending NPCs so a player can pick one when creating a new edge
-// from the Relationships tab. Must register BEFORE the ST-only router.use.
+// NPCR.7 / NPCR.14: player-readable NPC directory. Returns minimal fields
+// for active / pending NPCs so a player can pick one when creating a new
+// edge from the Relationships tab. Must register BEFORE the ST-only
+// router.use.
+//
+// NPCR.14 — privacy scoping: players only see NPCs they have personally
+// quick-added (created_by.type='player' AND created_by.player_id matches).
+// ST-owned NPCs would otherwise leak by mere existence in the register
+// (e.g. plot NPCs with secret backstory). STs/devs see the full directory.
 router.get('/directory', async (req, res) => {
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
+  const filter = { status: { $in: ['active', 'pending'] } };
+  if (!isSt) {
+    const playerId = String(req.user?.player_id || req.user?.id || '');
+    filter['created_by.type']      = 'player';
+    filter['created_by.player_id'] = playerId;
+  }
   const docs = await col()
-    .find(
-      { status: { $in: ['active', 'pending'] } },
-      { projection: { name: 1, description: 1, status: 1, is_correspondent: 1 } }
-    )
+    .find(filter, { projection: { name: 1, description: 1, status: 1, is_correspondent: 1 } })
     .sort({ name: 1 })
     .toArray();
   res.json(docs);

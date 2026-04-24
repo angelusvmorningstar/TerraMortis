@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-24 (epic-ord registered — Tiers 1-3 done, ord-4/ord-12 ready-for-dev)
+# last_updated: 2026-04-24 (+ NPCR-14 directory scope hardening — ready-for-dev)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -536,3 +536,11 @@ development_status:
   ord-12-dossier-restructure-live-sections: review
 
   epic-ord-retrospective: optional
+
+  # ============================================================
+  # EPIC NPCR (hardening follow-ups — main tier 1-3 shipped earlier)
+  # ============================================================
+  # NPCR.1-13 shipped prior to sprint-status registration. Listed only
+  # for hardening stories that emerge afterwards.
+
+  npcr-14-directory-scope-to-player-creations: review
