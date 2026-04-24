@@ -287,8 +287,9 @@ export async function renderRelationshipsTab(el, char) {
   if (edges.length === 0) {
     body.innerHTML = `
       <div class="rel-empty">
-        <p>No relationships yet.</p>
-        <p class="rel-empty-hint">When an ST or your fellow players connect you to someone, they'll appear here.</p>
+        <p class="rel-empty-title">Start your first relationship</p>
+        <p>Tap <strong>+ Add Relationship</strong> above to link your character to an NPC or propose a connection with another PC.</p>
+        <p class="rel-empty-hint">When STs or fellow players connect you to someone, they'll appear here too.</p>
       </div>
     `;
     writeLastSeen(charId, new Date().toISOString());
@@ -307,10 +308,16 @@ export async function renderRelationshipsTab(el, char) {
   for (const edge of incoming) {
     const kindLabel = kindByCode(edge.kind)?.label || edge.kind;
     const proposer = edge._other_name || '(another character)';
+    const dispChip = edge.disposition
+      ? `<span class="${dispositionClass(edge.disposition)}" title="Disposition: ${esc(edge.disposition)}">${esc(dispositionLabel(edge.disposition))}</span>`
+      : '';
     html += `
       <div class="rel-pending-banner" role="alert" data-edge-id="${esc(String(edge._id))}">
         <div class="rel-pending-text">
-          <strong>${esc(proposer)}</strong> wants to connect as <strong>${esc(kindLabel)}</strong>.
+          <div class="rel-pending-head">
+            <strong>${esc(proposer)}</strong> wants to connect as <strong>${esc(kindLabel)}</strong>.
+            ${dispChip}
+          </div>
           ${edge.state ? `<div class="rel-pending-state">${esc(edge.state)}</div>` : ''}
         </div>
         <div class="rel-pending-actions">
