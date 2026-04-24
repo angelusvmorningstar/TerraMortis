@@ -522,6 +522,44 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-edit-row{display:flex;gap:4px;align-items:center;margin-bottom:3px;}
 .sh-ts-hum{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--fl);font-size:10px;padding:3px;width:40px;text-align:center;}
 
+/* ── NPCR.4 Touchstone picker (Shape B) ── */
+.sh-touchstones-loading,.sh-touchstones-error{padding:8px 10px;font-family:var(--fl);font-size:11px;color:var(--txt3);}
+.sh-touchstones-error{color:var(--err);}
+.sh-ts-slot{border:1px solid var(--bdr);border-radius:4px;margin-bottom:6px;background:var(--surf);}
+.sh-ts-slot-head{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--bdr);font-family:var(--fl);font-size:10px;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase;}
+.sh-ts-slot-hum{color:var(--accent);font-weight:700;}
+.sh-ts-slot-att{font-size:10px;}
+.sh-ts-slot-body{padding:6px 8px;}
+.sh-ts-slot-add{background:none;border:1px dashed var(--bdr);border-radius:3px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;padding:6px 12px;width:100%;text-align:left;}
+.sh-ts-slot-add:hover{color:var(--accent);border-color:var(--bdr2);}
+.sh-ts-slot-empty-all{padding:8px;font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;}
+.sh-ts-slot-filled-list{display:flex;flex-direction:column;gap:4px;}
+.sh-ts-slot-filled-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.sh-ts-slot-filled-row.editing{flex-direction:column;align-items:stretch;gap:4px;}
+.sh-ts-slot-name{font-family:var(--ft);font-size:12px;color:var(--txt);font-weight:600;}
+.sh-ts-slot-state{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;flex:1;}
+.sh-ts-slot-actions{display:flex;gap:4px;margin-left:auto;}
+.sh-ts-slot-btn{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.04em;padding:3px 8px;}
+.sh-ts-slot-btn:hover{color:var(--accent);border-color:var(--bdr2);}
+.sh-ts-slot-btn.primary{color:var(--accent);border-color:var(--accent);}
+.sh-ts-slot-btn.primary:hover{background:var(--gold2-a12);}
+.sh-ts-slot-btn.danger:hover{color:var(--err);border-color:var(--err);}
+.sh-ts-picker{display:flex;flex-direction:column;gap:6px;padding:4px 0;}
+.sh-ts-picker-field{display:flex;flex-direction:column;gap:2px;}
+.sh-ts-picker-field>span{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.sh-ts-picker-field .sh-edit-input,.sh-ts-picker-field .sh-edit-select{font-size:11px;padding:4px 6px;}
+.sh-ts-picker-textarea{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;padding:4px 6px;min-height:50px;resize:vertical;}
+.sh-ts-picker-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+
+/* Legacy fallback — migration badge + button */
+.sh-ts-migration-badge{display:inline-block;background:var(--warn-dk-bg);border:1px solid var(--warn-dk);border-radius:3px;color:var(--warn-dk);font-family:var(--fl);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;margin-left:6px;}
+.sh-ts-legacy-list{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;opacity:.7;}
+.sh-ts-legacy-row{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;}
+.sh-ts-legacy-empty{font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;margin-bottom:8px;}
+.sh-ts-migrate-btn{background:var(--accent);border:none;border-radius:3px;color:var(--bg);cursor:pointer;font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;margin-top:4px;}
+.sh-ts-migrate-btn:hover{background:var(--accent2);}
+.sh-ts-migrate-hint{font-family:var(--ft);font-size:10px;color:var(--txt3);margin-top:4px;font-style:italic;}
+
 /* ── Covenant strip ── */
 .cov-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr2);}
 .cov-strip-cell{flex:1;display:flex;align-items:center;gap:6px;padding:5px 10px;}

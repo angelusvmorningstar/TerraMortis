@@ -1,6 +1,7 @@
 /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
 
 import state from '../data/state.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { getAttrVal, getAttrBonus, setAttrVal, isInClanDisc } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
@@ -161,6 +162,201 @@ export function shRemoveTouchstone(i) {
   c.touchstones.splice(i, 1);
   _markDirty();
   _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
+   TOUCHSTONE EDGES (NPCR.4 — Shape B bridge)
+   ----------------------------------------------------------
+   When the character has `touchstone_edge_ids` (even []), the
+   sheet renders a picker backed by the relationships graph.
+   Each operation round-trips immediately (edge POST/PUT/DELETE
+   and a partial character PUT with the new id list) so the
+   state is atomic without waiting for a full Save Character.
+══════════════════════════════════════════════════════════ */
+
+export async function shEnsureTouchstoneData() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!Array.isArray(c.touchstone_edge_ids)) return;
+  if (c._ts_loaded === true || c._ts_loaded === 'loading') return;
+  c._ts_loaded = 'loading';
+  try {
+    const [npcs, edges] = await Promise.all([
+      apiGet('/api/npcs'),
+      apiGet('/api/relationships?endpoint=' + encodeURIComponent(String(c._id)) + '&kind=touchstone'),
+    ]);
+    c._ts_npcs = Array.isArray(npcs) ? npcs : [];
+    c._ts_edges = Array.isArray(edges) ? edges : [];
+    c._ts_loaded = true;
+  } catch (err) {
+    console.error('[touchstone] load error:', err);
+    c._ts_npcs = [];
+    c._ts_edges = [];
+    c._ts_loaded = 'error';
+    c._ts_load_error = String(err?.message || err);
+  }
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerOpen(humanity, mode) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  c._ts_picker = {
+    humanity: +humanity,
+    mode: String(mode),
+    draft: { name: '', desc: '', state: '', npc_id: '' },
+  };
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerClose() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  delete c._ts_picker;
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerDraft(field, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c._ts_picker) return;
+  c._ts_picker.draft[field] = value;
+}
+
+export function shTouchstoneEditStateOpen(humanity, edgeId) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  c._ts_picker = {
+    humanity: +humanity,
+    mode: 'edit-state',
+    draft: { edge_id: String(edgeId) },
+  };
+  _renderSheet(c);
+}
+
+export async function shTouchstoneLink(humanity) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const draft = c._ts_picker?.draft;
+  if (!draft || !draft.npc_id) { alert('Pick an NPC.'); return; }
+  const charId = String(c._id);
+  try {
+    const edge = await apiPost('/api/relationships', {
+      a: { type: 'pc', id: charId },
+      b: { type: 'npc', id: String(draft.npc_id) },
+      kind: 'touchstone',
+      direction: 'a_to_b',
+      state: String(draft.state || ''),
+      st_hidden: false,
+      touchstone_meta: { humanity: +humanity },
+    });
+    c._ts_edges = (c._ts_edges || []).concat(edge);
+    c.touchstone_edge_ids = Array.isArray(c.touchstone_edge_ids)
+      ? c.touchstone_edge_ids.concat(String(edge._id))
+      : [String(edge._id)];
+    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
+    delete c._ts_picker;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] link error:', err);
+    alert('Link failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shTouchstoneCreate(humanity) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const draft = c._ts_picker?.draft;
+  if (!draft) return;
+  const name = String(draft.name || '').trim();
+  if (!name) { alert('Name is required.'); return; }
+  const description = String(draft.desc || '').trim();
+  const charId = String(c._id);
+  try {
+    const npc = await apiPost('/api/npcs', { name, description, status: 'active' });
+    c._ts_npcs = (c._ts_npcs || []).concat(npc);
+    const edge = await apiPost('/api/relationships', {
+      a: { type: 'pc', id: charId },
+      b: { type: 'npc', id: String(npc._id) },
+      kind: 'touchstone',
+      direction: 'a_to_b',
+      state: String(draft.state || ''),
+      st_hidden: false,
+      touchstone_meta: { humanity: +humanity },
+    });
+    c._ts_edges = (c._ts_edges || []).concat(edge);
+    c.touchstone_edge_ids = Array.isArray(c.touchstone_edge_ids)
+      ? c.touchstone_edge_ids.concat(String(edge._id))
+      : [String(edge._id)];
+    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
+    delete c._ts_picker;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] create error:', err);
+    alert('Create failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shTouchstoneEditState(edgeId, newState) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const edge = (c._ts_edges || []).find(e => String(e._id) === String(edgeId));
+  if (!edge) return;
+  const trimmed = String(newState || '').trim();
+  if (trimmed === (edge.state || '')) { delete c._ts_picker; _renderSheet(c); return; }
+  try {
+    const body = {
+      a: edge.a, b: edge.b, kind: edge.kind,
+      direction: edge.direction || 'a_to_b',
+      state: trimmed,
+      st_hidden: !!edge.st_hidden,
+      status: edge.status,
+    };
+    if (edge.touchstone_meta) body.touchstone_meta = edge.touchstone_meta;
+    if (edge.disposition) body.disposition = edge.disposition;
+    const updated = await apiPut('/api/relationships/' + edgeId, body);
+    const idx = c._ts_edges.findIndex(e => String(e._id) === String(edgeId));
+    if (idx >= 0) c._ts_edges[idx] = updated;
+    delete c._ts_picker;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] edit state error:', err);
+    alert('Save failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shTouchstoneUnlink(edgeId) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!confirm('Remove this touchstone? The relationship record will be retired (ST can reactivate from the NPC register).')) return;
+  const charId = String(c._id);
+  try {
+    await apiDelete('/api/relationships/' + edgeId);
+    const idx = (c._ts_edges || []).findIndex(e => String(e._id) === String(edgeId));
+    if (idx >= 0) c._ts_edges[idx].status = 'retired';
+    c.touchstone_edge_ids = (c.touchstone_edge_ids || []).filter(id => String(id) !== String(edgeId));
+    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] unlink error:', err);
+    alert('Remove failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shBeginTouchstoneMigration() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!confirm('Convert this character to the new touchstone system? The legacy text entries stay visible (read-only) until NPCR.5 migration runs.')) return;
+  try {
+    c.touchstone_edge_ids = [];
+    await apiPut('/api/characters/' + String(c._id), { touchstone_edge_ids: [] });
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] migration init error:', err);
+    alert('Migration init failed: ' + (err?.message || 'unknown error'));
+    delete c.touchstone_edge_ids;
+    _renderSheet(c);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
