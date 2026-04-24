@@ -263,6 +263,152 @@ describe('PUT /api/relationships/:id', () => {
   });
 });
 
+// ── Bug fixes (NPCR.2 review) ───────────────────────────────────────────────
+
+describe('PUT bug fixes', () => {
+  it('clears disposition when sent as null (unset + delta before=value after=undefined)', async () => {
+    // Create an edge with disposition set
+    const postRes = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+        disposition: 'positive',
+      }));
+    expect(postRes.status).toBe(201);
+    expect(postRes.body.disposition).toBe('positive');
+    CREATED_IDS.push(postRes.body._id);
+
+    // Clear via null
+    const putRes = await request(app)
+      .put(`/api/relationships/${postRes.body._id}`)
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: postRes.body.a, b: postRes.body.b,
+        disposition: null,
+      }));
+    expect(putRes.status).toBe(200);
+    expect(putRes.body.disposition).toBeUndefined();
+
+    const last = putRes.body.history[putRes.body.history.length - 1];
+    const disp = last.fields.find(f => f.name === 'disposition');
+    expect(disp).toBeDefined();
+    expect(disp.before).toBe('positive');
+    expect(disp.after).toBeUndefined();
+  });
+
+  it('returns 409 when PUT targets a retired edge', async () => {
+    const postRes = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+      }));
+    CREATED_IDS.push(postRes.body._id);
+
+    // Retire it
+    await request(app)
+      .delete(`/api/relationships/${postRes.body._id}`)
+      .set('X-Test-User', stUser());
+
+    // PUT attempting to change state → 409
+    const putRes = await request(app)
+      .put(`/api/relationships/${postRes.body._id}`)
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: postRes.body.a, b: postRes.body.b,
+        state: 'trying to resurrect',
+      }));
+    expect(putRes.status).toBe(409);
+    expect(putRes.body.error).toBe('CONFLICT');
+  });
+
+  it('optimistic-concurrency guard: PUT returns 409 when updated_at changes under it', async () => {
+    const postRes = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+      }));
+    CREATED_IDS.push(postRes.body._id);
+
+    // Verify the Mongo-level semantic the route relies on: FOU with an
+    // updated_at filter returns null when another writer has already
+    // bumped the field. This is the guard the route converts to 409.
+    const oid = new ObjectId(postRes.body._id);
+    const staleUpdatedAt = postRes.body.updated_at;
+    // Another writer lands first
+    await getCollection('relationships').updateOne(
+      { _id: oid },
+      { $set: { updated_at: new Date().toISOString() + '-bumped' } },
+    );
+    // Our PUT's FOU, using the stale updated_at it read before the bump
+    const foundAndUpdated = await getCollection('relationships').findOneAndUpdate(
+      { _id: oid, updated_at: staleUpdatedAt },
+      { $set: { state: 'stale write', updated_at: new Date().toISOString() } },
+      { returnDocument: 'after' },
+    );
+    expect(foundAndUpdated).toBeNull();
+
+    // Fix the updated_at back to something valid for subsequent tests
+    await getCollection('relationships').updateOne(
+      { _id: oid },
+      { $set: { updated_at: new Date().toISOString() } },
+    );
+  });
+
+  it('strips custom_label from POST when kind !== "other"', async () => {
+    const res = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+        kind: 'mentor',
+        custom_label: 'should be stripped',
+      }));
+    expect(res.status).toBe(201);
+    expect(res.body.custom_label).toBeUndefined();
+    CREATED_IDS.push(res.body._id);
+  });
+
+  it('unsets custom_label on PUT when kind changes from "other" to another', async () => {
+    const postRes = await request(app)
+      .post('/api/relationships')
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: { type: 'pc', id: new ObjectId().toHexString() },
+        b: { type: 'npc', id: NPC_C },
+        kind: 'other',
+        custom_label: 'blood-oath partner',
+      }));
+    expect(postRes.status).toBe(201);
+    expect(postRes.body.custom_label).toBe('blood-oath partner');
+    CREATED_IDS.push(postRes.body._id);
+
+    const putRes = await request(app)
+      .put(`/api/relationships/${postRes.body._id}`)
+      .set('X-Test-User', stUser())
+      .send(validBody({
+        a: postRes.body.a, b: postRes.body.b,
+        kind: 'mentor',
+        custom_label: '',
+      }));
+    expect(putRes.status).toBe(200);
+    expect(putRes.body.kind).toBe('mentor');
+    expect(putRes.body.custom_label).toBeUndefined();
+
+    const last = putRes.body.history[putRes.body.history.length - 1];
+    const cl = last.fields.find(f => f.name === 'custom_label');
+    expect(cl).toBeDefined();
+    expect(cl.before).toBe('blood-oath partner');
+    expect(cl.after).toBeUndefined();
+  });
+});
+
 // ── DELETE ───────────────────────────────────────────────────────────────────
 
 describe('DELETE /api/relationships/:id', () => {

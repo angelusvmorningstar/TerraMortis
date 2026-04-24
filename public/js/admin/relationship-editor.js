@@ -54,9 +54,15 @@ export function renderRelationshipsSection(host, { npcId, chars, npcs }) {
 }
 
 async function loadEdges() {
+  // Capture the NPC id at call start; if the user switches NPCs before the
+  // request resolves, drop the stale response.
+  const requestedNpcId = _npcId;
   try {
-    _edges = await apiGet(`/api/relationships?endpoint=${encodeURIComponent(_npcId)}`);
+    const edges = await apiGet(`/api/relationships?endpoint=${encodeURIComponent(requestedNpcId)}`);
+    if (requestedNpcId !== _npcId) return;
+    _edges = edges;
   } catch (err) {
+    if (requestedNpcId !== _npcId) return;
     console.error('[relationship-editor] load error:', err);
     _edges = [];
     setError('Failed to load relationships: ' + (err?.message || 'unknown error'));
@@ -452,8 +458,11 @@ async function saveEdge(formId) {
   const body = {
     a, b, kind, direction, state, st_hidden: stHidden,
   };
-  if (customLabel) body.custom_label = customLabel;
-  if (disposition) body.disposition = disposition;
+  // Only send custom_label when kind === 'other'; otherwise clear it so a
+  // prior label from the 'other' kind can't persist after a kind change.
+  body.custom_label = kind === 'other' ? customLabel : '';
+  // disposition: send null to clear; server $unsets when null.
+  body.disposition = disposition || null;
 
   try {
     if (isNew) {

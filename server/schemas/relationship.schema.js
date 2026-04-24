@@ -86,7 +86,8 @@ export const relationshipSchema = {
     kind:         { type: 'string', enum: KIND_ENUM },
     custom_label: { type: 'string' },
     direction:    { type: 'string', enum: DIRECTION_ENUM },
-    disposition:  { type: 'string', enum: DISPOSITION_ENUM },
+    // disposition: string enum for setting; null to clear (route $unsets on null).
+    disposition:  { oneOf: [{ type: 'string', enum: DISPOSITION_ENUM }, { type: 'null' }] },
     state:        { type: 'string' },
     st_hidden:    { type: 'boolean' },
     status:       { type: 'string', enum: STATUS_ENUM },

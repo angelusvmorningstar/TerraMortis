@@ -91,7 +91,10 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     created_at: now,
     updated_at: now,
   };
-  if (body.custom_label) doc.custom_label = String(body.custom_label).trim();
+  // Only store custom_label when kind === 'other', regardless of what the client sent.
+  if (body.kind === 'other' && body.custom_label) {
+    doc.custom_label = String(body.custom_label).trim();
+  }
   if (body.disposition) doc.disposition = body.disposition;
 
   const result = await col().insertOne(doc);
@@ -115,36 +118,80 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
   }
 
+  // Guard against resurrecting a retired edge from stale client cache.
+  // Allow only explicit status='retired' echoes (no-op) through.
+  if (existing.status === 'retired' && body.status !== 'retired') {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'This edge is retired. Reload the list before editing.',
+    });
+  }
+
+  // Normalise "optional, clearable" fields so empty / null / missing all
+  // collapse to a single "unset" intent. Prevents phantom history entries
+  // when a client echoes a field that was never set, and lets us $unset
+  // when the user explicitly clears.
+  const kindForSave = body.kind ?? existing.kind;
+  if (kindForSave !== 'other') body.custom_label = '';
+  else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
+
+  const CLEARABLE = new Set(['custom_label', 'disposition']);
+  const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
+
   const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status'];
+
   const fields = [];
+  const updates = {};
+  const unsets = {};
   for (const name of TRACKED) {
     if (!(name in body)) continue;
-    const before = existing[name];
-    const after = body[name];
-    if (JSON.stringify(before) !== JSON.stringify(after)) {
+    const beforeRaw = existing[name];
+    const afterRaw = body[name];
+    const beforeCleared = isCleared(name, beforeRaw) || beforeRaw === undefined;
+    const afterCleared = isCleared(name, afterRaw);
+
+    if (beforeCleared && afterCleared) continue; // no-op
+
+    if (afterCleared) {
+      // clear: unset the field and record delta showing it went away
+      unsets[name] = '';
+      fields.push({ name, ...(beforeRaw !== undefined ? { before: beforeRaw } : {}) });
+      continue;
+    }
+
+    if (JSON.stringify(beforeRaw) !== JSON.stringify(afterRaw)) {
       const delta = { name };
-      if (before !== undefined) delta.before = before;
-      if (after !== undefined) delta.after = after;
+      if (beforeRaw !== undefined) delta.before = beforeRaw;
+      delta.after = afterRaw;
       fields.push(delta);
     }
+    updates[name] = afterRaw;
   }
 
   const actor = actorFromReq(req);
   const now = nowIso();
-
-  // Client-managed fields only — never let client overwrite history/created_at/created_by.
-  const updates = {};
-  for (const name of TRACKED) {
-    if (name in body) updates[name] = body[name];
-  }
   updates.updated_at = now;
 
   const update = { $set: updates };
+  if (Object.keys(unsets).length > 0) update.$unset = unsets;
   if (fields.length > 0) {
     update.$push = { history: { at: now, by: actor, change: 'updated', fields } };
   }
 
-  const result = await col().findOneAndUpdate({ _id: oid }, update, { returnDocument: 'after' });
+  // Optimistic concurrency: the document must still match the updated_at we
+  // read. If another PUT raced in between, this findOneAndUpdate matches
+  // zero documents and we return 409.
+  const result = await col().findOneAndUpdate(
+    { _id: oid, updated_at: existing.updated_at },
+    update,
+    { returnDocument: 'after' }
+  );
+  if (!result) {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'This edge was modified by another request. Reload and retry.',
+    });
+  }
   res.json(result);
 });
 
