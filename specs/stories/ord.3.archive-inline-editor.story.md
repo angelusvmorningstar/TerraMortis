@@ -1,7 +1,7 @@
 ---
 id: ord.3
 epic: ord
-status: review
+status: done
 priority: high
 depends_on: []
 ---

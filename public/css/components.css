@@ -1843,6 +1843,92 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .qf-btn-approve:hover { opacity: .85; }
 
+/* Archive dossier three-section layout (ORD-12): core info card +
+   questionnaire details + history narrative, all inside one reading-pane. */
+
+.arc-core-card {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rp-bdr);
+}
+
+.arc-core-name {
+  font-family: var(--fh);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--rp-head);
+  margin-bottom: 6px;
+}
+
+.arc-core-identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--rp-txt2);
+}
+
+.arc-core-clan,
+.arc-core-cov {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.arc-core-bloodline { color: var(--rp-txt3); }
+
+.arc-core-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 16px;
+  row-gap: 4px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.arc-core-label {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--rp-txt3);
+  align-self: center;
+}
+
+.arc-core-value {
+  margin: 0;
+  color: var(--rp-txt);
+}
+
+/* Questionnaire details section */
+.arc-quest-details {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rp-bdr);
+}
+
+.arc-quest-section { margin-bottom: 16px; }
+.arc-quest-section:last-child { margin-bottom: 0; }
+
+.arc-quest-section-title {
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rp-head);
+  margin: 0 0 8px;
+}
+
+/* History narrative section */
+.arc-history-heading {
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rp-head);
+  margin: 0 0 8px;
+}
+
 /* Archive document Edit button (ST only) — lives in the detail-view header. */
 .arc-btn-edit {
   padding: 4px 12px;
