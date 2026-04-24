@@ -1,7 +1,7 @@
 ---
 id: npcr.9
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.6, npcr.7]
 ---
@@ -60,3 +60,14 @@ Scope is deliberately narrow: only edges where `created_by.type='pc' AND created
 - Cap verified at 2000 chars server-side
 - Quinn verification pass
 - `bmad-code-review` required (auth boundary + whitelist)
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft. Edit-rights gate specified as `created_by.type='pc' AND created_by.id=myChar`.
+- **2026-04-24 r2**: implemented. The `created_by.type='pc'` formulation is not schema-legal per NPCR.2 (`actorSchema.type` enum is `['st','player']`), so the gate redirects through `created_by_char_id: string` added in NPCR.7. Edit-rights check: `edge.status === 'active' AND edge.created_by_char_id ∈ caller.character_ids`. Also:
+  - PUT /api/relationships/:id moved OUT of the ST-only `router.use` block; split-auth inside the handler matches the POST pattern from NPCR.7.
+  - Existing `api-relationships.test.js` had a "player gets 403 on PUT" test that asserted the router-level guard. With PUT now checking existence first, a missing id returns 404; test updated to reflect the new semantic (player 403-on-not-owned covered in the new `api-relationships-player-edit.test.js`).
+  - State cap is **player-only 2000 chars**; the schema's 4000 cap remains for ST writes. Checked after the whitelist is applied but before the diff/$set logic.
+  - UI: Edit button appears on edge cards that pass the gate. Inline edit form replaces the card body (state textarea with live counter, 3-point disposition chips, custom_label for kind='other'). Same `apiRaw` pattern as the Add picker surfaces 403/409/400 as inline errors.

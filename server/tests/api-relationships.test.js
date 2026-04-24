@@ -70,12 +70,16 @@ describe('Auth', () => {
     expect(res.status).toBe(403);
   });
 
-  it('403 as player on PUT', async () => {
+  it('404 as player on PUT of non-existent edge (NPCR.9 pulled PUT out of ST guard)', async () => {
+    // Pre-NPCR.9 this returned 403 at the router level. Now PUT has split
+    // auth and checks existence first; a missing id returns 404 regardless
+    // of role. Player 403-on-not-owned is covered in
+    // api-relationships-player-edit.test.js.
     const res = await request(app)
       .put(`/api/relationships/${new ObjectId().toHexString()}`)
       .set('X-Test-User', playerUser([]))
       .send(validBody());
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it('403 as player on DELETE', async () => {

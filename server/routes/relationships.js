@@ -223,6 +223,151 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
   res.status(201).json(created);
 });
 
+// PUT /:id — edit edge. Split auth (NPCR.9):
+//   ST: any tracked field can change; existing full-body flow applies.
+//   Player: must own the edge (created_by_char_id ∈ character_ids) AND edge
+//           status must be 'active'. Body is whitelisted to
+//           {state, disposition, custom_label}; other fields are silently
+//           ignored and a console.warn is logged. 2000-char cap on state.
+// Both auths: appends a history row with per-field deltas; optimistic
+// concurrency via updated_at.
+router.put('/:id', validate(relationshipSchema), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
+
+  const existing = await col().findOne({ _id: oid });
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Relationship not found' });
+
+  const role = req.user?.role;
+  const isSt = role === 'st' || role === 'dev';
+
+  // Player edit-rights gate.
+  if (!isSt) {
+    const charIds = (req.user?.character_ids || []).map(String);
+    const ownerCharId = String(existing.created_by_char_id || '');
+    if (!ownerCharId || !charIds.includes(ownerCharId)) {
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Only the creating character can edit this edge. Flag it for ST review instead.',
+      });
+    }
+    if (existing.status !== 'active') {
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Players can only edit active edges.',
+      });
+    }
+    // Whitelist the body: only state, disposition, custom_label survive.
+    const WHITELIST = new Set(['state', 'disposition', 'custom_label']);
+    const filtered = {};
+    for (const key of Object.keys(req.body || {})) {
+      if (WHITELIST.has(key)) {
+        filtered[key] = req.body[key];
+      } else if (key !== 'a' && key !== 'b' && key !== 'kind' && key !== 'direction' && key !== '_id') {
+        // Log attempted writes to non-trivial protected fields (skip the
+        // usual echo-back fields the schema requires in the body).
+        console.warn('[relationships] player attempted to modify field:', key, 'ignored for edge:', String(existing._id));
+      } else if (key === 'kind' && req.body.kind !== existing.kind) {
+        console.warn('[relationships] player attempted to change kind, ignored for edge:', String(existing._id));
+      }
+    }
+    // Preserve required schema fields from the existing record so the
+    // downstream schema validation (already passed) + diffing logic works.
+    req.body = {
+      a: existing.a,
+      b: existing.b,
+      kind: existing.kind,
+      status: existing.status,
+      ...filtered,
+    };
+
+    // 2000-char cap on state (players only).
+    if (typeof req.body.state === 'string' && req.body.state.length > 2000) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'state exceeds 2000 character limit',
+      });
+    }
+  }
+
+  const body = req.body;
+  if (sameEndpoint(body.a, body.b)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Endpoints must differ' });
+  }
+  if (customLabelMissing(body)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
+  }
+  const tsErr = touchstoneShapeError(body);
+  if (tsErr && isSt) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
+  }
+
+  // Guard against resurrecting a retired edge from stale client cache.
+  if (existing.status === 'retired' && body.status !== 'retired') {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'This edge is retired. Reload the list before editing.',
+    });
+  }
+
+  const kindForSave = body.kind ?? existing.kind;
+  if (kindForSave !== 'other') body.custom_label = '';
+  else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
+  if (kindForSave !== 'touchstone') body.touchstone_meta = null;
+
+  const CLEARABLE = new Set(['custom_label', 'disposition', 'touchstone_meta']);
+  const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
+
+  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status', 'touchstone_meta'];
+
+  const fields = [];
+  const updates = {};
+  const unsets = {};
+  for (const name of TRACKED) {
+    if (!(name in body)) continue;
+    const beforeRaw = existing[name];
+    const afterRaw = body[name];
+    const beforeCleared = isCleared(name, beforeRaw) || beforeRaw === undefined;
+    const afterCleared = isCleared(name, afterRaw);
+    if (beforeCleared && afterCleared) continue;
+    if (afterCleared) {
+      unsets[name] = '';
+      fields.push({ name, ...(beforeRaw !== undefined ? { before: beforeRaw } : {}) });
+      continue;
+    }
+    if (JSON.stringify(beforeRaw) !== JSON.stringify(afterRaw)) {
+      const delta = { name };
+      if (beforeRaw !== undefined) delta.before = beforeRaw;
+      delta.after = afterRaw;
+      fields.push(delta);
+    }
+    updates[name] = afterRaw;
+  }
+
+  const actor = actorFromReq(req);
+  const now = nowIso();
+  updates.updated_at = now;
+
+  const update = { $set: updates };
+  if (Object.keys(unsets).length > 0) update.$unset = unsets;
+  if (fields.length > 0) {
+    update.$push = { history: { at: now, by: actor, change: 'updated', fields } };
+  }
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid, updated_at: existing.updated_at },
+    update,
+    { returnDocument: 'after' }
+  );
+  if (!result) {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'This edge was modified by another request. Reload and retry.',
+    });
+  }
+  res.json(result);
+});
+
 // All other routes ST-only.
 router.use(requireRole('st'));
 
@@ -277,102 +422,6 @@ router.get('/:id', async (req, res) => {
   res.json(doc);
 });
 
-// PUT /:id — edit edge; appends history row with field delta
-router.put('/:id', validate(relationshipSchema), async (req, res) => {
-  const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
-
-  const existing = await col().findOne({ _id: oid });
-  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Relationship not found' });
-
-  const body = req.body;
-  if (sameEndpoint(body.a, body.b)) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Endpoints must differ' });
-  }
-  if (customLabelMissing(body)) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: "kind='other' requires a non-empty custom_label" });
-  }
-  const tsErr = touchstoneShapeError(body);
-  if (tsErr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: tsErr });
-
-  // Guard against resurrecting a retired edge from stale client cache.
-  // Allow only explicit status='retired' echoes (no-op) through.
-  if (existing.status === 'retired' && body.status !== 'retired') {
-    return res.status(409).json({
-      error: 'CONFLICT',
-      message: 'This edge is retired. Reload the list before editing.',
-    });
-  }
-
-  // Normalise "optional, clearable" fields so empty / null / missing all
-  // collapse to a single "unset" intent. Prevents phantom history entries
-  // when a client echoes a field that was never set, and lets us $unset
-  // when the user explicitly clears.
-  const kindForSave = body.kind ?? existing.kind;
-  if (kindForSave !== 'other') body.custom_label = '';
-  else if (typeof body.custom_label === 'string') body.custom_label = body.custom_label.trim();
-  // When kind shifts away from 'touchstone', drop any stale touchstone_meta echoed by the client.
-  if (kindForSave !== 'touchstone') body.touchstone_meta = null;
-
-  const CLEARABLE = new Set(['custom_label', 'disposition', 'touchstone_meta']);
-  const isCleared = (name, v) => CLEARABLE.has(name) && (v === '' || v === null);
-
-  const TRACKED = ['a', 'b', 'kind', 'custom_label', 'direction', 'disposition', 'state', 'st_hidden', 'status', 'touchstone_meta'];
-
-  const fields = [];
-  const updates = {};
-  const unsets = {};
-  for (const name of TRACKED) {
-    if (!(name in body)) continue;
-    const beforeRaw = existing[name];
-    const afterRaw = body[name];
-    const beforeCleared = isCleared(name, beforeRaw) || beforeRaw === undefined;
-    const afterCleared = isCleared(name, afterRaw);
-
-    if (beforeCleared && afterCleared) continue; // no-op
-
-    if (afterCleared) {
-      // clear: unset the field and record delta showing it went away
-      unsets[name] = '';
-      fields.push({ name, ...(beforeRaw !== undefined ? { before: beforeRaw } : {}) });
-      continue;
-    }
-
-    if (JSON.stringify(beforeRaw) !== JSON.stringify(afterRaw)) {
-      const delta = { name };
-      if (beforeRaw !== undefined) delta.before = beforeRaw;
-      delta.after = afterRaw;
-      fields.push(delta);
-    }
-    updates[name] = afterRaw;
-  }
-
-  const actor = actorFromReq(req);
-  const now = nowIso();
-  updates.updated_at = now;
-
-  const update = { $set: updates };
-  if (Object.keys(unsets).length > 0) update.$unset = unsets;
-  if (fields.length > 0) {
-    update.$push = { history: { at: now, by: actor, change: 'updated', fields } };
-  }
-
-  // Optimistic concurrency: the document must still match the updated_at we
-  // read. If another PUT raced in between, this findOneAndUpdate matches
-  // zero documents and we return 409.
-  const result = await col().findOneAndUpdate(
-    { _id: oid, updated_at: existing.updated_at },
-    update,
-    { returnDocument: 'after' }
-  );
-  if (!result) {
-    return res.status(409).json({
-      error: 'CONFLICT',
-      message: 'This edge was modified by another request. Reload and retry.',
-    });
-  }
-  res.json(result);
-});
 
 // DELETE /:id — retire (status='retired'); append history 'retired'
 router.delete('/:id', async (req, res) => {

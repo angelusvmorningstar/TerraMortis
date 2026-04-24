@@ -590,6 +590,14 @@ html:not([data-theme="dark"]) .edit-icon {
 .rel-add-mode-chip:hover{border-color:var(--bdr2);color:var(--txt);}
 .rel-add-mode-chip.on{background:var(--gold2-a12);color:var(--accent);border-color:var(--accent);}
 .rel-add-hint{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;padding:0 2px;}
+
+/* NPCR.9 Edit own-edge controls */
+.rel-edge-actions{display:flex;gap:6px;justify-content:flex-end;}
+.rel-edit-btn{background:none;border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
+.rel-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+.rel-edge-card-editing{border-color:var(--accent);}
+.rel-edit-counter{font-family:var(--fl);font-size:10px;color:var(--txt3);text-align:right;}
+.rel-edit-counter.over-cap,.rel-add-input.over-cap,.rel-add-textarea.over-cap{color:var(--err);border-color:var(--err);}
 .rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
 .rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
 .rel-empty p{margin:0 0 6px;}

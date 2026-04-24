@@ -228,7 +228,7 @@ export async function renderRelationshipsTab(el, char) {
           <span class="rel-family-caret">${isCollapsed ? '▸' : '▾'}</span>
         </header>
         <div class="rel-family-body">
-          ${bucket.map(e => renderEdgeCard(e, lastSeen, dismissed)).join('')}
+          ${bucket.map(e => renderEdgeCard(e, lastSeen, dismissed, char)).join('')}
         </div>
       </section>
     `;
@@ -236,7 +236,7 @@ export async function renderRelationshipsTab(el, char) {
 
   body.innerHTML = html;
 
-  attachHandlers(body, charId);
+  attachHandlers(body, charId, char, edges);
 
   // Mark the tab visited — future "New" badges key off this timestamp.
   // Persist AFTER render so "New" badges remain correct for this session.
@@ -245,7 +245,13 @@ export async function renderRelationshipsTab(el, char) {
 
 // ── Card rendering ──────────────────────────────────────────────────────────
 
-function renderEdgeCard(edge, lastSeen, dismissed) {
+function canEditEdge(edge, char) {
+  // NPCR.9 edit-rights gate: active edge owned by the active character.
+  return edge.status === 'active'
+    && String(edge.created_by_char_id || '') === String(char?._id || '');
+}
+
+function renderEdgeCard(edge, lastSeen, dismissed, char) {
   const k = kindByCode(edge.kind);
   const kindLabel = k?.label || edge.kind;
   const custom = edge.kind === 'other' && edge.custom_label ? ` (${esc(edge.custom_label)})` : '';
@@ -263,6 +269,13 @@ function renderEdgeCard(edge, lastSeen, dismissed) {
   const dispChip = edge.disposition
     ? `<span class="${dispositionClass(edge.disposition)}" title="Disposition: ${esc(edge.disposition)}">${esc(dispositionLabel(edge.disposition))}</span>`
     : '';
+
+  const editable = canEditEdge(edge, char);
+  const isEditing = editable && _tabState?.editing_edge_id === String(edge._id);
+
+  if (isEditing) {
+    return renderEdgeEditForm(edge);
+  }
 
   return `
     <article class="rel-edge-card" data-edge-id="${esc(String(edge._id))}">
@@ -285,13 +298,65 @@ function renderEdgeCard(edge, lastSeen, dismissed) {
           <span class="rel-edge-state-full" hidden>${esc(stateText)}</span>
         </div>
       ` : ''}
+      ${editable ? `
+        <div class="rel-edge-actions">
+          <button type="button" class="rel-edit-btn" data-act="start-edit" data-edge-id="${esc(String(edge._id))}">Edit</button>
+        </div>
+      ` : ''}
+    </article>
+  `;
+}
+
+function renderEdgeEditForm(edge) {
+  const draft = _tabState.edit_draft || {};
+  const state = draft.state ?? edge.state ?? '';
+  const disposition = draft.disposition !== undefined ? draft.disposition : (edge.disposition || '');
+  const customLabel = draft.custom_label !== undefined ? draft.custom_label : (edge.custom_label || '');
+  const showCustomLabel = edge.kind === 'other';
+  const stateLen = String(state).length;
+  const capClass = stateLen > 2000 ? ' over-cap' : '';
+  const submitting = !!_tabState.editing_submitting;
+
+  return `
+    <article class="rel-edge-card rel-edge-card-editing" data-edge-id="${esc(String(edge._id))}">
+      <header class="rel-edge-head">
+        <div class="rel-edge-head-main">
+          <span class="rel-edge-name">${esc(edge._other_name || '(unknown)')}</span>
+          <span class="rel-edge-kind">Editing · ${esc(kindByCode(edge.kind)?.label || edge.kind)}</span>
+        </div>
+      </header>
+      ${_tabState.edit_error ? `<div class="rel-error" role="alert">${esc(_tabState.edit_error)}</div>` : ''}
+      <label class="rel-add-field">
+        <span class="rel-add-field-label">State</span>
+        <textarea class="rel-add-input rel-add-textarea${capClass}" data-edit-field="state" rows="4" maxlength="2000">${esc(state)}</textarea>
+        <span class="rel-edit-counter${capClass}">${stateLen} / 2000</span>
+      </label>
+      <div class="rel-add-field">
+        <span class="rel-add-field-label">Disposition</span>
+        <div class="rel-disp-chips" role="radiogroup">
+          ${['positive', 'neutral', 'negative'].map(d => `
+            <button type="button" class="rel-disp-chip ${d}${disposition === d ? ' on' : ''}" data-edit-disp="${d}">${d}</button>
+          `).join('')}
+          <button type="button" class="rel-disp-chip clear${!disposition ? ' on' : ''}" data-edit-disp="">clear</button>
+        </div>
+      </div>
+      ${showCustomLabel ? `
+        <label class="rel-add-field">
+          <span class="rel-add-field-label">Custom label</span>
+          <input class="rel-add-input" data-edit-field="custom_label" value="${esc(customLabel)}" placeholder="Custom label" />
+        </label>
+      ` : ''}
+      <div class="rel-add-actions">
+        <button type="button" class="rel-add-btn primary" data-act="save-edit" data-edge-id="${esc(String(edge._id))}"${submitting ? ' disabled' : ''}>${submitting ? 'Saving…' : 'Save'}</button>
+        <button type="button" class="rel-add-btn muted" data-act="cancel-edit"${submitting ? ' disabled' : ''}>Cancel</button>
+      </div>
     </article>
   `;
 }
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 
-function attachHandlers(root, charId) {
+function attachHandlers(root, charId, char, edges) {
   root.querySelectorAll('[data-act="toggle-family"]').forEach(head => {
     head.addEventListener('click', () => {
       const section = head.closest('.rel-family');
@@ -333,6 +398,112 @@ function attachHandlers(root, charId) {
       wrap.classList.remove('truncated');
       moreBtn.remove();
     });
+  });
+
+  // NPCR.9 edit controls
+  root.querySelectorAll('[data-act="start-edit"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const edgeId = btn.dataset.edgeId;
+      const edge = (edges || []).find(e => String(e._id) === String(edgeId));
+      if (!edge) return;
+      _tabState.editing_edge_id = String(edgeId);
+      _tabState.edit_draft = {
+        state: edge.state || '',
+        disposition: edge.disposition || '',
+        custom_label: edge.custom_label || '',
+      };
+      _tabState.edit_error = null;
+      _tabState.editing_submitting = false;
+      // Re-render the whole tab to swap the card into edit mode.
+      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+    });
+  });
+
+  root.querySelectorAll('[data-edit-field]').forEach(input => {
+    input.addEventListener('input', () => {
+      if (!_tabState.edit_draft) _tabState.edit_draft = {};
+      _tabState.edit_draft[input.dataset.editField] = input.value;
+      // Live-update the counter next to the textarea.
+      if (input.dataset.editField === 'state') {
+        const counter = input.parentElement?.querySelector('.rel-edit-counter');
+        const len = input.value.length;
+        if (counter) {
+          counter.textContent = `${len} / 2000`;
+          counter.classList.toggle('over-cap', len > 2000);
+          input.classList.toggle('over-cap', len > 2000);
+        }
+      }
+    });
+  });
+
+  root.querySelectorAll('[data-edit-disp]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (!_tabState.edit_draft) _tabState.edit_draft = {};
+      _tabState.edit_draft.disposition = chip.dataset.editDisp || '';
+      const wrap = chip.closest('.rel-disp-chips');
+      wrap?.querySelectorAll('.rel-disp-chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on');
+    });
+  });
+
+  root.querySelector('[data-act="cancel-edit"]')?.addEventListener('click', () => {
+    delete _tabState.editing_edge_id;
+    delete _tabState.edit_draft;
+    delete _tabState.edit_error;
+    renderRelationshipsTab(document.getElementById('t-relationships'), char);
+  });
+
+  root.querySelector('[data-act="save-edit"]')?.addEventListener('click', async (e) => {
+    const edgeId = e.currentTarget.dataset.edgeId;
+    const edge = (edges || []).find(e2 => String(e2._id) === String(edgeId));
+    if (!edge) return;
+    const draft = _tabState.edit_draft || {};
+    const newState = String(draft.state ?? edge.state ?? '');
+    if (newState.length > 2000) {
+      _tabState.edit_error = 'State exceeds 2000 character limit.';
+      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+      return;
+    }
+    if (edge.kind === 'other' && !String(draft.custom_label ?? edge.custom_label ?? '').trim()) {
+      _tabState.edit_error = 'Custom label is required for kind=other.';
+      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+      return;
+    }
+
+    _tabState.editing_submitting = true;
+    _tabState.edit_error = null;
+    renderRelationshipsTab(document.getElementById('t-relationships'), char);
+
+    const body = {
+      a: edge.a, b: edge.b, kind: edge.kind,
+      direction: edge.direction || 'a_to_b',
+      st_hidden: !!edge.st_hidden,
+      status: edge.status,
+      state: newState,
+    };
+    if (draft.disposition !== undefined) body.disposition = draft.disposition || null;
+    if (edge.kind === 'other') body.custom_label = String(draft.custom_label ?? edge.custom_label ?? '').trim();
+
+    const { status, ok, body: resBody } = await apiRaw('PUT', '/api/relationships/' + edgeId, body);
+    if (ok) {
+      delete _tabState.editing_edge_id;
+      delete _tabState.edit_draft;
+      delete _tabState.edit_error;
+      _tabState.editing_submitting = false;
+      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+      return;
+    }
+    _tabState.editing_submitting = false;
+    if (status === 403) {
+      _tabState.edit_error = 'You can only edit relationships you created. Flag for ST review instead.';
+    } else if (status === 400) {
+      _tabState.edit_error = resBody?.message || 'Edit rejected by the server.';
+    } else if (status === 409) {
+      _tabState.edit_error = 'This edge was modified by someone else. Reload and retry.';
+    } else {
+      _tabState.edit_error = resBody?.message || `Save failed (HTTP ${status}).`;
+    }
+    renderRelationshipsTab(document.getElementById('t-relationships'), char);
   });
 }
 
