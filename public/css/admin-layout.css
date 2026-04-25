@@ -1633,12 +1633,6 @@ body {
 .dt-roll-badge.rolled { background: var(--result-succ-bg); color: var(--result-succ); }
 .dt-roll-badge.unrolled { background: var(--bg); color: var(--txt3); }
 
-.dt-feed-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .dt-feed-header {
   font-family: var(--fl);
   font-size: 12px;
@@ -2095,8 +2089,22 @@ body {
 .dt-spec-toggle-lbl:hover { color: var(--txt); }
 .dt-skill-meta-spec { display: inline-block; background: var(--accent-a8); color: var(--accent); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
 
+/* ── Detail wrapper sections: shared (CSS-8) ── */
+.dt-feed-detail,
+.dt-narr-detail,
+.dt-mech-detail,
+.dt-publish-panel,
+.dt-approval-detail,
+.dt-exp-panel,
+.dt-notes-detail,
+.proc-response-review-section,
+.proc-retag-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
 /* ── Narrative Output (1.7) ── */
-.dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-style-guide { margin-bottom: 8px; font-size: 12px; color: var(--txt-dim); }
 .dt-style-guide summary { cursor: pointer; color: var(--accent); font-family: var(--fl); font-size: 12px; }
 .dt-style-list { margin: 6px 0 0 16px; padding: 0; }
@@ -2112,7 +2120,6 @@ body {
 .dt-narr-badge { font-size: 11px; color: var(--green3); background: var(--result-succ-bg); padding: 1px 8px; border-radius: 10px; margin-left: 8px; }
 
 /* ── Mechanical Summary (1.8) ── */
-.dt-mech-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-mech-compiled {
   font-family: var(--ft);
   font-size: 12px;
@@ -2130,7 +2137,6 @@ body {
 }
 
 /* ── Publish Panel (1.9) ── */
-.dt-publish-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-publish-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .dt-publish-status { font-size: 12px; color: var(--txt-dim); }
 .dt-pub-status { display: flex; align-items: center; gap: 8px; }
@@ -2163,12 +2169,6 @@ body {
 .dt-inv-note-entry:last-child { border-bottom: none; }
 .dt-inv-note-when { color: var(--accent); }
 
-.dt-approval-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .dt-approval-btns {
   display: flex;
   gap: 6px;
@@ -2196,11 +2196,6 @@ body {
 .dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
 
 /* ── Expenditure Panel (GC-3) ── */
-.dt-exp-panel {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
 .dt-exp-fields {
   display: flex;
   gap: 16px;
@@ -2232,12 +2227,6 @@ body {
 .dt-exp-input:focus { outline: 1px solid var(--gold); }
 
 /* ── ST Notes ── */
-.dt-notes-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .dt-notes-csv {
   font-size: 12px;
   color: var(--txt3);
@@ -5137,12 +5126,6 @@ body {
 .proc-response-status-draft    { background: rgba(100,100,100,.2); color: var(--txt2); border: 1px solid var(--bdr); }
 .proc-response-status-reviewed { background: var(--accent-a8); color: var(--accent); border: 1px solid var(--accent-a25); }
 
-.proc-response-review-section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .proc-response-reviewed-label {
   font-size: 11px;
   font-family: var(--fl);
@@ -5164,9 +5147,6 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
 }
 
 .proc-retag-sel {
