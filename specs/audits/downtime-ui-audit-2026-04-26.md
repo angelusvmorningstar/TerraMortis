@@ -182,6 +182,12 @@ The biggest single redundancy is the **"detail wrapper" pattern in §1C** — ni
 
 Nine target classes (`.dt-feed-detail`, `.dt-narr-detail`, `.dt-mech-detail`, `.dt-publish-panel`, `.dt-approval-detail`, `.dt-exp-panel`, `.dt-notes-detail`, `.proc-response-review-section`, `.proc-retag-row`) collapsed into a single grouped selector at `public/css/admin-layout.css:2092-2105`. `.proc-retag-row` retains its `display: flex; align-items: center; gap: 8px;` in its own block. No JS edits, no class renames. Net −20 LOC (8305 → 8285).
 
+**2026-04-26 follow-up:** Audit §1C originally missed `.dt-proj-detail, .dt-merit-detail` (they were already a pre-existing grouped pair at line 2050 with byte-identical chrome and so the audit pass overlooked them as an "existing group" rather than enumerating them as individual targets). Folded into the CSS-8 grouped selector during CSS-6 execution; standalone block at line 2050 deleted. Eleven classes now share the canonical detail-wrapper rule.
+
+### Bucket 1B — Resolved 2026-04-26 (story CSS-6)
+
+15 inline detail panel classes (heavy cluster: `.dt-proj-slot`, `.proc-feed-mod-panel`, `.proc-feed-vitae-panel`, `.proc-proj-succ-panel`, `.proc-feed-right-section`, `.proc-proj-roll-card`, `.proc-pool-builder`; light cluster: `.proc-narr-action-ref`, `.proc-acq-notes`, `.proc-feed-info`, `.proc-feed-desc-card`, `.proc-proj-detail`; stripe-accent variants: `.proc-player-note-section`, `.proc-proj-contested-panel`, `.proc-xref-callout`) collapsed into a single grouped selector at `public/css/admin-layout.css:2049-2069` carrying `background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; padding: 10px 12px;`. Stripe variants retain their `border-left: 3px solid <colour>` declared later in source order. `.proc-mismatch-flag` deliberately excluded as an inline alert. No JS edits, no class renames. Net −38 LOC (8282 → 8244). Visual verification pending user action (light cluster becomes darker; stripe-only `.proc-player-note-section` gains a full 1px border on the other three sides — both deliberate per the audit's canonical chrome decision).
+
 ---
 
 ## 4. Proposed canonical patterns

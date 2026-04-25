@@ -2046,17 +2046,30 @@ body {
   font-weight: 700;
 }
 
-/* ── Project & Merit Resolution Panels ── */
-.dt-proj-detail, .dt-merit-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-.dt-proj-slot {
+/* ── Inline detail panels: canonical chrome (CSS-6) ── */
+.dt-proj-slot,
+.proc-feed-mod-panel,
+.proc-feed-vitae-panel,
+.proc-proj-succ-panel,
+.proc-feed-right-section,
+.proc-proj-roll-card,
+.proc-pool-builder,
+.proc-narr-action-ref,
+.proc-acq-notes,
+.proc-feed-info,
+.proc-feed-desc-card,
+.proc-proj-detail,
+.proc-player-note-section,
+.proc-proj-contested-panel,
+.proc-xref-callout {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 6px;
   padding: 10px 12px;
+}
+
+/* ── Project & Merit Resolution Panels ── */
+.dt-proj-slot {
   margin-bottom: 8px;
 }
 .dt-proj-resolved { border-left: 3px solid var(--green3); }
@@ -2097,6 +2110,8 @@ body {
 .dt-approval-detail,
 .dt-exp-panel,
 .dt-notes-detail,
+.dt-proj-detail,
+.dt-merit-detail,
 .proc-response-review-section,
 .proc-retag-row {
   margin-top: 10px;
@@ -4137,10 +4152,6 @@ body {
 
 .proc-narr-action-ref {
   margin-bottom: 10px;
-  padding: 8px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
 }
 
 .proc-narr-action-ref-row {
@@ -4368,10 +4379,6 @@ body {
   line-height: 1.6;
   color: var(--txt2);
   white-space: pre-wrap;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
-  padding: 8px 10px;
 }
 
 .proc-add-st-action-row {
@@ -4610,11 +4617,7 @@ body {
 }
 
 .proc-pool-builder {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
   margin-top: 8px;
-  padding: 10px 12px;
   margin-bottom: 12px;
 }
 
@@ -4859,10 +4862,7 @@ body {
   margin-bottom: 4px;
 }
 .proc-player-note-section {
-  background: var(--surf2);
   border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  padding: 8px 10px;
   margin-top: 4px;
 }
 .proc-player-note-section .proc-detail-label {
@@ -4891,11 +4891,7 @@ body {
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
   margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
   border-left: 3px solid var(--gold2);
-  border-radius: 4px;
   font-size: 12px;
   color: var(--txt2);
 }
@@ -4974,11 +4970,7 @@ body {
 
 /* ── DTR-2: contested roll panel ───────────────────────────────── */
 .proc-proj-contested-panel {
-  padding: 10px 12px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
   border-left: 3px solid var(--crim);
-  border-radius: 4px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -5363,10 +5355,6 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
-  padding: 8px 10px;
-  background: var(--surf1);
-  border-radius: 4px;
-  border: 1px solid var(--bdr);
 }
 
 .proc-feed-field {
@@ -5396,10 +5384,6 @@ body {
 /* ── Feeding description card (editable) ── */
 .proc-feed-desc-card {
   margin-bottom: 10px;
-  border: 1px solid var(--surf3);
-  border-radius: 4px;
-  padding: 8px 10px;
-  background: var(--surf1);
 }
 .proc-feed-desc-card-hd {
   display: flex;
@@ -5469,16 +5453,6 @@ body {
   gap: 12px;
 }
 
-/* Panel containers */
-.proc-feed-mod-panel,
-.proc-feed-vitae-panel,
-.proc-proj-succ-panel {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-
 .proc-proj-succ-total-val {
   font-family: var(--fl);
   font-size: 14px;
@@ -5487,10 +5461,6 @@ body {
 }
 
 .proc-proj-roll-card {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -5624,13 +5594,6 @@ body {
 }
 .proc-rite-cost-input:focus { border-color: var(--accent); outline: none; }
 
-/* Right panel sections (rote, validation) */
-.proc-feed-right-section {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
 .proc-feed-rote-right {
   font-size: 13px;
   color: var(--txt2);
@@ -5665,10 +5628,6 @@ body {
 /* ── feature.46: Project detail and allies hint ── */
 .proc-proj-detail {
   margin-bottom: 12px;
-  padding: 8px 10px;
-  background: var(--surf1);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
 }
 
 .proc-proj-field {

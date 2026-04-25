@@ -149,6 +149,7 @@ claude-opus-4-7 (Amelia persona, bmad-dev-story workflow)
 - Audit doc updated with §3 "Bucket 1C — Resolved" entry citing story key, date, and LOC delta.
 - **AC #5 (visual byte-equivalence) WAIVED by user 2026-04-26.** Browser verification attempted but Downtimes tab requires API server for data; user accepted the waiver on the basis that the change is provably byte-equivalent at the CSS level. Story shipped on the strength of the JS reference grep + diff scope check + LOC delta + CSS semantics guarantee.
 - No JS edits, no HTML edits, no class renames. Class-name-stable refactor only.
+- **2026-04-26 follow-up after merge:** Audit miss discovered during CSS-6 execution — `.dt-proj-detail, .dt-merit-detail` (pre-existing grouped pair at admin-layout.css:2050) had byte-identical chrome and should have been in CSS-8's scope. Folded into the grouped selector; standalone block deleted. Eleven classes now share the rule. Net additional −3 LOC (8285 → 8282).
 
 ### File List
 
