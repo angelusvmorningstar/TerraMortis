@@ -1587,7 +1587,15 @@ body {
   background: rgba(0,0,0,0.15);
 }
 .dt-panel { margin: 8px 0 12px; }
-.dt-panel-title {
+
+/* ── Title tiers (CSS-10): T1 panel header label ── */
+.dt-panel-title,
+.proc-mod-panel-title,
+.dt-feed-header,
+.dt-prep-early-title,
+.proc-amb-title,
+.proc-attach-char-header,
+.dt-narr-label {
   font-family: var(--fl);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1595,17 +1603,37 @@ body {
   color: var(--accent);
   margin-bottom: 8px;
 }
-.dt-resp-section { margin-bottom: 10px; }
+
+/* ── T2 sub-label / field label ── */
+.proc-detail-label,
+.proc-detail-section-title,
+.dt-merit-summary-group-label,
+.dt-conflict-section-head,
 .dt-resp-section-title {
   font-family: var(--fl);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+
+/* ── T3 micro-label ── */
+.dt-lbl,
+.dt-exp-lbl,
+.proc-feed-lbl,
+.proc-char-strip-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+
+.dt-resp-section { margin-bottom: 10px; }
+.dt-resp-section-title {
   border-bottom: 1px solid var(--bdr);
   padding-bottom: 3px;
-  margin-bottom: 5px;
 }
 .dt-resp-row {
   display: flex;
@@ -1659,15 +1687,6 @@ body {
 }
 .dt-roll-badge.rolled { background: var(--result-succ-bg); color: var(--result-succ); }
 .dt-roll-badge.unrolled { background: var(--bg); color: var(--txt3); }
-
-.dt-feed-header {
-  font-family: var(--fl);
-  font-size: 12px;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
 
 .dt-feed-row {
   display: flex;
@@ -1773,9 +1792,7 @@ body {
 .dt-prep-panel { padding: 16px; border-bottom: 1px solid var(--bdr); }
 .dt-prep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .dt-prep-field { display: flex; flex-direction: column; gap: 4px; }
-.dt-lbl { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); }
 .dt-prep-early { margin-bottom: 16px; }
-.dt-prep-early-title { font-family: var(--fl); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
 .dt-early-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--bdr); border-radius: 4px; }
 .dt-early-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--bdr); cursor: pointer; transition: background .1s; }
 .dt-early-toggle-row:last-child { border-bottom: none; }
@@ -1920,7 +1937,7 @@ body {
 .dt-chk-legend      { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--txt3); letter-spacing: .01em; }
 
 .dt-conflict-list { padding: 8px 12px; }
-.dt-conflict-section-head { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); padding: 6px 0 4px; }
+.dt-conflict-section-head { padding: 6px 0 4px; }
 .dt-conflict-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--bdr); }
 .dt-conflict-item:last-child { border-bottom: none; }
 .dt-conflict-type { font-family: var(--fl); color: var(--accent); }
@@ -2110,7 +2127,6 @@ body {
 .dt-style-list li { margin-bottom: 3px; }
 .dt-narr-block { margin-bottom: 10px; }
 .dt-narr-block-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.dt-narr-label { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--accent); }
 .dt-narr-hint { font-size: 11px; color: var(--txt-dim); flex: 1; }
 .dt-narr-status-row { display: flex; gap: 4px; }
 .dt-narr-status-btn { font-size: 11px; padding: 1px 8px; border: 1px solid var(--bdr); border-radius: 10px; background: transparent; color: var(--txt-dim); cursor: pointer; }
@@ -2204,13 +2220,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-.dt-exp-lbl {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--txt3);
-  font-family: var(--fl);
 }
 .dt-exp-input {
   width: 72px;
@@ -3983,12 +3992,7 @@ body {
 }
 
 .proc-char-strip-label {
-  font-family: var(--fl);
-  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--txt3);
   white-space: nowrap;
   margin-right: 2px;
 }
@@ -4532,15 +4536,6 @@ body {
 }
 
 .proc-detail-col { display: flex; flex-direction: column; gap: 8px; }
-
-.proc-detail-label {
-  font-size: 11px;
-  color: var(--txt3);
-  font-family: var(--fl);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
-}
 
 .proc-detail-value {
   font-size: 13px;
@@ -5111,15 +5106,6 @@ body {
   font-family: var(--ft);
 }
 
-.proc-detail-section-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--txt3);
-  font-family: var(--fl);
-  margin-bottom: 6px;
-}
-
 /* ── feature.44: Sorcery reminder badge ── */
 .proc-reminder-badge {
   display: flex;
@@ -5155,15 +5141,6 @@ body {
   padding: 6px 10px;
 }
 .proc-attach-char-group:last-child { border-bottom: none; }
-
-.proc-attach-char-header {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  font-family: var(--fl);
-  margin-bottom: 4px;
-}
 
 .proc-attach-target-row {
   display: flex;
@@ -5321,11 +5298,6 @@ body {
 }
 
 .proc-feed-lbl {
-  font-family: var(--fl);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--txt3);
   margin-right: 4px;
 }
 
@@ -5451,15 +5423,6 @@ body {
   color: var(--txt2);
   line-height: 1.4;
   margin-top: 4px;
-}
-
-.proc-mod-panel-title {
-  font-family: var(--fl);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  margin-bottom: 8px;
 }
 
 /* Modifier rows */
@@ -5768,13 +5731,6 @@ body {
   border-bottom: none;
   border-top: 1px solid var(--bdr);
   margin-top: 16px;
-}
-
-.proc-amb-title {
-  font-family: var(--fl);
-  font-size: 13px;
-  letter-spacing: .5px;
-  color: var(--accent);
 }
 
 .proc-amb-toggle {
@@ -6583,11 +6539,6 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 /* ── Story 1.13: Merit Summary ledger ────────────────────────────── */
 .dt-merit-summary-group { margin-bottom: 12px; }
 .dt-merit-summary-group-label {
-  font-size: 11px;
-  font-family: var(--fl);
-  color: var(--txt3);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   padding: 0 14px 4px;
   border-bottom: 1px solid var(--bdr);
   margin-bottom: 4px;
