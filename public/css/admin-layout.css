@@ -1357,26 +1357,52 @@ body {
   flex-shrink: 0;
 }
 
-/* ── Cycle Snapshot (GC-4) ── */
-.dt-snapshot-panel {
-  margin-bottom: 16px;
+/* ── Outer dashboard panels: canonical chrome (CSS-7) ── */
+.dt-snapshot-panel,
+.dt-scene-panel,
+.dt-matrix-panel,
+.dt-conflict-panel,
+.dt-chk-panel,
+.dt-inv-panel,
+.proc-amb-dashboard,
+.proc-phase-section,
+.proc-attach-panel {
   border: 1px solid var(--bdr);
   border-radius: 6px;
   overflow: hidden;
+  margin-bottom: 12px;
 }
-.dt-snapshot-toggle {
-  padding: 8px 12px;
+
+/* ── Collapsible panel headers: canonical loud (CSS-7) ── */
+.dt-snapshot-toggle,
+.dt-scene-toggle,
+.dt-chk-toggle,
+.dt-matrix-toggle,
+.proc-phase-header,
+.proc-amb-header,
+.proc-disc-header {
+  padding: 10px 16px;
   background: var(--surf2);
   font-family: var(--fl);
   font-size: 13px;
-  color: var(--txt2);
+  font-weight: 600;
+  color: var(--accent);
+  border-bottom: 1px solid var(--bdr);
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
-.dt-snapshot-toggle:hover { background: var(--surf3, var(--surf2)); }
+.dt-snapshot-toggle:hover,
+.dt-scene-toggle:hover,
+.dt-chk-toggle:hover,
+.dt-matrix-toggle:hover,
+.proc-phase-header:hover,
+.proc-amb-header:hover,
+.proc-disc-header:hover { background: var(--surf3, var(--surf2)); }
+
+/* ── Cycle Snapshot (GC-4) ── */
 .dt-snapshot-body { padding: 12px 16px; }
 .dt-snapshot-table {
   width: 100%;
@@ -1633,12 +1659,6 @@ body {
 .dt-roll-badge.rolled { background: var(--result-succ-bg); color: var(--result-succ); }
 .dt-roll-badge.unrolled { background: var(--bg); color: var(--txt3); }
 
-.dt-feed-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .dt-feed-header {
   font-family: var(--fl);
   font-size: 12px;
@@ -1778,25 +1798,6 @@ body {
 .dt-sub-rejected { border-left: 3px solid var(--crim2); }
 
 /* ── Feeding Scene Summary (GC-2) ── */
-.dt-scene-panel {
-  margin-bottom: 12px;
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.dt-scene-toggle {
-  padding: 8px 12px;
-  background: var(--surf2);
-  font-family: var(--fl);
-  font-size: 13px;
-  color: var(--txt2);
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.dt-scene-toggle:hover { background: var(--surf3, var(--surf2)); }
 .dt-scene-table {
   width: 100%;
   border-collapse: collapse;
@@ -1844,26 +1845,6 @@ body {
 .dt-scene-rote-lbl { cursor: pointer; }
 
 /* ── Feeding Matrix & Conflicts ── */
-.dt-matrix-panel, .dt-conflict-panel {
-  margin-bottom: 12px;
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.dt-matrix-toggle {
-  padding: 12px 16px;
-  background: var(--surf2);
-  font-family: var(--fl);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--bdr);
-}
 /* City Overview header: toggle + export button side by side */
 .dt-city-panel-head {
   display: flex;
@@ -1893,7 +1874,6 @@ body {
 /* City Overview: actions section header (no toggle, always shown) */
 .dt-city-actions-head { cursor: default; }
 .dt-city-actions-head:hover { background: var(--surf2); }
-.dt-matrix-toggle:hover { background: var(--surf3); }
 .dt-matrix-wrap { overflow-x: auto; }
 .dt-matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .dt-matrix-table th, .dt-matrix-table td { padding: 5px 8px; border: 1px solid var(--bdr); text-align: center; }
@@ -1919,9 +1899,6 @@ body {
   padding-bottom: 4px;
 }
 
-.dt-chk-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
-.dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fl); font-size: 13px; display: flex; align-items: center; gap: 8px; }
-.dt-chk-toggle:hover { background: var(--surf3); }
 .dt-chk-wrap { overflow-x: auto; }
 .dt-chk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .dt-chk-table th, .dt-chk-table td { padding: 4px 6px; border: 1px solid var(--bdr); text-align: center; }
@@ -2052,17 +2029,30 @@ body {
   font-weight: 700;
 }
 
-/* ── Project & Merit Resolution Panels ── */
-.dt-proj-detail, .dt-merit-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-.dt-proj-slot {
+/* ── Inline detail panels: canonical chrome (CSS-6) ── */
+.dt-proj-slot,
+.proc-feed-mod-panel,
+.proc-feed-vitae-panel,
+.proc-proj-succ-panel,
+.proc-feed-right-section,
+.proc-proj-roll-card,
+.proc-pool-builder,
+.proc-narr-action-ref,
+.proc-acq-notes,
+.proc-feed-info,
+.proc-feed-desc-card,
+.proc-proj-detail,
+.proc-player-note-section,
+.proc-proj-contested-panel,
+.proc-xref-callout {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 6px;
   padding: 10px 12px;
+}
+
+/* ── Project & Merit Resolution Panels ── */
+.dt-proj-slot {
   margin-bottom: 8px;
 }
 .dt-proj-resolved { border-left: 3px solid var(--green3); }
@@ -2095,8 +2085,24 @@ body {
 .dt-spec-toggle-lbl:hover { color: var(--txt); }
 .dt-skill-meta-spec { display: inline-block; background: var(--accent-a8); color: var(--accent); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
 
+/* ── Detail wrapper sections: shared (CSS-8) ── */
+.dt-feed-detail,
+.dt-narr-detail,
+.dt-mech-detail,
+.dt-publish-panel,
+.dt-approval-detail,
+.dt-exp-panel,
+.dt-notes-detail,
+.dt-proj-detail,
+.dt-merit-detail,
+.proc-response-review-section,
+.proc-retag-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
 /* ── Narrative Output (1.7) ── */
-.dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-style-guide { margin-bottom: 8px; font-size: 12px; color: var(--txt-dim); }
 .dt-style-guide summary { cursor: pointer; color: var(--accent); font-family: var(--fl); font-size: 12px; }
 .dt-style-list { margin: 6px 0 0 16px; padding: 0; }
@@ -2112,7 +2118,6 @@ body {
 .dt-narr-badge { font-size: 11px; color: var(--green3); background: var(--result-succ-bg); padding: 1px 8px; border-radius: 10px; margin-left: 8px; }
 
 /* ── Mechanical Summary (1.8) ── */
-.dt-mech-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-mech-compiled {
   font-family: var(--ft);
   font-size: 12px;
@@ -2130,7 +2135,6 @@ body {
 }
 
 /* ── Publish Panel (1.9) ── */
-.dt-publish-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-publish-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .dt-publish-status { font-size: 12px; color: var(--txt-dim); }
 .dt-pub-status { display: flex; align-items: center; gap: 8px; }
@@ -2141,7 +2145,6 @@ body {
 .dt-publish-hint { font-size: 11px; color: var(--txt-dim); }
 
 /* ── Investigation Tracker (1.5) ── */
-.dt-inv-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
 .dt-inv-body { padding: 10px 12px; }
 .dt-inv-new-wrap { margin-bottom: 10px; }
 .dt-inv-new-wrap summary { font-size: 12px; }
@@ -2162,12 +2165,6 @@ body {
 .dt-inv-note-entry { font-size: 11px; color: var(--txt-dim); padding: 2px 0; border-bottom: 1px solid var(--bdr); }
 .dt-inv-note-entry:last-child { border-bottom: none; }
 .dt-inv-note-when { color: var(--accent); }
-
-.dt-approval-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
 
 .dt-approval-btns {
   display: flex;
@@ -2196,11 +2193,6 @@ body {
 .dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
 
 /* ── Expenditure Panel (GC-3) ── */
-.dt-exp-panel {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
 .dt-exp-fields {
   display: flex;
   gap: 16px;
@@ -2232,12 +2224,6 @@ body {
 .dt-exp-input:focus { outline: 1px solid var(--gold); }
 
 /* ── ST Notes ── */
-.dt-notes-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .dt-notes-csv {
   font-size: 12px;
   color: var(--txt3);
@@ -3957,13 +3943,6 @@ body {
   gap: 24px;
 }
 
-.proc-phase-section {
-  background: var(--surf);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
 /* ── Queue controls bar ── */
 .proc-queue-controls {
   display: flex;
@@ -4056,22 +4035,6 @@ body {
 .proc-char-chip.state-complete .proc-char-chip-prog { color: var(--accent); }
 .proc-char-chip.state-ready    .proc-char-chip-prog { color: var(--result-succ); }
 
-.proc-phase-header {
-  background: var(--surf2);
-  padding: 10px 16px;
-  font-family: var(--fl);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  border-bottom: 1px solid var(--bdr);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-.proc-phase-header:hover { background: var(--surf3); }
-
 .proc-phase-label { flex: 1; }
 
 .proc-phase-count {
@@ -4148,10 +4111,6 @@ body {
 
 .proc-narr-action-ref {
   margin-bottom: 10px;
-  padding: 8px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
 }
 
 .proc-narr-action-ref-row {
@@ -4379,10 +4338,6 @@ body {
   line-height: 1.6;
   color: var(--txt2);
   white-space: pre-wrap;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
-  padding: 8px 10px;
 }
 
 .proc-add-st-action-row {
@@ -4621,11 +4576,7 @@ body {
 }
 
 .proc-pool-builder {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
   margin-top: 8px;
-  padding: 10px 12px;
   margin-bottom: 12px;
 }
 
@@ -4870,10 +4821,7 @@ body {
   margin-bottom: 4px;
 }
 .proc-player-note-section {
-  background: var(--surf2);
   border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  padding: 8px 10px;
   margin-top: 4px;
 }
 .proc-player-note-section .proc-detail-label {
@@ -4902,11 +4850,7 @@ body {
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
   margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
   border-left: 3px solid var(--gold2);
-  border-radius: 4px;
   font-size: 12px;
   color: var(--txt2);
 }
@@ -4985,11 +4929,7 @@ body {
 
 /* ── DTR-2: contested roll panel ───────────────────────────────── */
 .proc-proj-contested-panel {
-  padding: 10px 12px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
   border-left: 3px solid var(--crim);
-  border-radius: 4px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -5137,12 +5077,6 @@ body {
 .proc-response-status-draft    { background: rgba(100,100,100,.2); color: var(--txt2); border: 1px solid var(--bdr); }
 .proc-response-status-reviewed { background: var(--accent-a8); color: var(--accent); border: 1px solid var(--accent-a25); }
 
-.proc-response-review-section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
-}
-
 .proc-response-reviewed-label {
   font-size: 11px;
   font-family: var(--fl);
@@ -5164,9 +5098,6 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--bdr);
 }
 
 .proc-retag-sel {
@@ -5204,12 +5135,9 @@ body {
 }
 
 /* ── feature.44: Attach Reminder panel ── */
+/* .proc-attach-panel: outer padding kept as documented exception (no .proc-attach-body inner element exists; markup unchanged per CSS-7 constraint) */
 .proc-attach-panel {
-  background: var(--surf1);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
   padding: 14px;
-  margin-bottom: 14px;
 }
 
 .proc-attach-actions {
@@ -5383,10 +5311,6 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
-  padding: 8px 10px;
-  background: var(--surf1);
-  border-radius: 4px;
-  border: 1px solid var(--bdr);
 }
 
 .proc-feed-field {
@@ -5416,10 +5340,6 @@ body {
 /* ── Feeding description card (editable) ── */
 .proc-feed-desc-card {
   margin-bottom: 10px;
-  border: 1px solid var(--surf3);
-  border-radius: 4px;
-  padding: 8px 10px;
-  background: var(--surf1);
 }
 .proc-feed-desc-card-hd {
   display: flex;
@@ -5489,16 +5409,6 @@ body {
   gap: 12px;
 }
 
-/* Panel containers */
-.proc-feed-mod-panel,
-.proc-feed-vitae-panel,
-.proc-proj-succ-panel {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-
 .proc-proj-succ-total-val {
   font-family: var(--fl);
   font-size: 14px;
@@ -5507,10 +5417,6 @@ body {
 }
 
 .proc-proj-roll-card {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -5644,13 +5550,6 @@ body {
 }
 .proc-rite-cost-input:focus { border-color: var(--accent); outline: none; }
 
-/* Right panel sections (rote, validation) */
-.proc-feed-right-section {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
 .proc-feed-rote-right {
   font-size: 13px;
   color: var(--txt2);
@@ -5685,10 +5584,6 @@ body {
 /* ── feature.46: Project detail and allies hint ── */
 .proc-proj-detail {
   margin-bottom: 12px;
-  padding: 8px 10px;
-  background: var(--surf1);
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
 }
 
 .proc-proj-field {
@@ -5862,31 +5757,10 @@ body {
 
 /* ── Ambience Dashboard (feature.47) ─────────────────────────────────────── */
 
-.proc-amb-dashboard {
-  background: var(--surf1);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
 .proc-amb-header,
 .proc-disc-header {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: var(--surf2);
-  font-family: var(--fl);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid var(--bdr);
 }
-.proc-amb-header:hover,
-.proc-disc-header:hover { background: var(--surf3); }
 
 .proc-disc-header {
   background: var(--surf1);
