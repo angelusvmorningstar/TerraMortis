@@ -47,3 +47,7 @@ st-working/
 
 # Atlas exports — source of truth is MongoDB, not git
 data copy/
+
+# Scratch working directory — ad-hoc inputs/outputs, never tracked
+scratch/
+server/scripts/build-rubric-digests.js
