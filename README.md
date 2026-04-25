@@ -22,11 +22,13 @@ A browser-based character management system for a **Vampire: The Requiem 2nd Edi
 
 ```bash
 # Start API server (requires server/.env with MongoDB URI + Discord credentials)
-cd server && npm run dev
+cd server && node index.js
 
 # Serve frontend (any static server on port 8080)
 npx http-server public -p 8080
 ```
+
+API runs on port 3000; frontend at `http://localhost:8080/admin.html` calls it in the background. If your `MONGODB_URI` uses the SRV form (`mongodb+srv://...`) and your ISP blocks SRV lookups, swap to the standard `mongodb://...` form with explicit hosts.
 
 ## Data
 
@@ -67,7 +69,7 @@ Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
 ```
 
 - **Auth**: Discord OAuth2. ST IDs whitelisted in server config. Coordinator + dev roles for check-in / finance / dev access.
-- **Frontend**: vanilla JS modules, no build step. Cinzel/Lora fonts, dark theme with gold accents.
+- **Frontend**: vanilla JS modules, no build step. Themes: Parchment (default, warm light) + Dark override (`[data-theme="dark"]`). Fonts: Cinzel (headings), Lato (UI labels), Libre Baskerville (body), Cinzel Decorative (reading-pane display only).
 - **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories (+ feeding-rights PATCH), downtime, game_sessions, session_logs, npcs, relationships, npc-flags, attendance, rules.
 - **Tests**: Vitest integration tests in `server/tests/`, forced against `tm_suite_test` (isolated from live DB).
 
@@ -90,6 +92,8 @@ Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
 ## Conventions
 
 - British English throughout (Defence, Armour, Vigour, etc.)
-- Dark theme with gold (`#E0C47A`) accents and crimson (`#8B0000`) damage states
-- Fonts: Cinzel / Cinzel Decorative (headings), Lora (body) via Google Fonts
+- Default theme: Parchment (warm cream `#F4EFE4` background, dark amber `#7A5208` gold accents, deep crimson `#7A0000` damage states). Dark theme available via `[data-theme="dark"]`.
+- All colour values via tokens in `public/css/theme.css` — no bare hex in rule bodies.
+- Fonts: Cinzel (`--fh`, headings), Lato (`--fl`, UI labels), Libre Baskerville (`--ft`, body), Cinzel Decorative (`--fh-decorative`, reading-pane display only). Loaded via Google Fonts.
 - Dots displayed as `●` (U+25CF)
+- Panel chrome and title styles in `admin-layout.css` follow canonical grouped-selector patterns — see `specs/audits/downtime-ui-audit-2026-04-26.md` for the design contract before adding new panels or labels.
