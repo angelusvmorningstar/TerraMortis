@@ -184,6 +184,17 @@ Nine target classes (`.dt-feed-detail`, `.dt-narr-detail`, `.dt-mech-detail`, `.
 
 **2026-04-26 follow-up:** Audit §1C originally missed `.dt-proj-detail, .dt-merit-detail` (they were already a pre-existing grouped pair at line 2050 with byte-identical chrome and so the audit pass overlooked them as an "existing group" rather than enumerating them as individual targets). Folded into the CSS-8 grouped selector during CSS-6 execution; standalone block at line 2050 deleted. Eleven classes now share the canonical detail-wrapper rule.
 
+### Section 2 (Titles/Labels) — Resolved 2026-04-26 (story CSS-10)
+
+Sixteen title/label classes (audit said 17; actual count is 16) collapsed into three canonical tier blocks at `admin-layout.css:1592-1628`:
+- **Tier 1 (panel header, accent):** 7 classes — `.dt-panel-title`, `.proc-mod-panel-title`, `.dt-feed-header`, `.dt-prep-early-title`, `.proc-amb-title`, `.proc-attach-char-header`, `.dt-narr-label`. Lato 11px / .06em / uppercase / `--accent` / mb 8.
+- **Tier 2 (sub-label, subdued):** 5 classes — `.proc-detail-label`, `.proc-detail-section-title`, `.dt-merit-summary-group-label`, `.dt-conflict-section-head`, `.dt-resp-section-title`. Lato 11px / .04em / uppercase / `--txt3` / mb 6.
+- **Tier 3 (micro-label):** 4 classes — `.dt-lbl`, `.dt-exp-lbl`, `.proc-feed-lbl`, `.proc-char-strip-label`. Lato 10px / .05em / uppercase / `--txt3`.
+
+Eleven individual blocks deleted entirely (canonical absorbs all chrome). Five retained with unique-only props (border-bottom on resp-section-title, padding on conflict-section-head and merit-summary-group-label, font-weight 700 on char-strip-label, margin-right on feed-lbl). `.dt-story-section-label` left untouched per scope (Story-tab section header, deliberately louder).
+
+Most likely-noticeable change: `.dt-resp-section-title` loses its accent (gold) colour and becomes subdued grey per the Tier 2 mapping. Three previously-non-uppercase outliers (`.dt-prep-early-title`, `.dt-narr-label`, `.proc-amb-title`) gain uppercase. No JS edits. Net −49 LOC. Visual verification pending user action.
+
 ### Bucket 1D — Resolved 2026-04-26 (story CSS-9)
 
 Story-tab cards harmonised. `.dt-story-section` joined CSS-7's outer panel canonical group at `admin-layout.css:1361-1370` (group now 10 classes; comment updated to `/* ... (CSS-7, +CSS-9) ── */`). New inner-card canonical group at line 6692 covers six classes (`.dt-story-proj-card`, `.dt-story-merit-card`, `.dt-story-resources-card`, `.dt-story-context-block`, `.dt-story-sign-off`, `.dt-feeding-locked`) with `background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;`. Padding kept per-class. Visible changes: merit/resources cards bg `--surf` → `--surf2`, border `--bdr2` → `--bdr`, radius 4 → 6; context block bg `--surf` → `--surf2`, radius 4 → 6; project card radius 5 → 6; section wrapper loses `--surf` bg (transparent now). `.dt-feeding-locked` joined the canonical group (option A); the gold left-stripe should still render via source-order longhand override but **flagged for browser verification** — its individual block appears earlier in source than the grouped canonical. Net −9 LOC. No JS edits.
