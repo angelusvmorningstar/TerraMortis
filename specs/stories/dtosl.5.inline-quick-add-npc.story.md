@@ -1,12 +1,20 @@
 ---
 id: dtosl.5
 epic: dt-off-screen-life
-status: ready-for-dev
+status: rescope-pending
 priority: medium
-depends_on: [dtosl.2]
+depends_on: [dtosl.2, NPC6.2]
 ---
 
 # Story DTOSL-5: Inline Quick-Add NPC
+
+> **2026-04-27 RE-SCOPE NOTE**
+>
+> The player-side UI half of this story (existing-NPC dropdown plus "Add an NPC" link) is **superseded by Epic 6 — NPC Privacy Hardening, story NPC6.2**. Epic 6 removes the existing-NPC dropdown entirely from the player Personal Story section because it leaks NPCs not linked to the calling character. Player input becomes free text only; no autocomplete, no suggestions, no client-side existence checks.
+>
+> The **server-side endpoint** half of this story (`POST /api/npcs/quick-add`, status='pending', created_by={type:'player'}) is **retained as scaffolding**. Epic 6's free-text inputs flow into this endpoint at submission time (or at ST resolution time during DT Processing — TBD). The player UI in this story should not be implemented as written.
+>
+> When picking this up: keep the server endpoint design; drop the dropdown/inline-form UI; treat as ready-after-NPC6.2 lands. See `memory/project_dt_overhaul_2026-04-27.md` for the canonical privacy posture.
 
 As a player,
 I want to add a new NPC to my story without leaving the DT form,

@@ -5,8 +5,8 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../tabs/downtime-data.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -211,91 +211,151 @@ function entryActionKey(entry) {
   return null; // sorcery entries are sources, not targets
 }
 
-// ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
+// ── DTUX-1: clickable phase-tab nav with sign-off badges ──────────────────── Replaces the previous
+// read-only ribbon, the sub-tab strip, and the "Open City & Feeding Phase \u2192"
+// gate button. cycle.status is auto-derived from cycle.phase_signoff by
+// signoffPhase() in db.js \u2014 these helpers are display-only.
 
-function getCyclePhase(cycle, subs) {
-  if (!cycle) return null;
-  if (cycle.status === 'prep')   return 0;
-  if (cycle.status === 'game')   return 1;
-  if (cycle.status === 'active') return 2;
-  // closed
-  const hasPending = (subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
-  return hasPending ? 3 : 4;
-}
+const DTUX_TAB_LABELS = {
+  prep: 'DT Prep', city: 'DT City', projects: 'DT Projects',
+  story: 'DT Story', ready: 'DT Ready',
+};
 
-function getSubPhases(phase, cycle, subs) {
-  switch (phase) {
-    case 0: {
-      const hasAutoOpen = !!cycle.auto_open_at;
-      const hasDeadline = !!cycle.deadline_at;
-      return [
-        { label: 'Auto-Open Set', done: hasAutoOpen },
-        { label: 'Deadline Set',  done: hasDeadline },
-      ];
-    }
-    case 1:
-      return [
-        { label: 'Ambience Applied', done: !!cycle.ambience_applied },
-      ];
-    case 2: {
-      const hasSubs = (subs || []).length > 0;
-      const deadlinePast = !!(cycle.deadline_at && new Date(cycle.deadline_at) < new Date());
-      return [
-        { label: 'Deadline Set',         done: !!cycle.deadline_at },
-        { label: 'Submissions Received', done: hasSubs },
-        { label: 'Deadline Passed',      done: deadlinePast },
-      ];
-    }
-    case 3: {
-      const allResolved = !(subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
-      return [
-        { label: 'Reviewing',    done: allResolved, inProgress: !allResolved },
-        { label: 'All Resolved', done: allResolved },
-      ];
-    }
-    case 4:
-    default:
-      return [];
+const DTUX_TAB_TO_PANEL = {
+  prep: 'dt-prep-panel',
+  city: 'dt-city-panel',
+  projects: 'dt-processing-panel',
+  story: 'dt-story-panel',
+  ready: 'dt-ready-panel',
+};
+
+let _dtuxActiveTab = null; // session-only; null until first cycle load
+
+function _initialDtuxTab(cycle) {
+  if (_dtuxActiveTab && DTUX_TAB_TO_PANEL[_dtuxActiveTab]) return _dtuxActiveTab;
+  const ps = cycle?.phase_signoff || {};
+  const hasSignoff = Object.keys(ps).length > 0;
+  if (hasSignoff) {
+    for (const p of DTUX_PHASES) if (!ps[p]) return p;
+    return 'ready';
+  }
+  // Legacy cycle without phase_signoff: pick from existing status field.
+  switch (cycle?.status) {
+    case 'prep':     return 'prep';
+    case 'game':     return 'city';
+    case 'active':   return 'projects';
+    case 'closed':   return 'story';
+    case 'complete': return 'ready';
+    default:         return 'prep';
   }
 }
 
-function renderPhaseRibbon(cycle, subs) {
+function renderPhaseRibbon(cycle, _subs) {
   const mainEl = document.getElementById('dt-phase-ribbon');
   const subEl  = document.getElementById('dt-sub-ribbon');
-  if (!mainEl || !subEl) return;
+  if (!mainEl) return;
+  // Sub-ribbon retired by DTUX-1; hide while the markup remains in admin.html.
+  if (subEl) subEl.style.display = 'none';
 
-  const phase = getCyclePhase(cycle, subs);
-  if (phase === null) {
+  if (!cycle) {
     mainEl.style.display = 'none';
-    subEl.style.display  = 'none';
     return;
   }
 
-  // Main ribbon
-  const mainSteps = ['DT Prep', 'City & Feeding', 'Downtimes', 'ST Processing', 'Push Ready'];
+  if (!_dtuxActiveTab) _dtuxActiveTab = _initialDtuxTab(cycle);
+
+  const ps = cycle.phase_signoff || {};
   mainEl.style.display = '';
-  mainEl.innerHTML = mainSteps.map((label, i) => {
-    const done   = i < phase;
-    const active = i === phase;
-    const cls    = done ? 'pr-step pr-done' : active ? 'pr-step pr-active' : 'pr-step pr-future';
-    const numContent = done ? '\u2713' : String(i + 1);
-    const connector = i < mainSteps.length - 1 ? '<span class="pr-connector"></span>' : '';
-    return `<span class="${cls}"><span class="pr-step-num">${numContent}</span>${label}</span>${connector}`;
+  mainEl.classList.add('dt-phase-ribbon-tabs');
+  mainEl.innerHTML = DTUX_PHASES.map(phase => {
+    const signed = !!ps[phase];
+    const active = phase === _dtuxActiveTab;
+    const cls = ['pr-tab', active ? 'pr-tab-active' : '', signed ? 'pr-tab-signed' : '']
+      .filter(Boolean).join(' ');
+    const badge = signed
+      ? '<span class="pr-tab-badge pr-tab-badge-signed">\u2713</span>'
+      : '<span class="pr-tab-badge pr-tab-badge-empty">\u25cb</span>';
+    return `<button type="button" class="${cls}" data-phase="${phase}">${badge}<span class="pr-tab-label">${DTUX_TAB_LABELS[phase]}</span></button>`;
   }).join('');
+}
 
-  // Sub ribbon
-  const subSteps = getSubPhases(phase, cycle, subs);
-  if (!subSteps.length) {
-    subEl.style.display = 'none';
-    return;
+function showDtuxPhase(phase) {
+  if (!DTUX_TAB_TO_PANEL[phase]) phase = 'prep';
+  _dtuxActiveTab = phase;
+  for (const p of DTUX_PHASES) {
+    const el = document.getElementById(DTUX_TAB_TO_PANEL[p]);
+    if (el) el.style.display = (p === phase) ? '' : 'none';
   }
-  subEl.style.display = '';
-  subEl.innerHTML = subSteps.map((s, i) => {
-    const cls = s.done ? 'pr-sub pr-done' : s.inProgress ? 'pr-sub pr-active' : 'pr-sub pr-future';
-    const icon = s.done ? '\u2713 ' : '';
-    const connector = i < subSteps.length - 1 ? '<span class="pr-sub-connector"></span>' : '';
-    return `<span class="${cls}">${icon}${s.label}</span>${connector}`;
-  }).join('');
+  document.querySelectorAll('#dt-phase-ribbon .pr-tab').forEach(btn => {
+    btn.classList.toggle('pr-tab-active', btn.dataset.phase === phase);
+  });
+  // Lazy-init city/story tabs the first time they're shown.
+  if (phase === 'city' && !_dtuxCityInited) { _dtuxCityInited = true; renderCityOverview(); }
+  if (phase === 'story' && !_dtuxStoryInited) { _dtuxStoryInited = true; _initDtStoryFromRibbon(); }
+}
+
+let _dtuxCityInited = false;
+let _dtuxStoryInited = false;
+
+async function _initDtStoryFromRibbon() {
+  // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
+  // anyway, so the module-state coupling is fine.
+  const { initDtStory } = await import('./downtime-story.js');
+  initDtStory(null);
+}
+
+async function _handleSignoffClick(btn) {
+  if (!currentCycle) return;
+  const phase = btn.dataset.signoffPhase;
+  if (!phase || !DTUX_PHASES.includes(phase)) return;
+  const turningOn = !(currentCycle.phase_signoff || {})[phase];
+  const userId = getUser()?._id || getUser()?.user_id || null;
+  await signoffPhase(currentCycle, phase, turningOn, userId);
+  // Mirror into allCycles so subsequent renders see the new status/signoff.
+  const idx = allCycles.findIndex(c => c._id === currentCycle._id);
+  if (idx >= 0) {
+    allCycles[idx].phase_signoff = currentCycle.phase_signoff;
+    allCycles[idx].status = currentCycle.status;
+  }
+  // Refresh the full panel set so dt-cycle-status, the snapshot panel, and the
+  // ambience-apply visibility (all keyed on cycle.status) reflect the new
+  // derived status. Same pattern as the retired gate button handler.
+  await loadCycleById(currentCycle._id);
+}
+
+function renderSignoffButton(phase, cycle) {
+  const signed = !!(cycle?.phase_signoff || {})[phase];
+  const label = signed ? '\u2713 Signed-off \u2014 undo?' : 'Mark phase signed-off';
+  const cls = signed ? 'dt-btn dt-signoff-btn dt-signoff-signed' : 'dt-btn dt-signoff-btn';
+  return `<button type="button" class="${cls}" data-signoff-phase="${phase}">${label}</button>`;
+}
+
+function renderReadyPanel(cycle, subs) {
+  const panel = document.getElementById('dt-ready-panel');
+  if (!panel) return;
+  if (!cycle) { panel.style.display = 'none'; return; }
+  if (_dtuxActiveTab && _dtuxActiveTab !== 'ready') {
+    panel.style.display = 'none';
+  }
+  // Visibility otherwise driven by showDtuxPhase. Render content unconditionally
+  // so it's ready when the tab opens.
+  const subList = subs || [];
+  const total = subList.length;
+  const pending = subList.filter(s => !s.approval_status || s.approval_status === 'pending').length;
+  const storySigned = !!(cycle.phase_signoff || {}).story;
+
+  let resolvedNote;
+  if (total === 0)        resolvedNote = 'no submissions yet';
+  else if (pending === 0) resolvedNote = 'all resolved';
+  else                    resolvedNote = `${pending} pending`;
+
+  let h = '<div class="dt-ready-content">';
+  h += `<h3 class="dt-ready-title">Push Cycle</h3>`;
+  h += `<p class="dt-ready-summary">${total} submission${total === 1 ? '' : 's'}\u00a0\u2014\u00a0${resolvedNote}; DT Story ${storySigned ? 'signed off' : 'not yet signed off'}.</p>`;
+  h += `<p class="dt-ready-hint">Use the existing Push button on each character\u2019s row in DT Story to publish their narrative. This panel is informational; sign-off below records that the cycle is fully published.</p>`;
+  h += `<div class="dt-ready-actions">${renderSignoffButton('ready', cycle)}</div>`;
+  h += '</div>';
+  panel.innerHTML = h;
 }
 
 let _shellInited = false;
@@ -325,6 +385,17 @@ export async function initDowntimeView(passedChars) {
     document.getElementById('dt-cycle-sel').addEventListener('change', e => {
       selectedCycleId = e.target.value;
       loadCycleById(selectedCycleId);
+    });
+
+    // DTUX-1: phase ribbon click delegation — drives panel visibility and
+    // sign-off button clicks. Wired once on shell init.
+    document.getElementById('dt-phase-ribbon')?.addEventListener('click', e => {
+      const tab = e.target.closest('[data-phase]');
+      if (tab) { showDtuxPhase(tab.dataset.phase); return; }
+    });
+    document.addEventListener('click', e => {
+      const signoff = e.target.closest('[data-signoff-phase]');
+      if (signoff) { _handleSignoffClick(signoff); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -836,9 +907,12 @@ async function loadCycleById(cycleId) {
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
 
-  // ── Phase ribbon (initial render — submissions not yet loaded) ──
+  // ── DTUX-1: phase ribbon + panel set; show the chosen tab ──
+  if (!_dtuxActiveTab) _dtuxActiveTab = _initialDtuxTab(cycle);
   renderPhaseRibbon(cycle, []);
   renderPrepPanel(cycle);
+  renderReadyPanel(cycle, []);
+  showDtuxPhase(_dtuxActiveTab);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
@@ -854,7 +928,8 @@ async function loadCycleById(cycleId) {
 
   procExpandedKeys.clear();
   submissions = await getSubmissionsForCycle(cycleId);
-  renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
+  renderPhaseRibbon(currentCycle, submissions);
+  renderReadyPanel(currentCycle, submissions);
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   document.getElementById('dt-export-json').style.display = submissions.length ? '' : 'none';
   renderMatchSummary();
@@ -1396,14 +1471,90 @@ async function handleNewCycle() {
   await loadAllCycles();
 }
 
+// CHM-2: holdings detection for the maintenance audit. PT is a flat
+// boolean; MCI may be multiple rows (one per cult), so collect the cult
+// names for context. Mirrors the m.active !== false guard used elsewhere
+// when iterating MCI merits.
+function maintenanceHoldings(c) {
+  const merits = c.merits || [];
+  const pt = merits.some(m => m.name === 'Professional Training');
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  return {
+    pt,
+    mci: mciMerits.length > 0,
+    mciCults: mciMerits.map(m => m.cult_name).filter(Boolean),
+  };
+}
+
+function maintenanceEligibleChars() {
+  return (characters || [])
+    .filter(c => !c.retired)
+    .filter(c => (c.merits || []).some(m => MAINTENANCE_MERITS.includes(m.name)))
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
+}
+
+// Patches a single audit cell ({pt|mci}) on cycle.maintenance_audit.
+// Sends the whole audit object on each tick — fine at <=30 chars.
+async function setMaintenanceAudit(cycle, charId, key, value) {
+  const audit = { ...(cycle.maintenance_audit || {}) };
+  audit[charId] = { pt: false, mci: false, ...(audit[charId] || {}), [key]: value };
+  await updateCycle(cycle._id, { maintenance_audit: audit });
+  cycle.maintenance_audit = audit;
+  const idx = allCycles.findIndex(c => c._id === cycle._id);
+  if (idx >= 0) allCycles[idx].maintenance_audit = audit;
+}
+
+function renderMaintenanceAuditPanel(cycle) {
+  if (cycle.is_chapter_finale !== true) return '';
+  const eligible = maintenanceEligibleChars();
+  const audit = cycle.maintenance_audit || {};
+  const subLabel = cycle.chapter_label ? ` <span class="dt-maintenance-sub-label">(${esc(cycle.chapter_label)})</span>` : '';
+
+  let html = '<section class="dt-maintenance-audit">';
+  html += `<h4 class="dt-maintenance-title">Chapter Finale — Maintenance Audit${subLabel}</h4>`;
+  html += '<p class="dt-maintenance-sub">Tick a box once you have confirmed the player has maintained this standing merit during the chapter.</p>';
+
+  if (eligible.length === 0) {
+    html += '<p class="dt-maintenance-empty">No characters hold Professional Training or Mystery Cult Initiation.</p>';
+    html += '</section>';
+    return html;
+  }
+
+  html += '<table class="dt-maintenance-table"><thead><tr><th>Character</th><th>PT</th><th>MCI</th></tr></thead><tbody>';
+  for (const c of eligible) {
+    const id = String(c._id);
+    const h = maintenanceHoldings(c);
+    const row = audit[id] || {};
+    const ptCell = h.pt
+      ? `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="pt"${row.pt ? ' checked' : ''}>`
+      : '';
+    let mciCell = '';
+    if (h.mci) {
+      mciCell = `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="mci"${row.mci ? ' checked' : ''}>`;
+      if (h.mciCults.length) {
+        mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
+      }
+    }
+    html += `<tr><td>${esc(displayName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+  }
+  html += '</tbody></table></section>';
+  return html;
+}
+
 function renderPrepPanel(cycle) {
   const panel = document.getElementById('dt-prep-panel');
   if (!panel) return;
-  if (!cycle || cycle.status !== 'prep') { panel.style.display = 'none'; return; }
-  panel.style.display = '';
+  if (!cycle) { panel.style.display = 'none'; return; }
+  // DTUX-1: visibility is now driven by the phase ribbon (showDtuxPhase),
+  // not cycle.status. The panel always renders its content; show/hide is
+  // handled by the ribbon's tab click.
+  if (_dtuxActiveTab && _dtuxActiveTab !== 'prep') {
+    panel.style.display = 'none';
+  }
 
   const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
+  const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
@@ -1435,14 +1586,17 @@ function renderPrepPanel(cycle) {
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
     `<div class="dt-prep-field"><label class="dt-lbl">Deadline Date/Time</label>` +
     `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
+    `<div class="dt-prep-field"><label class="dt-lbl" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">` +
+    `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
     `</div>` +
     `<div class="dt-prep-early">` +
     `<div class="dt-prep-early-title">Early Access Players</div>` +
     `<div class="dt-early-list">${earlyContent}</div>` +
     `</div>` +
     `<div class="dt-prep-actions">` +
-    `<button class="dt-btn" id="dt-open-game-phase">Open City &amp; Feeding Phase →</button>` +
-    `</div>`;
+    renderSignoffButton('prep', cycle) +
+    `</div>` +
+    renderMaintenanceAuditPanel(cycle);
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;
@@ -1457,6 +1611,24 @@ function renderPrepPanel(cycle) {
     await updateCycle(cycle._id, { deadline_at: val ? new Date(val).toISOString() : null });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
+  });
+
+  document.getElementById('dt-chapter-finale-input')?.addEventListener('change', async e => {
+    const val = e.target.checked;
+    await updateCycle(cycle._id, { is_chapter_finale: val });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].is_chapter_finale = val;
+    cycle.is_chapter_finale = val;
+    renderPrepPanel(cycle);
+  });
+
+  panel.querySelectorAll('.dt-maintenance-tick').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      const charId = cb.dataset.charId;
+      const key = cb.dataset.key;
+      if (!charId || !key) return;
+      await setMaintenanceAudit(cycle, charId, key, e.target.checked);
+    });
   });
 
   panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
@@ -1474,13 +1646,9 @@ function renderPrepPanel(cycle) {
     });
   });
 
-  document.getElementById('dt-open-game-phase')?.addEventListener('click', async () => {
-    if (!confirm('Open City & Feeding phase? This moves the cycle from Prep to game status.')) return;
-    await updateCycle(cycle._id, { status: 'game', game_phase_at: new Date().toISOString() });
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) allCycles[idx].status = 'game';
-    await loadCycleById(cycle._id);
-  });
+  // DTUX-1: gate button "Open City & Feeding Phase →" replaced by the sign-off
+  // button rendered above; the per-tab click handler in initDowntimeView
+  // dispatches sign-off clicks via [data-signoff-phase].
 }
 
 async function handleCloseCycle() {
@@ -8757,7 +8925,10 @@ function _exportCityOverview(matrix) {
 export function renderCityOverview() {
   const el = document.getElementById('dt-city-panel');
   if (!el) return;
-  if (!submissions.length) { el.innerHTML = ''; return; }
+  if (!submissions.length) {
+    el.innerHTML = '<p class="placeholder-msg" style="padding:24px;color:var(--txt3);">No submissions yet for this cycle. The City overview populates once players submit.</p>';
+    return;
+  }
 
   const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};

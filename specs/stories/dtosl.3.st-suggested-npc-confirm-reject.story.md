@@ -3,10 +3,16 @@ id: dtosl.3
 epic: dt-off-screen-life
 status: ready-for-dev
 priority: medium
-depends_on: [dtosl.1, dtosl.2]
+depends_on: [dtosl.1, dtosl.2, NPC6.1]
 ---
 
 # Story DTOSL-3: ST-Suggested NPC — Confirm or Reject
+
+> **2026-04-27 SEQUENCING NOTE**
+>
+> This story renders ST-flagged NPCs to the player. It must ship **after Epic 6 NPC6.1** (server-side query-level scoping on `/api/npcs`). Reason: the suggested-NPC fetch path needs to be subject to the same role-scoped privacy filter as the rest of the NPC API, otherwise the implementation could inadvertently bypass the scope and expose unrelated NPCs.
+>
+> Story logic itself does not conflict with Epic 6 — these are NPCs explicitly linked to the player's character via `st_suggested_for`, so they pass the privacy gate by design. The dependency is purely about ensuring NPC6.1's server-side gate is the foundation everything reads through.
 
 As a player,
 I want to accept or reject NPCs that the ST has suggested for my character,

@@ -138,22 +138,33 @@ router.get('/for-character/:characterId', async (req, res) => {
   res.json(docs);
 });
 
-// All other NPC routes are ST-only
-router.use(requireRole('st'));
-
-// GET /api/npcs — list all, optionally filtered by cycle_id
+// NPCP-1: list endpoint is now player-readable but scoped at the Mongo
+// query level to NPCs linked to the caller's characters. ST/dev see the
+// full list (preserves existing ST processing-panel behaviour, including
+// the cycle_id filter). Players with no characters short-circuit to an
+// empty array. Filter is applied in the query, never post-fetch.
 router.get('/', async (req, res) => {
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
   const filter = {};
-  if (req.query.cycle_id) {
+  if (req.query.status) filter.status = req.query.status;
+
+  if (!isSt) {
+    const characterIds = (req.user?.character_ids || []).map(String);
+    if (characterIds.length === 0) return res.json([]);
+    filter.linked_character_ids = { $in: characterIds };
+  } else if (req.query.cycle_id) {
     const oid = parseId(req.query.cycle_id);
     filter.$or = oid
       ? [{ linked_cycle_id: oid }, { linked_cycle_id: req.query.cycle_id }]
       : [{ linked_cycle_id: req.query.cycle_id }];
   }
-  if (req.query.status) filter.status = req.query.status;
+
   const docs = await col().find(filter).sort({ name: 1 }).toArray();
   res.json(docs);
 });
+
+// All other NPC routes are ST-only
+router.use(requireRole('st'));
 
 // POST /api/npcs
 router.post('/', validate(npcSchema), async (req, res) => {

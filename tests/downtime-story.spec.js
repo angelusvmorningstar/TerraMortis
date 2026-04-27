@@ -226,8 +226,8 @@ async function setupDtStory(page, submissions, chars) {
   await page.click('[data-domain="downtime"]');
   await page.waitForTimeout(500);
 
-  // Click the Story sub-tab
-  await page.click('.dt-sub-tab-btn[data-tab="story"]');
+  // DTUX-1: nav is now the phase ribbon. Click the DT Story tab.
+  await page.click('#dt-phase-ribbon .pr-tab[data-phase="story"]');
   await page.waitForSelector('#dt-story-nav-rail', { timeout: 8000 });
   await page.waitForTimeout(500);
 }

@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -773,8 +773,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       || null;
   } catch { /* no cycles */ }
 
-  // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
-  if ((!currentCycle || currentCycle.status !== 'active') && location.hostname === 'localhost') {
+  // Dev bypass: on localhost, coerce non-active cycles to 'active' for the
+  // form's other status gates, but preserve the underlying cycle's data
+  // (is_chapter_finale, maintenance_audit, etc.) so dev-time testing of
+  // those features works. Stub fallback still applies when no cycle exists.
+  if (currentCycle && currentCycle.status !== 'active' && location.hostname === 'localhost') {
+    currentCycle = { ...currentCycle, status: 'active' };
+  }
+  if (!currentCycle && location.hostname === 'localhost') {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
@@ -1902,6 +1908,17 @@ function renderForm(container) {
     valEl.classList.toggle('dt-inf-negative', newVal < 0);
     valEl.classList.toggle('dt-inf-positive', newVal > 0);
 
+    // Sync ambience-direction labels around the stepper (DTFP-1).
+    // Both label spans are always in the DOM; just update text so the
+    // stepper column doesn't shift horizontally between rows.
+    const controlEl = valEl.closest('.dt-influence-control');
+    if (controlEl) {
+      const leftEl  = controlEl.querySelector('.dt-influence-label-left');
+      const rightEl = controlEl.querySelector('.dt-influence-label-right');
+      if (leftEl)  leftEl.textContent  = newVal < 0 ? 'decreasing ambience' : '';
+      if (rightEl) rightEl.textContent = newVal > 0 ? 'increasing ambience' : '';
+    }
+
     // Update budget display
     const remaining = budget - totalSpent;
     const budgetEl = document.getElementById('dt-influence-budget');
@@ -2096,6 +2113,45 @@ function applyRoteToProjectSlot(container) {
 
 // ── Project slots (tabbed UI) ──
 
+// CHM-3: chapter-finale at-risk reminder for PT/MCI standing merits.
+// Renders zero, one, or two warning strips at the top of the Personal
+// Projects section. Gated on cycle.is_chapter_finale === true; cleared
+// per-merit by the ST ticking the matching box on CHM-2's audit panel
+// (cycle.maintenance_audit[char_id].{pt,mci}). MAINTENANCE_MERITS is
+// the source of truth for the gate set; PT and MCI need different
+// strawman copy so they're branched explicitly here.
+function maintenanceWarningHtml(meritName, cultNames) {
+  const label = cultNames && cultNames.length
+    ? `${meritName} (${cultNames.join(', ')})`
+    : meritName;
+  return `<div class="dt-maintenance-warning">`
+    + `<strong>Maintenance reminder.</strong> `
+    + `Your <strong>${esc(label)}</strong> has not been logged as maintained this chapter. `
+    + `This is the last cycle of the chapter, so use one of your projects below to maintain it, or it will lapse.`
+    + `</div>`;
+}
+
+function renderMaintenanceWarnings(char, cycle) {
+  if (!cycle || cycle.is_chapter_finale !== true) return '';
+  if (!char) return '';
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const merits = char.merits || [];
+  const out = [];
+
+  const hasPT = merits.some(m => m.name === 'Professional Training');
+  if (hasPT && audit.pt !== true) {
+    out.push(maintenanceWarningHtml('Professional Training', null));
+  }
+
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  if (mciMerits.length && audit.mci !== true) {
+    const cults = mciMerits.map(m => m.cult_name).filter(Boolean);
+    out.push(maintenanceWarningHtml('Mystery Cult Initiation', cults));
+  }
+
+  return out.join('');
+}
+
 function renderProjectSlots(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
   const slotCount = section?.projectSlots || 4;
@@ -2119,7 +2175,7 @@ function renderProjectSlots(saved) {
   );
 
   const hasMaintenance = (currentChar.merits || []).some(m =>
-    m.name === 'Professional Training' || m.name === 'MCI'
+    MAINTENANCE_MERITS.includes(m.name)
   );
   const availableActions = PROJECT_ACTIONS.filter(opt =>
     opt.value !== 'maintenance' || hasMaintenance
@@ -2128,6 +2184,7 @@ function renderProjectSlots(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
+  h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
   // ── Tab bar ──
@@ -4322,12 +4379,18 @@ function renderQuestion(q, value) {
       for (const terr of INFLUENCE_TERRITORIES) {
         const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
         const val = infVals[tk] || 0;
+        // DTFP-1: both label slots always present so the stepper column stays
+        // vertically aligned across rows; text content is value-driven.
+        const leftText  = val < 0 ? 'decreasing ambience' : '';
+        const rightText = val > 0 ? 'increasing ambience' : '';
         h += '<div class="dt-influence-row">';
         h += `<span class="dt-influence-terr">${esc(terr)}</span>`;
         h += '<span class="dt-influence-control">';
+        h += `<span class="dt-influence-label dt-influence-label-left">${leftText}</span>`;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
         h += `<span class="dt-inf-val" id="inf-val-${tk}">${val}</span>`;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
+        h += `<span class="dt-influence-label dt-influence-label-right">${rightText}</span>`;
         h += '</span>';
         h += '</div>';
       }

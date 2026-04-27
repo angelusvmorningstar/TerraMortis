@@ -1642,6 +1642,20 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   line-height: 1.6;
 }
 
+/* CHM-3: chapter-finale maintenance reminder shown above Personal Projects */
+.dt-maintenance-warning {
+  background: var(--warn-dk-bg);
+  color: var(--warn-dk);
+  border: 1px solid var(--gold2-a25);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dt-maintenance-warning strong { color: var(--gold2); }
+.dt-maintenance-warning + .dt-maintenance-warning { margin-top: -4px; }
+
 .qf-field { margin-bottom: 22px; }
 
 .qf-label {
@@ -2421,6 +2435,20 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-inf-val.dt-inf-negative { color: var(--crim); }
 .dt-inf-val.dt-inf-positive { color: var(--influence-ok); }
+
+/* DTFP-1: ambience-direction labels around the influence stepper.
+   Both slots are always in the DOM with fixed width so the stepper column
+   stays in the same horizontal position across rows regardless of whether
+   either label has text. */
+.dt-influence-label {
+  color: var(--rp-txt3);
+  font-size: 0.8em;
+  font-style: italic;
+  white-space: nowrap;
+  flex: 0 0 9rem;
+}
+.dt-influence-label-left  { text-align: right; padding-right: 0.5rem; }
+.dt-influence-label-right { text-align: left;  padding-left:  0.5rem; }
 
 /* ── Project tabs ── */
 .dt-proj-tabs {

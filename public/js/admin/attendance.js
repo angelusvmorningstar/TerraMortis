@@ -13,6 +13,16 @@ let activeSession = null;
 let _saveTimer = null;
 let _sortBy = 'character'; // 'character' | 'player'
 
+// FIN-5: 'Player A/B/C' placeholder strings seeded by an early redacted
+// import. Treat as missing and fall back to the character's player field.
+const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
+function resolvePlayerName(a, c) {
+  const raw = (a.player || '').trim();
+  if (raw && !PLACEHOLDER_RE.test(raw)) return raw;
+  if (c?.player) return c.player;
+  return raw || '';
+}
+
 function esc(s) {
   if (s == null) return '';
   const d = document.createElement('div');
@@ -233,7 +243,7 @@ function renderGrid() {
 
   const sorted = att.map((a, i) => {
     const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
-    const player = a.player || (c ? c.player : '') || '';
+    const player = resolvePlayerName(a, c);
     return { a, i, c, player };
   });
   sorted.sort((x, y) => {
@@ -273,7 +283,7 @@ function renderGrid() {
   for (const { a, i, c } of sorted) {
     const rawName = c ? sortName(c) : (a.character_display || a.display_name || a.name || '');
     const charDisplay = rawName.replace(/\b\w/g, l => l.toUpperCase());
-    const playerName = a.player || (c ? c.player : '') || '';
+    const playerName = resolvePlayerName(a, c);
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
 

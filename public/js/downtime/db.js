@@ -51,6 +51,37 @@ export async function openGamePhase(id) {
   return updateCycle(id, { status: 'game', game_phase_at: new Date().toISOString() });
 }
 
+// ── DTUX-1 sign-off model ────────────────────────────────────────────────
+// Each cycle carries cycle.phase_signoff = { prep, city, projects, story, ready }
+// where each entry is { at: ISO, by: user_id } when signed-off, absent when not.
+// cycle.status remains in the schema (~14 reads across the codebase) but is
+// auto-derived from sign-off state on every write.
+
+export const DTUX_PHASES = ['prep', 'city', 'projects', 'story', 'ready'];
+
+export function deriveCycleStatus(cycle) {
+  const ps = cycle?.phase_signoff || {};
+  if (!ps.prep)     return 'prep';
+  if (!ps.city)     return 'game';
+  if (!ps.projects) return 'active';
+  return 'closed';
+}
+
+export async function signoffPhase(cycle, phase, signedOff, userId) {
+  if (!cycle?._id) return null;
+  const ps = { ...(cycle.phase_signoff || {}) };
+  if (signedOff) {
+    ps[phase] = { at: new Date().toISOString(), by: userId || null };
+  } else {
+    delete ps[phase];
+  }
+  const newStatus = deriveCycleStatus({ ...cycle, phase_signoff: ps });
+  await updateCycle(cycle._id, { phase_signoff: ps, status: newStatus });
+  cycle.phase_signoff = ps;
+  cycle.status = newStatus;
+  return cycle;
+}
+
 /** Get the cycle currently in game phase (status === 'game'). */
 export async function getGamePhaseCycle() {
   const cycles = await getCycles();
