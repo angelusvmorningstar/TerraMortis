@@ -2416,7 +2416,7 @@ function renderProjectSlots(saved) {
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
     const visible = n === activeProjectTab;
-    const fields = ACTION_FIELDS[actionVal] || [];
+    let fields = ACTION_FIELDS[actionVal] || [];
 
     h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
 
@@ -2455,6 +2455,18 @@ function renderProjectSlots(saved) {
       if (isJoint) {
         h += renderJointAuthoring(n, saved, existingJoint);
       }
+    }
+
+    // JDT-2: when the slot is in joint mode the joint description and joint
+    // target subsume the per-slot description and target pickers. Suppress
+    // those from the field list so they don't render twice.
+    if (isJoint) {
+      fields = fields.filter(f =>
+        f !== 'description' &&
+        f !== 'target_char' &&
+        f !== 'target_flex' &&
+        f !== 'target_own_merit'
+      );
     }
 
     // ── XP Spend picker (structured) ──

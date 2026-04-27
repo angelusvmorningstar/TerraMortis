@@ -2536,11 +2536,24 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .dt-joint-authoring {
   margin: 12px 0 16px;
-  padding: 12px 14px;
+  padding: 14px 16px 18px;
   background: var(--surf);
   border-left: 3px solid var(--gold2);
   border-radius: 4px;
 }
+.dt-joint-authoring .qf-label {
+  display: block;
+  margin-top: 18px;
+  margin-bottom: 6px;
+}
+.dt-joint-authoring .dt-joint-explainer + .qf-label,
+.dt-joint-authoring .dt-joint-saved-note + .qf-label {
+  margin-top: 6px;
+}
+.dt-joint-authoring .dt-target-flex-radios {
+  margin-bottom: 8px;
+}
+.dt-joint-authoring .qf-textarea { width: 100%; }
 .dt-joint-banner {
   display: inline-block;
   padding: 2px 10px;
