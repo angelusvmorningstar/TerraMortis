@@ -565,7 +565,7 @@ development_status:
   # ships ahead of the rest of the epic since it fixes a visible defect today.
   epic-chm: in-progress
   chm-0-maintenance-merits-constant: review
-  chm-1-chapter-finale-fields: ready-for-dev
+  chm-1-chapter-finale-fields: review
   chm-2-maintenance-audit-panel: ready-for-dev
   chm-3-player-at-risk-warning: ready-for-dev
   epic-chm-retrospective: optional
