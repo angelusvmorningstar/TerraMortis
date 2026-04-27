@@ -1642,6 +1642,20 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   line-height: 1.6;
 }
 
+/* CHM-3: chapter-finale maintenance reminder shown above Personal Projects */
+.dt-maintenance-warning {
+  background: var(--warn-dk-bg);
+  color: var(--warn-dk);
+  border: 1px solid var(--gold2-a25);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dt-maintenance-warning strong { color: var(--gold2); }
+.dt-maintenance-warning + .dt-maintenance-warning { margin-top: -4px; }
+
 .qf-field { margin-bottom: 22px; }
 
 .qf-label {

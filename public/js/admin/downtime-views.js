@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../tabs/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -1396,6 +1396,76 @@ async function handleNewCycle() {
   await loadAllCycles();
 }
 
+// CHM-2: holdings detection for the maintenance audit. PT is a flat
+// boolean; MCI may be multiple rows (one per cult), so collect the cult
+// names for context. Mirrors the m.active !== false guard used elsewhere
+// when iterating MCI merits.
+function maintenanceHoldings(c) {
+  const merits = c.merits || [];
+  const pt = merits.some(m => m.name === 'Professional Training');
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  return {
+    pt,
+    mci: mciMerits.length > 0,
+    mciCults: mciMerits.map(m => m.cult_name).filter(Boolean),
+  };
+}
+
+function maintenanceEligibleChars() {
+  return (characters || [])
+    .filter(c => !c.retired)
+    .filter(c => (c.merits || []).some(m => MAINTENANCE_MERITS.includes(m.name)))
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
+}
+
+// Patches a single audit cell ({pt|mci}) on cycle.maintenance_audit.
+// Sends the whole audit object on each tick — fine at <=30 chars.
+async function setMaintenanceAudit(cycle, charId, key, value) {
+  const audit = { ...(cycle.maintenance_audit || {}) };
+  audit[charId] = { pt: false, mci: false, ...(audit[charId] || {}), [key]: value };
+  await updateCycle(cycle._id, { maintenance_audit: audit });
+  cycle.maintenance_audit = audit;
+  const idx = allCycles.findIndex(c => c._id === cycle._id);
+  if (idx >= 0) allCycles[idx].maintenance_audit = audit;
+}
+
+function renderMaintenanceAuditPanel(cycle) {
+  if (cycle.is_chapter_finale !== true) return '';
+  const eligible = maintenanceEligibleChars();
+  const audit = cycle.maintenance_audit || {};
+  const subLabel = cycle.chapter_label ? ` <span class="dt-maintenance-sub-label">(${esc(cycle.chapter_label)})</span>` : '';
+
+  let html = '<section class="dt-maintenance-audit">';
+  html += `<h4 class="dt-maintenance-title">Chapter Finale — Maintenance Audit${subLabel}</h4>`;
+  html += '<p class="dt-maintenance-sub">Tick a box once you have confirmed the player has maintained this standing merit during the chapter.</p>';
+
+  if (eligible.length === 0) {
+    html += '<p class="dt-maintenance-empty">No characters hold Professional Training or Mystery Cult Initiation.</p>';
+    html += '</section>';
+    return html;
+  }
+
+  html += '<table class="dt-maintenance-table"><thead><tr><th>Character</th><th>PT</th><th>MCI</th></tr></thead><tbody>';
+  for (const c of eligible) {
+    const id = String(c._id);
+    const h = maintenanceHoldings(c);
+    const row = audit[id] || {};
+    const ptCell = h.pt
+      ? `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="pt"${row.pt ? ' checked' : ''}>`
+      : '';
+    let mciCell = '';
+    if (h.mci) {
+      mciCell = `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="mci"${row.mci ? ' checked' : ''}>`;
+      if (h.mciCults.length) {
+        mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
+      }
+    }
+    html += `<tr><td>${esc(displayName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+  }
+  html += '</tbody></table></section>';
+  return html;
+}
+
 function renderPrepPanel(cycle) {
   const panel = document.getElementById('dt-prep-panel');
   if (!panel) return;
@@ -1445,7 +1515,8 @@ function renderPrepPanel(cycle) {
     `</div>` +
     `<div class="dt-prep-actions">` +
     `<button class="dt-btn" id="dt-open-game-phase">Open City &amp; Feeding Phase →</button>` +
-    `</div>`;
+    `</div>` +
+    renderMaintenanceAuditPanel(cycle);
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;
@@ -1468,6 +1539,16 @@ function renderPrepPanel(cycle) {
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].is_chapter_finale = val;
     cycle.is_chapter_finale = val;
+    renderPrepPanel(cycle);
+  });
+
+  panel.querySelectorAll('.dt-maintenance-tick').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      const charId = cb.dataset.charId;
+      const key = cb.dataset.key;
+      if (!charId || !key) return;
+      await setMaintenanceAudit(cycle, charId, key, e.target.checked);
+    });
   });
 
   panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
