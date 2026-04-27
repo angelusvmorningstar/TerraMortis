@@ -460,12 +460,21 @@ submissionsRouter.patch('/:id/section-flag/:flagId', async (req, res) => {
 export const projectInvitationsRouter = Router();
 const projectInvitations = () => getCollection('project_invitations');
 
-// GET /api/project_invitations?cycle_id=...
+// GET /api/project_invitations?cycle_id=...&character_id=...&status=...
 //
 // ST: returns all invitations on the cycle.
 // Player: returns invitations they sent (lead) ∪ invitations they received
 //   (invited_character_id ∈ user.character_ids). Used by JDT-2 for the
 //   lead's status badges and by JDT-3 for the invitee inbox.
+//
+// Optional filters:
+//   - character_id: narrow to invitations targeted at a specific character
+//     (player can only filter to one of their own characters).
+//   - status: narrow to a specific lifecycle state (pending, accepted, ...).
+//
+// Each invitation is enriched with `_joint`, the cycle.joint_projects[]
+// entry it points to (or null if missing), so the client has the joint
+// description / action_type / lead inline without a second fetch.
 projectInvitationsRouter.get('/', async (req, res) => {
   const cycleIdRaw = req.query.cycle_id;
   if (!cycleIdRaw) {
@@ -473,31 +482,185 @@ projectInvitationsRouter.get('/', async (req, res) => {
   }
 
   const filter = { cycle_id: String(cycleIdRaw) };
+  if (req.query.status) filter.status = String(req.query.status);
 
   if (req.user.role !== 'st') {
     const userCharIds = (req.user.character_ids || []).map(id => String(id));
-    if (userCharIds.length === 0) {
-      return res.json([]);
-    }
+    if (userCharIds.length === 0) return res.json([]);
 
-    // Find joint_project_ids on the cycle whose lead is one of the user's characters
-    const cycleOid = parseId(cycleIdRaw);
-    let leadJointIds = [];
-    if (cycleOid) {
-      const cycle = await cycles().findOne({ _id: cycleOid });
-      leadJointIds = (cycle?.joint_projects || [])
-        .filter(j => userCharIds.includes(String(j.lead_character_id)))
-        .map(j => String(j._id));
+    if (req.query.character_id) {
+      // Explicit character filter — must be one of caller's characters.
+      const requested = String(req.query.character_id);
+      if (!userCharIds.includes(requested)) return res.json([]);
+      filter.invited_character_id = requested;
+    } else {
+      // No explicit filter — return invitee-received ∪ lead-sent.
+      const cycleOid = parseId(cycleIdRaw);
+      let leadJointIds = [];
+      if (cycleOid) {
+        const cycle = await cycles().findOne({ _id: cycleOid });
+        leadJointIds = (cycle?.joint_projects || [])
+          .filter(j => userCharIds.includes(String(j.lead_character_id)))
+          .map(j => String(j._id));
+      }
+      filter.$or = [
+        { invited_character_id: { $in: userCharIds } },
+        ...(leadJointIds.length ? [{ joint_project_id: { $in: leadJointIds } }] : []),
+      ];
     }
-
-    filter.$or = [
-      { invited_character_id: { $in: userCharIds } },
-      ...(leadJointIds.length ? [{ joint_project_id: { $in: leadJointIds } }] : []),
-    ];
+  } else if (req.query.character_id) {
+    // ST may filter freely.
+    filter.invited_character_id = String(req.query.character_id);
   }
 
   const docs = await projectInvitations().find(filter).toArray();
+
+  // Enrich with _joint
+  const cycleOid = parseId(cycleIdRaw);
+  let jointsById = {};
+  if (cycleOid) {
+    const cycle = await cycles().findOne({ _id: cycleOid });
+    for (const j of (cycle?.joint_projects || [])) {
+      jointsById[String(j._id)] = j;
+    }
+  }
+  for (const inv of docs) {
+    inv._joint = jointsById[String(inv.joint_project_id)] || null;
+  }
+
   res.json(docs);
+});
+
+// ── JDT-3: accept / decline lifecycle ────────────────────────────────
+// Accept: race-safe — re-reads invitation, requires status=pending. Finds
+// (or creates) the invitee's submission for the cycle, picks the lowest
+// available slot, writes the joint markers onto that slot, appends the
+// participant entry to joint.participants[]. Returns the bundled state.
+projectInvitationsRouter.post('/:id/accept', async (req, res) => {
+  const invId = req.params.id;
+  const inv = await projectInvitations().findOne({ _id: invId });
+  if (!inv) return res.status(404).json({ error: 'NOT_FOUND', message: 'Invitation not found' });
+
+  // Auth: caller must own invited_character_id (ST may also accept on a
+  // player's behalf for support, e.g. ST-driven testing).
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(String(inv.invited_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your invitation' });
+    }
+  }
+
+  if (inv.status !== 'pending') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Invitation no longer pending', current_status: inv.status });
+  }
+
+  // Locate cycle + joint
+  const cycleOid = parseId(inv.cycle_id);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle_id on invitation' });
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(inv.joint_project_id));
+  if (!joint || joint.cancelled_at) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Joint no longer available' });
+  }
+
+  // Find / create invitee submission for the cycle
+  const charOid = parseId(inv.invited_character_id);
+  let sub = null;
+  if (charOid) {
+    sub = await submissions().findOne({
+      cycle_id: cycleOid,
+      $or: [{ character_id: charOid }, { character_id: String(inv.invited_character_id) }],
+    });
+  }
+  if (!sub) {
+    const charValue = charOid || String(inv.invited_character_id);
+    const insertResult = await submissions().insertOne({
+      character_id: charValue,
+      cycle_id: cycleOid,
+      status: 'draft',
+      responses: {},
+    });
+    sub = await submissions().findOne({ _id: insertResult.insertedId });
+  }
+
+  // Find lowest-numbered available slot (no action set)
+  const responses = sub.responses || {};
+  let slot = null;
+  for (let n = 1; n <= 4; n++) {
+    if (!responses[`project_${n}_action`]) { slot = n; break; }
+  }
+  if (!slot) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'No available project slots' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Mutate (sequence is fine at our scale; transactional wrap not required)
+  await projectInvitations().updateOne(
+    { _id: invId },
+    { $set: {
+      status: 'accepted',
+      responded_at: now,
+      invited_submission_id: String(sub._id),
+    }},
+  );
+
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $push: { 'joint_projects.$.participants': {
+      invitation_id: invId,
+      character_id: String(inv.invited_character_id),
+      submission_id: String(sub._id),
+      project_slot: slot,
+      joined_at: now,
+      decoupled_at: null,
+      description_change_acknowledged_at: now,
+    }}},
+  );
+
+  await submissions().updateOne(
+    { _id: sub._id },
+    { $set: {
+      [`responses.project_${slot}_action`]: joint.action_type,
+      [`responses.project_${slot}_joint_id`]: String(joint._id),
+      [`responses.project_${slot}_joint_role`]: 'support',
+      [`responses.project_${slot}_description`]: joint.description || '',
+    }},
+  );
+
+  // Bundle the latest state for the client re-render
+  const updatedInv = await projectInvitations().findOne({ _id: invId });
+  const updatedSub = await submissions().findOne({ _id: sub._id });
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+
+  res.json({ invitation: updatedInv, joint: updatedJoint, slot, submission: updatedSub });
+});
+
+projectInvitationsRouter.post('/:id/decline', async (req, res) => {
+  const invId = req.params.id;
+  const inv = await projectInvitations().findOne({ _id: invId });
+  if (!inv) return res.status(404).json({ error: 'NOT_FOUND', message: 'Invitation not found' });
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(String(inv.invited_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your invitation' });
+    }
+  }
+
+  if (inv.status !== 'pending') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Invitation no longer pending', current_status: inv.status });
+  }
+
+  const now = new Date().toISOString();
+  await projectInvitations().updateOne(
+    { _id: invId },
+    { $set: { status: 'declined', responded_at: now } },
+  );
+
+  res.json(await projectInvitations().findOne({ _id: invId }));
 });
 
 async function _sendPublishedEmail(submission) {

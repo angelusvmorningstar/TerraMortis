@@ -711,6 +711,76 @@ async function saveDraft() {
   }
 }
 
+// JDT-3: Accept a pending invitation. On success the server returns the
+// updated invitation, joint, slot number, and the invitee's submission with
+// the joint markers written into slot N. We refresh local caches and
+// re-render. Race condition (409) → reload invitations and re-render.
+async function handleInvitationAccept(invId, container) {
+  if (!invId) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    const result = await apiPost(`/api/project_invitations/${invId}/accept`, {});
+    if (result?.submission) responseDoc = result.submission;
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = `Joined slot ${result?.slot ?? ''}`.trim();
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (/no longer pending|no longer available|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Accept failed: ' + err.message;
+    }
+  }
+}
+
+async function handleInvitationDecline(invId, container) {
+  if (!invId) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    await apiPost(`/api/project_invitations/${invId}/decline`, {});
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    if (/no longer pending|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Decline failed: ' + err.message;
+    }
+  }
+}
+
+// JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
+// invitations list so badges, panels, and slot UI all reflect the latest state.
+async function refreshJointCaches() {
+  if (!currentCycle?._id || currentCycle._id === 'dev-stub') return;
+  try {
+    const cycles = await apiGet('/api/downtime_cycles');
+    const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
+    if (fresh) {
+      const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
+        ? currentCycle.status
+        : null;
+      currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
+    }
+  } catch { /* keep prior cycle */ }
+  try {
+    _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
+  } catch { /* keep prior invitations */ }
+}
+
 // JDT-2: For each slot where the lead has selected Joint mode, has invitees,
 // and no joint yet exists on cycle.joint_projects, create the joint + invitations
 // via POST /api/downtime_cycles/:cycleId/joint_projects. Refresh local cycle and
@@ -763,21 +833,7 @@ async function createPendingJoints(responses) {
   }
 
   if (anyCreated) {
-    // Refresh cycle (joint_projects array changed) and invitations cache.
-    try {
-      const cycles = await apiGet('/api/downtime_cycles');
-      const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
-      if (fresh) {
-        // Preserve any localhost dev-bypass status coercion from initial load.
-        const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
-          ? currentCycle.status
-          : null;
-        currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
-      }
-    } catch { /* keep prior cycle */ }
-    try {
-      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
-    } catch { /* keep prior invitations */ }
+    await refreshJointCaches();
   }
 }
 
@@ -1434,6 +1490,18 @@ function renderForm(container) {
   container.addEventListener('click', (e) => {
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
+
+    // JDT-3: pending invitation Accept / Decline
+    const acceptBtn = e.target.closest('.dt-pending-invitation-accept');
+    if (acceptBtn && !acceptBtn.disabled) {
+      handleInvitationAccept(acceptBtn.dataset.invitationId, container);
+      return;
+    }
+    const declineBtn = e.target.closest('.dt-pending-invitation-decline');
+    if (declineBtn) {
+      handleInvitationDecline(declineBtn.dataset.invitationId, container);
+      return;
+    }
 
     // Skill acquisition spec chip toggle
     const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
@@ -2393,6 +2461,9 @@ function renderProjectSlots(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
+  // JDT-3: pending joint invitations sit at the top of the projects section
+  // so the player sees them as soon as they expand.
+  h += renderPendingInvitationsPanel();
   h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
@@ -3806,6 +3877,59 @@ function renderJointInviteeGrid(n, invitedSet) {
     h += `</label>`;
   }
   h += `</div>`;
+  return h;
+}
+
+// JDT-3: panel rendered above the project tabs that lists pending joint
+// invitations addressed to the current character. Empty when the invitee
+// has no pending invitations on the active cycle.
+function renderPendingInvitationsPanel() {
+  if (!currentChar?._id) return '';
+  const myCharId = String(currentChar._id);
+  const pending = _jointInvitations
+    .filter(inv => String(inv.invited_character_id) === myCharId && inv.status === 'pending')
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  if (!pending.length) return '';
+
+  // Lowest-numbered slot with no action set is "available".
+  const responses = responseDoc?.responses || {};
+  let hasSlot = false;
+  for (let n = 1; n <= 4; n++) {
+    if (!responses[`project_${n}_action`]) { hasSlot = true; break; }
+  }
+
+  let h = `<section class="dt-pending-invitations-panel">`;
+  h += `<h3 class="dt-pending-invitations-title">Pending invitations</h3>`;
+  for (const inv of pending) {
+    const joint = inv._joint;
+    if (!joint) continue;
+    const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
+    const leadName = lead ? lead.name : 'Unknown lead';
+    const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
+    const desc = (joint.description || '').trim();
+    const descShort = desc.length > 220 ? desc.slice(0, 220).trimEnd() + '…' : desc;
+
+    h += `<div class="dt-pending-invitation-row" data-invitation-id="${esc(inv._id)}">`;
+    h += `<div class="dt-pending-invitation-meta">`;
+    h += `<span class="dt-pending-invitation-lead">${esc(leadName)} invites you</span>`;
+    h += `<span class="dt-pending-invitation-action">${esc(actionLabel)}</span>`;
+    h += `</div>`;
+    if (descShort) {
+      h += `<div class="dt-pending-invitation-desc">${esc(descShort)}</div>`;
+    } else {
+      h += `<div class="dt-pending-invitation-desc dt-pending-invitation-desc-empty">No description provided.</div>`;
+    }
+    h += `<div class="dt-pending-invitation-actions">`;
+    if (hasSlot) {
+      h += `<button type="button" class="dt-pending-invitation-accept" data-invitation-id="${esc(inv._id)}">Accept</button>`;
+    } else {
+      h += `<button type="button" class="dt-pending-invitation-accept" disabled title="You have no available project slots. Free up a slot to accept.">Accept</button>`;
+    }
+    h += `<button type="button" class="dt-pending-invitation-decline" data-invitation-id="${esc(inv._id)}">Decline</button>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += `</section>`;
   return h;
 }
 
