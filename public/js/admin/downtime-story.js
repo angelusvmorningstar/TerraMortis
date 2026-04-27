@@ -14,6 +14,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
+import { effectiveFeedViolence } from '../tabs/downtime-data.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
 
@@ -1161,6 +1162,16 @@ function renderFeedingValidation(char, sub, stNarrative) {
       }
     } else if (poolStatus === 'validated') {
       h += `<div class="dt-feed-val-row"><dt>Result</dt><dd class="dt-story-section-empty">Pool validated — roll pending</dd></div>`;
+    }
+
+    // DTFP-5: Kiss / Violent declaration (effective value, ST override wins)
+    const fv = effectiveFeedViolence(sub);
+    const fvLbl = fv === 'kiss' ? 'The Kiss (subtle)' : fv === 'violent' ? 'Violent' : '';
+    if (fvLbl) {
+      const overrideTag = sub?.st_review?.feed_violence_st_override
+        ? ' <span class="dt-feed-val-override-tag">(ST override)</span>'
+        : '';
+      h += `<div class="dt-feed-val-row"><dt>Declaration</dt><dd>${esc(fvLbl)}${overrideTag}</dd></div>`;
     }
 
     // Player feedback

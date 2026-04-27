@@ -3324,6 +3324,22 @@ function renderProcessingMode(container) {
     });
   });
 
+  // DTFP-5: Wire feed-violence ST override selects
+  container.querySelectorAll('.proc-feed-violence-st-override').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = sel.dataset.subId;
+      const newVal = sel.value || null;
+      const sub = submissions.find(s => s._id === subId);
+      if (sub) {
+        if (!sub.st_review) sub.st_review = {};
+        if (newVal) sub.st_review.feed_violence_st_override = newVal;
+        else delete sub.st_review.feed_violence_st_override;
+      }
+      await updateSubmission(subId, { 'st_review.feed_violence_st_override': newVal });
+    });
+  });
+
   // Wire action type recategorisation selects
   container.querySelectorAll('.proc-recat-select').forEach(sel => {
     sel.addEventListener('change', async e => {
@@ -6068,6 +6084,23 @@ function _renderFeedRightPanel(entry, char, rev) {
     canRoll:   showFeedRollBtn,
     noRollMsg: 'Commit pool first',
   });
+
+  // ── DTFP-5: feed-violence ST override ──
+  // Player declared (read-only) + ST override dropdown.
+  const playerVi   = feedSub?.responses?.feed_violence || '';
+  const stViOverride = feedSub?.st_review?.feed_violence_st_override || '';
+  const _viLabel = (v) => v === 'kiss' ? 'The Kiss (subtle)' : v === 'violent' ? 'Violent' : '';
+  h += `<div class="proc-feed-mod-panel proc-feed-violence-block" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Feed declaration</div>`;
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Player declared</span><span class="proc-feed-violence-val">${esc(_viLabel(playerVi)) || '<em>Not specified</em>'}</span></div>`;
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">ST override</span>`;
+  h += `<select class="proc-feed-violence-st-override" data-sub-id="${esc(entry.subId)}">`;
+  h += `<option value="">No override</option>`;
+  h += `<option value="kiss"${stViOverride === 'kiss' ? ' selected' : ''}>The Kiss (subtle)</option>`;
+  h += `<option value="violent"${stViOverride === 'violent' ? ' selected' : ''}>Violent</option>`;
+  h += `</select>`;
+  h += `</div>`;
+  h += `</div>`;
 
   h += `</div>`; // proc-feed-right
   return h;
