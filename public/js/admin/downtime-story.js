@@ -2772,7 +2772,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
 
   let h = `<div class="dt-story-section" data-section="cacophony_savvy">`;
   h += `<div class="dt-story-cs-header">`;
-  h += `<span class="dt-story-section-header">CACOPHONY SAVVY (${csDots} dot${csDots !== 1 ? 's' : ''})</span>`;
+  h += `<span class="dt-story-section-header">RUMOURS (${csDots} dot${csDots !== 1 ? 's' : ''})</span>`;
   h += `</div>`;
   h += `<div class="dt-story-section-body">`;
 
