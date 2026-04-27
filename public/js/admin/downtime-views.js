@@ -1046,7 +1046,9 @@ async function loadCycleById(cycleId) {
   const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
+  const isOpen   = cycle.status === 'open';
   const isClosed = cycle.status === 'closed';
+  const isLive   = isPrep || isActive || isGame || isOpen;
   const deadlineStr = cycle.deadline_at
     ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
@@ -1058,7 +1060,7 @@ async function loadCycleById(cycleId) {
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
   }
-  if (isActive) {
+  if (isLive) {
     const dtVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
     statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
   }
