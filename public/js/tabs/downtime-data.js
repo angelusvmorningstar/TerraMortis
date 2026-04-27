@@ -100,6 +100,31 @@ export const FEED_METHODS = [
   { id: 'other', name: 'Other', desc: 'Custom method (subject to ST approval)', attrs: [], skills: [], discs: [] },
 ];
 
+// DTFP-5: Kiss / Violent feeding declaration. Pre-selection per method;
+// stalking and other are deliberately unselected so the player must pick.
+export const FEED_VIOLENCE_DEFAULTS = {
+  seduction:    'kiss',
+  stalking:     null,
+  force:        'violent',
+  familiar:     'kiss',
+  intimidation: 'violent',
+  other:        null,
+};
+
+export function inferFeedViolenceFromMethod(methodId) {
+  return FEED_VIOLENCE_DEFAULTS[methodId] ?? null;
+}
+
+// Single source of truth for "what was this submission's feed violence":
+// ST override > player choice > legacy-method inference > null.
+export function effectiveFeedViolence(sub) {
+  const stOverride = sub?.st_review?.feed_violence_st_override;
+  if (stOverride === 'kiss' || stOverride === 'violent') return stOverride;
+  const playerChoice = sub?.responses?.feed_violence;
+  if (playerChoice === 'kiss' || playerChoice === 'violent') return playerChoice;
+  return inferFeedViolenceFromMethod(sub?.responses?.['_feed_method']);
+}
+
 export const DOWNTIME_SECTIONS = [
   // 1. Court — gated: only shown if the player attended last game.
   // Prior "Politics and Correspondence" title renamed post-DTR.2/.3 since

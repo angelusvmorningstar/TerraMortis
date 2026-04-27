@@ -3263,6 +3263,33 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .dt-feed-suggest-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--txt3); flex-shrink: 0; }
 .dt-feed-suggest-sep { color: var(--txt3); font-size: 12px; }
+/* DTFP-5: Kiss / Violent feeding declaration toggle */
+.dt-feed-violence-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.dt-feed-vi-btn {
+  flex: 1;
+  padding: 8px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt2);
+  border-radius: 4px;
+  font-family: var(--ft);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.dt-feed-vi-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-feed-vi-btn.dt-feed-vi-on {
+  background: var(--gold2);
+  border-color: var(--gold2);
+  color: var(--bg);
+  font-weight: 600;
+}
+.dt-feed-vi-hint { margin-top: 4px; font-style: italic; }
+
 /* DTFP-3: By Force teaching note (Vigour/Celerity selection) */
 .dt-feed-teaching-note {
   margin-top: 6px;

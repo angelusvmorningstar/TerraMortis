@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -275,6 +275,11 @@ function collectResponses() {
         // The method-card pick is UX-only scaffolding for the chip suggestions;
         // the saved pool is whatever the player built via attr/skill/disc/spec.
         // Legacy submissions keep their stored _feed_method for back-compat reads.
+        // DTFP-5: feed_violence persists only after the player clicks the toggle.
+        // Pre-selection is visual only; preserve any explicit choice through saves.
+        if (responseDoc?.responses?.feed_violence) {
+          responses.feed_violence = responseDoc.responses.feed_violence;
+        }
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
@@ -1689,6 +1694,16 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+    // DTFP-5: Kiss / Violent toggle
+    const viBtn = e.target.closest('[data-feed-violence]');
+    if (viBtn) {
+      if (!responseDoc) responseDoc = { responses: {} };
+      if (!responseDoc.responses) responseDoc.responses = {};
+      responseDoc.responses.feed_violence = viBtn.dataset.feedViolence;
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // NPC card selection
@@ -4132,6 +4147,25 @@ function renderQuestion(q, value) {
         h += '</label>';
       }
       h += '</div></div>';
+
+      // ── DTFP-5: Kiss / Violent toggle ──
+      // Player choice wins. If unset, pre-select per method (stalking + other stay
+      // unselected so the player must commit). Pre-selection is visual only — the
+      // field is not persisted until the player clicks one of the buttons.
+      const persistedViolence = responseDoc?.responses?.feed_violence || '';
+      const preselect = persistedViolence || (FEED_VIOLENCE_DEFAULTS[feedMethodId] || '');
+      h += '<div class="qf-field">';
+      h += '<label class="qf-label">How loud was the feeding?</label>';
+      h += '<div class="dt-feed-violence-toggle">';
+      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'kiss' ? ' dt-feed-vi-on' : ''}" data-feed-violence="kiss">The Kiss (subtle)</button>`;
+      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'violent' ? ' dt-feed-vi-on' : ''}" data-feed-violence="violent">Violent</button>`;
+      h += '</div>';
+      if (!persistedViolence && !preselect) {
+        h += '<p class="qf-desc dt-feed-vi-hint">Pick one. Your method does not pre-select for you.</p>';
+      } else if (!persistedViolence && preselect) {
+        h += '<p class="qf-desc dt-feed-vi-hint">Pre-selected based on your method. Click to confirm or change.</p>';
+      }
+      h += '</div>';
 
       // ROTE checkbox + description (shown when method selected)
       if (feedMethodId) {
