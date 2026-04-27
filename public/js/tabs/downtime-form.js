@@ -773,8 +773,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       || null;
   } catch { /* no cycles */ }
 
-  // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
-  if ((!currentCycle || currentCycle.status !== 'active') && location.hostname === 'localhost') {
+  // Dev bypass: on localhost, coerce non-active cycles to 'active' for the
+  // form's other status gates, but preserve the underlying cycle's data
+  // (is_chapter_finale, maintenance_audit, etc.) so dev-time testing of
+  // those features works. Stub fallback still applies when no cycle exists.
+  if (currentCycle && currentCycle.status !== 'active' && location.hostname === 'localhost') {
+    currentCycle = { ...currentCycle, status: 'active' };
+  }
+  if (!currentCycle && location.hostname === 'localhost') {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
