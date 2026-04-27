@@ -1802,6 +1802,20 @@ body {
 .dt-early-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 13px; }
 .dt-prep-add-row { display: flex; gap: 8px; margin-top: 8px; }
 .dt-prep-actions { padding-top: 8px; border-top: 1px solid var(--bdr); }
+
+/* CHM-2: chapter-finale maintenance audit (rendered inside dt-prep-panel) */
+.dt-maintenance-audit { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bdr); }
+.dt-maintenance-title { margin: 0 0 4px; font-family: var(--fh2); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.dt-maintenance-sub-label { font-size: 11px; color: var(--txt3); letter-spacing: 0; text-transform: none; }
+.dt-maintenance-sub { margin: 0 0 10px; font-size: 12px; color: var(--txt3); font-style: italic; }
+.dt-maintenance-empty { font-size: 13px; color: var(--txt3); font-style: italic; margin: 0; }
+.dt-maintenance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dt-maintenance-table th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bdr); font-weight: 600; color: var(--txt2); }
+.dt-maintenance-table th:nth-child(2), .dt-maintenance-table th:nth-child(3) { text-align: center; width: 60px; }
+.dt-maintenance-table td { padding: 6px 8px; border-bottom: 1px solid var(--bdr); color: var(--txt); }
+.dt-maintenance-cell { text-align: center; vertical-align: middle; }
+.dt-maintenance-tick { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.dt-maintenance-cults { font-size: 10px; color: var(--txt3); margin-top: 2px; line-height: 1.3; }
 .dt-btn-new { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .dt-btn-new:hover { opacity: .85; }
 .dt-status-modified { background: var(--accent-a8); color: var(--accent); }

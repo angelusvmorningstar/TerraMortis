@@ -566,8 +566,8 @@ development_status:
   epic-chm: in-progress
   chm-0-maintenance-merits-constant: review
   chm-1-chapter-finale-fields: review
-  chm-2-maintenance-audit-panel: ready-for-dev
-  chm-3-player-at-risk-warning: ready-for-dev
+  chm-2-maintenance-audit-panel: review
+  chm-3-player-at-risk-warning: in-progress
   epic-chm-retrospective: optional
 
   # ---- Epic DTSR — Story Surface Reform ----
