@@ -51,6 +51,10 @@ let _session = null;
 let _chars = [];
 let _saveTimer = null;
 let _el = null;
+let _playerByCharId = new Map();
+
+// Placeholder strings seeded by an early redacted import. Treat as missing.
+const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
 
 export async function initSignIn(el, chars) {
   _el = el;
@@ -70,7 +74,29 @@ export async function initSignIn(el, chars) {
     return;
   }
 
+  // Build character_id \u2192 display_name lookup once. Coordinator-accessible
+  // narrow endpoint; if it fails (network or auth), fall back to whatever
+  // string is on the row so the tab still renders.
+  _playerByCharId = new Map();
+  try {
+    const pairs = await apiGet('/api/players/display-names');
+    for (const p of (pairs || [])) {
+      if (p?.character_id && p?.display_name) {
+        _playerByCharId.set(String(p.character_id), p.display_name);
+      }
+    }
+  } catch {
+    // leave map empty; resolvePlayerName falls back to raw a.player or '\u2014'
+  }
+
   render();
+}
+
+function resolvePlayerName(att) {
+  const raw = (att.player || '').trim();
+  if (raw && !PLACEHOLDER_RE.test(raw)) return raw;
+  const fromMap = _playerByCharId.get(String(att.character_id));
+  return fromMap || raw || '\u2014';
 }
 
 function scheduleAutosave() {
@@ -105,8 +131,8 @@ function render() {
   if (!_el || !_session) return;
 
   const att = (_session.attendance || []).slice().sort((a, b) => {
-    const pa = (a.player || '').toLowerCase();
-    const pb = (b.player || '').toLowerCase();
+    const pa = resolvePlayerName(a).toLowerCase();
+    const pb = resolvePlayerName(b).toLowerCase();
     return pa.localeCompare(pb);
   });
 
@@ -157,7 +183,7 @@ function render() {
         <input type="checkbox" class="si-att-chk" data-idx="${idx}"${a.attended ? ' checked' : ''}>
       </label>
       <div class="si-info">
-        <div class="si-player">${esc(a.player || '—')}</div>
+        <div class="si-player">${esc(resolvePlayerName(a))}</div>
         <div class="si-char">${esc(charName)}</div>
         ${resourceRow}
       </div>
