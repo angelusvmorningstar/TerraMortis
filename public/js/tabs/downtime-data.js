@@ -89,12 +89,14 @@ export { PROJECT_ACTIONS };
 // source of truth; CHM-1/2/3 read from here.
 export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initiation'];
 
+// DTFP-3: id values are stable for back-compat (existing submissions keyed by id);
+// only display name and chip lists change. 'familiar' id stays; name flips to 'Deception'.
 export const FEED_METHODS = [
   { id: 'seduction', name: 'Seduction', desc: 'Lure a vessel close', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'], discs: ['Majesty', 'Dominate'] },
-  { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'], discs: ['Protean', 'Obfuscate'] },
-  { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Nightmare'] },
-  { id: 'familiar', name: 'Familiar Face', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Presence'], skills: ['Persuasion', 'Subterfuge'], discs: ['Dominate', 'Majesty'] },
-  { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Strength', 'Manipulation'], skills: ['Intimidation', 'Subterfuge'], discs: ['Nightmare', 'Dominate'] },
+  { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Streetwise'], discs: ['Protean', 'Obfuscate'] },
+  { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Celerity'] },
+  { id: 'familiar', name: 'Deception', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Wits'], skills: ['Persuasion', 'Subterfuge'], discs: ['Auspex', 'Obfuscate'] },
+  { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Intelligence', 'Presence'], skills: ['Expression', 'Intimidation'], discs: ['Nightmare', 'Dominate'] },
   { id: 'other', name: 'Other', desc: 'Custom method (subject to ST approval)', attrs: [], skills: [], discs: [] },
 ];
 
