@@ -6810,6 +6810,11 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-story-notes-ta:focus { border-color: var(--gold2); outline: none; }
 .dt-story-save-status { color: var(--green2, var(--reg-confirmed-fg)); font-size: 11px; margin-top: 4px; display: block; }
 
+.dt-story-format-row { align-items: center; display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
+.dt-story-format-radio { align-items: center; color: var(--txt2); cursor: pointer; display: inline-flex; font-size: 12px; gap: 6px; }
+.dt-story-format-radio input[type="radio"] { accent-color: var(--gold2); cursor: pointer; }
+.dt-story-legacy-load-note { font-style: italic; font-weight: 400; margin-left: auto; }
+
 .dt-story-card-actions { align-items: center; display: flex; gap: 8px; }
 .dt-story-save-draft-btn,
 .dt-story-mark-complete-btn {

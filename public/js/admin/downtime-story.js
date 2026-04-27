@@ -185,9 +185,8 @@ export async function initDtStory(cycleId) {
     if (copyBtn) {
       // Territory buttons carry data-terr-id — route on attribute, not section ancestry
       if (copyBtn.dataset.terrId)               { handleCopyTerritoryContext(copyBtn);    return; }
-      if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);    return; }
-      if (sectionKey === 'letter_from_home')    { handleCopyLetterContext(copyBtn);     return; }
-      if (sectionKey === 'touchstone')          { handleCopyTouchstoneContext(copyBtn); return; }
+      if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);     return; }
+      if (sectionKey === 'story_moment')        { handleCopyStoryMomentContext(copyBtn); return; }
       if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
@@ -303,6 +302,12 @@ function isSectionDone(stNarrative, sectionKey, sub) {
       return isSectionComplete(stNarrative, 'home_report');
     case 'project_responses':
       return projectResponsesComplete(sub);
+    case 'story_moment':
+      // Historical submissions that were marked complete on the legacy
+      // letter_from_home or touchstone sections still satisfy sign-off.
+      return stNarrative?.story_moment?.status === 'complete'
+          || stNarrative?.letter_from_home?.status === 'complete'
+          || stNarrative?.touchstone?.status === 'complete';
     case 'resource_approvals':  return actionResponsesComplete(sub, ['resources']);
     case 'cacophony_savvy':
       return cacophonySavvyComplete(getCharForSub(sub), sub);
@@ -777,8 +782,7 @@ function hasHaven(char) {
 
 function getApplicableSections(char, sub) {
   const sections = [
-    { key: 'letter_from_home',   label: 'Letter from Home' },
-    { key: 'touchstone',         label: 'Touchstone' },
+    { key: 'story_moment', label: 'Story Moment' },
   ];
 
   if (char?.home_territory) sections.push({ key: 'home_report', label: 'Home Report' });
@@ -901,8 +905,12 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
     return { state: done ? 'complete' : 'empty', done: done ? 1 : 0, total: 1 };
   }
 
-  if (sectionKey === 'letter_from_home' || sectionKey === 'touchstone') {
-    const entry = sn[sectionKey] || {};
+  if (sectionKey === 'story_moment') {
+    // Prefer new field; fall back to whichever legacy section has content
+    const entry = sn.story_moment
+      || (sn.letter_from_home?.response ? sn.letter_from_home : null)
+      || (sn.touchstone?.response       ? sn.touchstone       : null)
+      || {};
     if (entry.status === 'complete')        return { state: 'complete',  done: 1, total: 1 };
     if (entry.status === 'needs_revision')  return { state: 'revision',  done: 0, total: 1 };
     if (entry.response)                     return { state: 'draft',     done: 0, total: 1 };
@@ -974,8 +982,7 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
 
 const TRACKER_LABELS = {
   feeding_validation: 'Feeding',
-  letter_from_home:   'Letter',
-  touchstone:         'Touchstone',
+  story_moment:       'Story Moment',
   project_responses:  'Projects',
   territory_reports:  'Territory',
   allies_actions:     'Allies',
@@ -1050,8 +1057,7 @@ function renderGeneralNotes(sub) {
 function renderSection(section, char, sub, stNarrative) {
   switch (section.key) {
     case 'feeding_validation': return renderFeedingValidation(char, sub, stNarrative);
-    case 'letter_from_home':   return renderLetterFromHome(char, sub, stNarrative);
-    case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
+    case 'story_moment':       return renderStoryMoment(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
     case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
     case 'home_report':        return renderHomeReport(char, sub, stNarrative, _allSubmissions);
@@ -1370,19 +1376,44 @@ function buildTouchstoneContext(char, sub) {
   return lines.join('\n');
 }
 
-function renderLetterFromHome(char, sub, stNarrative) {
-  const complete   = isSectionComplete(stNarrative, 'letter_from_home');
-  const isRevision = stNarrative?.letter_from_home?.status === 'needs_revision';
-  const revNote    = stNarrative?.letter_from_home?.revision_note || '';
+// ── Story Moment section (Letter from Home + Touchstone Vignette consolidated) ──
+
+function renderStoryMoment(char, sub, stNarrative) {
+  // Read priority: new consolidated field, then legacy letter, then legacy touchstone
+  const sm               = stNarrative?.story_moment;
+  const legacyLetter     = stNarrative?.letter_from_home;
+  const legacyTouchstone = stNarrative?.touchstone;
+
+  let initialFormat   = 'letter';
+  let initialText     = '';
+  let initialStatus   = 'draft';
+  let initialRevNote  = '';
+  let legacyNote      = '';
+
+  if (sm) {
+    initialFormat  = sm.format === 'vignette' ? 'vignette' : 'letter';
+    initialText    = sm.response || '';
+    initialStatus  = sm.status || 'draft';
+    initialRevNote = sm.revision_note || '';
+  } else if (legacyLetter?.response) {
+    initialFormat  = 'letter';
+    initialText    = legacyLetter.response;
+    initialStatus  = legacyLetter.status || 'draft';
+    initialRevNote = legacyLetter.revision_note || '';
+    legacyNote     = 'Loaded from Letter from Home';
+  } else if (legacyTouchstone?.response) {
+    initialFormat  = 'vignette';
+    initialText    = legacyTouchstone.response;
+    initialStatus  = legacyTouchstone.status || 'draft';
+    initialRevNote = legacyTouchstone.revision_note || '';
+    legacyNote     = 'Loaded from Touchstone Vignette';
+  }
+
+  const complete   = initialStatus === 'complete';
+  const isRevision = initialStatus === 'needs_revision';
   const dotClass   = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
-  // Pre-fill: st_narrative first, then DT1 legacy fallback
-  const savedTxt =
-    stNarrative?.letter_from_home?.response ||
-    sub.st_review?.narrative?.letter_from_home?.text ||
-    '';
-
-  const humanity = char?.humanity ?? 0;
+  const humanity    = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
   const playerLetter =
     sub.responses?.correspondence ||
@@ -1391,35 +1422,46 @@ function renderLetterFromHome(char, sub, stNarrative) {
     sub.responses?.narrative_letter ||
     sub.responses?.personal_message ||
     null;
+  const playerAspirations = sub.responses?.aspirations || null;
 
-  const ctxCollapsed = savedTxt ? ' collapsed' : '';
-  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+  const ctxCollapsed   = initialText ? ' collapsed' : '';
+  const ctxToggleLabel = initialText ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="letter_from_home">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="story_moment">`;
 
   // Section header
   h += `<div class="dt-story-section-header">`;
-  h += `<span class="dt-story-section-label">Letter from Home</span>`;
+  h += `<span class="dt-story-section-label">Story Moment</span>`;
   h += `<div class="dt-story-section-header-actions">`;
   h += `<button class="dt-story-copy-ctx-btn">Copy Context</button>`;
   h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
   h += `</div>`;
   h += `</div>`;
 
-  // Context block (collapsible)
   h += `<div class="dt-story-section-body">`;
+
+  // Format selector
+  h += `<div class="dt-story-format-row">`;
+  h += `<label class="dt-story-format-radio"><input type="radio" name="story-moment-format" value="letter"${initialFormat === 'letter' ? ' checked' : ''}> Letter from Home</label>`;
+  h += `<label class="dt-story-format-radio"><input type="radio" name="story-moment-format" value="vignette"${initialFormat === 'vignette' ? ' checked' : ''}> Touchstone Vignette</label>`;
+  if (legacyNote) {
+    h += `<span class="dt-story-note-author dt-story-legacy-load-note">${legacyNote}</span>`;
+  }
+  h += `</div>`;
+
+  // Combined context block (collapsible)
   h += `<div class="dt-story-context-block${ctxCollapsed}">`;
 
   // Touchstone list
   if (touchstones.length) {
     h += `<div class="dt-story-touchstone-list">`;
     for (const t of touchstones) {
-      const attached = humanity >= (t.humanity || 0);
+      const attached   = humanity >= (t.humanity || 0);
       const stateClass = attached ? 'dt-story-ts-attached' : 'dt-story-ts-detached';
       const stateLabel = attached ? 'Attached' : 'Detached';
-      const desc = t.desc ? ` (${t.desc})` : '';
+      const desc       = t.desc ? ` (${t.desc})` : '';
       h += `<div class="dt-story-touchstone-entry ${stateClass}">`;
-      h += `${t.name}${desc} \u2014 Hum ${t.humanity} \u2014 <em>${stateLabel}</em>`;
+      h += `${t.name}${desc} — Hum ${t.humanity} — <em>${stateLabel}</em>`;
       h += `</div>`;
     }
     h += `</div>`;
@@ -1427,7 +1469,7 @@ function renderLetterFromHome(char, sub, stNarrative) {
     h += `<div class="dt-story-section-empty">No touchstones on character record.</div>`;
   }
 
-  // Player's submitted letter
+  // Player's submitted letter / message
   h += `<div class="dt-story-player-letter">`;
   h += `<span class="dt-story-note-author">Player's letter:</span> `;
   if (playerLetter) {
@@ -1437,104 +1479,12 @@ function renderLetterFromHome(char, sub, stNarrative) {
   }
   h += `</div>`;
 
-  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
-  h += `</div>`; // context-block
-
-  // Response textarea
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
-
-  // Action buttons
-  const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
-  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}">Needs Revision</button>`;
-  h += `<button class="dt-story-mark-complete-btn">`;
-  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
-  h += `</button>`;
-  h += `</div>`;
-  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
-  h += `</div>`;
-  h += `</div>`;
-
-  h += `</div>`; // section-body
-  h += `</div>`; // dt-story-section
-  return h;
-}
-
-// ── Touchstone Vignette section ───────────────────────────────────────────────
-
-function renderTouchstone(char, sub, stNarrative) {
-  const complete   = isSectionComplete(stNarrative, 'touchstone');
-  const isRevision = stNarrative?.touchstone?.status === 'needs_revision';
-  const revNote    = stNarrative?.touchstone?.revision_note || '';
-  const dotClass   = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
-
-  // Pre-fill: st_narrative first, then DT1 legacy fallback (legacy key: touchstone_vignette)
-  const savedTxt =
-    stNarrative?.touchstone?.response ||
-    sub.st_review?.narrative?.touchstone_vignette?.text ||
-    '';
-
-  const humanity = char?.humanity ?? 0;
-  const touchstones = char?.touchstones || [];
-  const playerAspirations = sub.responses?.aspirations || null;
-
-  const ctxCollapsed = savedTxt ? ' collapsed' : '';
-  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
-
-  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="touchstone">`;
-
-  // Section header
-  h += `<div class="dt-story-section-header">`;
-  h += `<span class="dt-story-section-label">Touchstone Vignette</span>`;
-  h += `<div class="dt-story-section-header-actions">`;
-  h += `<button class="dt-story-copy-ctx-btn">Copy Context</button>`;
-  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
-  h += `</div>`;
-  h += `</div>`;
-
-  // Section body + collapsible context block
-  h += `<div class="dt-story-section-body">`;
-  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
-
-  // Character identity row
-  const identityParts = [
-    char?.clan     ? `Clan: ${char.clan}`         : null,
-    char?.covenant ? `Covenant: ${char.covenant}` : null,
-    char?.humanity != null ? `Humanity: ${char.humanity}` : null,
-    char?.mask     ? `Mask: ${char.mask}`         : null,
-    char?.dirge    ? `Dirge: ${char.dirge}`       : null,
-  ].filter(Boolean);
-  if (identityParts.length) {
-    h += `<div class="dt-story-context-identity">${identityParts.join(' \u00b7 ')}</div>`;
-  }
-
-  // Touchstone list (classes shared with Letter from Home / B4)
-  if (touchstones.length) {
-    h += `<div class="dt-story-touchstone-list">`;
-    for (const t of touchstones) {
-      const attached = humanity >= (t.humanity || 0);
-      const stateClass = attached ? 'dt-story-ts-attached' : 'dt-story-ts-detached';
-      const stateLabel = attached ? 'Attached' : 'Detached';
-      const desc = t.desc ? ` (${t.desc})` : '';
-      h += `<div class="dt-story-touchstone-entry ${stateClass}">`;
-      h += `${t.name}${desc} \u2014 Hum ${t.humanity} \u2014 <em>${stateLabel}</em>`;
-      h += `</div>`;
-    }
-    h += `</div>`;
-  } else {
-    h += `<div class="dt-story-section-empty">No touchstones on character record.</div>`;
-  }
-
   // Player's aspirations
   h += `<div class="dt-story-aspirations">`;
   h += `<span class="dt-story-note-author">Player's aspirations:</span> `;
   if (playerAspirations) {
     const display = playerAspirations.length > 200
-      ? playerAspirations.slice(0, 200) + '\u2026'
+      ? playerAspirations.slice(0, 200) + '…'
       : playerAspirations;
     h += `<span>${display}</span>`;
   } else {
@@ -1546,19 +1496,18 @@ function renderTouchstone(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea>`;
 
   // Action buttons
-  const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
   h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}">Needs Revision</button>`;
   h += `<button class="dt-story-mark-complete-btn">`;
-  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span> Mark Complete`;
   h += `</button>`;
   h += `</div>`;
-  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-revision-area${isRevision || initialRevNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
   h += `</div>`;
@@ -2924,10 +2873,17 @@ function compilePushOutcome(sub) {
     if (key === 'feeding_validation') {
       continue; // feeding handled separately via feeding_roll; no authored narrative response
 
-    } else if (key === 'letter_from_home' || key === 'touchstone') {
-      if (sn[key]?.status === 'complete') {
-        const response = sn[key]?.response;
-        if (response?.trim()) { parts.push(`## ${section.label}\n\n${response.trim()}`); hasContent = true; }
+    } else if (key === 'story_moment') {
+      // Prefer new consolidated field; fall back to legacy letter or touchstone
+      // for historical submissions that have not been re-saved post-DTSR-2.
+      const sm     = sn.story_moment;
+      const legacy = sn.letter_from_home?.status === 'complete' ? sn.letter_from_home
+                   : sn.touchstone?.status === 'complete'       ? sn.touchstone
+                   : null;
+      const source = sm?.status === 'complete' ? sm : legacy;
+      if (source?.response?.trim()) {
+        parts.push(`## ${section.label}\n\n${source.response.trim()}`);
+        hasContent = true;
       } else {
         parts.push(`## ${section.label}\n\n${_GAP_TEXT}`);
       }
@@ -3142,17 +3098,29 @@ async function handleSignOff(btn) {
   }
 }
 
-async function handleCopyLetterContext(btn) {
+// ── Story Moment handlers (Copy Context + Save) ──────────────────────────────
+
+async function handleCopyStoryMomentContext(btn) {
   if (!_currentSub) return;
   const char = getCharForSub(_currentSub);
 
+  const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
+  const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
+
+  if (format === 'vignette') {
+    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
+    return;
+  }
+
+  // Letter format: assemble previous-cycle correspondence + story-moment target,
+  // same as the pre-DTSR-2 handleCopyLetterContext logic.
   let prevCorrespondence = null;
   let prevCycleNumber    = null;
   try {
-    const cycleId  = _currentSub.cycle_id;
+    const cycleId   = _currentSub.cycle_id;
     const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
     const cycles    = Array.isArray(allCycles) ? allCycles : [];
-    const currentCycle = cycles.find(c => String(c._id) === String(cycleId));
+    const currentCycle   = cycles.find(c => String(c._id) === String(cycleId));
     const currentGameNum = currentCycle?.game_number ?? null;
 
     if (currentGameNum != null) {
@@ -3161,17 +3129,19 @@ async function handleCopyLetterContext(btn) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
           .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.letter_from_home?.response || null;
-        prevCycleNumber    = prevCycle.game_number;
+        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
+          || prevSub?.st_narrative?.letter_from_home?.response
+          || null;
+        prevCycleNumber = prevCycle.game_number;
       }
     }
   } catch { /* leave nulls */ }
 
-  const stVoiceNote = _currentSub.st_narrative?.letter_from_home?.voice_note || null;
+  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
+    || _currentSub.st_narrative?.letter_from_home?.voice_note
+    || null;
 
-  // NPCR.12: if the player selected a relationship as the story-moment
-  // target, resolve it server-side so the letter prompt mentions the
-  // target's name and kind. Best-effort; fall through on any error.
+  // NPCR.12: resolve story-moment relationship target name for the prompt.
   let storyMomentTarget = null;
   const relId = _currentSub.responses?.story_moment_relationship_id;
   if (relId) {
@@ -3181,15 +3151,13 @@ async function handleCopyLetterContext(btn) {
         storyMomentTarget = {
           kind: edge.kind,
           custom_label: edge.custom_label || null,
-          // Look up the NPC or PC name on the "other" endpoint (not this char).
-          // Simplest: re-use the for-character enrichment or just fetch by id.
           name: null,
         };
         const charId = String(_currentSub.character_id);
-        const other = String(edge.a?.id) === charId ? edge.b : edge.a;
+        const other  = String(edge.a?.id) === charId ? edge.b : edge.a;
         if (other?.type === 'npc' && other.id) {
           const npcs = await apiGet('/api/npcs').catch(() => []);
-          const npc = (Array.isArray(npcs) ? npcs : []).find(n => String(n._id) === String(other.id));
+          const npc  = (Array.isArray(npcs) ? npcs : []).find(n => String(n._id) === String(other.id));
           if (npc) storyMomentTarget.name = npc.name;
         } else if (other?.type === 'pc' && other.id) {
           const otherChar = getCharForSub({ character_id: other.id });
@@ -3205,41 +3173,32 @@ async function handleCopyLetterContext(btn) {
   copyToClipboard(text, btn);
 }
 
-function _refreshProgressTracker() {
-  if (!_currentSub) return;
-  const tracker = document.querySelector('.dt-story-progress-tracker');
-  if (!tracker) return;
-  const char = getCharForSub(_currentSub);
-  const tmp  = document.createElement('div');
-  tmp.innerHTML = renderProgressTracker(char, _currentSub);
-  tracker.replaceWith(tmp.firstElementChild);
-}
-
-async function handleLetterSave(btn, status) {
-  const section = btn.closest('.dt-story-section[data-section="letter_from_home"]');
+async function handleStoryMomentSave(btn, status) {
+  const section = btn.closest('.dt-story-section[data-section="story_moment"]');
   if (!section || !_currentSub) return;
 
-  const ta       = section.querySelector('.dt-story-response-ta');
-  const text     = ta?.value || '';
-  const revTa    = section.querySelector('.dt-story-revision-ta');
-  const revNote  = revTa?.value || '';
+  const ta      = section.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = section.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
+  const format  = section.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
-  const user = getUser();
+  const user   = getUser();
   const author = user?.global_name || user?.username || 'ST';
 
   btn.disabled = true;
   const originalHTML = btn.innerHTML;
-  btn.textContent = 'Saving\u2026';
+  btn.textContent = 'Saving…';
 
   try {
     await saveNarrativeField(_currentSub._id, {
-      'st_narrative.letter_from_home': { response: text, author, status, revision_note: revNote },
+      'st_narrative.story_moment': { response: text, format, author, status, revision_note: revNote },
     });
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.letter_from_home = {
-      ...(_currentSub.st_narrative.letter_from_home || {}),
-      response: text, author, status, revision_note: revNote,
+    _currentSub.st_narrative.story_moment = {
+      ...(_currentSub.st_narrative.story_moment || {}),
+      response: text, format, author, status, revision_note: revNote,
     };
 
     _refreshProgressTracker();
@@ -3247,9 +3206,9 @@ async function handleLetterSave(btn, status) {
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
 
-    const char = getCharForSub(_currentSub);
-    const newHtml = renderLetterFromHome(char, _currentSub, _currentSub.st_narrative);
-    const tmp = document.createElement('div');
+    const char    = getCharForSub(_currentSub);
+    const newHtml = renderStoryMoment(char, _currentSub, _currentSub.st_narrative);
+    const tmp     = document.createElement('div');
     tmp.innerHTML = newHtml;
     section.replaceWith(tmp.firstElementChild);
 
@@ -3267,8 +3226,18 @@ async function handleLetterSave(btn, status) {
   } catch (err) {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
-    console.error('Letter save failed:', err);
+    console.error('Story Moment save failed:', err);
   }
+}
+
+function _refreshProgressTracker() {
+  if (!_currentSub) return;
+  const tracker = document.querySelector('.dt-story-progress-tracker');
+  if (!tracker) return;
+  const char = getCharForSub(_currentSub);
+  const tmp  = document.createElement('div');
+  tmp.innerHTML = renderProgressTracker(char, _currentSub);
+  tracker.replaceWith(tmp.firstElementChild);
 }
 
 async function handleCopyProjectContext(btn) {
@@ -3308,69 +3277,6 @@ function handleContextToggle(toggleEl) {
   if (!block) return;
   const collapsed = block.classList.toggle('collapsed');
   toggleEl.textContent = collapsed ? 'Show context' : 'Hide context';
-}
-
-function handleCopyTouchstoneContext(btn) {
-  if (!_currentSub) return;
-  const char = getCharForSub(_currentSub);
-  const text = buildTouchstoneContext(char, _currentSub);
-  copyToClipboard(text, btn);
-}
-
-async function handleTouchstoneSave(btn, status) {
-  const section = btn.closest('.dt-story-section[data-section="touchstone"]');
-  if (!section || !_currentSub) return;
-
-  const ta      = section.querySelector('.dt-story-response-ta');
-  const text    = ta?.value || '';
-  const revTa   = section.querySelector('.dt-story-revision-ta');
-  const revNote = revTa?.value || '';
-
-  const user = getUser();
-  const author = user?.global_name || user?.username || 'ST';
-
-  btn.disabled = true;
-  const originalHTML = btn.innerHTML;
-  btn.textContent = 'Saving\u2026';
-
-  try {
-    await saveNarrativeField(_currentSub._id, {
-      'st_narrative.touchstone': { response: text, author, status, revision_note: revNote },
-    });
-
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.touchstone = {
-      ...(_currentSub.st_narrative.touchstone || {}),
-      response: text, author, status, revision_note: revNote,
-    };
-
-    _refreshProgressTracker();
-    btn.textContent = 'Saved';
-    btn.disabled = false;
-    await new Promise(r => setTimeout(r, 900));
-
-    const char = getCharForSub(_currentSub);
-    const newHtml = renderTouchstone(char, _currentSub, _currentSub.st_narrative);
-    const tmp = document.createElement('div');
-    tmp.innerHTML = newHtml;
-    section.replaceWith(tmp.firstElementChild);
-
-    const signOff = document.querySelector('.dt-story-sign-off');
-    if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
-      const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
-      signOff.replaceWith(tmp2.firstElementChild);
-    }
-
-    const rail = document.getElementById('dt-story-nav-rail');
-    if (rail) rail.innerHTML = renderNavRail();
-
-  } catch (err) {
-    btn.disabled = false;
-    btn.innerHTML = originalHTML;
-    console.error('Touchstone save failed:', err);
-  }
 }
 
 async function handleProjectSave(btn, status) {
@@ -3747,8 +3653,7 @@ async function handleHomeReportSave(btn, status) {
 
 Object.assign(SECTION_SAVE_HANDLERS, {
   project_responses: handleProjectSave,
-  letter_from_home:  handleLetterSave,
-  touchstone:        handleTouchstoneSave,
+  story_moment:      handleStoryMomentSave,
   territory_reports: handleTerritorySave,
   cacophony_savvy:   handleCacophonySave,
   home_report:       handleHomeReportSave,
