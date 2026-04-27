@@ -84,6 +84,11 @@ function numRange(min, max) {
 
 export { PROJECT_ACTIONS };
 
+// Standing merits whose holders may declare a Maintenance project action
+// to upkeep professional/cult relationships at chapter end. CHM-0: single
+// source of truth; CHM-1/2/3 read from here.
+export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initiation'];
+
 export const FEED_METHODS = [
   { id: 'seduction', name: 'Seduction', desc: 'Lure a vessel close', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'], discs: ['Majesty', 'Dominate'] },
   { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'], discs: ['Protean', 'Obfuscate'] },
