@@ -89,6 +89,20 @@ export { PROJECT_ACTIONS };
 // source of truth; CHM-1/2/3 read from here.
 export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initiation'];
 
+// JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
+// Must stay in sync with JOINT_ELIGIBLE_ACTIONS in server/routes/downtime.js.
+// Excluded: support (recursive role conflict), xp_spend (personal),
+// maintenance (personal). The toggle is hidden for these.
+export const JOINT_ELIGIBLE_ACTIONS = [
+  'ambience_increase',
+  'ambience_decrease',
+  'attack',
+  'hide_protect',
+  'investigate',
+  'patrol_scout',
+  'misc',
+];
+
 // DTFP-3: id values are stable for back-compat (existing submissions keyed by id);
 // only display name and chip lists change. 'familiar' id stays; name flips to 'Deception'.
 export const FEED_METHODS = [

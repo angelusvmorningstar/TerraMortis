@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -90,6 +90,18 @@ let feedRoteCustomSkill = '';
 let activeProjectTab = 1;
 // Sphere tab state
 let activeSphereTab = 1;
+// JDT-2: invitations for the current cycle, fetched on form open and
+// after each joint create. Read by renderJointAuthoring for status badges.
+let _jointInvitations = [];
+
+// JDT-2: status label map for invitation states.
+const JOINT_STATUS_LABELS = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  decoupled: 'Decoupled',
+  'cancelled-by-lead': 'Cancelled by lead',
+};
 
 const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
@@ -461,6 +473,22 @@ function collectResponses() {
     const meritKeys = [];
     meritCbs.forEach(cb => meritKeys.push(cb.value));
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
+
+    // JDT-2: Joint scratch fields. Persist the lead's in-flight joint authoring
+    // state so a draft round-trip preserves it. The canonical joint document
+    // is created on save via POST /api/downtime_cycles/:id/joint_projects.
+    const soloJointRadio = document.querySelector(`input[name="dt-project_${n}_solo_joint"]:checked`);
+    responses[`project_${n}_is_joint`] = soloJointRadio?.value === 'joint' ? 'yes' : '';
+    const jointDescEl = document.getElementById(`dt-project_${n}_joint_description`);
+    responses[`project_${n}_joint_description`] = jointDescEl ? jointDescEl.value : '';
+    const jointTargetTypeEl = document.querySelector(`input[name="dt-project_${n}_joint_target_type"]:checked`);
+    responses[`project_${n}_joint_target_type`] = jointTargetTypeEl ? jointTargetTypeEl.value : '';
+    const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
+    responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
+    const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
+    const jointInviteeIds = [];
+    jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
+    responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
   }
 
   // Collect sorcery slots (dynamic count)
@@ -663,8 +691,82 @@ async function saveDraft() {
     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
+
+    // JDT-2: After the submission save lands, fan out joint creations for any
+    // slot that authored a joint and doesn't yet have a backing joint document.
+    await createPendingJoints(responses);
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+  }
+}
+
+// JDT-2: For each slot where the lead has selected Joint mode, has invitees,
+// and no joint yet exists on cycle.joint_projects, create the joint + invitations
+// via POST /api/downtime_cycles/:cycleId/joint_projects. Refresh local cycle and
+// invitation caches afterwards so the next render shows the saved state.
+async function createPendingJoints(responses) {
+  if (!responseDoc?._id || !currentCycle?._id) return;
+  if (currentCycle._id === 'dev-stub') return;
+
+  const slotsToCreate = [];
+  for (let n = 1; n <= 4; n++) {
+    if (responses[`project_${n}_is_joint`] !== 'yes') continue;
+    const action = responses[`project_${n}_action`];
+    if (!JOINT_ELIGIBLE_ACTIONS.includes(action)) continue;
+    if (findExistingJoint(n)) continue;
+
+    let inviteeIds = [];
+    try { inviteeIds = JSON.parse(responses[`project_${n}_joint_invited_ids`] || '[]'); }
+    catch { inviteeIds = []; }
+    if (!inviteeIds.length) continue;
+
+    slotsToCreate.push({
+      slot: n,
+      action,
+      description: responses[`project_${n}_joint_description`] || '',
+      target_type: responses[`project_${n}_joint_target_type`] || null,
+      target_value: responses[`project_${n}_joint_target_value`] || null,
+      invitee_character_ids: inviteeIds.map(String),
+    });
+  }
+  if (!slotsToCreate.length) return;
+
+  let anyCreated = false;
+  for (const s of slotsToCreate) {
+    try {
+      await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects`, {
+        lead_character_id: String(currentChar._id),
+        lead_submission_id: String(responseDoc._id),
+        lead_project_slot: s.slot,
+        description: s.description,
+        action_type: s.action,
+        target_type: s.target_type,
+        target_value: s.target_value,
+        invitee_character_ids: s.invitee_character_ids,
+      });
+      anyCreated = true;
+    } catch (err) {
+      const statusEl = document.getElementById('dt-save-status');
+      if (statusEl) statusEl.textContent = `Joint create failed (slot ${s.slot}): ${err.message}`;
+    }
+  }
+
+  if (anyCreated) {
+    // Refresh cycle (joint_projects array changed) and invitations cache.
+    try {
+      const cycles = await apiGet('/api/downtime_cycles');
+      const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
+      if (fresh) {
+        // Preserve any localhost dev-bypass status coercion from initial load.
+        const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
+          ? currentCycle.status
+          : null;
+        currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
+      }
+    } catch { /* keep prior cycle */ }
+    try {
+      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
+    } catch { /* keep prior invitations */ }
   }
 }
 
@@ -928,6 +1030,16 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       residencyByTerritory[doc.territory] = new Set(doc.residents || []);
     }
   } catch { residencyByTerritory = {}; }
+
+  // JDT-2: load invitations visible to this character on the current cycle.
+  // Used by the joint authoring panel for live status badges (lead view) and
+  // by JDT-3 for the invitee inbox. Best-effort — empty array on error.
+  _jointInvitations = [];
+  if (currentCycle?._id && currentCycle._id !== 'dev-stub') {
+    try {
+      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
+    } catch { _jointInvitations = []; }
+  }
 
   // Restore feeding state from saved responses
   if (responseDoc?.responses) {
@@ -1582,6 +1694,16 @@ function renderForm(container) {
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
       activeProjectTab = parseInt(projectAction.dataset.projectAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // JDT-2: Solo/Joint toggle — re-render to show/hide the joint authoring panel
+    const soloJoint = e.target.closest('[data-project-solo-joint]');
+    if (soloJoint) {
+      activeProjectTab = parseInt(soloJoint.dataset.projectSoloJoint, 10);
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2309,6 +2431,20 @@ function renderProjectSlots(saved) {
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
     h += '</select></div>';
+
+    // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
+    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
+    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
+    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
+    if (isJointEligible) {
+      h += `<div class="qf-field dt-project-solo-joint-toggle">`;
+      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}> Solo</label>`;
+      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}"> Joint</label>`;
+      h += `</div>`;
+      if (isJoint) {
+        h += renderJointAuthoring(n, saved, existingJoint);
+      }
+    }
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
@@ -3532,6 +3668,126 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
  * Used by project target_flex (single picker per slot) and sorcery targets
  * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
  */
+// JDT-2: Locate an existing joint authored by the current submission for slot N.
+function findExistingJoint(slot) {
+  if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
+  const subId = String(responseDoc._id);
+  return currentCycle.joint_projects.find(j =>
+    String(j.lead_submission_id) === subId &&
+    Number(j.lead_project_slot) === Number(slot) &&
+    !j.cancelled_at
+  ) || null;
+}
+
+// JDT-2: Joint authoring panel — description, target, invitees, status badges.
+// `existingJoint` is read from cycle.joint_projects when the joint already
+// exists; otherwise the panel is in pre-save authoring mode and reads scratch
+// fields off `saved` (responses).
+function renderJointAuthoring(n, saved, existingJoint) {
+  const desc = existingJoint
+    ? (existingJoint.description || '')
+    : (saved[`project_${n}_joint_description`] || '');
+  const targetType = existingJoint
+    ? (existingJoint.target_type || '')
+    : (saved[`project_${n}_joint_target_type`] || '');
+  const targetValue = existingJoint
+    ? (existingJoint.target_value || '')
+    : (saved[`project_${n}_joint_target_value`] || '');
+
+  let invitedIds = [];
+  if (existingJoint) {
+    // Once the joint exists, invitees are the invitations bound to it.
+    invitedIds = _jointInvitations
+      .filter(inv => String(inv.joint_project_id) === String(existingJoint._id))
+      .map(inv => String(inv.invited_character_id));
+  } else {
+    try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); }
+    catch { invitedIds = []; }
+  }
+  const invitedSet = new Set(invitedIds.map(String));
+
+  let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
+  h += `<div class="dt-joint-banner">Joint project</div>`;
+
+  if (existingJoint) {
+    h += `<p class="qf-desc dt-joint-saved-note">Joint created. To change invitees, decline or decouple via JDT-6 lifecycle controls (coming soon).</p>`;
+  }
+
+  // Joint description
+  h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
+  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3"${existingJoint ? ' disabled' : ''}>${esc(desc)}</textarea>`;
+
+  // Joint target picker — reuses renderTargetPicker (DTFP-6)
+  h += `<label class="qf-label">Joint target</label>`;
+  if (existingJoint) {
+    const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+    const typeLbl = labelMap[targetType] || '—';
+    let valLbl = targetValue || '';
+    if (targetType === 'character') {
+      const c = allCharacters.find(x => String(x.id) === String(targetValue));
+      if (c) valLbl = c.name;
+    } else if (targetType === 'territory') {
+      const t = TERRITORY_DATA.find(x => x.id === targetValue);
+      if (t) valLbl = t.name;
+    }
+    h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
+  } else {
+    h += renderTargetPicker(`project_${n}_joint_target`, {
+      savedType: targetType,
+      savedValue: targetValue,
+      allCharacters,
+      includeOptions: ['character', 'territory', 'other'],
+    });
+  }
+
+  // Invitee grid
+  h += `<label class="qf-label">Invitees</label>`;
+  if (existingJoint) {
+    h += renderJointStatusBadges(existingJoint);
+  } else {
+    h += renderJointInviteeGrid(n, invitedSet);
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+function renderJointInviteeGrid(n, invitedSet) {
+  if (!allCharacters.length) {
+    return `<p class="qf-desc">No characters available to invite.</p>`;
+  }
+  let h = `<div class="dt-joint-invitee-grid">`;
+  for (const c of allCharacters) {
+    const checked = invitedSet.has(String(c.id)) ? ' checked' : '';
+    h += `<label class="dt-joint-invitee-item">`;
+    h += `<input type="checkbox" class="dt-joint-invitee-cb" data-joint-slot="${n}" value="${esc(String(c.id))}"${checked}>`;
+    h += `<span>${esc(c.name)}</span>`;
+    h += `</label>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function renderJointStatusBadges(joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  if (!myInvs.length) {
+    return `<p class="qf-desc">No invitations on this joint.</p>`;
+  }
+  let h = `<div class="dt-joint-status-grid">`;
+  for (const inv of myInvs) {
+    const c = allCharacters.find(x => String(x.id) === String(inv.invited_character_id));
+    const name = c ? c.name : 'Unknown';
+    const status = inv.status || 'pending';
+    const label = JOINT_STATUS_LABELS[status] || status;
+    h += `<div class="dt-joint-status-row">`;
+    h += `<span class="dt-joint-invitee-name">${esc(name)}</span>`;
+    h += `<span class="dt-joint-status-badge dt-joint-status-${esc(status)}">${esc(label)}</span>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
 function renderTargetPicker(prefix, opts) {
   const { savedType = '', savedValue = '', allCharacters = [], includeOptions = ['character', 'territory', 'other'] } = opts || {};
   const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };

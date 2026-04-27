@@ -8,7 +8,7 @@ import cors from 'cors';
 import { requireRole } from '../../middleware/auth.js';
 import charactersRouter from '../../routes/characters.js';
 import territoriesRouter from '../../routes/territories.js';
-import { cyclesRouter, submissionsRouter } from '../../routes/downtime.js';
+import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
 import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import residencyRouter from '../../routes/territory-residency.js';
@@ -51,6 +51,7 @@ export function createTestApp() {
   app.use('/api/characters', mockAuth, charactersRouter);
   app.use('/api/downtime_cycles', mockAuth, cyclesRouter);
   app.use('/api/downtime_submissions', mockAuth, submissionsRouter);
+  app.use('/api/project_invitations', mockAuth, projectInvitationsRouter);
   app.use('/api/players', mockAuth, playersRouter);
   app.use('/api/territory-residency', mockAuth, residencyRouter);
   app.use('/api/attendance', mockAuth, attendanceRouter);

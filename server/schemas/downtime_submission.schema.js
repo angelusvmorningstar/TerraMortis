@@ -73,6 +73,15 @@ function projectSlotProps(n) {
     [`project_${n}_xp`]:           { type: 'string' },
     // Secondary hunt method (for feed/rote action)
     [`project_${n}_feed_method2`]: { type: 'string', enum: feedMethodEnum },
+    // JDT-2: Joint project authoring scratch fields. Persisted on the
+    // submission to round-trip the lead's draft form state. The
+    // canonical joint state lives on cycle.joint_projects (created via
+    // POST /api/downtime_cycles/:id/joint_projects).
+    [`project_${n}_is_joint`]:           { type: 'string' },
+    [`project_${n}_joint_description`]:  { type: 'string' },
+    [`project_${n}_joint_target_type`]:  { type: 'string' },
+    [`project_${n}_joint_target_value`]: { type: 'string' },
+    [`project_${n}_joint_invited_ids`]:  { type: 'string' },
   };
 }
 
