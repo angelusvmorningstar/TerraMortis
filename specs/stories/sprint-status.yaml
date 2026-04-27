@@ -503,7 +503,7 @@ development_status:
   # Check-In tab follow-on hardening (scoped 2026-04-27 from live coordinator
   # use): real player names, drop redundant DNA option, single session rate.
   fin-5-checkin-player-name-resolution: review
-  fin-6-drop-did-not-attend-payment-method: ready-for-dev
+  fin-6-drop-did-not-attend-payment-method: review
   fin-7-session-rate-model: ready-for-dev
 
   epic-fin-retrospective: optional

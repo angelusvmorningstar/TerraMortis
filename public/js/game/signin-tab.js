@@ -17,16 +17,15 @@ import { readPayment } from './payment-helpers.js';
 
 // fin.2 schema enum. Display labels paired with stored values.
 const PAYMENT_METHODS = [
-  { value: '',               label: '— Not recorded' },
-  { value: 'cash',           label: 'Cash' },
-  { value: 'payid',          label: 'PayID' },
-  { value: 'paypal',         label: 'PayPal' },
-  { value: 'exiles',         label: 'Exiles (offset)' },
-  { value: 'waived',         label: 'Waived' },
-  { value: 'did_not_attend', label: 'Did Not Attend' },
+  { value: '',       label: '— Not recorded' },
+  { value: 'cash',   label: 'Cash' },
+  { value: 'payid',  label: 'PayID' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'exiles', label: 'Exiles (offset)' },
+  { value: 'waived', label: 'Waived' },
 ];
 const DEFAULT_AMOUNT = 15;
-const ZERO_AMOUNT_METHODS = new Set(['exiles', 'waived', 'did_not_attend', '']);
+const ZERO_AMOUNT_METHODS = new Set(['exiles', 'waived', '']);
 
 function calcEminence(session, chars) {
   const attendedIds = new Set(
@@ -176,9 +175,8 @@ function render() {
     const payOpts = PAYMENT_METHODS.map(m =>
       `<option value="${esc(m.value)}"${currentMethod === m.value ? ' selected' : ''}>${esc(m.label)}</option>`
     ).join('');
-    const isDNA = currentMethod === 'did_not_attend';
 
-    h += `<div class="si-row${a.attended ? ' si-attended' : ''}${isDNA ? ' si-dna' : ''}" data-idx="${idx}">
+    h += `<div class="si-row${a.attended ? ' si-attended' : ''}" data-idx="${idx}">
       <label class="si-attended-wrap">
         <input type="checkbox" class="si-att-chk" data-idx="${idx}"${a.attended ? ' checked' : ''}>
       </label>

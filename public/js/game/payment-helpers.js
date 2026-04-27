@@ -22,7 +22,9 @@ export function normalisePaymentMethod(val) {
   if (s.startsWith('paypal')) return 'paypal';
   if (s.startsWith('exiles')) return 'exiles';
   if (s.startsWith('waived')) return 'waived';
-  if (s === 'did_not_attend' || s.startsWith('did not') || s === 'dna') return 'did_not_attend';
+  // Legacy "did not attend" collapses to unrecorded — the attendance checkbox
+  // is the canonical signal that a player wasn't there (FIN-6).
+  if (s === 'did_not_attend' || s.startsWith('did not') || s === 'dna') return '';
   return '';
 }
 

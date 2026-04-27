@@ -43,7 +43,7 @@ export async function initFinanceTab(el) {
 
 function derivePayments(session) {
   const byMethod = { cash: 0, payid: 0, paypal: 0, exiles: 0 };
-  const counts  = { cash: 0, payid: 0, paypal: 0, exiles: 0, waived: 0, did_not_attend: 0 };
+  const counts  = { cash: 0, payid: 0, paypal: 0, exiles: 0, waived: 0 };
   for (const entry of session.attendance || []) {
     const { method, amount } = readPayment(entry);
     if (!method) continue;
@@ -124,7 +124,6 @@ function render() {
         <div class="fin-row"><span>PayPal</span><span>$${byMethod.paypal}</span></div>
         <div class="fin-row fin-row-dim"><span>Exiles (offset)</span><span>${counts.exiles}</span></div>
         <div class="fin-row fin-row-dim"><span>Waived</span><span>${counts.waived}</span></div>
-        <div class="fin-row fin-row-dim"><span>Did not attend</span><span>${counts.did_not_attend}</span></div>
         <div class="fin-row fin-row-total"><span>Collected</span><span>$${collected}</span></div>
       </div>
 
