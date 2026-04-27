@@ -201,14 +201,16 @@ function render() {
   });
   h += '</div>';
 
-  // Footer: attended count + collected total from real-payment methods (reads via readPayment for legacy compat)
-  const collected = att.reduce((s, a) => {
-    const { method, amount } = readPayment(a);
-    if (method === 'cash' || method === 'payid' || method === 'paypal') {
-      return s + amount;
-    }
-    return s;
+  // Footer: attended count + collected total. Post-FIN-7, every paid row
+  // collects the session rate, so total = rate × paid count. (Reading from
+  // stored payment.amount would understate the total for any historical
+  // row whose mirror hasn't been refreshed since the rate was lifted to
+  // session level.)
+  const paidCount = att.reduce((n, a) => {
+    const { method } = readPayment(a);
+    return PAID_METHODS.has(method) ? n + 1 : n;
   }, 0);
+  const collected = paidCount * rate;
   h += `<div class="si-footer"><strong>${attended}</strong> attended · <strong>$${collected}</strong> collected</div>`;
 
   _el.innerHTML = h;
