@@ -608,7 +608,7 @@ development_status:
   # Court Pulse + Action Queue + Territory Pulse synthesis surfaces
   # DTIL-3 depends on DTFP-7 (mechanical-flag checkbox)
   epic-dtil: in-progress
-  dtil-1-court-pulse-synthesis: ready-for-dev
+  dtil-1-court-pulse-synthesis: review
   dtil-2-action-queue-triage: ready-for-dev
   dtil-3-auto-state-mechanical-flag: ready-for-dev
   dtil-4-territory-pulse-synthesis: ready-for-dev

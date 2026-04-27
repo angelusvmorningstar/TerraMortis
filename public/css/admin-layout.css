@@ -8334,3 +8334,95 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   padding-top: 10px;
   border-top: 1px dashed var(--bdr);
 }
+
+/* ─── DT Intelligence Layer (DTIL) ──────────────────────────────────────── */
+/* Cycle-level synthesis surfaces mounted into the DT Prep tab.            */
+
+.dt-cycle-intelligence {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* DTIL-1: Court Pulse */
+.dt-court-pulse-panel {
+  padding: 16px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.dt-court-pulse-title {
+  font-family: var(--fh);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+.dt-court-pulse-hint {
+  font-size: 12px;
+  color: var(--txt3);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.dt-court-pulse-prompt-block,
+.dt-court-pulse-synthesis-block {
+  margin-top: 10px;
+}
+.dt-court-pulse-synthesis-block { margin-top: 18px; }
+.dt-court-pulse-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin-bottom: 6px;
+}
+.dt-court-pulse-placeholder {
+  padding: 12px;
+  background: var(--surf);
+  border: 1px dashed var(--bdr2);
+  border-radius: 3px;
+  font-style: italic;
+  color: var(--txt3);
+  font-size: 13px;
+}
+.dt-court-pulse-prompt-ta {
+  width: 100%;
+  min-height: 240px;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-court-pulse-synthesis-ta {
+  width: 100%;
+  min-height: 200px;
+  font-family: var(--ft);
+  font-size: 14px;
+  line-height: 1.55;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-court-pulse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.dt-court-pulse-copy-status,
+.dt-court-pulse-save-status {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 0.04em;
+}
