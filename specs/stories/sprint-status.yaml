@@ -584,45 +584,45 @@ development_status:
   dtsr-2-story-moment-consolidation: review
   dtsr-3-active-cycle-scope: review
   dtsr-4-inline-edit-historical-cycles: review
-  dtsr-5-merit-resolution-relocation: ready-for-dev
-  dtsr-6-merit-summary-format-verify: ready-for-dev
-  dtsr-7-feeding-narrative-field: ready-for-dev
-  dtsr-8-player-flag-ui: ready-for-dev
-  dtsr-9-st-flag-inbox: ready-for-dev
-  dtsr-10-narrative-textarea-min-height: ready-for-dev
-  dtsr-11-collapse-completed-cards: ready-for-dev
+  dtsr-5-merit-resolution-relocation: review
+  dtsr-6-merit-summary-format-verify: review
+  dtsr-7-feeding-narrative-field: review
+  dtsr-8-player-flag-ui: review
+  dtsr-9-st-flag-inbox: review
+  dtsr-10-narrative-textarea-min-height: review
+  dtsr-11-collapse-completed-cards: review
   epic-dtsr-retrospective: optional
 
   # ---- Epic DTFP — Player Form Polish ----
   epic-dtfp: in-progress
   dtfp-1-influence-stepper-labels: review
-  dtfp-2-alphabetical-chip-order: ready-for-dev
-  dtfp-3-feeding-methods-update: ready-for-dev
-  dtfp-4-templates-as-ux-only: ready-for-dev
-  dtfp-5-kiss-violent-toggle: ready-for-dev
-  dtfp-6-sorcery-target-picker: ready-for-dev
-  dtfp-7-mechanical-flag-checkbox: ready-for-dev
+  dtfp-2-alphabetical-chip-order: review
+  dtfp-3-feeding-methods-update: review
+  dtfp-4-templates-as-ux-only: review
+  dtfp-5-kiss-violent-toggle: review
+  dtfp-6-sorcery-target-picker: review
+  dtfp-7-mechanical-flag-checkbox: review
   epic-dtfp-retrospective: optional
 
   # ---- Epic DTIL — DT Intelligence Layer ----
   # Court Pulse + Action Queue + Territory Pulse synthesis surfaces
   # DTIL-3 depends on DTFP-7 (mechanical-flag checkbox)
   epic-dtil: in-progress
-  dtil-1-court-pulse-synthesis: ready-for-dev
-  dtil-2-action-queue-triage: ready-for-dev
-  dtil-3-auto-state-mechanical-flag: ready-for-dev
-  dtil-4-territory-pulse-synthesis: ready-for-dev
+  dtil-1-court-pulse-synthesis: review
+  dtil-2-action-queue-triage: review
+  dtil-3-auto-state-mechanical-flag: review
+  dtil-4-territory-pulse-synthesis: review
   epic-dtil-retrospective: optional
 
   # ---- Epic JDT — Joint Downtimes (largest, ships last) ----
   # All three product calls resolved (lead recourse, mid-cycle edits, action-type whitelist)
   # JDT-1 ships first as no-op schema; verifies nothing existing breaks
   epic-jdt: in-progress
-  jdt-1-schema-foundations: ready-for-dev
-  jdt-2-lead-invitation-flow: ready-for-dev
-  jdt-3-invitee-acceptance-flow: ready-for-dev
-  jdt-4-slot-lock-readonly-display: ready-for-dev
-  jdt-5-st-processing-joint-phase: ready-for-dev
+  jdt-1-schema-foundations: review
+  jdt-2-lead-invitation-flow: review
+  jdt-3-invitee-acceptance-flow: review
+  jdt-4-slot-lock-readonly-display: review
+  jdt-5-st-processing-joint-phase: review
   jdt-6-lifecycle-edge-cases: ready-for-dev
   epic-jdt-retrospective: optional
 

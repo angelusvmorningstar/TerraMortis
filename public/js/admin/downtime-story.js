@@ -10,10 +10,11 @@
  *   isSectionComplete(sn, key)     — base completion check (status === 'complete')
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPut, apiPatch } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
+import { effectiveFeedViolence } from '../tabs/downtime-data.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
 
@@ -27,6 +28,21 @@ const SECTION_SAVE_HANDLERS = {};
 
 // Per-character collapse-complete state (survives re-renders within session)
 const _collapseComplete = new Set(); // char IDs with collapse-complete active
+
+// DTSR-11: global collapse-complete toggle. Persisted to localStorage so the
+// preference survives reloads. Per-char toggle still works independently;
+// a card collapses if either rule is active (CSS handles the OR).
+const COLLAPSE_GLOBAL_KEY = 'tm_dt_story_collapse_global';
+function isCollapseGlobalActive() {
+  try { return localStorage.getItem(COLLAPSE_GLOBAL_KEY) === '1'; }
+  catch { return false; }
+}
+function setCollapseGlobal(active) {
+  try {
+    if (active) localStorage.setItem(COLLAPSE_GLOBAL_KEY, '1');
+    else localStorage.removeItem(COLLAPSE_GLOBAL_KEY);
+  } catch { /* ignore */ }
+}
 
 // ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
 
@@ -74,6 +90,7 @@ function resolveTerrId(raw) {
 
 let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
 let _allCharacters  = [];   // GET /api/characters
+let _currentCycle   = null; // GET /api/downtime_cycles/:id — for DTIL-4 territory pulse injection
 let _currentCharId  = null;
 let _currentSub     = null;
 const _pushErrors   = new Map(); // charId → error message for failed pushes
@@ -110,21 +127,30 @@ export async function initDtStory(cycleId) {
   }
 
   try {
-    const [subs, chars] = await Promise.all([
+    const [subs, chars, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions?cycle_id=' + resolvedCycleId),
       apiGet('/api/characters'),
+      apiGet('/api/downtime_cycles').catch(() => []),
     ]);
     _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
       merit_actions: buildMeritActions(sub),
     }));
     _allCharacters  = Array.isArray(chars) ? chars : [];
+    _currentCycle   = (Array.isArray(cycles) ? cycles : []).find(c => String(c._id) === String(resolvedCycleId)) || null;
   } catch (err) {
     panel.innerHTML = `<div class="dt-story-empty">Failed to load data: ${err.message}</div>`;
     return;
   }
 
   panel.innerHTML = '';
+
+  // DTSR-9: Player flag inbox — surfaces all open section flags across the cycle
+  const inbox = document.createElement('div');
+  inbox.id = 'dt-story-flag-inbox';
+  inbox.className = 'dt-story-flag-inbox';
+  inbox.innerHTML = renderFlagInbox(_allSubmissions);
+  panel.appendChild(inbox);
 
   // Nav rail
   const rail = document.createElement('div');
@@ -143,6 +169,19 @@ export async function initDtStory(cycleId) {
   // Event delegation — pill clicks, push button, publish all
   rail.addEventListener('click', e => {
     if (e.target.closest('.dt-story-publish-all-btn')) { handlePublishAll(); return; }
+    // DTSR-11: global collapse-complete toggle
+    const globalBtn = e.target.closest('.dt-story-collapse-global-btn');
+    if (globalBtn) {
+      const newActive = !isCollapseGlobalActive();
+      setCollapseGlobal(newActive);
+      for (const el of document.querySelectorAll('.dt-story-char-content')) {
+        if (newActive) el.dataset.collapseCompleteGlobal = 'true';
+        else delete el.dataset.collapseCompleteGlobal;
+      }
+      globalBtn.textContent = newActive ? 'Show all (all)' : 'Collapse complete (all)';
+      globalBtn.classList.toggle('active', newActive);
+      return;
+    }
     const pushBtn = e.target.closest('.dt-story-push-btn');
     if (pushBtn) { handlePushCharacter(pushBtn.dataset.subId, pushBtn.dataset.charId); return; }
     const pill = e.target.closest('.dt-story-pill');
@@ -152,6 +191,16 @@ export async function initDtStory(cycleId) {
 
   // Event delegation — all panel button clicks, routed by section key
   panel.addEventListener('click', e => {
+    // DTSR-9: Player flag inbox actions
+    const flagOpenBtn = e.target.closest('.dt-flag-inbox-open-btn');
+    if (flagOpenBtn) { handleFlagInboxOpen(flagOpenBtn); return; }
+    const flagResolveBtn = e.target.closest('.dt-flag-inbox-resolve-btn');
+    if (flagResolveBtn) { showFlagInboxResolveForm(flagResolveBtn); return; }
+    const flagResolveConfirm = e.target.closest('.dt-flag-inbox-resolve-confirm');
+    if (flagResolveConfirm) { handleFlagInboxResolveConfirm(flagResolveConfirm); return; }
+    const flagResolveCancel = e.target.closest('.dt-flag-inbox-resolve-cancel');
+    if (flagResolveCancel) { hideFlagInboxResolveForm(flagResolveCancel); return; }
+
     // Collapse-complete toggle
     const collapseToggle = e.target.closest('.dt-story-collapse-toggle');
     if (collapseToggle) {
@@ -838,7 +887,11 @@ function renderNavRail() {
   const isST = isSTRole();
   let h = '';
   if (isST) {
-    h += `<div class="dt-story-rail-header"><button class="dt-story-publish-all-btn">Publish All</button></div>`;
+    const globalActive = isCollapseGlobalActive();
+    h += `<div class="dt-story-rail-header">`;
+    h += `<button class="dt-story-publish-all-btn">Publish All</button>`;
+    h += `<button class="dt-story-collapse-global-btn${globalActive ? ' active' : ''}">${globalActive ? 'Show all (all)' : 'Collapse complete (all)'}</button>`;
+    h += `</div>`;
   }
   for (const sub of sorted) {
     const char = getCharForSub(sub);
@@ -1014,7 +1067,8 @@ function renderCharacterView(char, sub) {
   const sections = getApplicableSections(char, sub);
   const charId = String(char?._id || '');
   const collapseActive = _collapseComplete.has(charId);
-  const collapseAttr = collapseActive ? ' data-collapse-complete="true"' : '';
+  const globalActive   = isCollapseGlobalActive();
+  const collapseAttr = `${collapseActive ? ' data-collapse-complete="true"' : ''}${globalActive ? ' data-collapse-complete-global="true"' : ''}`;
 
   let h = `<div class="dt-story-char-content"${collapseAttr}>`;
 
@@ -1130,6 +1184,16 @@ function renderFeedingValidation(char, sub, stNarrative) {
       h += `<div class="dt-feed-val-row"><dt>Result</dt><dd class="dt-story-section-empty">Pool validated — roll pending</dd></div>`;
     }
 
+    // DTFP-5: Kiss / Violent declaration (effective value, ST override wins)
+    const fv = effectiveFeedViolence(sub);
+    const fvLbl = fv === 'kiss' ? 'The Kiss (subtle)' : fv === 'violent' ? 'Violent' : '';
+    if (fvLbl) {
+      const overrideTag = sub?.st_review?.feed_violence_st_override
+        ? ' <span class="dt-feed-val-override-tag">(ST override)</span>'
+        : '';
+      h += `<div class="dt-feed-val-row"><dt>Declaration</dt><dd>${esc(fvLbl)}${overrideTag}</dd></div>`;
+    }
+
     // Player feedback
     const feedback = fr.player_feedback || '';
     h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Player Feedback</dt>`;
@@ -1140,6 +1204,36 @@ function renderFeedingValidation(char, sub, stNarrative) {
 
     h += `</dl>`;
   }
+
+  // ── DTSR-7: ST-authored feeding narrative (additive; not a completion gate) ──
+  // Renders for any feeding state including no_feed (an ST may want to write
+  // about the choice not to feed). The Feeding section's overall completion
+  // dot remains driven by validation/no_feed/roll, not by narrative state.
+  const fn         = stNarrative?.feeding_narrative || {};
+  const fnText     = fn.response || '';
+  const fnStatus   = fn.status || 'draft';
+  const fnRevNote  = fn.revision_note || '';
+  const fnComplete = fnStatus === 'complete';
+  const fnDotClass = fnComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  const fnIsRev    = fnStatus === 'needs_revision';
+
+  h += `<div class="dt-feed-val-narrative-block">`;
+  h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
+  h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
+  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
+  h += `<button class="dt-story-mark-complete-btn">`;
+  h += `<span class="dt-story-completion-dot ${fnDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
+  h += `</div></div>`;
+  h += `</div>`;
 
   h += `</div></div>`;
   return h;
@@ -1729,7 +1823,7 @@ function renderMeritSummary(char, sub) {
     const { label: meritLabel } = getMeritDetails(char, a);
     groups[cat].push({
       meritLabel: meritLabel || a.merit_type || 'Merit',
-      actionType: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '—',
+      desiredOutcome: a.desired_outcome?.trim() || '',
       outcome: rev.outcome_summary?.trim() || '',
     });
   });
@@ -1753,7 +1847,8 @@ function renderMeritSummary(char, sub) {
         const missingClass = entry.outcome ? '' : ' dt-merit-summary-missing';
         h += `<div class="dt-merit-summary-row${missingClass}">`;
         h += `<span class="dt-merit-summary-merit">${esc(entry.meritLabel)}</span>`;
-        h += `<span class="dt-merit-summary-action">${esc(entry.actionType)}</span>`;
+        const desiredEmpty = entry.desiredOutcome ? '' : ' dt-merit-summary-empty';
+        h += `<span class="dt-merit-summary-desired${desiredEmpty}">${entry.desiredOutcome ? esc(entry.desiredOutcome) : '— No desired outcome stated —'}</span>`;
         h += `<span class="dt-merit-summary-outcome">${entry.outcome ? esc(entry.outcome) : '— Outcome not yet recorded —'}</span>`;
         h += `</div>`;
       }
@@ -2404,6 +2499,27 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
 }
 
 /** Resolve the array of territory entries for this submission (all fed territories, defaulting to Barrens). */
+// JDT-5: find the joint a given (sub, slot) belongs to, with the participant's
+// role. Returns { joint, role } or null. Used by compilePushOutcome to inject
+// joint outcomes into participants' published outcomes in place of the per-slot
+// solo project response.
+function _findJointForSlot(sub, slot, cyc) {
+  if (!cyc?.joint_projects || !sub?._id) return null;
+  for (const j of cyc.joint_projects) {
+    if (j.cancelled_at) continue;
+    if (String(j.lead_submission_id) === String(sub._id) && Number(j.lead_project_slot) === Number(slot)) {
+      return { joint: j, role: 'lead' };
+    }
+    for (const p of (j.participants || [])) {
+      if (p.decoupled_at) continue;
+      if (String(p.submission_id) === String(sub._id) && Number(p.project_slot) === Number(slot)) {
+        return { joint: j, role: 'support' };
+      }
+    }
+  }
+  return null;
+}
+
 function _feedTerrEntries(sub) {
   const raw = parseFeedingTerritories(sub)
     .filter(([, v]) => v && v !== 'none' && v !== 'Not feeding here')
@@ -2858,10 +2974,15 @@ const _GAP_TEXT = '*Your Storyteller is still finalising this section \u2014 con
  * Applicable sections that are NOT complete appear as gap placeholders.
  * Returns an empty string if zero sections are complete (push blocked).
  */
-export function compilePushOutcome(sub, char) {
+export function compilePushOutcome(sub, char, cycle) {
   // char is optional; when called from outside this module (e.g. story-tab.js)
   // _allCharacters is empty, so callers must pass char explicitly.
   if (!char) char = getCharForSub(sub);
+  // cycle is optional; falls back to module-level _currentCycle so that the
+  // DT Story tab's loaded cycle is used by all push paths transparently.
+  // Story-tab.js (player inline edit) calls without cycle and relies on this
+  // fallback being null — Territory Pulse is then omitted from the recompile.
+  const cyc = cycle || _currentCycle;
   const sn = sub.st_narrative || {};
   const sections = getApplicableSections(char, sub);
   const parts = [];
@@ -2871,7 +2992,36 @@ export function compilePushOutcome(sub, char) {
     const key = section.key;
 
     if (key === 'feeding_validation') {
-      continue; // feeding handled separately via feeding_roll; no authored narrative response
+      // DTSR-7: when the ST has authored a feeding narrative (status complete,
+      // non-empty response), publish it under "## Feeding". When absent, the
+      // section is omitted unless DTIL-4 territory pulses contribute content.
+      const narrativeText = (sn.feeding_narrative?.status === 'complete'
+        && sn.feeding_narrative?.response?.trim())
+        ? sn.feeding_narrative.response.trim()
+        : '';
+
+      // DTIL-4: append per-territory pulses for territories the player fed in.
+      // Skipped for no_feed submissions and when no cycle.territory_pulse map exists.
+      const pulseChunks = [];
+      const noFeed = sub.feeding_review?.pool_status === 'no_feed';
+      if (!noFeed && cyc?.territory_pulse) {
+        for (const terr of _feedTerrEntries(sub)) {
+          if (terr.id === 'barrens') continue; // Barrens fallback has no broadcast pulse
+          const pulse = cyc.territory_pulse[terr.id]?.draft;
+          if (pulse?.trim()) {
+            pulseChunks.push(`### Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
+          }
+        }
+      }
+
+      if (narrativeText || pulseChunks.length) {
+        const sectionParts = ['## Feeding'];
+        if (narrativeText) sectionParts.push(narrativeText);
+        if (pulseChunks.length) sectionParts.push(pulseChunks.join('\n\n'));
+        parts.push(sectionParts.join('\n\n'));
+        hasContent = true;
+      }
+      continue;
 
     } else if (key === 'story_moment') {
       // Prefer new consolidated field; fall back to legacy letter or touchstone
@@ -2900,6 +3050,35 @@ export function compilePushOutcome(sub, char) {
 
     } else if (key === 'project_responses') {
       (sub.projects_resolved || []).forEach((rev, i) => {
+        const slot = i + 1;
+        // JDT-5: detect whether this slot is part of a joint. Joint slots
+        // pull their outcome from cycle.joint_projects[*].st_joint_outcome
+        // instead of the per-slot st_narrative.project_responses entry.
+        const jointInfo = _findJointForSlot(sub, slot, cyc);
+        if (jointInfo) {
+          const joint = jointInfo.joint;
+          const role = jointInfo.role;
+          const titleSnip = (joint.description || '').trim().slice(0, 60) || 'Joint Project';
+          const leadChar = _allCharacters.find(c => String(c._id) === String(joint.lead_character_id));
+          const leadName = leadChar ? displayName(leadChar) : 'a fellow Kindred';
+          const heading = role === 'lead'
+            ? `## ${titleSnip} (Joint, you led)`
+            : `## ${titleSnip} (Joint with ${leadName})`;
+          const outcomeText = (joint.st_joint_outcome || '').trim();
+          const personalNotes = (sub.responses?.[`project_${slot}_personal_notes`] || '').trim();
+          if (outcomeText) {
+            let block = `${heading}\n\n${outcomeText}`;
+            if (personalNotes && role === 'support') {
+              block += `\n\n*Your contribution: ${personalNotes}*`;
+            }
+            parts.push(block);
+            hasContent = true;
+          } else {
+            parts.push(`${heading}\n\n${_GAP_TEXT}`);
+          }
+          return;
+        }
+
         const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
         if (sn.project_responses?.[i]?.status === 'complete') {
           const response = sn.project_responses?.[i]?.response;
@@ -2983,11 +3162,17 @@ async function _publishAllSubmissions(submissions) {
  */
 export async function publishAllForCycle(cycleId) {
   try {
-    const [subs, chars] = await Promise.all([
+    const [subs, chars, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions?cycle_id=' + cycleId),
       _allCharacters.length ? Promise.resolve(_allCharacters) : apiGet('/api/characters'),
+      apiGet('/api/downtime_cycles').catch(() => []),
     ]);
     if (!_allCharacters.length) _allCharacters = Array.isArray(chars) ? chars : [];
+    // DTIL-4: ensure _currentCycle is populated so compilePushOutcome can
+    // inject Territory Pulse when this path runs from the cycle reset wizard
+    // (which doesn't go through initDtStory first).
+    const cyc = (Array.isArray(cycles) ? cycles : []).find(c => String(c._id) === String(cycleId));
+    if (cyc) _currentCycle = cyc;
     const submissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
       merit_actions: buildMeritActions(sub),
@@ -3614,6 +3799,46 @@ async function handleCacophonySave(btn, status) {
 }
 
 // Populate after all handlers are defined
+async function handleFeedingNarrativeSave(btn, status) {
+  // DTSR-7. Mirrors handleHomeReportSave but writes to st_narrative.feeding_narrative
+  // and re-renders the Feeding section in place. The section's completion dot
+  // (validated/no_feed/roll) is unaffected by this save.
+  const section = btn.closest('.dt-story-section[data-section="feeding_validation"]');
+  if (!section || !_currentSub) return;
+
+  const ta      = section.querySelector('.dt-feed-narrative-ta');
+  const text    = ta?.value || '';
+  const revTa   = section.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
+  const user    = getUser();
+  const author  = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.feeding_narrative': { response: text, author, status, revision_note: revNote },
+    });
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.feeding_narrative = { response: text, author, status, revision_note: revNote };
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
+    const char = getCharForSub(_currentSub);
+    const newHtml = renderFeedingValidation(char, _currentSub, _currentSub.st_narrative);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    section.replaceWith(tmp.firstElementChild);
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+  } catch (err) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+    console.error('handleFeedingNarrativeSave', err);
+  }
+}
+
 async function handleHomeReportSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="home_report"]');
   if (!section || !_currentSub) return;
@@ -3652,9 +3877,176 @@ async function handleHomeReportSave(btn, status) {
 }
 
 Object.assign(SECTION_SAVE_HANDLERS, {
-  project_responses: handleProjectSave,
-  story_moment:      handleStoryMomentSave,
-  territory_reports: handleTerritorySave,
-  cacophony_savvy:   handleCacophonySave,
-  home_report:       handleHomeReportSave,
+  project_responses:  handleProjectSave,
+  story_moment:       handleStoryMomentSave,
+  territory_reports:  handleTerritorySave,
+  cacophony_savvy:    handleCacophonySave,
+  home_report:        handleHomeReportSave,
+  feeding_validation: handleFeedingNarrativeSave,
 });
+
+// ── DTSR-9: Player flag inbox ───────────────────────────────────────
+
+const FLAG_CATEGORY_LABELS = {
+  inconsistent: 'Inconsistent',
+  wrong_story:  'Wrong story',
+  other:        'Other',
+};
+
+function _collectOpenFlags(subs) {
+  const flags = [];
+  for (const sub of subs) {
+    for (const flag of (sub.section_flags || [])) {
+      if (flag.status !== 'open') continue;
+      flags.push({ ...flag, _sub_id: String(sub._id), _character_id: String(sub.character_id || '') });
+    }
+  }
+  flags.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return flags;
+}
+
+function _flagInboxSectionLabel(flag, sub, char) {
+  const key = flag.section_key;
+  if (key === 'project_responses' && flag.section_idx != null) {
+    const slot = Number(flag.section_idx) + 1;
+    const title = sub?.responses?.[`project_${slot}_title`] || `Project ${slot}`;
+    return `Project: ${title}`;
+  }
+  if (key === 'cacophony_savvy' && flag.section_idx != null) {
+    return `Rumour ${Number(flag.section_idx) + 1}`;
+  }
+  const labelMap = {
+    story_moment:       'Story Moment',
+    home_report:        'Home Report',
+    feeding_validation: 'Feeding',
+    merit_summary:      'Allies & Asset Summary',
+    cacophony_savvy:    'Rumours',
+  };
+  if (labelMap[key]) return labelMap[key];
+  // Fallback: try the section list helper
+  try {
+    const sections = getApplicableSections(char, sub);
+    const match = sections.find(s => s.key === key);
+    if (match?.label) return match.label;
+  } catch { /* ignore */ }
+  return key || 'Unknown section';
+}
+
+function _relTime(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const diff = Date.now() - t;
+  const m = Math.round(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if (d < 14) return `${d}d ago`;
+  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function renderFlagInbox(subs) {
+  const flags = _collectOpenFlags(subs);
+  if (!flags.length) {
+    return '<div class="dt-flag-inbox-empty">No open player flags this cycle.</div>';
+  }
+  let h = `<div class="dt-flag-inbox-header"><h3>Player Flags (${flags.length} open)</h3></div>`;
+  h += '<div class="dt-flag-inbox-rows">';
+  for (const flag of flags) {
+    const sub = _allSubmissions.find(s => String(s._id) === flag._sub_id);
+    const char = _allCharacters.find(c => String(c._id) === String(sub?.character_id));
+    const charName = char ? displayName(char) : (sub?.character_name || 'Unknown');
+    const label = _flagInboxSectionLabel(flag, sub, char);
+    const cat = FLAG_CATEGORY_LABELS[flag.category] || 'Flagged';
+    const reasonShort = (flag.reason || '').length > 120
+      ? (flag.reason.slice(0, 117) + '…')
+      : (flag.reason || '');
+    const charId = String(sub?.character_id || '');
+    h += `<div class="dt-flag-inbox-row" data-flag-id="${esc(String(flag._id))}" data-sub-id="${esc(flag._sub_id)}">`;
+    h += `<div class="dt-flag-inbox-row-meta">`;
+    h += `<span class="dt-flag-inbox-char">${esc(charName)}</span>`;
+    h += `<span class="dt-flag-inbox-section">${esc(label)}</span>`;
+    h += `<span class="dt-flag-inbox-cat dt-flag-inbox-cat-${esc(flag.category)}">${esc(cat)}</span>`;
+    h += `<span class="dt-flag-inbox-time">${esc(_relTime(flag.created_at))}</span>`;
+    h += `</div>`;
+    if (reasonShort) {
+      h += `<div class="dt-flag-inbox-reason" title="${esc(flag.reason || '')}">${esc(reasonShort)}</div>`;
+    }
+    h += `<div class="dt-flag-inbox-actions">`;
+    h += `<button type="button" class="dt-flag-inbox-open-btn" data-char-id="${esc(charId)}" data-section-key="${esc(flag.section_key)}"${flag.section_idx != null ? ` data-section-idx="${esc(String(flag.section_idx))}"` : ''}>Open section</button>`;
+    h += `<button type="button" class="dt-flag-inbox-resolve-btn">Resolve</button>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+function _refreshFlagInbox() {
+  const inbox = document.getElementById('dt-story-flag-inbox');
+  if (inbox) inbox.innerHTML = renderFlagInbox(_allSubmissions);
+}
+
+function handleFlagInboxOpen(btn) {
+  const charId = btn.dataset.charId;
+  if (charId) selectCharacter(charId);
+  // Best-effort scroll to the matching section after the character view renders
+  const sectionKey = btn.dataset.sectionKey;
+  requestAnimationFrame(() => {
+    const sectionEl = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
+    if (sectionEl) sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+function showFlagInboxResolveForm(btn) {
+  const row = btn.closest('.dt-flag-inbox-row');
+  if (!row) return;
+  if (row.querySelector('.dt-flag-inbox-resolve-form')) return;
+  const form = document.createElement('div');
+  form.className = 'dt-flag-inbox-resolve-form';
+  form.innerHTML =
+    '<textarea class="dt-flag-inbox-resolve-note" rows="2" placeholder="What did you do? (optional)"></textarea>'
+    + '<div class="dt-flag-inbox-resolve-actions">'
+      + '<button type="button" class="dt-flag-inbox-resolve-confirm">Confirm Resolve</button>'
+      + '<button type="button" class="dt-flag-inbox-resolve-cancel">Cancel</button>'
+      + '<span class="dt-flag-inbox-resolve-status"></span>'
+    + '</div>';
+  row.appendChild(form);
+}
+
+function hideFlagInboxResolveForm(btn) {
+  const form = btn.closest('.dt-flag-inbox-resolve-form');
+  if (form) form.remove();
+}
+
+async function handleFlagInboxResolveConfirm(btn) {
+  const row = btn.closest('.dt-flag-inbox-row');
+  if (!row) return;
+  const subId = row.dataset.subId;
+  const flagId = row.dataset.flagId;
+  const note = (row.querySelector('.dt-flag-inbox-resolve-note')?.value || '').trim();
+  const statusEl = row.querySelector('.dt-flag-inbox-resolve-status');
+  btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Resolving…';
+  try {
+    await apiPatch(`/api/downtime_submissions/${subId}/section-flag/${flagId}`, {
+      status: 'resolved', resolution_note: note,
+    });
+    // Update in-memory and refresh the inbox
+    const sub = _allSubmissions.find(s => String(s._id) === String(subId));
+    if (sub) {
+      const flag = (sub.section_flags || []).find(f => String(f._id) === String(flagId));
+      if (flag) {
+        flag.status = 'resolved';
+        flag.resolved_at = new Date().toISOString();
+        flag.resolution_note = note || null;
+      }
+    }
+    _refreshFlagInbox();
+  } catch (err) {
+    btn.disabled = false;
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}

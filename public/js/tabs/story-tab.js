@@ -3,9 +3,9 @@
  * Right: Documents — Dossier (character profile from questionnaire) + future static docs.
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../data/helpers.js';
-import { isSTRole } from '../auth/discord.js';
+import { isSTRole, getPlayerInfo } from '../auth/discord.js';
 import { compilePushOutcome } from '../admin/downtime-story.js';
 
 // DTSR-4: chronicle context for inline ST edit on historical cycles. Set by
@@ -120,6 +120,28 @@ export async function renderStoryTab(el, char) {
     if (saveBtn) { handleSectionSave(saveBtn); return; }
     const cancelBtn = e.target.closest('.story-section-cancel');
     if (cancelBtn) { handleSectionCancel(cancelBtn); return; }
+    // DTSR-8: player flag affordances
+    const flagBtn = e.target.closest('.story-section-flag-btn');
+    if (flagBtn) { openFlagForm(flagBtn); return; }
+    const flagSubmit = e.target.closest('.story-section-flag-submit');
+    if (flagSubmit) { submitFlagForm(flagSubmit); return; }
+    const flagCancel = e.target.closest('.story-section-flag-cancel');
+    if (flagCancel) { closeFlagForm(flagCancel); return; }
+    const flagRecall = e.target.closest('.story-section-flag-recall');
+    if (flagRecall) { recallFlag(flagRecall); return; }
+  };
+
+  // Auto-validate the form: enable Submit only when category chosen and
+  // Other-category requires reason >= 5 chars.
+  el.oninput = e => {
+    const form = e.target.closest('.story-section-flag-form');
+    if (!form) return;
+    _refreshFlagFormSubmitState(form);
+  };
+  el.onchange = e => {
+    const form = e.target.closest('.story-section-flag-form');
+    if (!form) return;
+    _refreshFlagFormSubmitState(form);
   };
 
   let h = '<div class="story-split">';
@@ -185,11 +207,12 @@ function _normTitle(s) {
 
 function _storyNarrSection(label, text, opts = {}) {
   if (!text?.trim()) return '';
-  const { editable, sectionKey, sectionIdx = '' } = opts;
+  const { editable, sectionKey, sectionIdx = '', sub = null } = opts;
   let h = `<div class="story-section" data-section-key="${esc(sectionKey || '')}" data-section-idx="${esc(String(sectionIdx))}">`;
   h += '<div class="story-section-header">';
   h += `<h4 class="story-section-head">${esc(label)}</h4>`;
   if (editable && sectionKey) h += _renderEditButton();
+  if (sub && sectionKey) h += renderFlagAffordance(sub, sectionKey);
   h += '</div>';
   h += '<div class="story-section-body">';
   const paras = text.trim().split(/\n{2,}/).filter(Boolean);
@@ -202,6 +225,50 @@ function _renderEditButton() {
   return `<button type="button" class="story-section-edit" title="Edit (ST only)">Edit</button>`;
 }
 
+// ── DTSR-8: per-section flag affordance ─────────────────────────────
+// Players can flag any section of their published outcome as Inconsistent /
+// Wrong story / Other. STs see the flag in the DTSR-9 inbox. Owning-player
+// only — the affordance is hidden for STs and other characters' viewers.
+
+const FLAG_CATEGORY_LABELS = {
+  inconsistent: 'Inconsistent',
+  wrong_story:  'Wrong story',
+  other:        'Other',
+};
+
+function _myOpenFlagsFor(sub, sectionKey, sectionIdx) {
+  const me = getPlayerInfo();
+  const myId = me ? String(me.player_id || '') : '';
+  if (!myId) return [];
+  return (sub.section_flags || []).filter(f =>
+    f.status === 'open' &&
+    f.section_key === sectionKey &&
+    (sectionIdx == null ? f.section_idx == null : Number(f.section_idx) === Number(sectionIdx)) &&
+    String(f.player_id) === myId
+  );
+}
+
+function renderFlagAffordance(sub, sectionKey, sectionIdx = null) {
+  if (!sectionKey) return '';
+  if (isSTRole()) return '';
+  const me = getPlayerInfo();
+  if (!me) return '';
+  const subId = String(sub._id || '');
+  const idxAttr = sectionIdx == null ? '' : ` data-section-idx="${esc(String(sectionIdx))}"`;
+
+  const open = _myOpenFlagsFor(sub, sectionKey, sectionIdx);
+  if (open.length) {
+    const f = open[0];
+    const cat = FLAG_CATEGORY_LABELS[f.category] || 'Flagged';
+    const reason = f.reason || '';
+    return `<span class="story-section-flagged" title="${esc(reason)}">`
+      + `<span class="story-section-flagged-label">⚑ Flagged: ${esc(cat)}</span>`
+      + `<button type="button" class="story-section-flag-recall" data-sub-id="${esc(subId)}" data-flag-id="${esc(String(f._id))}">Recall flag</button>`
+      + `</span>`;
+  }
+  return `<button type="button" class="story-section-flag-btn" data-sub-id="${esc(subId)}" data-section-key="${esc(sectionKey)}"${idxAttr}>⚑ Flag for review</button>`;
+}
+
 function renderStoryMoment(sub, opts = {}) {
   const { editable } = opts;
   // Read order matches DTSR-2's consolidated field (story_moment) first, then
@@ -209,10 +276,10 @@ function renderStoryMoment(sub, opts = {}) {
   // legacy. Edit targets story_moment so saves match the admin's write path
   // and compilePushOutcome's read path.
   const smText = sub.st_narrative?.story_moment?.response;
-  if (smText) return _storyNarrSection('Story Moment', smText, { editable, sectionKey: 'story_moment' });
+  if (smText) return _storyNarrSection('Story Moment', smText, { editable, sectionKey: 'story_moment', sub });
 
   const psText = sub.st_narrative?.personal_story?.response;
-  if (psText) return _storyNarrSection('Story Moment', psText, { editable: false });
+  if (psText) return _storyNarrSection('Story Moment', psText, { editable: false, sectionKey: 'story_moment', sub });
 
   const letter    = sub.st_narrative?.letter_from_home?.response;
   const touchstone = sub.st_narrative?.touchstone?.response;
@@ -240,8 +307,20 @@ function renderStoryMoment(sub, opts = {}) {
 function renderHomeReportSection(sub, opts = {}) {
   const { editable } = opts;
   return _storyNarrSection('Home Report', sub.st_narrative?.home_report?.response, {
-    editable, sectionKey: 'home_report',
+    editable, sectionKey: 'home_report', sub,
   });
+}
+
+// DTSR-8: map outcome-section heading text to a section_key. Returns null
+// for headings without a flaggable identity (e.g. raw prose, mechanical-only).
+function _flagSectionKeyForHeading(heading) {
+  const h = (heading || '').toLowerCase().trim();
+  if (h === 'feeding')                          return 'feeding_validation';
+  if (h.startsWith('home report'))              return 'home_report';
+  if (h.startsWith('story moment'))             return 'story_moment';
+  if (h.includes('asset summary') || h.includes('allies & assets')) return 'merit_summary';
+  if (h === 'rumours')                          return 'cacophony_savvy';
+  return null;
 }
 
 function renderRumoursSection(sub, opts = {}) {
@@ -268,6 +347,12 @@ function renderRumoursSection(sub, opts = {}) {
       h += `<li data-section-key="cacophony_savvy" data-section-idx="${r.idx}">`;
       h += `<span class="story-rumour-text">${esc(rText)}</span>`;
       h += `<button type="button" class="story-section-edit story-rumour-edit" title="Edit (ST only)">Edit</button>`;
+      h += renderFlagAffordance(sub, 'cacophony_savvy', r.idx);
+      h += `</li>`;
+    } else if (r.idx != null) {
+      h += `<li data-section-key="cacophony_savvy" data-section-idx="${r.idx}">`;
+      h += `<span class="story-rumour-text">${esc(rText)}</span>`;
+      h += renderFlagAffordance(sub, 'cacophony_savvy', r.idx);
       h += `</li>`;
     } else {
       h += `<li>${esc(rText)}</li>`;
@@ -360,6 +445,15 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       h += '<div class="story-section-header">';
       h += `<h4 class="story-section-head">${esc(sec.heading)}</h4>`;
       if (sectionEditable) h += _renderEditButton();
+      // DTSR-8: flag affordance per section. Project headings + a few well-known
+      // parsed-outcome headings get a per-section flag; raw prose without a
+      // recognised section key does not.
+      if (projHit) {
+        h += renderFlagAffordance(sub, 'project_responses', projHit.idx);
+      } else {
+        const headingKey = _flagSectionKeyForHeading(sec.heading);
+        if (headingKey) h += renderFlagAffordance(sub, headingKey);
+      }
       h += '</div>';
       h += '<div class="story-section-body">';
       const body = sec.lines.join('\n').trim();
@@ -909,5 +1003,123 @@ async function handleSectionSave(btn) {
   } catch (err) {
     btn.disabled = false;
     if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}
+
+// ── DTSR-8: player flag form lifecycle ──────────────────────────────
+
+function _findSubInChronicle(subId) {
+  const subs = _chronicleCtx?.subs || [];
+  return subs.find(s => String(s._id) === String(subId)) || null;
+}
+
+function openFlagForm(btn) {
+  const subId = btn.dataset.subId;
+  const sectionKey = btn.dataset.sectionKey;
+  const sectionIdx = btn.dataset.sectionIdx ?? '';
+  // Replace the button with a small inline form. Submit is gated by category
+  // selection (and a 5-char minimum reason for category=other).
+  const form = document.createElement('form');
+  form.className = 'story-section-flag-form';
+  form.dataset.subId = subId;
+  form.dataset.sectionKey = sectionKey;
+  if (sectionIdx !== '') form.dataset.sectionIdx = sectionIdx;
+  form.innerHTML =
+    '<div class="story-section-flag-form-row">'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="inconsistent"> Inconsistent</label>'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="wrong_story"> Wrong story</label>'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="other"> Other</label>'
+    + '</div>'
+    + '<textarea class="story-section-flag-reason" rows="3" placeholder="Tell your Storyteller what is up (5+ characters for Other)."></textarea>'
+    + '<div class="story-section-flag-actions">'
+      + '<button type="button" class="story-section-flag-submit" disabled>Submit flag</button>'
+      + '<button type="button" class="story-section-flag-cancel">Cancel</button>'
+      + '<span class="story-section-flag-status"></span>'
+    + '</div>';
+  btn.replaceWith(form);
+}
+
+function closeFlagForm(cancelBtn) {
+  const form = cancelBtn.closest('.story-section-flag-form');
+  if (!form) return;
+  const sub = _findSubInChronicle(form.dataset.subId);
+  if (!sub) { form.remove(); return; }
+  const sectionKey = form.dataset.sectionKey;
+  const sectionIdx = form.dataset.sectionIdx ?? null;
+  const replacement = document.createElement('div');
+  replacement.innerHTML = renderFlagAffordance(sub, sectionKey, sectionIdx === null ? null : Number(sectionIdx));
+  const node = replacement.firstChild;
+  if (node) form.replaceWith(node);
+  else form.remove();
+}
+
+function _refreshFlagFormSubmitState(form) {
+  const cat = form.querySelector('input[name="flag-cat"]:checked')?.value || '';
+  const reason = (form.querySelector('.story-section-flag-reason')?.value || '').trim();
+  const submitBtn = form.querySelector('.story-section-flag-submit');
+  if (!submitBtn) return;
+  const ok = !!cat && (cat !== 'other' || reason.length >= 5);
+  submitBtn.disabled = !ok;
+}
+
+async function submitFlagForm(submitBtn) {
+  const form = submitBtn.closest('.story-section-flag-form');
+  if (!form) return;
+  const subId = form.dataset.subId;
+  const sectionKey = form.dataset.sectionKey;
+  const sectionIdxRaw = form.dataset.sectionIdx;
+  const sectionIdx = sectionIdxRaw == null || sectionIdxRaw === '' ? null : Number(sectionIdxRaw);
+  const category = form.querySelector('input[name="flag-cat"]:checked')?.value || '';
+  const reason = (form.querySelector('.story-section-flag-reason')?.value || '').trim();
+  const statusEl = form.querySelector('.story-section-flag-status');
+
+  if (!category) return;
+  if (category === 'other' && reason.length < 5) return;
+
+  submitBtn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Submitting…';
+
+  try {
+    const flag = await apiPost(`/api/downtime_submissions/${subId}/section-flag`, {
+      section_key: sectionKey,
+      section_idx: sectionIdx,
+      category,
+      reason,
+    });
+    // Optimistic local update — push into the in-memory submission so the
+    // re-rendered affordance shows the Flagged state.
+    const sub = _findSubInChronicle(subId);
+    if (sub) {
+      if (!Array.isArray(sub.section_flags)) sub.section_flags = [];
+      sub.section_flags.push(flag);
+      const entryEl = document.querySelector(`.story-entry[data-sub-id="${CSS.escape(subId)}"]`);
+      if (entryEl) _renderEntryInPlace(entryEl, sub);
+    } else {
+      form.remove();
+    }
+  } catch (err) {
+    submitBtn.disabled = false;
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}
+
+async function recallFlag(btn) {
+  const subId = btn.dataset.subId;
+  const flagId = btn.dataset.flagId;
+  btn.disabled = true;
+  btn.textContent = 'Recalling…';
+  try {
+    await apiPatch(`/api/downtime_submissions/${subId}/section-flag/${flagId}`, { status: 'recalled' });
+    const sub = _findSubInChronicle(subId);
+    if (sub) {
+      const flag = (sub.section_flags || []).find(f => String(f._id) === String(flagId));
+      if (flag) flag.status = 'recalled';
+      const entryEl = document.querySelector(`.story-entry[data-sub-id="${CSS.escape(subId)}"]`);
+      if (entryEl) _renderEntryInPlace(entryEl, sub);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Recall flag';
+    alert(`Recall failed: ${err?.message || 'error'}`);
   }
 }

@@ -73,6 +73,25 @@ function projectSlotProps(n) {
     [`project_${n}_xp`]:           { type: 'string' },
     // Secondary hunt method (for feed/rote action)
     [`project_${n}_feed_method2`]: { type: 'string', enum: feedMethodEnum },
+    // JDT-2: Joint project authoring scratch fields. Persisted on the
+    // submission to round-trip the lead's draft form state. The
+    // canonical joint state lives on cycle.joint_projects (created via
+    // POST /api/downtime_cycles/:id/joint_projects).
+    [`project_${n}_is_joint`]:           { type: 'string' },
+    [`project_${n}_joint_description`]:  { type: 'string' },
+    [`project_${n}_joint_target_type`]:  { type: 'string' },
+    [`project_${n}_joint_target_value`]: { type: 'string' },
+    [`project_${n}_joint_invited_ids`]:  { type: 'string' },
+    // JDT-3: support-slot markers written by the accept handler when an
+    // invitee accepts a joint. joint_id refers to cycle.joint_projects[]._id;
+    // joint_role is 'support' for accepted invitees ('lead' is implied via
+    // the joint document and not written to the lead's responses).
+    [`project_${n}_joint_id`]:   { type: 'string' },
+    [`project_${n}_joint_role`]: { type: 'string' },
+    // JDT-4: support-slot personal notes — what the invitee brings to the
+    // joint. The joint description is shared (lead-owned, read-only); this
+    // textarea is the support's private contribution.
+    [`project_${n}_personal_notes`]: { type: 'string' },
   };
 }
 
@@ -353,6 +372,9 @@ export const downtimeSubmissionSchema = {
         letter_from_home:   { type: 'object', additionalProperties: true },
         touchstone:         { type: 'object', additionalProperties: true },
         feeding_validation: { type: 'object', additionalProperties: true },
+        // DTSR-7: ST-authored feeding-scene narrative.
+        // Shape: { response, author, status: 'draft'|'complete'|'needs_revision', revision_note }
+        feeding_narrative:  { type: 'object', additionalProperties: true },
         territory_reports:  { type: 'array' },
         project_responses:  { type: 'array' },
         action_responses:   { type: 'array' },
@@ -363,6 +385,31 @@ export const downtimeSubmissionSchema = {
 
     // ── Published outcome (promoted from st_review for players) ──
     published_outcome: { type: 'string' },
+
+    // ── DTSR-8: Player section flags ─────────────────────────────
+    // Players can flag any section of their published Story view as
+    // problematic (Inconsistent / Wrong story / Other). STs resolve via
+    // DT Story tab inbox (DTSR-9). Recalled flags are hidden but kept.
+    section_flags: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['_id', 'section_key', 'category', 'created_at', 'player_id', 'status'],
+        properties: {
+          _id:             { type: 'string' },
+          section_key:     { type: 'string' },
+          section_idx:     { type: ['integer', 'null'] },
+          category:        { type: 'string', enum: ['inconsistent', 'wrong_story', 'other'] },
+          reason:          { type: 'string' },
+          created_at:      { type: 'string' },
+          player_id:       { type: 'string' },
+          status:          { type: 'string', enum: ['open', 'resolved', 'recalled'] },
+          resolved_at:     { type: ['string', 'null'] },
+          resolution_note: { type: ['string', 'null'] },
+        },
+        additionalProperties: true,
+      },
+    },
 
     // ── CSV import structured data ───────────────────────────
     _raw: {
@@ -405,6 +452,13 @@ export const downtimeSubmissionSchema = {
         no_roll:            { type: 'boolean' },
         st_note:            { type: 'string' },
         player_facing_note: { type: 'string' },
+
+        // ── JDT-1: Joint Downtime support-slot markers ────────────
+        // Set on a project slot when it participates in a joint project
+        // (Epic JDT — see specs/stories/jdt-1-schema-foundations.story.md).
+        // Both fields absent/null on solo projects.
+        joint_id:   { type: ['string', 'null'] },
+        joint_role: { type: ['string', 'null'], enum: ['lead', 'support', null] },
       },
       additionalProperties: true,
     },
@@ -439,6 +493,49 @@ export const downtimeCycleSchema = {
           confirmed_at:    { type: 'string' },
           rights:          { type: 'array', items: { type: 'string' } },
         },
+      },
+    },
+
+    // ── JDT-1: Joint projects on this cycle ────────────────────────
+    // One entry per joint project authored by a lead during this cycle.
+    // Pure data shape; lifecycle and rendering handled by JDT-2..JDT-6.
+    // See specs/stories/jdt-1-schema-foundations.story.md.
+    joint_projects: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          _id:                    { type: 'string' },
+          lead_character_id:      { type: 'string' },
+          lead_submission_id:     { type: 'string' },
+          lead_project_slot:      { type: 'integer', minimum: 1, maximum: 4 },
+          description:            { type: 'string' },
+          action_type:            { type: 'string' },
+          target_type:            { type: ['string', 'null'] },
+          target_value:           { type: ['string', 'null'] },
+          description_updated_at: { type: ['string', 'null'] },
+          st_joint_outcome:       { type: 'string' },
+          participants: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                invitation_id:                      { type: 'string' },
+                character_id:                       { type: 'string' },
+                submission_id:                      { type: ['string', 'null'] },
+                project_slot:                       { type: ['integer', 'null'], minimum: 1, maximum: 4 },
+                joined_at:                          { type: ['string', 'null'] },
+                decoupled_at:                       { type: ['string', 'null'] },
+                description_change_acknowledged_at: { type: ['string', 'null'] },
+              },
+              additionalProperties: true,
+            },
+          },
+          created_at:       { type: 'string' },
+          cancelled_at:     { type: ['string', 'null'] },
+          cancelled_reason: { type: ['string', 'null'] },
+        },
+        additionalProperties: true,
       },
     },
   },

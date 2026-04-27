@@ -4345,6 +4345,115 @@ body {
   cursor: pointer;
   transition: background 0.12s;
 }
+
+/* ── JDT-5: Joint Projects phase grouping ──────────────────────────── */
+.proc-joint-group {
+  margin: 12px 8px 16px;
+  border: 2px solid var(--gold2);
+  border-radius: 4px;
+  background: var(--surf);
+}
+.proc-joint-group-orphan {
+  border-color: var(--crim);
+  padding: 10px 14px;
+  background: var(--crim-a8);
+}
+.proc-joint-orphan-msg { margin: 0; color: var(--crim); font-style: italic; }
+.proc-joint-shared-header {
+  padding: 12px 16px 14px;
+  background: var(--gold2-a12);
+  border-bottom: 1px solid var(--gold2-a25);
+}
+.proc-joint-action-label {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 6px;
+}
+.proc-joint-description {
+  font-family: var(--fb);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--txt1);
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+.proc-joint-target {
+  font-size: 12px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.proc-joint-participant-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.proc-joint-participant-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+}
+.proc-joint-participant-pill em { font-style: normal; color: var(--gold); margin-left: 4px; font-size: 11px; }
+.proc-joint-pill-lead { background: var(--gold2); color: var(--bg); border-color: var(--gold2); }
+.proc-joint-pill-lead em { color: var(--bg); opacity: .85; }
+
+.proc-joint-row { background: transparent; }
+.proc-joint-row:not(:last-of-type) { border-bottom: 1px solid var(--gold2-a25); }
+.proc-joint-row.expanded { background: var(--accent-a8); }
+
+.proc-joint-role-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.proc-joint-role-lead { background: var(--gold2); color: var(--bg); }
+.proc-joint-role-support { background: var(--surf2); color: var(--gold2); border: 1px solid var(--gold2-a25); }
+
+.proc-joint-outcome-zone {
+  padding: 14px 16px 16px;
+  background: var(--surf2);
+  border-top: 1px solid var(--gold2-a25);
+}
+.proc-joint-outcome-help {
+  font-size: 12px;
+  color: var(--txt2);
+  margin: 4px 0 8px;
+  font-style: italic;
+}
+.proc-joint-outcome-ta {
+  width: 100%;
+  min-height: 140px;
+  font-family: var(--fb);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  background: var(--surf);
+  resize: vertical;
+}
+.proc-joint-outcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.proc-joint-outcome-status {
+  font-size: 12px;
+  color: var(--gold2);
+}
 .proc-action-row.multiline { align-items: start; padding: 10px 16px; }
 .proc-action-row:last-child { border-bottom: none; }
 .proc-action-row:hover { background: var(--accent-a8); }
@@ -5034,6 +5143,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* DTSR-5: relocated Outcome zone in left column of merit panels */
+.proc-merit-outcome-zone {
+  margin-top: 12px;
 }
 
 .proc-merit-outcome-btns {
@@ -6497,6 +6611,114 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-story-rail-header { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; border-bottom: 1px solid var(--bdr); margin-bottom: 8px; width: 100%; }
 .dt-story-publish-all-btn { background: transparent; border: 1px solid var(--gold2); border-radius: 3px; color: var(--gold2); cursor: pointer; font-size: 11px; padding: 3px 10px; }
 .dt-story-publish-all-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── DTSR-9: Player flag inbox ── */
+.dt-story-flag-inbox { margin-bottom: 12px; }
+.dt-flag-inbox-empty {
+  padding: 8px 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt3);
+  font-style: italic;
+  font-size: 12px;
+}
+.dt-flag-inbox-header { padding: 6px 0; }
+.dt-flag-inbox-header h3 {
+  margin: 0;
+  color: var(--gold2);
+  font-family: var(--ft);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dt-flag-inbox-rows { display: flex; flex-direction: column; gap: 6px; }
+.dt-flag-inbox-row {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--gold2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-flag-inbox-row-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.dt-flag-inbox-char { color: var(--txt1); font-weight: 600; }
+.dt-flag-inbox-section { color: var(--txt2); }
+.dt-flag-inbox-cat {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.dt-flag-inbox-cat-inconsistent { background: rgba(224, 196, 122, 0.15); color: var(--gold2); border: 1px solid var(--gold-a40); }
+.dt-flag-inbox-cat-wrong_story  { background: rgba(139, 0, 0, 0.15); color: var(--crim); border: 1px solid rgba(139, 0, 0, 0.4); }
+.dt-flag-inbox-cat-other        { background: var(--surf3); color: var(--txt2); border: 1px solid var(--bdr); }
+.dt-flag-inbox-time { color: var(--txt3); font-size: 11px; margin-left: auto; }
+.dt-flag-inbox-reason { color: var(--txt2); font-size: 12px; font-style: italic; padding: 2px 0; }
+.dt-flag-inbox-actions { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.dt-flag-inbox-open-btn,
+.dt-flag-inbox-resolve-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.dt-flag-inbox-open-btn:hover,
+.dt-flag-inbox-resolve-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-flag-inbox-resolve-form { margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.dt-flag-inbox-resolve-note {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 12px;
+  padding: 4px 8px;
+  resize: vertical;
+}
+.dt-flag-inbox-resolve-actions { display: flex; gap: 6px; align-items: center; }
+.dt-flag-inbox-resolve-confirm {
+  background: var(--gold2);
+  border: 1px solid var(--gold2);
+  border-radius: 3px;
+  color: var(--bg);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.dt-flag-inbox-resolve-cancel {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.dt-flag-inbox-resolve-status { color: var(--txt3); font-size: 11px; }
+/* DTSR-11: global collapse-complete toggle in rail header */
+.dt-story-collapse-global-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.dt-story-collapse-global-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-collapse-global-btn.active { border-color: var(--gold2); color: var(--gold2); }
 .dt-story-publish-summary { color: var(--gold2); font-size: 11px; padding: 4px 0 6px; width: 100%; }
 
 /* ── DTX.7: Regent feeding gate ── */
@@ -6615,8 +6837,8 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-merit-summary-rows { padding: 0 14px; }
 .dt-merit-summary-row {
   display: grid;
-  grid-template-columns: 160px 110px 1fr;
-  gap: 8px;
+  grid-template-columns: 170px minmax(0, 2fr) minmax(0, 1.5fr);
+  gap: 12px;
   padding: 5px 0;
   border-bottom: 1px solid var(--surf3);
   font-size: 12px;
@@ -6624,8 +6846,9 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 }
 .dt-merit-summary-row:last-child { border-bottom: none; }
 .dt-merit-summary-merit { color: var(--txt1); font-weight: 500; }
-.dt-merit-summary-action { color: var(--txt3); font-family: var(--fl); }
+.dt-merit-summary-desired { color: var(--txt2); }
 .dt-merit-summary-outcome { color: var(--txt1); }
+.dt-merit-summary-desired.dt-merit-summary-empty,
 .dt-merit-summary-missing .dt-merit-summary-outcome { color: var(--txt3); font-style: italic; }
 .dt-story-section-actions {
   padding: 8px 14px;
@@ -6698,6 +6921,30 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-feed-val-feedback-row dd { color: var(--txt2); font-style: italic; }
 .dt-feed-val-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .dt-feed-val-approved-lbl { font-size: 12px; color: var(--accent); font-family: var(--fl); }
+
+/* DTSR-7: ST-authored feeding narrative — sits below the existing feeding
+   data block, separated by a thin rule. Sub-head + prompt mirror the
+   typographic treatment used in other DT Story narrative authoring areas. */
+.dt-feed-val-narrative-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bdr);
+}
+.dt-story-section-subhead {
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.dt-story-section-prompt {
+  color: var(--txt3);
+  font-size: 12px;
+  font-style: italic;
+  margin: 0 0 8px;
+}
 
 /* ── Story-tab inner cards: canonical chrome (CSS-9) ── */
 .dt-story-proj-card,
@@ -6826,15 +7073,12 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
-  min-height: 160px;
+  min-height: 280px;
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
 }
 .dt-story-response-ta:focus { border-color: var(--gold2); outline: none; }
-.dt-story-section[data-section="letter_from_home"] .dt-story-response-ta,
-.dt-story-section[data-section="touchstone"] .dt-story-response-ta,
-.dt-story-section[data-section="territory_reports"] .dt-story-response-ta { min-height: 200px; }
 
 /* ── DTX.8: ST Notes free-text field ── */
 .dt-story-general-notes {
@@ -7184,12 +7428,17 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
   padding: 4px 0 2px;
 }
 
-/* ── DT Story — Collapse complete cards ── */
+/* ── DT Story — Collapse complete cards (per-character + DTSR-11 global) ── */
 .dt-story-char-content[data-collapse-complete="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
 .dt-story-char-content[data-collapse-complete="true"] .dt-story-merit-card.complete > *:not(.dt-story-merit-header),
 .dt-story-char-content[data-collapse-complete="true"] .dt-story-cs-slot.complete > *:not(.dt-story-cs-slot-header),
 .dt-story-char-content[data-collapse-complete="true"] .dt-story-section.complete > *:not(.dt-story-section-header),
-.dt-story-char-content[data-collapse-complete="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header) {
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header),
+.dt-story-char-content[data-collapse-complete-global="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
+.dt-story-char-content[data-collapse-complete-global="true"] .dt-story-merit-card.complete > *:not(.dt-story-merit-header),
+.dt-story-char-content[data-collapse-complete-global="true"] .dt-story-cs-slot.complete > *:not(.dt-story-cs-slot-header),
+.dt-story-char-content[data-collapse-complete-global="true"] .dt-story-section.complete > *:not(.dt-story-section-header),
+.dt-story-char-content[data-collapse-complete-global="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header) {
   display: none;
 }
 
@@ -8193,4 +8442,314 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   margin-top: 8px;
   padding-top: 10px;
   border-top: 1px dashed var(--bdr);
+}
+
+/* ─── DT Intelligence Layer (DTIL) ──────────────────────────────────────── */
+/* Cycle-level synthesis surfaces mounted into the DT Prep tab.            */
+
+.dt-cycle-intelligence {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* DTIL-1: Court Pulse */
+.dt-court-pulse-panel {
+  padding: 16px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.dt-court-pulse-title {
+  font-family: var(--fh);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+.dt-court-pulse-hint {
+  font-size: 12px;
+  color: var(--txt3);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.dt-court-pulse-prompt-block,
+.dt-court-pulse-synthesis-block {
+  margin-top: 10px;
+}
+.dt-court-pulse-synthesis-block { margin-top: 18px; }
+.dt-court-pulse-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin-bottom: 6px;
+}
+.dt-court-pulse-placeholder {
+  padding: 12px;
+  background: var(--surf);
+  border: 1px dashed var(--bdr2);
+  border-radius: 3px;
+  font-style: italic;
+  color: var(--txt3);
+  font-size: 13px;
+}
+.dt-court-pulse-prompt-ta {
+  width: 100%;
+  min-height: 240px;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-court-pulse-synthesis-ta {
+  width: 100%;
+  min-height: 200px;
+  font-family: var(--ft);
+  font-size: 14px;
+  line-height: 1.55;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-court-pulse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.dt-court-pulse-copy-status,
+.dt-court-pulse-save-status {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 0.04em;
+}
+
+/* DTIL-2: Action Queue */
+.dt-action-queue-panel {
+  padding: 16px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.dt-action-queue-title {
+  font-family: var(--fh);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+.dt-action-queue-hint {
+  font-size: 12px;
+  color: var(--txt3);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.dt-action-queue-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.dt-action-queue-filter-pill {
+  padding: 4px 10px;
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--txt2);
+  font-family: inherit;
+}
+.dt-action-queue-filter-pill:hover { color: var(--txt); border-color: var(--bdr3); }
+.dt-action-queue-filter-pill.active {
+  background: var(--gold2);
+  color: var(--bg);
+  border-color: var(--gold2);
+}
+.dt-action-queue-empty {
+  padding: 14px;
+  font-style: italic;
+  color: var(--txt3);
+  text-align: center;
+}
+.dt-action-queue-rows { display: flex; flex-direction: column; }
+.dt-action-queue-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) auto minmax(12rem, 3fr) minmax(8rem, auto) minmax(10rem, 2fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bdr);
+  font-size: 13px;
+}
+.dt-action-queue-row:last-child { border-bottom: none; }
+.dt-action-queue-char-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+.dt-action-queue-char-btn:hover { text-decoration: underline; }
+.dt-action-queue-slot {
+  font-size: 11px;
+  color: var(--txt3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-top: 1px;
+}
+.dt-action-queue-text { color: var(--txt); line-height: 1.5; }
+.dt-action-queue-text-full { display: none; }
+.dt-action-queue-row.expanded .dt-action-queue-text-truncated { display: none; }
+.dt-action-queue-row.expanded .dt-action-queue-text-full { display: inline; }
+.dt-action-queue-text-toggle {
+  display: inline-block;
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: var(--gdim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.dt-action-queue-text-toggle:hover { color: var(--accent); }
+.dt-action-queue-row.expanded .dt-action-queue-text-toggle::after { content: ' (collapse)'; }
+.dt-action-queue-state-select {
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.dt-action-queue-row.state-action_needed .dt-action-queue-state-select {
+  border-color: var(--crim);
+  color: var(--crim);
+}
+.dt-action-queue-row.state-resolved .dt-action-queue-state-select { color: var(--gdim); }
+.dt-action-queue-row.state-ignored .dt-action-queue-state-select  { color: var(--txt3); }
+.dt-action-queue-row.state-acknowledged .dt-action-queue-state-select { color: var(--gold2); }
+.dt-action-queue-note-input {
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+}
+
+/* DTIL-4: Territory Pulse */
+.dt-territory-pulse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+.dt-territory-pulse-row {
+  padding: 12px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+}
+.dt-territory-pulse-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.dt-territory-pulse-name {
+  font-family: var(--fh);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  flex: 1;
+}
+.dt-territory-pulse-ambience {
+  font-size: 11px;
+  color: var(--txt3);
+  letter-spacing: 0.04em;
+}
+.dt-territory-pulse-toggle-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.dt-territory-pulse-toggle-btn:hover { color: var(--txt); border-color: var(--bdr3); }
+.dt-territory-pulse-prompt-block {
+  margin: 6px 0 10px;
+  padding: 8px;
+  background: var(--surf2);
+  border-radius: 3px;
+}
+.dt-territory-pulse-prompt-ta {
+  width: 100%;
+  min-height: 200px;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-territory-pulse-draft-lbl {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin: 8px 0 4px;
+}
+.dt-territory-pulse-draft-ta {
+  width: 100%;
+  min-height: 140px;
+  font-family: var(--ft);
+  font-size: 14px;
+  line-height: 1.55;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-territory-pulse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.dt-territory-pulse-copy-status,
+.dt-territory-pulse-save-status {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 0.04em;
 }
