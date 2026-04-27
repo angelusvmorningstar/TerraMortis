@@ -4345,6 +4345,115 @@ body {
   cursor: pointer;
   transition: background 0.12s;
 }
+
+/* ── JDT-5: Joint Projects phase grouping ──────────────────────────── */
+.proc-joint-group {
+  margin: 12px 8px 16px;
+  border: 2px solid var(--gold2);
+  border-radius: 4px;
+  background: var(--surf);
+}
+.proc-joint-group-orphan {
+  border-color: var(--crim);
+  padding: 10px 14px;
+  background: var(--crim-a8);
+}
+.proc-joint-orphan-msg { margin: 0; color: var(--crim); font-style: italic; }
+.proc-joint-shared-header {
+  padding: 12px 16px 14px;
+  background: var(--gold2-a12);
+  border-bottom: 1px solid var(--gold2-a25);
+}
+.proc-joint-action-label {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 6px;
+}
+.proc-joint-description {
+  font-family: var(--fb);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--txt1);
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+.proc-joint-target {
+  font-size: 12px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.proc-joint-participant-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.proc-joint-participant-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+}
+.proc-joint-participant-pill em { font-style: normal; color: var(--gold); margin-left: 4px; font-size: 11px; }
+.proc-joint-pill-lead { background: var(--gold2); color: var(--bg); border-color: var(--gold2); }
+.proc-joint-pill-lead em { color: var(--bg); opacity: .85; }
+
+.proc-joint-row { background: transparent; }
+.proc-joint-row:not(:last-of-type) { border-bottom: 1px solid var(--gold2-a25); }
+.proc-joint-row.expanded { background: var(--accent-a8); }
+
+.proc-joint-role-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.proc-joint-role-lead { background: var(--gold2); color: var(--bg); }
+.proc-joint-role-support { background: var(--surf2); color: var(--gold2); border: 1px solid var(--gold2-a25); }
+
+.proc-joint-outcome-zone {
+  padding: 14px 16px 16px;
+  background: var(--surf2);
+  border-top: 1px solid var(--gold2-a25);
+}
+.proc-joint-outcome-help {
+  font-size: 12px;
+  color: var(--txt2);
+  margin: 4px 0 8px;
+  font-style: italic;
+}
+.proc-joint-outcome-ta {
+  width: 100%;
+  min-height: 140px;
+  font-family: var(--fb);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  background: var(--surf);
+  resize: vertical;
+}
+.proc-joint-outcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.proc-joint-outcome-status {
+  font-size: 12px;
+  color: var(--gold2);
+}
 .proc-action-row.multiline { align-items: start; padding: 10px 16px; }
 .proc-action-row:last-child { border-bottom: none; }
 .proc-action-row:hover { background: var(--accent-a8); }

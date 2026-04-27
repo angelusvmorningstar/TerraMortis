@@ -622,7 +622,7 @@ development_status:
   jdt-2-lead-invitation-flow: review
   jdt-3-invitee-acceptance-flow: review
   jdt-4-slot-lock-readonly-display: review
-  jdt-5-st-processing-joint-phase: ready-for-dev
+  jdt-5-st-processing-joint-phase: review
   jdt-6-lifecycle-edge-cases: ready-for-dev
   epic-jdt-retrospective: optional
 
