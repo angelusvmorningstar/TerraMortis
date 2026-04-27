@@ -635,5 +635,5 @@ development_status:
   # Recommended sequencing: land before DTIL-* and JDT-* so those new surfaces
   # inherit the ribbon naturally rather than retrofit it.
   epic-dtux: in-progress
-  dtux-1-phase-ribbon-nav: ready-for-dev
+  dtux-1-phase-ribbon-nav: review
   epic-dtux-retrospective: optional
