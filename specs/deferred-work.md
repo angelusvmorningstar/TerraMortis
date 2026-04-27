@@ -2,15 +2,15 @@
 
 ## Deferred from: DT Story UX (2026-04-17)
 
-- **DT Story — taller narrative textarea**: The draft/response textarea in story section cards is too short for comfortable writing. Increase its min-height (target: ~6–8 rows or ~120px min).
-- **DT Story — collapse completed cards**: Add a toggle (per-character or global) to collapse section cards that are marked complete (`status === 'complete'`), reducing visual noise when most processing is done.
+- ~~**DT Story — taller narrative textarea**~~ — **FOLDED INTO Epic 1 (Story Surface Reform) as DTS1.10** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
+- ~~**DT Story — collapse completed cards**~~ — **FOLDED INTO Epic 1 as DTS1.11** during 2026-04-27 scoping pass. See `memory/project_dt_overhaul_2026-04-27.md`.
 
 ## Deferred from: DTFC Epic Wave 3 (2026-04-20)
 
 These stories are blocked on infrastructure that doesn't yet exist. Defined in `specs/epic-dtfc-downtime-form-calibration.md`.
 
 - ~~**dtfc.9 — NPC Story Moment**~~ — **UNSHELVED**: Now has a full design. Implemented as DT Story 1.11 (Personal Story player form with NPC stub) + 1.14 (six-section report delivery). The NPC stub (`character.npcs[]`) is a placeholder interface; the full NPC Register is a separate future epic. See `specs/epic-dt-story.md` stories 1.11 and 1.14.
-- **dtfc.10 — Collaborative Projects**: Allow a lead player to tag collaborators on a project. Tagged players receive an invitation in their DT form; accepting commits one of their project slots with the same title/target but their own pool. Requires an invitation mechanism — either a `downtime_invitations` collection or a new field on submissions. Needs architectural design before implementation.
+- ~~**dtfc.10 — Collaborative Projects**~~ — **SUPERSEDED by Epic 5 (Joint Downtimes)** during 2026-04-27 scoping pass. Architectural design is captured in `memory/project_dt_overhaul_2026-04-27.md`. Resolved product calls: lead recourse on decline (Call A), mid-cycle description edits (Call B), action-type whitelist (Call C). 6 stories: JDT5.1 schema, JDT5.2 lead invitation flow, JDT5.3 invitee acceptance flow, JDT5.4 slot lock + read-only display, JDT5.5 ST Processing Joint Projects phase, JDT5.6 lifecycle edge cases.
 - **dtfc.11 — Equipment Tab in player.html**: Equipment section removed from the DT form (can be done in Wave 2). New Equipment tab in `player.html` is separate scope — needs its own design and story.
 
 ---
