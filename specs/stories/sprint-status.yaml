@@ -584,19 +584,19 @@ development_status:
   dtsr-2-story-moment-consolidation: review
   dtsr-3-active-cycle-scope: review
   dtsr-4-inline-edit-historical-cycles: review
-  dtsr-5-merit-resolution-relocation: ready-for-dev
+  dtsr-5-merit-resolution-relocation: review
   dtsr-6-merit-summary-format-verify: ready-for-dev
   dtsr-7-feeding-narrative-field: review
   dtsr-8-player-flag-ui: ready-for-dev
   dtsr-9-st-flag-inbox: ready-for-dev
-  dtsr-10-narrative-textarea-min-height: ready-for-dev
+  dtsr-10-narrative-textarea-min-height: review
   dtsr-11-collapse-completed-cards: ready-for-dev
   epic-dtsr-retrospective: optional
 
   # ---- Epic DTFP — Player Form Polish ----
   epic-dtfp: in-progress
   dtfp-1-influence-stepper-labels: review
-  dtfp-2-alphabetical-chip-order: ready-for-dev
+  dtfp-2-alphabetical-chip-order: review
   dtfp-3-feeding-methods-update: ready-for-dev
   dtfp-4-templates-as-ux-only: ready-for-dev
   dtfp-5-kiss-violent-toggle: ready-for-dev

@@ -5036,6 +5036,11 @@ body {
   gap: 8px;
 }
 
+/* DTSR-5: relocated Outcome zone in left column of merit panels */
+.proc-merit-outcome-zone {
+  margin-top: 12px;
+}
+
 .proc-merit-outcome-btns {
   display: flex;
   gap: 6px;
@@ -6850,15 +6855,12 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
-  min-height: 160px;
+  min-height: 280px;
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
 }
 .dt-story-response-ta:focus { border-color: var(--gold2); outline: none; }
-.dt-story-section[data-section="letter_from_home"] .dt-story-response-ta,
-.dt-story-section[data-section="touchstone"] .dt-story-response-ta,
-.dt-story-section[data-section="territory_reports"] .dt-story-response-ta { min-height: 200px; }
 
 /* ── DTX.8: ST Notes free-text field ── */
 .dt-story-general-notes {
