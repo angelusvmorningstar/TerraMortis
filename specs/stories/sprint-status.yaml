@@ -618,7 +618,7 @@ development_status:
   # All three product calls resolved (lead recourse, mid-cycle edits, action-type whitelist)
   # JDT-1 ships first as no-op schema; verifies nothing existing breaks
   epic-jdt: in-progress
-  jdt-1-schema-foundations: ready-for-dev
+  jdt-1-schema-foundations: review
   jdt-2-lead-invitation-flow: ready-for-dev
   jdt-3-invitee-acceptance-flow: ready-for-dev
   jdt-4-slot-lock-readonly-display: ready-for-dev
