@@ -2858,8 +2858,10 @@ const _GAP_TEXT = '*Your Storyteller is still finalising this section \u2014 con
  * Applicable sections that are NOT complete appear as gap placeholders.
  * Returns an empty string if zero sections are complete (push blocked).
  */
-function compilePushOutcome(sub) {
-  const char = getCharForSub(sub);
+export function compilePushOutcome(sub, char) {
+  // char is optional; when called from outside this module (e.g. story-tab.js)
+  // _allCharacters is empty, so callers must pass char explicitly.
+  if (!char) char = getCharForSub(sub);
   const sn = sub.st_narrative || {};
   const sections = getApplicableSections(char, sub);
   const parts = [];
