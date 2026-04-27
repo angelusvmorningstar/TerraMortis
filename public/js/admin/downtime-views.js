@@ -396,6 +396,11 @@ export async function initDowntimeView(passedChars) {
     document.addEventListener('click', e => {
       const signoff = e.target.closest('[data-signoff-phase]');
       if (signoff) { _handleSignoffClick(signoff); return; }
+      // DTIL-1: Court Pulse copy + save buttons
+      const cpCopy = e.target.closest('.dt-court-pulse-copy-btn');
+      if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
+      const cpSave = e.target.closest('.dt-court-pulse-save-btn');
+      if (cpSave) { _handleCourtPulseSave(cpSave); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -930,6 +935,8 @@ async function loadCycleById(cycleId) {
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions);
   renderReadyPanel(currentCycle, submissions);
+  // DTIL: refresh cycle-level intelligence layer now that submissions are loaded
+  renderCycleIntelligence(currentCycle, submissions, characters);
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   document.getElementById('dt-export-json').style.display = submissions.length ? '' : 'none';
   renderMatchSummary();
@@ -1541,6 +1548,120 @@ function renderMaintenanceAuditPanel(cycle) {
   return html;
 }
 
+// ── DT Intelligence Layer (DTIL) ─────────────────────────────────────────────
+// Cycle-level synthesis surfaces mounted into #dt-cycle-intelligence (inside
+// the DT Prep panel): Court Pulse (DTIL-1), Action Queue (DTIL-2/3).
+
+function renderCycleIntelligence(cycle, subs, chars) {
+  const container = document.getElementById('dt-cycle-intelligence');
+  if (!container || !cycle) return;
+  container.innerHTML = renderCourtPulsePanel(cycle, subs || [], chars || []);
+}
+
+function _buildCourtPulsePromptText(cycle, subs, chars) {
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const blocks = [];
+  const sorted = (subs || [])
+    .filter(sub => {
+      for (let n = 1; n <= 5; n++) {
+        if ((sub.responses?.[`game_recount_${n}`] || '').trim()) return true;
+      }
+      return false;
+    })
+    .map(sub => ({ sub, char: charById.get(String(sub.character_id)) }))
+    .sort((a, b) => sortName(a.char || {}).localeCompare(sortName(b.char || {})));
+
+  for (const { sub, char } of sorted) {
+    const lines = [];
+    let count = 0;
+    for (let n = 1; n <= 5; n++) {
+      const txt = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!txt) continue;
+      count += 1;
+      lines.push(`  ${count}. ${txt}`);
+    }
+    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    blocks.push(`Highlights from ${name}:\n${lines.join('\n')}`);
+  }
+
+  if (!blocks.length) return '';
+
+  const framing = "You are reading the game-night highlights of every player who attended the most recent game of a Vampire: The Requiem 2nd Edition LARP. Each highlight is one moment that stood out for that player. Synthesise the gestalt of the night: the dominant moods, recurring themes, social undercurrents, and any notable events that resurface across multiple players' accounts. Write a Court Pulse summary in 250 to 400 words, suitable for the Storyteller's reference. Use British English. Do not invent details not present in the highlights.";
+
+  return `${framing}\n\n${blocks.join('\n\n')}`;
+}
+
+function renderCourtPulsePanel(cycle, subs, chars) {
+  const promptText = _buildCourtPulsePromptText(cycle, subs, chars);
+  const synthesis = cycle.st_court_synthesis_draft || '';
+  const isEmpty = !promptText;
+  const cycleId = esc(String(cycle._id));
+
+  return `<section class="dt-court-pulse-panel" data-cycle-id="${cycleId}">
+    <h3 class="dt-court-pulse-title">Court Pulse</h3>
+    <p class="dt-court-pulse-hint">Build a structured prompt from every player's game-night highlights, run it through your LLM of choice, and paste the synthesis back below for cycle reference.</p>
+    <div class="dt-court-pulse-prompt-block">
+      <label class="dt-court-pulse-label">Prompt (copy and paste to your LLM):</label>
+      ${isEmpty
+        ? '<div class="dt-court-pulse-placeholder">No game highlights yet.</div>'
+        : `<textarea class="dt-court-pulse-prompt-ta" readonly>${esc(promptText)}</textarea>
+           <div class="dt-court-pulse-actions">
+             <button type="button" class="dt-btn dt-court-pulse-copy-btn">Copy prompt</button>
+             <span class="dt-court-pulse-copy-status"></span>
+           </div>`
+      }
+    </div>
+    <div class="dt-court-pulse-synthesis-block">
+      <label class="dt-court-pulse-label" for="dt-court-pulse-synthesis-ta">Court Pulse synthesis (paste here):</label>
+      <textarea id="dt-court-pulse-synthesis-ta" class="dt-court-pulse-synthesis-ta" placeholder="Paste the LLM's synthesis here…">${esc(synthesis)}</textarea>
+      <div class="dt-court-pulse-actions">
+        <button type="button" class="dt-btn dt-court-pulse-save-btn">Save synthesis</button>
+        <span class="dt-court-pulse-save-status"></span>
+      </div>
+    </div>
+  </section>`;
+}
+
+async function _handleCourtPulseCopy(btn) {
+  const panel = btn.closest('.dt-court-pulse-panel');
+  const ta = panel?.querySelector('.dt-court-pulse-prompt-ta');
+  const status = panel?.querySelector('.dt-court-pulse-copy-status');
+  if (!ta) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    if (status) {
+      status.textContent = 'Copied';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Copy failed';
+  }
+}
+
+async function _handleCourtPulseSave(btn) {
+  const panel = btn.closest('.dt-court-pulse-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const ta = panel?.querySelector('.dt-court-pulse-synthesis-ta');
+  const status = panel?.querySelector('.dt-court-pulse-save-status');
+  if (!cycleId || !ta) return;
+  const text = ta.value;
+  if (status) status.textContent = 'Saving…';
+  try {
+    await updateCycle(cycleId, { st_court_synthesis_draft: text });
+    if (currentCycle && String(currentCycle._id) === cycleId) {
+      currentCycle.st_court_synthesis_draft = text;
+    }
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].st_court_synthesis_draft = text;
+    if (status) {
+      status.textContent = 'Saved';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Save failed';
+  }
+}
+
 function renderPrepPanel(cycle) {
   const panel = document.getElementById('dt-prep-panel');
   if (!panel) return;
@@ -1596,7 +1717,13 @@ function renderPrepPanel(cycle) {
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
     `</div>` +
-    renderMaintenanceAuditPanel(cycle);
+    renderMaintenanceAuditPanel(cycle) +
+    `<div id="dt-cycle-intelligence" class="dt-cycle-intelligence"></div>`;
+
+  // DTIL: populate Court Pulse / Action Queue intelligence layer. First call
+  // (before subs load) renders empty placeholders; loadCycleById re-renders
+  // after submissions arrive.
+  renderCycleIntelligence(cycle, submissions, characters);
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;
