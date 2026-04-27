@@ -401,6 +401,23 @@ export async function initDowntimeView(passedChars) {
       if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
       const cpSave = e.target.closest('.dt-court-pulse-save-btn');
       if (cpSave) { _handleCourtPulseSave(cpSave); return; }
+      // DTIL-2: Action Queue filter pills, char-link, expand toggle
+      const aqFilter = e.target.closest('.dt-action-queue-filter-pill');
+      if (aqFilter) { _handleActionQueueFilter(aqFilter); return; }
+      const aqOpen = e.target.closest('.dt-action-queue-char-btn');
+      if (aqOpen) { _handleActionQueueOpenSub(aqOpen); return; }
+      const aqExpand = e.target.closest('.dt-action-queue-text-toggle');
+      if (aqExpand) { _handleActionQueueRowExpandToggle(aqExpand); return; }
+    });
+    // DTIL-2: Action Queue state dropdown change
+    document.addEventListener('change', e => {
+      const aqSelect = e.target.closest('.dt-action-queue-state-select');
+      if (aqSelect) { _handleActionQueueStateChange(aqSelect); return; }
+    });
+    // DTIL-2: Action Queue note input save on blur (focusout bubbles)
+    document.addEventListener('focusout', e => {
+      const aqNote = e.target.closest('.dt-action-queue-note-input');
+      if (aqNote) { _handleActionQueueNoteSave(aqNote); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -1555,7 +1572,15 @@ function renderMaintenanceAuditPanel(cycle) {
 function renderCycleIntelligence(cycle, subs, chars) {
   const container = document.getElementById('dt-cycle-intelligence');
   if (!container || !cycle) return;
-  container.innerHTML = renderCourtPulsePanel(cycle, subs || [], chars || []);
+  container.innerHTML =
+    renderCourtPulsePanel(cycle, subs || [], chars || []) +
+    `<div id="dt-action-queue-mount">${renderActionQueuePanel(cycle, subs || [], chars || [])}</div>`;
+}
+
+function _refreshActionQueueOnly(cycle, subs, chars) {
+  const mount = document.getElementById('dt-action-queue-mount');
+  if (!mount || !cycle) return;
+  mount.innerHTML = renderActionQueuePanel(cycle, subs || [], chars || []);
 }
 
 function _buildCourtPulsePromptText(cycle, subs, chars) {
@@ -1660,6 +1685,179 @@ async function _handleCourtPulseSave(btn) {
   } catch {
     if (status) status.textContent = 'Save failed';
   }
+}
+
+// ── DTIL-2: Action Queue ─────────────────────────────────────────────────────
+
+const ACTION_QUEUE_STATES = ['unread', 'acknowledged', 'action_needed', 'resolved', 'ignored'];
+const ACTION_QUEUE_STATE_LABELS = {
+  unread:        'Unread',
+  acknowledged:  'Acknowledged',
+  action_needed: 'Action Needed',
+  resolved:      'Resolved',
+  ignored:       'Ignored',
+};
+let _actionQueueFilter = 'all';
+
+function _buildActionQueueItems(cycle, subs, chars) {
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const stateMap = cycle.action_queue_state || {};
+  const items = [];
+  for (const sub of subs || []) {
+    for (let n = 1; n <= 5; n++) {
+      const text = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!text) continue;
+      const slotIdx = n - 1;
+      const key = `${sub._id}:${slotIdx}`;
+      const entry = stateMap[key] || {};
+      const char = charById.get(String(sub.character_id));
+      items.push({
+        key,
+        subId: String(sub._id),
+        slotIdx,
+        slotN: n,
+        text,
+        state: ACTION_QUEUE_STATES.includes(entry.state) ? entry.state : 'unread',
+        note: entry.note || '',
+        charName: (char ? displayName(char) : null) || sub.character_name || 'Unknown',
+        sortKey: char ? sortName(char) : (sub.character_name || ''),
+        submittedAt: sub.submitted_at || sub.created_at || '',
+      });
+    }
+  }
+  items.sort((a, b) => {
+    const t = (b.submittedAt || '').localeCompare(a.submittedAt || '');
+    if (t !== 0) return t;
+    const n = (a.sortKey || '').localeCompare(b.sortKey || '');
+    if (n !== 0) return n;
+    return a.slotIdx - b.slotIdx;
+  });
+  return items;
+}
+
+function _truncateForRow(text, max) {
+  if (!text) return '';
+  if (text.length <= max) return text;
+  return text.slice(0, max).trimEnd() + '…';
+}
+
+function renderActionQueuePanel(cycle, subs, chars) {
+  const items = _buildActionQueueItems(cycle, subs, chars);
+  const cycleId = esc(String(cycle._id));
+
+  const counts = { all: items.length, unread: 0, acknowledged: 0, action_needed: 0, resolved: 0, ignored: 0 };
+  for (const it of items) counts[it.state] += 1;
+
+  const filter = ACTION_QUEUE_STATES.includes(_actionQueueFilter) || _actionQueueFilter === 'all'
+    ? _actionQueueFilter
+    : 'all';
+  const visible = filter === 'all' ? items : items.filter(it => it.state === filter);
+
+  const filterPills = ['all', ...ACTION_QUEUE_STATES].map(f => {
+    const label = f === 'all' ? 'All' : ACTION_QUEUE_STATE_LABELS[f];
+    const cls = `dt-action-queue-filter-pill${filter === f ? ' active' : ''}`;
+    return `<button type="button" class="${cls}" data-filter="${f}">${esc(label)} (${counts[f]})</button>`;
+  }).join('');
+
+  const rows = visible.length
+    ? visible.map(it => {
+        const stateOptions = ACTION_QUEUE_STATES.map(s =>
+          `<option value="${s}"${s === it.state ? ' selected' : ''}>${esc(ACTION_QUEUE_STATE_LABELS[s])}</option>`
+        ).join('');
+        const isLong = it.text.length > 120;
+        const truncated = _truncateForRow(it.text, 120);
+        return `<div class="dt-action-queue-row state-${esc(it.state)}" data-key="${esc(it.key)}" data-state="${esc(it.state)}">
+          <button type="button" class="dt-action-queue-char-btn" data-sub-id="${esc(it.subId)}" title="Open in DT Projects">${esc(it.charName)}</button>
+          <span class="dt-action-queue-slot">Highlight ${it.slotN}</span>
+          <div class="dt-action-queue-text${isLong ? ' is-long' : ''}" title="${esc(it.text)}">
+            <span class="dt-action-queue-text-truncated">${esc(truncated)}</span>
+            <span class="dt-action-queue-text-full">${esc(it.text)}</span>
+            ${isLong ? '<button type="button" class="dt-action-queue-text-toggle">Show full</button>' : ''}
+          </div>
+          <select class="dt-action-queue-state-select" data-key="${esc(it.key)}">${stateOptions}</select>
+          <input type="text" class="dt-action-queue-note-input" data-key="${esc(it.key)}" value="${esc(it.note)}" maxlength="140" placeholder="ST note…">
+        </div>`;
+      }).join('')
+    : (items.length
+      ? `<div class="dt-action-queue-empty">No items in this filter.</div>`
+      : `<div class="dt-action-queue-empty">No highlights to triage yet.</div>`);
+
+  return `<section class="dt-action-queue-panel" data-cycle-id="${cycleId}">
+    <h3 class="dt-action-queue-title">Action Queue</h3>
+    <p class="dt-action-queue-hint">One row per non-empty player highlight across the cycle. Triage each item, jot a one-line note, and filter by state to focus your processing pass.</p>
+    <div class="dt-action-queue-filter-pills">${filterPills}</div>
+    <div class="dt-action-queue-rows">${rows}</div>
+  </section>`;
+}
+
+function _findActionQueueEntry(cycleId, key) {
+  const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+    ? currentCycle
+    : allCycles.find(c => String(c._id) === cycleId);
+  return { cycle: cyc, entry: (cyc?.action_queue_state || {})[key] || { state: 'unread', note: '' } };
+}
+
+async function _persistActionQueueEntry(cycleId, key, patch) {
+  const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+    ? currentCycle
+    : allCycles.find(c => String(c._id) === cycleId);
+  if (!cyc) return null;
+  const map = { ...(cyc.action_queue_state || {}) };
+  const existing = map[key] || { state: 'unread', note: '' };
+  map[key] = { ...existing, ...patch };
+  await updateCycle(cycleId, { action_queue_state: map });
+  cyc.action_queue_state = map;
+  if (currentCycle && String(currentCycle._id) === cycleId) currentCycle.action_queue_state = map;
+  const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+  if (idx >= 0) allCycles[idx].action_queue_state = map;
+  return map;
+}
+
+async function _handleActionQueueStateChange(select) {
+  const panel = select.closest('.dt-action-queue-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const key = select.dataset.key;
+  const newState = select.value;
+  if (!cycleId || !key || !ACTION_QUEUE_STATES.includes(newState)) return;
+  try {
+    await _persistActionQueueEntry(cycleId, key, { state: newState });
+    _refreshActionQueueOnly(currentCycle, submissions, characters);
+  } catch (err) {
+    console.warn('Action Queue state save failed:', err);
+  }
+}
+
+async function _handleActionQueueNoteSave(input) {
+  const panel = input.closest('.dt-action-queue-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const key = input.dataset.key;
+  if (!cycleId || !key) return;
+  const { entry } = _findActionQueueEntry(cycleId, key);
+  if (entry.note === input.value) return;
+  try {
+    await _persistActionQueueEntry(cycleId, key, { note: input.value });
+  } catch (err) {
+    console.warn('Action Queue note save failed:', err);
+  }
+}
+
+function _handleActionQueueFilter(btn) {
+  const filter = btn.dataset.filter;
+  if (!filter) return;
+  if (filter !== 'all' && !ACTION_QUEUE_STATES.includes(filter)) return;
+  _actionQueueFilter = filter;
+  _refreshActionQueueOnly(currentCycle, submissions, characters);
+}
+
+function _handleActionQueueOpenSub(btn) {
+  // Spec calls for navigation to the submission in DT Processing. v1: switch
+  // to the projects tab; the ST scrolls to the named submission manually.
+  showDtuxPhase('projects');
+}
+
+function _handleActionQueueRowExpandToggle(btn) {
+  const row = btn.closest('.dt-action-queue-row');
+  if (row) row.classList.toggle('expanded');
 }
 
 function renderPrepPanel(cycle) {
