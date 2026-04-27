@@ -801,6 +801,55 @@ async function handleInvitationDecouple(invId, container) {
   }
 }
 
+// JDT-6: lead re-invite. Reads the ticked checkboxes inside the re-invite
+// panel and calls /api/downtime_cycles/:id/joint_projects/:jointId/reinvite.
+async function handleJointReinvite(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const cbs = container.querySelectorAll(`.dt-joint-reinvite-cb[data-joint-id="${jointId}"]:checked`);
+  const ids = Array.from(cbs).map(cb => cb.value).filter(Boolean);
+  const statusEl = container.querySelector(`.dt-joint-reinvite-status[data-joint-id="${jointId}"]`);
+  if (!ids.length) {
+    if (statusEl) {
+      statusEl.textContent = 'Tick at least one alternate to invite.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    }
+    return;
+  }
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/reinvite`, {
+      invitee_character_ids: ids,
+    });
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Re-invite failed: ' + err.message;
+  }
+}
+
+// JDT-6: lead cancel. Server enforces zero-supports / zero-pending precondition.
+async function handleJointCancel(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const ok = window.confirm('Cancel this joint? Your slot will be freed up. The joint will remain on the cycle for audit.');
+  if (!ok) return;
+  const statusEl = container.querySelector(`.dt-joint-cancel-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {});
+    await refreshJointCaches();
+    // Lead's slot was cleared server-side; re-fetch the submission so the
+    // local responseDoc shows the cleared slot fields on next render.
+    if (responseDoc?._id) {
+      try {
+        const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+        const fresh = (subs || []).find(s => String(s._id) === String(responseDoc._id));
+        if (fresh) responseDoc = fresh;
+      } catch { /* keep existing */ }
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Cancel failed: ' + err.message;
+  }
+}
+
 // JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
 // invitations list so badges, panels, and slot UI all reflect the latest state.
 async function refreshJointCaches() {
@@ -1546,6 +1595,18 @@ function renderForm(container) {
     const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
     if (decoupleBtn) {
       handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
+      return;
+    }
+    // JDT-6: lead re-invite alternates
+    const reinviteBtn = e.target.closest('.dt-joint-reinvite-btn');
+    if (reinviteBtn) {
+      handleJointReinvite(reinviteBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead cancel joint
+    const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
+    if (cancelBtn) {
+      handleJointCancel(cancelBtn.dataset.jointId, container);
       return;
     }
 
@@ -3951,7 +4012,7 @@ function renderJointAuthoring(n, saved, existingJoint) {
   h += `</div>`;
 
   if (existingJoint) {
-    h += `<p class="qf-desc dt-joint-saved-note">Joint created. To change invitees, decline or decouple via JDT-6 lifecycle controls (coming soon).</p>`;
+    h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
   }
 
   // Joint description
@@ -3996,10 +4057,64 @@ function renderJointAuthoring(n, saved, existingJoint) {
   h += `<label class="qf-label">Invitees</label>`;
   if (existingJoint) {
     h += renderJointStatusBadges(existingJoint);
+    h += renderJointReinvitePanel(n, existingJoint);
+    h += renderJointCancelPanel(existingJoint);
   } else {
     h += renderJointInviteeGrid(n, invitedSet);
   }
 
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Re-invite affordance for the lead. Shows characters not currently
+// invited (no pending or accepted invitation), lets the lead tick alternates
+// and submit. The pre-existing per-invitation status badges sit above.
+function renderJointReinvitePanel(n, joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const blocked = new Set(myInvs
+    .filter(inv => inv.status === 'pending' || inv.status === 'accepted')
+    .map(inv => String(inv.invited_character_id)));
+  // Lead can't re-invite themselves
+  blocked.add(String(joint.lead_character_id));
+  const candidates = allCharacters.filter(c => !blocked.has(String(c.id)));
+  if (!candidates.length) {
+    return `<p class="qf-desc dt-joint-reinvite-empty">No alternates available to re-invite.</p>`;
+  }
+
+  let h = `<div class="dt-joint-reinvite-panel" data-joint-id="${esc(joint._id)}">`;
+  h += `<div class="dt-joint-reinvite-title">Invite alternates</div>`;
+  h += `<div class="dt-joint-invitee-grid">`;
+  for (const c of candidates) {
+    h += `<label class="dt-joint-invitee-item">`;
+    h += `<input type="checkbox" class="dt-joint-reinvite-cb" data-joint-id="${esc(joint._id)}" value="${esc(String(c.id))}">`;
+    h += `<span>${esc(c.name)}</span>`;
+    h += `</label>`;
+  }
+  h += `</div>`;
+  h += `<button type="button" class="dt-joint-reinvite-btn" data-joint-id="${esc(joint._id)}" data-joint-slot="${n}">Send invitations</button>`;
+  h += `<span class="dt-joint-reinvite-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Cancel panel. The button is enabled only when zero accepted
+// participants AND zero pending invitations remain. Otherwise the panel
+// shows guidance about the path back to a cancellable state.
+function renderJointCancelPanel(joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const acceptedSupports = (joint.participants || []).filter(p => !p.decoupled_at).length;
+  const pendingInvs = myInvs.filter(inv => inv.status === 'pending').length;
+  const canCancel = acceptedSupports === 0 && pendingInvs === 0;
+
+  let h = `<div class="dt-joint-cancel-panel" data-joint-id="${esc(joint._id)}">`;
+  if (canCancel) {
+    h += `<button type="button" class="dt-joint-cancel-btn" data-joint-id="${esc(joint._id)}">Cancel joint</button>`;
+    h += `<p class="qf-desc dt-joint-cancel-help">Cancelling frees this slot. The joint document is kept on the cycle for audit; a Storyteller can recover it if needed.</p>`;
+  } else {
+    h += `<p class="qf-desc dt-joint-cancel-help">You can only cancel this joint when there are zero accepted supports and zero pending invitations. Currently: ${acceptedSupports} accepted, ${pendingInvs} pending.</p>`;
+  }
+  h += `<span class="dt-joint-cancel-status" data-joint-id="${esc(joint._id)}"></span>`;
   h += `</div>`;
   return h;
 }

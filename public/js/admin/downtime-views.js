@@ -791,6 +791,14 @@ function renderJointGroup(joint, entries) {
   h += `</div>`;
   h += `</div>`;
 
+  // JDT-6: ST safety-valve override. Visible regardless of participant
+  // state. Cancels the joint, decouples accepted supports, clears all slots.
+  h += `<div class="proc-joint-st-override-zone">`;
+  h += `<button class="proc-joint-st-override-btn" data-joint-id="${esc(joint._id)}">ST override: cancel joint</button>`;
+  h += `<span class="proc-joint-st-override-help">Safety valve. Use only when normal lead cancellation is impossible.</span>`;
+  h += `<span class="proc-joint-st-override-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+
   h += `</div>`;
   return h;
 }
@@ -4343,6 +4351,29 @@ function renderProcessingMode(container) {
         }
       } catch (err) {
         if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+      }
+    });
+  });
+
+  // ── JDT-6: ST override cancel button on joint group panel ─────────────
+  container.querySelectorAll('.proc-joint-st-override-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const jointId = btn.dataset.jointId;
+      if (!jointId || !currentCycle?._id) return;
+      const ok = window.confirm('ST override: cancel this joint and free all participant slots? This cannot be undone.');
+      if (!ok) return;
+      const statusEl = container.querySelector(`.proc-joint-st-override-status[data-joint-id="${jointId}"]`);
+      try {
+        await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {
+          st_override: true,
+        });
+        if (statusEl) {
+          statusEl.textContent = 'Cancelled. Reload to refresh the queue.';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = 'Override failed: ' + err.message;
       }
     });
   });
