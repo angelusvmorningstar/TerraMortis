@@ -482,9 +482,20 @@ function collectResponses() {
     const jointDescEl = document.getElementById(`dt-project_${n}_joint_description`);
     responses[`project_${n}_joint_description`] = jointDescEl ? jointDescEl.value : '';
     const jointTargetTypeEl = document.querySelector(`input[name="dt-project_${n}_joint_target_type"]:checked`);
-    responses[`project_${n}_joint_target_type`] = jointTargetTypeEl ? jointTargetTypeEl.value : '';
-    const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
-    responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
+    const jointTargetType = jointTargetTypeEl ? jointTargetTypeEl.value : '';
+    responses[`project_${n}_joint_target_type`] = jointTargetType;
+    if (jointTargetType === 'character') {
+      // Multi-select character target — collect from the checkbox grid and
+      // serialise as a JSON array of character IDs.
+      const charCbs = document.querySelectorAll(
+        `.dt-flex-multi-char-cb[data-flex-multi-prefix="project_${n}_joint_target"]:checked`
+      );
+      const ids = Array.from(charCbs).map(cb => cb.value).filter(Boolean);
+      responses[`project_${n}_joint_target_value`] = JSON.stringify(ids);
+    } else {
+      const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
+      responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
+    }
     const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
     const jointInviteeIds = [];
     jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
@@ -3709,6 +3720,13 @@ function renderJointAuthoring(n, saved, existingJoint) {
   let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
   h += `<div class="dt-joint-banner">Joint project</div>`;
 
+  // Explainer — what the lead is committing to. Sets expectations before
+  // they invite anyone. Strawman wording (not yet locked).
+  h += `<div class="dt-joint-explainer">`;
+  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
+  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
+  h += `</div>`;
+
   if (existingJoint) {
     h += `<p class="qf-desc dt-joint-saved-note">Joint created. To change invitees, decline or decouple via JDT-6 lifecycle controls (coming soon).</p>`;
   }
@@ -3717,15 +3735,25 @@ function renderJointAuthoring(n, saved, existingJoint) {
   h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
   h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3"${existingJoint ? ' disabled' : ''}>${esc(desc)}</textarea>`;
 
-  // Joint target picker — reuses renderTargetPicker (DTFP-6)
+  // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
+  // since joints can target multiple characters.
   h += `<label class="qf-label">Joint target</label>`;
   if (existingJoint) {
     const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
     const typeLbl = labelMap[targetType] || '—';
     let valLbl = targetValue || '';
     if (targetType === 'character') {
-      const c = allCharacters.find(x => String(x.id) === String(targetValue));
-      if (c) valLbl = c.name;
+      // target_value may be JSON array (multi) or a legacy single-id string.
+      let ids = [];
+      try {
+        const parsed = JSON.parse(targetValue || '[]');
+        ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
+      } catch {
+        ids = targetValue ? [targetValue] : [];
+      }
+      const names = ids
+        .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
+      valLbl = names.join(', ') || '—';
     } else if (targetType === 'territory') {
       const t = TERRITORY_DATA.find(x => x.id === targetValue);
       if (t) valLbl = t.name;
@@ -3737,6 +3765,7 @@ function renderJointAuthoring(n, saved, existingJoint) {
       savedValue: targetValue,
       allCharacters,
       includeOptions: ['character', 'territory', 'other'],
+      multiCharacter: true,
     });
   }
 
@@ -3789,7 +3818,13 @@ function renderJointStatusBadges(joint) {
 }
 
 function renderTargetPicker(prefix, opts) {
-  const { savedType = '', savedValue = '', allCharacters = [], includeOptions = ['character', 'territory', 'other'] } = opts || {};
+  const {
+    savedType = '',
+    savedValue = '',
+    allCharacters = [],
+    includeOptions = ['character', 'territory', 'other'],
+    multiCharacter = false,
+  } = opts || {};
   const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
 
   let h = `<div class="dt-target-picker" data-target-prefix="${esc(prefix)}">`;
@@ -3801,13 +3836,36 @@ function renderTargetPicker(prefix, opts) {
   h += `</div>`;
 
   if (savedType === 'character') {
-    h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
-    h += '<option value="">— Select Character —</option>';
-    for (const c of allCharacters) {
-      const sel = String(c.id) === String(savedValue) ? ' selected' : '';
-      h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+    if (multiCharacter) {
+      // Multi-select character target — checkbox grid; value persisted as
+      // JSON array of character IDs. Used by joint authoring (a joint can
+      // target multiple characters).
+      let selected = new Set();
+      try {
+        const parsed = JSON.parse(savedValue || '[]');
+        if (Array.isArray(parsed)) selected = new Set(parsed.map(String));
+        else if (savedValue) selected = new Set([String(savedValue)]);
+      } catch {
+        if (savedValue) selected = new Set([String(savedValue)]);
+      }
+      h += `<div class="dt-flex-multi-char-grid" data-flex-multi-prefix="${esc(prefix)}">`;
+      for (const c of allCharacters) {
+        const chk = selected.has(String(c.id)) ? ' checked' : '';
+        h += `<label class="dt-flex-multi-char-item">`;
+        h += `<input type="checkbox" class="dt-flex-multi-char-cb" data-flex-multi-prefix="${esc(prefix)}" value="${esc(String(c.id))}"${chk}>`;
+        h += `<span>${esc(c.name)}</span>`;
+        h += `</label>`;
+      }
+      h += `</div>`;
+    } else {
+      h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
+      h += '<option value="">— Select Character —</option>';
+      for (const c of allCharacters) {
+        const sel = String(c.id) === String(savedValue) ? ' selected' : '';
+        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      }
+      h += '</select>';
     }
-    h += '</select>';
   } else if (savedType === 'territory') {
     h += renderTerritoryPills(`dt-${prefix}_value`, savedValue);
   } else if (savedType === 'other') {
