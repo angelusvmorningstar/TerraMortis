@@ -474,6 +474,12 @@ function collectResponses() {
     meritCbs.forEach(cb => meritKeys.push(cb.value));
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
 
+    // JDT-4: support-slot personal notes
+    const personalNotesEl = document.getElementById(`dt-project_${n}_personal_notes`);
+    if (personalNotesEl) {
+      responses[`project_${n}_personal_notes`] = personalNotesEl.value;
+    }
+
     // JDT-2: Joint scratch fields. Persist the lead's in-flight joint authoring
     // state so a draft round-trip preserves it. The canonical joint document
     // is created on save via POST /api/downtime_cycles/:id/joint_projects.
@@ -2475,10 +2481,15 @@ function renderProjectSlots(saved) {
     const label = ACTION_SHORT[actionVal] || 'No Action';
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-    h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-proj-tab="${n}">`;
+    // JDT-4: Joint badge on the tab when this slot has a joint role.
+    const jointRole = saved[`project_${n}_joint_role`];
+    const jointTabClass = jointRole ? ' dt-proj-tab-joint' : '';
+    const jointBadge = jointRole ? `<span class="dt-proj-tab-joint-badge">Joint</span>` : '';
+    h += `<button type="button" class="dt-proj-tab${active}${noAction}${jointTabClass}" data-proj-tab="${n}">`;
     h += `<span class="dt-proj-tab-icon">${icon}</span>`;
     h += `<span class="dt-proj-tab-num">Action ${n}</span>`;
     h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+    h += jointBadge;
     h += '</button>';
   }
   h += '</div>';
@@ -2489,7 +2500,12 @@ function renderProjectSlots(saved) {
     const visible = n === activeProjectTab;
     let fields = ACTION_FIELDS[actionVal] || [];
 
-    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
+    // JDT-4: support-slot detection (set early so the pane wrapper class is right).
+    const slotJointRole = saved[`project_${n}_joint_role`];
+    const slotJointId = saved[`project_${n}_joint_id`];
+    const isSupportSlot = slotJointRole === 'support' && !!slotJointId;
+
+    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}${isSupportSlot ? ' dt-proj-support-pane' : ''}" data-proj-pane="${n}">`;
 
     // ── Rote-locked slot ──
     const isRoteLocked = feedRoteAction && n === feedRoteSlot;
@@ -2501,6 +2517,76 @@ function renderProjectSlots(saved) {
       h += '</div>';
       h += `<input type="hidden" id="dt-project_${n}_action" value="feed">`;
       h += '</div>';
+      continue;
+    }
+
+    // ── JDT-4: support slot — locked, read-only joint metadata + editable
+    // pool builder + personal notes textarea. Skip the normal action-type
+    // select and per-action fields entirely.
+    if (isSupportSlot) {
+      const joint = (currentCycle?.joint_projects || [])
+        .find(j => String(j._id) === String(slotJointId) && !j.cancelled_at);
+      if (!joint) {
+        h += `<div class="dt-proj-pane-orphaned">`;
+        h += `<p class="qf-desc">This joint project is no longer available. Contact your Storyteller.</p>`;
+        h += `</div></div>`;
+        continue;
+      }
+      const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
+      const leadName = lead ? lead.name : 'Unknown lead';
+      const personalNotes = saved[`project_${n}_personal_notes`] || '';
+      const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
+
+      h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
+
+      h += `<div class="dt-proj-support-readonly-block">`;
+      h += `<div class="dt-proj-support-label">Action type</div>`;
+      h += `<div class="dt-proj-support-action">${esc(actionLabel)}</div>`;
+
+      h += `<div class="dt-proj-support-label">Joint description</div>`;
+      const descText = (joint.description || '').trim();
+      if (descText) {
+        h += `<div class="dt-proj-support-desc">${esc(descText)}</div>`;
+      } else {
+        h += `<div class="dt-proj-support-desc dt-proj-support-desc-empty">No description provided.</div>`;
+      }
+
+      if (joint.target_type) {
+        let targetLbl = '';
+        if (joint.target_type === 'character') {
+          let ids = [];
+          try {
+            const parsed = JSON.parse(joint.target_value || '[]');
+            ids = Array.isArray(parsed) ? parsed : (joint.target_value ? [joint.target_value] : []);
+          } catch { ids = joint.target_value ? [joint.target_value] : []; }
+          targetLbl = ids
+            .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
+            .join(', ');
+        } else if (joint.target_type === 'territory') {
+          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
+        } else {
+          targetLbl = joint.target_value || '';
+        }
+        if (targetLbl) {
+          h += `<div class="dt-proj-support-label">Joint target</div>`;
+          h += `<div class="dt-proj-support-target">${esc(targetLbl)}</div>`;
+        }
+      }
+      h += `</div>`;
+
+      // Editable pool builders — same shape as a normal slot, so saves
+      // reuse project_${n}_pool_attr/skill/disc + pool2_* paths.
+      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
+      h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+
+      // Personal notes
+      h += `<div class="qf-field">`;
+      h += `<label class="qf-label" for="dt-project_${n}_personal_notes">Your personal notes</label>`;
+      h += `<p class="qf-desc">What do you bring to this joint? What is your character's angle on it?</p>`;
+      h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
+      h += `</div>`;
+
+      h += `</div>`; // close dt-proj-pane
       continue;
     }
 
