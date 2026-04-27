@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-20 (sprint plan refresh — added DTFC, DTG, unified-nav, FIN epics; dt-story 1.11/1.14/1.15; 3 new bug backlog items)
+last_updated: 2026-04-27 (added 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -416,8 +416,8 @@ development_status:
   dtfc-12-remove-feed-project-action: done
   dtfc-13-merit-section-headers: done
   dtfc-14-form-buttons-layout: done
-  dtfc-9-npc-story-moment: backlog       # deferred — NPC system architecture needed
-  dtfc-10-collaborative-projects: backlog  # deferred — architecture needed
+  dtfc-9-npc-story-moment: done          # unshelved — implemented as DT Story 1.11 + 1.14 (see deferred-work.md)
+  dtfc-10-collaborative-projects: superseded  # superseded by Epic JDT (Joint Downtimes) — 2026-04-27 scoping
   dtfc-11-equipment-tab: backlog          # deferred
 
   epic-dtfc-retrospective: optional
@@ -544,3 +544,76 @@ development_status:
   # for hardening stories that emerge afterwards.
 
   npcr-14-directory-scope-to-player-creations: review
+
+  # ============================================================
+  # DOWNTIME OVERHAUL — six-epic set scoped 2026-04-27
+  # ============================================================
+  # Source of truth: memory/project_dt_overhaul_2026-04-27.md
+  # 34 stories across 6 epics; ship order: NPCP → CHM-0 → DTSR/DTFP/CHM (parallel) → DTIL → JDT
+  # All product calls resolved during 2026-04-27 party-mode session
+
+  # ---- Epic NPCP — NPC Privacy Hardening (urgent, ships first) ----
+  epic-npcp: in-progress
+  npcp-1-server-side-scope-api-npcs: ready-for-dev
+  npcp-2-player-picker-removal-free-text: ready-for-dev
+  epic-npcp-retrospective: optional
+
+  # ---- Epic CHM — Chapter & Maintenance Layer ----
+  # CHM-0 is a standalone prerequisite (MAINTENANCE_MERITS constant + MCI bug fix);
+  # ships ahead of the rest of the epic since it fixes a visible defect today.
+  epic-chm: in-progress
+  chm-0-maintenance-merits-constant: ready-for-dev
+  chm-1-chapter-finale-fields: ready-for-dev
+  chm-2-maintenance-audit-panel: ready-for-dev
+  chm-3-player-at-risk-warning: ready-for-dev
+  epic-chm-retrospective: optional
+
+  # ---- Epic DTSR — Story Surface Reform ----
+  # DT Story admin tab + player Story view + merit panels in DT Processing
+  # Pairs with epic-dtp (DTP-1/2/3 ready-for-dev = rendering half of v2 player report)
+  epic-dtsr: in-progress
+  dtsr-1-section-reorder-rumours-rename: ready-for-dev
+  dtsr-2-story-moment-consolidation: ready-for-dev
+  dtsr-3-active-cycle-scope: ready-for-dev
+  dtsr-4-inline-edit-historical-cycles: ready-for-dev
+  dtsr-5-merit-resolution-relocation: ready-for-dev
+  dtsr-6-merit-summary-format-verify: ready-for-dev
+  dtsr-7-feeding-narrative-field: ready-for-dev
+  dtsr-8-player-flag-ui: ready-for-dev
+  dtsr-9-st-flag-inbox: ready-for-dev
+  dtsr-10-narrative-textarea-min-height: ready-for-dev
+  dtsr-11-collapse-completed-cards: ready-for-dev
+  epic-dtsr-retrospective: optional
+
+  # ---- Epic DTFP — Player Form Polish ----
+  epic-dtfp: in-progress
+  dtfp-1-influence-stepper-labels: ready-for-dev
+  dtfp-2-alphabetical-chip-order: ready-for-dev
+  dtfp-3-feeding-methods-update: ready-for-dev
+  dtfp-4-templates-as-ux-only: ready-for-dev
+  dtfp-5-kiss-violent-toggle: ready-for-dev
+  dtfp-6-sorcery-target-picker: ready-for-dev
+  dtfp-7-mechanical-flag-checkbox: ready-for-dev
+  epic-dtfp-retrospective: optional
+
+  # ---- Epic DTIL — DT Intelligence Layer ----
+  # Court Pulse + Action Queue + Territory Pulse synthesis surfaces
+  # DTIL-3 depends on DTFP-7 (mechanical-flag checkbox)
+  epic-dtil: in-progress
+  dtil-1-court-pulse-synthesis: ready-for-dev
+  dtil-2-action-queue-triage: ready-for-dev
+  dtil-3-auto-state-mechanical-flag: ready-for-dev
+  dtil-4-territory-pulse-synthesis: ready-for-dev
+  epic-dtil-retrospective: optional
+
+  # ---- Epic JDT — Joint Downtimes (largest, ships last) ----
+  # All three product calls resolved (lead recourse, mid-cycle edits, action-type whitelist)
+  # JDT-1 ships first as no-op schema; verifies nothing existing breaks
+  epic-jdt: in-progress
+  jdt-1-schema-foundations: ready-for-dev
+  jdt-2-lead-invitation-flow: ready-for-dev
+  jdt-3-invitee-acceptance-flow: ready-for-dev
+  jdt-4-slot-lock-readonly-display: ready-for-dev
+  jdt-5-st-processing-joint-phase: ready-for-dev
+  jdt-6-lifecycle-edge-cases: ready-for-dev
+  epic-jdt-retrospective: optional
