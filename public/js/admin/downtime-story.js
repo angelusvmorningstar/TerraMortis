@@ -2499,6 +2499,27 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
 }
 
 /** Resolve the array of territory entries for this submission (all fed territories, defaulting to Barrens). */
+// JDT-5: find the joint a given (sub, slot) belongs to, with the participant's
+// role. Returns { joint, role } or null. Used by compilePushOutcome to inject
+// joint outcomes into participants' published outcomes in place of the per-slot
+// solo project response.
+function _findJointForSlot(sub, slot, cyc) {
+  if (!cyc?.joint_projects || !sub?._id) return null;
+  for (const j of cyc.joint_projects) {
+    if (j.cancelled_at) continue;
+    if (String(j.lead_submission_id) === String(sub._id) && Number(j.lead_project_slot) === Number(slot)) {
+      return { joint: j, role: 'lead' };
+    }
+    for (const p of (j.participants || [])) {
+      if (p.decoupled_at) continue;
+      if (String(p.submission_id) === String(sub._id) && Number(p.project_slot) === Number(slot)) {
+        return { joint: j, role: 'support' };
+      }
+    }
+  }
+  return null;
+}
+
 function _feedTerrEntries(sub) {
   const raw = parseFeedingTerritories(sub)
     .filter(([, v]) => v && v !== 'none' && v !== 'Not feeding here')
@@ -3029,6 +3050,35 @@ export function compilePushOutcome(sub, char, cycle) {
 
     } else if (key === 'project_responses') {
       (sub.projects_resolved || []).forEach((rev, i) => {
+        const slot = i + 1;
+        // JDT-5: detect whether this slot is part of a joint. Joint slots
+        // pull their outcome from cycle.joint_projects[*].st_joint_outcome
+        // instead of the per-slot st_narrative.project_responses entry.
+        const jointInfo = _findJointForSlot(sub, slot, cyc);
+        if (jointInfo) {
+          const joint = jointInfo.joint;
+          const role = jointInfo.role;
+          const titleSnip = (joint.description || '').trim().slice(0, 60) || 'Joint Project';
+          const leadChar = _allCharacters.find(c => String(c._id) === String(joint.lead_character_id));
+          const leadName = leadChar ? displayName(leadChar) : 'a fellow Kindred';
+          const heading = role === 'lead'
+            ? `## ${titleSnip} (Joint, you led)`
+            : `## ${titleSnip} (Joint with ${leadName})`;
+          const outcomeText = (joint.st_joint_outcome || '').trim();
+          const personalNotes = (sub.responses?.[`project_${slot}_personal_notes`] || '').trim();
+          if (outcomeText) {
+            let block = `${heading}\n\n${outcomeText}`;
+            if (personalNotes && role === 'support') {
+              block += `\n\n*Your contribution: ${personalNotes}*`;
+            }
+            parts.push(block);
+            hasContent = true;
+          } else {
+            parts.push(`${heading}\n\n${_GAP_TEXT}`);
+          }
+          return;
+        }
+
         const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
         if (sn.project_responses?.[i]?.status === 'complete') {
           const response = sn.project_responses?.[i]?.response;

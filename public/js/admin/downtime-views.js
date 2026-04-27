@@ -51,6 +51,27 @@ const stActionAddExpandedSubs = new Set(); // subIds with "Add ST Action" form e
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
+// JDT-5: named phaseNum constants supplement existing magic numbers below.
+// Use these in new code; existing `phaseNum: 1`-style literals can be migrated
+// opportunistically. PHASE_JOINT (1.5) sits between Feeding and Ambience.
+const PHASE_TRAVEL              = -1;
+const PHASE_RESOLVE_FIRST       = 0;
+const PHASE_FEEDING             = 1;
+const PHASE_JOINT               = 1.5;
+const PHASE_AMBIENCE            = 2;
+const PHASE_HIDE_PROTECT        = 3;
+const PHASE_INVESTIGATE         = 4;
+const PHASE_ATTACK              = 5;
+const PHASE_SUPPORT_PATROL      = 6;
+const PHASE_MISC                = 7;
+const PHASE_ALLIES              = 8;
+const PHASE_STATUS              = 9;
+const PHASE_RETAINERS           = 10;
+const PHASE_CONTACTS            = 11;
+const PHASE_RESOURCES_RETAINERS = 12;
+const PHASE_OTHER_MERIT         = 13;
+const PHASE_RESOURCES           = 14;
+
 const PHASE_ORDER = {
   resolve_first: 0,
   feeding: 1,
@@ -67,12 +88,13 @@ const PHASE_LABELS = {
   travel: 'Step 1 — Travel Review',
   resolve_first: 'Step 2 — Blood Sorcery & Rituals',
   feeding: 'Step 3 — Feeding',
-  ambience: 'Step 4 — Ambience',
-  hide_protect: 'Step 5 — Defensive',
-  investigate: 'Step 6 — Investigative',
-  attack: 'Step 7 — Hostile',
-  support_patrol: 'Step 8 — Support & Patrol',
-  misc: 'Step 9 — Miscellaneous',
+  joint: 'Step 4 — Joint Projects',
+  ambience: 'Step 5 — Ambience',
+  hide_protect: 'Step 6 — Defensive',
+  investigate: 'Step 7 — Investigative',
+  attack: 'Step 8 — Hostile',
+  support_patrol: 'Step 9 — Support & Patrol',
+  misc: 'Step 10 — Miscellaneous',
   allies: 'Allies',
   status: 'Status',
   retainers: 'Retainers',
@@ -84,21 +106,22 @@ const PHASE_LABELS = {
 
 // Maps phase numeric key back to display label key
 const PHASE_NUM_TO_LABEL = {
-  0: 'resolve_first',
-  1: 'feeding',
-  2: 'ambience',
-  3: 'hide_protect',
-  4: 'investigate',
-  5: 'attack',
-  6: 'support_patrol',
-  7: 'misc',
-  8: 'allies',
-  9: 'status',
-  10: 'retainers',
-  11: 'contacts',
-  12: 'resources_retainers',
-  13: 'other_merit',
-  14: 'resources',
+  0:   'resolve_first',
+  1:   'feeding',
+  1.5: 'joint',
+  2:   'ambience',
+  3:   'hide_protect',
+  4:   'investigate',
+  5:   'attack',
+  6:   'support_patrol',
+  7:   'misc',
+  8:   'allies',
+  9:   'status',
+  10:  'retainers',
+  11:  'contacts',
+  12:  'resources_retainers',
+  13:  'other_merit',
+  14:  'resources',
 };
 
 // Maps simplified ST-created action category to phase number
@@ -665,6 +688,109 @@ function _renderPhaseHeader(phaseKey, label, count, unit, isExpanded) {
   h += `<span class="proc-phase-label">${label}</span>`;
   h += `<span class="proc-phase-count">${count} ${unit}${s}</span>`;
   h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  return h;
+}
+
+// ── JDT-5: Joint Projects phase grouping ───────────────────────────────────
+// Renders one wrapper per joint: shared header (description, action type,
+// target, role pills), participant rows (each expandable to the standard
+// project pool builder + roll card via renderActionPanel), then a single
+// joint outcome textarea + save button. The participant entries are
+// regular project entries with phaseNum 1.5; their `entry.key` keeps the
+// existing click-handler dispatch working unchanged.
+function renderJointGroup(joint, entries) {
+  if (!joint) {
+    return `<div class="proc-joint-group proc-joint-group-orphan">
+      <p class="proc-joint-orphan-msg">A joint is referenced but its document is missing from the cycle. Investigate and reconcile.</p>
+    </div>`;
+  }
+
+  const actionLabel = ACTION_TYPE_LABELS[joint.action_type] || joint.action_type;
+  let targetLine = '';
+  if (joint.target_value) {
+    if (joint.target_type === 'character') {
+      let ids = [];
+      try {
+        const parsed = JSON.parse(joint.target_value);
+        ids = Array.isArray(parsed) ? parsed : [joint.target_value];
+      } catch { ids = [joint.target_value]; }
+      const names = ids.map(id => {
+        const c = characters.find(ch => String(ch._id) === String(id));
+        return c ? displayName(c) : id;
+      });
+      targetLine = `Target: ${names.join(', ')}`;
+    } else if (joint.target_type === 'territory') {
+      targetLine = `Territory: ${joint.target_value}`;
+    } else {
+      targetLine = `Target: ${joint.target_value}`;
+    }
+  }
+
+  let h = `<div class="proc-joint-group" data-joint-id="${esc(joint._id)}">`;
+
+  // Shared header
+  h += `<div class="proc-joint-shared-header">`;
+  h += `<div class="proc-joint-action-label">Joint ${esc(actionLabel)}</div>`;
+  if (joint.description) {
+    h += `<div class="proc-joint-description">${esc(joint.description)}</div>`;
+  }
+  if (targetLine) {
+    h += `<div class="proc-joint-target">${esc(targetLine)}</div>`;
+  }
+  h += `<div class="proc-joint-participant-pills">`;
+  for (const entry of entries) {
+    const roleLbl = entry.joint_role === 'lead' ? 'Lead' : 'Support';
+    h += `<span class="proc-joint-participant-pill proc-joint-pill-${esc(entry.joint_role || 'support')}">${esc(entry.charName)} <em>(${roleLbl})</em></span>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  // Per-participant rows — same shape as solo project rows so the existing
+  // expand/collapse + renderActionPanel handlers route through unchanged.
+  for (const entry of entries) {
+    const isExpanded = procExpandedKeys.has(entry.key);
+    const review = getEntryReview(entry);
+    const status = review?.pool_status || 'pending';
+    const shortDesc = (entry.description || '').length > 80
+      ? entry.description.slice(0, 77) + '...'
+      : (entry.description || '');
+    const roleBadge = entry.joint_role === 'lead' ? 'Lead' : 'Support';
+
+    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+    h += `<span class="proc-row-label">${esc(entry.label)} <span class="proc-joint-role-badge proc-joint-role-${esc(entry.joint_role || 'support')}">${roleBadge}</span></span>`;
+    h += `<span class="proc-row-desc" title="${esc(entry.description || '')}">${esc(shortDesc || '—')}</span>`;
+    const _attributedName =
+      (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
+      (status === 'committed' && review?.pool_committed_by) ? review.pool_committed_by :
+      (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+    h += `<span class="proc-row-status-cell">`;
+    if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
+    h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+    h += `</span>`;
+    if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
+    // No Dup / Del on joint participant rows — lifecycle handled via JDT-6.
+    h += `<span class="proc-row-actions"></span>`;
+    h += `</div>`;
+
+    if (isExpanded) {
+      h += renderActionPanel(entry, review);
+    }
+  }
+
+  // Joint outcome zone
+  const outcomeTxt = joint.st_joint_outcome || '';
+  h += `<div class="proc-joint-outcome-zone">`;
+  h += `<div class="proc-mod-panel-title">Joint outcome</div>`;
+  h += `<p class="proc-joint-outcome-help">One shared narrative outcome for this joint. Replicates into each participant's published outcome at push time, with their personal contribution notes interleaved.</p>`;
+  h += `<textarea class="proc-joint-outcome-ta" data-joint-id="${esc(joint._id)}" rows="6">${esc(outcomeTxt)}</textarea>`;
+  h += `<div class="proc-joint-outcome-actions">`;
+  h += `<button class="dt-btn proc-joint-outcome-save-btn" data-joint-id="${esc(joint._id)}">Save outcome</button>`;
+  h += `<span class="proc-joint-outcome-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+
   h += `</div>`;
   return h;
 }
@@ -2225,6 +2351,24 @@ function buildProcessingQueue(subs) {
     subs.map(s => [s._id, new Set((s.st_review?.deleted_action_keys || []).map(k => `${s._id}:${k}`))])
   );
 
+  // ── JDT-5: index of (subId:slot) → { joint, role } for active joints on
+  // the cycle. Used in the per-submission project iteration to (a) route the
+  // slot's queue entry to the Joint Projects phase, and (b) attach joint
+  // metadata so the phase render can group participant entries by joint_id.
+  const jointSlotPairs = new Map();
+  for (const j of (currentCycle?.joint_projects || [])) {
+    if (j.cancelled_at) continue;
+    if (j.lead_submission_id && j.lead_project_slot) {
+      jointSlotPairs.set(`${String(j.lead_submission_id)}:${j.lead_project_slot}`, { joint: j, role: 'lead' });
+    }
+    for (const p of (j.participants || [])) {
+      if (p.decoupled_at) continue;
+      if (p.submission_id && p.project_slot) {
+        jointSlotPairs.set(`${String(p.submission_id)}:${p.project_slot}`, { joint: j, role: 'support' });
+      }
+    }
+  }
+
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
@@ -2427,8 +2571,16 @@ function buildProcessingQueue(subs) {
       const projReview = (sub.projects_resolved || [])[idx] || {};
       const effectiveActionType = projReview.action_type_override || actionType;
 
-      const phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
-      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
+      let phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      // JDT-5: if this slot is part of an active joint, route it to the
+      // Joint Projects phase. The slot subsumes here; no solo entry is
+      // created for the lead's joint slot or any accepted support's slot.
+      const _jointInfo = jointSlotPairs.get(`${String(sub._id)}:${slot}`);
+      if (_jointInfo) {
+        phaseNum = PHASE_JOINT;
+        phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
+      }
 
       queue.push({
         key: `${sub._id}:proj:${idx}`,
@@ -2450,6 +2602,10 @@ function buildProcessingQueue(subs) {
         projCast:        projCastResolved,
         projMerits:      projMeritsResolved,
         projTerritory:   resp[`project_${slot}_territory`] || '',
+        // JDT-5: joint membership — populated when the slot belongs to a joint.
+        joint_id:        _jointInfo?.joint?._id || null,
+        joint_role:      _jointInfo?.role || null,
+        joint_doc:       _jointInfo?.joint || null,
       });
     });
 
@@ -3772,6 +3928,26 @@ function renderProcessingMode(container) {
     h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !isCollapsed);
 
     if (!isCollapsed) {
+      // JDT-5: joint phase groups participant rows by joint_id and wraps
+      // each group with a shared header + outcome textarea. Other phases
+      // render entries linearly as before.
+      if (phaseKey === 'joint') {
+        const byJoint = new Map();
+        for (const entry of visibleEntries) {
+          const jid = entry.joint_id || '_orphan';
+          if (!byJoint.has(jid)) byJoint.set(jid, []);
+          byJoint.get(jid).push(entry);
+        }
+        for (const [, jointEntries] of byJoint) {
+          jointEntries.sort((a, b) => {
+            if (a.joint_role === 'lead' && b.joint_role !== 'lead') return -1;
+            if (b.joint_role === 'lead' && a.joint_role !== 'lead') return 1;
+            return (a.charName || '').localeCompare(b.charName || '');
+          });
+          const joint = jointEntries[0]?.joint_doc || null;
+          h += renderJointGroup(joint, jointEntries);
+        }
+      } else {
       for (const entry of visibleEntries) {
         const isExpanded = procExpandedKeys.has(entry.key);
         const review = getEntryReview(entry);
@@ -3800,6 +3976,7 @@ function renderProcessingMode(container) {
           h += renderActionPanel(entry, review);
         }
       }
+      } // close JDT-5 joint-phase branch's else
 
       // Investigations tracker lives inside the Investigative phase
       if (phaseKey === 'investigate') {
@@ -4139,6 +4316,34 @@ function renderProcessingMode(container) {
       const desc    = card.querySelector('.proc-merit-desc-ta').value.trim();
       await saveEntryReview(entry, { desired_outcome: outcome, description: desc });
       renderProcessingMode(container);
+    });
+  });
+
+  // ── JDT-5: joint outcome save ─────────────────────────────────────────
+  // Persists cycle.joint_projects[i].st_joint_outcome via the existing PUT
+  // /api/downtime_cycles/:id route (no new endpoint required for v1).
+  container.querySelectorAll('.proc-joint-outcome-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const jointId = btn.dataset.jointId;
+      if (!jointId || !currentCycle?._id) return;
+      const ta = container.querySelector(`.proc-joint-outcome-ta[data-joint-id="${jointId}"]`);
+      if (!ta) return;
+      const statusEl = container.querySelector(`.proc-joint-outcome-status[data-joint-id="${jointId}"]`);
+      const text = ta.value;
+      try {
+        const newJoints = (currentCycle.joint_projects || []).map(j =>
+          String(j._id) === String(jointId) ? { ...j, st_joint_outcome: text } : j
+        );
+        await apiPut(`/api/downtime_cycles/${currentCycle._id}`, { joint_projects: newJoints });
+        currentCycle.joint_projects = newJoints;
+        if (statusEl) {
+          statusEl.textContent = 'Saved';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+      }
     });
   });
 
