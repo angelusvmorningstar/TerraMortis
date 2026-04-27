@@ -381,6 +381,9 @@ function collectResponses() {
     const val = el ? el.value : '';
     responses[`game_recount_${n}`] = val;
     if (val.trim()) highlights.push(val.trim());
+    // DTFP-7: per-slot mechanical-flag boolean
+    const flagEl = document.getElementById(`dt-mechanical_flag_${n}`);
+    if (flagEl) responses[`mechanical_flag_${n}`] = flagEl.checked;
   }
   if (highlights.length > 0) {
     responses['game_recount'] = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n\n');
@@ -3415,6 +3418,10 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
       }
     }
     h += '</div>';
+    // DTFP-3: By Force teaching note when a brawl/weaponry-boosting discipline is picked
+    if (m.id === 'force' && (selDisc === 'Vigour' || selDisc === 'Celerity')) {
+      h += `<div class="dt-feed-teaching-note">Vigour and Celerity add bonus dice to Brawl and Weaponry pools. Confirm with your ST if your roll relies on this.</div>`;
+    }
   }
 
   // ── Spec chips (for selected skill) ──
@@ -4271,9 +4278,15 @@ function renderQuestion(q, value) {
       h += '<div class="dt-highlight-slots" data-highlight-root>';
       for (let n = 1; n <= 5; n++) {
         const hidden = n > visibleCount ? ' style="display:none"' : '';
+        const flagChecked = saved[`mechanical_flag_${n}`] === true;
         h += `<div class="dt-highlight-slot" data-highlight-n="${n}"${hidden}>`;
         h += `<label class="qf-label">Highlight ${n}${n > 3 ? ' (optional)' : ''}</label>`;
         h += `<textarea id="dt-game_recount_${n}" class="qf-textarea dt-highlight-input" data-highlight-n="${n}" rows="2" placeholder="One highlight…">${esc(slotVals[n - 1])}</textarea>`;
+        // DTFP-7: per-slot mechanical-flag checkbox
+        h += `<label class="dt-highlight-flag">`;
+        h += `<input type="checkbox" id="dt-mechanical_flag_${n}" data-mechanical-flag-n="${n}"${flagChecked ? ' checked' : ''}>`;
+        h += `<span class="dt-highlight-flag-text">This involved a mechanical effect on another character or the world (flags this for your ST).</span>`;
+        h += `</label>`;
         h += '</div>';
       }
       h += '</div>';
