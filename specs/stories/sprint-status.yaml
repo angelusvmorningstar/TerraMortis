@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-27 (added 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
+last_updated: 2026-04-27 (FEAT batch drafted: feat-2/3/7/8 ready-for-dev, feat-6 needs-investigation; DI epic flipped: DI-1/3 ready-for-dev, DI-2 held for source data; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -328,17 +328,19 @@ development_status:
   epic-cr-retrospective: optional
 
   # ============================================================
-  # EPIC DI: DATA IMPORTS — BACKLOG
+  # EPIC DI: DATA IMPORTS — IN PROGRESS (specs drafted 2026-04-27)
   # ============================================================
   # DT1 narratives, Game 1 letters, ordeal data sync
   # Epic file: specs/epic-data-imports.md
-  # Note: DI-3 may be investigation-only (no code change)
+  # DI-1 script already merged to main; story spec covers run + Chronicle render verify
+  # DI-2 held at backlog: source data location unknown — needs product input before ready-for-dev
+  # DI-3 is an investigation-spike: produces an audit note, not a code change
 
-  epic-di: backlog
+  epic-di: in-progress
 
-  di-1-import-dt1-narratives: backlog
-  di-2-import-game1-letters: backlog
-  di-3-sync-ordeal-data: backlog
+  di-1-import-dt1-narratives: ready-for-dev
+  di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
+  di-3-sync-ordeal-data: ready-for-dev      # investigation spike — produces audit note, not code
 
   epic-di-retrospective: optional
 
@@ -349,16 +351,16 @@ development_status:
   # Epic file: specs/epic-features.md
   # FEAT-4 and FEAT-5 not ready for dev — need scoping
 
-  epic-feat: backlog
+  epic-feat: in-progress
 
   feat-1-remove-resolved-tickets: done
-  feat-2-non-vampire-territories: backlog
-  feat-3-duplicate-character-hard-delete: backlog
+  feat-2-non-vampire-territories: ready-for-dev
+  feat-3-duplicate-character-hard-delete: ready-for-dev
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
-  feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
-  feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
-  feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
+  feat-6-player-sheet-width-consistency: backlog  # needs-investigation per story front-matter — cause not isolated yet; needs DOM inspection on two visibly-differing characters before ready-for-dev
+  feat-7-player-read-latest-downtime: ready-for-dev  # exposes player's own raw responses[] alongside the existing published_outcome render
+  feat-8-contact-action-type: ready-for-dev       # suppress action-type selector in DT Processing + action-type badge in DT Story for contacts only
   feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
   feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
   feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
@@ -617,3 +619,15 @@ development_status:
   jdt-5-st-processing-joint-phase: ready-for-dev
   jdt-6-lifecycle-edge-cases: ready-for-dev
   epic-jdt-retrospective: optional
+
+  # ============================================================
+  # EPIC DTUX — DT ADMIN UX REFORM (sequencing-smart, ships before DTIL/JDT)
+  # ============================================================
+  # Consolidates three coexisting nav systems (sub-tabs + read-only ribbon + gate buttons)
+  # into a single clickable phase ribbon with per-phase sign-off badges.
+  # Story file: specs/stories/dtux-1-phase-ribbon-nav.story.md
+  # Recommended sequencing: land before DTIL-* and JDT-* so those new surfaces
+  # inherit the ribbon naturally rather than retrofit it.
+  epic-dtux: in-progress
+  dtux-1-phase-ribbon-nav: ready-for-dev
+  epic-dtux-retrospective: optional
