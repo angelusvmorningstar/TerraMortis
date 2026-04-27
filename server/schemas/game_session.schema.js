@@ -51,7 +51,7 @@ export const gameSessionSchema = {
             properties: {
               method: {
                 type: 'string',
-                enum: ['cash', 'payid', 'paypal', 'exiles', 'waived', 'did_not_attend', ''],
+                enum: ['cash', 'payid', 'paypal', 'exiles', 'waived', ''],
               },
               amount: { type: 'number', minimum: 0 },
               note:   { type: ['string', 'null'] },
