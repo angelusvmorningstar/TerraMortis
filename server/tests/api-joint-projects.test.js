@@ -453,6 +453,131 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — 
   });
 });
 
+describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6', () => {
+  async function createBaseJoint(testChars, inviteeIds) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    for (const cid of inviteeIds) await insertSub(cid, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, inviteeIds));
+    expect(r.status).toBe(201);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('lead edits description; description_updated_at is bumped', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const before = joint.description_updated_at;
+
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ description: 'Updated plan: rendezvous at the Wallflower' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.joint.description).toMatch(/Wallflower/);
+    expect(res.body.joint.description_updated_at).toBeTruthy();
+    expect(res.body.joint.description_updated_at).not.toBe(before);
+  });
+
+  it('rejects non-leads', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({ description: 'sneak edit' });
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects empty body', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects when joint is cancelled', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/decline`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+    await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ description: 'too late' });
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge — JDT-6', () => {
+  async function createAcceptedJoint(testChars) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    await insertSub(testChars[1].id, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
+    expect(r.status).toBe(201);
+    const accept = await request(app)
+      .post(`/api/project_invitations/${r.body.invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+    expect(accept.status).toBe(200);
+    return { cycle, joint: r.body.joint };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('support acknowledges; participant.description_change_acknowledged_at is set', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.acknowledged_at).toBeTruthy();
+    const p = (res.body.joint.participants || []).find(x => String(x.character_id) === testChars[1].id);
+    expect(p.description_change_acknowledged_at).toBeTruthy();
+  });
+
+  it('rejects when caller does not own the participant character', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 for missing participant', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[2].id}/acknowledge`)
+      .set('X-Test-User', stUser())
+      .send({});
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /api/project_invitations', () => {
   it('returns 400 when cycle_id missing', async () => {
     const res = await request(app)

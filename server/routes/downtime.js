@@ -415,6 +415,87 @@ cyclesRouter.post('/:cycleId/joint_projects/:jointId/cancel', async (req, res) =
   res.json({ joint: updatedJoint, cancelled_reason: cancelledReason });
 });
 
+// JDT-6: Mid-cycle joint description edit by lead. Only fields in the
+// allowlist may be updated; description_updated_at is bumped to now so
+// support slots can show the "lead has updated" indicator.
+cyclesRouter.patch('/:cycleId/joint_projects/:jointId', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+  if (joint.cancelled_at) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Joint is cancelled' });
+  }
+
+  const isST = req.user.role === 'st' || req.user.role === 'dev';
+  const userCharIds = (req.user.character_ids || []).map(String);
+  const isLead = userCharIds.includes(String(joint.lead_character_id));
+  if (!isLead && !isST) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Only the lead may edit this joint' });
+  }
+
+  const allowed = ['description', 'target_type', 'target_value'];
+  const setOps = {};
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) {
+      setOps[`joint_projects.$.${k}`] = req.body[k];
+    }
+  }
+  if (Object.keys(setOps).length === 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No editable fields supplied' });
+  }
+  const now = new Date().toISOString();
+  setOps['joint_projects.$.description_updated_at'] = now;
+
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $set: setOps },
+  );
+
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  res.json({ joint: updatedJoint });
+});
+
+// JDT-6: Support acknowledges that they've seen the lead's description
+// change. Sets participant.description_change_acknowledged_at to now.
+cyclesRouter.post('/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+
+  const charId = String(req.params.charId);
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(charId)) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your participant entry' });
+    }
+  }
+
+  const participant = (joint.participants || []).find(p => String(p.character_id) === charId && !p.decoupled_at);
+  if (!participant) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Participant not found or has decoupled' });
+  }
+
+  const now = new Date().toISOString();
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $set: { 'joint_projects.$[j].participants.$[p].description_change_acknowledged_at': now } },
+    { arrayFilters: [{ 'j._id': joint._id }, { 'p.character_id': charId, 'p.decoupled_at': null }] },
+  );
+
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  res.json({ joint: updatedJoint, acknowledged_at: now });
+});
+
 // PUT /api/downtime_cycles/:id — ST only
 cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
