@@ -779,10 +779,11 @@ function getApplicableSections(char, sub) {
   const sections = [
     { key: 'letter_from_home',   label: 'Letter from Home' },
     { key: 'touchstone',         label: 'Touchstone' },
-    { key: 'feeding_validation', label: 'Feeding' },
   ];
 
   if (char?.home_territory) sections.push({ key: 'home_report', label: 'Home Report' });
+
+  sections.push({ key: 'feeding_validation', label: 'Feeding' });
 
   if (sub?.projects_resolved?.length) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
@@ -800,7 +801,7 @@ function getApplicableSections(char, sub) {
   if (hasCategory(ALL_MERIT_CATS)) sections.push({ key: 'merit_summary', label: 'Allies & Asset Summary' });
 
   if (getCSDots(char) > 0) {
-    sections.push({ key: 'cacophony_savvy', label: 'Cacophony Savvy' });
+    sections.push({ key: 'cacophony_savvy', label: 'Rumours' });
   }
 
   return sections;
@@ -983,7 +984,7 @@ const TRACKER_LABELS = {
   contact_requests:   'Contacts',
   resource_approvals: 'Resources',
   misc_merit_actions: 'Influence',
-  cacophony_savvy:    'Cacophony',
+  cacophony_savvy:    'Rumours',
 };
 
 function renderProgressTracker(char, sub) {
@@ -2863,7 +2864,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
@@ -2976,7 +2977,7 @@ function compilePushOutcome(sub) {
 
     } else if (key === 'cacophony_savvy') {
       (sn.cacophony_savvy || []).forEach((slot, i) => {
-        const label = `Cacophony Savvy ${i + 1}`;
+        const label = `Rumours ${i + 1}`;
         if (slot?.status === 'complete') {
           const response = slot?.response;
           if (response?.trim()) { parts.push(`## ${label}\n\n${response.trim()}`); hasContent = true; }

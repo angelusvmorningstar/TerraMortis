@@ -1,7 +1,7 @@
 ---
 id: dtsr.1
 epic: dtsr
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: []
 ---
@@ -196,3 +196,34 @@ No schema changes, no server changes, no data migrations.
 - No dependencies. Ships independently as a small structural change.
 - **Sets up DTSR-2's consolidation** (Letter + Touchstone → Story Moment) by placing both sections in the right position relative to the rest of the order. After DTSR-2, the order becomes: Story Moment / Home Report / Feeding / Project Reports / Allies & Asset Summary / Rumours.
 - Independent of every other DTSR / DTFP / DTIL / JDT / NPCP / CHM story.
+
+---
+
+## Dev Agent Record
+
+### Completion Notes (2026-04-27)
+
+Implemented all four ST-facing display changes in `public/js/admin/downtime-story.js`. Internal identifiers (`cacophony_savvy` section key, `SECTION_SAVE_HANDLERS` route, helper/handler function names, merit-name lookups, LLM prompt content for the Rumours vignette) all preserved unchanged per AC. Merit name "Cacophony Savvy" untouched on character documents and in MERITS_DB.
+
+Audited adjacent surfaces:
+- `public/admin.html` — no hard-coded "Cacophony" labels in DT Story tab DOM.
+- `public/js/admin/downtime-views.js:7246` — "Cacophony Savvy" appears in an Intelligence Dossier hint as an in-world reference to the merit/intel type, distinct from the Rumours section name; left unchanged per AC's "in-world content stays" rule.
+- `public/css/admin-layout.css:7072` — section comment, internal identifier; left unchanged.
+
+Syntax check: `node --input-type=module --check` clean.
+
+No tests added (pure UI label/order change; project has no test framework per CLAUDE.md). Manual smoke test pending against running localhost:8080 frontend.
+
+### File List
+
+- `public/js/admin/downtime-story.js` — modified
+  - `getApplicableSections` (line 778): reordered so Home Report sits between Touchstone and Feeding; Cacophony Savvy section label → "Rumours".
+  - TRACKER_LABELS map (line 987): `cacophony_savvy: 'Cacophony'` → `'Rumours'`.
+  - `renderCacophonySavvy` textarea placeholder (line 2867): "Write Cacophony Savvy vignette…" → "Write Rumours vignette…".
+  - Compiled push-outcome label (line 2980): `Cacophony Savvy ${i+1}` → `Rumours ${i+1}`.
+
+### Change Log
+
+| Date       | Change                                                                                       |
+|------------|----------------------------------------------------------------------------------------------|
+| 2026-04-27 | DTSR-1 implemented: section reorder (Home Report before Feeding) + Cacophony Savvy → Rumours display rename. Internal identifiers preserved. |
