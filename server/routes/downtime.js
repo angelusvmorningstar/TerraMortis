@@ -7,6 +7,20 @@ import { validate } from '../middleware/validate.js';
 import { downtimeSubmissionSchema, downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
 import { sendDowntimePublishedEmail } from '../helpers/email.js';
 
+// JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
+// Mirrors JOINT_ELIGIBLE_ACTIONS in public/js/tabs/downtime-data.js.
+// `support` (recursive role conflict), `xp_spend` (personal), and
+// `maintenance` (personal) are excluded.
+const JOINT_ELIGIBLE_ACTIONS = [
+  'ambience_increase',
+  'ambience_decrease',
+  'attack',
+  'hide_protect',
+  'investigate',
+  'patrol_scout',
+  'misc',
+];
+
 function parseId(id) {
   try {
     return new ObjectId(id);
@@ -103,6 +117,118 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
     { returnDocument: 'after' }
   );
   res.json(updated);
+});
+
+// ── JDT-2: Joint projects on a cycle ─────────────────────────────────
+// POST /api/downtime_cycles/:cycleId/joint_projects
+// Caller is the lead. Creates one cycle.joint_projects[] entry plus one
+// project_invitations doc per invitee, atomically.
+cyclesRouter.post('/:cycleId/joint_projects', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const {
+    lead_character_id,
+    lead_submission_id,
+    lead_project_slot,
+    description,
+    action_type,
+    target_type,
+    target_value,
+    invitee_character_ids,
+  } = req.body || {};
+
+  // ── Body validation ──
+  if (!lead_character_id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'lead_character_id required' });
+  if (!lead_submission_id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'lead_submission_id required' });
+  const slot = Number(lead_project_slot);
+  if (!Number.isInteger(slot) || slot < 1 || slot > 4) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'lead_project_slot must be 1-4' });
+  }
+  if (typeof action_type !== 'string' || !JOINT_ELIGIBLE_ACTIONS.includes(action_type)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'action_type not joint-eligible', allowed: JOINT_ELIGIBLE_ACTIONS });
+  }
+  if (!Array.isArray(invitee_character_ids) || invitee_character_ids.length === 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invitee_character_ids must be a non-empty array' });
+  }
+  const inviteeIds = [...new Set(invitee_character_ids.map(String))];
+  if (inviteeIds.includes(String(lead_character_id))) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Lead cannot invite themselves' });
+  }
+
+  // ── Auth: player must own lead_character_id ──
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(id => String(id));
+    if (!userCharIds.includes(String(lead_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Cannot create a joint as another character' });
+    }
+  }
+
+  // ── Cycle must exist and be live ──
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const liveStatuses = ['prep', 'game', 'active', 'open'];
+  if (!liveStatuses.includes(cycle.status)) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not accepting joint projects' });
+  }
+
+  // ── Lead submission must exist and belong to lead_character_id ──
+  const subOid = parseId(lead_submission_id);
+  if (!subOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid lead_submission_id' });
+  const leadSub = await submissions().findOne({ _id: subOid });
+  if (!leadSub) return res.status(404).json({ error: 'NOT_FOUND', message: 'Lead submission not found' });
+  const leadCharStr = leadSub.character_id?.toString();
+  if (leadCharStr !== String(lead_character_id)) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'lead_submission_id does not belong to lead_character_id' });
+  }
+
+  // ── Reject duplicate joint for the same lead slot ──
+  const existing = (cycle.joint_projects || []).find(j =>
+    String(j.lead_submission_id) === String(lead_submission_id) &&
+    Number(j.lead_project_slot) === slot &&
+    !j.cancelled_at
+  );
+  if (existing) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'A joint already exists for this slot', joint_id: existing._id });
+  }
+
+  const now = new Date().toISOString();
+  const jointId = new ObjectId().toString();
+
+  const joint = {
+    _id: jointId,
+    lead_character_id: String(lead_character_id),
+    lead_submission_id: String(lead_submission_id),
+    lead_project_slot: slot,
+    description: typeof description === 'string' ? description : '',
+    action_type,
+    target_type: target_type || null,
+    target_value: target_value || null,
+    description_updated_at: null,
+    st_joint_outcome: '',
+    participants: [],
+    created_at: now,
+    cancelled_at: null,
+    cancelled_reason: null,
+  };
+
+  const invitations = inviteeIds.map(charId => ({
+    _id: new ObjectId().toString(),
+    joint_project_id: jointId,
+    cycle_id: String(req.params.cycleId),
+    invited_character_id: charId,
+    invited_submission_id: null,
+    status: 'pending',
+    created_at: now,
+    responded_at: null,
+    decoupled_at: null,
+    cancelled_at: null,
+  }));
+
+  await getCollection('project_invitations').insertMany(invitations);
+  await cycles().updateOne({ _id: cycleOid }, { $push: { joint_projects: joint } });
+
+  res.status(201).json({ joint, invitations });
 });
 
 // PUT /api/downtime_cycles/:id — ST only
@@ -327,6 +453,51 @@ submissionsRouter.patch('/:id/section-flag/:flagId', async (req, res) => {
     { $set: { 'section_flags.$': flag } }
   );
   res.json(flag);
+});
+
+// ── JDT-2: Project invitations: /api/project_invitations ─────────────
+
+export const projectInvitationsRouter = Router();
+const projectInvitations = () => getCollection('project_invitations');
+
+// GET /api/project_invitations?cycle_id=...
+//
+// ST: returns all invitations on the cycle.
+// Player: returns invitations they sent (lead) ∪ invitations they received
+//   (invited_character_id ∈ user.character_ids). Used by JDT-2 for the
+//   lead's status badges and by JDT-3 for the invitee inbox.
+projectInvitationsRouter.get('/', async (req, res) => {
+  const cycleIdRaw = req.query.cycle_id;
+  if (!cycleIdRaw) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'cycle_id required' });
+  }
+
+  const filter = { cycle_id: String(cycleIdRaw) };
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(id => String(id));
+    if (userCharIds.length === 0) {
+      return res.json([]);
+    }
+
+    // Find joint_project_ids on the cycle whose lead is one of the user's characters
+    const cycleOid = parseId(cycleIdRaw);
+    let leadJointIds = [];
+    if (cycleOid) {
+      const cycle = await cycles().findOne({ _id: cycleOid });
+      leadJointIds = (cycle?.joint_projects || [])
+        .filter(j => userCharIds.includes(String(j.lead_character_id)))
+        .map(j => String(j._id));
+    }
+
+    filter.$or = [
+      { invited_character_id: { $in: userCharIds } },
+      ...(leadJointIds.length ? [{ joint_project_id: { $in: leadJointIds } }] : []),
+    ];
+  }
+
+  const docs = await projectInvitations().find(filter).toArray();
+  res.json(docs);
 });
 
 async function _sendPublishedEmail(submission) {

@@ -48,6 +48,9 @@ window.fetch=function devFix(url,opts){
   if(method==='GET'&&seg[0]==='health')return _mock({ok:true});
   if(method==='GET'&&seg[0]==='players'&&seg[1]==='display-names'){return _mock(CHARS.filter(function(c){return c.player;}).map(function(c){return{character_id:String(c._id),display_name:c.player};}));}
   if(method==='GET'&&seg[0]==='players')return _mock([]);
+  // JDT-2: dev-mode echo handlers for joint projects + invitations.
+  if(method==='POST'&&seg[0]==='downtime_cycles'&&seg[2]==='joint_projects'){var jb=opts.body?JSON.parse(opts.body):{};var jid='joint_dev_'+Date.now();var now=new Date().toISOString();var joint={_id:jid,lead_character_id:String(jb.lead_character_id||''),lead_submission_id:String(jb.lead_submission_id||''),lead_project_slot:Number(jb.lead_project_slot||1),description:jb.description||'',action_type:jb.action_type||'',target_type:jb.target_type||null,target_value:jb.target_value||null,description_updated_at:null,st_joint_outcome:'',participants:[],created_at:now,cancelled_at:null,cancelled_reason:null};var invs=(jb.invitee_character_ids||[]).map(function(cid,i){return{_id:'inv_dev_'+Date.now()+'_'+i,joint_project_id:jid,cycle_id:String(seg[1]),invited_character_id:String(cid),invited_submission_id:null,status:'pending',created_at:now,responded_at:null,decoupled_at:null,cancelled_at:null};});return _mock({joint:joint,invitations:invs},201);}
+  if(method==='GET'&&seg[0]==='project_invitations')return _mock([]);
   return _orig(url,opts);
 };
 console.info('[dev-fixtures] active — '+CHARS.length+' chars, '+TERRITORIES.length+' territories');

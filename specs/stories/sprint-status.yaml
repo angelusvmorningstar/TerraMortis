@@ -619,7 +619,7 @@ development_status:
   # JDT-1 ships first as no-op schema; verifies nothing existing breaks
   epic-jdt: in-progress
   jdt-1-schema-foundations: review
-  jdt-2-lead-invitation-flow: ready-for-dev
+  jdt-2-lead-invitation-flow: review
   jdt-3-invitee-acceptance-flow: ready-for-dev
   jdt-4-slot-lock-readonly-display: ready-for-dev
   jdt-5-st-processing-joint-phase: ready-for-dev
