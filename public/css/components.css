@@ -2837,6 +2837,70 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   opacity: .85;
 }
 
+/* JDT-6: lead description edit save row + last edited timestamp */
+.dt-joint-desc-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+.dt-joint-desc-save-btn {
+  background: transparent;
+  color: var(--gold2);
+  border: 1px solid var(--gold-a30);
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-joint-desc-save-btn:hover { background: var(--gold-a12); }
+.dt-joint-desc-last-edited {
+  font-size: 11.5px;
+  font-style: italic;
+  opacity: .8;
+}
+.dt-joint-desc-save-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--gold2);
+}
+
+/* JDT-6: support description-change indicator */
+.dt-joint-desc-changed-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--gold-a12);
+  border-left: 3px solid var(--gold2);
+  border-radius: 3px;
+}
+.dt-joint-desc-changed-indicator strong {
+  font-family: var(--fl);
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--accent);
+}
+.dt-joint-desc-acknowledge-btn {
+  margin-left: auto;
+  background: var(--gold2);
+  color: var(--bg);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-joint-desc-acknowledge-btn:hover { filter: brightness(1.1); }
+
 /* Joint badge on slot tabs (lead or support) */
 .dt-proj-tab-joint {
   position: relative;

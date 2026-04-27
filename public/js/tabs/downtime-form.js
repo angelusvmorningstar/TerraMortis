@@ -9,7 +9,7 @@
  *  - Blood Sorcery: from disciplines (Cruac/Theban)
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -850,6 +850,44 @@ async function handleJointCancel(jointId, container) {
   }
 }
 
+// JDT-6: lead saves an edit to joint description. Bumps description_updated_at
+// server-side so support slots can render the change indicator on next render.
+async function handleJointDescriptionSave(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  // Locate the textarea inside the same authoring panel as this save button.
+  const btn = container.querySelector(`.dt-joint-desc-save-btn[data-joint-id="${jointId}"]`);
+  const textareaEl = btn?.closest('.dt-joint-authoring')?.querySelector('textarea[id$="_joint_description"]');
+  if (!textareaEl) return;
+  const description = textareaEl.value;
+  const statusEl = container.querySelector(`.dt-joint-desc-save-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPatch(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}`, { description });
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Saved.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+  }
+}
+
+// JDT-6: support clicks "View and acknowledge" on the description-changed
+// indicator. Sets participant.description_change_acknowledged_at to now so
+// the indicator clears on next render.
+async function handleJointDescriptionAcknowledge(jointId, charId, container) {
+  if (!jointId || !charId || !currentCycle?._id) return;
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/participants/${charId}/acknowledge`, {});
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    const statusEl = document.getElementById('dt-save-status');
+    if (statusEl) statusEl.textContent = 'Acknowledge failed: ' + err.message;
+  }
+}
+
 // JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
 // invitations list so badges, panels, and slot UI all reflect the latest state.
 async function refreshJointCaches() {
@@ -1607,6 +1645,18 @@ function renderForm(container) {
     const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
     if (cancelBtn) {
       handleJointCancel(cancelBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead description save (mid-cycle edit)
+    const descSaveBtn = e.target.closest('.dt-joint-desc-save-btn');
+    if (descSaveBtn) {
+      handleJointDescriptionSave(descSaveBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: support acknowledge description change
+    const ackBtn = e.target.closest('.dt-joint-desc-acknowledge-btn');
+    if (ackBtn) {
+      handleJointDescriptionAcknowledge(ackBtn.dataset.jointId, ackBtn.dataset.characterId, container);
       return;
     }
 
@@ -2639,6 +2689,20 @@ function renderProjectSlots(saved) {
       const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
 
       h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
+
+      // JDT-6: lead description-change indicator
+      const myParticipantForAck = (joint.participants || []).find(p =>
+        String(p.character_id) === String(currentChar._id) && !p.decoupled_at
+      );
+      const updatedAt = joint.description_updated_at;
+      const ackedAt = myParticipantForAck?.description_change_acknowledged_at;
+      const showIndicator = updatedAt && (!ackedAt || new Date(updatedAt) > new Date(ackedAt));
+      if (showIndicator) {
+        h += `<div class="dt-joint-desc-changed-indicator">`;
+        h += `<strong>The lead has updated this project description.</strong>`;
+        h += `<button type="button" class="dt-joint-desc-acknowledge-btn" data-joint-id="${esc(joint._id)}" data-character-id="${esc(String(currentChar._id))}">View and acknowledge</button>`;
+        h += `</div>`;
+      }
 
       h += `<div class="dt-proj-support-readonly-block">`;
       h += `<div class="dt-proj-support-label">Action type</div>`;
@@ -3963,6 +4027,19 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
  * Used by project target_flex (single picker per slot) and sorcery targets
  * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
  */
+// JDT-6: Display helper for joint description edit timestamps.
+function formatTimestamp(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 // JDT-2: Locate an existing joint authored by the current submission for slot N.
 function findExistingJoint(slot) {
   if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
@@ -4017,7 +4094,17 @@ function renderJointAuthoring(n, saved, existingJoint) {
 
   // Joint description
   h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
-  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3"${existingJoint ? ' disabled' : ''}>${esc(desc)}</textarea>`;
+  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
+  if (existingJoint) {
+    h += `<div class="dt-joint-desc-edit-row">`;
+    h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
+    if (existingJoint.description_updated_at) {
+      const ts = formatTimestamp(existingJoint.description_updated_at);
+      h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
+    }
+    h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
+    h += `</div>`;
+  }
 
   // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
   // since joints can target multiple characters.
