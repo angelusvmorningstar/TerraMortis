@@ -557,7 +557,7 @@ development_status:
   # ---- Epic NPCP — NPC Privacy Hardening (urgent, ships first) ----
   epic-npcp: in-progress
   npcp-1-server-side-scope-api-npcs: review
-  npcp-2-player-picker-removal-free-text: ready-for-dev
+  npcp-2-player-picker-removal-free-text: superseded  # superseded by NPCR.12+13 — DT form picker already shows only the player's own relationship edges with kind-driven prompts
   epic-npcp-retrospective: optional
 
   # ---- Epic CHM — Chapter & Maintenance Layer ----
