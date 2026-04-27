@@ -433,6 +433,13 @@ export const downtimeSubmissionSchema = {
         no_roll:            { type: 'boolean' },
         st_note:            { type: 'string' },
         player_facing_note: { type: 'string' },
+
+        // ── JDT-1: Joint Downtime support-slot markers ────────────
+        // Set on a project slot when it participates in a joint project
+        // (Epic JDT — see specs/stories/jdt-1-schema-foundations.story.md).
+        // Both fields absent/null on solo projects.
+        joint_id:   { type: ['string', 'null'] },
+        joint_role: { type: ['string', 'null'], enum: ['lead', 'support', null] },
       },
       additionalProperties: true,
     },
@@ -467,6 +474,49 @@ export const downtimeCycleSchema = {
           confirmed_at:    { type: 'string' },
           rights:          { type: 'array', items: { type: 'string' } },
         },
+      },
+    },
+
+    // ── JDT-1: Joint projects on this cycle ────────────────────────
+    // One entry per joint project authored by a lead during this cycle.
+    // Pure data shape; lifecycle and rendering handled by JDT-2..JDT-6.
+    // See specs/stories/jdt-1-schema-foundations.story.md.
+    joint_projects: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          _id:                    { type: 'string' },
+          lead_character_id:      { type: 'string' },
+          lead_submission_id:     { type: 'string' },
+          lead_project_slot:      { type: 'integer', minimum: 1, maximum: 4 },
+          description:            { type: 'string' },
+          action_type:            { type: 'string' },
+          target_type:            { type: ['string', 'null'] },
+          target_value:           { type: ['string', 'null'] },
+          description_updated_at: { type: ['string', 'null'] },
+          st_joint_outcome:       { type: 'string' },
+          participants: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                invitation_id:                      { type: 'string' },
+                character_id:                       { type: 'string' },
+                submission_id:                      { type: ['string', 'null'] },
+                project_slot:                       { type: ['integer', 'null'], minimum: 1, maximum: 4 },
+                joined_at:                          { type: ['string', 'null'] },
+                decoupled_at:                       { type: ['string', 'null'] },
+                description_change_acknowledged_at: { type: ['string', 'null'] },
+              },
+              additionalProperties: true,
+            },
+          },
+          created_at:       { type: 'string' },
+          cancelled_at:     { type: ['string', 'null'] },
+          cancelled_reason: { type: ['string', 'null'] },
+        },
+        additionalProperties: true,
       },
     },
   },
