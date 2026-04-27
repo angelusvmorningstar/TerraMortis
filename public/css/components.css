@@ -2679,6 +2679,83 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-pending-invitation-decline:hover { background: var(--crim-a12); }
 
+/* ── JDT-4: Support slot lock + read-only chrome ── */
+.dt-proj-support-pane {
+  border-left: 3px solid var(--gold2);
+  background: var(--surf);
+}
+.dt-proj-support-header {
+  font-family: var(--fl);
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  padding: 4px 0 12px;
+}
+.dt-proj-support-header .dt-proj-support-sep {
+  letter-spacing: .04em;
+  text-transform: none;
+  color: var(--gold);
+  font-size: 12px;
+}
+.dt-proj-support-header strong {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--fh2);
+  color: var(--accent);
+}
+.dt-proj-support-readonly-block {
+  background: var(--surf2);
+  padding: 12px 14px 14px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+.dt-proj-support-label {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+.dt-proj-support-readonly-block > .dt-proj-support-label:first-child { margin-top: 0; }
+.dt-proj-support-action,
+.dt-proj-support-target {
+  font-size: 13px;
+  color: var(--accent);
+}
+.dt-proj-support-desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.dt-proj-support-desc-empty { font-style: italic; opacity: .7; }
+.dt-proj-pane-orphaned {
+  padding: 12px 14px;
+  background: var(--crim-a8);
+  border-left: 3px solid var(--crim);
+  border-radius: 3px;
+}
+
+/* Joint badge on slot tabs (lead or support) */
+.dt-proj-tab-joint {
+  position: relative;
+}
+.dt-proj-tab-joint-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--gold2);
+  color: var(--bg);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  margin-left: 6px;
+  font-family: var(--fl);
+  vertical-align: middle;
+}
+
 .dt-joint-readonly-target {
   padding: 6px 10px;
   background: var(--surf2);

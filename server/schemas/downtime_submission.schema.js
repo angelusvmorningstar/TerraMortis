@@ -88,6 +88,10 @@ function projectSlotProps(n) {
     // the joint document and not written to the lead's responses).
     [`project_${n}_joint_id`]:   { type: 'string' },
     [`project_${n}_joint_role`]: { type: 'string' },
+    // JDT-4: support-slot personal notes — what the invitee brings to the
+    // joint. The joint description is shared (lead-owned, read-only); this
+    // textarea is the support's private contribution.
+    [`project_${n}_personal_notes`]: { type: 'string' },
   };
 }
 
