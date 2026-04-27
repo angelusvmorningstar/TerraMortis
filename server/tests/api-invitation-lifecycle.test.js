@@ -283,6 +283,109 @@ describe('POST /api/project_invitations/:id/decline', () => {
   });
 });
 
+describe('POST /api/project_invitations/:id/decouple — JDT-6', () => {
+  // Helper: walk the full create → accept → decouple flow for a single
+  // invitee. Returns the invitation, joint, cycle, and submission ids
+  // ready for assertions.
+  async function setupAcceptedJoint(testChars, leadIdx = 0, supportIdx = 1) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[leadIdx].id, cycle._id);
+    await insertSub(testChars[supportIdx].id, cycle._id);
+    const created = await createJoint(cycle, testChars[leadIdx], leadSub, [testChars[supportIdx].id]);
+    const invId = created.invitations[0]._id;
+    const accept = await request(app)
+      .post(`/api/project_invitations/${invId}/accept`)
+      .set('X-Test-User', playerUser([testChars[supportIdx].id]))
+      .send({});
+    expect(accept.status).toBe(200);
+    return { cycle, leadSub, invId, joint: created.joint, accept: accept.body };
+  }
+
+  it('happy path: invitation → decoupled, slot freed, participant marked', async () => {
+    const { invId, joint, accept } = await setupAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/project_invitations/${invId}/decouple`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.invitation.status).toBe('decoupled');
+    expect(res.body.invitation.decoupled_at).toBeTruthy();
+
+    // Participant entry has decoupled_at
+    const p = (res.body.joint.participants || []).find(x => String(x.invitation_id) === String(invId));
+    expect(p).toBeTruthy();
+    expect(p.decoupled_at).toBeTruthy();
+
+    // Submission slot fields cleared
+    const sub = res.body.submission;
+    const slot = accept.slot;
+    expect(sub.responses[`project_${slot}_action`]).toBe('');
+    expect(sub.responses[`project_${slot}_joint_id`]).toBeNull();
+    expect(sub.responses[`project_${slot}_joint_role`]).toBeNull();
+    expect(sub.responses[`project_${slot}_description`]).toBe('');
+  });
+
+  it('returns 403 when caller does not own invited character', async () => {
+    const { invId } = await setupAcceptedJoint(testChars);
+    const res = await request(app)
+      .post(`/api/project_invitations/${invId}/decouple`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 409 when invitation is not accepted (still pending)', async () => {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    const created = await createJoint(cycle, testChars[0], leadSub, [testChars[1].id]);
+
+    const res = await request(app)
+      .post(`/api/project_invitations/${created.invitations[0]._id}/decouple`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+    expect(res.status).toBe(409);
+    expect(res.body.current_status).toBe('pending');
+  });
+
+  it('returns 409 on double-decouple', async () => {
+    const { invId } = await setupAcceptedJoint(testChars);
+    const userHeader = playerUser([testChars[1].id]);
+
+    const r1 = await request(app)
+      .post(`/api/project_invitations/${invId}/decouple`)
+      .set('X-Test-User', userHeader)
+      .send({});
+    expect(r1.status).toBe(200);
+
+    const r2 = await request(app)
+      .post(`/api/project_invitations/${invId}/decouple`)
+      .set('X-Test-User', userHeader)
+      .send({});
+    expect(r2.status).toBe(409);
+    expect(r2.body.current_status).toBe('decoupled');
+  });
+
+  it('ST may decouple on behalf of a player', async () => {
+    const { invId } = await setupAcceptedJoint(testChars);
+    const res = await request(app)
+      .post(`/api/project_invitations/${invId}/decouple`)
+      .set('X-Test-User', stUser())
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.invitation.status).toBe('decoupled');
+  });
+
+  it('returns 404 on missing invitation', async () => {
+    const res = await request(app)
+      .post(`/api/project_invitations/${new ObjectId().toString()}/decouple`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /api/project_invitations — JDT-3 enrichments', () => {
   it('enriches each invitation with its _joint document', async () => {
     const cycle = await insertCycle();

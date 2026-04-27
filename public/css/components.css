@@ -2738,6 +2738,33 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   border-radius: 3px;
 }
 
+/* ── JDT-6: lifecycle controls on a support slot ── */
+.dt-joint-decouple-row {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: var(--surf2);
+  border-left: 2px solid var(--crim-a40);
+  border-radius: 3px;
+}
+.dt-joint-decouple-btn {
+  background: transparent;
+  color: var(--crim);
+  border: 1px solid var(--crim-a40);
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-joint-decouple-btn:hover { background: var(--crim-a12); }
+.dt-joint-decouple-help {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: .8;
+}
+
 /* Joint badge on slot tabs (lead or support) */
 .dt-proj-tab-joint {
   position: relative;

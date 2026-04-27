@@ -768,6 +768,39 @@ async function handleInvitationDecline(invId, container) {
   }
 }
 
+// JDT-6: voluntary decouple from an accepted joint. Confirms with the
+// player, then calls /api/project_invitations/:id/decouple. On success the
+// server has cleared the joint slot fields on the submission; we re-fetch
+// the cycle + invitations and re-render to show the slot reverted to a
+// normal empty project slot.
+async function handleInvitationDecouple(invId, container) {
+  if (!invId) return;
+  const ok = window.confirm('Decouple from this joint? Your slot will be freed up.');
+  if (!ok) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    const result = await apiPost(`/api/project_invitations/${invId}/decouple`, {});
+    if (result?.submission) responseDoc = result.submission;
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Decoupled.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (/not accepted|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This joint is no longer in a state that can be decoupled. Refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Decouple failed: ' + err.message;
+    }
+  }
+}
+
 // JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
 // invitations list so badges, panels, and slot UI all reflect the latest state.
 async function refreshJointCaches() {
@@ -1506,6 +1539,13 @@ function renderForm(container) {
     const declineBtn = e.target.closest('.dt-pending-invitation-decline');
     if (declineBtn) {
       handleInvitationDecline(declineBtn.dataset.invitationId, container);
+      return;
+    }
+
+    // JDT-6: voluntary decouple from an accepted joint
+    const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
+    if (decoupleBtn) {
+      handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
       return;
     }
 
@@ -2585,6 +2625,20 @@ function renderProjectSlots(saved) {
       h += `<p class="qf-desc">What do you bring to this joint? What is your character's angle on it?</p>`;
       h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
       h += `</div>`;
+
+      // JDT-6: Decouple — voluntary exit from this joint. The participant's
+      // invitation_id is recorded on joint.participants when accept landed.
+      const myParticipant = (joint.participants || []).find(p =>
+        String(p.submission_id) === String(responseDoc?._id) &&
+        Number(p.project_slot) === Number(n) &&
+        !p.decoupled_at
+      );
+      if (myParticipant?.invitation_id) {
+        h += `<div class="dt-joint-decouple-row">`;
+        h += `<button type="button" class="dt-joint-decouple-btn" data-invitation-id="${esc(myParticipant.invitation_id)}">Decouple from this joint</button>`;
+        h += `<p class="qf-desc dt-joint-decouple-help">Decoupling frees this slot. The lead is notified, and you can use the slot for a different project.</p>`;
+        h += `</div>`;
+      }
 
       h += `</div>`; // close dt-proj-pane
       continue;
