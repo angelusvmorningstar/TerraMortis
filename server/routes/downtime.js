@@ -663,6 +663,77 @@ projectInvitationsRouter.post('/:id/decline', async (req, res) => {
   res.json(await projectInvitations().findOne({ _id: invId }));
 });
 
+// ── JDT-6: voluntary decouple by an accepted support ─────────────────
+// Caller must own invitation.invited_character_id (or be ST). Invitation
+// must currently be `accepted`. Atomically: invitation → decoupled,
+// participant entry on joint gets decoupled_at, support's submission slot
+// fields are cleared so the slot reverts to an empty solo project slot.
+projectInvitationsRouter.post('/:id/decouple', async (req, res) => {
+  const invId = req.params.id;
+  const inv = await projectInvitations().findOne({ _id: invId });
+  if (!inv) return res.status(404).json({ error: 'NOT_FOUND', message: 'Invitation not found' });
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(String(inv.invited_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your invitation' });
+    }
+  }
+
+  if (inv.status !== 'accepted') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Invitation is not accepted; nothing to decouple', current_status: inv.status });
+  }
+
+  const cycleOid = parseId(inv.cycle_id);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle_id on invitation' });
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(inv.joint_project_id));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+
+  const participant = (joint.participants || []).find(p => String(p.invitation_id) === String(invId));
+  if (!participant) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'No participant entry for this invitation' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Mutations: invitation → decoupled, participant entry → decoupled_at,
+  // submission slot fields cleared so the slot reverts to a free solo slot.
+  await projectInvitations().updateOne(
+    { _id: invId },
+    { $set: { status: 'decoupled', decoupled_at: now } },
+  );
+
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': invId },
+    { $set: { 'joint_projects.$[j].participants.$[p].decoupled_at': now } },
+    { arrayFilters: [{ 'j._id': joint._id }, { 'p.invitation_id': invId }] },
+  );
+
+  const subOid = parseId(String(participant.submission_id));
+  if (subOid) {
+    const slot = Number(participant.project_slot);
+    await submissions().updateOne(
+      { _id: subOid },
+      { $set: {
+        [`responses.project_${slot}_action`]: '',
+        [`responses.project_${slot}_joint_id`]: null,
+        [`responses.project_${slot}_joint_role`]: null,
+        [`responses.project_${slot}_description`]: '',
+        [`responses.project_${slot}_personal_notes`]: '',
+      }},
+    );
+  }
+
+  const updatedInv = await projectInvitations().findOne({ _id: invId });
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  const updatedSub = subOid ? await submissions().findOne({ _id: subOid }) : null;
+
+  res.json({ invitation: updatedInv, joint: updatedJoint, submission: updatedSub });
+});
+
 async function _sendPublishedEmail(submission) {
   try {
     const charId = submission.character_id instanceof ObjectId
