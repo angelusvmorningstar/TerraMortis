@@ -611,7 +611,7 @@ development_status:
   dtil-1-court-pulse-synthesis: review
   dtil-2-action-queue-triage: review
   dtil-3-auto-state-mechanical-flag: review
-  dtil-4-territory-pulse-synthesis: ready-for-dev
+  dtil-4-territory-pulse-synthesis: review
   epic-dtil-retrospective: optional
 
   # ---- Epic JDT — Joint Downtimes (largest, ships last) ----

@@ -90,6 +90,7 @@ function resolveTerrId(raw) {
 
 let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
 let _allCharacters  = [];   // GET /api/characters
+let _currentCycle   = null; // GET /api/downtime_cycles/:id — for DTIL-4 territory pulse injection
 let _currentCharId  = null;
 let _currentSub     = null;
 const _pushErrors   = new Map(); // charId → error message for failed pushes
@@ -126,15 +127,17 @@ export async function initDtStory(cycleId) {
   }
 
   try {
-    const [subs, chars] = await Promise.all([
+    const [subs, chars, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions?cycle_id=' + resolvedCycleId),
       apiGet('/api/characters'),
+      apiGet('/api/downtime_cycles').catch(() => []),
     ]);
     _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
       merit_actions: buildMeritActions(sub),
     }));
     _allCharacters  = Array.isArray(chars) ? chars : [];
+    _currentCycle   = (Array.isArray(cycles) ? cycles : []).find(c => String(c._id) === String(resolvedCycleId)) || null;
   } catch (err) {
     panel.innerHTML = `<div class="dt-story-empty">Failed to load data: ${err.message}</div>`;
     return;
@@ -2950,10 +2953,15 @@ const _GAP_TEXT = '*Your Storyteller is still finalising this section \u2014 con
  * Applicable sections that are NOT complete appear as gap placeholders.
  * Returns an empty string if zero sections are complete (push blocked).
  */
-export function compilePushOutcome(sub, char) {
+export function compilePushOutcome(sub, char, cycle) {
   // char is optional; when called from outside this module (e.g. story-tab.js)
   // _allCharacters is empty, so callers must pass char explicitly.
   if (!char) char = getCharForSub(sub);
+  // cycle is optional; falls back to module-level _currentCycle so that the
+  // DT Story tab's loaded cycle is used by all push paths transparently.
+  // Story-tab.js (player inline edit) calls without cycle and relies on this
+  // fallback being null — Territory Pulse is then omitted from the recompile.
+  const cyc = cycle || _currentCycle;
   const sn = sub.st_narrative || {};
   const sections = getApplicableSections(char, sub);
   const parts = [];
@@ -2965,14 +2973,32 @@ export function compilePushOutcome(sub, char) {
     if (key === 'feeding_validation') {
       // DTSR-7: when the ST has authored a feeding narrative (status complete,
       // non-empty response), publish it under "## Feeding". When absent, the
-      // section is omitted entirely — feeding has no gap text because the
-      // narrative is optional and most cycles don't need one.
-      if (sn.feeding_narrative?.status === 'complete') {
-        const response = sn.feeding_narrative?.response;
-        if (response?.trim()) {
-          parts.push(`## Feeding\n\n${response.trim()}`);
-          hasContent = true;
+      // section is omitted unless DTIL-4 territory pulses contribute content.
+      const narrativeText = (sn.feeding_narrative?.status === 'complete'
+        && sn.feeding_narrative?.response?.trim())
+        ? sn.feeding_narrative.response.trim()
+        : '';
+
+      // DTIL-4: append per-territory pulses for territories the player fed in.
+      // Skipped for no_feed submissions and when no cycle.territory_pulse map exists.
+      const pulseChunks = [];
+      const noFeed = sub.feeding_review?.pool_status === 'no_feed';
+      if (!noFeed && cyc?.territory_pulse) {
+        for (const terr of _feedTerrEntries(sub)) {
+          if (terr.id === 'barrens') continue; // Barrens fallback has no broadcast pulse
+          const pulse = cyc.territory_pulse[terr.id]?.draft;
+          if (pulse?.trim()) {
+            pulseChunks.push(`### Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
+          }
         }
+      }
+
+      if (narrativeText || pulseChunks.length) {
+        const sectionParts = ['## Feeding'];
+        if (narrativeText) sectionParts.push(narrativeText);
+        if (pulseChunks.length) sectionParts.push(pulseChunks.join('\n\n'));
+        parts.push(sectionParts.join('\n\n'));
+        hasContent = true;
       }
       continue;
 
@@ -3086,11 +3112,17 @@ async function _publishAllSubmissions(submissions) {
  */
 export async function publishAllForCycle(cycleId) {
   try {
-    const [subs, chars] = await Promise.all([
+    const [subs, chars, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions?cycle_id=' + cycleId),
       _allCharacters.length ? Promise.resolve(_allCharacters) : apiGet('/api/characters'),
+      apiGet('/api/downtime_cycles').catch(() => []),
     ]);
     if (!_allCharacters.length) _allCharacters = Array.isArray(chars) ? chars : [];
+    // DTIL-4: ensure _currentCycle is populated so compilePushOutcome can
+    // inject Territory Pulse when this path runs from the cycle reset wizard
+    // (which doesn't go through initDtStory first).
+    const cyc = (Array.isArray(cycles) ? cycles : []).find(c => String(c._id) === String(cycleId));
+    if (cyc) _currentCycle = cyc;
     const submissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
       merit_actions: buildMeritActions(sub),

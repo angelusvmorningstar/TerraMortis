@@ -408,6 +408,13 @@ export async function initDowntimeView(passedChars) {
       if (aqOpen) { _handleActionQueueOpenSub(aqOpen); return; }
       const aqExpand = e.target.closest('.dt-action-queue-text-toggle');
       if (aqExpand) { _handleActionQueueRowExpandToggle(aqExpand); return; }
+      // DTIL-4: Territory Pulse toggle/copy/save
+      const tpToggle = e.target.closest('.dt-territory-pulse-toggle-btn');
+      if (tpToggle) { _handleTerritoryPulseToggle(tpToggle); return; }
+      const tpCopy = e.target.closest('.dt-territory-pulse-copy-btn');
+      if (tpCopy) { _handleTerritoryPulseCopy(tpCopy); return; }
+      const tpSave = e.target.closest('.dt-territory-pulse-save-btn');
+      if (tpSave) { _handleTerritoryPulseSave(tpSave); return; }
     });
     // DTIL-2: Action Queue state dropdown change
     document.addEventListener('change', e => {
@@ -1895,6 +1902,171 @@ async function _deriveActionQueueDefaults(cycle, subs) {
     await updateCycle(cycle._id, { action_queue_state: newMap });
   } catch (err) {
     console.warn('Action Queue default derivation persistence failed:', err);
+  }
+}
+
+// ── DTIL-4: Territory Pulse ──────────────────────────────────────────────────
+
+function _feedTerrIdsForSub(sub) {
+  if (sub?.feeding_review?.pool_status === 'no_feed') return [];
+  let parsed = {};
+  try { parsed = JSON.parse(sub?.responses?.feeding_territories || '{}'); } catch { return []; }
+  const ids = new Set();
+  for (const [slug, val] of Object.entries(parsed)) {
+    if (!val || val === 'none' || val === 'Not feeding here') continue;
+    const id = resolveTerrId(slug);
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+function _territoryAmbienceLabel(territory) {
+  const confirmed = currentCycle?.confirmed_ambience?.[territory.id]?.ambience;
+  if (confirmed) return confirmed;
+  const cached = (cachedTerritories || []).find(t => t.id === territory.id || t.name === territory.name);
+  return cached?.ambience || territory.ambience || 'unknown';
+}
+
+function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
+  const ambience = _territoryAmbienceLabel(territory);
+  const profile  = cycle?.discipline_profile?.[territory.id] || {};
+  const discsUsed = Object.entries(profile)
+    .filter(([, c]) => c > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const feeders = [];
+  for (const sub of subs || []) {
+    if (!_feedTerrIdsForSub(sub).includes(territory.id)) continue;
+    const char = charById.get(String(sub.character_id));
+    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
+    feeders.push({ name, method, sortKey: char ? sortName(char) : (sub.character_name || '') });
+  }
+  feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2nd Edition LARP. The pulse describes the current atmosphere of the territory after a cycle of activity. Write 100 to 200 words of atmospheric prose covering what the place feels like right now, any rumours running through it, and how the recent activity has shaped its mood. Use British English. Do not invent specific characters or events not present in the inputs.`;
+
+  const lines = [
+    framing,
+    '',
+    `Territory: ${territory.name}`,
+    `Current ambience: ${ambience}`,
+    '',
+    'Disciplines used in this territory this cycle:',
+    discsUsed.length
+      ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} time${c === 1 ? '' : 's'})`).join('\n')
+      : '  None recorded this cycle.',
+    '',
+    'Players who fed here this cycle:',
+    feeders.length
+      ? feeders.map(f => `  - ${f.name}${f.method ? ` (${f.method})` : ''}`).join('\n')
+      : '  None recorded this cycle.',
+  ];
+  return lines.join('\n');
+}
+
+function renderTerritoryPulsePanel(cycle, subs, chars) {
+  if (!cycle) return '';
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const pulseMap = cycle.territory_pulse || {};
+
+  let h = `<div class="proc-disc-header"><span class="proc-amb-title">Territory Pulse</span></div>`;
+  h += `<div class="dt-territory-pulse-list">`;
+  for (const td of TERRITORY_DATA) {
+    const promptText = _buildTerritoryPulsePromptText(cycle, td, subs || [], charById);
+    const stored = pulseMap[td.id] || {};
+    const draft = stored.draft || '';
+    const ambience = _territoryAmbienceLabel(td);
+    const lastEdited = stored.last_edited_at
+      ? new Date(stored.last_edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
+    h += `<div class="dt-territory-pulse-row" data-terr-id="${esc(td.id)}" data-cycle-id="${esc(String(cycle._id))}">`;
+    h += `<div class="dt-territory-pulse-row-head">`;
+    h += `<span class="dt-territory-pulse-name">${esc(td.name)}</span>`;
+    h += `<span class="dt-territory-pulse-ambience">Ambience: ${esc(ambience)}</span>`;
+    h += `<button type="button" class="dt-territory-pulse-toggle-btn" data-terr-id="${esc(td.id)}">Show prompt</button>`;
+    h += `</div>`;
+    h += `<div class="dt-territory-pulse-prompt-block" data-terr-id="${esc(td.id)}" hidden>`;
+    h += `<textarea class="dt-territory-pulse-prompt-ta" readonly>${esc(promptText)}</textarea>`;
+    h += `<div class="dt-territory-pulse-actions">`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-copy-btn" data-terr-id="${esc(td.id)}">Copy prompt</button>`;
+    h += `<span class="dt-territory-pulse-copy-status"></span>`;
+    h += `</div></div>`;
+    h += `<label class="dt-territory-pulse-draft-lbl">Synthesis draft</label>`;
+    h += `<textarea class="dt-territory-pulse-draft-ta" data-terr-id="${esc(td.id)}" placeholder="Paste the LLM's pulse here…">${esc(draft)}</textarea>`;
+    h += `<div class="dt-territory-pulse-actions">`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-save-btn" data-terr-id="${esc(td.id)}">Save</button>`;
+    h += `<span class="dt-territory-pulse-save-status">${lastEdited ? 'Last saved ' + esc(lastEdited) : ''}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function _handleTerritoryPulseToggle(btn) {
+  const terrId = btn.dataset.terrId;
+  if (!terrId) return;
+  const block = document.querySelector(`.dt-territory-pulse-prompt-block[data-terr-id="${terrId}"]`);
+  if (!block) return;
+  const wasHidden = block.hasAttribute('hidden');
+  if (wasHidden) block.removeAttribute('hidden');
+  else block.setAttribute('hidden', '');
+  btn.textContent = wasHidden ? 'Hide prompt' : 'Show prompt';
+}
+
+async function _handleTerritoryPulseCopy(btn) {
+  const terrId = btn.dataset.terrId;
+  const block = document.querySelector(`.dt-territory-pulse-prompt-block[data-terr-id="${terrId}"]`);
+  const ta = block?.querySelector('.dt-territory-pulse-prompt-ta');
+  const status = block?.querySelector('.dt-territory-pulse-copy-status');
+  if (!ta) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    if (status) {
+      status.textContent = 'Copied';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Copy failed';
+  }
+}
+
+async function _handleTerritoryPulseSave(btn) {
+  const terrId = btn.dataset.terrId;
+  const row = btn.closest('.dt-territory-pulse-row');
+  const cycleId = row?.dataset.cycleId;
+  const ta = row?.querySelector(`.dt-territory-pulse-draft-ta[data-terr-id="${terrId}"]`);
+  const status = row?.querySelector('.dt-territory-pulse-save-status');
+  const promptTa = row?.querySelector('.dt-territory-pulse-prompt-ta');
+  if (!terrId || !cycleId || !ta) return;
+  if (status) status.textContent = 'Saving…';
+  try {
+    const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+      ? currentCycle
+      : allCycles.find(c => String(c._id) === cycleId);
+    const map = { ...(cyc?.territory_pulse || {}) };
+    map[terrId] = {
+      prompt_snapshot: promptTa?.value || '',
+      draft:           ta.value,
+      last_edited_at:  new Date().toISOString(),
+    };
+    await updateCycle(cycleId, { territory_pulse: map });
+    if (cyc) cyc.territory_pulse = map;
+    if (currentCycle && String(currentCycle._id) === cycleId) currentCycle.territory_pulse = map;
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].territory_pulse = map;
+    if (status) {
+      status.textContent = 'Saved';
+      setTimeout(() => {
+        if (status) {
+          const lastEdited = new Date(map[terrId].last_edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          status.textContent = 'Last saved ' + lastEdited;
+        }
+      }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Save failed';
   }
 }
 
@@ -9492,6 +9664,9 @@ export function renderCityOverview() {
     h += `<label class="proc-amb-notes-lbl">ST Notes</label>`;
     h += `<textarea class="proc-amb-notes city-ov-notes" placeholder="Working notes about the city this cycle...">${esc(notes)}</textarea>`;
     h += `</div>`;
+
+    // ── 6. Territory Pulse (DTIL-4) ───────────────────────────────
+    h += renderTerritoryPulsePanel(currentCycle, submissions, characters);
   }
 
   h += `</div>`; // dt-conflict-panel
