@@ -104,11 +104,8 @@
     <section id="d-downtime" class="domain">
       <div class="domain-header">
         <h2>Downtime</h2>
-        <div id="dt-sub-tab-bar">
-          <button class="dt-sub-tab-btn active" data-tab="city">DT City</button>
-          <button class="dt-sub-tab-btn" data-tab="processing">DT Processing</button>
-          <button class="dt-sub-tab-btn" data-tab="story">DT Story</button>
-        </div>
+        <!-- DTUX-1: sub-tab strip removed; #dt-phase-ribbon below is the
+             single nav surface (clickable tabs with sign-off badges). -->
       </div>
       <div id="dt-ctrl-bar">
         <div class="dt-toolbar">
@@ -125,13 +122,16 @@
         </div>
       </div>
       <div id="dt-phase-ribbon" style="display:none"></div>
+      <!-- DTUX-1: #dt-sub-ribbon retired (kept hidden via JS for deferred markup cleanup) -->
       <div id="dt-sub-ribbon" style="display:none"></div>
       <div id="dt-prep-panel" class="dt-prep-panel" style="display:none"></div>
       <div id="dt-processing-panel" class="dt-panel" style="display:none">
         <div id="downtime-content"></div>
       </div>
-      <div id="dt-city-panel" class="dt-panel"></div>
+      <div id="dt-city-panel" class="dt-panel" style="display:none"></div>
       <div id="dt-story-panel" class="dt-panel" style="display:none"></div>
+      <!-- DTUX-1: DT Ready phase — Push Cycle action area -->
+      <div id="dt-ready-panel" class="dt-panel" style="display:none"></div>
     </section>
 
     <!-- NPC Register domain (NPCR.1) -->

@@ -1229,7 +1229,7 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
-/* ── Cycle Phase Ribbon ── */
+/* ── DTUX-1: Cycle Phase Ribbon — clickable tabs with sign-off badges ── */
 #dt-phase-ribbon {
   display: flex;
   align-items: stretch;
@@ -1241,17 +1241,70 @@ body {
   gap: 0;
   padding: 0;
 }
-#dt-sub-ribbon {
+#dt-sub-ribbon { display: none; } /* DTUX-1: retired; markup remains for cleanup */
+
+/* Clickable phase tabs */
+.pr-tab {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--surf1);
-  border-bottom: 1px solid rgba(224, 196, 122, 0.2);
-  overflow-x: auto;
-  min-height: 34px;
-  gap: 0;
-  padding: 0 16px;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 120px;
+  padding: 0 24px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--bdr);
+  color: var(--txt3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
+.pr-tab:last-child { border-right: none; }
+.pr-tab:hover { background: var(--surf3); color: var(--txt2); }
+.pr-tab-active {
+  background: var(--accent);
+  color: var(--txt-on-dark);
+}
+.pr-tab-active:hover { background: var(--accent); color: var(--txt-on-dark); }
+.pr-tab-signed { color: var(--txt2); }
+.pr-tab-signed.pr-tab-active { color: var(--txt-on-dark); }
+.pr-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.pr-tab-badge-signed { color: var(--gold2); }
+.pr-tab-badge-empty  { color: var(--txt3); }
+.pr-tab-active .pr-tab-badge-signed { color: var(--txt-on-dark); }
+.pr-tab-active .pr-tab-badge-empty  { color: rgba(0,0,0,0.45); }
+.pr-tab-label { line-height: 1; }
+
+/* Sign-off button (rendered at bottom of each phase body) */
+.dt-signoff-btn {
+  font-family: var(--fl);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.dt-signoff-signed {
+  background: rgba(224, 196, 122, 0.12);
+  color: var(--gold2);
+  border-color: var(--gold2);
+}
+
+/* DT Ready panel content */
+.dt-ready-content { padding: 24px; }
+.dt-ready-title  { margin: 0 0 12px; color: var(--accent); font-family: var(--fh2); }
+.dt-ready-summary { margin: 0 0 12px; color: var(--txt2); }
+.dt-ready-hint    { margin: 0 0 16px; color: var(--txt3); font-size: 13px; }
+.dt-ready-actions { padding-top: 12px; border-top: 1px solid var(--bdr); }
 
 /* Main ribbon steps */
 .pr-step {
@@ -1790,14 +1843,8 @@ body {
 .dt-status-game { background: var(--accent-a8); color: var(--accent); font-weight: 600; }
 .dt-status-prep { background: var(--surf2); color: var(--txt3); font-weight: 600; }
 .dt-prep-panel { padding: 16px; border-bottom: 1px solid var(--bdr); }
-
-/* DT Prep chrome (prep-phase edit panel + its sub-status ribbon) belongs to
-   the DT Processing sub-tab only. Hide on DT City and DT Story to avoid the
-   prep panel and sub-ribbon leaking above their content. */
-#d-downtime[data-subtab="city"] #dt-prep-panel,
-#d-downtime[data-subtab="city"] #dt-sub-ribbon,
-#d-downtime[data-subtab="story"] #dt-prep-panel,
-#d-downtime[data-subtab="story"] #dt-sub-ribbon { display: none; }
+/* DTUX-1: data-subtab CSS hotfix from DTSR-3 removed — panel visibility now
+   driven directly by the phase ribbon's showDtuxPhase(). */
 .dt-prep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .dt-prep-field { display: flex; flex-direction: column; gap: 4px; }
 .dt-prep-early { margin-bottom: 16px; }
