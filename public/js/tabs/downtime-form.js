@@ -470,8 +470,24 @@ function collectResponses() {
   for (let n = 1; n <= sorcerySlotCount; n++) {
     const riteEl = document.getElementById(`dt-sorcery_${n}_rite`);
     responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : '';
-    const targetsEl = document.getElementById(`dt-sorcery_${n}_targets`);
-    responses[`sorcery_${n}_targets`] = targetsEl ? targetsEl.value : '';
+    // DTFP-6: collect structured target rows for this sorcery slot.
+    // Persisted shape: array of {type, value} objects, omitting empty rows.
+    const targetsBlock = document.querySelector(`[data-sorcery-slot-targets="${n}"]`);
+    if (targetsBlock) {
+      const arr = [];
+      targetsBlock.querySelectorAll('.dt-sorcery-target-row').forEach((row, ti) => {
+        const typeEl = row.querySelector(`input[name="dt-sorcery_${n}_targets_${ti}_type"]:checked`);
+        const valEl  = row.querySelector(`#dt-sorcery_${n}_targets_${ti}_value`);
+        const type = typeEl ? typeEl.value : '';
+        const value = valEl ? (valEl.value || '').trim() : '';
+        if (type && value) arr.push({ type, value });
+      });
+      responses[`sorcery_${n}_targets`] = arr;
+    } else {
+      // No DOM block (slot not currently rendered) — preserve any previously-saved value
+      const prior = responseDoc?.responses?.[`sorcery_${n}_targets`];
+      if (prior !== undefined) responses[`sorcery_${n}_targets`] = prior;
+    }
     const notesEl = document.getElementById(`dt-sorcery_${n}_notes`);
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
@@ -1706,6 +1722,36 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // DTFP-6: sorcery target row add / remove
+    const addTargetBtn = e.target.closest('.dt-sorcery-target-add-btn');
+    if (addTargetBtn) {
+      const responses = collectResponses();
+      const slot = addTargetBtn.dataset.sorcerySlot;
+      const key = `sorcery_${slot}_targets`;
+      const arr = Array.isArray(responses[key]) ? responses[key] : [];
+      arr.push({ type: '', value: '' });
+      responses[key] = arr;
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    const removeTargetBtn = e.target.closest('.dt-sorcery-target-remove-btn');
+    if (removeTargetBtn) {
+      const responses = collectResponses();
+      const slot = removeTargetBtn.dataset.sorcerySlot;
+      const idx = Number(removeTargetBtn.dataset.targetIdx);
+      const key = `sorcery_${slot}_targets`;
+      const arr = Array.isArray(responses[key]) ? responses[key] : [];
+      arr.splice(idx, 1);
+      if (arr.length === 0) arr.push({ type: '', value: '' }); // keep one empty row
+      responses[key] = arr;
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // NPC card selection
     const npcCard = e.target.closest('[data-npc-pick]');
     if (npcCard) {
@@ -2383,25 +2429,14 @@ function renderProjectSlots(saved) {
       const savedVal = saved[`project_${n}_target_value`] || '';
       h += '<div class="qf-field dt-target-flex">';
       h += `<label class="qf-label">What are you investigating?</label>`;
-      h += `<div class="dt-target-flex-radios">`;
-      for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
-        const chk = savedType === opt[0] ? ' checked' : '';
-        h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-project_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="project_${n}"> ${opt[1]}</label>`;
-      }
-      h += '</div>';
-      if (savedType === 'character') {
-        h += `<select id="dt-project_${n}_target_value" class="qf-select dt-flex-char-sel">`;
-        h += '<option value="">— Select Character —</option>';
-        for (const c of allCharacters) {
-          const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-          h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-        }
-        h += '</select>';
-      } else if (savedType === 'territory') {
-        h += renderTerritoryPills(`dt-project_${n}_target_value`, savedVal);
-      } else if (savedType === 'other') {
-        h += `<input type="text" id="dt-project_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
-      }
+      // DTFP-6: shared target picker; preserves the existing field id pattern
+      // (dt-project_N_target_value + dt-project_N_target_type radios) so the
+      // existing flex-type handler and collectResponses path keep working.
+      h += renderTargetPicker(`project_${n}_target`, {
+        savedType,
+        savedValue: savedVal,
+        allCharacters,
+      });
       h += '</div>';
     }
 
@@ -3049,10 +3084,30 @@ function renderSorcerySection(saved) {
       if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
       if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
-      h += renderQuestion({
-        key: `sorcery_${n}_targets`, label: 'Target/s',
-        type: 'text', required: false, desc: null,
-      }, saved[`sorcery_${n}_targets`] || '');
+      // DTFP-6: structured multi-target picker. Persisted shape is an array of
+      // {type, value} objects on responses[`sorcery_N_targets`]. Legacy string
+      // values render as a single 'other' row; the next save converts to array.
+      const rawTargets = saved[`sorcery_${n}_targets`];
+      const targets = Array.isArray(rawTargets)
+        ? rawTargets
+        : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
+      h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
+      h += `<label class="qf-label">Target/s</label>`;
+      for (let ti = 0; ti < targets.length; ti++) {
+        const t = targets[ti] || { type: '', value: '' };
+        h += `<div class="dt-sorcery-target-row" data-sorcery-target-row="${n}-${ti}">`;
+        h += renderTargetPicker(`sorcery_${n}_targets_${ti}`, {
+          savedType: t.type || '',
+          savedValue: t.value || '',
+          allCharacters,
+        });
+        if (targets.length > 1 || (t.type || t.value)) {
+          h += `<button type="button" class="dt-sorcery-target-remove-btn" data-sorcery-slot="${n}" data-target-idx="${ti}" title="Remove target">×</button>`;
+        }
+        h += `</div>`;
+      }
+      h += `<button type="button" class="dt-sorcery-target-add-btn" data-sorcery-slot="${n}">+ Add target</button>`;
+      h += `</div>`;
 
       h += renderQuestion({
         key: `sorcery_${n}_notes`, label: 'Additional Notes',
@@ -3468,6 +3523,44 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
 
 // ── Territory pill switcher helpers ──
 
+/**
+ * DTFP-6: shared structured target picker. Renders a Character / Territory /
+ * Other radio group plus the appropriate value control for the chosen type.
+ *
+ * `prefix` is used for ids and field names — e.g. 'project_2_target' produces
+ * radio name 'dt-project_2_target_type' and value-field id 'dt-project_2_target_value'.
+ * Used by project target_flex (single picker per slot) and sorcery targets
+ * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
+ */
+function renderTargetPicker(prefix, opts) {
+  const { savedType = '', savedValue = '', allCharacters = [], includeOptions = ['character', 'territory', 'other'] } = opts || {};
+  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+
+  let h = `<div class="dt-target-picker" data-target-prefix="${esc(prefix)}">`;
+  h += `<div class="dt-target-flex-radios">`;
+  for (const opt of includeOptions) {
+    const chk = savedType === opt ? ' checked' : '';
+    h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-${esc(prefix)}_type" value="${esc(opt)}"${chk} data-flex-type="${esc(prefix)}"> ${esc(labelMap[opt] || opt)}</label>`;
+  }
+  h += `</div>`;
+
+  if (savedType === 'character') {
+    h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
+    h += '<option value="">— Select Character —</option>';
+    for (const c of allCharacters) {
+      const sel = String(c.id) === String(savedValue) ? ' selected' : '';
+      h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+    }
+    h += '</select>';
+  } else if (savedType === 'territory') {
+    h += renderTerritoryPills(`dt-${prefix}_value`, savedValue);
+  } else if (savedType === 'other') {
+    h += `<input type="text" id="dt-${esc(prefix)}_value" class="qf-input" value="${esc(savedValue)}" placeholder="Describe the target">`;
+  }
+  h += `</div>`;
+  return h;
+}
+
 /** Single-select territory pills. fieldId = the hidden input ID (same as old select ID). */
 function renderTerritoryPills(fieldId, savedVal) {
   let h = `<div class="dt-terr-pills" data-terr-single="${fieldId}">`;
@@ -3596,25 +3689,12 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
     const savedVal = saved[`${prefix}_${n}_target_value`] || '';
     h += '<div class="qf-field dt-target-flex">';
     h += '<label class="qf-label">What are you investigating?</label>';
-    h += '<div class="dt-target-flex-radios">';
-    for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
-      const chk = savedType === opt[0] ? ' checked' : '';
-      h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-${prefix}_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="${prefix}_${n}"> ${opt[1]}</label>`;
-    }
-    h += '</div>';
-    if (savedType === 'character') {
-      h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select dt-flex-char-sel">`;
-      h += '<option value="">— Select Character —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-      }
-      h += '</select>';
-    } else if (savedType === 'territory') {
-      h += renderTerritoryPills(`dt-${prefix}_${n}_target_value`, savedVal);
-    } else if (savedType === 'other') {
-      h += `<input type="text" id="dt-${prefix}_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
-    }
+    // DTFP-6: shared target picker; field id pattern preserved for save/handlers.
+    h += renderTargetPicker(`${prefix}_${n}_target`, {
+      savedType,
+      savedValue: savedVal,
+      allCharacters,
+    });
     h += '</div>';
   }
 

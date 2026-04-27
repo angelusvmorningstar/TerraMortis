@@ -125,6 +125,17 @@ export function effectiveFeedViolence(sub) {
   return inferFeedViolenceFromMethod(sub?.responses?.['_feed_method']);
 }
 
+// DTFP-6: sorcery targets normaliser. Handles both legacy string shape
+// ('Vincent and the Harbour') and new array shape ([{type, value}, ...]).
+// Returns a single comma-separated display string (values only; type info
+// is preserved on the persisted shape for downstream consumers).
+export function normaliseSorceryTargets(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map(t => (t && t.value) ? String(t.value) : '').filter(Boolean).join(', ');
+  }
+  return raw ? String(raw) : '';
+}
+
 export const DOWNTIME_SECTIONS = [
   // 1. Court — gated: only shown if the player attended last game.
   // Prior "Politics and Correspondence" title renamed post-DTR.2/.3 since
