@@ -952,6 +952,10 @@ async function loadCycleById(cycleId) {
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions);
   renderReadyPanel(currentCycle, submissions);
+  // DTIL-3: derive Action Queue defaults from mechanical_flag_N before render
+  // so flagged items appear pre-triaged as Action Needed. Idempotent — only
+  // writes for items without an existing entry.
+  await _deriveActionQueueDefaults(currentCycle, submissions);
   // DTIL: refresh cycle-level intelligence layer now that submissions are loaded
   renderCycleIntelligence(currentCycle, submissions, characters);
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
@@ -1858,6 +1862,40 @@ function _handleActionQueueOpenSub(btn) {
 function _handleActionQueueRowExpandToggle(btn) {
   const row = btn.closest('.dt-action-queue-row');
   if (row) row.classList.toggle('expanded');
+}
+
+// DTIL-3: Auto-derive Action Queue state from responses.mechanical_flag_N on
+// first read. Items with the player's mechanical flag set default to
+// 'action_needed'; unflagged default to 'unread'. The derived defaults are
+// written to persistence in a single batched PUT so subsequent renders read
+// stable state and ST overrides remain sticky.
+async function _deriveActionQueueDefaults(cycle, subs) {
+  if (!cycle || !Array.isArray(subs) || !subs.length) return;
+  const stateMap = cycle.action_queue_state || {};
+  const updates = {};
+  for (const sub of subs) {
+    for (let n = 1; n <= 5; n++) {
+      const text = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!text) continue;
+      const key = `${sub._id}:${n - 1}`;
+      if (stateMap[key]) continue; // existing entry wins, idempotent
+      const flagged = sub.responses?.[`mechanical_flag_${n}`] === true;
+      updates[key] = { state: flagged ? 'action_needed' : 'unread', note: '' };
+    }
+  }
+  if (!Object.keys(updates).length) return; // no-op
+  const newMap = { ...stateMap, ...updates };
+  cycle.action_queue_state = newMap;
+  if (currentCycle && String(currentCycle._id) === String(cycle._id)) {
+    currentCycle.action_queue_state = newMap;
+  }
+  const idx = allCycles.findIndex(c => String(c._id) === String(cycle._id));
+  if (idx >= 0) allCycles[idx].action_queue_state = newMap;
+  try {
+    await updateCycle(cycle._id, { action_queue_state: newMap });
+  } catch (err) {
+    console.warn('Action Queue default derivation persistence failed:', err);
+  }
 }
 
 function renderPrepPanel(cycle) {

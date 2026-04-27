@@ -610,7 +610,7 @@ development_status:
   epic-dtil: in-progress
   dtil-1-court-pulse-synthesis: review
   dtil-2-action-queue-triage: review
-  dtil-3-auto-state-mechanical-flag: ready-for-dev
+  dtil-3-auto-state-mechanical-flag: review
   dtil-4-territory-pulse-synthesis: ready-for-dev
   epic-dtil-retrospective: optional
 
