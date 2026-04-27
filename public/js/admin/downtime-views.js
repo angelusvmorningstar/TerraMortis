@@ -5381,6 +5381,35 @@ const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automat
  * Renders: effect chip, auto successes (if auto), outcome toggle, ST notes textarea.
  * Omits: pool builder, roll card, success modifier, validation status buttons.
  */
+/**
+ * DTSR-5: Outcome zone for merit actions. Renders Approved / Partial / Failed
+ * buttons + one-line outcome summary input. Suppressed for blocked actions.
+ * Lives in the merit panel's left column so resolution sits with the action
+ * details (four-zone canon: Action Definition -> Outcome).
+ */
+function _renderMeritOutcomeZone(entry, rev) {
+  const category   = entry.meritCategory || 'misc';
+  const actionType = entry.actionType    || 'misc';
+  const matrixRow  = MERIT_MATRIX[category]?.[actionType] || null;
+  const mode       = matrixRow?.mode || 'auto';
+  if (mode === 'blocked') return '';
+
+  const key            = entry.key;
+  const outcome        = rev.merit_outcome   || '';
+  const outcomeSummary = rev.outcome_summary || '';
+
+  let h = `<div class="proc-feed-mod-panel proc-merit-outcome-zone" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Outcome</div>`;
+  h += `<div class="proc-merit-outcome-btns">`;
+  for (const [val, label] of [['approved', 'Approved'], ['partial', 'Partial'], ['failed', 'Failed']]) {
+    h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
+  }
+  h += `</div>`;
+  h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
+  h += `</div>`;
+  return h;
+}
+
 function _renderCompactMeritPanel(entry, rev) {
   const key        = entry.key;
   const category   = entry.meritCategory || 'misc';
@@ -5391,11 +5420,8 @@ function _renderCompactMeritPanel(entry, rev) {
   const effect     = matrixRow?.effect || '';
   const effectAuto = matrixRow?.effectAuto || '';
   const isAuto     = mode === 'auto';
-  const isBlocked  = mode === 'blocked';
   const autoSucc   = isAuto && dots != null ? dots : null;
-  const outcome        = rev.merit_outcome    || '';
-  const outcomeSummary = rev.outcome_summary  || '';
-  const thread         = rev.notes_thread     || [];
+  const thread     = rev.notes_thread     || [];
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -5418,19 +5444,6 @@ function _renderCompactMeritPanel(entry, rev) {
     h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Automatic Successes</div>`;
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base successes</span><span class="proc-mod-static">${autoSucc}</span></div>`;
-    h += `</div>`;
-  }
-
-  // ── Outcome toggle ──
-  if (!isBlocked) {
-    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-    h += `<div class="proc-mod-panel-title">Outcome</div>`;
-    h += `<div class="proc-merit-outcome-btns">`;
-    for (const [val, label] of [['approved', 'Approved'], ['partial', 'Partial'], ['failed', 'Failed']]) {
-      h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
-    }
-    h += `</div>`;
-    h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
     h += `</div>`;
   }
 
@@ -6524,6 +6537,8 @@ function renderActionPanel(entry, review) {
       h += `<textarea class="proc-detail-ta proc-rumour-content-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was heard\u2026">${esc(_rumCont)}</textarea>`;
       h += `</div>`;
     }
+    // DTSR-5: Outcome zone, relocated from right sidebar (also new on rolled merits)
+    h += _renderMeritOutcomeZone(entry, rev);
   }
 
   // ── Sorcery details card (editable) — above connected characters ──

@@ -5036,6 +5036,11 @@ body {
   gap: 8px;
 }
 
+/* DTSR-5: relocated Outcome zone in left column of merit panels */
+.proc-merit-outcome-zone {
+  margin-top: 12px;
+}
+
 .proc-merit-outcome-btns {
   display: flex;
   gap: 6px;
