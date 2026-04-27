@@ -586,7 +586,7 @@ development_status:
   dtsr-4-inline-edit-historical-cycles: review
   dtsr-5-merit-resolution-relocation: ready-for-dev
   dtsr-6-merit-summary-format-verify: ready-for-dev
-  dtsr-7-feeding-narrative-field: ready-for-dev
+  dtsr-7-feeding-narrative-field: review
   dtsr-8-player-flag-ui: ready-for-dev
   dtsr-9-st-flag-inbox: ready-for-dev
   dtsr-10-narrative-textarea-min-height: ready-for-dev

@@ -1141,6 +1141,36 @@ function renderFeedingValidation(char, sub, stNarrative) {
     h += `</dl>`;
   }
 
+  // ── DTSR-7: ST-authored feeding narrative (additive; not a completion gate) ──
+  // Renders for any feeding state including no_feed (an ST may want to write
+  // about the choice not to feed). The Feeding section's overall completion
+  // dot remains driven by validation/no_feed/roll, not by narrative state.
+  const fn         = stNarrative?.feeding_narrative || {};
+  const fnText     = fn.response || '';
+  const fnStatus   = fn.status || 'draft';
+  const fnRevNote  = fn.revision_note || '';
+  const fnComplete = fnStatus === 'complete';
+  const fnDotClass = fnComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  const fnIsRev    = fnStatus === 'needs_revision';
+
+  h += `<div class="dt-feed-val-narrative-block">`;
+  h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
+  h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
+  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
+  h += `<button class="dt-story-mark-complete-btn">`;
+  h += `<span class="dt-story-completion-dot ${fnDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
+  h += `</div></div>`;
+  h += `</div>`;
+
   h += `</div></div>`;
   return h;
 }
@@ -2871,7 +2901,18 @@ export function compilePushOutcome(sub, char) {
     const key = section.key;
 
     if (key === 'feeding_validation') {
-      continue; // feeding handled separately via feeding_roll; no authored narrative response
+      // DTSR-7: when the ST has authored a feeding narrative (status complete,
+      // non-empty response), publish it under "## Feeding". When absent, the
+      // section is omitted entirely — feeding has no gap text because the
+      // narrative is optional and most cycles don't need one.
+      if (sn.feeding_narrative?.status === 'complete') {
+        const response = sn.feeding_narrative?.response;
+        if (response?.trim()) {
+          parts.push(`## Feeding\n\n${response.trim()}`);
+          hasContent = true;
+        }
+      }
+      continue;
 
     } else if (key === 'story_moment') {
       // Prefer new consolidated field; fall back to legacy letter or touchstone
@@ -3614,6 +3655,46 @@ async function handleCacophonySave(btn, status) {
 }
 
 // Populate after all handlers are defined
+async function handleFeedingNarrativeSave(btn, status) {
+  // DTSR-7. Mirrors handleHomeReportSave but writes to st_narrative.feeding_narrative
+  // and re-renders the Feeding section in place. The section's completion dot
+  // (validated/no_feed/roll) is unaffected by this save.
+  const section = btn.closest('.dt-story-section[data-section="feeding_validation"]');
+  if (!section || !_currentSub) return;
+
+  const ta      = section.querySelector('.dt-feed-narrative-ta');
+  const text    = ta?.value || '';
+  const revTa   = section.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
+  const user    = getUser();
+  const author  = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.feeding_narrative': { response: text, author, status, revision_note: revNote },
+    });
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.feeding_narrative = { response: text, author, status, revision_note: revNote };
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
+    const char = getCharForSub(_currentSub);
+    const newHtml = renderFeedingValidation(char, _currentSub, _currentSub.st_narrative);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    section.replaceWith(tmp.firstElementChild);
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+  } catch (err) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+    console.error('handleFeedingNarrativeSave', err);
+  }
+}
+
 async function handleHomeReportSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="home_report"]');
   if (!section || !_currentSub) return;
@@ -3652,9 +3733,10 @@ async function handleHomeReportSave(btn, status) {
 }
 
 Object.assign(SECTION_SAVE_HANDLERS, {
-  project_responses: handleProjectSave,
-  story_moment:      handleStoryMomentSave,
-  territory_reports: handleTerritorySave,
-  cacophony_savvy:   handleCacophonySave,
-  home_report:       handleHomeReportSave,
+  project_responses:  handleProjectSave,
+  story_moment:       handleStoryMomentSave,
+  territory_reports:  handleTerritorySave,
+  cacophony_savvy:    handleCacophonySave,
+  home_report:        handleHomeReportSave,
+  feeding_validation: handleFeedingNarrativeSave,
 });

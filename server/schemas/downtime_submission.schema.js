@@ -353,6 +353,9 @@ export const downtimeSubmissionSchema = {
         letter_from_home:   { type: 'object', additionalProperties: true },
         touchstone:         { type: 'object', additionalProperties: true },
         feeding_validation: { type: 'object', additionalProperties: true },
+        // DTSR-7: ST-authored feeding-scene narrative.
+        // Shape: { response, author, status: 'draft'|'complete'|'needs_revision', revision_note }
+        feeding_narrative:  { type: 'object', additionalProperties: true },
         territory_reports:  { type: 'array' },
         project_responses:  { type: 'array' },
         action_responses:   { type: 'array' },
