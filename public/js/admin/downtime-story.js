@@ -28,6 +28,21 @@ const SECTION_SAVE_HANDLERS = {};
 // Per-character collapse-complete state (survives re-renders within session)
 const _collapseComplete = new Set(); // char IDs with collapse-complete active
 
+// DTSR-11: global collapse-complete toggle. Persisted to localStorage so the
+// preference survives reloads. Per-char toggle still works independently;
+// a card collapses if either rule is active (CSS handles the OR).
+const COLLAPSE_GLOBAL_KEY = 'tm_dt_story_collapse_global';
+function isCollapseGlobalActive() {
+  try { return localStorage.getItem(COLLAPSE_GLOBAL_KEY) === '1'; }
+  catch { return false; }
+}
+function setCollapseGlobal(active) {
+  try {
+    if (active) localStorage.setItem(COLLAPSE_GLOBAL_KEY, '1');
+    else localStorage.removeItem(COLLAPSE_GLOBAL_KEY);
+  } catch { /* ignore */ }
+}
+
 // ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
 
 const CS_ACTION_PRIORITY = [
@@ -143,6 +158,19 @@ export async function initDtStory(cycleId) {
   // Event delegation — pill clicks, push button, publish all
   rail.addEventListener('click', e => {
     if (e.target.closest('.dt-story-publish-all-btn')) { handlePublishAll(); return; }
+    // DTSR-11: global collapse-complete toggle
+    const globalBtn = e.target.closest('.dt-story-collapse-global-btn');
+    if (globalBtn) {
+      const newActive = !isCollapseGlobalActive();
+      setCollapseGlobal(newActive);
+      for (const el of document.querySelectorAll('.dt-story-char-content')) {
+        if (newActive) el.dataset.collapseCompleteGlobal = 'true';
+        else delete el.dataset.collapseCompleteGlobal;
+      }
+      globalBtn.textContent = newActive ? 'Show all (all)' : 'Collapse complete (all)';
+      globalBtn.classList.toggle('active', newActive);
+      return;
+    }
     const pushBtn = e.target.closest('.dt-story-push-btn');
     if (pushBtn) { handlePushCharacter(pushBtn.dataset.subId, pushBtn.dataset.charId); return; }
     const pill = e.target.closest('.dt-story-pill');
@@ -838,7 +866,11 @@ function renderNavRail() {
   const isST = isSTRole();
   let h = '';
   if (isST) {
-    h += `<div class="dt-story-rail-header"><button class="dt-story-publish-all-btn">Publish All</button></div>`;
+    const globalActive = isCollapseGlobalActive();
+    h += `<div class="dt-story-rail-header">`;
+    h += `<button class="dt-story-publish-all-btn">Publish All</button>`;
+    h += `<button class="dt-story-collapse-global-btn${globalActive ? ' active' : ''}">${globalActive ? 'Show all (all)' : 'Collapse complete (all)'}</button>`;
+    h += `</div>`;
   }
   for (const sub of sorted) {
     const char = getCharForSub(sub);
@@ -1014,7 +1046,8 @@ function renderCharacterView(char, sub) {
   const sections = getApplicableSections(char, sub);
   const charId = String(char?._id || '');
   const collapseActive = _collapseComplete.has(charId);
-  const collapseAttr = collapseActive ? ' data-collapse-complete="true"' : '';
+  const globalActive   = isCollapseGlobalActive();
+  const collapseAttr = `${collapseActive ? ' data-collapse-complete="true"' : ''}${globalActive ? ' data-collapse-complete-global="true"' : ''}`;
 
   let h = `<div class="dt-story-char-content"${collapseAttr}>`;
 

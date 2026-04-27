@@ -590,7 +590,7 @@ development_status:
   dtsr-8-player-flag-ui: ready-for-dev
   dtsr-9-st-flag-inbox: ready-for-dev
   dtsr-10-narrative-textarea-min-height: review
-  dtsr-11-collapse-completed-cards: ready-for-dev
+  dtsr-11-collapse-completed-cards: review
   epic-dtsr-retrospective: optional
 
   # ---- Epic DTFP — Player Form Polish ----
