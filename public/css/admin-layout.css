@@ -6620,8 +6620,8 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-merit-summary-rows { padding: 0 14px; }
 .dt-merit-summary-row {
   display: grid;
-  grid-template-columns: 160px 110px 1fr;
-  gap: 8px;
+  grid-template-columns: 170px minmax(0, 2fr) minmax(0, 1.5fr);
+  gap: 12px;
   padding: 5px 0;
   border-bottom: 1px solid var(--surf3);
   font-size: 12px;
@@ -6629,8 +6629,9 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 }
 .dt-merit-summary-row:last-child { border-bottom: none; }
 .dt-merit-summary-merit { color: var(--txt1); font-weight: 500; }
-.dt-merit-summary-action { color: var(--txt3); font-family: var(--fl); }
+.dt-merit-summary-desired { color: var(--txt2); }
 .dt-merit-summary-outcome { color: var(--txt1); }
+.dt-merit-summary-desired.dt-merit-summary-empty,
 .dt-merit-summary-missing .dt-merit-summary-outcome { color: var(--txt3); font-style: italic; }
 .dt-story-section-actions {
   padding: 8px 14px;

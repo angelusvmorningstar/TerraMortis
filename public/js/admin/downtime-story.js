@@ -1759,7 +1759,7 @@ function renderMeritSummary(char, sub) {
     const { label: meritLabel } = getMeritDetails(char, a);
     groups[cat].push({
       meritLabel: meritLabel || a.merit_type || 'Merit',
-      actionType: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '—',
+      desiredOutcome: a.desired_outcome?.trim() || '',
       outcome: rev.outcome_summary?.trim() || '',
     });
   });
@@ -1783,7 +1783,8 @@ function renderMeritSummary(char, sub) {
         const missingClass = entry.outcome ? '' : ' dt-merit-summary-missing';
         h += `<div class="dt-merit-summary-row${missingClass}">`;
         h += `<span class="dt-merit-summary-merit">${esc(entry.meritLabel)}</span>`;
-        h += `<span class="dt-merit-summary-action">${esc(entry.actionType)}</span>`;
+        const desiredEmpty = entry.desiredOutcome ? '' : ' dt-merit-summary-empty';
+        h += `<span class="dt-merit-summary-desired${desiredEmpty}">${entry.desiredOutcome ? esc(entry.desiredOutcome) : '— No desired outcome stated —'}</span>`;
         h += `<span class="dt-merit-summary-outcome">${entry.outcome ? esc(entry.outcome) : '— Outcome not yet recorded —'}</span>`;
         h += `</div>`;
       }
