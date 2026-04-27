@@ -630,6 +630,103 @@ submissionsRouter.put('/:id', async (req, res) => {
   }
 });
 
+// JDT-6: Delete a downtime submission with joint cascade. ST only.
+//   - If the submission is the lead on any joint, cancel that joint
+//     (cancelled_reason='lead-submission-deleted'), flip pending invitations
+//     to cancelled-by-lead, and clear all accepted supports' slot fields.
+//   - If the submission is an accepted participant on any joint, decouple
+//     the participant entry and flip their invitation to decoupled.
+//   - Then delete the submission.
+submissionsRouter.delete('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID' });
+
+  const sub = await submissions().findOne({ _id: oid });
+  if (!sub) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+
+  const cycleOid = sub.cycle_id instanceof ObjectId ? sub.cycle_id : parseId(String(sub.cycle_id));
+  const subIdStr = String(oid);
+  const now = new Date().toISOString();
+  const cascade = { joints_cancelled: 0, participants_decoupled: 0 };
+
+  if (cycleOid) {
+    const cycle = await cycles().findOne({ _id: cycleOid });
+    if (cycle) {
+      // ── Lead cascade ──
+      const leadJoints = (cycle.joint_projects || []).filter(j =>
+        String(j.lead_submission_id) === subIdStr && !j.cancelled_at
+      );
+      for (const joint of leadJoints) {
+        await cycles().updateOne(
+          { _id: cycleOid, 'joint_projects._id': joint._id },
+          { $set: {
+            'joint_projects.$.cancelled_at': now,
+            'joint_projects.$.cancelled_reason': 'lead-submission-deleted',
+          }},
+        );
+        await getCollection('project_invitations').updateMany(
+          { joint_project_id: String(joint._id), status: 'pending' },
+          { $set: { status: 'cancelled-by-lead', cancelled_at: now } },
+        );
+        for (const p of (joint.participants || []).filter(p => !p.decoupled_at)) {
+          const psubOid = parseId(String(p.submission_id));
+          if (psubOid) {
+            const slot = Number(p.project_slot);
+            await submissions().updateOne(
+              { _id: psubOid },
+              { $set: {
+                [`responses.project_${slot}_action`]: '',
+                [`responses.project_${slot}_joint_id`]: null,
+                [`responses.project_${slot}_joint_role`]: null,
+                [`responses.project_${slot}_description`]: '',
+                [`responses.project_${slot}_personal_notes`]: '',
+              }},
+            );
+          }
+          await getCollection('project_invitations').updateOne(
+            { _id: p.invitation_id },
+            { $set: { status: 'decoupled', decoupled_at: now } },
+          );
+          await cycles().updateOne(
+            { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': p.invitation_id },
+            { $set: { 'joint_projects.$[j].participants.$[pp].decoupled_at': now } },
+            { arrayFilters: [{ 'j._id': joint._id }, { 'pp.invitation_id': p.invitation_id }] },
+          );
+        }
+        cascade.joints_cancelled++;
+      }
+
+      // ── Participant cascade ──
+      // Re-read cycle in case lead-cascade above edited it
+      const refreshed = await cycles().findOne({ _id: cycleOid });
+      const partJoints = (refreshed?.joint_projects || []).filter(j =>
+        !j.cancelled_at && (j.participants || []).some(p =>
+          String(p.submission_id) === subIdStr && !p.decoupled_at
+        )
+      );
+      for (const joint of partJoints) {
+        for (const p of joint.participants.filter(p =>
+          String(p.submission_id) === subIdStr && !p.decoupled_at
+        )) {
+          await getCollection('project_invitations').updateOne(
+            { _id: p.invitation_id },
+            { $set: { status: 'decoupled', decoupled_at: now } },
+          );
+          await cycles().updateOne(
+            { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': p.invitation_id },
+            { $set: { 'joint_projects.$[j].participants.$[pp].decoupled_at': now } },
+            { arrayFilters: [{ 'j._id': joint._id }, { 'pp.invitation_id': p.invitation_id }] },
+          );
+          cascade.participants_decoupled++;
+        }
+      }
+    }
+  }
+
+  await submissions().deleteOne({ _id: oid });
+  res.json({ deleted: true, cascade });
+});
+
 // ── DTSR-8 / DTSR-9: section flags ──────────────────────────────────
 // Players flag a section of their published outcome they want their
 // ST to review. STs resolve flags via the DT Story inbox (DTSR-9).

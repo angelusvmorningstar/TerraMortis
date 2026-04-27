@@ -578,6 +578,113 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participant
   });
 });
 
+describe('DELETE /api/downtime_submissions/:id — JDT-6 joint cascade', () => {
+  async function createAcceptedJoint(testChars, leadIdx = 0, supportIdx = 1) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[leadIdx].id, cycle._id);
+    await insertSub(testChars[supportIdx].id, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[leadIdx].id]))
+      .send(jointBody(testChars[leadIdx].id, leadSub._id, 1, [testChars[supportIdx].id]));
+    expect(r.status).toBe(201);
+    const accept = await request(app)
+      .post(`/api/project_invitations/${r.body.invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[supportIdx].id]))
+      .send({});
+    expect(accept.status).toBe(200);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations, accept: accept.body };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('deleting the lead submission cancels the joint and decouples accepted supports', async () => {
+    const { cycle, leadSub, joint, accept } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${leadSub._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    expect(res.body.cascade.joints_cancelled).toBe(1);
+
+    // Joint is cancelled with the right reason
+    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
+    expect(j.cancelled_at).toBeTruthy();
+    expect(j.cancelled_reason).toBe('lead-submission-deleted');
+
+    // Accepted invitation flipped to decoupled
+    const inv = await getCollection('project_invitations').findOne({ joint_project_id: joint._id });
+    expect(inv.status).toBe('decoupled');
+
+    // Support's submission slot was cleared
+    const supportSub = await getCollection('downtime_submissions').findOne({ _id: new ObjectId(accept.submission._id) });
+    expect(supportSub.responses.project_1_action).toBe('');
+    expect(supportSub.responses.project_1_joint_id).toBeNull();
+
+    // Lead's submission is gone
+    const gone = await getCollection('downtime_submissions').findOne({ _id: leadSub._id });
+    expect(gone).toBeNull();
+  });
+
+  it('deleting a participant submission decouples that participant only', async () => {
+    const { cycle, joint, accept } = await createAcceptedJoint(testChars);
+
+    const supportSubId = String(accept.submission._id);
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${supportSubId}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.cascade.participants_decoupled).toBe(1);
+    expect(res.body.cascade.joints_cancelled).toBe(0);
+
+    // Joint is NOT cancelled
+    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
+    expect(j.cancelled_at).toBeNull();
+    // Participant entry is decoupled
+    const p = (j.participants || []).find(x => String(x.character_id) === testChars[1].id);
+    expect(p.decoupled_at).toBeTruthy();
+
+    // Invitation flipped to decoupled
+    const inv = await getCollection('project_invitations').findOne({ joint_project_id: joint._id });
+    expect(inv.status).toBe('decoupled');
+  });
+
+  it('rejects players (ST only)', async () => {
+    const { leadSub } = await createAcceptedJoint(testChars);
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${leadSub._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 on missing submission', async () => {
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${new ObjectId().toString()}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(404);
+  });
+
+  it('deleting a submission with no joint links is a no-op cascade', async () => {
+    const cycle = await insertCycle();
+    const sub = await insertSub(testChars[0].id, cycle._id);
+
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${sub._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.cascade.joints_cancelled).toBe(0);
+    expect(res.body.cascade.participants_decoupled).toBe(0);
+  });
+});
+
 describe('GET /api/project_invitations', () => {
   it('returns 400 when cycle_id missing', async () => {
     const res = await request(app)

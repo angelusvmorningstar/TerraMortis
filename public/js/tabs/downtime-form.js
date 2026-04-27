@@ -2769,20 +2769,42 @@ function renderProjectSlots(saved) {
       continue;
     }
 
+    // ── JDT-2: detect existing joint up front so JDT-6 can lock the
+    // action-type select while the joint has active invitations. ──
+    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
+    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
+    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
+
+    // JDT-6: action-type change is blocked while the joint has any pending
+    // or accepted (non-decoupled) invitation. Lead must cancel the joint
+    // first to repurpose the slot.
+    let lockActionType = false;
+    if (existingJoint) {
+      const activeInvs = _jointInvitations.filter(inv =>
+        String(inv.joint_project_id) === String(existingJoint._id) &&
+        (inv.status === 'pending' || inv.status === 'accepted')
+      );
+      if (activeInvs.length > 0) lockActionType = true;
+    }
+
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
-    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
+    const actionSelectAttrs = lockActionType
+      ? ' disabled title="Cancel the joint first to change action type."'
+      : '';
+    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}"${actionSelectAttrs}>`;
     for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
-    h += '</select></div>';
+    h += '</select>';
+    if (lockActionType) {
+      h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
+    }
+    h += '</div>';
 
     // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
-    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
-    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
-    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
     if (isJointEligible) {
       h += `<div class="qf-field dt-project-solo-joint-toggle">`;
       h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}> Solo</label>`;

@@ -2901,6 +2901,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-joint-desc-acknowledge-btn:hover { filter: brightness(1.1); }
 
+/* JDT-6: action-type locked help text on lead's joint slot */
+.dt-action-type-locked-help {
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: italic;
+  opacity: .85;
+}
+
 /* Joint badge on slot tabs (lead or support) */
 .dt-proj-tab-joint {
   position: relative;
