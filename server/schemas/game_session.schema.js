@@ -20,6 +20,8 @@ export const gameSessionSchema = {
     session_date:     { type: 'string', minLength: 1 },
     title:            { type: 'string' },
     game_number:      { type: 'integer', minimum: 1 },
+    chapter_number:   { type: 'integer', minimum: 1 },
+    chapter_label:    { type: 'string' },
     doors_open:       { type: 'string' },
     downtime_deadline:{ type: 'string' },
     created_at:       { type: 'string' },

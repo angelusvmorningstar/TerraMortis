@@ -1404,6 +1404,7 @@ function renderPrepPanel(cycle) {
 
   const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
+  const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
@@ -1435,6 +1436,8 @@ function renderPrepPanel(cycle) {
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
     `<div class="dt-prep-field"><label class="dt-lbl">Deadline Date/Time</label>` +
     `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
+    `<div class="dt-prep-field"><label class="dt-lbl" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">` +
+    `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
     `</div>` +
     `<div class="dt-prep-early">` +
     `<div class="dt-prep-early-title">Early Access Players</div>` +
@@ -1457,6 +1460,14 @@ function renderPrepPanel(cycle) {
     await updateCycle(cycle._id, { deadline_at: val ? new Date(val).toISOString() : null });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
+  });
+
+  document.getElementById('dt-chapter-finale-input')?.addEventListener('change', async e => {
+    const val = e.target.checked;
+    await updateCycle(cycle._id, { is_chapter_finale: val });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].is_chapter_finale = val;
+    cycle.is_chapter_finale = val;
   });
 
   panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
