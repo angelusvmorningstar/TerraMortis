@@ -1908,6 +1908,23 @@ function renderForm(container) {
     valEl.classList.toggle('dt-inf-negative', newVal < 0);
     valEl.classList.toggle('dt-inf-positive', newVal > 0);
 
+    // Sync ambience-direction labels around the stepper (DTFP-1)
+    const controlEl = valEl.closest('.dt-influence-control');
+    if (controlEl) {
+      controlEl.querySelectorAll('.dt-influence-label').forEach(el => el.remove());
+      if (newVal < 0) {
+        const lbl = document.createElement('span');
+        lbl.className = 'dt-influence-label dt-influence-label-left';
+        lbl.textContent = 'decreasing ambience';
+        controlEl.insertBefore(lbl, controlEl.firstChild);
+      } else if (newVal > 0) {
+        const lbl = document.createElement('span');
+        lbl.className = 'dt-influence-label dt-influence-label-right';
+        lbl.textContent = 'increasing ambience';
+        controlEl.appendChild(lbl);
+      }
+    }
+
     // Update budget display
     const remaining = budget - totalSpent;
     const budgetEl = document.getElementById('dt-influence-budget');
@@ -4368,12 +4385,16 @@ function renderQuestion(q, value) {
       for (const terr of INFLUENCE_TERRITORIES) {
         const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
         const val = infVals[tk] || 0;
+        const labelLeft  = val < 0 ? '<span class="dt-influence-label dt-influence-label-left">decreasing ambience</span>' : '';
+        const labelRight = val > 0 ? '<span class="dt-influence-label dt-influence-label-right">increasing ambience</span>' : '';
         h += '<div class="dt-influence-row">';
         h += `<span class="dt-influence-terr">${esc(terr)}</span>`;
         h += '<span class="dt-influence-control">';
+        h += labelLeft;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
         h += `<span class="dt-inf-val" id="inf-val-${tk}">${val}</span>`;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
+        h += labelRight;
         h += '</span>';
         h += '</div>';
       }

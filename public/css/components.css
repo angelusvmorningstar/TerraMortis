@@ -2436,6 +2436,16 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-inf-val.dt-inf-negative { color: var(--crim); }
 .dt-inf-val.dt-inf-positive { color: var(--influence-ok); }
 
+/* DTFP-1: ambience-direction labels around the influence stepper */
+.dt-influence-label {
+  color: var(--rp-txt3);
+  font-size: 0.8em;
+  font-style: italic;
+  white-space: nowrap;
+}
+.dt-influence-label-left  { margin-right: 0.25rem; }
+.dt-influence-label-right { margin-left:  0.25rem; }
+
 /* ── Project tabs ── */
 .dt-proj-tabs {
   display: flex;
