@@ -8549,3 +8549,98 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   font-family: inherit;
   width: 100%;
 }
+
+/* DTIL-4: Territory Pulse */
+.dt-territory-pulse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+.dt-territory-pulse-row {
+  padding: 12px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+}
+.dt-territory-pulse-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.dt-territory-pulse-name {
+  font-family: var(--fh);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  flex: 1;
+}
+.dt-territory-pulse-ambience {
+  font-size: 11px;
+  color: var(--txt3);
+  letter-spacing: 0.04em;
+}
+.dt-territory-pulse-toggle-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.dt-territory-pulse-toggle-btn:hover { color: var(--txt); border-color: var(--bdr3); }
+.dt-territory-pulse-prompt-block {
+  margin: 6px 0 10px;
+  padding: 8px;
+  background: var(--surf2);
+  border-radius: 3px;
+}
+.dt-territory-pulse-prompt-ta {
+  width: 100%;
+  min-height: 200px;
+  font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-territory-pulse-draft-lbl {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin: 8px 0 4px;
+}
+.dt-territory-pulse-draft-ta {
+  width: 100%;
+  min-height: 140px;
+  font-family: var(--ft);
+  font-size: 14px;
+  line-height: 1.55;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  padding: 8px;
+  resize: vertical;
+}
+.dt-territory-pulse-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.dt-territory-pulse-copy-status,
+.dt-territory-pulse-save-status {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 0.04em;
+}
