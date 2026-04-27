@@ -271,7 +271,10 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        responses['_feed_method'] = feedMethodId;
+        // DTFP-4: _feed_method is no longer persisted on new submissions.
+        // The method-card pick is UX-only scaffolding for the chip suggestions;
+        // the saved pool is whatever the player built via attr/skill/disc/spec.
+        // Legacy submissions keep their stored _feed_method for back-compat reads.
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
@@ -666,8 +669,8 @@ async function submitForm() {
       }
     }
   }
-  // Feeding method is required
-  if (!responses['_feed_method']) missing.push('Feeding Method');
+  // DTFP-4: feeding-method requirement dropped — pool components are the gate now
+  // (the existing pool-validation logic already flags incomplete attr/skill/disc).
   // Feeding territory is required
   const territories = (() => { try { return JSON.parse(responses['feeding_territories'] || '{}'); } catch { return {}; } })();
   if (!Object.values(territories).some(v => v && v !== 'none')) missing.push('Feeding Territory');
@@ -3347,13 +3350,14 @@ function renderMeritToggle(m, saved, formHtml) {
 // scope: 'feed' (main) or 'rote' — determines element IDs and data attributes
 function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec, scope) {
   const isOther = methodId === 'other';
+  const isOpen  = !methodId; // DTFP-4: no method picked — show all char discs in dropdown
   const m = isOther ? null : FEED_METHODS.find(fm => fm.id === methodId);
   const pfx = scope === 'rote' ? 'rote' : 'feed';
 
   // All attrs/skills the char has dots in
   const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
   const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
-  const allDiscs = isOther
+  const allDiscs = (isOther || isOpen)
     ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
     : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
 
@@ -4110,10 +4114,8 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (all methods) ──
-      if (feedMethodId) {
-        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
-      }
+      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
 
       // Blood type selection (always shown)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
