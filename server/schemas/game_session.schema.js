@@ -24,6 +24,9 @@ export const gameSessionSchema = {
     chapter_label:    { type: 'string' },
     doors_open:       { type: 'string' },
     downtime_deadline:{ type: 'string' },
+    // FIN-7: single per-session door fee. Paid attendance rows mirror this
+    // value into payment.amount at write time.
+    session_rate:     { type: 'number', minimum: 0 },
     created_at:       { type: 'string' },
     updated_at:       { type: 'string' },
 

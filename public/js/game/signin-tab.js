@@ -24,8 +24,9 @@ const PAYMENT_METHODS = [
   { value: 'exiles', label: 'Exiles (offset)' },
   { value: 'waived', label: 'Waived' },
 ];
-const DEFAULT_AMOUNT = 15;
-const ZERO_AMOUNT_METHODS = new Set(['exiles', 'waived', '']);
+// FIN-7: paid methods inherit session.session_rate; everything else is $0.
+const PAID_METHODS = new Set(['cash', 'payid', 'paypal']);
+const DEFAULT_RATE = 15;
 
 function calcEminence(session, chars) {
   const attendedIds = new Set(
@@ -143,6 +144,8 @@ function render() {
     ? arr.map(e => `${esc(e.name)} (${e.total})`).join(' · ')
     : '—';
 
+  const rate = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+
   let h = `<div class="si-header">
     <span class="si-session-label">${esc(label)}</span>
     <span class="si-stat">${attended} / ${att.length} attended</span>
@@ -151,6 +154,11 @@ function render() {
   <div class="si-eminence-block">
     <span class="si-em-label">Eminence:</span><span class="si-em-val">${fmtTop(eminence)}</span>
     <span class="si-em-label">Ascendancy:</span><span class="si-em-val">${fmtTop(ascendancy)}</span>
+  </div>
+  <div class="si-rate-block">
+    <label class="si-rate-label">Session rate ($)
+      <input type="number" id="si-session-rate" class="si-rate-input" min="0" step="1" value="${rate}">
+    </label>
   </div>`;
 
   h += '<div class="si-list">';
@@ -170,8 +178,8 @@ function render() {
       </div>`;
     }
 
-    const { method: currentMethod, amount: legacyAmt } = readPayment(a);
-    const currentAmount = a.payment?.amount ?? (legacyAmt || '');
+    const { method: currentMethod } = readPayment(a);
+    const rowAmount = PAID_METHODS.has(currentMethod) ? rate : 0;
     const payOpts = PAYMENT_METHODS.map(m =>
       `<option value="${esc(m.value)}"${currentMethod === m.value ? ' selected' : ''}>${esc(m.label)}</option>`
     ).join('');
@@ -188,7 +196,7 @@ function render() {
       <select class="si-pay-sel" data-idx="${idx}">
         ${payOpts}
       </select>
-      <input type="number" class="si-pay-amt" data-idx="${idx}" min="0" step="1" value="${currentAmount}" placeholder="$">
+      <span class="si-pay-amt-display">$${rowAmount}</span>
     </div>`;
   });
   h += '</div>';
@@ -225,16 +233,8 @@ function wireEvents() {
       const entry = _session.attendance[idx];
       if (!entry) return;
       const method = sel.value;
-      // Build structured payment (fin.2 schema). Reset amount sensibly.
-      const prevAmount = entry.payment?.amount;
-      let amount;
-      if (ZERO_AMOUNT_METHODS.has(method)) {
-        amount = 0;
-      } else if (prevAmount != null && prevAmount > 0) {
-        amount = prevAmount;            // keep whatever coordinator had typed
-      } else {
-        amount = DEFAULT_AMOUNT;        // first time switching to a real method
-      }
+      const rate = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+      const amount = PAID_METHODS.has(method) ? rate : 0;
       entry.payment = { ...(entry.payment || {}), method, amount };
       // Legacy mirror for any old readers
       entry.payment_method = method;
@@ -243,15 +243,24 @@ function wireEvents() {
     });
   });
 
-  _el.querySelectorAll('.si-pay-amt').forEach(inp => {
-    inp.addEventListener('change', () => {
-      const idx = parseInt(inp.dataset.idx);
-      const entry = _session.attendance[idx];
-      if (!entry) return;
-      const amount = Number(inp.value) || 0;
-      entry.payment = { ...(entry.payment || {}), amount };
+  const rateInput = _el.querySelector('#si-session-rate');
+  if (rateInput) {
+    rateInput.addEventListener('change', () => {
+      const v = parseFloat(rateInput.value);
+      if (!Number.isFinite(v) || v < 0) {
+        rateInput.value = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+        return;
+      }
+      _session.session_rate = v;
+      // Sweep paid rows so their stored amount mirrors the new rate.
+      for (const a of (_session.attendance || [])) {
+        const m = a.payment?.method;
+        if (PAID_METHODS.has(m)) {
+          a.payment = { ...(a.payment || {}), method: m, amount: v };
+        }
+      }
       scheduleAutosave();
       render();
     });
-  });
+  }
 }
