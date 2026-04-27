@@ -6502,6 +6502,101 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-story-rail-header { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; border-bottom: 1px solid var(--bdr); margin-bottom: 8px; width: 100%; }
 .dt-story-publish-all-btn { background: transparent; border: 1px solid var(--gold2); border-radius: 3px; color: var(--gold2); cursor: pointer; font-size: 11px; padding: 3px 10px; }
 .dt-story-publish-all-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── DTSR-9: Player flag inbox ── */
+.dt-story-flag-inbox { margin-bottom: 12px; }
+.dt-flag-inbox-empty {
+  padding: 8px 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt3);
+  font-style: italic;
+  font-size: 12px;
+}
+.dt-flag-inbox-header { padding: 6px 0; }
+.dt-flag-inbox-header h3 {
+  margin: 0;
+  color: var(--gold2);
+  font-family: var(--ft);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dt-flag-inbox-rows { display: flex; flex-direction: column; gap: 6px; }
+.dt-flag-inbox-row {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--gold2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-flag-inbox-row-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.dt-flag-inbox-char { color: var(--txt1); font-weight: 600; }
+.dt-flag-inbox-section { color: var(--txt2); }
+.dt-flag-inbox-cat {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.dt-flag-inbox-cat-inconsistent { background: rgba(224, 196, 122, 0.15); color: var(--gold2); border: 1px solid var(--gold-a40); }
+.dt-flag-inbox-cat-wrong_story  { background: rgba(139, 0, 0, 0.15); color: var(--crim); border: 1px solid rgba(139, 0, 0, 0.4); }
+.dt-flag-inbox-cat-other        { background: var(--surf3); color: var(--txt2); border: 1px solid var(--bdr); }
+.dt-flag-inbox-time { color: var(--txt3); font-size: 11px; margin-left: auto; }
+.dt-flag-inbox-reason { color: var(--txt2); font-size: 12px; font-style: italic; padding: 2px 0; }
+.dt-flag-inbox-actions { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.dt-flag-inbox-open-btn,
+.dt-flag-inbox-resolve-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.dt-flag-inbox-open-btn:hover,
+.dt-flag-inbox-resolve-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-flag-inbox-resolve-form { margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.dt-flag-inbox-resolve-note {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 12px;
+  padding: 4px 8px;
+  resize: vertical;
+}
+.dt-flag-inbox-resolve-actions { display: flex; gap: 6px; align-items: center; }
+.dt-flag-inbox-resolve-confirm {
+  background: var(--gold2);
+  border: 1px solid var(--gold2);
+  border-radius: 3px;
+  color: var(--bg);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.dt-flag-inbox-resolve-cancel {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.dt-flag-inbox-resolve-status { color: var(--txt3); font-size: 11px; }
 /* DTSR-11: global collapse-complete toggle in rail header */
 .dt-story-collapse-global-btn {
   background: transparent;

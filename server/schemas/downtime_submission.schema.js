@@ -367,6 +367,31 @@ export const downtimeSubmissionSchema = {
     // ── Published outcome (promoted from st_review for players) ──
     published_outcome: { type: 'string' },
 
+    // ── DTSR-8: Player section flags ─────────────────────────────
+    // Players can flag any section of their published Story view as
+    // problematic (Inconsistent / Wrong story / Other). STs resolve via
+    // DT Story tab inbox (DTSR-9). Recalled flags are hidden but kept.
+    section_flags: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['_id', 'section_key', 'category', 'created_at', 'player_id', 'status'],
+        properties: {
+          _id:             { type: 'string' },
+          section_key:     { type: 'string' },
+          section_idx:     { type: ['integer', 'null'] },
+          category:        { type: 'string', enum: ['inconsistent', 'wrong_story', 'other'] },
+          reason:          { type: 'string' },
+          created_at:      { type: 'string' },
+          player_id:       { type: 'string' },
+          status:          { type: 'string', enum: ['open', 'resolved', 'recalled'] },
+          resolved_at:     { type: ['string', 'null'] },
+          resolution_note: { type: ['string', 'null'] },
+        },
+        additionalProperties: true,
+      },
+    },
+
     // ── CSV import structured data ───────────────────────────
     _raw: {
       type: 'object',

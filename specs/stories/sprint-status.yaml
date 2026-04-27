@@ -587,8 +587,8 @@ development_status:
   dtsr-5-merit-resolution-relocation: review
   dtsr-6-merit-summary-format-verify: review
   dtsr-7-feeding-narrative-field: review
-  dtsr-8-player-flag-ui: ready-for-dev
-  dtsr-9-st-flag-inbox: ready-for-dev
+  dtsr-8-player-flag-ui: review
+  dtsr-9-st-flag-inbox: review
   dtsr-10-narrative-textarea-min-height: review
   dtsr-11-collapse-completed-cards: review
   epic-dtsr-retrospective: optional

@@ -10,7 +10,7 @@
  *   isSectionComplete(sn, key)     — base completion check (status === 'complete')
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPut, apiPatch } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
@@ -142,6 +142,13 @@ export async function initDtStory(cycleId) {
 
   panel.innerHTML = '';
 
+  // DTSR-9: Player flag inbox — surfaces all open section flags across the cycle
+  const inbox = document.createElement('div');
+  inbox.id = 'dt-story-flag-inbox';
+  inbox.className = 'dt-story-flag-inbox';
+  inbox.innerHTML = renderFlagInbox(_allSubmissions);
+  panel.appendChild(inbox);
+
   // Nav rail
   const rail = document.createElement('div');
   rail.id = 'dt-story-nav-rail';
@@ -181,6 +188,16 @@ export async function initDtStory(cycleId) {
 
   // Event delegation — all panel button clicks, routed by section key
   panel.addEventListener('click', e => {
+    // DTSR-9: Player flag inbox actions
+    const flagOpenBtn = e.target.closest('.dt-flag-inbox-open-btn');
+    if (flagOpenBtn) { handleFlagInboxOpen(flagOpenBtn); return; }
+    const flagResolveBtn = e.target.closest('.dt-flag-inbox-resolve-btn');
+    if (flagResolveBtn) { showFlagInboxResolveForm(flagResolveBtn); return; }
+    const flagResolveConfirm = e.target.closest('.dt-flag-inbox-resolve-confirm');
+    if (flagResolveConfirm) { handleFlagInboxResolveConfirm(flagResolveConfirm); return; }
+    const flagResolveCancel = e.target.closest('.dt-flag-inbox-resolve-cancel');
+    if (flagResolveCancel) { hideFlagInboxResolveForm(flagResolveCancel); return; }
+
     // Collapse-complete toggle
     const collapseToggle = e.target.closest('.dt-story-collapse-toggle');
     if (collapseToggle) {
@@ -3785,3 +3802,169 @@ Object.assign(SECTION_SAVE_HANDLERS, {
   home_report:        handleHomeReportSave,
   feeding_validation: handleFeedingNarrativeSave,
 });
+
+// ── DTSR-9: Player flag inbox ───────────────────────────────────────
+
+const FLAG_CATEGORY_LABELS = {
+  inconsistent: 'Inconsistent',
+  wrong_story:  'Wrong story',
+  other:        'Other',
+};
+
+function _collectOpenFlags(subs) {
+  const flags = [];
+  for (const sub of subs) {
+    for (const flag of (sub.section_flags || [])) {
+      if (flag.status !== 'open') continue;
+      flags.push({ ...flag, _sub_id: String(sub._id), _character_id: String(sub.character_id || '') });
+    }
+  }
+  flags.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return flags;
+}
+
+function _flagInboxSectionLabel(flag, sub, char) {
+  const key = flag.section_key;
+  if (key === 'project_responses' && flag.section_idx != null) {
+    const slot = Number(flag.section_idx) + 1;
+    const title = sub?.responses?.[`project_${slot}_title`] || `Project ${slot}`;
+    return `Project: ${title}`;
+  }
+  if (key === 'cacophony_savvy' && flag.section_idx != null) {
+    return `Rumour ${Number(flag.section_idx) + 1}`;
+  }
+  const labelMap = {
+    story_moment:       'Story Moment',
+    home_report:        'Home Report',
+    feeding_validation: 'Feeding',
+    merit_summary:      'Allies & Asset Summary',
+    cacophony_savvy:    'Rumours',
+  };
+  if (labelMap[key]) return labelMap[key];
+  // Fallback: try the section list helper
+  try {
+    const sections = getApplicableSections(char, sub);
+    const match = sections.find(s => s.key === key);
+    if (match?.label) return match.label;
+  } catch { /* ignore */ }
+  return key || 'Unknown section';
+}
+
+function _relTime(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const diff = Date.now() - t;
+  const m = Math.round(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if (d < 14) return `${d}d ago`;
+  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function renderFlagInbox(subs) {
+  const flags = _collectOpenFlags(subs);
+  if (!flags.length) {
+    return '<div class="dt-flag-inbox-empty">No open player flags this cycle.</div>';
+  }
+  let h = `<div class="dt-flag-inbox-header"><h3>Player Flags (${flags.length} open)</h3></div>`;
+  h += '<div class="dt-flag-inbox-rows">';
+  for (const flag of flags) {
+    const sub = _allSubmissions.find(s => String(s._id) === flag._sub_id);
+    const char = _allCharacters.find(c => String(c._id) === String(sub?.character_id));
+    const charName = char ? displayName(char) : (sub?.character_name || 'Unknown');
+    const label = _flagInboxSectionLabel(flag, sub, char);
+    const cat = FLAG_CATEGORY_LABELS[flag.category] || 'Flagged';
+    const reasonShort = (flag.reason || '').length > 120
+      ? (flag.reason.slice(0, 117) + '…')
+      : (flag.reason || '');
+    const charId = String(sub?.character_id || '');
+    h += `<div class="dt-flag-inbox-row" data-flag-id="${esc(String(flag._id))}" data-sub-id="${esc(flag._sub_id)}">`;
+    h += `<div class="dt-flag-inbox-row-meta">`;
+    h += `<span class="dt-flag-inbox-char">${esc(charName)}</span>`;
+    h += `<span class="dt-flag-inbox-section">${esc(label)}</span>`;
+    h += `<span class="dt-flag-inbox-cat dt-flag-inbox-cat-${esc(flag.category)}">${esc(cat)}</span>`;
+    h += `<span class="dt-flag-inbox-time">${esc(_relTime(flag.created_at))}</span>`;
+    h += `</div>`;
+    if (reasonShort) {
+      h += `<div class="dt-flag-inbox-reason" title="${esc(flag.reason || '')}">${esc(reasonShort)}</div>`;
+    }
+    h += `<div class="dt-flag-inbox-actions">`;
+    h += `<button type="button" class="dt-flag-inbox-open-btn" data-char-id="${esc(charId)}" data-section-key="${esc(flag.section_key)}"${flag.section_idx != null ? ` data-section-idx="${esc(String(flag.section_idx))}"` : ''}>Open section</button>`;
+    h += `<button type="button" class="dt-flag-inbox-resolve-btn">Resolve</button>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+function _refreshFlagInbox() {
+  const inbox = document.getElementById('dt-story-flag-inbox');
+  if (inbox) inbox.innerHTML = renderFlagInbox(_allSubmissions);
+}
+
+function handleFlagInboxOpen(btn) {
+  const charId = btn.dataset.charId;
+  if (charId) selectCharacter(charId);
+  // Best-effort scroll to the matching section after the character view renders
+  const sectionKey = btn.dataset.sectionKey;
+  requestAnimationFrame(() => {
+    const sectionEl = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
+    if (sectionEl) sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+function showFlagInboxResolveForm(btn) {
+  const row = btn.closest('.dt-flag-inbox-row');
+  if (!row) return;
+  if (row.querySelector('.dt-flag-inbox-resolve-form')) return;
+  const form = document.createElement('div');
+  form.className = 'dt-flag-inbox-resolve-form';
+  form.innerHTML =
+    '<textarea class="dt-flag-inbox-resolve-note" rows="2" placeholder="What did you do? (optional)"></textarea>'
+    + '<div class="dt-flag-inbox-resolve-actions">'
+      + '<button type="button" class="dt-flag-inbox-resolve-confirm">Confirm Resolve</button>'
+      + '<button type="button" class="dt-flag-inbox-resolve-cancel">Cancel</button>'
+      + '<span class="dt-flag-inbox-resolve-status"></span>'
+    + '</div>';
+  row.appendChild(form);
+}
+
+function hideFlagInboxResolveForm(btn) {
+  const form = btn.closest('.dt-flag-inbox-resolve-form');
+  if (form) form.remove();
+}
+
+async function handleFlagInboxResolveConfirm(btn) {
+  const row = btn.closest('.dt-flag-inbox-row');
+  if (!row) return;
+  const subId = row.dataset.subId;
+  const flagId = row.dataset.flagId;
+  const note = (row.querySelector('.dt-flag-inbox-resolve-note')?.value || '').trim();
+  const statusEl = row.querySelector('.dt-flag-inbox-resolve-status');
+  btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Resolving…';
+  try {
+    await apiPatch(`/api/downtime_submissions/${subId}/section-flag/${flagId}`, {
+      status: 'resolved', resolution_note: note,
+    });
+    // Update in-memory and refresh the inbox
+    const sub = _allSubmissions.find(s => String(s._id) === String(subId));
+    if (sub) {
+      const flag = (sub.section_flags || []).find(f => String(f._id) === String(flagId));
+      if (flag) {
+        flag.status = 'resolved';
+        flag.resolved_at = new Date().toISOString();
+        flag.resolution_note = note || null;
+      }
+    }
+    _refreshFlagInbox();
+  } catch (err) {
+    btn.disabled = false;
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}

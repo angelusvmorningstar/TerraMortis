@@ -239,6 +239,96 @@ submissionsRouter.put('/:id', async (req, res) => {
   }
 });
 
+// ── DTSR-8 / DTSR-9: section flags ──────────────────────────────────
+// Players flag a section of their published outcome they want their
+// ST to review. STs resolve flags via the DT Story inbox (DTSR-9).
+
+const VALID_FLAG_CATEGORIES = ['inconsistent', 'wrong_story', 'other'];
+
+// POST /api/downtime_submissions/:id/section-flag — players only, own submission
+submissionsRouter.post('/:id/section-flag', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID' });
+
+  if (req.user.role !== 'player') return res.status(403).json({ error: 'FORBIDDEN', message: 'Only players may flag a section' });
+
+  const sub = await submissions().findOne({ _id: oid });
+  if (!sub) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+
+  const charIds = (req.user.character_ids || []).map(id => id.toString());
+  if (!charIds.includes(sub.character_id?.toString())) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
+  }
+
+  const { section_key, section_idx, category, reason } = req.body || {};
+  if (!section_key || typeof section_key !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'section_key required' });
+  }
+  if (!VALID_FLAG_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid category' });
+  }
+  const reasonText = (reason || '').toString().trim();
+  if (category === 'other' && reasonText.length < 5) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'reason required for other (min 5 chars)' });
+  }
+
+  const flag = {
+    _id: new ObjectId().toString(),
+    section_key,
+    section_idx: section_idx == null ? null : Number(section_idx),
+    category,
+    reason: reasonText,
+    created_at: new Date().toISOString(),
+    player_id: String(req.user._id || req.user.id || ''),
+    status: 'open',
+    resolved_at: null,
+    resolution_note: null,
+  };
+
+  await submissions().updateOne({ _id: oid }, { $push: { section_flags: flag } });
+  res.status(201).json(flag);
+});
+
+// PATCH /api/downtime_submissions/:id/section-flag/:flagId
+// Player path: status: 'recalled' (only own submission, only own flag)
+// ST path:     status: 'resolved' + resolution_note
+submissionsRouter.patch('/:id/section-flag/:flagId', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID' });
+
+  const sub = await submissions().findOne({ _id: oid });
+  if (!sub) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+
+  const flag = (sub.section_flags || []).find(f => String(f._id) === String(req.params.flagId));
+  if (!flag) return res.status(404).json({ error: 'NOT_FOUND', message: 'Flag not found' });
+
+  const newStatus = req.body?.status;
+  if (newStatus === 'recalled') {
+    if (req.user.role !== 'player') return res.status(403).json({ error: 'FORBIDDEN', message: 'Players recall their own flags' });
+    const charIds = (req.user.character_ids || []).map(id => id.toString());
+    if (!charIds.includes(sub.character_id?.toString())) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
+    }
+    if (String(flag.player_id) !== String(req.user._id || req.user.id || '')) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your flag' });
+    }
+    flag.status = 'recalled';
+  } else if (newStatus === 'resolved') {
+    if (req.user.role !== 'st') return res.status(403).json({ error: 'FORBIDDEN', message: 'Only STs may resolve flags' });
+    flag.status = 'resolved';
+    flag.resolved_at = new Date().toISOString();
+    flag.resolution_note = (req.body?.resolution_note || '').toString().trim() || null;
+  } else {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'status must be "recalled" or "resolved"' });
+  }
+
+  await submissions().updateOne(
+    { _id: oid, 'section_flags._id': flag._id },
+    { $set: { 'section_flags.$': flag } }
+  );
+  res.json(flag);
+});
+
 async function _sendPublishedEmail(submission) {
   try {
     const charId = submission.character_id instanceof ObjectId
