@@ -2096,6 +2096,45 @@ function applyRoteToProjectSlot(container) {
 
 // ── Project slots (tabbed UI) ──
 
+// CHM-3: chapter-finale at-risk reminder for PT/MCI standing merits.
+// Renders zero, one, or two warning strips at the top of the Personal
+// Projects section. Gated on cycle.is_chapter_finale === true; cleared
+// per-merit by the ST ticking the matching box on CHM-2's audit panel
+// (cycle.maintenance_audit[char_id].{pt,mci}). MAINTENANCE_MERITS is
+// the source of truth for the gate set; PT and MCI need different
+// strawman copy so they're branched explicitly here.
+function maintenanceWarningHtml(meritName, cultNames) {
+  const label = cultNames && cultNames.length
+    ? `${meritName} (${cultNames.join(', ')})`
+    : meritName;
+  return `<div class="dt-maintenance-warning">`
+    + `<strong>Maintenance reminder.</strong> `
+    + `Your <strong>${esc(label)}</strong> has not been logged as maintained this chapter. `
+    + `This is the last cycle of the chapter, so use one of your projects below to maintain it, or it will lapse.`
+    + `</div>`;
+}
+
+function renderMaintenanceWarnings(char, cycle) {
+  if (!cycle || cycle.is_chapter_finale !== true) return '';
+  if (!char) return '';
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const merits = char.merits || [];
+  const out = [];
+
+  const hasPT = merits.some(m => m.name === 'Professional Training');
+  if (hasPT && audit.pt !== true) {
+    out.push(maintenanceWarningHtml('Professional Training', null));
+  }
+
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  if (mciMerits.length && audit.mci !== true) {
+    const cults = mciMerits.map(m => m.cult_name).filter(Boolean);
+    out.push(maintenanceWarningHtml('Mystery Cult Initiation', cults));
+  }
+
+  return out.join('');
+}
+
 function renderProjectSlots(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
   const slotCount = section?.projectSlots || 4;
@@ -2128,6 +2167,7 @@ function renderProjectSlots(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
+  h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
   // ── Tab bar ──
