@@ -38,6 +38,9 @@ window.fetch=function devFix(url,opts){
   if(method==='GET'&&seg[0]==='downtime_cycles')return _mock(DT_CYCLES);
   if(method==='GET'&&seg[0]==='downtime_submissions'){var qCycle=new URLSearchParams(urlStr.indexOf('?')>=0?urlStr.slice(urlStr.indexOf('?')+1):'').get('cycle_id');return _mock(qCycle?DT_SUBS.filter(function(s){return String(s.cycle_id)===qCycle;}):DT_SUBS);}
   if(method==='POST'&&seg[0]==='downtime_submissions')return _mock({_id:'sub_dev',status:'submitted'},201);
+  // DTSR-8/9: section flag create + recall/resolve. Echo-only — no persistence in dev mode.
+  if(method==='POST'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'){var b=opts.body?JSON.parse(opts.body):{};return _mock({_id:'flag_dev_'+Date.now(),section_key:b.section_key,section_idx:b.section_idx??null,category:b.category,reason:b.reason||'',created_at:new Date().toISOString(),player_id:'dev',status:'open',resolved_at:null,resolution_note:null},201);}
+  if(method==='PATCH'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'&&seg[3]){var pb=opts.body?JSON.parse(opts.body):{};return _mock({_id:seg[3],status:pb.status||'resolved',resolution_note:pb.resolution_note||null,resolved_at:new Date().toISOString()});}
   if(method==='GET'&&seg[0]==='game_sessions')return _mock(GAME_SESSIONS);
   if(method==='GET'&&seg[0]==='tickets')return _mock([]);
   if(method==='POST'&&seg[0]==='tickets')return _mock({_id:'tk_dev',status:'open'},201);
