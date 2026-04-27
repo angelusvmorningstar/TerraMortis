@@ -85,8 +85,9 @@ export async function initSignIn(el, chars) {
         _playerByCharId.set(String(p.character_id), p.display_name);
       }
     }
-  } catch {
-    // leave map empty; resolvePlayerName falls back to raw a.player or '\u2014'
+    console.info('[signin] player name lookup: %d mappings loaded', _playerByCharId.size);
+  } catch (err) {
+    console.warn('[signin] player name lookup failed; falling back to row.player strings', err);
   }
 
   render();
