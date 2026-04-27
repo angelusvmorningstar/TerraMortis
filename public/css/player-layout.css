@@ -917,6 +917,57 @@ body {
 .story-section-mech { background: var(--surf3); padding: 10px; border-radius: 4px; }
 .story-pre { font-family: monospace; font-size: 12px; white-space: pre-wrap; margin: 0; color: var(--txt3); }
 
+/* DTSR-4: ST inline edit on historical chronicle entries */
+.story-section-header { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+.story-section-header .story-section-head { margin: 0; }
+.story-section-edit {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  background: transparent;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.story-section-edit:hover { color: var(--accent); border-color: var(--accent); }
+.story-section-editing { background: var(--surf2); padding: 8px; border-radius: 4px; }
+.story-section-edit-ta {
+  width: 100%;
+  min-height: 80px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  padding: 8px;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.story-section-edit-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.story-section-save, .story-section-cancel {
+  padding: 4px 10px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.story-section-save { color: var(--accent); border-color: var(--accent); }
+.story-section-save:disabled { opacity: .5; cursor: default; }
+.story-section-edit-status { font-size: 11px; color: var(--txt3); font-style: italic; }
+.story-section-rumours li[data-section-key] { display: flex; align-items: baseline; gap: 8px; }
+.story-section-rumours li[data-section-key] .story-section-edit { margin-left: auto; }
+
 /* Downtime form component CSS moved to components.css */
 /* ── Document cards ── */
 
