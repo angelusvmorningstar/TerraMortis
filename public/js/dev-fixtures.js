@@ -43,6 +43,7 @@ window.fetch=function devFix(url,opts){
   if(method==='POST'&&seg[0]==='tickets')return _mock({_id:'tk_dev',status:'open'},201);
   if(method==='GET'&&seg[0]==='archive_documents')return _mock([]);
   if(method==='GET'&&seg[0]==='health')return _mock({ok:true});
+  if(method==='GET'&&seg[0]==='players'&&seg[1]==='display-names'){return _mock(CHARS.filter(function(c){return c.player;}).map(function(c){return{character_id:String(c._id),display_name:c.player};}));}
   if(method==='GET'&&seg[0]==='players')return _mock([]);
   return _orig(url,opts);
 };
