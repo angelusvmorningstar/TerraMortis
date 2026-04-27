@@ -346,6 +346,10 @@ export const downtimeSubmissionSchema = {
         locked:             { type: 'boolean' },
         personal_story:     { type: 'object', additionalProperties: true },
         home_report:        { type: 'object', additionalProperties: true },
+        // DTSR-2: consolidated Story Moment (Letter from Home + Touchstone Vignette).
+        // Shape: { response, format: 'letter'|'vignette', author, status, revision_note }
+        story_moment:       { type: 'object', additionalProperties: true },
+        // Retained for back-compat reads of historical pre-DTSR-2 submissions.
         letter_from_home:   { type: 'object', additionalProperties: true },
         touchstone:         { type: 'object', additionalProperties: true },
         feeding_validation: { type: 'object', additionalProperties: true },

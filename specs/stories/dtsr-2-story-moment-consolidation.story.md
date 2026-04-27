@@ -1,7 +1,7 @@
 ---
 id: dtsr.2
 epic: dtsr
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: [dtsr.1]
 ---
@@ -290,3 +290,71 @@ No client-side changes outside `downtime-story.js`. No data migration script.
 - **Depends on DTSR-1** (section reorder + Rumours rename). DTSR-1 places Letter and Touchstone at the top of the order; DTSR-2 collapses them into one slot in that same position.
 - **Independent of NPCP-2** in either direction. NPCP-2's free-text NPC reference is read by the Story Moment context block if present; if NPCP-2 has not shipped yet, the legacy `personal_story_npc_id` resolver continues to provide the NPC reference.
 - Independent of all other DTSR / DTFP / DTIL / JDT / CHM stories.
+
+---
+
+## Dev Agent Record
+
+### Completion Notes (2026-04-27)
+
+Consolidated Letter from Home + Touchstone Vignette into a single **Story Moment** section in the DT Story tab.
+
+Render path:
+- `getApplicableSections` now emits one `story_moment` entry where two used to live; sits at the top per DTSR-1's reorder.
+- `renderSection` switch dispatches to new `renderStoryMoment(char, sub, stNarrative)`.
+- `renderStoryMoment` reads `st_narrative.story_moment` first, then falls back to legacy `letter_from_home` then `touchstone`. Format radio defaults to letter; pre-fills from whichever legacy source had content; surfaces "Loaded from Letter from Home" / "Loaded from Touchstone Vignette" inline note when reading legacy.
+- Combined context block: touchstone list + player letter (correspondence chain) + player aspirations.
+- Format radio pure UI affordance — switching does not clear the textarea (HTML default behaviour).
+
+Save path:
+- New `handleStoryMomentSave` writes `st_narrative.story_moment = { response, format, author, status, revision_note }`. Legacy fields untouched on save.
+- New `handleCopyStoryMomentContext` reads active radio and dispatches: letter → `buildLetterContext` (with prev correspondence + storyMomentTarget resolution preserved); vignette → `buildTouchstoneContext`.
+- `SECTION_SAVE_HANDLERS.story_moment` registered.
+- Copy-context routing in panel click delegation collapsed two if-branches into one.
+
+Completion + tracker:
+- `getSectionProgress` reads `story_moment` first, falls back to legacy.
+- `isSectionDone` adds explicit `story_moment` case that ORs the new field with both legacy fields' complete status, so historical pre-DTSR-2 submissions still satisfy sign-off.
+- `compilePushOutcome` `key === 'story_moment'` branch prefers new field, falls back to whichever legacy field was complete.
+
+Removed (orphaned by dispatch consolidation):
+- `renderLetterFromHome`, `renderTouchstone` (~200 lines)
+- `handleLetterSave`, `handleTouchstoneSave`, `handleCopyLetterContext`, `handleCopyTouchstoneContext` (~180 lines)
+- TRACKER_LABELS legacy entries
+
+Helpers retained as documented:
+- `buildLetterContext` and `buildTouchstoneContext` (called by `handleCopyStoryMomentContext`).
+
+Schema: `story_moment` added to `st_narrative.properties` allowlist with descriptive comment; `letter_from_home` / `touchstone` retained for back-compat reads.
+
+CSS: minimal flex styles for `.dt-story-format-row`, `.dt-story-format-radio`, `.dt-story-legacy-load-note` added near existing `.dt-story-card-actions`.
+
+Syntax: `node --input-type=module --check` clean on both modified JS files.
+
+No tests added (project has no test framework). Manual smoke test pending against running localhost:8080 admin DT Story tab.
+
+### File List
+
+- `public/js/admin/downtime-story.js` — modified
+  - Copy-context routing: two if-branches → one for `story_moment`
+  - `getApplicableSections`: two entries → one (`story_moment`)
+  - `getSectionProgress`: legacy two-key branch → `story_moment` with legacy fallback
+  - `isSectionDone`: added explicit `story_moment` case with legacy OR
+  - TRACKER_LABELS: two entries → one
+  - `renderSection` switch: two cases → one (`story_moment`)
+  - Removed `renderLetterFromHome`, `renderTouchstone`
+  - Added `renderStoryMoment` (with format radio + legacy load note)
+  - `compilePushOutcome`: legacy two-key branch → `story_moment` with legacy fallback
+  - Removed `handleCopyLetterContext`, `handleLetterSave`, `handleCopyTouchstoneContext`, `handleTouchstoneSave`
+  - Added `handleCopyStoryMomentContext`, `handleStoryMomentSave`
+  - SECTION_SAVE_HANDLERS: two entries → one
+- `server/schemas/downtime_submission.schema.js` — modified
+  - `st_narrative.properties.story_moment` added with descriptive comment
+- `public/css/admin-layout.css` — modified
+  - Added `.dt-story-format-row`, `.dt-story-format-radio`, `.dt-story-legacy-load-note` rules
+
+### Change Log
+
+| Date       | Change                                                                                       |
+|------------|----------------------------------------------------------------------------------------------|
+| 2026-04-27 | DTSR-2 implemented: Letter from Home + Touchstone Vignette consolidated into Story Moment with format radio. New `st_narrative.story_moment` field; legacy `letter_from_home` and `touchstone` retained as read-time back-compat shims throughout (renderer, sign-off, push compile, tracker progress, copy-context). Net -91 lines in downtime-story.js. |
