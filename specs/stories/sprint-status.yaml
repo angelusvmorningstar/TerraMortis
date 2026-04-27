@@ -637,3 +637,31 @@ development_status:
   epic-dtux: in-progress
   dtux-1-phase-ribbon-nav: review
   epic-dtux-retrospective: optional
+
+  # ============================================================
+  # EPIC RDE — RULES DATA ENGINE (drafted 2026-04-28, not started)
+  # ============================================================
+  # Migrates every hardcoded character-affecting rule out of mci.js applyDerivedMerits
+  # and the accessors.js calc functions into ST-editable Mongo collections.
+  # ADR: specs/architecture/adr-001-rules-engine-schema.md
+  # Sequencing: RDE-1 (harness) blocks all. RDE-2 (schemas+API) blocks RDE-3+.
+  # RDE-3 (PT pilot) proves the parallel-write pattern. RDE-4 (UI shell + PT editor)
+  # follows. RDE-5+ are family-by-family migrations using PT as the template.
+  # Goal: STs control every bonus-dot rule from the admin Engine panel.
+  epic-rde: backlog
+  rde-1-test-harness: ready-for-dev
+  rde-2-schema-and-api: ready-for-dev
+  rde-3-pt-migration-pilot: ready-for-dev
+  rde-4-rules-data-shell-and-pt-editor: ready-for-dev
+  rde-5-mci-migration: ready-for-dev
+  rde-6-ohm-migration: ready-for-dev
+  rde-7-bloodline-grants-migration: ready-for-dev
+  rde-8-invested-lorekeeper-migration: ready-for-dev
+  rde-9-k9-falconry-migration: ready-for-dev
+  rde-10-viral-mythology-migration: ready-for-dev
+  rde-11-mdb-migration: ready-for-dev
+  rde-12-safe-word-migration: ready-for-dev
+  rde-13-ots-migration: ready-for-dev
+  rde-14-disc-attr-migration: ready-for-dev
+  rde-15-derived-stat-modifiers-migration: ready-for-dev
+  epic-rde-retrospective: optional
