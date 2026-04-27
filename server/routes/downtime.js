@@ -231,6 +231,271 @@ cyclesRouter.post('/:cycleId/joint_projects', async (req, res) => {
   res.status(201).json({ joint, invitations });
 });
 
+// JDT-6: Re-invite alternates while submissions are open. Lead-only.
+// Adds new pending invitations for the supplied invitee_character_ids,
+// skipping anyone who already has an active (pending|accepted) invitation
+// on this joint. Returns the newly-created invitations.
+cyclesRouter.post('/:cycleId/joint_projects/:jointId/reinvite', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+  if (joint.cancelled_at) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Joint is cancelled; cannot re-invite' });
+  }
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(String(joint.lead_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Only the lead can re-invite' });
+    }
+  }
+
+  const liveStatuses = ['prep', 'game', 'active', 'open'];
+  if (!liveStatuses.includes(cycle.status)) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not accepting invitations' });
+  }
+
+  const inviteeIdsRaw = req.body?.invitee_character_ids;
+  if (!Array.isArray(inviteeIdsRaw) || inviteeIdsRaw.length === 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invitee_character_ids must be a non-empty array' });
+  }
+  const inviteeIds = [...new Set(inviteeIdsRaw.map(String))];
+  if (inviteeIds.includes(String(joint.lead_character_id))) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Lead cannot invite themselves' });
+  }
+
+  // Drop anyone who already has an active invitation on this joint.
+  const existing = await getCollection('project_invitations')
+    .find({ joint_project_id: String(joint._id), status: { $in: ['pending', 'accepted'] } })
+    .toArray();
+  const blocked = new Set(existing.map(i => String(i.invited_character_id)));
+  const fresh = inviteeIds.filter(id => !blocked.has(id));
+  if (!fresh.length) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'All supplied invitees already have an active invitation on this joint' });
+  }
+
+  const now = new Date().toISOString();
+  const newInvitations = fresh.map(charId => ({
+    _id: new ObjectId().toString(),
+    joint_project_id: String(joint._id),
+    cycle_id: String(req.params.cycleId),
+    invited_character_id: charId,
+    invited_submission_id: null,
+    status: 'pending',
+    created_at: now,
+    responded_at: null,
+    decoupled_at: null,
+    cancelled_at: null,
+  }));
+  await getCollection('project_invitations').insertMany(newInvitations);
+
+  res.status(201).json({ joint, invitations: newInvitations });
+});
+
+// JDT-6: Cancel a joint. Lead-only path requires zero non-decoupled
+// participants AND zero pending invitations. ST-override path (body
+// st_override=true) bypasses the participant check and clears all
+// remaining accepted supports' slots as a safety valve.
+cyclesRouter.post('/:cycleId/joint_projects/:jointId/cancel', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+  if (joint.cancelled_at) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Joint already cancelled' });
+  }
+
+  const isST = req.user.role === 'st' || req.user.role === 'dev';
+  const userCharIds = (req.user.character_ids || []).map(String);
+  const isLead = userCharIds.includes(String(joint.lead_character_id));
+  const stOverride = !!(isST && req.body?.st_override);
+
+  if (!isLead && !stOverride) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Only the lead may cancel this joint' });
+  }
+
+  const activeParticipants = (joint.participants || []).filter(p => !p.decoupled_at);
+  const pendingInvs = await getCollection('project_invitations')
+    .find({ joint_project_id: String(joint._id), status: 'pending' })
+    .toArray();
+
+  if (isLead && !stOverride) {
+    if (activeParticipants.length > 0) {
+      return res.status(409).json({
+        error: 'CONFLICT',
+        message: 'Cannot cancel while accepted supports remain; ask them to decouple first',
+        accepted_supports: activeParticipants.length,
+      });
+    }
+    if (pendingInvs.length > 0) {
+      return res.status(409).json({
+        error: 'CONFLICT',
+        message: 'Cancel pending invitations first or wait for their response',
+        pending_invitations: pendingInvs.length,
+      });
+    }
+  }
+
+  const now = new Date().toISOString();
+  const cancelledReason = stOverride ? 'st-override' : 'lead-cancelled';
+
+  // Mutations: joint, pending invitations, lead's slot. ST override also
+  // clears any remaining accepted supports' slots.
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $set: {
+      'joint_projects.$.cancelled_at': now,
+      'joint_projects.$.cancelled_reason': cancelledReason,
+    }},
+  );
+
+  if (pendingInvs.length) {
+    await getCollection('project_invitations').updateMany(
+      { joint_project_id: String(joint._id), status: 'pending' },
+      { $set: { status: 'cancelled-by-lead', cancelled_at: now } },
+    );
+  }
+
+  // Clear lead's slot
+  const leadSubOid = parseId(String(joint.lead_submission_id));
+  if (leadSubOid) {
+    const slot = Number(joint.lead_project_slot);
+    await submissions().updateOne(
+      { _id: leadSubOid },
+      { $set: {
+        [`responses.project_${slot}_action`]: '',
+        [`responses.project_${slot}_is_joint`]: '',
+        [`responses.project_${slot}_joint_id`]: null,
+        [`responses.project_${slot}_joint_role`]: null,
+        [`responses.project_${slot}_joint_description`]: '',
+        [`responses.project_${slot}_joint_invited_ids`]: '[]',
+        [`responses.project_${slot}_description`]: '',
+      }},
+    );
+  }
+
+  // ST override — clear active supports' slots too
+  if (stOverride && activeParticipants.length) {
+    for (const p of activeParticipants) {
+      const subOid = parseId(String(p.submission_id));
+      if (!subOid) continue;
+      const slot = Number(p.project_slot);
+      await submissions().updateOne(
+        { _id: subOid },
+        { $set: {
+          [`responses.project_${slot}_action`]: '',
+          [`responses.project_${slot}_joint_id`]: null,
+          [`responses.project_${slot}_joint_role`]: null,
+          [`responses.project_${slot}_description`]: '',
+          [`responses.project_${slot}_personal_notes`]: '',
+        }},
+      );
+      // Also flip the accepted invitation to decoupled so the badge reads truthfully.
+      await getCollection('project_invitations').updateOne(
+        { _id: p.invitation_id },
+        { $set: { status: 'decoupled', decoupled_at: now } },
+      );
+      await cycles().updateOne(
+        { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': p.invitation_id },
+        { $set: { 'joint_projects.$[j].participants.$[pp].decoupled_at': now } },
+        { arrayFilters: [{ 'j._id': joint._id }, { 'pp.invitation_id': p.invitation_id }] },
+      );
+    }
+  }
+
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  res.json({ joint: updatedJoint, cancelled_reason: cancelledReason });
+});
+
+// JDT-6: Mid-cycle joint description edit by lead. Only fields in the
+// allowlist may be updated; description_updated_at is bumped to now so
+// support slots can show the "lead has updated" indicator.
+cyclesRouter.patch('/:cycleId/joint_projects/:jointId', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+  if (joint.cancelled_at) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Joint is cancelled' });
+  }
+
+  const isST = req.user.role === 'st' || req.user.role === 'dev';
+  const userCharIds = (req.user.character_ids || []).map(String);
+  const isLead = userCharIds.includes(String(joint.lead_character_id));
+  if (!isLead && !isST) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Only the lead may edit this joint' });
+  }
+
+  const allowed = ['description', 'target_type', 'target_value'];
+  const setOps = {};
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, k)) {
+      setOps[`joint_projects.$.${k}`] = req.body[k];
+    }
+  }
+  if (Object.keys(setOps).length === 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No editable fields supplied' });
+  }
+  const now = new Date().toISOString();
+  setOps['joint_projects.$.description_updated_at'] = now;
+
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $set: setOps },
+  );
+
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  res.json({ joint: updatedJoint });
+});
+
+// JDT-6: Support acknowledges that they've seen the lead's description
+// change. Sets participant.description_change_acknowledged_at to now.
+cyclesRouter.post('/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge', async (req, res) => {
+  const cycleOid = parseId(req.params.cycleId);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(req.params.jointId));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+
+  const charId = String(req.params.charId);
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(charId)) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your participant entry' });
+    }
+  }
+
+  const participant = (joint.participants || []).find(p => String(p.character_id) === charId && !p.decoupled_at);
+  if (!participant) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Participant not found or has decoupled' });
+  }
+
+  const now = new Date().toISOString();
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id },
+    { $set: { 'joint_projects.$[j].participants.$[p].description_change_acknowledged_at': now } },
+    { arrayFilters: [{ 'j._id': joint._id }, { 'p.character_id': charId, 'p.decoupled_at': null }] },
+  );
+
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  res.json({ joint: updatedJoint, acknowledged_at: now });
+});
+
 // PUT /api/downtime_cycles/:id — ST only
 cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
@@ -363,6 +628,103 @@ submissionsRouter.put('/:id', async (req, res) => {
       console.error('[email] Publish email error:', err.message)
     );
   }
+});
+
+// JDT-6: Delete a downtime submission with joint cascade. ST only.
+//   - If the submission is the lead on any joint, cancel that joint
+//     (cancelled_reason='lead-submission-deleted'), flip pending invitations
+//     to cancelled-by-lead, and clear all accepted supports' slot fields.
+//   - If the submission is an accepted participant on any joint, decouple
+//     the participant entry and flip their invitation to decoupled.
+//   - Then delete the submission.
+submissionsRouter.delete('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID' });
+
+  const sub = await submissions().findOne({ _id: oid });
+  if (!sub) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+
+  const cycleOid = sub.cycle_id instanceof ObjectId ? sub.cycle_id : parseId(String(sub.cycle_id));
+  const subIdStr = String(oid);
+  const now = new Date().toISOString();
+  const cascade = { joints_cancelled: 0, participants_decoupled: 0 };
+
+  if (cycleOid) {
+    const cycle = await cycles().findOne({ _id: cycleOid });
+    if (cycle) {
+      // ── Lead cascade ──
+      const leadJoints = (cycle.joint_projects || []).filter(j =>
+        String(j.lead_submission_id) === subIdStr && !j.cancelled_at
+      );
+      for (const joint of leadJoints) {
+        await cycles().updateOne(
+          { _id: cycleOid, 'joint_projects._id': joint._id },
+          { $set: {
+            'joint_projects.$.cancelled_at': now,
+            'joint_projects.$.cancelled_reason': 'lead-submission-deleted',
+          }},
+        );
+        await getCollection('project_invitations').updateMany(
+          { joint_project_id: String(joint._id), status: 'pending' },
+          { $set: { status: 'cancelled-by-lead', cancelled_at: now } },
+        );
+        for (const p of (joint.participants || []).filter(p => !p.decoupled_at)) {
+          const psubOid = parseId(String(p.submission_id));
+          if (psubOid) {
+            const slot = Number(p.project_slot);
+            await submissions().updateOne(
+              { _id: psubOid },
+              { $set: {
+                [`responses.project_${slot}_action`]: '',
+                [`responses.project_${slot}_joint_id`]: null,
+                [`responses.project_${slot}_joint_role`]: null,
+                [`responses.project_${slot}_description`]: '',
+                [`responses.project_${slot}_personal_notes`]: '',
+              }},
+            );
+          }
+          await getCollection('project_invitations').updateOne(
+            { _id: p.invitation_id },
+            { $set: { status: 'decoupled', decoupled_at: now } },
+          );
+          await cycles().updateOne(
+            { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': p.invitation_id },
+            { $set: { 'joint_projects.$[j].participants.$[pp].decoupled_at': now } },
+            { arrayFilters: [{ 'j._id': joint._id }, { 'pp.invitation_id': p.invitation_id }] },
+          );
+        }
+        cascade.joints_cancelled++;
+      }
+
+      // ── Participant cascade ──
+      // Re-read cycle in case lead-cascade above edited it
+      const refreshed = await cycles().findOne({ _id: cycleOid });
+      const partJoints = (refreshed?.joint_projects || []).filter(j =>
+        !j.cancelled_at && (j.participants || []).some(p =>
+          String(p.submission_id) === subIdStr && !p.decoupled_at
+        )
+      );
+      for (const joint of partJoints) {
+        for (const p of joint.participants.filter(p =>
+          String(p.submission_id) === subIdStr && !p.decoupled_at
+        )) {
+          await getCollection('project_invitations').updateOne(
+            { _id: p.invitation_id },
+            { $set: { status: 'decoupled', decoupled_at: now } },
+          );
+          await cycles().updateOne(
+            { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': p.invitation_id },
+            { $set: { 'joint_projects.$[j].participants.$[pp].decoupled_at': now } },
+            { arrayFilters: [{ 'j._id': joint._id }, { 'pp.invitation_id': p.invitation_id }] },
+          );
+          cascade.participants_decoupled++;
+        }
+      }
+    }
+  }
+
+  await submissions().deleteOne({ _id: oid });
+  res.json({ deleted: true, cascade });
 });
 
 // ── DTSR-8 / DTSR-9: section flags ──────────────────────────────────
@@ -661,6 +1023,77 @@ projectInvitationsRouter.post('/:id/decline', async (req, res) => {
   );
 
   res.json(await projectInvitations().findOne({ _id: invId }));
+});
+
+// ── JDT-6: voluntary decouple by an accepted support ─────────────────
+// Caller must own invitation.invited_character_id (or be ST). Invitation
+// must currently be `accepted`. Atomically: invitation → decoupled,
+// participant entry on joint gets decoupled_at, support's submission slot
+// fields are cleared so the slot reverts to an empty solo project slot.
+projectInvitationsRouter.post('/:id/decouple', async (req, res) => {
+  const invId = req.params.id;
+  const inv = await projectInvitations().findOne({ _id: invId });
+  if (!inv) return res.status(404).json({ error: 'NOT_FOUND', message: 'Invitation not found' });
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(String);
+    if (!userCharIds.includes(String(inv.invited_character_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your invitation' });
+    }
+  }
+
+  if (inv.status !== 'accepted') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Invitation is not accepted; nothing to decouple', current_status: inv.status });
+  }
+
+  const cycleOid = parseId(inv.cycle_id);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle_id on invitation' });
+  const cycle = await cycles().findOne({ _id: cycleOid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  const joint = (cycle.joint_projects || []).find(j => String(j._id) === String(inv.joint_project_id));
+  if (!joint) return res.status(404).json({ error: 'NOT_FOUND', message: 'Joint not found' });
+
+  const participant = (joint.participants || []).find(p => String(p.invitation_id) === String(invId));
+  if (!participant) {
+    return res.status(409).json({ error: 'CONFLICT', message: 'No participant entry for this invitation' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Mutations: invitation → decoupled, participant entry → decoupled_at,
+  // submission slot fields cleared so the slot reverts to a free solo slot.
+  await projectInvitations().updateOne(
+    { _id: invId },
+    { $set: { status: 'decoupled', decoupled_at: now } },
+  );
+
+  await cycles().updateOne(
+    { _id: cycleOid, 'joint_projects._id': joint._id, 'joint_projects.participants.invitation_id': invId },
+    { $set: { 'joint_projects.$[j].participants.$[p].decoupled_at': now } },
+    { arrayFilters: [{ 'j._id': joint._id }, { 'p.invitation_id': invId }] },
+  );
+
+  const subOid = parseId(String(participant.submission_id));
+  if (subOid) {
+    const slot = Number(participant.project_slot);
+    await submissions().updateOne(
+      { _id: subOid },
+      { $set: {
+        [`responses.project_${slot}_action`]: '',
+        [`responses.project_${slot}_joint_id`]: null,
+        [`responses.project_${slot}_joint_role`]: null,
+        [`responses.project_${slot}_description`]: '',
+        [`responses.project_${slot}_personal_notes`]: '',
+      }},
+    );
+  }
+
+  const updatedInv = await projectInvitations().findOne({ _id: invId });
+  const updatedCycle = await cycles().findOne({ _id: cycleOid });
+  const updatedJoint = (updatedCycle.joint_projects || []).find(j => String(j._id) === String(joint._id));
+  const updatedSub = subOid ? await submissions().findOne({ _id: subOid }) : null;
+
+  res.json({ invitation: updatedInv, joint: updatedJoint, submission: updatedSub });
 });
 
 async function _sendPublishedEmail(submission) {

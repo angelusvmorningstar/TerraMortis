@@ -9,7 +9,7 @@
  *  - Blood Sorcery: from disciplines (Cruac/Theban)
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -768,6 +768,126 @@ async function handleInvitationDecline(invId, container) {
   }
 }
 
+// JDT-6: voluntary decouple from an accepted joint. Confirms with the
+// player, then calls /api/project_invitations/:id/decouple. On success the
+// server has cleared the joint slot fields on the submission; we re-fetch
+// the cycle + invitations and re-render to show the slot reverted to a
+// normal empty project slot.
+async function handleInvitationDecouple(invId, container) {
+  if (!invId) return;
+  const ok = window.confirm('Decouple from this joint? Your slot will be freed up.');
+  if (!ok) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    const result = await apiPost(`/api/project_invitations/${invId}/decouple`, {});
+    if (result?.submission) responseDoc = result.submission;
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Decoupled.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (/not accepted|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This joint is no longer in a state that can be decoupled. Refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Decouple failed: ' + err.message;
+    }
+  }
+}
+
+// JDT-6: lead re-invite. Reads the ticked checkboxes inside the re-invite
+// panel and calls /api/downtime_cycles/:id/joint_projects/:jointId/reinvite.
+async function handleJointReinvite(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const cbs = container.querySelectorAll(`.dt-joint-reinvite-cb[data-joint-id="${jointId}"]:checked`);
+  const ids = Array.from(cbs).map(cb => cb.value).filter(Boolean);
+  const statusEl = container.querySelector(`.dt-joint-reinvite-status[data-joint-id="${jointId}"]`);
+  if (!ids.length) {
+    if (statusEl) {
+      statusEl.textContent = 'Tick at least one alternate to invite.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    }
+    return;
+  }
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/reinvite`, {
+      invitee_character_ids: ids,
+    });
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Re-invite failed: ' + err.message;
+  }
+}
+
+// JDT-6: lead cancel. Server enforces zero-supports / zero-pending precondition.
+async function handleJointCancel(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const ok = window.confirm('Cancel this joint? Your slot will be freed up. The joint will remain on the cycle for audit.');
+  if (!ok) return;
+  const statusEl = container.querySelector(`.dt-joint-cancel-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {});
+    await refreshJointCaches();
+    // Lead's slot was cleared server-side; re-fetch the submission so the
+    // local responseDoc shows the cleared slot fields on next render.
+    if (responseDoc?._id) {
+      try {
+        const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+        const fresh = (subs || []).find(s => String(s._id) === String(responseDoc._id));
+        if (fresh) responseDoc = fresh;
+      } catch { /* keep existing */ }
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Cancel failed: ' + err.message;
+  }
+}
+
+// JDT-6: lead saves an edit to joint description. Bumps description_updated_at
+// server-side so support slots can render the change indicator on next render.
+async function handleJointDescriptionSave(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  // Locate the textarea inside the same authoring panel as this save button.
+  const btn = container.querySelector(`.dt-joint-desc-save-btn[data-joint-id="${jointId}"]`);
+  const textareaEl = btn?.closest('.dt-joint-authoring')?.querySelector('textarea[id$="_joint_description"]');
+  if (!textareaEl) return;
+  const description = textareaEl.value;
+  const statusEl = container.querySelector(`.dt-joint-desc-save-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPatch(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}`, { description });
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Saved.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+  }
+}
+
+// JDT-6: support clicks "View and acknowledge" on the description-changed
+// indicator. Sets participant.description_change_acknowledged_at to now so
+// the indicator clears on next render.
+async function handleJointDescriptionAcknowledge(jointId, charId, container) {
+  if (!jointId || !charId || !currentCycle?._id) return;
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/participants/${charId}/acknowledge`, {});
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    const statusEl = document.getElementById('dt-save-status');
+    if (statusEl) statusEl.textContent = 'Acknowledge failed: ' + err.message;
+  }
+}
+
 // JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
 // invitations list so badges, panels, and slot UI all reflect the latest state.
 async function refreshJointCaches() {
@@ -1506,6 +1626,37 @@ function renderForm(container) {
     const declineBtn = e.target.closest('.dt-pending-invitation-decline');
     if (declineBtn) {
       handleInvitationDecline(declineBtn.dataset.invitationId, container);
+      return;
+    }
+
+    // JDT-6: voluntary decouple from an accepted joint
+    const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
+    if (decoupleBtn) {
+      handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
+      return;
+    }
+    // JDT-6: lead re-invite alternates
+    const reinviteBtn = e.target.closest('.dt-joint-reinvite-btn');
+    if (reinviteBtn) {
+      handleJointReinvite(reinviteBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead cancel joint
+    const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
+    if (cancelBtn) {
+      handleJointCancel(cancelBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead description save (mid-cycle edit)
+    const descSaveBtn = e.target.closest('.dt-joint-desc-save-btn');
+    if (descSaveBtn) {
+      handleJointDescriptionSave(descSaveBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: support acknowledge description change
+    const ackBtn = e.target.closest('.dt-joint-desc-acknowledge-btn');
+    if (ackBtn) {
+      handleJointDescriptionAcknowledge(ackBtn.dataset.jointId, ackBtn.dataset.characterId, container);
       return;
     }
 
@@ -2539,6 +2690,20 @@ function renderProjectSlots(saved) {
 
       h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
 
+      // JDT-6: lead description-change indicator
+      const myParticipantForAck = (joint.participants || []).find(p =>
+        String(p.character_id) === String(currentChar._id) && !p.decoupled_at
+      );
+      const updatedAt = joint.description_updated_at;
+      const ackedAt = myParticipantForAck?.description_change_acknowledged_at;
+      const showIndicator = updatedAt && (!ackedAt || new Date(updatedAt) > new Date(ackedAt));
+      if (showIndicator) {
+        h += `<div class="dt-joint-desc-changed-indicator">`;
+        h += `<strong>The lead has updated this project description.</strong>`;
+        h += `<button type="button" class="dt-joint-desc-acknowledge-btn" data-joint-id="${esc(joint._id)}" data-character-id="${esc(String(currentChar._id))}">View and acknowledge</button>`;
+        h += `</div>`;
+      }
+
       h += `<div class="dt-proj-support-readonly-block">`;
       h += `<div class="dt-proj-support-label">Action type</div>`;
       h += `<div class="dt-proj-support-action">${esc(actionLabel)}</div>`;
@@ -2586,24 +2751,60 @@ function renderProjectSlots(saved) {
       h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
       h += `</div>`;
 
+      // JDT-6: Decouple — voluntary exit from this joint. The participant's
+      // invitation_id is recorded on joint.participants when accept landed.
+      const myParticipant = (joint.participants || []).find(p =>
+        String(p.submission_id) === String(responseDoc?._id) &&
+        Number(p.project_slot) === Number(n) &&
+        !p.decoupled_at
+      );
+      if (myParticipant?.invitation_id) {
+        h += `<div class="dt-joint-decouple-row">`;
+        h += `<button type="button" class="dt-joint-decouple-btn" data-invitation-id="${esc(myParticipant.invitation_id)}">Decouple from this joint</button>`;
+        h += `<p class="qf-desc dt-joint-decouple-help">Decoupling frees this slot. The lead is notified, and you can use the slot for a different project.</p>`;
+        h += `</div>`;
+      }
+
       h += `</div>`; // close dt-proj-pane
       continue;
+    }
+
+    // ── JDT-2: detect existing joint up front so JDT-6 can lock the
+    // action-type select while the joint has active invitations. ──
+    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
+    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
+    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
+
+    // JDT-6: action-type change is blocked while the joint has any pending
+    // or accepted (non-decoupled) invitation. Lead must cancel the joint
+    // first to repurpose the slot.
+    let lockActionType = false;
+    if (existingJoint) {
+      const activeInvs = _jointInvitations.filter(inv =>
+        String(inv.joint_project_id) === String(existingJoint._id) &&
+        (inv.status === 'pending' || inv.status === 'accepted')
+      );
+      if (activeInvs.length > 0) lockActionType = true;
     }
 
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
-    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
+    const actionSelectAttrs = lockActionType
+      ? ' disabled title="Cancel the joint first to change action type."'
+      : '';
+    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}"${actionSelectAttrs}>`;
     for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
-    h += '</select></div>';
+    h += '</select>';
+    if (lockActionType) {
+      h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
+    }
+    h += '</div>';
 
     // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
-    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
-    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
-    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
     if (isJointEligible) {
       h += `<div class="qf-field dt-project-solo-joint-toggle">`;
       h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}> Solo</label>`;
@@ -3848,6 +4049,19 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
  * Used by project target_flex (single picker per slot) and sorcery targets
  * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
  */
+// JDT-6: Display helper for joint description edit timestamps.
+function formatTimestamp(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 // JDT-2: Locate an existing joint authored by the current submission for slot N.
 function findExistingJoint(slot) {
   if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
@@ -3897,12 +4111,22 @@ function renderJointAuthoring(n, saved, existingJoint) {
   h += `</div>`;
 
   if (existingJoint) {
-    h += `<p class="qf-desc dt-joint-saved-note">Joint created. To change invitees, decline or decouple via JDT-6 lifecycle controls (coming soon).</p>`;
+    h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
   }
 
   // Joint description
   h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
-  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3"${existingJoint ? ' disabled' : ''}>${esc(desc)}</textarea>`;
+  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
+  if (existingJoint) {
+    h += `<div class="dt-joint-desc-edit-row">`;
+    h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
+    if (existingJoint.description_updated_at) {
+      const ts = formatTimestamp(existingJoint.description_updated_at);
+      h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
+    }
+    h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
+    h += `</div>`;
+  }
 
   // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
   // since joints can target multiple characters.
@@ -3942,10 +4166,64 @@ function renderJointAuthoring(n, saved, existingJoint) {
   h += `<label class="qf-label">Invitees</label>`;
   if (existingJoint) {
     h += renderJointStatusBadges(existingJoint);
+    h += renderJointReinvitePanel(n, existingJoint);
+    h += renderJointCancelPanel(existingJoint);
   } else {
     h += renderJointInviteeGrid(n, invitedSet);
   }
 
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Re-invite affordance for the lead. Shows characters not currently
+// invited (no pending or accepted invitation), lets the lead tick alternates
+// and submit. The pre-existing per-invitation status badges sit above.
+function renderJointReinvitePanel(n, joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const blocked = new Set(myInvs
+    .filter(inv => inv.status === 'pending' || inv.status === 'accepted')
+    .map(inv => String(inv.invited_character_id)));
+  // Lead can't re-invite themselves
+  blocked.add(String(joint.lead_character_id));
+  const candidates = allCharacters.filter(c => !blocked.has(String(c.id)));
+  if (!candidates.length) {
+    return `<p class="qf-desc dt-joint-reinvite-empty">No alternates available to re-invite.</p>`;
+  }
+
+  let h = `<div class="dt-joint-reinvite-panel" data-joint-id="${esc(joint._id)}">`;
+  h += `<div class="dt-joint-reinvite-title">Invite alternates</div>`;
+  h += `<div class="dt-joint-invitee-grid">`;
+  for (const c of candidates) {
+    h += `<label class="dt-joint-invitee-item">`;
+    h += `<input type="checkbox" class="dt-joint-reinvite-cb" data-joint-id="${esc(joint._id)}" value="${esc(String(c.id))}">`;
+    h += `<span>${esc(c.name)}</span>`;
+    h += `</label>`;
+  }
+  h += `</div>`;
+  h += `<button type="button" class="dt-joint-reinvite-btn" data-joint-id="${esc(joint._id)}" data-joint-slot="${n}">Send invitations</button>`;
+  h += `<span class="dt-joint-reinvite-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Cancel panel. The button is enabled only when zero accepted
+// participants AND zero pending invitations remain. Otherwise the panel
+// shows guidance about the path back to a cancellable state.
+function renderJointCancelPanel(joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const acceptedSupports = (joint.participants || []).filter(p => !p.decoupled_at).length;
+  const pendingInvs = myInvs.filter(inv => inv.status === 'pending').length;
+  const canCancel = acceptedSupports === 0 && pendingInvs === 0;
+
+  let h = `<div class="dt-joint-cancel-panel" data-joint-id="${esc(joint._id)}">`;
+  if (canCancel) {
+    h += `<button type="button" class="dt-joint-cancel-btn" data-joint-id="${esc(joint._id)}">Cancel joint</button>`;
+    h += `<p class="qf-desc dt-joint-cancel-help">Cancelling frees this slot. The joint document is kept on the cycle for audit; a Storyteller can recover it if needed.</p>`;
+  } else {
+    h += `<p class="qf-desc dt-joint-cancel-help">You can only cancel this joint when there are zero accepted supports and zero pending invitations. Currently: ${acceptedSupports} accepted, ${pendingInvs} pending.</p>`;
+  }
+  h += `<span class="dt-joint-cancel-status" data-joint-id="${esc(joint._id)}"></span>`;
   h += `</div>`;
   return h;
 }

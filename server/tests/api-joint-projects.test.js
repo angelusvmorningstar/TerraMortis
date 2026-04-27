@@ -229,6 +229,462 @@ describe('POST /api/downtime_cycles/:cycleId/joint_projects', () => {
   });
 });
 
+describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite — JDT-6', () => {
+  async function createBaseJoint(testChars) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
+    expect(r.status).toBe(201);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('lead adds new pending invitations on an active joint', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ invitee_character_ids: [testChars[2].id] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.invitations).toHaveLength(1);
+    expect(res.body.invitations[0].invited_character_id).toBe(testChars[2].id);
+    expect(res.body.invitations[0].status).toBe('pending');
+  });
+
+  it('skips invitees who already have an active invitation', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ invitee_character_ids: [testChars[1].id] });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/already have an active invitation/i);
+  });
+
+  it('rejects non-leads', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({ invitee_character_ids: [testChars[2].id] });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects when joint is cancelled', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars);
+    // Decline the only invitation so cancel is allowed
+    const inv = await getCollection('project_invitations').findOne({ joint_project_id: joint._id });
+    await request(app)
+      .post(`/api/project_invitations/${inv._id}/decline`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/reinvite`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ invitee_character_ids: [testChars[2].id] });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/cancelled/i);
+  });
+});
+
+describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel — JDT-6', () => {
+  async function createBaseJoint(testChars, inviteeIds) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    for (const cid of inviteeIds) await insertSub(cid, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, inviteeIds));
+    expect(r.status).toBe(201);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('lead can cancel when zero accepted supports and zero pending invitations', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    // Decline the pending invitation so the cancel is allowed
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/decline`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.cancelled_reason).toBe('lead-cancelled');
+    expect(res.body.joint.cancelled_at).toBeTruthy();
+
+    // Lead's submission slot was cleared
+    const leadSub = await getCollection('downtime_submissions').findOne({ _id: createdSubIds[0] });
+    expect(leadSub.responses.project_1_action).toBe('');
+    expect(leadSub.responses.project_1_joint_id).toBeNull();
+  });
+
+  it('lead is rejected when an accepted support remains', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    // Accept the invitation
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.accepted_supports).toBe(1);
+  });
+
+  it('lead is rejected when a pending invitation remains', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.pending_invitations).toBe(1);
+  });
+
+  it('ST override cancels regardless of accepted supports and clears slots', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', stUser())
+      .send({ st_override: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.cancelled_reason).toBe('st-override');
+
+    // Support's slot is cleared
+    const supportSub = await getCollection('downtime_submissions').findOne({
+      character_id: new ObjectId(testChars[1].id),
+      cycle_id: cycle._id,
+    });
+    expect(supportSub.responses.project_1_action).toBe('');
+    expect(supportSub.responses.project_1_joint_id).toBeNull();
+
+    // Accepted invitation is now decoupled
+    const inv = await getCollection('project_invitations').findOne({ _id: invitations[0]._id });
+    expect(inv.status).toBe('decoupled');
+    expect(inv.decoupled_at).toBeTruthy();
+  });
+
+  it('rejects non-lead, non-ST callers', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects when joint is already cancelled', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/decline`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/already cancelled/i);
+  });
+
+  it('flips pending invitations to cancelled-by-lead', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id, testChars[2].id]);
+
+    // ST override path so we can cancel without needing both invitees to decline
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', stUser())
+      .send({ st_override: true });
+    expect(res.status).toBe(200);
+
+    const invsAfter = await getCollection('project_invitations')
+      .find({ joint_project_id: joint._id }).toArray();
+    for (const inv of invsAfter) {
+      expect(inv.status).toBe('cancelled-by-lead');
+      expect(inv.cancelled_at).toBeTruthy();
+    }
+  });
+});
+
+describe('PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId — JDT-6', () => {
+  async function createBaseJoint(testChars, inviteeIds) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    for (const cid of inviteeIds) await insertSub(cid, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, inviteeIds));
+    expect(r.status).toBe(201);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('lead edits description; description_updated_at is bumped', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const before = joint.description_updated_at;
+
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ description: 'Updated plan: rendezvous at the Wallflower' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.joint.description).toMatch(/Wallflower/);
+    expect(res.body.joint.description_updated_at).toBeTruthy();
+    expect(res.body.joint.description_updated_at).not.toBe(before);
+  });
+
+  it('rejects non-leads', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({ description: 'sneak edit' });
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects empty body', async () => {
+    const { cycle, joint } = await createBaseJoint(testChars, [testChars[1].id]);
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects when joint is cancelled', async () => {
+    const { cycle, joint, invitations } = await createBaseJoint(testChars, [testChars[1].id]);
+    await request(app)
+      .post(`/api/project_invitations/${invitations[0]._id}/decline`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+    await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/cancel`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({});
+
+    const res = await request(app)
+      .patch(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send({ description: 'too late' });
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge — JDT-6', () => {
+  async function createAcceptedJoint(testChars) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[0].id, cycle._id);
+    await insertSub(testChars[1].id, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[0].id]))
+      .send(jointBody(testChars[0].id, leadSub._id, 1, [testChars[1].id]));
+    expect(r.status).toBe(201);
+    const accept = await request(app)
+      .post(`/api/project_invitations/${r.body.invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+    expect(accept.status).toBe(200);
+    return { cycle, joint: r.body.joint };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('support acknowledges; participant.description_change_acknowledged_at is set', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .set('X-Test-User', playerUser([testChars[1].id]))
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.acknowledged_at).toBeTruthy();
+    const p = (res.body.joint.participants || []).find(x => String(x.character_id) === testChars[1].id);
+    expect(p.description_change_acknowledged_at).toBeTruthy();
+  });
+
+  it('rejects when caller does not own the participant character', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[1].id}/acknowledge`)
+      .set('X-Test-User', playerUser([testChars[2].id]))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 for missing participant', async () => {
+    const { cycle, joint } = await createAcceptedJoint(testChars);
+    const res = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects/${joint._id}/participants/${testChars[2].id}/acknowledge`)
+      .set('X-Test-User', stUser())
+      .send({});
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('DELETE /api/downtime_submissions/:id — JDT-6 joint cascade', () => {
+  async function createAcceptedJoint(testChars, leadIdx = 0, supportIdx = 1) {
+    const cycle = await insertCycle();
+    const leadSub = await insertSub(testChars[leadIdx].id, cycle._id);
+    await insertSub(testChars[supportIdx].id, cycle._id);
+    const r = await request(app)
+      .post(`/api/downtime_cycles/${cycle._id}/joint_projects`)
+      .set('X-Test-User', playerUser([testChars[leadIdx].id]))
+      .send(jointBody(testChars[leadIdx].id, leadSub._id, 1, [testChars[supportIdx].id]));
+    expect(r.status).toBe(201);
+    const accept = await request(app)
+      .post(`/api/project_invitations/${r.body.invitations[0]._id}/accept`)
+      .set('X-Test-User', playerUser([testChars[supportIdx].id]))
+      .send({});
+    expect(accept.status).toBe(200);
+    return { cycle, leadSub, joint: r.body.joint, invitations: r.body.invitations, accept: accept.body };
+  }
+
+  afterEach(async () => {
+    await getCollection('project_invitations').deleteMany({});
+  });
+
+  it('deleting the lead submission cancels the joint and decouples accepted supports', async () => {
+    const { cycle, leadSub, joint, accept } = await createAcceptedJoint(testChars);
+
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${leadSub._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    expect(res.body.cascade.joints_cancelled).toBe(1);
+
+    // Joint is cancelled with the right reason
+    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
+    expect(j.cancelled_at).toBeTruthy();
+    expect(j.cancelled_reason).toBe('lead-submission-deleted');
+
+    // Accepted invitation flipped to decoupled
+    const inv = await getCollection('project_invitations').findOne({ joint_project_id: joint._id });
+    expect(inv.status).toBe('decoupled');
+
+    // Support's submission slot was cleared
+    const supportSub = await getCollection('downtime_submissions').findOne({ _id: new ObjectId(accept.submission._id) });
+    expect(supportSub.responses.project_1_action).toBe('');
+    expect(supportSub.responses.project_1_joint_id).toBeNull();
+
+    // Lead's submission is gone
+    const gone = await getCollection('downtime_submissions').findOne({ _id: leadSub._id });
+    expect(gone).toBeNull();
+  });
+
+  it('deleting a participant submission decouples that participant only', async () => {
+    const { cycle, joint, accept } = await createAcceptedJoint(testChars);
+
+    const supportSubId = String(accept.submission._id);
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${supportSubId}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.cascade.participants_decoupled).toBe(1);
+    expect(res.body.cascade.joints_cancelled).toBe(0);
+
+    // Joint is NOT cancelled
+    const updatedCycle = await getCollection('downtime_cycles').findOne({ _id: cycle._id });
+    const j = (updatedCycle.joint_projects || []).find(x => String(x._id) === String(joint._id));
+    expect(j.cancelled_at).toBeNull();
+    // Participant entry is decoupled
+    const p = (j.participants || []).find(x => String(x.character_id) === testChars[1].id);
+    expect(p.decoupled_at).toBeTruthy();
+
+    // Invitation flipped to decoupled
+    const inv = await getCollection('project_invitations').findOne({ joint_project_id: joint._id });
+    expect(inv.status).toBe('decoupled');
+  });
+
+  it('rejects players (ST only)', async () => {
+    const { leadSub } = await createAcceptedJoint(testChars);
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${leadSub._id}`)
+      .set('X-Test-User', playerUser([testChars[0].id]));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 on missing submission', async () => {
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${new ObjectId().toString()}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(404);
+  });
+
+  it('deleting a submission with no joint links is a no-op cascade', async () => {
+    const cycle = await insertCycle();
+    const sub = await insertSub(testChars[0].id, cycle._id);
+
+    const res = await request(app)
+      .delete(`/api/downtime_submissions/${sub._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.cascade.joints_cancelled).toBe(0);
+    expect(res.body.cascade.participants_decoupled).toBe(0);
+  });
+});
+
 describe('GET /api/project_invitations', () => {
   it('returns 400 when cycle_id missing', async () => {
     const res = await request(app)
