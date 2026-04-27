@@ -2765,6 +2765,78 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   opacity: .8;
 }
 
+/* ── JDT-6: lead re-invite + cancel panels on the joint authoring panel ── */
+.dt-joint-reinvite-panel {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--surf2);
+  border-left: 2px solid var(--gold-a30);
+  border-radius: 3px;
+}
+.dt-joint-reinvite-title {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.dt-joint-reinvite-empty {
+  margin-top: 14px;
+  font-style: italic;
+  opacity: .7;
+}
+.dt-joint-reinvite-btn {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--gold2);
+  border: 1px solid var(--gold-a30);
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-joint-reinvite-btn:hover { background: var(--gold-a12); }
+.dt-joint-reinvite-status {
+  margin-left: 10px;
+  font-size: 12px;
+  opacity: .85;
+}
+
+.dt-joint-cancel-panel {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--surf2);
+  border-left: 2px solid var(--crim-a40);
+  border-radius: 3px;
+}
+.dt-joint-cancel-btn {
+  background: transparent;
+  color: var(--crim);
+  border: 1px solid var(--crim-a40);
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-joint-cancel-btn:hover { background: var(--crim-a12); }
+.dt-joint-cancel-help {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: .8;
+}
+.dt-joint-cancel-status {
+  margin-left: 10px;
+  font-size: 12px;
+  opacity: .85;
+}
+
 /* Joint badge on slot tabs (lead or support) */
 .dt-proj-tab-joint {
   position: relative;

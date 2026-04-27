@@ -4454,6 +4454,40 @@ body {
   font-size: 12px;
   color: var(--gold2);
 }
+
+/* JDT-6: ST safety-valve override on the joint group panel */
+.proc-joint-st-override-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 14px;
+  background: var(--crim-a8);
+  border-top: 1px solid var(--crim-a40);
+}
+.proc-joint-st-override-btn {
+  background: transparent;
+  color: var(--crim);
+  border: 1px solid var(--crim-a40);
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.proc-joint-st-override-btn:hover { background: var(--crim-a12); }
+.proc-joint-st-override-help {
+  font-size: 11.5px;
+  font-style: italic;
+  opacity: .8;
+}
+.proc-joint-st-override-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--crim);
+}
+
 .proc-action-row.multiline { align-items: start; padding: 10px 16px; }
 .proc-action-row:last-child { border-bottom: none; }
 .proc-action-row:hover { background: var(--accent-a8); }
