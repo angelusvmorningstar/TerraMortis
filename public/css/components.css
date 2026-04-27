@@ -3290,6 +3290,45 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-feed-vi-hint { margin-top: 4px; font-style: italic; }
 
+/* DTFP-6: sorcery structured target rows */
+.dt-sorcery-targets-block { display: flex; flex-direction: column; gap: 6px; }
+.dt-sorcery-target-row {
+  position: relative;
+  padding: 8px 36px 8px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.dt-sorcery-target-row .dt-target-picker { margin: 0; }
+.dt-sorcery-target-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.dt-sorcery-target-remove-btn:hover { border-color: var(--crim); color: var(--crim); }
+.dt-sorcery-target-add-btn {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px dashed var(--bdr);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--ft);
+}
+.dt-sorcery-target-add-btn:hover { border-color: var(--gold2); color: var(--gold2); border-style: solid; }
+
 /* DTFP-3: By Force teaching note (Vigour/Celerity selection) */
 .dt-feed-teaching-note {
   margin-top: 6px;

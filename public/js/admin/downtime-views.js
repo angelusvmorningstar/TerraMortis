@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS } from '../tabs/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -1146,7 +1146,7 @@ function renderPlayerResponses(s) {
   for (let n = 1; n <= sorcCount; n++) {
     const rite = r[`sorcery_${n}_rite`];
     if (!rite) continue;
-    const targets = r[`sorcery_${n}_targets`] || '';
+    const targets = normaliseSorceryTargets(r[`sorcery_${n}_targets`]);
     const notes = r[`sorcery_${n}_notes`] || '';
     const mand = r[`sorcery_${n}_mandragora`] === 'yes';
     const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
@@ -1727,7 +1727,7 @@ function buildProcessingQueue(subs) {
     for (let n = 1; n <= sorcCount; n++) {
       const rite = resp[`sorcery_${n}_rite`];
       if (!rite) continue;
-      const targetsText = resp[`sorcery_${n}_targets`] || '';
+      const targetsText = normaliseSorceryTargets(resp[`sorcery_${n}_targets`]);
       const notes       = resp[`sorcery_${n}_notes`]   || '';
       let desc = rite;
       if (targetsText) desc += ` — targets: ${targetsText}`;
@@ -2810,7 +2810,7 @@ function _buildDeletedList(subs) {
           const rite = resp[`sorcery_${n}_rite`] || `Sorcery ${n}`;
           const trad = resp['sorcery_1_tradition'] || resp['sorcery_tradition'] || 'Sorcery';
           label = `${trad}: ${rite}`;
-          description = resp[`sorcery_${n}_targets`] || '';
+          description = normaliseSorceryTargets(resp[`sorcery_${n}_targets`]);
         }
       }
 
@@ -6577,7 +6577,7 @@ function renderActionPanel(entry, review) {
   // ── Sorcery details card (editable) — above connected characters ──
   if (isSorcery) {
     const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
-    const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const sorcRawTargets  = normaliseSorceryTargets(sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`]) || entry.targetsText || '';
     const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
     const blobAsNotes     = (entry.riteName && entry.riteName.length > 60) ? entry.riteName : '';
     const notesVal        = rev.sorc_notes      ?? (sorcRawNotes || blobAsNotes);
@@ -6624,7 +6624,7 @@ function renderActionPanel(entry, review) {
 
   // ── Targets — wide checkbox section, above connected characters ──
   if (isSorcery) {
-    const _tRaw         = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const _tRaw         = normaliseSorceryTargets(sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`]) || entry.targetsText || '';
     const _tVal         = rev.sorc_targets ?? _tRaw;
     const _tActiveChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
     const _tSelected    = new Set((_tVal || '').split(',').map(s => s.trim()).filter(Boolean));
