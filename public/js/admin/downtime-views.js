@@ -341,12 +341,17 @@ function renderReadyPanel(cycle, subs) {
   // so it's ready when the tab opens.
   const subList = subs || [];
   const total = subList.length;
-  const allResolved = total > 0 && !subList.some(s => !s.approval_status || s.approval_status === 'pending');
+  const pending = subList.filter(s => !s.approval_status || s.approval_status === 'pending').length;
   const storySigned = !!(cycle.phase_signoff || {}).story;
+
+  let resolvedNote;
+  if (total === 0)        resolvedNote = 'no submissions yet';
+  else if (pending === 0) resolvedNote = 'all resolved';
+  else                    resolvedNote = `${pending} pending`;
 
   let h = '<div class="dt-ready-content">';
   h += `<h3 class="dt-ready-title">Push Cycle</h3>`;
-  h += `<p class="dt-ready-summary">${total} submission${total === 1 ? '' : 's'}\u00a0\u2014\u00a0${allResolved ? 'all resolved' : 'some pending'}; DT Story ${storySigned ? 'signed off' : 'not yet signed off'}.</p>`;
+  h += `<p class="dt-ready-summary">${total} submission${total === 1 ? '' : 's'}\u00a0\u2014\u00a0${resolvedNote}; DT Story ${storySigned ? 'signed off' : 'not yet signed off'}.</p>`;
   h += `<p class="dt-ready-hint">Use the existing Push button on each character\u2019s row in DT Story to publish their narrative. This panel is informational; sign-off below records that the cycle is fully published.</p>`;
   h += `<div class="dt-ready-actions">${renderSignoffButton('ready', cycle)}</div>`;
   h += '</div>';
@@ -8920,7 +8925,10 @@ function _exportCityOverview(matrix) {
 export function renderCityOverview() {
   const el = document.getElementById('dt-city-panel');
   if (!el) return;
-  if (!submissions.length) { el.innerHTML = ''; return; }
+  if (!submissions.length) {
+    el.innerHTML = '<p class="placeholder-msg" style="padding:24px;color:var(--txt3);">No submissions yet for this cycle. The City overview populates once players submit.</p>';
+    return;
+  }
 
   const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};
