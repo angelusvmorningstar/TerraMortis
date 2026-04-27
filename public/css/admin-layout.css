@@ -1790,6 +1790,14 @@ body {
 .dt-status-game { background: var(--accent-a8); color: var(--accent); font-weight: 600; }
 .dt-status-prep { background: var(--surf2); color: var(--txt3); font-weight: 600; }
 .dt-prep-panel { padding: 16px; border-bottom: 1px solid var(--bdr); }
+
+/* DT Prep chrome (prep-phase edit panel + its sub-status ribbon) belongs to
+   the DT Processing sub-tab only. Hide on DT City and DT Story to avoid the
+   prep panel and sub-ribbon leaking above their content. */
+#d-downtime[data-subtab="city"] #dt-prep-panel,
+#d-downtime[data-subtab="city"] #dt-sub-ribbon,
+#d-downtime[data-subtab="story"] #dt-prep-panel,
+#d-downtime[data-subtab="story"] #dt-sub-ribbon { display: none; }
 .dt-prep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .dt-prep-field { display: flex; flex-direction: column; gap: 4px; }
 .dt-prep-early { margin-bottom: 16px; }
