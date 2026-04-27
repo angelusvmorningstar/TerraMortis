@@ -119,7 +119,8 @@ test.describe('Attendance — Toolbar', () => {
   test('toolbar renders with session selector', async ({ page }) => {
     await expect(page.locator('#att-session-sel')).toBeVisible();
     await expect(page.locator('#att-add-btn')).toBeVisible();
-    await expect(page.locator('#att-new-btn')).toBeVisible();
+    // Session creation now lives in the Next Session panel above; the
+    // attendance toolbar's old "+ New Session" button has been removed.
   });
 
   test('session selector shows session date and title', async ({ page }) => {
