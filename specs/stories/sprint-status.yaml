@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-27 (FEAT batch drafted: feat-2/3/7/8 ready-for-dev, feat-6 needs-investigation; DI epic flipped: DI-1/3 ready-for-dev, DI-2 held for source data; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
+last_updated: 2026-04-27 (DTSR-1 implemented: section reorder + Cacophony Savvy → Rumours rename; ready-for-dev → review. Earlier same day: FEAT batch drafted, DI epic flipped, DTUX-1 phase ribbon nav drafted, 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -580,7 +580,7 @@ development_status:
   # DT Story admin tab + player Story view + merit panels in DT Processing
   # Pairs with epic-dtp (DTP-1/2/3 ready-for-dev = rendering half of v2 player report)
   epic-dtsr: in-progress
-  dtsr-1-section-reorder-rumours-rename: ready-for-dev
+  dtsr-1-section-reorder-rumours-rename: review
   dtsr-2-story-moment-consolidation: ready-for-dev
   dtsr-3-active-cycle-scope: ready-for-dev
   dtsr-4-inline-edit-historical-cycles: ready-for-dev
