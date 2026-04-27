@@ -194,9 +194,11 @@ function switchDomain(domain) {
     initDowntimeView(chars);
     // City is default tab — show it and init if not yet done
     document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'city'));
+    const dtSection      = document.getElementById('d-downtime');
     const processingPanel = document.getElementById('dt-processing-panel');
     const cityPanel       = document.getElementById('dt-city-panel');
     const storyPanel      = document.getElementById('dt-story-panel');
+    if (dtSection)       dtSection.dataset.subtab = 'city';
     if (processingPanel) processingPanel.style.display = 'none';
     if (cityPanel)       cityPanel.style.display = '';
     if (storyPanel)      storyPanel.style.display = 'none';
@@ -235,9 +237,11 @@ document.addEventListener('click', e => {
   const tab = btn.dataset.tab;
   document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const dtSection      = document.getElementById('d-downtime');
   const processingPanel = document.getElementById('dt-processing-panel');
   const cityPanel       = document.getElementById('dt-city-panel');
   const storyPanel      = document.getElementById('dt-story-panel');
+  if (dtSection) dtSection.dataset.subtab = tab;
   if (tab === 'processing') {
     if (processingPanel) processingPanel.style.display = '';
     if (cityPanel)       cityPanel.style.display = 'none';
