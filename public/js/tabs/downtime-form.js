@@ -29,6 +29,15 @@ const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Sta
 // Only 5 territories can receive influence (not The Barrens)
 const INFLUENCE_TERRITORIES = FEEDING_TERRITORIES.filter(t => !t.includes('Barrens'));
 
+// DTFP-2: render-time alphabetical sort for chip lists. Returns a new array;
+// never mutates the source (chip data often comes from shared modules like
+// FEED_METHODS that must not be reordered).
+function sortChips(items, keyFn = x => x) {
+  return items.slice().sort((a, b) =>
+    String(keyFn(a)).localeCompare(String(keyFn(b)), undefined, { sensitivity: 'base' })
+  );
+}
+
 // STs receive raw docs from the API (stripStReview not applied server-side for their role).
 // Promote st_review.outcome_text → published_outcome client-side so ST player-portal views
 // behave identically to player views.
@@ -3183,13 +3192,14 @@ function renderAcquisitionsSection(saved) {
   if (skNativeSpecs.length || skIsSpecs.length) {
     h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
     h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    for (const sp of skNativeSpecs) {
+    const allSkSpecs = [
+      ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+      ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+    ];
+    for (const { sp, fromSkill, native } of sortChips(allSkSpecs, item => item.sp)) {
       const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-    }
-    for (const { spec: sp, fromSkill } of skIsSpecs) {
-      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
     }
     h += '</div>';
   }
@@ -3385,20 +3395,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   if (m && (m.attrs.length || m.skills.length || m.discs.length)) {
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
-    for (const a of m.attrs) {
+    for (const a of sortChips(m.attrs)) {
       const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
-    for (const s of m.skills) {
+    for (const s of sortChips(m.skills)) {
       const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
     }
     if (m.discs.length) {
       h += '<span class="dt-feed-suggest-sep">/</span>';
-      for (const d of m.discs) {
+      for (const d of sortChips(m.discs)) {
         const val = c.disciplines?.[d]?.dots || 0;
         const active = selDisc === d ? ' dt-feed-chip-on' : '';
         h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
@@ -3412,13 +3422,14 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   const isSpecsList = selSkill ? isSpecs(c).filter(({ spec }) => !nativeSpecs.includes(spec)) : [];
   if (nativeSpecs.length || isSpecsList.length) {
     h += '<div class="dt-feed-spec-row"><label class="dt-feed-disc-lbl">Specialisation:</label>';
-    for (const sp of nativeSpecs) {
+    const allSpecs = [
+      ...nativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+      ...isSpecsList.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+    ];
+    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
       const on = selSpec===sp?' dt-feed-spec-on':'';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
-    }
-    for (const { spec: sp, fromSkill } of isSpecsList) {
-      const on = selSpec===sp?' dt-feed-spec-on':'';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${label} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
     }
     h += '</div>';
   }
