@@ -479,6 +479,7 @@ export async function initDowntimeView(passedChars) {
       if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
       if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
     }
+    try { await loadPlayers(); } catch (e) { console.warn('loadPlayers failed (no API?):', e.message); }
   } else {
     try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
   }
@@ -511,6 +512,10 @@ async function loadCharacters() {
     characters = [];
     charMap = new Map();
   }
+  await loadPlayers();
+}
+
+async function loadPlayers() {
   try { players = await apiGet('/api/players'); } catch { players = []; }
 }
 
