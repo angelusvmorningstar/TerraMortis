@@ -82,6 +82,12 @@ function projectSlotProps(n) {
     [`project_${n}_joint_target_type`]:  { type: 'string' },
     [`project_${n}_joint_target_value`]: { type: 'string' },
     [`project_${n}_joint_invited_ids`]:  { type: 'string' },
+    // JDT-3: support-slot markers written by the accept handler when an
+    // invitee accepts a joint. joint_id refers to cycle.joint_projects[]._id;
+    // joint_role is 'support' for accepted invitees ('lead' is implied via
+    // the joint document and not written to the lead's responses).
+    [`project_${n}_joint_id`]:   { type: 'string' },
+    [`project_${n}_joint_role`]: { type: 'string' },
   };
 }
 

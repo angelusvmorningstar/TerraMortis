@@ -2598,6 +2598,87 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-flex-multi-char-item:hover { background: var(--surf2); }
 
+/* ── JDT-3: Pending invitations panel (above project tabs) ── */
+.dt-pending-invitations-panel {
+  margin: 0 0 18px;
+  padding: 14px 16px 16px;
+  background: var(--surf2);
+  border: 2px solid var(--gold2);
+  border-radius: 4px;
+}
+.dt-pending-invitations-title {
+  font-family: var(--fl);
+  font-size: 13px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin: 0 0 12px;
+}
+.dt-pending-invitation-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 18px;
+  padding: 10px 0;
+  align-items: start;
+  border-top: 1px solid var(--gold2-a25);
+}
+.dt-pending-invitation-row:first-of-type { border-top: 0; padding-top: 0; }
+.dt-pending-invitation-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  grid-column: 1;
+}
+.dt-pending-invitation-lead {
+  font-family: var(--fh2);
+  font-size: 14px;
+  color: var(--gold2);
+}
+.dt-pending-invitation-action {
+  font-size: 12px;
+  color: var(--gold);
+}
+.dt-pending-invitation-desc {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.dt-pending-invitation-desc-empty { font-style: italic; opacity: .7; }
+.dt-pending-invitation-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.dt-pending-invitation-accept {
+  background: var(--gold2);
+  color: var(--bg);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-pending-invitation-accept:hover:not(:disabled) { filter: brightness(1.1); }
+.dt-pending-invitation-accept:disabled { opacity: .45; cursor: not-allowed; }
+.dt-pending-invitation-decline {
+  background: transparent;
+  color: var(--crim);
+  border: 1px solid var(--crim-a40);
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dt-pending-invitation-decline:hover { background: var(--crim-a12); }
+
 .dt-joint-readonly-target {
   padding: 6px 10px;
   background: var(--surf2);
