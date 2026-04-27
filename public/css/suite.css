@@ -1116,7 +1116,10 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .si-res-item { font-family: var(--fl); font-size: 11px; color: var(--txt2); }
 .si-res-lbl { color: var(--label-secondary); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .si-pay-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 12px; padding: 6px 8px; min-height: 44px; flex-shrink: 0; cursor: pointer; }
-.si-pay-amt { width: 70px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 12px; padding: 6px 8px; min-height: 44px; flex-shrink: 0; }
+.si-pay-amt-display { width: 70px; font-family: var(--fl); font-size: 13px; color: var(--txt); padding: 6px 8px; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
+.si-rate-block { padding: 8px 16px; border-top: 1px solid var(--bdr); background: var(--surf2); }
+.si-rate-label { font-family: var(--fl); font-size: 12px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+.si-rate-input { width: 80px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 13px; padding: 6px 8px; min-height: 36px; text-transform: none; letter-spacing: 0; }
 .si-footer { padding: 10px 16px; border-top: 1px solid var(--bdr); font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); }
 
 /* ── Finance Tab ── */

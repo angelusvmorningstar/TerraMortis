@@ -504,7 +504,7 @@ development_status:
   # use): real player names, drop redundant DNA option, single session rate.
   fin-5-checkin-player-name-resolution: review
   fin-6-drop-did-not-attend-payment-method: review
-  fin-7-session-rate-model: ready-for-dev
+  fin-7-session-rate-model: review
 
   epic-fin-retrospective: optional
 
