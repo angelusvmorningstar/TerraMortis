@@ -4581,6 +4581,308 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   Form components — DTUI (Downtime Form UX Refactor)
+   ════════════════════════════════════════════════════════════════════
+   Canonical component vocabulary for the player-facing downtime form.
+   Epic: specs/epic-dtui-downtime-form-ux-refactor.md
+   UX design spec: specs/ux-design-downtime-form.md
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-ticker — pill-ticker for "pick one of few"
+   ────────────────────────────────────────────────────────────────────
+   Canonical selector for the "pick one of a few labelled options"
+   gesture-shape used across the downtime form.
+
+   Use for: 2-5 labelled options where the player picks exactly one.
+   Examples: Solo/Joint, Method of Feeding, Attack outcome
+   (Destroy/Degrade/Disrupt), Ambience direction (Improve/Degrade),
+   Blood Type (Animal/Human/Kindred).
+
+   Do NOT use for:
+   - Picking from a roster (large lists) — use .dt-chip-grid instead
+   - Multi-select — use checkboxes
+   - Free text or numeric input
+
+   HTML structure:
+   <fieldset class="dt-ticker">
+     <legend class="dt-ticker__legend">Method of Feeding</legend>
+     <label class="dt-ticker__pill">
+       <input type="radio" name="feed-method" value="kiss">
+       <span>The Kiss (subtle)</span>
+     </label>
+     <label class="dt-ticker__pill">
+       <input type="radio" name="feed-method" value="assault">
+       <span>The Assault (violent)</span>
+     </label>
+   </fieldset>
+
+   Accessibility: <fieldset> is natively a radiogroup; <legend> names the group.
+   For a hidden label, use aria-label on the fieldset and omit the visible legend.
+
+   Adopted by stories: dtui-5, dtui-9, dtui-10, dtui-23, dtui-24, dtui-25
+   ════════════════════════════════════════════════════════════════════ */
+
+.dt-ticker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.dt-ticker__legend {
+  flex: 0 0 100%;
+  font-family: var(--fl);
+  font-size: 13px;
+  color: var(--txt);
+  margin-bottom: 6px;
+  padding: 0;
+  letter-spacing: .04em;
+}
+
+.dt-ticker__pill {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt2);
+  border-radius: 4px;
+  font-family: var(--ft);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dt-ticker__pill:hover {
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+
+.dt-ticker__pill:has(input:checked) {
+  background: var(--gold2);
+  border-color: var(--gold2);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.dt-ticker__pill:has(input:focus-visible),
+.dt-ticker__pill:focus-within {
+  outline: 2px solid var(--gold2);
+  outline-offset: 2px;
+}
+
+.dt-ticker__pill:has(input:disabled),
+.dt-ticker__pill[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--txt3);
+}
+
+.dt-ticker__pill:has(input:disabled):hover,
+.dt-ticker__pill[aria-disabled="true"]:hover {
+  border-color: var(--bdr);
+  color: var(--txt3);
+}
+
+/* Hide the underlying radio input visually while keeping it accessible */
+.dt-ticker__pill input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Transitions skipped when reduced motion is requested */
+@media (prefers-reduced-motion: no-preference) {
+  .dt-ticker__pill {
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-chip-grid + .dt-chip — chip grid for "pick from a roster"
+   ────────────────────────────────────────────────────────────────────
+   Canonical components for the "pick from a roster of 5-30 entities"
+   gesture-shape used across the downtime form.
+
+   Use for: targeting (Character/Territory chips), Joint invitees,
+   sphere-merit collaborators, NPC correspondents, Maintenance items,
+   Court Acknowledge Peers.
+
+   Do NOT use for:
+   - Picking one of a few (2-5 options) — use .dt-ticker instead
+   - Multi-select where order matters or chips are draggable
+   - Hierarchical or nested selection
+
+   HTML structure:
+   <div class="dt-chip-grid" role="group" aria-labelledby="my-grid-label">
+     <h4 id="my-grid-label">Players</h4>
+     <button class="dt-chip" type="button" data-id="alice">Alice Vunder</button>
+     <button class="dt-chip dt-chip--selected" type="button" data-id="bob">
+       Bob Smith
+       <span class="dt-chip__suffix">+3</span>
+     </button>
+     <button class="dt-chip" type="button" disabled
+             aria-disabled="true" title="No free projects this cycle">
+       Charlie Doe
+     </button>
+   </div>
+
+   Three variants (consumer-wired in JS, not CSS-enforced):
+   - single-select          — exactly one selected; clicking another deselects
+   - multi-select           — any number selected; clicking toggles each
+   - single-select-required — single-select but cannot deselect to zero
+
+   ARIA: parent role="group" + aria-labelledby; chip role="button"|"checkbox"|"radio"
+   per variant. Consumers set the ARIA roles and aria-checked in JS.
+
+   Adopted by stories: dtui-8, dtui-11, dtui-13, dtui-14, dtui-16,
+   dtui-20, dtui-21, dtui-23
+   ════════════════════════════════════════════════════════════════════ */
+
+.dt-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+
+.dt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 5px;
+  font-family: var(--ft);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  min-height: 32px;
+}
+
+.dt-chip:hover {
+  border-color: var(--gold2);
+  background: var(--surf1);
+}
+
+.dt-chip--selected {
+  border-color: var(--gold2);
+  background: var(--gold-a12);
+}
+
+.dt-chip--selected:hover {
+  background: var(--gold-a15);
+}
+
+.dt-chip:focus-visible {
+  outline: 2px solid var(--gold2);
+  outline-offset: 2px;
+}
+
+.dt-chip:disabled,
+.dt-chip[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--txt3);
+}
+
+.dt-chip:disabled:hover,
+.dt-chip[aria-disabled="true"]:hover {
+  border-color: var(--bdr);
+  background: var(--surf2);
+}
+
+/* Optional state suffix inside a chip (e.g. "+3", "●●●") */
+.dt-chip__suffix {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: 2px;
+  font-family: var(--fl);
+  letter-spacing: .04em;
+}
+
+.dt-chip--selected .dt-chip__suffix {
+  color: var(--gold2);
+}
+
+/* Transitions skipped when reduced motion is requested */
+@media (prefers-reduced-motion: no-preference) {
+  .dt-chip {
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-action-desc — italic copy block under action-type dropdown
+   ────────────────────────────────────────────────────────────────────
+   Read-only descriptive copy that appears when a player picks an
+   action type. Confirms what the action does in calibrated language
+   without forcing the player to hunt for help text.
+
+   Distinct from .qf-desc (general italic helper text):
+   - .dt-action-desc fades in/out when content changes
+   - .dt-action-desc has aria-live="polite" for screen reader announce
+   - .dt-action-desc is reserved for action-type explanations
+   - .qf-desc remains the canonical general helper text
+
+   HTML structure:
+   <p class="dt-action-desc" aria-live="polite">
+     You are attempting to destroy, ruin, or harm a specific target...
+   </p>
+
+   Used by:
+   - dtui-4 (action-block shell wires the element)
+   - dtui-6 (Personal Project per-action description copy)
+   - dtui-15 (Allies per-action description copy)
+   ════════════════════════════════════════════════════════════════════ */
+
+.dt-action-desc {
+  font-family: var(--ft);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--txt3);
+  line-height: 1.6;
+  margin: 8px 0 16px;
+}
+
+.dt-action-desc:empty {
+  display: none;
+}
+
+/* Fade-in / fade-on-change animation. Skipped under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .dt-action-desc {
+    animation: dt-action-desc-fade-in 200ms ease-in;
+  }
+
+  /* Adding .dt-action-desc--swapping briefly during text replacement
+     retriggers the animation for a smooth content-swap fade. */
+  .dt-action-desc.dt-action-desc--swapping {
+    animation: dt-action-desc-fade-in 200ms ease-in;
+  }
+}
+
+@keyframes dt-action-desc-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* Downtime/feeding parchment theme weight floor */
 html:not([data-theme="dark"]) .feeding-roll-btn,
 html:not([data-theme="dark"]) .feeding-confirmed-head,

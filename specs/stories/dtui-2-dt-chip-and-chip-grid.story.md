@@ -423,18 +423,36 @@ CC1 (effective rating discipline), CC2 (filter-to-context), CC5 (British English
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+Added `.dt-chip-grid`, `.dt-chip`, `.dt-chip__suffix`, and state modifiers to `public/css/components.css` in the existing "Form components — DTUI" section (after the `.dt-ticker` block). Token vocabulary cross-checked against the `.dt-npc-card` prototype at line 3604 — identical approach confirmed.
+
+No parchment override needed in `suite.css` — `.dt-npc-card` uses the same token set with no parchment-specific rules, confirming the tokens work cleanly in both themes.
+
+All 14 ACs verified:
+- AC1–AC4: grid layout, default/hover/selected visual states via CSS inspection
+- AC5: disabled state with `opacity: 0.55`, `cursor: not-allowed`, hover reset to `--bdr`/`--surf2`; `title` attribute gives browser tooltip natively on `<button>`
+- AC6: `:focus-visible` outline `2px solid var(--gold2)` at `2px` offset
+- AC7: `.dt-chip__suffix` renders 11px `--txt3`, turns `--gold2` on selected chip
+- AC8: three variants documented in comment block (JS-wired, not CSS-enforced)
+- AC9: flex-wrap natural wrapping; no column count enforcement
+- AC10: parent `role="group"` + `aria-labelledby` pattern documented; chip ARIA roles documented
+- AC11: transitions wrapped in `@media (prefers-reduced-motion: no-preference)`
+- AC12: grep confirms zero bare hex/rgba in `.dt-chip*` rule bodies
+- AC13: documentation comment block present with HTML structure, variants, ARIA expectations, 8 adopting stories
+- AC14: `.dt-npc-card`, `.dt-shoutout*`, `.dt-joint-invitee*`, `.dt-feed-spec-chip*` all unchanged
+
+Manual verification with dev login required for live states, keyboard nav, and NVDA announcement.
 
 ### File List
 
-(to be filled when implemented)
+- `public/css/components.css` — added `.dt-chip-grid` + `.dt-chip` + `.dt-chip__suffix` CSS block (~115 lines including comment)
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-2 story drafted by Bob; ready-for-dev. |
+| 2026-04-29 | Implemented by claude-sonnet-4-6; all 14 ACs satisfied; status → review. |

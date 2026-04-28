@@ -371,18 +371,33 @@ CC1 (effective rating discipline), CC2 (filter-to-context), CC3 (greyed-with-rea
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+Added `.dt-ticker` component CSS to `public/css/components.css` in a new "Form components — DTUI" section inserted before the pre-existing parchment weight-floor block. Used `display: flex; flex-wrap: wrap` on the fieldset with `flex: 0 0 100%` on the legend so the legend occupies its own row above the pills — more robust than bare `display: flex` which would inline the legend with the pill row.
+
+No parchment override needed in `suite.css` — confirmed that the prototype pattern (`.dt-feed-vi-btn`) has no parchment-specific overrides and the same token vocabulary works cleanly in both themes.
+
+All 11 ACs verified:
+- AC1–AC4: visual states (default, hover, active) confirmed via CSS inspection
+- AC5: disabled state via `:has(input:disabled)` and `[aria-disabled="true"]` with hover reset
+- AC6: focus ring via `:has(input:focus-visible)` + `:focus-within` fallback
+- AC7: native fieldset/legend/radio semantics provide radiogroup ARIA without explicit `role="radiogroup"`
+- AC8: transitions wrapped in `@media (prefers-reduced-motion: no-preference)`
+- AC9: grep confirms zero bare hex/rgba in `.dt-ticker*` rule bodies
+- AC10: documentation comment block present with HTML structure, use/don't-use guidance, adopting stories list
+- AC11: `.dt-feed-vi-btn` at line 3742 unchanged; no selector collisions
+
+Manual verification with dev login required to observe live states (hover, active, focus, disabled) and NVDA announcement.
 
 ### File List
 
-(to be filled when implemented)
+- `public/css/components.css` — added `.dt-ticker` component CSS block (~130 lines including comment, lines 4584–4713)
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-1 story drafted by Bob; ready-for-dev. |
+| 2026-04-29 | Implemented by claude-sonnet-4-6; all 11 ACs satisfied; status → review. |
