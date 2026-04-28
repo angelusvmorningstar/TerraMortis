@@ -77,7 +77,7 @@ export async function initDowntimeTab(el, char, territories = []) {
     }
   } else if (activeCycle) {
     const cycleLabel = activeCycle.label || `Cycle ${String(activeCycle._id).slice(-4)}`;
-    const forceForm = location.hostname === 'localhost';
+    const forceForm = location.hostname === 'localhost' || isST;
     if (!myActiveSub || forceForm) {
       if (!forceForm && window.innerWidth <= 600) {
         currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
@@ -90,6 +90,8 @@ export async function initDowntimeTab(el, char, territories = []) {
         <p class="dt-state-body">Your ST is processing your actions.</p>
       </div>`;
     }
+  } else if (isST) {
+    renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
   } else {
     const closedCycles = cycles
       .filter(c => c.status === 'closed' || c.status === 'complete')
