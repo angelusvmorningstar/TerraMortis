@@ -1274,7 +1274,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
     // (downtime-tab.js handles the history accordion separately)
-    if (!devPreview && _gateBlocks) {
+    if (!devPreview && !_isST && _gateBlocks) {
       targetEl.innerHTML = renderCycleGatePage();
     } else {
       targetEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
@@ -1294,7 +1294,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const rightEl = document.getElementById('dt-right-pane');
 
   // Left: form or gate message
-  if (!devPreview && _gateBlocks) {
+  if (!devPreview && !_isST && _gateBlocks) {
     leftEl.innerHTML = renderCycleGatePage();
   } else {
     leftEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
