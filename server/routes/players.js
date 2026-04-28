@@ -49,6 +49,24 @@ router.put('/me', async (req, res) => {
   res.json(result);
 });
 
+// GET /api/players/display-names — flat [{character_id, display_name}] map
+// for coordinator-tier surfaces (Check-In tab) that need to label rows by
+// real player names. Narrow projection: no email, discord_id, medical, etc.
+router.get('/display-names', requireRole('coordinator'), async (req, res) => {
+  const players = await col()
+    .find({}, { projection: { display_name: 1, username: 1, character_ids: 1 } })
+    .toArray();
+  const out = [];
+  for (const p of players) {
+    const name = p.display_name || p.username || '';
+    if (!name) continue;
+    for (const cid of (p.character_ids || [])) {
+      if (cid) out.push({ character_id: String(cid), display_name: name });
+    }
+  }
+  res.json(out);
+});
+
 // GET /api/players — list all players (ST only)
 router.get('/', requireRole('st'), async (req, res) => {
   const players = await col().find().toArray();

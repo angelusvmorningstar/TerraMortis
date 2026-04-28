@@ -82,7 +82,7 @@ describe('fin.2 — attendance payment object', () => {
       ...session,
       attendance: [
         { ...session.attendance[0], payment: { method: 'cash', amount: 15 } },
-        { ...session.attendance[1], payment: { method: 'did_not_attend', amount: 0 } },
+        { ...session.attendance[1], payment: { method: 'waived', amount: 0 } },
       ],
     };
     delete update._id;
@@ -98,12 +98,12 @@ describe('fin.2 — attendance payment object', () => {
       .set('X-Test-User', coordinatorUser());
     const doc = fresh.body.find(s => String(s._id) === String(session._id));
     expect(doc.attendance[0].payment).toEqual({ method: 'cash', amount: 15 });
-    expect(doc.attendance[1].payment.method).toBe('did_not_attend');
+    expect(doc.attendance[1].payment.method).toBe('waived');
   });
 
   it('accepts every valid method from the enum', async () => {
     const session = await seedSession();
-    const methods = ['cash', 'payid', 'paypal', 'exiles', 'waived', 'did_not_attend', ''];
+    const methods = ['cash', 'payid', 'paypal', 'exiles', 'waived', ''];
     for (const m of methods) {
       const update = {
         ...session,

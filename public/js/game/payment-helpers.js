@@ -22,7 +22,9 @@ export function normalisePaymentMethod(val) {
   if (s.startsWith('paypal')) return 'paypal';
   if (s.startsWith('exiles')) return 'exiles';
   if (s.startsWith('waived')) return 'waived';
-  if (s === 'did_not_attend' || s.startsWith('did not') || s === 'dna') return 'did_not_attend';
+  // Legacy "did not attend" collapses to unrecorded — the attendance checkbox
+  // is the canonical signal that a player wasn't there (FIN-6).
+  if (s === 'did_not_attend' || s.startsWith('did not') || s === 'dna') return '';
   return '';
 }
 
@@ -31,6 +33,11 @@ export function normalisePaymentMethod(val) {
  * Prefers the structured fin.2 `entry.payment` object; falls back to the
  * legacy `entry.payment_method` string with amount 0 (coordinator fills in
  * the amount when they next touch the row in Check-In).
+ *
+ * FIN-7 note: the row's `payment.amount` is a denormalised mirror of
+ * `session.session_rate` for paid methods; signin-tab writes it on every
+ * method change and on every rate change. Finance tab keeps reading from
+ * the row, so changing that contract requires updating both call sites.
  */
 export function readPayment(entry) {
   const p = entry?.payment;

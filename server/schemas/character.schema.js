@@ -234,8 +234,14 @@ export const characterSchema = {
     },
 
     // ── Touchstones ───────────────────────────────────────────
+    // NPCR.4: slot array, max 6. Each entry has a humanity rating
+    // (assigned descending from the anchor: 7 for Ventrue, 6 else),
+    // a name and optional desc, and an optional edge_id linking to a
+    // relationships doc (kind='touchstone') when the touchstone is a
+    // character (NPC). Object/concept touchstones omit edge_id.
     touchstones: {
       type: 'array',
+      maxItems: 6,
       items: {
         type: 'object',
         required: ['humanity', 'name'],
@@ -243,7 +249,9 @@ export const characterSchema = {
           humanity: { type: 'integer', minimum: 1, maximum: 10 },
           name:     { type: 'string' },
           // desc is absent when not yet written — never null
-          desc:     { type: 'string' }
+          desc:     { type: 'string' },
+          // edge_id present when linked to a relationships doc; absent for object touchstones
+          edge_id:  { type: 'string' }
         },
         additionalProperties: false
       }

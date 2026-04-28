@@ -8,7 +8,7 @@ import cors from 'cors';
 import { requireRole } from '../../middleware/auth.js';
 import charactersRouter from '../../routes/characters.js';
 import territoriesRouter from '../../routes/territories.js';
-import { cyclesRouter, submissionsRouter } from '../../routes/downtime.js';
+import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
 import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import residencyRouter from '../../routes/territory-residency.js';
@@ -17,6 +17,9 @@ import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
+import relationshipsRouter from '../../routes/relationships.js';
+import npcFlagsRouter from '../../routes/npc-flags.js';
+import npcsRouter from '../../routes/npcs.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -48,6 +51,7 @@ export function createTestApp() {
   app.use('/api/characters', mockAuth, charactersRouter);
   app.use('/api/downtime_cycles', mockAuth, cyclesRouter);
   app.use('/api/downtime_submissions', mockAuth, submissionsRouter);
+  app.use('/api/project_invitations', mockAuth, projectInvitationsRouter);
   app.use('/api/players', mockAuth, playersRouter);
   app.use('/api/territory-residency', mockAuth, residencyRouter);
   app.use('/api/attendance', mockAuth, attendanceRouter);
@@ -61,6 +65,9 @@ export function createTestApp() {
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
   app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
   app.use('/api/rules', mockAuth, rulesRouter);
+  app.use('/api/relationships', mockAuth, relationshipsRouter);
+  app.use('/api/npcs', mockAuth, npcsRouter);
+  app.use('/api/npc-flags', mockAuth, npcFlagsRouter);
 
   return app;
 }

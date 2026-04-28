@@ -17,16 +17,16 @@ import { readPayment } from './payment-helpers.js';
 
 // fin.2 schema enum. Display labels paired with stored values.
 const PAYMENT_METHODS = [
-  { value: '',               label: '— Not recorded' },
-  { value: 'cash',           label: 'Cash' },
-  { value: 'payid',          label: 'PayID' },
-  { value: 'paypal',         label: 'PayPal' },
-  { value: 'exiles',         label: 'Exiles (offset)' },
-  { value: 'waived',         label: 'Waived' },
-  { value: 'did_not_attend', label: 'Did Not Attend' },
+  { value: '',       label: '— Not recorded' },
+  { value: 'cash',   label: 'Cash' },
+  { value: 'payid',  label: 'PayID' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'exiles', label: 'Exiles (offset)' },
+  { value: 'waived', label: 'Waived' },
 ];
-const DEFAULT_AMOUNT = 15;
-const ZERO_AMOUNT_METHODS = new Set(['exiles', 'waived', 'did_not_attend', '']);
+// FIN-7: paid methods inherit session.session_rate; everything else is $0.
+const PAID_METHODS = new Set(['cash', 'payid', 'paypal']);
+const DEFAULT_RATE = 15;
 
 function calcEminence(session, chars) {
   const attendedIds = new Set(
@@ -51,6 +51,10 @@ let _session = null;
 let _chars = [];
 let _saveTimer = null;
 let _el = null;
+let _playerByCharId = new Map();
+
+// Placeholder strings seeded by an early redacted import. Treat as missing.
+const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
 
 export async function initSignIn(el, chars) {
   _el = el;
@@ -70,7 +74,30 @@ export async function initSignIn(el, chars) {
     return;
   }
 
+  // Build character_id \u2192 display_name lookup once. Coordinator-accessible
+  // narrow endpoint; if it fails (network or auth), fall back to whatever
+  // string is on the row so the tab still renders.
+  _playerByCharId = new Map();
+  try {
+    const pairs = await apiGet('/api/players/display-names');
+    for (const p of (pairs || [])) {
+      if (p?.character_id && p?.display_name) {
+        _playerByCharId.set(String(p.character_id), p.display_name);
+      }
+    }
+    console.info('[signin] player name lookup: %d mappings loaded', _playerByCharId.size);
+  } catch (err) {
+    console.warn('[signin] player name lookup failed; falling back to row.player strings', err);
+  }
+
   render();
+}
+
+function resolvePlayerName(att) {
+  const raw = (att.player || '').trim();
+  if (raw && !PLACEHOLDER_RE.test(raw)) return raw;
+  const fromMap = _playerByCharId.get(String(att.character_id));
+  return fromMap || raw || '\u2014';
 }
 
 function scheduleAutosave() {
@@ -105,8 +132,8 @@ function render() {
   if (!_el || !_session) return;
 
   const att = (_session.attendance || []).slice().sort((a, b) => {
-    const pa = (a.player || '').toLowerCase();
-    const pb = (b.player || '').toLowerCase();
+    const pa = resolvePlayerName(a).toLowerCase();
+    const pb = resolvePlayerName(b).toLowerCase();
     return pa.localeCompare(pb);
   });
 
@@ -118,6 +145,8 @@ function render() {
     ? arr.map(e => `${esc(e.name)} (${e.total})`).join(' · ')
     : '—';
 
+  const rate = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+
   let h = `<div class="si-header">
     <span class="si-session-label">${esc(label)}</span>
     <span class="si-stat">${attended} / ${att.length} attended</span>
@@ -126,6 +155,11 @@ function render() {
   <div class="si-eminence-block">
     <span class="si-em-label">Eminence:</span><span class="si-em-val">${fmtTop(eminence)}</span>
     <span class="si-em-label">Ascendancy:</span><span class="si-em-val">${fmtTop(ascendancy)}</span>
+  </div>
+  <div class="si-rate-block">
+    <label class="si-rate-label">Session rate ($)
+      <input type="number" id="si-session-rate" class="si-rate-input" min="0" step="1" value="${rate}">
+    </label>
   </div>`;
 
   h += '<div class="si-list">';
@@ -145,38 +179,39 @@ function render() {
       </div>`;
     }
 
-    const { method: currentMethod, amount: legacyAmt } = readPayment(a);
-    const currentAmount = a.payment?.amount ?? (legacyAmt || '');
+    const { method: currentMethod } = readPayment(a);
+    const rowAmount = PAID_METHODS.has(currentMethod) ? rate : 0;
     const payOpts = PAYMENT_METHODS.map(m =>
       `<option value="${esc(m.value)}"${currentMethod === m.value ? ' selected' : ''}>${esc(m.label)}</option>`
     ).join('');
-    const isDNA = currentMethod === 'did_not_attend';
 
-    h += `<div class="si-row${a.attended ? ' si-attended' : ''}${isDNA ? ' si-dna' : ''}" data-idx="${idx}">
+    h += `<div class="si-row${a.attended ? ' si-attended' : ''}" data-idx="${idx}">
       <label class="si-attended-wrap">
         <input type="checkbox" class="si-att-chk" data-idx="${idx}"${a.attended ? ' checked' : ''}>
       </label>
       <div class="si-info">
-        <div class="si-player">${esc(a.player || '—')}</div>
+        <div class="si-player">${esc(resolvePlayerName(a))}</div>
         <div class="si-char">${esc(charName)}</div>
         ${resourceRow}
       </div>
       <select class="si-pay-sel" data-idx="${idx}">
         ${payOpts}
       </select>
-      <input type="number" class="si-pay-amt" data-idx="${idx}" min="0" step="1" value="${currentAmount}" placeholder="$">
+      <span class="si-pay-amt-display">$${rowAmount}</span>
     </div>`;
   });
   h += '</div>';
 
-  // Footer: attended count + collected total from real-payment methods (reads via readPayment for legacy compat)
-  const collected = att.reduce((s, a) => {
-    const { method, amount } = readPayment(a);
-    if (method === 'cash' || method === 'payid' || method === 'paypal') {
-      return s + amount;
-    }
-    return s;
+  // Footer: attended count + collected total. Post-FIN-7, every paid row
+  // collects the session rate, so total = rate × paid count. (Reading from
+  // stored payment.amount would understate the total for any historical
+  // row whose mirror hasn't been refreshed since the rate was lifted to
+  // session level.)
+  const paidCount = att.reduce((n, a) => {
+    const { method } = readPayment(a);
+    return PAID_METHODS.has(method) ? n + 1 : n;
   }, 0);
+  const collected = paidCount * rate;
   h += `<div class="si-footer"><strong>${attended}</strong> attended · <strong>$${collected}</strong> collected</div>`;
 
   _el.innerHTML = h;
@@ -201,16 +236,8 @@ function wireEvents() {
       const entry = _session.attendance[idx];
       if (!entry) return;
       const method = sel.value;
-      // Build structured payment (fin.2 schema). Reset amount sensibly.
-      const prevAmount = entry.payment?.amount;
-      let amount;
-      if (ZERO_AMOUNT_METHODS.has(method)) {
-        amount = 0;
-      } else if (prevAmount != null && prevAmount > 0) {
-        amount = prevAmount;            // keep whatever coordinator had typed
-      } else {
-        amount = DEFAULT_AMOUNT;        // first time switching to a real method
-      }
+      const rate = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+      const amount = PAID_METHODS.has(method) ? rate : 0;
       entry.payment = { ...(entry.payment || {}), method, amount };
       // Legacy mirror for any old readers
       entry.payment_method = method;
@@ -219,15 +246,24 @@ function wireEvents() {
     });
   });
 
-  _el.querySelectorAll('.si-pay-amt').forEach(inp => {
-    inp.addEventListener('change', () => {
-      const idx = parseInt(inp.dataset.idx);
-      const entry = _session.attendance[idx];
-      if (!entry) return;
-      const amount = Number(inp.value) || 0;
-      entry.payment = { ...(entry.payment || {}), amount };
+  const rateInput = _el.querySelector('#si-session-rate');
+  if (rateInput) {
+    rateInput.addEventListener('change', () => {
+      const v = parseFloat(rateInput.value);
+      if (!Number.isFinite(v) || v < 0) {
+        rateInput.value = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
+        return;
+      }
+      _session.session_rate = v;
+      // Sweep paid rows so their stored amount mirrors the new rate.
+      for (const a of (_session.attendance || [])) {
+        const m = a.payment?.method;
+        if (PAID_METHODS.has(m)) {
+          a.payment = { ...(a.payment || {}), method: m, amount: v };
+        }
+      }
       scheduleAutosave();
       render();
     });
-  });
+  }
 }

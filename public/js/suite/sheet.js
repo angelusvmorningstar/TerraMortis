@@ -184,15 +184,18 @@ export function renderSheet() {
   regularBanes.forEach((b, i) => {
     infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
-  // Touchstones
-  const ts = c.touchstones || [];
+  // Touchstones \u2014 NPCR.4: render touchstones[]; NPC-linked entries display
+  // _npc_name (server-enriched) in place of the inline name.
+  const hum = c.humanity || 0;
+  const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
   if (ts.length) {
-    const hum = c.humanity || 0;
-    const tsBody = ts.map(t => {
+    const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
+    const tsBody = sorted.map(t => {
       const attached = hum >= t.humanity;
+      const name = t._npc_name || t.name || '(unnamed)';
       return `<div class="exp-ts-row">
         <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attached ? 'Attached' : 'Detached'}</span></span>
-        <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
+        <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
     infoHtml += expRow('touchstones', 'Touchstones', '', tsBody);

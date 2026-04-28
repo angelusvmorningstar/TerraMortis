@@ -10,6 +10,7 @@
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
+import { renderReadOnlyField } from '../editor/questionnaire-render.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 
 // Fields derived from the character sheet — not rendered as questions.
@@ -52,18 +53,14 @@ function scheduleSave() {
 function collectResponses() {
   const responses = {};
 
-  // Collect sheet-derived values
-  for (const [key, val] of Object.entries(sheetValues)) {
-    if (val) responses[key] = val;
-  }
-
-  // Collect discord from auth (always current)
-  if (discordUsername) responses.discord_nickname = discordUsername;
-
-  // Collect all rendered inputs (facebook_name is in opener with id q-facebook_name)
+  // Sheet-derived fields (clan, covenant, mask, dirge, blood_potency, apparent_age,
+  // character_name, high_concept) and player-identity fields (player_name,
+  // discord_nickname) are not stored here per ORD.1. They live on the character
+  // schema and the player record; the opener and char-header blocks read them
+  // live at render time.
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
-      if (SHEET_FIELDS[q.key]) continue; // already collected above
+      if (SHEET_FIELDS[q.key]) continue; // live-rendered from char sheet; not captured
       if (q.type === 'checkbox' || q.type === 'character_select') {
         const checked = [...document.querySelectorAll(`input[name="q-${q.key}"]:checked`)]
           .map(el => el.value);
@@ -462,51 +459,7 @@ function renderCharHeader() {
 }
 
 // ── Field renderers ───────────────────────────────────────────────
-
-function renderReadOnlyField(q, value) {
-  const isEmpty = Array.isArray(value) ? value.length === 0 : !value;
-  if (isEmpty) return '';
-  let h = `<div class="qf-field">`;
-  h += `<label class="qf-label">${esc(q.label)}</label>`;
-
-  if (q.type === 'dynamic_list' && !Array.isArray(value)) {
-    // Legacy import: stored as a plain string rather than structured array
-    h += `<div class="qf-readonly-value">${esc(value)}</div>`;
-  } else if (q.type === 'dynamic_list') {
-    h += `<div class="qf-dynlist-readonly">`;
-    for (const entry of value) {
-      h += `<div class="qf-dynlist-card">`;
-      for (const sf of q.subfields) {
-        if (entry[sf.key]) {
-          h += `<div class="qf-dynlist-card-row">`;
-          h += `<span class="qf-dynlist-card-label">${esc(sf.label)}</span>`;
-          h += `<span class="qf-dynlist-card-value">${esc(entry[sf.key])}</span>`;
-          h += `</div>`;
-        }
-      }
-      h += `</div>`;
-    }
-    h += `</div>`;
-  } else if (Array.isArray(value)) {
-    // checkbox / character_select: render as tags
-    const labels = value.map(v => {
-      const opt = (q.options || []).find(o => o.value === v);
-      return esc(opt ? opt.label : v);
-    });
-    h += `<div class="qf-tag-list">${labels.map(l => `<span class="qf-tag">${l}</span>`).join('')}</div>`;
-  } else if (q.type === 'radio' || q.type === 'select') {
-    // Resolve option label; fall back to raw value for legacy free-text imports
-    const opt = (q.options || []).find(o => o.value === value);
-    h += opt
-      ? `<div class="qf-tag-list"><span class="qf-tag">${esc(opt.label)}</span></div>`
-      : `<div class="qf-readonly-value">${esc(value)}</div>`;
-  } else {
-    h += `<div class="qf-readonly-value">${esc(value)}</div>`;
-  }
-
-  h += '</div>';
-  return h;
-}
+// renderReadOnlyField lives in ../editor/questionnaire-render.js (shared with archive-tab.js).
 
 function renderQuestion(q, value) {
   const reqMark = q.required ? ' <span class="qf-req">*</span>' : '';

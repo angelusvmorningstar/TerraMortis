@@ -12,6 +12,110 @@ function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
 }
 
+// NPCR.8: in-memory rate-limit state for player quick-add. Keyed by
+// player_id. Resets on process restart — acceptable for a single-node
+// deployment per the story spec. If we ever scale out, promote to a
+// persistent store.
+const _quickAddLastAt = new Map();
+const QUICKADD_RATE_LIMIT_MS = 30 * 1000;
+const QUICKADD_PENDING_CAP = 20;
+
+// NPCR.8: player creates a pending NPC inline (from the Relationships tab
+// quick-add picker). Owner check + per-player 30s rate limit + per-player
+// 20-cap on concurrent pending NPCs. The caller then POSTs a relationship
+// edge separately via /api/relationships using the returned _id.
+router.post('/quick-add', async (req, res) => {
+  const { name, relationship_note, general_note, character_id } = req.body || {};
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'name is required' });
+  }
+  if (!character_id || typeof character_id !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id is required' });
+  }
+
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
+  const userCharIds = (req.user?.character_ids || []).map(String);
+  if (!isSt && !userCharIds.includes(String(character_id))) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'character_id is not yours' });
+  }
+
+  const playerId = String(req.user?.player_id || req.user?.id || '');
+  const now = Date.now();
+  const lastAt = _quickAddLastAt.get(playerId) || 0;
+  if (now - lastAt < QUICKADD_RATE_LIMIT_MS) {
+    const waitSec = Math.ceil((QUICKADD_RATE_LIMIT_MS - (now - lastAt)) / 1000);
+    return res.status(429).json({
+      error: 'RATE_LIMIT',
+      message: `Please wait ${waitSec}s before creating another NPC.`,
+      retry_after_ms: QUICKADD_RATE_LIMIT_MS - (now - lastAt),
+    });
+  }
+
+  const openPending = await col().countDocuments({
+    status: 'pending',
+    'created_by.player_id': playerId,
+  });
+  if (openPending >= QUICKADD_PENDING_CAP) {
+    return res.status(429).json({
+      error: 'RATE_LIMIT',
+      message: `You have ${openPending} pending NPCs awaiting ST review. Wait for the ST to resolve some before creating more.`,
+      cap: QUICKADD_PENDING_CAP,
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  const doc = {
+    name: String(name).trim(),
+    description: String(general_note || '').trim(),
+    notes: String(relationship_note || '').trim(),
+    status: 'pending',
+    linked_character_ids: [String(character_id)],
+    linked_cycle_id: null,
+    created_by: {
+      type: 'player',
+      player_id: playerId,
+      character_id: String(character_id),
+    },
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const result = await col().insertOne(doc);
+  _quickAddLastAt.set(playerId, now);
+  const created = await col().findOne({ _id: result.insertedId });
+  res.status(201).json(created);
+});
+
+// Test-only reset hook. Exported so integration tests can clear rate-limit
+// state between tests without process restart. Never called in production.
+export function _resetQuickAddRateLimit() {
+  _quickAddLastAt.clear();
+}
+
+// NPCR.7 / NPCR.14: player-readable NPC directory. Returns minimal fields
+// for active / pending NPCs so a player can pick one when creating a new
+// edge from the Relationships tab. Must register BEFORE the ST-only
+// router.use.
+//
+// NPCR.14 — privacy scoping: players only see NPCs they have personally
+// quick-added (created_by.type='player' AND created_by.player_id matches).
+// ST-owned NPCs would otherwise leak by mere existence in the register
+// (e.g. plot NPCs with secret backstory). STs/devs see the full directory.
+router.get('/directory', async (req, res) => {
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
+  const filter = { status: { $in: ['active', 'pending'] } };
+  if (!isSt) {
+    const playerId = String(req.user?.player_id || req.user?.id || '');
+    filter['created_by.type']      = 'player';
+    filter['created_by.player_id'] = playerId;
+  }
+  const docs = await col()
+    .find(filter, { projection: { name: 1, description: 1, status: 1, is_correspondent: 1 } })
+    .sort({ name: 1 })
+    .toArray();
+  res.json(docs);
+});
+
 // DTOSL.2: player-readable endpoint (must register BEFORE the ST-only
 // router.use below). Returns NPCs linked to the given character. The
 // caller must own the character (character_ids contains the id). ST
@@ -34,22 +138,33 @@ router.get('/for-character/:characterId', async (req, res) => {
   res.json(docs);
 });
 
-// All other NPC routes are ST-only
-router.use(requireRole('st'));
-
-// GET /api/npcs — list all, optionally filtered by cycle_id
+// NPCP-1: list endpoint is now player-readable but scoped at the Mongo
+// query level to NPCs linked to the caller's characters. ST/dev see the
+// full list (preserves existing ST processing-panel behaviour, including
+// the cycle_id filter). Players with no characters short-circuit to an
+// empty array. Filter is applied in the query, never post-fetch.
 router.get('/', async (req, res) => {
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
   const filter = {};
-  if (req.query.cycle_id) {
+  if (req.query.status) filter.status = req.query.status;
+
+  if (!isSt) {
+    const characterIds = (req.user?.character_ids || []).map(String);
+    if (characterIds.length === 0) return res.json([]);
+    filter.linked_character_ids = { $in: characterIds };
+  } else if (req.query.cycle_id) {
     const oid = parseId(req.query.cycle_id);
     filter.$or = oid
       ? [{ linked_cycle_id: oid }, { linked_cycle_id: req.query.cycle_id }]
       : [{ linked_cycle_id: req.query.cycle_id }];
   }
-  if (req.query.status) filter.status = req.query.status;
+
   const docs = await col().find(filter).sort({ name: 1 }).toArray();
   res.json(docs);
 });
+
+// All other NPC routes are ST-only
+router.use(requireRole('st'));
 
 // POST /api/npcs
 router.post('/', validate(npcSchema), async (req, res) => {

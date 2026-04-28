@@ -84,14 +84,71 @@ function numRange(min, max) {
 
 export { PROJECT_ACTIONS };
 
+// Standing merits whose holders may declare a Maintenance project action
+// to upkeep professional/cult relationships at chapter end. CHM-0: single
+// source of truth; CHM-1/2/3 read from here.
+export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initiation'];
+
+// JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
+// Must stay in sync with JOINT_ELIGIBLE_ACTIONS in server/routes/downtime.js.
+// Excluded: support (recursive role conflict), xp_spend (personal),
+// maintenance (personal). The toggle is hidden for these.
+export const JOINT_ELIGIBLE_ACTIONS = [
+  'ambience_increase',
+  'ambience_decrease',
+  'attack',
+  'hide_protect',
+  'investigate',
+  'patrol_scout',
+  'misc',
+];
+
+// DTFP-3: id values are stable for back-compat (existing submissions keyed by id);
+// only display name and chip lists change. 'familiar' id stays; name flips to 'Deception'.
 export const FEED_METHODS = [
   { id: 'seduction', name: 'Seduction', desc: 'Lure a vessel close', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'], discs: ['Majesty', 'Dominate'] },
-  { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'], discs: ['Protean', 'Obfuscate'] },
-  { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Nightmare'] },
-  { id: 'familiar', name: 'Familiar Face', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Presence'], skills: ['Persuasion', 'Subterfuge'], discs: ['Dominate', 'Majesty'] },
-  { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Strength', 'Manipulation'], skills: ['Intimidation', 'Subterfuge'], discs: ['Nightmare', 'Dominate'] },
+  { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Streetwise'], discs: ['Protean', 'Obfuscate'] },
+  { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Celerity'] },
+  { id: 'familiar', name: 'Deception', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Wits'], skills: ['Persuasion', 'Subterfuge'], discs: ['Auspex', 'Obfuscate'] },
+  { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Intelligence', 'Presence'], skills: ['Expression', 'Intimidation'], discs: ['Nightmare', 'Dominate'] },
   { id: 'other', name: 'Other', desc: 'Custom method (subject to ST approval)', attrs: [], skills: [], discs: [] },
 ];
+
+// DTFP-5: Kiss / Violent feeding declaration. Pre-selection per method;
+// stalking and other are deliberately unselected so the player must pick.
+export const FEED_VIOLENCE_DEFAULTS = {
+  seduction:    'kiss',
+  stalking:     null,
+  force:        'violent',
+  familiar:     'kiss',
+  intimidation: 'violent',
+  other:        null,
+};
+
+export function inferFeedViolenceFromMethod(methodId) {
+  return FEED_VIOLENCE_DEFAULTS[methodId] ?? null;
+}
+
+// Single source of truth for "what was this submission's feed violence":
+// ST override > player choice > legacy-method inference > null.
+export function effectiveFeedViolence(sub) {
+  const stOverride = sub?.st_review?.feed_violence_st_override;
+  if (stOverride === 'kiss' || stOverride === 'violent') return stOverride;
+  const playerChoice = sub?.responses?.feed_violence;
+  if (playerChoice === 'kiss' || playerChoice === 'violent') return playerChoice;
+  return inferFeedViolenceFromMethod(sub?.responses?.['_feed_method']);
+}
+
+// DTFP-6: sorcery targets normaliser. Handles both legacy string shape
+// ('Vincent and the Harbour') and new array shape ([{type, value}, ...]).
+// Returns a single comma-separated display string (values only; type info
+// is preserved on the persisted shape for downstream consumers).
+export function normaliseSorceryTargets(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map(t => (t && t.value) ? String(t.value) : '').filter(Boolean).join(', ');
+  }
+  return raw ? String(raw) : '';
+}
 
 export const DOWNTIME_SECTIONS = [
   // 1. Court — gated: only shown if the player attended last game.

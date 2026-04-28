@@ -5,8 +5,8 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../tabs/downtime-data.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -51,6 +51,27 @@ const stActionAddExpandedSubs = new Set(); // subIds with "Add ST Action" form e
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
+// JDT-5: named phaseNum constants supplement existing magic numbers below.
+// Use these in new code; existing `phaseNum: 1`-style literals can be migrated
+// opportunistically. PHASE_JOINT (1.5) sits between Feeding and Ambience.
+const PHASE_TRAVEL              = -1;
+const PHASE_RESOLVE_FIRST       = 0;
+const PHASE_FEEDING             = 1;
+const PHASE_JOINT               = 1.5;
+const PHASE_AMBIENCE            = 2;
+const PHASE_HIDE_PROTECT        = 3;
+const PHASE_INVESTIGATE         = 4;
+const PHASE_ATTACK              = 5;
+const PHASE_SUPPORT_PATROL      = 6;
+const PHASE_MISC                = 7;
+const PHASE_ALLIES              = 8;
+const PHASE_STATUS              = 9;
+const PHASE_RETAINERS           = 10;
+const PHASE_CONTACTS            = 11;
+const PHASE_RESOURCES_RETAINERS = 12;
+const PHASE_OTHER_MERIT         = 13;
+const PHASE_RESOURCES           = 14;
+
 const PHASE_ORDER = {
   resolve_first: 0,
   feeding: 1,
@@ -67,12 +88,13 @@ const PHASE_LABELS = {
   travel: 'Step 1 — Travel Review',
   resolve_first: 'Step 2 — Blood Sorcery & Rituals',
   feeding: 'Step 3 — Feeding',
-  ambience: 'Step 4 — Ambience',
-  hide_protect: 'Step 5 — Defensive',
-  investigate: 'Step 6 — Investigative',
-  attack: 'Step 7 — Hostile',
-  support_patrol: 'Step 8 — Support & Patrol',
-  misc: 'Step 9 — Miscellaneous',
+  joint: 'Step 4 — Joint Projects',
+  ambience: 'Step 5 — Ambience',
+  hide_protect: 'Step 6 — Defensive',
+  investigate: 'Step 7 — Investigative',
+  attack: 'Step 8 — Hostile',
+  support_patrol: 'Step 9 — Support & Patrol',
+  misc: 'Step 10 — Miscellaneous',
   allies: 'Allies',
   status: 'Status',
   retainers: 'Retainers',
@@ -84,21 +106,22 @@ const PHASE_LABELS = {
 
 // Maps phase numeric key back to display label key
 const PHASE_NUM_TO_LABEL = {
-  0: 'resolve_first',
-  1: 'feeding',
-  2: 'ambience',
-  3: 'hide_protect',
-  4: 'investigate',
-  5: 'attack',
-  6: 'support_patrol',
-  7: 'misc',
-  8: 'allies',
-  9: 'status',
-  10: 'retainers',
-  11: 'contacts',
-  12: 'resources_retainers',
-  13: 'other_merit',
-  14: 'resources',
+  0:   'resolve_first',
+  1:   'feeding',
+  1.5: 'joint',
+  2:   'ambience',
+  3:   'hide_protect',
+  4:   'investigate',
+  5:   'attack',
+  6:   'support_patrol',
+  7:   'misc',
+  8:   'allies',
+  9:   'status',
+  10:  'retainers',
+  11:  'contacts',
+  12:  'resources_retainers',
+  13:  'other_merit',
+  14:  'resources',
 };
 
 // Maps simplified ST-created action category to phase number
@@ -211,91 +234,151 @@ function entryActionKey(entry) {
   return null; // sorcery entries are sources, not targets
 }
 
-// ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
+// ── DTUX-1: clickable phase-tab nav with sign-off badges ──────────────────── Replaces the previous
+// read-only ribbon, the sub-tab strip, and the "Open City & Feeding Phase \u2192"
+// gate button. cycle.status is auto-derived from cycle.phase_signoff by
+// signoffPhase() in db.js \u2014 these helpers are display-only.
 
-function getCyclePhase(cycle, subs) {
-  if (!cycle) return null;
-  if (cycle.status === 'prep')   return 0;
-  if (cycle.status === 'game')   return 1;
-  if (cycle.status === 'active') return 2;
-  // closed
-  const hasPending = (subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
-  return hasPending ? 3 : 4;
-}
+const DTUX_TAB_LABELS = {
+  prep: 'DT Prep', city: 'DT City', projects: 'DT Projects',
+  story: 'DT Story', ready: 'DT Ready',
+};
 
-function getSubPhases(phase, cycle, subs) {
-  switch (phase) {
-    case 0: {
-      const hasAutoOpen = !!cycle.auto_open_at;
-      const hasDeadline = !!cycle.deadline_at;
-      return [
-        { label: 'Auto-Open Set', done: hasAutoOpen },
-        { label: 'Deadline Set',  done: hasDeadline },
-      ];
-    }
-    case 1:
-      return [
-        { label: 'Ambience Applied', done: !!cycle.ambience_applied },
-      ];
-    case 2: {
-      const hasSubs = (subs || []).length > 0;
-      const deadlinePast = !!(cycle.deadline_at && new Date(cycle.deadline_at) < new Date());
-      return [
-        { label: 'Deadline Set',         done: !!cycle.deadline_at },
-        { label: 'Submissions Received', done: hasSubs },
-        { label: 'Deadline Passed',      done: deadlinePast },
-      ];
-    }
-    case 3: {
-      const allResolved = !(subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
-      return [
-        { label: 'Reviewing',    done: allResolved, inProgress: !allResolved },
-        { label: 'All Resolved', done: allResolved },
-      ];
-    }
-    case 4:
-    default:
-      return [];
+const DTUX_TAB_TO_PANEL = {
+  prep: 'dt-prep-panel',
+  city: 'dt-city-panel',
+  projects: 'dt-processing-panel',
+  story: 'dt-story-panel',
+  ready: 'dt-ready-panel',
+};
+
+let _dtuxActiveTab = null; // session-only; null until first cycle load
+
+function _initialDtuxTab(cycle) {
+  if (_dtuxActiveTab && DTUX_TAB_TO_PANEL[_dtuxActiveTab]) return _dtuxActiveTab;
+  const ps = cycle?.phase_signoff || {};
+  const hasSignoff = Object.keys(ps).length > 0;
+  if (hasSignoff) {
+    for (const p of DTUX_PHASES) if (!ps[p]) return p;
+    return 'ready';
+  }
+  // Legacy cycle without phase_signoff: pick from existing status field.
+  switch (cycle?.status) {
+    case 'prep':     return 'prep';
+    case 'game':     return 'city';
+    case 'active':   return 'projects';
+    case 'closed':   return 'story';
+    case 'complete': return 'ready';
+    default:         return 'prep';
   }
 }
 
-function renderPhaseRibbon(cycle, subs) {
+function renderPhaseRibbon(cycle, _subs) {
   const mainEl = document.getElementById('dt-phase-ribbon');
   const subEl  = document.getElementById('dt-sub-ribbon');
-  if (!mainEl || !subEl) return;
+  if (!mainEl) return;
+  // Sub-ribbon retired by DTUX-1; hide while the markup remains in admin.html.
+  if (subEl) subEl.style.display = 'none';
 
-  const phase = getCyclePhase(cycle, subs);
-  if (phase === null) {
+  if (!cycle) {
     mainEl.style.display = 'none';
-    subEl.style.display  = 'none';
     return;
   }
 
-  // Main ribbon
-  const mainSteps = ['DT Prep', 'City & Feeding', 'Downtimes', 'ST Processing', 'Push Ready'];
+  if (!_dtuxActiveTab) _dtuxActiveTab = _initialDtuxTab(cycle);
+
+  const ps = cycle.phase_signoff || {};
   mainEl.style.display = '';
-  mainEl.innerHTML = mainSteps.map((label, i) => {
-    const done   = i < phase;
-    const active = i === phase;
-    const cls    = done ? 'pr-step pr-done' : active ? 'pr-step pr-active' : 'pr-step pr-future';
-    const numContent = done ? '\u2713' : String(i + 1);
-    const connector = i < mainSteps.length - 1 ? '<span class="pr-connector"></span>' : '';
-    return `<span class="${cls}"><span class="pr-step-num">${numContent}</span>${label}</span>${connector}`;
+  mainEl.classList.add('dt-phase-ribbon-tabs');
+  mainEl.innerHTML = DTUX_PHASES.map(phase => {
+    const signed = !!ps[phase];
+    const active = phase === _dtuxActiveTab;
+    const cls = ['pr-tab', active ? 'pr-tab-active' : '', signed ? 'pr-tab-signed' : '']
+      .filter(Boolean).join(' ');
+    const badge = signed
+      ? '<span class="pr-tab-badge pr-tab-badge-signed">\u2713</span>'
+      : '<span class="pr-tab-badge pr-tab-badge-empty">\u25cb</span>';
+    return `<button type="button" class="${cls}" data-phase="${phase}">${badge}<span class="pr-tab-label">${DTUX_TAB_LABELS[phase]}</span></button>`;
   }).join('');
+}
 
-  // Sub ribbon
-  const subSteps = getSubPhases(phase, cycle, subs);
-  if (!subSteps.length) {
-    subEl.style.display = 'none';
-    return;
+function showDtuxPhase(phase) {
+  if (!DTUX_TAB_TO_PANEL[phase]) phase = 'prep';
+  _dtuxActiveTab = phase;
+  for (const p of DTUX_PHASES) {
+    const el = document.getElementById(DTUX_TAB_TO_PANEL[p]);
+    if (el) el.style.display = (p === phase) ? '' : 'none';
   }
-  subEl.style.display = '';
-  subEl.innerHTML = subSteps.map((s, i) => {
-    const cls = s.done ? 'pr-sub pr-done' : s.inProgress ? 'pr-sub pr-active' : 'pr-sub pr-future';
-    const icon = s.done ? '\u2713 ' : '';
-    const connector = i < subSteps.length - 1 ? '<span class="pr-sub-connector"></span>' : '';
-    return `<span class="${cls}">${icon}${s.label}</span>${connector}`;
-  }).join('');
+  document.querySelectorAll('#dt-phase-ribbon .pr-tab').forEach(btn => {
+    btn.classList.toggle('pr-tab-active', btn.dataset.phase === phase);
+  });
+  // Lazy-init city/story tabs the first time they're shown.
+  if (phase === 'city' && !_dtuxCityInited) { _dtuxCityInited = true; renderCityOverview(); }
+  if (phase === 'story' && !_dtuxStoryInited) { _dtuxStoryInited = true; _initDtStoryFromRibbon(); }
+}
+
+let _dtuxCityInited = false;
+let _dtuxStoryInited = false;
+
+async function _initDtStoryFromRibbon() {
+  // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
+  // anyway, so the module-state coupling is fine.
+  const { initDtStory } = await import('./downtime-story.js');
+  initDtStory(null);
+}
+
+async function _handleSignoffClick(btn) {
+  if (!currentCycle) return;
+  const phase = btn.dataset.signoffPhase;
+  if (!phase || !DTUX_PHASES.includes(phase)) return;
+  const turningOn = !(currentCycle.phase_signoff || {})[phase];
+  const userId = getUser()?._id || getUser()?.user_id || null;
+  await signoffPhase(currentCycle, phase, turningOn, userId);
+  // Mirror into allCycles so subsequent renders see the new status/signoff.
+  const idx = allCycles.findIndex(c => c._id === currentCycle._id);
+  if (idx >= 0) {
+    allCycles[idx].phase_signoff = currentCycle.phase_signoff;
+    allCycles[idx].status = currentCycle.status;
+  }
+  // Refresh the full panel set so dt-cycle-status, the snapshot panel, and the
+  // ambience-apply visibility (all keyed on cycle.status) reflect the new
+  // derived status. Same pattern as the retired gate button handler.
+  await loadCycleById(currentCycle._id);
+}
+
+function renderSignoffButton(phase, cycle) {
+  const signed = !!(cycle?.phase_signoff || {})[phase];
+  const label = signed ? '\u2713 Signed-off \u2014 undo?' : 'Mark phase signed-off';
+  const cls = signed ? 'dt-btn dt-signoff-btn dt-signoff-signed' : 'dt-btn dt-signoff-btn';
+  return `<button type="button" class="${cls}" data-signoff-phase="${phase}">${label}</button>`;
+}
+
+function renderReadyPanel(cycle, subs) {
+  const panel = document.getElementById('dt-ready-panel');
+  if (!panel) return;
+  if (!cycle) { panel.style.display = 'none'; return; }
+  if (_dtuxActiveTab && _dtuxActiveTab !== 'ready') {
+    panel.style.display = 'none';
+  }
+  // Visibility otherwise driven by showDtuxPhase. Render content unconditionally
+  // so it's ready when the tab opens.
+  const subList = subs || [];
+  const total = subList.length;
+  const pending = subList.filter(s => !s.approval_status || s.approval_status === 'pending').length;
+  const storySigned = !!(cycle.phase_signoff || {}).story;
+
+  let resolvedNote;
+  if (total === 0)        resolvedNote = 'no submissions yet';
+  else if (pending === 0) resolvedNote = 'all resolved';
+  else                    resolvedNote = `${pending} pending`;
+
+  let h = '<div class="dt-ready-content">';
+  h += `<h3 class="dt-ready-title">Push Cycle</h3>`;
+  h += `<p class="dt-ready-summary">${total} submission${total === 1 ? '' : 's'}\u00a0\u2014\u00a0${resolvedNote}; DT Story ${storySigned ? 'signed off' : 'not yet signed off'}.</p>`;
+  h += `<p class="dt-ready-hint">Use the existing Push button on each character\u2019s row in DT Story to publish their narrative. This panel is informational; sign-off below records that the cycle is fully published.</p>`;
+  h += `<div class="dt-ready-actions">${renderSignoffButton('ready', cycle)}</div>`;
+  h += '</div>';
+  panel.innerHTML = h;
 }
 
 let _shellInited = false;
@@ -325,6 +408,46 @@ export async function initDowntimeView(passedChars) {
     document.getElementById('dt-cycle-sel').addEventListener('change', e => {
       selectedCycleId = e.target.value;
       loadCycleById(selectedCycleId);
+    });
+
+    // DTUX-1: phase ribbon click delegation — drives panel visibility and
+    // sign-off button clicks. Wired once on shell init.
+    document.getElementById('dt-phase-ribbon')?.addEventListener('click', e => {
+      const tab = e.target.closest('[data-phase]');
+      if (tab) { showDtuxPhase(tab.dataset.phase); return; }
+    });
+    document.addEventListener('click', e => {
+      const signoff = e.target.closest('[data-signoff-phase]');
+      if (signoff) { _handleSignoffClick(signoff); return; }
+      // DTIL-1: Court Pulse copy + save buttons
+      const cpCopy = e.target.closest('.dt-court-pulse-copy-btn');
+      if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
+      const cpSave = e.target.closest('.dt-court-pulse-save-btn');
+      if (cpSave) { _handleCourtPulseSave(cpSave); return; }
+      // DTIL-2: Action Queue filter pills, char-link, expand toggle
+      const aqFilter = e.target.closest('.dt-action-queue-filter-pill');
+      if (aqFilter) { _handleActionQueueFilter(aqFilter); return; }
+      const aqOpen = e.target.closest('.dt-action-queue-char-btn');
+      if (aqOpen) { _handleActionQueueOpenSub(aqOpen); return; }
+      const aqExpand = e.target.closest('.dt-action-queue-text-toggle');
+      if (aqExpand) { _handleActionQueueRowExpandToggle(aqExpand); return; }
+      // DTIL-4: Territory Pulse toggle/copy/save
+      const tpToggle = e.target.closest('.dt-territory-pulse-toggle-btn');
+      if (tpToggle) { _handleTerritoryPulseToggle(tpToggle); return; }
+      const tpCopy = e.target.closest('.dt-territory-pulse-copy-btn');
+      if (tpCopy) { _handleTerritoryPulseCopy(tpCopy); return; }
+      const tpSave = e.target.closest('.dt-territory-pulse-save-btn');
+      if (tpSave) { _handleTerritoryPulseSave(tpSave); return; }
+    });
+    // DTIL-2: Action Queue state dropdown change
+    document.addEventListener('change', e => {
+      const aqSelect = e.target.closest('.dt-action-queue-state-select');
+      if (aqSelect) { _handleActionQueueStateChange(aqSelect); return; }
+    });
+    // DTIL-2: Action Queue note input save on blur (focusout bubbles)
+    document.addEventListener('focusout', e => {
+      const aqNote = e.target.closest('.dt-action-queue-note-input');
+      if (aqNote) { _handleActionQueueNoteSave(aqNote); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -565,6 +688,117 @@ function _renderPhaseHeader(phaseKey, label, count, unit, isExpanded) {
   h += `<span class="proc-phase-label">${label}</span>`;
   h += `<span class="proc-phase-count">${count} ${unit}${s}</span>`;
   h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  return h;
+}
+
+// ── JDT-5: Joint Projects phase grouping ───────────────────────────────────
+// Renders one wrapper per joint: shared header (description, action type,
+// target, role pills), participant rows (each expandable to the standard
+// project pool builder + roll card via renderActionPanel), then a single
+// joint outcome textarea + save button. The participant entries are
+// regular project entries with phaseNum 1.5; their `entry.key` keeps the
+// existing click-handler dispatch working unchanged.
+function renderJointGroup(joint, entries) {
+  if (!joint) {
+    return `<div class="proc-joint-group proc-joint-group-orphan">
+      <p class="proc-joint-orphan-msg">A joint is referenced but its document is missing from the cycle. Investigate and reconcile.</p>
+    </div>`;
+  }
+
+  const actionLabel = ACTION_TYPE_LABELS[joint.action_type] || joint.action_type;
+  let targetLine = '';
+  if (joint.target_value) {
+    if (joint.target_type === 'character') {
+      let ids = [];
+      try {
+        const parsed = JSON.parse(joint.target_value);
+        ids = Array.isArray(parsed) ? parsed : [joint.target_value];
+      } catch { ids = [joint.target_value]; }
+      const names = ids.map(id => {
+        const c = characters.find(ch => String(ch._id) === String(id));
+        return c ? displayName(c) : id;
+      });
+      targetLine = `Target: ${names.join(', ')}`;
+    } else if (joint.target_type === 'territory') {
+      targetLine = `Territory: ${joint.target_value}`;
+    } else {
+      targetLine = `Target: ${joint.target_value}`;
+    }
+  }
+
+  let h = `<div class="proc-joint-group" data-joint-id="${esc(joint._id)}">`;
+
+  // Shared header
+  h += `<div class="proc-joint-shared-header">`;
+  h += `<div class="proc-joint-action-label">Joint ${esc(actionLabel)}</div>`;
+  if (joint.description) {
+    h += `<div class="proc-joint-description">${esc(joint.description)}</div>`;
+  }
+  if (targetLine) {
+    h += `<div class="proc-joint-target">${esc(targetLine)}</div>`;
+  }
+  h += `<div class="proc-joint-participant-pills">`;
+  for (const entry of entries) {
+    const roleLbl = entry.joint_role === 'lead' ? 'Lead' : 'Support';
+    h += `<span class="proc-joint-participant-pill proc-joint-pill-${esc(entry.joint_role || 'support')}">${esc(entry.charName)} <em>(${roleLbl})</em></span>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  // Per-participant rows — same shape as solo project rows so the existing
+  // expand/collapse + renderActionPanel handlers route through unchanged.
+  for (const entry of entries) {
+    const isExpanded = procExpandedKeys.has(entry.key);
+    const review = getEntryReview(entry);
+    const status = review?.pool_status || 'pending';
+    const shortDesc = (entry.description || '').length > 80
+      ? entry.description.slice(0, 77) + '...'
+      : (entry.description || '');
+    const roleBadge = entry.joint_role === 'lead' ? 'Lead' : 'Support';
+
+    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+    h += `<span class="proc-row-label">${esc(entry.label)} <span class="proc-joint-role-badge proc-joint-role-${esc(entry.joint_role || 'support')}">${roleBadge}</span></span>`;
+    h += `<span class="proc-row-desc" title="${esc(entry.description || '')}">${esc(shortDesc || '—')}</span>`;
+    const _attributedName =
+      (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
+      (status === 'committed' && review?.pool_committed_by) ? review.pool_committed_by :
+      (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+    h += `<span class="proc-row-status-cell">`;
+    if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
+    h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+    h += `</span>`;
+    if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
+    // No Dup / Del on joint participant rows — lifecycle handled via JDT-6.
+    h += `<span class="proc-row-actions"></span>`;
+    h += `</div>`;
+
+    if (isExpanded) {
+      h += renderActionPanel(entry, review);
+    }
+  }
+
+  // Joint outcome zone
+  const outcomeTxt = joint.st_joint_outcome || '';
+  h += `<div class="proc-joint-outcome-zone">`;
+  h += `<div class="proc-mod-panel-title">Joint outcome</div>`;
+  h += `<p class="proc-joint-outcome-help">One shared narrative outcome for this joint. Replicates into each participant's published outcome at push time, with their personal contribution notes interleaved.</p>`;
+  h += `<textarea class="proc-joint-outcome-ta" data-joint-id="${esc(joint._id)}" rows="6">${esc(outcomeTxt)}</textarea>`;
+  h += `<div class="proc-joint-outcome-actions">`;
+  h += `<button class="dt-btn proc-joint-outcome-save-btn" data-joint-id="${esc(joint._id)}">Save outcome</button>`;
+  h += `<span class="proc-joint-outcome-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  // JDT-6: ST safety-valve override. Visible regardless of participant
+  // state. Cancels the joint, decouples accepted supports, clears all slots.
+  h += `<div class="proc-joint-st-override-zone">`;
+  h += `<button class="proc-joint-st-override-btn" data-joint-id="${esc(joint._id)}">ST override: cancel joint</button>`;
+  h += `<span class="proc-joint-st-override-help">Safety valve. Use only when normal lead cancellation is impossible.</span>`;
+  h += `<span class="proc-joint-st-override-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+
   h += `</div>`;
   return h;
 }
@@ -836,9 +1070,12 @@ async function loadCycleById(cycleId) {
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
 
-  // ── Phase ribbon (initial render — submissions not yet loaded) ──
+  // ── DTUX-1: phase ribbon + panel set; show the chosen tab ──
+  if (!_dtuxActiveTab) _dtuxActiveTab = _initialDtuxTab(cycle);
   renderPhaseRibbon(cycle, []);
   renderPrepPanel(cycle);
+  renderReadyPanel(cycle, []);
+  showDtuxPhase(_dtuxActiveTab);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
@@ -854,7 +1091,14 @@ async function loadCycleById(cycleId) {
 
   procExpandedKeys.clear();
   submissions = await getSubmissionsForCycle(cycleId);
-  renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
+  renderPhaseRibbon(currentCycle, submissions);
+  renderReadyPanel(currentCycle, submissions);
+  // DTIL-3: derive Action Queue defaults from mechanical_flag_N before render
+  // so flagged items appear pre-triaged as Action Needed. Idempotent — only
+  // writes for items without an existing entry.
+  await _deriveActionQueueDefaults(currentCycle, submissions);
+  // DTIL: refresh cycle-level intelligence layer now that submissions are loaded
+  renderCycleIntelligence(currentCycle, submissions, characters);
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   document.getElementById('dt-export-json').style.display = submissions.length ? '' : 'none';
   renderMatchSummary();
@@ -1071,7 +1315,7 @@ function renderPlayerResponses(s) {
   for (let n = 1; n <= sorcCount; n++) {
     const rite = r[`sorcery_${n}_rite`];
     if (!rite) continue;
-    const targets = r[`sorcery_${n}_targets`] || '';
+    const targets = normaliseSorceryTargets(r[`sorcery_${n}_targets`]);
     const notes = r[`sorcery_${n}_notes`] || '';
     const mand = r[`sorcery_${n}_mandragora`] === 'yes';
     const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
@@ -1396,14 +1640,584 @@ async function handleNewCycle() {
   await loadAllCycles();
 }
 
+// CHM-2: holdings detection for the maintenance audit. PT is a flat
+// boolean; MCI may be multiple rows (one per cult), so collect the cult
+// names for context. Mirrors the m.active !== false guard used elsewhere
+// when iterating MCI merits.
+function maintenanceHoldings(c) {
+  const merits = c.merits || [];
+  const pt = merits.some(m => m.name === 'Professional Training');
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  return {
+    pt,
+    mci: mciMerits.length > 0,
+    mciCults: mciMerits.map(m => m.cult_name).filter(Boolean),
+  };
+}
+
+function maintenanceEligibleChars() {
+  return (characters || [])
+    .filter(c => !c.retired)
+    .filter(c => (c.merits || []).some(m => MAINTENANCE_MERITS.includes(m.name)))
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
+}
+
+// Patches a single audit cell ({pt|mci}) on cycle.maintenance_audit.
+// Sends the whole audit object on each tick — fine at <=30 chars.
+async function setMaintenanceAudit(cycle, charId, key, value) {
+  const audit = { ...(cycle.maintenance_audit || {}) };
+  audit[charId] = { pt: false, mci: false, ...(audit[charId] || {}), [key]: value };
+  await updateCycle(cycle._id, { maintenance_audit: audit });
+  cycle.maintenance_audit = audit;
+  const idx = allCycles.findIndex(c => c._id === cycle._id);
+  if (idx >= 0) allCycles[idx].maintenance_audit = audit;
+}
+
+function renderMaintenanceAuditPanel(cycle) {
+  if (cycle.is_chapter_finale !== true) return '';
+  const eligible = maintenanceEligibleChars();
+  const audit = cycle.maintenance_audit || {};
+  const subLabel = cycle.chapter_label ? ` <span class="dt-maintenance-sub-label">(${esc(cycle.chapter_label)})</span>` : '';
+
+  let html = '<section class="dt-maintenance-audit">';
+  html += `<h4 class="dt-maintenance-title">Chapter Finale — Maintenance Audit${subLabel}</h4>`;
+  html += '<p class="dt-maintenance-sub">Tick a box once you have confirmed the player has maintained this standing merit during the chapter.</p>';
+
+  if (eligible.length === 0) {
+    html += '<p class="dt-maintenance-empty">No characters hold Professional Training or Mystery Cult Initiation.</p>';
+    html += '</section>';
+    return html;
+  }
+
+  html += '<table class="dt-maintenance-table"><thead><tr><th>Character</th><th>PT</th><th>MCI</th></tr></thead><tbody>';
+  for (const c of eligible) {
+    const id = String(c._id);
+    const h = maintenanceHoldings(c);
+    const row = audit[id] || {};
+    const ptCell = h.pt
+      ? `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="pt"${row.pt ? ' checked' : ''}>`
+      : '';
+    let mciCell = '';
+    if (h.mci) {
+      mciCell = `<input type="checkbox" class="dt-maintenance-tick" data-char-id="${esc(id)}" data-key="mci"${row.mci ? ' checked' : ''}>`;
+      if (h.mciCults.length) {
+        mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
+      }
+    }
+    html += `<tr><td>${esc(displayName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+  }
+  html += '</tbody></table></section>';
+  return html;
+}
+
+// ── DT Intelligence Layer (DTIL) ─────────────────────────────────────────────
+// Cycle-level synthesis surfaces mounted into #dt-cycle-intelligence (inside
+// the DT Prep panel): Court Pulse (DTIL-1), Action Queue (DTIL-2/3).
+
+function renderCycleIntelligence(cycle, subs, chars) {
+  const container = document.getElementById('dt-cycle-intelligence');
+  if (!container || !cycle) return;
+  container.innerHTML =
+    renderCourtPulsePanel(cycle, subs || [], chars || []) +
+    `<div id="dt-action-queue-mount">${renderActionQueuePanel(cycle, subs || [], chars || [])}</div>`;
+}
+
+function _refreshActionQueueOnly(cycle, subs, chars) {
+  const mount = document.getElementById('dt-action-queue-mount');
+  if (!mount || !cycle) return;
+  mount.innerHTML = renderActionQueuePanel(cycle, subs || [], chars || []);
+}
+
+function _buildCourtPulsePromptText(cycle, subs, chars) {
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const blocks = [];
+  const sorted = (subs || [])
+    .filter(sub => {
+      for (let n = 1; n <= 5; n++) {
+        if ((sub.responses?.[`game_recount_${n}`] || '').trim()) return true;
+      }
+      return false;
+    })
+    .map(sub => ({ sub, char: charById.get(String(sub.character_id)) }))
+    .sort((a, b) => sortName(a.char || {}).localeCompare(sortName(b.char || {})));
+
+  for (const { sub, char } of sorted) {
+    const lines = [];
+    let count = 0;
+    for (let n = 1; n <= 5; n++) {
+      const txt = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!txt) continue;
+      count += 1;
+      lines.push(`  ${count}. ${txt}`);
+    }
+    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    blocks.push(`Highlights from ${name}:\n${lines.join('\n')}`);
+  }
+
+  if (!blocks.length) return '';
+
+  const framing = "You are reading the game-night highlights of every player who attended the most recent game of a Vampire: The Requiem 2nd Edition LARP. Each highlight is one moment that stood out for that player. Synthesise the gestalt of the night: the dominant moods, recurring themes, social undercurrents, and any notable events that resurface across multiple players' accounts. Write a Court Pulse summary in 250 to 400 words, suitable for the Storyteller's reference. Use British English. Do not invent details not present in the highlights.";
+
+  return `${framing}\n\n${blocks.join('\n\n')}`;
+}
+
+function renderCourtPulsePanel(cycle, subs, chars) {
+  const promptText = _buildCourtPulsePromptText(cycle, subs, chars);
+  const synthesis = cycle.st_court_synthesis_draft || '';
+  const isEmpty = !promptText;
+  const cycleId = esc(String(cycle._id));
+
+  return `<section class="dt-court-pulse-panel" data-cycle-id="${cycleId}">
+    <h3 class="dt-court-pulse-title">Court Pulse</h3>
+    <p class="dt-court-pulse-hint">Build a structured prompt from every player's game-night highlights, run it through your LLM of choice, and paste the synthesis back below for cycle reference.</p>
+    <div class="dt-court-pulse-prompt-block">
+      <label class="dt-court-pulse-label">Prompt (copy and paste to your LLM):</label>
+      ${isEmpty
+        ? '<div class="dt-court-pulse-placeholder">No game highlights yet.</div>'
+        : `<textarea class="dt-court-pulse-prompt-ta" readonly>${esc(promptText)}</textarea>
+           <div class="dt-court-pulse-actions">
+             <button type="button" class="dt-btn dt-court-pulse-copy-btn">Copy prompt</button>
+             <span class="dt-court-pulse-copy-status"></span>
+           </div>`
+      }
+    </div>
+    <div class="dt-court-pulse-synthesis-block">
+      <label class="dt-court-pulse-label" for="dt-court-pulse-synthesis-ta">Court Pulse synthesis (paste here):</label>
+      <textarea id="dt-court-pulse-synthesis-ta" class="dt-court-pulse-synthesis-ta" placeholder="Paste the LLM's synthesis here…">${esc(synthesis)}</textarea>
+      <div class="dt-court-pulse-actions">
+        <button type="button" class="dt-btn dt-court-pulse-save-btn">Save synthesis</button>
+        <span class="dt-court-pulse-save-status"></span>
+      </div>
+    </div>
+  </section>`;
+}
+
+async function _handleCourtPulseCopy(btn) {
+  const panel = btn.closest('.dt-court-pulse-panel');
+  const ta = panel?.querySelector('.dt-court-pulse-prompt-ta');
+  const status = panel?.querySelector('.dt-court-pulse-copy-status');
+  if (!ta) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    if (status) {
+      status.textContent = 'Copied';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Copy failed';
+  }
+}
+
+async function _handleCourtPulseSave(btn) {
+  const panel = btn.closest('.dt-court-pulse-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const ta = panel?.querySelector('.dt-court-pulse-synthesis-ta');
+  const status = panel?.querySelector('.dt-court-pulse-save-status');
+  if (!cycleId || !ta) return;
+  const text = ta.value;
+  if (status) status.textContent = 'Saving…';
+  try {
+    await updateCycle(cycleId, { st_court_synthesis_draft: text });
+    if (currentCycle && String(currentCycle._id) === cycleId) {
+      currentCycle.st_court_synthesis_draft = text;
+    }
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].st_court_synthesis_draft = text;
+    if (status) {
+      status.textContent = 'Saved';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Save failed';
+  }
+}
+
+// ── DTIL-2: Action Queue ─────────────────────────────────────────────────────
+
+const ACTION_QUEUE_STATES = ['unread', 'acknowledged', 'action_needed', 'resolved', 'ignored'];
+const ACTION_QUEUE_STATE_LABELS = {
+  unread:        'Unread',
+  acknowledged:  'Acknowledged',
+  action_needed: 'Action Needed',
+  resolved:      'Resolved',
+  ignored:       'Ignored',
+};
+let _actionQueueFilter = 'all';
+
+function _buildActionQueueItems(cycle, subs, chars) {
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const stateMap = cycle.action_queue_state || {};
+  const items = [];
+  for (const sub of subs || []) {
+    for (let n = 1; n <= 5; n++) {
+      const text = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!text) continue;
+      const slotIdx = n - 1;
+      const key = `${sub._id}:${slotIdx}`;
+      const entry = stateMap[key] || {};
+      const char = charById.get(String(sub.character_id));
+      items.push({
+        key,
+        subId: String(sub._id),
+        slotIdx,
+        slotN: n,
+        text,
+        state: ACTION_QUEUE_STATES.includes(entry.state) ? entry.state : 'unread',
+        note: entry.note || '',
+        charName: (char ? displayName(char) : null) || sub.character_name || 'Unknown',
+        sortKey: char ? sortName(char) : (sub.character_name || ''),
+        submittedAt: sub.submitted_at || sub.created_at || '',
+      });
+    }
+  }
+  items.sort((a, b) => {
+    const t = (b.submittedAt || '').localeCompare(a.submittedAt || '');
+    if (t !== 0) return t;
+    const n = (a.sortKey || '').localeCompare(b.sortKey || '');
+    if (n !== 0) return n;
+    return a.slotIdx - b.slotIdx;
+  });
+  return items;
+}
+
+function _truncateForRow(text, max) {
+  if (!text) return '';
+  if (text.length <= max) return text;
+  return text.slice(0, max).trimEnd() + '…';
+}
+
+function renderActionQueuePanel(cycle, subs, chars) {
+  const items = _buildActionQueueItems(cycle, subs, chars);
+  const cycleId = esc(String(cycle._id));
+
+  const counts = { all: items.length, unread: 0, acknowledged: 0, action_needed: 0, resolved: 0, ignored: 0 };
+  for (const it of items) counts[it.state] += 1;
+
+  const filter = ACTION_QUEUE_STATES.includes(_actionQueueFilter) || _actionQueueFilter === 'all'
+    ? _actionQueueFilter
+    : 'all';
+  const visible = filter === 'all' ? items : items.filter(it => it.state === filter);
+
+  const filterPills = ['all', ...ACTION_QUEUE_STATES].map(f => {
+    const label = f === 'all' ? 'All' : ACTION_QUEUE_STATE_LABELS[f];
+    const cls = `dt-action-queue-filter-pill${filter === f ? ' active' : ''}`;
+    return `<button type="button" class="${cls}" data-filter="${f}">${esc(label)} (${counts[f]})</button>`;
+  }).join('');
+
+  const rows = visible.length
+    ? visible.map(it => {
+        const stateOptions = ACTION_QUEUE_STATES.map(s =>
+          `<option value="${s}"${s === it.state ? ' selected' : ''}>${esc(ACTION_QUEUE_STATE_LABELS[s])}</option>`
+        ).join('');
+        const isLong = it.text.length > 120;
+        const truncated = _truncateForRow(it.text, 120);
+        return `<div class="dt-action-queue-row state-${esc(it.state)}" data-key="${esc(it.key)}" data-state="${esc(it.state)}">
+          <button type="button" class="dt-action-queue-char-btn" data-sub-id="${esc(it.subId)}" title="Open in DT Projects">${esc(it.charName)}</button>
+          <span class="dt-action-queue-slot">Highlight ${it.slotN}</span>
+          <div class="dt-action-queue-text${isLong ? ' is-long' : ''}" title="${esc(it.text)}">
+            <span class="dt-action-queue-text-truncated">${esc(truncated)}</span>
+            <span class="dt-action-queue-text-full">${esc(it.text)}</span>
+            ${isLong ? '<button type="button" class="dt-action-queue-text-toggle">Show full</button>' : ''}
+          </div>
+          <select class="dt-action-queue-state-select" data-key="${esc(it.key)}">${stateOptions}</select>
+          <input type="text" class="dt-action-queue-note-input" data-key="${esc(it.key)}" value="${esc(it.note)}" maxlength="140" placeholder="ST note…">
+        </div>`;
+      }).join('')
+    : (items.length
+      ? `<div class="dt-action-queue-empty">No items in this filter.</div>`
+      : `<div class="dt-action-queue-empty">No highlights to triage yet.</div>`);
+
+  return `<section class="dt-action-queue-panel" data-cycle-id="${cycleId}">
+    <h3 class="dt-action-queue-title">Action Queue</h3>
+    <p class="dt-action-queue-hint">One row per non-empty player highlight across the cycle. Triage each item, jot a one-line note, and filter by state to focus your processing pass.</p>
+    <div class="dt-action-queue-filter-pills">${filterPills}</div>
+    <div class="dt-action-queue-rows">${rows}</div>
+  </section>`;
+}
+
+function _findActionQueueEntry(cycleId, key) {
+  const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+    ? currentCycle
+    : allCycles.find(c => String(c._id) === cycleId);
+  return { cycle: cyc, entry: (cyc?.action_queue_state || {})[key] || { state: 'unread', note: '' } };
+}
+
+async function _persistActionQueueEntry(cycleId, key, patch) {
+  const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+    ? currentCycle
+    : allCycles.find(c => String(c._id) === cycleId);
+  if (!cyc) return null;
+  const map = { ...(cyc.action_queue_state || {}) };
+  const existing = map[key] || { state: 'unread', note: '' };
+  map[key] = { ...existing, ...patch };
+  await updateCycle(cycleId, { action_queue_state: map });
+  cyc.action_queue_state = map;
+  if (currentCycle && String(currentCycle._id) === cycleId) currentCycle.action_queue_state = map;
+  const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+  if (idx >= 0) allCycles[idx].action_queue_state = map;
+  return map;
+}
+
+async function _handleActionQueueStateChange(select) {
+  const panel = select.closest('.dt-action-queue-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const key = select.dataset.key;
+  const newState = select.value;
+  if (!cycleId || !key || !ACTION_QUEUE_STATES.includes(newState)) return;
+  try {
+    await _persistActionQueueEntry(cycleId, key, { state: newState });
+    _refreshActionQueueOnly(currentCycle, submissions, characters);
+  } catch (err) {
+    console.warn('Action Queue state save failed:', err);
+  }
+}
+
+async function _handleActionQueueNoteSave(input) {
+  const panel = input.closest('.dt-action-queue-panel');
+  const cycleId = panel?.dataset.cycleId;
+  const key = input.dataset.key;
+  if (!cycleId || !key) return;
+  const { entry } = _findActionQueueEntry(cycleId, key);
+  if (entry.note === input.value) return;
+  try {
+    await _persistActionQueueEntry(cycleId, key, { note: input.value });
+  } catch (err) {
+    console.warn('Action Queue note save failed:', err);
+  }
+}
+
+function _handleActionQueueFilter(btn) {
+  const filter = btn.dataset.filter;
+  if (!filter) return;
+  if (filter !== 'all' && !ACTION_QUEUE_STATES.includes(filter)) return;
+  _actionQueueFilter = filter;
+  _refreshActionQueueOnly(currentCycle, submissions, characters);
+}
+
+function _handleActionQueueOpenSub(btn) {
+  // Spec calls for navigation to the submission in DT Processing. v1: switch
+  // to the projects tab; the ST scrolls to the named submission manually.
+  showDtuxPhase('projects');
+}
+
+function _handleActionQueueRowExpandToggle(btn) {
+  const row = btn.closest('.dt-action-queue-row');
+  if (row) row.classList.toggle('expanded');
+}
+
+// DTIL-3: Auto-derive Action Queue state from responses.mechanical_flag_N on
+// first read. Items with the player's mechanical flag set default to
+// 'action_needed'; unflagged default to 'unread'. The derived defaults are
+// written to persistence in a single batched PUT so subsequent renders read
+// stable state and ST overrides remain sticky.
+async function _deriveActionQueueDefaults(cycle, subs) {
+  if (!cycle || !Array.isArray(subs) || !subs.length) return;
+  const stateMap = cycle.action_queue_state || {};
+  const updates = {};
+  for (const sub of subs) {
+    for (let n = 1; n <= 5; n++) {
+      const text = (sub.responses?.[`game_recount_${n}`] || '').trim();
+      if (!text) continue;
+      const key = `${sub._id}:${n - 1}`;
+      if (stateMap[key]) continue; // existing entry wins, idempotent
+      const flagged = sub.responses?.[`mechanical_flag_${n}`] === true;
+      updates[key] = { state: flagged ? 'action_needed' : 'unread', note: '' };
+    }
+  }
+  if (!Object.keys(updates).length) return; // no-op
+  const newMap = { ...stateMap, ...updates };
+  cycle.action_queue_state = newMap;
+  if (currentCycle && String(currentCycle._id) === String(cycle._id)) {
+    currentCycle.action_queue_state = newMap;
+  }
+  const idx = allCycles.findIndex(c => String(c._id) === String(cycle._id));
+  if (idx >= 0) allCycles[idx].action_queue_state = newMap;
+  try {
+    await updateCycle(cycle._id, { action_queue_state: newMap });
+  } catch (err) {
+    console.warn('Action Queue default derivation persistence failed:', err);
+  }
+}
+
+// ── DTIL-4: Territory Pulse ──────────────────────────────────────────────────
+
+function _feedTerrIdsForSub(sub) {
+  if (sub?.feeding_review?.pool_status === 'no_feed') return [];
+  let parsed = {};
+  try { parsed = JSON.parse(sub?.responses?.feeding_territories || '{}'); } catch { return []; }
+  const ids = new Set();
+  for (const [slug, val] of Object.entries(parsed)) {
+    if (!val || val === 'none' || val === 'Not feeding here') continue;
+    const id = resolveTerrId(slug);
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+function _territoryAmbienceLabel(territory) {
+  const confirmed = currentCycle?.confirmed_ambience?.[territory.id]?.ambience;
+  if (confirmed) return confirmed;
+  const cached = (cachedTerritories || []).find(t => t.id === territory.id || t.name === territory.name);
+  return cached?.ambience || territory.ambience || 'unknown';
+}
+
+function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
+  const ambience = _territoryAmbienceLabel(territory);
+  const profile  = cycle?.discipline_profile?.[territory.id] || {};
+  const discsUsed = Object.entries(profile)
+    .filter(([, c]) => c > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const feeders = [];
+  for (const sub of subs || []) {
+    if (!_feedTerrIdsForSub(sub).includes(territory.id)) continue;
+    const char = charById.get(String(sub.character_id));
+    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
+    feeders.push({ name, method, sortKey: char ? sortName(char) : (sub.character_name || '') });
+  }
+  feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2nd Edition LARP. The pulse describes the current atmosphere of the territory after a cycle of activity. Write 100 to 200 words of atmospheric prose covering what the place feels like right now, any rumours running through it, and how the recent activity has shaped its mood. Use British English. Do not invent specific characters or events not present in the inputs.`;
+
+  const lines = [
+    framing,
+    '',
+    `Territory: ${territory.name}`,
+    `Current ambience: ${ambience}`,
+    '',
+    'Disciplines used in this territory this cycle:',
+    discsUsed.length
+      ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} time${c === 1 ? '' : 's'})`).join('\n')
+      : '  None recorded this cycle.',
+    '',
+    'Players who fed here this cycle:',
+    feeders.length
+      ? feeders.map(f => `  - ${f.name}${f.method ? ` (${f.method})` : ''}`).join('\n')
+      : '  None recorded this cycle.',
+  ];
+  return lines.join('\n');
+}
+
+function renderTerritoryPulsePanel(cycle, subs, chars) {
+  if (!cycle) return '';
+  const charById = new Map((chars || []).map(c => [String(c._id), c]));
+  const pulseMap = cycle.territory_pulse || {};
+
+  let h = `<div class="proc-disc-header"><span class="proc-amb-title">Territory Pulse</span></div>`;
+  h += `<div class="dt-territory-pulse-list">`;
+  for (const td of TERRITORY_DATA) {
+    const promptText = _buildTerritoryPulsePromptText(cycle, td, subs || [], charById);
+    const stored = pulseMap[td.id] || {};
+    const draft = stored.draft || '';
+    const ambience = _territoryAmbienceLabel(td);
+    const lastEdited = stored.last_edited_at
+      ? new Date(stored.last_edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
+    h += `<div class="dt-territory-pulse-row" data-terr-id="${esc(td.id)}" data-cycle-id="${esc(String(cycle._id))}">`;
+    h += `<div class="dt-territory-pulse-row-head">`;
+    h += `<span class="dt-territory-pulse-name">${esc(td.name)}</span>`;
+    h += `<span class="dt-territory-pulse-ambience">Ambience: ${esc(ambience)}</span>`;
+    h += `<button type="button" class="dt-territory-pulse-toggle-btn" data-terr-id="${esc(td.id)}">Show prompt</button>`;
+    h += `</div>`;
+    h += `<div class="dt-territory-pulse-prompt-block" data-terr-id="${esc(td.id)}" hidden>`;
+    h += `<textarea class="dt-territory-pulse-prompt-ta" readonly>${esc(promptText)}</textarea>`;
+    h += `<div class="dt-territory-pulse-actions">`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-copy-btn" data-terr-id="${esc(td.id)}">Copy prompt</button>`;
+    h += `<span class="dt-territory-pulse-copy-status"></span>`;
+    h += `</div></div>`;
+    h += `<label class="dt-territory-pulse-draft-lbl">Synthesis draft</label>`;
+    h += `<textarea class="dt-territory-pulse-draft-ta" data-terr-id="${esc(td.id)}" placeholder="Paste the LLM's pulse here…">${esc(draft)}</textarea>`;
+    h += `<div class="dt-territory-pulse-actions">`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-save-btn" data-terr-id="${esc(td.id)}">Save</button>`;
+    h += `<span class="dt-territory-pulse-save-status">${lastEdited ? 'Last saved ' + esc(lastEdited) : ''}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function _handleTerritoryPulseToggle(btn) {
+  const terrId = btn.dataset.terrId;
+  if (!terrId) return;
+  const block = document.querySelector(`.dt-territory-pulse-prompt-block[data-terr-id="${terrId}"]`);
+  if (!block) return;
+  const wasHidden = block.hasAttribute('hidden');
+  if (wasHidden) block.removeAttribute('hidden');
+  else block.setAttribute('hidden', '');
+  btn.textContent = wasHidden ? 'Hide prompt' : 'Show prompt';
+}
+
+async function _handleTerritoryPulseCopy(btn) {
+  const terrId = btn.dataset.terrId;
+  const block = document.querySelector(`.dt-territory-pulse-prompt-block[data-terr-id="${terrId}"]`);
+  const ta = block?.querySelector('.dt-territory-pulse-prompt-ta');
+  const status = block?.querySelector('.dt-territory-pulse-copy-status');
+  if (!ta) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    if (status) {
+      status.textContent = 'Copied';
+      setTimeout(() => { if (status) status.textContent = ''; }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Copy failed';
+  }
+}
+
+async function _handleTerritoryPulseSave(btn) {
+  const terrId = btn.dataset.terrId;
+  const row = btn.closest('.dt-territory-pulse-row');
+  const cycleId = row?.dataset.cycleId;
+  const ta = row?.querySelector(`.dt-territory-pulse-draft-ta[data-terr-id="${terrId}"]`);
+  const status = row?.querySelector('.dt-territory-pulse-save-status');
+  const promptTa = row?.querySelector('.dt-territory-pulse-prompt-ta');
+  if (!terrId || !cycleId || !ta) return;
+  if (status) status.textContent = 'Saving…';
+  try {
+    const cyc = (currentCycle && String(currentCycle._id) === cycleId)
+      ? currentCycle
+      : allCycles.find(c => String(c._id) === cycleId);
+    const map = { ...(cyc?.territory_pulse || {}) };
+    map[terrId] = {
+      prompt_snapshot: promptTa?.value || '',
+      draft:           ta.value,
+      last_edited_at:  new Date().toISOString(),
+    };
+    await updateCycle(cycleId, { territory_pulse: map });
+    if (cyc) cyc.territory_pulse = map;
+    if (currentCycle && String(currentCycle._id) === cycleId) currentCycle.territory_pulse = map;
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].territory_pulse = map;
+    if (status) {
+      status.textContent = 'Saved';
+      setTimeout(() => {
+        if (status) {
+          const lastEdited = new Date(map[terrId].last_edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          status.textContent = 'Last saved ' + lastEdited;
+        }
+      }, 1500);
+    }
+  } catch {
+    if (status) status.textContent = 'Save failed';
+  }
+}
+
 function renderPrepPanel(cycle) {
   const panel = document.getElementById('dt-prep-panel');
   if (!panel) return;
-  if (!cycle || cycle.status !== 'prep') { panel.style.display = 'none'; return; }
-  panel.style.display = '';
+  if (!cycle) { panel.style.display = 'none'; return; }
+  // DTUX-1: visibility is now driven by the phase ribbon (showDtuxPhase),
+  // not cycle.status. The panel always renders its content; show/hide is
+  // handled by the ribbon's tab click.
+  if (_dtuxActiveTab && _dtuxActiveTab !== 'prep') {
+    panel.style.display = 'none';
+  }
 
   const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
+  const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
@@ -1435,14 +2249,23 @@ function renderPrepPanel(cycle) {
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
     `<div class="dt-prep-field"><label class="dt-lbl">Deadline Date/Time</label>` +
     `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
+    `<div class="dt-prep-field"><label class="dt-lbl" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">` +
+    `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
     `</div>` +
     `<div class="dt-prep-early">` +
     `<div class="dt-prep-early-title">Early Access Players</div>` +
     `<div class="dt-early-list">${earlyContent}</div>` +
     `</div>` +
     `<div class="dt-prep-actions">` +
-    `<button class="dt-btn" id="dt-open-game-phase">Open City &amp; Feeding Phase →</button>` +
-    `</div>`;
+    renderSignoffButton('prep', cycle) +
+    `</div>` +
+    renderMaintenanceAuditPanel(cycle) +
+    `<div id="dt-cycle-intelligence" class="dt-cycle-intelligence"></div>`;
+
+  // DTIL: populate Court Pulse / Action Queue intelligence layer. First call
+  // (before subs load) renders empty placeholders; loadCycleById re-renders
+  // after submissions arrive.
+  renderCycleIntelligence(cycle, submissions, characters);
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;
@@ -1457,6 +2280,24 @@ function renderPrepPanel(cycle) {
     await updateCycle(cycle._id, { deadline_at: val ? new Date(val).toISOString() : null });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
+  });
+
+  document.getElementById('dt-chapter-finale-input')?.addEventListener('change', async e => {
+    const val = e.target.checked;
+    await updateCycle(cycle._id, { is_chapter_finale: val });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].is_chapter_finale = val;
+    cycle.is_chapter_finale = val;
+    renderPrepPanel(cycle);
+  });
+
+  panel.querySelectorAll('.dt-maintenance-tick').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      const charId = cb.dataset.charId;
+      const key = cb.dataset.key;
+      if (!charId || !key) return;
+      await setMaintenanceAudit(cycle, charId, key, e.target.checked);
+    });
   });
 
   panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
@@ -1474,13 +2315,9 @@ function renderPrepPanel(cycle) {
     });
   });
 
-  document.getElementById('dt-open-game-phase')?.addEventListener('click', async () => {
-    if (!confirm('Open City & Feeding phase? This moves the cycle from Prep to game status.')) return;
-    await updateCycle(cycle._id, { status: 'game', game_phase_at: new Date().toISOString() });
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) allCycles[idx].status = 'game';
-    await loadCycleById(cycle._id);
-  });
+  // DTUX-1: gate button "Open City & Feeding Phase →" replaced by the sign-off
+  // button rendered above; the per-tab click handler in initDowntimeView
+  // dispatches sign-off clicks via [data-signoff-phase].
 }
 
 async function handleCloseCycle() {
@@ -1522,6 +2359,24 @@ function buildProcessingQueue(subs) {
     subs.map(s => [s._id, new Set((s.st_review?.deleted_action_keys || []).map(k => `${s._id}:${k}`))])
   );
 
+  // ── JDT-5: index of (subId:slot) → { joint, role } for active joints on
+  // the cycle. Used in the per-submission project iteration to (a) route the
+  // slot's queue entry to the Joint Projects phase, and (b) attach joint
+  // metadata so the phase render can group participant entries by joint_id.
+  const jointSlotPairs = new Map();
+  for (const j of (currentCycle?.joint_projects || [])) {
+    if (j.cancelled_at) continue;
+    if (j.lead_submission_id && j.lead_project_slot) {
+      jointSlotPairs.set(`${String(j.lead_submission_id)}:${j.lead_project_slot}`, { joint: j, role: 'lead' });
+    }
+    for (const p of (j.participants || [])) {
+      if (p.decoupled_at) continue;
+      if (p.submission_id && p.project_slot) {
+        jointSlotPairs.set(`${String(p.submission_id)}:${p.project_slot}`, { joint: j, role: 'support' });
+      }
+    }
+  }
+
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
@@ -1559,7 +2414,7 @@ function buildProcessingQueue(subs) {
     for (let n = 1; n <= sorcCount; n++) {
       const rite = resp[`sorcery_${n}_rite`];
       if (!rite) continue;
-      const targetsText = resp[`sorcery_${n}_targets`] || '';
+      const targetsText = normaliseSorceryTargets(resp[`sorcery_${n}_targets`]);
       const notes       = resp[`sorcery_${n}_notes`]   || '';
       let desc = rite;
       if (targetsText) desc += ` — targets: ${targetsText}`;
@@ -1724,8 +2579,16 @@ function buildProcessingQueue(subs) {
       const projReview = (sub.projects_resolved || [])[idx] || {};
       const effectiveActionType = projReview.action_type_override || actionType;
 
-      const phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
-      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
+      let phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      // JDT-5: if this slot is part of an active joint, route it to the
+      // Joint Projects phase. The slot subsumes here; no solo entry is
+      // created for the lead's joint slot or any accepted support's slot.
+      const _jointInfo = jointSlotPairs.get(`${String(sub._id)}:${slot}`);
+      if (_jointInfo) {
+        phaseNum = PHASE_JOINT;
+        phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
+      }
 
       queue.push({
         key: `${sub._id}:proj:${idx}`,
@@ -1747,6 +2610,10 @@ function buildProcessingQueue(subs) {
         projCast:        projCastResolved,
         projMerits:      projMeritsResolved,
         projTerritory:   resp[`project_${slot}_territory`] || '',
+        // JDT-5: joint membership — populated when the slot belongs to a joint.
+        joint_id:        _jointInfo?.joint?._id || null,
+        joint_role:      _jointInfo?.role || null,
+        joint_doc:       _jointInfo?.joint || null,
       });
     });
 
@@ -2642,7 +3509,7 @@ function _buildDeletedList(subs) {
           const rite = resp[`sorcery_${n}_rite`] || `Sorcery ${n}`;
           const trad = resp['sorcery_1_tradition'] || resp['sorcery_tradition'] || 'Sorcery';
           label = `${trad}: ${rite}`;
-          description = resp[`sorcery_${n}_targets`] || '';
+          description = normaliseSorceryTargets(resp[`sorcery_${n}_targets`]);
         }
       }
 
@@ -3069,6 +3936,26 @@ function renderProcessingMode(container) {
     h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !isCollapsed);
 
     if (!isCollapsed) {
+      // JDT-5: joint phase groups participant rows by joint_id and wraps
+      // each group with a shared header + outcome textarea. Other phases
+      // render entries linearly as before.
+      if (phaseKey === 'joint') {
+        const byJoint = new Map();
+        for (const entry of visibleEntries) {
+          const jid = entry.joint_id || '_orphan';
+          if (!byJoint.has(jid)) byJoint.set(jid, []);
+          byJoint.get(jid).push(entry);
+        }
+        for (const [, jointEntries] of byJoint) {
+          jointEntries.sort((a, b) => {
+            if (a.joint_role === 'lead' && b.joint_role !== 'lead') return -1;
+            if (b.joint_role === 'lead' && a.joint_role !== 'lead') return 1;
+            return (a.charName || '').localeCompare(b.charName || '');
+          });
+          const joint = jointEntries[0]?.joint_doc || null;
+          h += renderJointGroup(joint, jointEntries);
+        }
+      } else {
       for (const entry of visibleEntries) {
         const isExpanded = procExpandedKeys.has(entry.key);
         const review = getEntryReview(entry);
@@ -3097,6 +3984,7 @@ function renderProcessingMode(container) {
           h += renderActionPanel(entry, review);
         }
       }
+      } // close JDT-5 joint-phase branch's else
 
       // Investigations tracker lives inside the Investigative phase
       if (phaseKey === 'investigate') {
@@ -3153,6 +4041,22 @@ function renderProcessingMode(container) {
         container.querySelector(`.proc-action-row[data-proc-key="${jumpEntry.key}"]`)
           ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+    });
+  });
+
+  // DTFP-5: Wire feed-violence ST override selects
+  container.querySelectorAll('.proc-feed-violence-st-override').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = sel.dataset.subId;
+      const newVal = sel.value || null;
+      const sub = submissions.find(s => s._id === subId);
+      if (sub) {
+        if (!sub.st_review) sub.st_review = {};
+        if (newVal) sub.st_review.feed_violence_st_override = newVal;
+        else delete sub.st_review.feed_violence_st_override;
+      }
+      await updateSubmission(subId, { 'st_review.feed_violence_st_override': newVal });
     });
   });
 
@@ -3420,6 +4324,57 @@ function renderProcessingMode(container) {
       const desc    = card.querySelector('.proc-merit-desc-ta').value.trim();
       await saveEntryReview(entry, { desired_outcome: outcome, description: desc });
       renderProcessingMode(container);
+    });
+  });
+
+  // ── JDT-5: joint outcome save ─────────────────────────────────────────
+  // Persists cycle.joint_projects[i].st_joint_outcome via the existing PUT
+  // /api/downtime_cycles/:id route (no new endpoint required for v1).
+  container.querySelectorAll('.proc-joint-outcome-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const jointId = btn.dataset.jointId;
+      if (!jointId || !currentCycle?._id) return;
+      const ta = container.querySelector(`.proc-joint-outcome-ta[data-joint-id="${jointId}"]`);
+      if (!ta) return;
+      const statusEl = container.querySelector(`.proc-joint-outcome-status[data-joint-id="${jointId}"]`);
+      const text = ta.value;
+      try {
+        const newJoints = (currentCycle.joint_projects || []).map(j =>
+          String(j._id) === String(jointId) ? { ...j, st_joint_outcome: text } : j
+        );
+        await apiPut(`/api/downtime_cycles/${currentCycle._id}`, { joint_projects: newJoints });
+        currentCycle.joint_projects = newJoints;
+        if (statusEl) {
+          statusEl.textContent = 'Saved';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+      }
+    });
+  });
+
+  // ── JDT-6: ST override cancel button on joint group panel ─────────────
+  container.querySelectorAll('.proc-joint-st-override-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const jointId = btn.dataset.jointId;
+      if (!jointId || !currentCycle?._id) return;
+      const ok = window.confirm('ST override: cancel this joint and free all participant slots? This cannot be undone.');
+      if (!ok) return;
+      const statusEl = container.querySelector(`.proc-joint-st-override-status[data-joint-id="${jointId}"]`);
+      try {
+        await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {
+          st_override: true,
+        });
+        if (statusEl) {
+          statusEl.textContent = 'Cancelled. Reload to refresh the queue.';
+          setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = 'Override failed: ' + err.message;
+      }
     });
   });
 
@@ -5213,6 +6168,35 @@ const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automat
  * Renders: effect chip, auto successes (if auto), outcome toggle, ST notes textarea.
  * Omits: pool builder, roll card, success modifier, validation status buttons.
  */
+/**
+ * DTSR-5: Outcome zone for merit actions. Renders Approved / Partial / Failed
+ * buttons + one-line outcome summary input. Suppressed for blocked actions.
+ * Lives in the merit panel's left column so resolution sits with the action
+ * details (four-zone canon: Action Definition -> Outcome).
+ */
+function _renderMeritOutcomeZone(entry, rev) {
+  const category   = entry.meritCategory || 'misc';
+  const actionType = entry.actionType    || 'misc';
+  const matrixRow  = MERIT_MATRIX[category]?.[actionType] || null;
+  const mode       = matrixRow?.mode || 'auto';
+  if (mode === 'blocked') return '';
+
+  const key            = entry.key;
+  const outcome        = rev.merit_outcome   || '';
+  const outcomeSummary = rev.outcome_summary || '';
+
+  let h = `<div class="proc-feed-mod-panel proc-merit-outcome-zone" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Outcome</div>`;
+  h += `<div class="proc-merit-outcome-btns">`;
+  for (const [val, label] of [['approved', 'Approved'], ['partial', 'Partial'], ['failed', 'Failed']]) {
+    h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
+  }
+  h += `</div>`;
+  h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
+  h += `</div>`;
+  return h;
+}
+
 function _renderCompactMeritPanel(entry, rev) {
   const key        = entry.key;
   const category   = entry.meritCategory || 'misc';
@@ -5223,11 +6207,8 @@ function _renderCompactMeritPanel(entry, rev) {
   const effect     = matrixRow?.effect || '';
   const effectAuto = matrixRow?.effectAuto || '';
   const isAuto     = mode === 'auto';
-  const isBlocked  = mode === 'blocked';
   const autoSucc   = isAuto && dots != null ? dots : null;
-  const outcome        = rev.merit_outcome    || '';
-  const outcomeSummary = rev.outcome_summary  || '';
-  const thread         = rev.notes_thread     || [];
+  const thread     = rev.notes_thread     || [];
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -5250,19 +6231,6 @@ function _renderCompactMeritPanel(entry, rev) {
     h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Automatic Successes</div>`;
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base successes</span><span class="proc-mod-static">${autoSucc}</span></div>`;
-    h += `</div>`;
-  }
-
-  // ── Outcome toggle ──
-  if (!isBlocked) {
-    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-    h += `<div class="proc-mod-panel-title">Outcome</div>`;
-    h += `<div class="proc-merit-outcome-btns">`;
-    for (const [val, label] of [['approved', 'Approved'], ['partial', 'Partial'], ['failed', 'Failed']]) {
-      h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
-    }
-    h += `</div>`;
-    h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
     h += `</div>`;
   }
 
@@ -5888,6 +6856,23 @@ function _renderFeedRightPanel(entry, char, rev) {
     noRollMsg: 'Commit pool first',
   });
 
+  // ── DTFP-5: feed-violence ST override ──
+  // Player declared (read-only) + ST override dropdown.
+  const playerVi   = feedSub?.responses?.feed_violence || '';
+  const stViOverride = feedSub?.st_review?.feed_violence_st_override || '';
+  const _viLabel = (v) => v === 'kiss' ? 'The Kiss (subtle)' : v === 'violent' ? 'Violent' : '';
+  h += `<div class="proc-feed-mod-panel proc-feed-violence-block" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Feed declaration</div>`;
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Player declared</span><span class="proc-feed-violence-val">${esc(_viLabel(playerVi)) || '<em>Not specified</em>'}</span></div>`;
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">ST override</span>`;
+  h += `<select class="proc-feed-violence-st-override" data-sub-id="${esc(entry.subId)}">`;
+  h += `<option value="">No override</option>`;
+  h += `<option value="kiss"${stViOverride === 'kiss' ? ' selected' : ''}>The Kiss (subtle)</option>`;
+  h += `<option value="violent"${stViOverride === 'violent' ? ' selected' : ''}>Violent</option>`;
+  h += `</select>`;
+  h += `</div>`;
+  h += `</div>`;
+
   h += `</div>`; // proc-feed-right
   return h;
 }
@@ -6356,12 +7341,14 @@ function renderActionPanel(entry, review) {
       h += `<textarea class="proc-detail-ta proc-rumour-content-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was heard\u2026">${esc(_rumCont)}</textarea>`;
       h += `</div>`;
     }
+    // DTSR-5: Outcome zone, relocated from right sidebar (also new on rolled merits)
+    h += _renderMeritOutcomeZone(entry, rev);
   }
 
   // ── Sorcery details card (editable) — above connected characters ──
   if (isSorcery) {
     const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
-    const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const sorcRawTargets  = normaliseSorceryTargets(sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`]) || entry.targetsText || '';
     const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
     const blobAsNotes     = (entry.riteName && entry.riteName.length > 60) ? entry.riteName : '';
     const notesVal        = rev.sorc_notes      ?? (sorcRawNotes || blobAsNotes);
@@ -6408,7 +7395,7 @@ function renderActionPanel(entry, review) {
 
   // ── Targets — wide checkbox section, above connected characters ──
   if (isSorcery) {
-    const _tRaw         = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const _tRaw         = normaliseSorceryTargets(sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`]) || entry.targetsText || '';
     const _tVal         = rev.sorc_targets ?? _tRaw;
     const _tActiveChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
     const _tSelected    = new Set((_tVal || '').split(',').map(s => s.trim()).filter(Boolean));
@@ -7724,154 +8711,6 @@ function renderInvestigations() {
   });
 }
 
-// ── NPC Register (Story 1.6) ─────────────────────────────────────────────────
-
-let npcs = [];
-let npcPanelOpen = false;
-let editingNpcId = null;
-
-async function loadNpcs(cycleId) {
-  try {
-    const url = cycleId ? `/api/npcs?cycle_id=${cycleId}` : '/api/npcs';
-    npcs = await apiGet(url);
-  } catch { npcs = []; }
-}
-
-function renderNpcs() {
-  const el = document.getElementById('dt-npcs');
-  if (!el) return;
-
-  const active = npcs.filter(n => n.status !== 'archived');
-
-  let h = '<div class="dt-npc-panel">';
-  h += `<div class="dt-matrix-toggle" id="dt-npc-toggle">${npcPanelOpen ? '\u25BC' : '\u25BA'} NPC Register <span class="domain-count">${active.length}</span></div>`;
-
-  if (npcPanelOpen) {
-    h += '<div class="dt-npc-body">';
-
-    if (editingNpcId === 'new') {
-      h += renderNpcForm(null);
-    } else {
-      h += `<button class="dt-btn" id="dt-npc-add">+ Add NPC</button>`;
-    }
-
-    if (active.length === 0 && editingNpcId !== 'new') {
-      h += '<p class="dt-empty-msg">No NPCs recorded yet.</p>';
-    } else {
-      for (const npc of active) {
-        if (editingNpcId === npc._id) {
-          h += renderNpcForm(npc);
-        } else {
-          h += renderNpcCard(npc);
-        }
-      }
-    }
-
-    h += '</div>';
-  }
-
-  h += '</div>';
-  el.innerHTML = h;
-
-  document.getElementById('dt-npc-toggle')?.addEventListener('click', () => {
-    npcPanelOpen = !npcPanelOpen;
-    renderNpcs();
-  });
-
-  document.getElementById('dt-npc-add')?.addEventListener('click', () => {
-    editingNpcId = 'new';
-    renderNpcs();
-  });
-
-  el.querySelectorAll('.dt-npc-edit').forEach(btn => {
-    btn.addEventListener('click', () => { editingNpcId = btn.dataset.npcId; renderNpcs(); });
-  });
-
-  el.querySelectorAll('.dt-npc-archive').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Archive this NPC?')) return;
-      try {
-        await apiDelete(`/api/npcs/${btn.dataset.npcId}`);
-        npcs = npcs.filter(n => n._id !== btn.dataset.npcId);
-        renderNpcs();
-      } catch (err) { console.error('Archive NPC error:', err.message); }
-    });
-  });
-
-  el.querySelectorAll('.dt-npc-save').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const formId = btn.dataset.formId;
-      const name = el.querySelector(`#dt-npc-name-${esc(formId)}`)?.value.trim();
-      if (!name) return;
-      const body = {
-        name,
-        description: el.querySelector(`#dt-npc-desc-${esc(formId)}`)?.value.trim() || '',
-        status: el.querySelector(`#dt-npc-status-${esc(formId)}`)?.value || 'active',
-        notes: el.querySelector(`#dt-npc-notes-${esc(formId)}`)?.value.trim() || '',
-        linked_cycle_id: selectedCycleId || null,
-        // DTOSL.1: correspondent flag — ST-managed, gates visibility in
-        // the Personal Story Correspondence dropdown on player DT forms.
-        is_correspondent: !!el.querySelector(`#dt-npc-correspondent-${esc(formId)}`)?.checked,
-      };
-      try {
-        if (formId === 'new') {
-          const created = await apiPost('/api/npcs', body);
-          npcs.push(created);
-        } else {
-          const updated = await apiPut(`/api/npcs/${formId}`, body);
-          const idx = npcs.findIndex(n => n._id === formId);
-          if (idx >= 0) npcs[idx] = { ...npcs[idx], ...updated };
-        }
-        editingNpcId = null;
-        renderNpcs();
-      } catch (err) { console.error('Save NPC error:', err.message); }
-    });
-  });
-
-  el.querySelectorAll('.dt-npc-cancel').forEach(btn => {
-    btn.addEventListener('click', () => { editingNpcId = null; renderNpcs(); });
-  });
-}
-
-function renderNpcCard(npc) {
-  const statusColour = npc.status === 'dead' ? 'dt-npc-dead' : npc.status === 'unknown' ? 'dt-npc-unknown' : '';
-  let h = `<div class="dt-npc-card">`;
-  h += `<div class="dt-npc-card-header">`;
-  h += `<span class="dt-npc-name ${statusColour}">${esc(npc.name)}</span>`;
-  h += `<span class="dt-npc-status-badge">${esc(npc.status)}</span>`;
-  h += `<button class="dt-btn dt-npc-edit" data-npc-id="${esc(npc._id)}">Edit</button>`;
-  h += `<button class="dt-btn dt-btn-dim dt-npc-archive" data-npc-id="${esc(npc._id)}">Archive</button>`;
-  h += '</div>';
-  if (npc.description) h += `<div class="dt-npc-desc">${esc(npc.description)}</div>`;
-  if (npc.notes) h += `<div class="dt-npc-notes">${esc(npc.notes)}</div>`;
-  h += '</div>';
-  return h;
-}
-
-function renderNpcForm(npc) {
-  const id = npc?._id || 'new';
-  const v = (f) => esc(npc?.[f] || '');
-  const isCorrespondent = !!npc?.is_correspondent;
-  let h = `<div class="dt-npc-form">`;
-  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}">`;
-  h += `<textarea class="dt-narr-textarea dt-narr-textarea-sm" id="dt-npc-desc-${id}" placeholder="Description">${v('description')}</textarea>`;
-  h += '<div class="dt-npc-form-row">';
-  h += `<select class="dt-pool-sel" id="dt-npc-status-${id}">`;
-  for (const s of ['active', 'dead', 'unknown']) {
-    h += `<option value="${s}"${npc?.status === s ? ' selected' : ''}>${s}</option>`;
-  }
-  h += '</select>';
-  // DTOSL.1: correspondent toggle — gates inclusion in the Off-Screen Life
-  // Correspondence dropdown on the player DT form.
-  h += `<label class="dt-npc-correspondent-label"><input type="checkbox" id="dt-npc-correspondent-${id}"${isCorrespondent ? ' checked' : ''}> Correspondent</label>`;
-  h += `<button class="dt-btn dt-npc-save" data-form-id="${id}">Save</button>`;
-  h += `<button class="dt-btn dt-btn-muted dt-npc-cancel">Cancel</button>`;
-  h += '</div>';
-  h += `<textarea class="dt-narr-textarea dt-narr-textarea-xs" id="dt-npc-notes-${id}" placeholder="Notes (ST only)">${v('notes')}</textarea>`;
-  h += '</div>';
-  return h;
-}
-
 // ── Submission Checklist (feature.55) ───────────────────────────────────────
 
 const CHK_SECTIONS = [
@@ -8905,7 +9744,10 @@ function _exportCityOverview(matrix) {
 export function renderCityOverview() {
   const el = document.getElementById('dt-city-panel');
   if (!el) return;
-  if (!submissions.length) { el.innerHTML = ''; return; }
+  if (!submissions.length) {
+    el.innerHTML = '<p class="placeholder-msg" style="padding:24px;color:var(--txt3);">No submissions yet for this cycle. The City overview populates once players submit.</p>';
+    return;
+  }
 
   const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};
@@ -9058,6 +9900,9 @@ export function renderCityOverview() {
     h += `<label class="proc-amb-notes-lbl">ST Notes</label>`;
     h += `<textarea class="proc-amb-notes city-ov-notes" placeholder="Working notes about the city this cycle...">${esc(notes)}</textarea>`;
     h += `</div>`;
+
+    // ── 6. Territory Pulse (DTIL-4) ───────────────────────────────
+    h += renderTerritoryPulsePanel(currentCycle, submissions, characters);
   }
 
   h += `</div>`; // dt-conflict-panel

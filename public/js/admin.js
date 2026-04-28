@@ -18,6 +18,7 @@ import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
 import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
+import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
@@ -33,7 +34,10 @@ import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
+  shEnsureTouchstoneData,
+  shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
+  shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
+  shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
   shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost,
   shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
@@ -187,20 +191,12 @@ function switchDomain(domain) {
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') {
+    // DTUX-1: panel visibility is now driven by the phase ribbon inside
+    // initDowntimeView → loadCycleById → showDtuxPhase. No bespoke sub-tab
+    // setup needed here.
     initDowntimeView(chars);
-    // City is default tab — show it and init if not yet done
-    document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'city'));
-    const processingPanel = document.getElementById('dt-processing-panel');
-    const cityPanel       = document.getElementById('dt-city-panel');
-    const storyPanel      = document.getElementById('dt-story-panel');
-    if (processingPanel) processingPanel.style.display = 'none';
-    if (cityPanel)       cityPanel.style.display = '';
-    if (storyPanel)      storyPanel.style.display = 'none';
-    if (!_dtCityInited) {
-      _dtCityInited = true;
-      renderCityOverview();
-    }
   }
+  if (domain === 'npcs') initNpcRegister(chars);
   if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
@@ -219,42 +215,9 @@ document.getElementById('sidebar').addEventListener('click', e => {
   }
 });
 
-// ── DT sub-tab switching ──
-
-let _dtCityInited  = false;
-let _dtStoryInited = false;
-
-document.addEventListener('click', e => {
-  const btn = e.target.closest('.dt-sub-tab-btn');
-  if (!btn) return;
-  const tab = btn.dataset.tab;
-  document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const processingPanel = document.getElementById('dt-processing-panel');
-  const cityPanel       = document.getElementById('dt-city-panel');
-  const storyPanel      = document.getElementById('dt-story-panel');
-  if (tab === 'processing') {
-    if (processingPanel) processingPanel.style.display = '';
-    if (cityPanel)       cityPanel.style.display = 'none';
-    if (storyPanel)      storyPanel.style.display = 'none';
-  } else if (tab === 'city') {
-    if (processingPanel) processingPanel.style.display = 'none';
-    if (cityPanel)       cityPanel.style.display = '';
-    if (storyPanel)      storyPanel.style.display = 'none';
-    if (!_dtCityInited) {
-      _dtCityInited = true;
-      renderCityOverview();
-    }
-  } else {
-    if (processingPanel) processingPanel.style.display = 'none';
-    if (cityPanel)       cityPanel.style.display = 'none';
-    if (storyPanel)      storyPanel.style.display = '';
-    if (!_dtStoryInited) {
-      _dtStoryInited = true;
-      initDtStory(null);
-    }
-  }
-});
+// ── DTUX-1: DT sub-tab switching retired ──
+// Panel visibility now driven by the phase ribbon inside downtime-views.js
+// (showDtuxPhase).
 
 // ── Sidebar collapse ──
 
@@ -1111,7 +1074,10 @@ Object.assign(window, {
   markDirty, printSheet,
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
+  shEnsureTouchstoneData,
+  shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
+  shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
+  shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
   shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost, shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,

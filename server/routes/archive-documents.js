@@ -63,6 +63,29 @@ router.get('/:id', async (req, res) => {
   res.json(doc);
 });
 
+// PUT /api/archive_documents/:id — ST only; update refined HTML and/or title in place.
+// Body: { content_html?: string, title?: string }. Any other fields are ignored.
+router.put('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
+
+  const doc = await col().findOne({ _id: oid });
+  if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Document not found' });
+
+  const updates = { updated_at: new Date().toISOString() };
+  if (typeof req.body?.content_html === 'string') updates.content_html = req.body.content_html;
+  if (typeof req.body?.title === 'string' && req.body.title.trim()) updates.title = req.body.title.trim();
+
+  if (Object.keys(updates).length === 1) {
+    // Only updated_at — nothing to actually change
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No updatable fields supplied' });
+  }
+
+  await col().updateOne({ _id: oid }, { $set: updates });
+  const updated = await col().findOne({ _id: oid }, { projection: { content_html: 0 } });
+  res.json(updated);
+});
+
 // POST /api/archive_documents/upload — ST only; raw .docx → mammoth → store
 // Query params: type (required), character_id (required unless type=primer), cycle, title
 router.post('/upload', requireRole('st'),

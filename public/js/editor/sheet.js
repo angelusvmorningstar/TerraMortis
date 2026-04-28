@@ -14,6 +14,7 @@ import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
+import { shEnsureTouchstoneData } from './edit.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -223,6 +224,174 @@ export function toggleDisc(id) {
   const isOpen = drawer.classList.contains('visible');
   row.classList.toggle('open', !isOpen); drawer.classList.toggle('visible', !isOpen);
 }
+/**
+ * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6).
+ * Slot rating descends from the clan anchor (Ventrue=7, else=6). Each entry
+ * may carry an optional edge_id linking to a relationships doc (kind='touchstone').
+ * The server enriches each item with _npc_name when linked.
+ */
+export function renderTouchstones(c, editMode) {
+  const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
+  const hum = c.humanity || 0;
+  const anchor = c?.clan === 'Ventrue' ? 7 : 6;
+  const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
+
+  if (!editMode) {
+    if (sorted.length === 0) return '';
+    const rows = sorted.map(t => {
+      const att = hum >= t.humanity;
+      const name = t._npc_name || t.name || '(unnamed)';
+      return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
+        + ' — <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)')
+        + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span>'
+        + '<span class="exp-ts-name">' + esc(name)
+        + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>';
+    }).join('');
+    return expRow('touchstones', 'Touchstones', '', rows);
+  }
+
+  // Edit mode — kick off NPC load (used by Add-picker).
+  if (c._ts_loaded !== true && c._ts_loaded !== 'error' && c._ts_loaded !== 'loading') {
+    shEnsureTouchstoneData();
+  }
+
+  const picker = c._ts_picker;
+  let h = '<div class="sh-touchstones-edit">';
+  h += '<div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones</div>';
+  if (c._ts_err) {
+    h += '<div class="sh-touchstones-error" role="alert">' + esc(c._ts_err) + '</div>';
+  }
+
+  sorted.forEach(t => {
+    const actualIdx = ts.indexOf(t);
+    const att = hum >= t.humanity;
+    const name = t._npc_name || t.name || '(unnamed)';
+    const isEditing = picker && picker.mode === 'edit' && picker.index === actualIdx;
+    h += '<div class="sh-ts-slot">';
+    h += '<div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + t.humanity
+      + '</span> · <span class="sh-ts-slot-att" style="color:'
+      + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'
+      + (att ? 'Attached' : 'Detached') + '</span>'
+      + (t.edge_id ? ' <span class="sh-ts-slot-kind">character</span>' : ' <span class="sh-ts-slot-kind dim">object</span>')
+      + '</div>';
+    h += '<div class="sh-ts-slot-body">';
+    if (isEditing) {
+      h += renderTouchstoneEditForm(c, actualIdx);
+    } else {
+      h += '<div class="sh-ts-slot-filled-row">';
+      h += '<span class="sh-ts-slot-name">' + esc(name) + '</span>';
+      if (t.desc) h += '<span class="sh-ts-slot-state">' + esc(t.desc) + '</span>';
+      h += '<div class="sh-ts-slot-actions">';
+      h += '<button class="sh-ts-slot-btn" onclick="shTouchstoneStartEdit(' + actualIdx + ')" title="Edit">edit</button>';
+      h += '<button class="sh-ts-slot-btn danger" onclick="shTouchstoneRemove(' + actualIdx + ')" title="Remove">remove</button>';
+      h += '</div></div>';
+    }
+    h += '</div></div>';
+  });
+
+  if (picker && picker.mode === 'add') {
+    h += renderTouchstoneAddForm(c, anchor, ts.length);
+  } else {
+    const atCap = ts.length >= 6;
+    const nextHum = anchor - ts.length;
+    const btnLabel = atCap
+      ? 'Maximum of 6 touchstones reached'
+      : '+ Add touchstone (Humanity ' + nextHum + ')';
+    h += '<button class="sh-ts-slot-add"'
+      + (atCap ? ' disabled style="opacity:.5;cursor:not-allowed"' : ' onclick="shTouchstoneStartAdd()"')
+      + '>' + btnLabel + '</button>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+function renderTouchstoneAddForm(c, anchor, existingCount) {
+  const draft = c._ts_picker.draft;
+  const humanity = anchor - existingCount;
+  const npcsLoading = c._ts_loaded !== true;
+  const linkedNpcIds = new Set(
+    (c.touchstones || []).map(t => t.edge_id ? String(t._npc_id || '') : null).filter(Boolean)
+  );
+  const npcs = (c._ts_npcs || [])
+    .filter(n => n.status === 'active' || n.status === 'pending')
+    .filter(n => !linkedNpcIds.has(String(n._id)))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+
+  let h = '<div class="sh-ts-picker">';
+  h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
+
+  h += '<label class="sh-ts-picker-check">';
+  h += '<input type="checkbox"' + (draft.is_character ? ' checked' : '')
+    + ' onchange="shTouchstonePickerToggleCharacter(this.checked)"> ';
+  h += '<span>This touchstone is a character (link or create an NPC)</span>';
+  h += '</label>';
+
+  if (!draft.is_character) {
+    h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+      + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch" value="'
+      + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+    h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
+      + '<input class="sh-edit-input" placeholder="Why it matters" value="'
+      + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
+  } else {
+    h += '<div class="sh-ts-picker-mode-chips">';
+    h += '<button type="button" class="sh-ts-slot-btn' + (draft.pick_existing ? ' primary' : '')
+      + '" onclick="shTouchstonePickerSetMode(&#39;existing&#39;)">Pick existing NPC</button>';
+    h += '<button type="button" class="sh-ts-slot-btn' + (!draft.pick_existing ? ' primary' : '')
+      + '" onclick="shTouchstonePickerSetMode(&#39;create&#39;)">Create new NPC</button>';
+    h += '</div>';
+
+    if (draft.pick_existing) {
+      if (npcsLoading) {
+        h += '<div class="sh-ts-picker-loading">Loading NPCs…</div>';
+      } else {
+        const opts = npcs.map(n => '<option value="' + esc(String(n._id)) + '"'
+          + (String(draft.npc_id || '') === String(n._id) ? ' selected' : '') + '>'
+          + esc(n.name || '(unnamed)') + '</option>').join('');
+        h += '<label class="sh-ts-picker-field"><span>NPC *</span>'
+          + '<select class="sh-edit-select" onchange="shTouchstonePickerDraft(&#39;npc_id&#39;, this.value)">'
+          + '<option value="">(pick an NPC)</option>' + opts + '</select></label>';
+      }
+      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
+        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
+        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
+    } else {
+      h += '<label class="sh-ts-picker-field"><span>NPC name *</span>'
+        + '<input class="sh-edit-input" placeholder="Full NPC name" value="'
+        + esc(draft.new_npc_name || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_name&#39;, this.value)"></label>';
+      h += '<label class="sh-ts-picker-field"><span>NPC description (for the register)</span>'
+        + '<input class="sh-edit-input" placeholder="Short description" value="'
+        + esc(draft.new_npc_desc || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_desc&#39;, this.value)"></label>';
+      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
+        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
+        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
+    }
+  }
+
+  h += '<div class="sh-ts-picker-actions">';
+  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveAdd()">Save</button>';
+  h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerClose()">Cancel</button>';
+  h += '</div></div>';
+  return h;
+}
+
+function renderTouchstoneEditForm(c, idx) {
+  const draft = c._ts_picker.draft;
+  let h = '<div class="sh-ts-picker">';
+  h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+    + '<input class="sh-edit-input" value="' + esc(draft.name || '') + '"'
+    + ' oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+  h += '<label class="sh-ts-picker-field"><span>Description</span>'
+    + '<textarea class="sh-ts-picker-textarea" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)">'
+    + esc(draft.desc || '') + '</textarea></label>';
+  h += '<div class="sh-ts-picker-actions">';
+  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveEdit()">Save</button>';
+  h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerClose()">Cancel</button>';
+  h += '</div></div>';
+  return h;
+}
+
 export function expRow(id, lbl, val, bodyHtml) {
   return '<div class="exp-row" id="exp-row-' + id + '" onclick="toggleExp(\'' + id + '\')"><span class="exp-lbl labeled">' + lbl + '</span><span class="exp-val">' + (val || '') + '</span><span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id + '">' + bodyHtml + '</div>';
 }
@@ -495,9 +664,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -1532,13 +1701,10 @@ export function renderSheet(c, target = null) {
   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
-  // Touchstones
-  const ts = c.touchstones || [];
-  if (editMode) {
-    h += '<div class="sh-touchstones-edit"><div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones</div>';
-    ts.forEach((t, i) => { h += '<div class="sh-ts-edit-row"><select class="sh-ts-hum" onchange="shEditTouchstone(' + i + ',\'humanity\',+this.value)">'; for (let n = 1; n <= 10; n++)h += '<option' + (t.humanity === n ? ' selected' : '') + '>' + n + '</option>'; h += '</select><input class="sh-edit-input" value="' + esc(t.name || '') + '" onchange="shEditTouchstone(' + i + ',\'name\',this.value)" placeholder="Name" style="flex:2"><input class="sh-edit-input" value="' + esc(t.desc || '') + '" onchange="shEditTouchstone(' + i + ',\'desc\',this.value)" placeholder="Description" style="flex:3"><button class="sh-bane-rm" onclick="shRemoveTouchstone(' + i + ')" title="Remove">&times;</button></div>'; });
-    h += '<button class="sh-bane-add" onclick="shAddTouchstone()">+ Add Touchstone</button></div>';
-  } else if (ts.length) { const hum = c.humanity || 0; h += expRow('touchstones', 'Touchstones', '', ts.map(t => { const att = hum >= t.humanity; return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity + ' \u2014 <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span><span class="exp-ts-name">' + esc(t.name) + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>'; }).join('')); }
+  // Touchstones \u2014 NPCR.4 Shape B bridge.
+  // Branch on touchstone_edge_ids presence: truthy \u2192 new picker/view backed by
+  // the relationships graph; falsy \u2192 legacy read-only + migration button.
+  h += renderTouchstones(c, editMode);
   // Date of Embrace + Apparent Age
   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }
   if (editMode || c.apparent_age) h += '<div class="exp-row"><span class="exp-lbl labeled">App. Age</span>' + (editMode ? '<input class="sh-edit-input" value="' + esc(c.apparent_age || '') + '" onchange="shEdit(\'apparent_age\',this.value)" placeholder="Apparent Age">' : '<span class="exp-val">' + esc(c.apparent_age) + '</span>') + '</div>';

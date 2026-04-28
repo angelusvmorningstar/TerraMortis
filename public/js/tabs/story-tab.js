@@ -3,8 +3,15 @@
  * Right: Documents — Dossier (character profile from questionnaire) + future static docs.
  */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../data/helpers.js';
+import { isSTRole, getPlayerInfo } from '../auth/discord.js';
+import { compilePushOutcome } from '../admin/downtime-story.js';
+
+// DTSR-4: chronicle context for inline ST edit on historical cycles. Set by
+// renderStoryTab on each render so click handlers can locate the active sub
+// and re-render the affected entry after a save.
+let _chronicleCtx = null; // { char, subs, cycleStatusMap }
 
 const ACTION_TYPE_LABELS = {
   ambience_increase: 'Ambience Increase', ambience_decrease: 'Ambience Decrease',
@@ -87,17 +94,54 @@ export async function renderStoryTab(el, char) {
     ]);
   } catch { /* non-fatal */ }
 
-  // Doc card toggle — use onclick to prevent duplicate listeners on re-render
+  // DTSR-4: stash subs/char/cycleStatusMap so chronicle click handlers can find
+  // the active sub, persist edits, and re-render the affected entry in place.
+  const cycleStatusMap = {};
+  for (const c of cycles) cycleStatusMap[String(c._id)] = c.status || '';
+  _chronicleCtx = { char, subs, cycleStatusMap };
+
+  // Doc card toggle + DTSR-4 chronicle edit affordances.
+  // Single onclick to prevent duplicate listeners on re-render.
   el.onclick = e => {
     const toggle = e.target.closest('.doc-card-toggle');
-    if (!toggle) return;
-    const card = toggle.closest('.doc-card');
-    const body = card?.querySelector('.doc-card-body');
-    if (!body) return;
-    const expanded = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!expanded));
-    body.hidden = expanded;
-    toggle.querySelector('.doc-card-chevron').textContent = expanded ? '▾' : '▴';
+    if (toggle) {
+      const card = toggle.closest('.doc-card');
+      const body = card?.querySelector('.doc-card-body');
+      if (!body) return;
+      const expanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!expanded));
+      body.hidden = expanded;
+      toggle.querySelector('.doc-card-chevron').textContent = expanded ? '▾' : '▴';
+      return;
+    }
+    const editBtn = e.target.closest('.story-section-edit');
+    if (editBtn) { handleSectionEditClick(editBtn); return; }
+    const saveBtn = e.target.closest('.story-section-save');
+    if (saveBtn) { handleSectionSave(saveBtn); return; }
+    const cancelBtn = e.target.closest('.story-section-cancel');
+    if (cancelBtn) { handleSectionCancel(cancelBtn); return; }
+    // DTSR-8: player flag affordances
+    const flagBtn = e.target.closest('.story-section-flag-btn');
+    if (flagBtn) { openFlagForm(flagBtn); return; }
+    const flagSubmit = e.target.closest('.story-section-flag-submit');
+    if (flagSubmit) { submitFlagForm(flagSubmit); return; }
+    const flagCancel = e.target.closest('.story-section-flag-cancel');
+    if (flagCancel) { closeFlagForm(flagCancel); return; }
+    const flagRecall = e.target.closest('.story-section-flag-recall');
+    if (flagRecall) { recallFlag(flagRecall); return; }
+  };
+
+  // Auto-validate the form: enable Submit only when category chosen and
+  // Other-category requires reason >= 5 chars.
+  el.oninput = e => {
+    const form = e.target.closest('.story-section-flag-form');
+    if (!form) return;
+    _refreshFlagFormSubmitState(form);
+  };
+  el.onchange = e => {
+    const form = e.target.closest('.story-section-flag-form');
+    if (!form) return;
+    _refreshFlagFormSubmitState(form);
   };
 
   let h = '<div class="story-split">';
@@ -123,8 +167,10 @@ export async function renderStoryTab(el, char) {
 
 function renderChronicle(subs, cycles, char) {
   const cycleMap = {};
+  const cycleStatusMap = {};
   for (const c of cycles) {
     cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+    cycleStatusMap[String(c._id)] = c.status || '';
   }
 
   const charId = String(char._id);
@@ -136,12 +182,16 @@ function renderChronicle(subs, cycles, char) {
     return '<p class="placeholder-msg story-placeholder">No published downtime narratives yet.</p>';
   }
 
+  const isST = isSTRole();
   let h = '<div class="story-feed">';
   for (const sub of published) {
     const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
-    h += `<div class="story-entry">`;
+    const cycleStatus = cycleStatusMap[String(sub.cycle_id)] || '';
+    // DTSR-4: ST inline edit gated to historical cycles (closed/complete only).
+    const editable = isST && (cycleStatus === 'closed' || cycleStatus === 'complete');
+    h += `<div class="story-entry" data-sub-id="${esc(String(sub._id))}">`;
     h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
-    h += renderOutcomeWithCards(sub);
+    h += renderOutcomeWithCards(sub, { editable });
     h += `</div>`;
   }
   h += '</div>';
@@ -155,26 +205,92 @@ function _normTitle(s) {
 
 // ── Six-section report wrapper ────────────────────────────────────
 
-function _storyNarrSection(label, text) {
+function _storyNarrSection(label, text, opts = {}) {
   if (!text?.trim()) return '';
-  let h = '<div class="story-section">';
+  const { editable, sectionKey, sectionIdx = '', sub = null } = opts;
+  let h = `<div class="story-section" data-section-key="${esc(sectionKey || '')}" data-section-idx="${esc(String(sectionIdx))}">`;
+  h += '<div class="story-section-header">';
   h += `<h4 class="story-section-head">${esc(label)}</h4>`;
+  if (editable && sectionKey) h += _renderEditButton();
+  if (sub && sectionKey) h += renderFlagAffordance(sub, sectionKey);
+  h += '</div>';
+  h += '<div class="story-section-body">';
   const paras = text.trim().split(/\n{2,}/).filter(Boolean);
   h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
-  h += '</div>';
+  h += '</div></div>';
   return h;
 }
 
-function renderStoryMoment(sub) {
-  // Prefer new personal_story, fall back to legacy letter_from_home + touchstone
+function _renderEditButton() {
+  return `<button type="button" class="story-section-edit" title="Edit (ST only)">Edit</button>`;
+}
+
+// ── DTSR-8: per-section flag affordance ─────────────────────────────
+// Players can flag any section of their published outcome as Inconsistent /
+// Wrong story / Other. STs see the flag in the DTSR-9 inbox. Owning-player
+// only — the affordance is hidden for STs and other characters' viewers.
+
+const FLAG_CATEGORY_LABELS = {
+  inconsistent: 'Inconsistent',
+  wrong_story:  'Wrong story',
+  other:        'Other',
+};
+
+function _myOpenFlagsFor(sub, sectionKey, sectionIdx) {
+  const me = getPlayerInfo();
+  const myId = me ? String(me.player_id || '') : '';
+  if (!myId) return [];
+  return (sub.section_flags || []).filter(f =>
+    f.status === 'open' &&
+    f.section_key === sectionKey &&
+    (sectionIdx == null ? f.section_idx == null : Number(f.section_idx) === Number(sectionIdx)) &&
+    String(f.player_id) === myId
+  );
+}
+
+function renderFlagAffordance(sub, sectionKey, sectionIdx = null) {
+  if (!sectionKey) return '';
+  if (isSTRole()) return '';
+  const me = getPlayerInfo();
+  if (!me) return '';
+  const subId = String(sub._id || '');
+  const idxAttr = sectionIdx == null ? '' : ` data-section-idx="${esc(String(sectionIdx))}"`;
+
+  const open = _myOpenFlagsFor(sub, sectionKey, sectionIdx);
+  if (open.length) {
+    const f = open[0];
+    const cat = FLAG_CATEGORY_LABELS[f.category] || 'Flagged';
+    const reason = f.reason || '';
+    return `<span class="story-section-flagged" title="${esc(reason)}">`
+      + `<span class="story-section-flagged-label">⚑ Flagged: ${esc(cat)}</span>`
+      + `<button type="button" class="story-section-flag-recall" data-sub-id="${esc(subId)}" data-flag-id="${esc(String(f._id))}">Recall flag</button>`
+      + `</span>`;
+  }
+  return `<button type="button" class="story-section-flag-btn" data-sub-id="${esc(subId)}" data-section-key="${esc(sectionKey)}"${idxAttr}>⚑ Flag for review</button>`;
+}
+
+function renderStoryMoment(sub, opts = {}) {
+  const { editable } = opts;
+  // Read order matches DTSR-2's consolidated field (story_moment) first, then
+  // older personal_story, then the pre-DTSR-2 letter_from_home + touchstone
+  // legacy. Edit targets story_moment so saves match the admin's write path
+  // and compilePushOutcome's read path.
+  const smText = sub.st_narrative?.story_moment?.response;
+  if (smText) return _storyNarrSection('Story Moment', smText, { editable, sectionKey: 'story_moment', sub });
+
   const psText = sub.st_narrative?.personal_story?.response;
-  if (psText) return _storyNarrSection('Story Moment', psText);
+  if (psText) return _storyNarrSection('Story Moment', psText, { editable: false, sectionKey: 'story_moment', sub });
 
   const letter    = sub.st_narrative?.letter_from_home?.response;
   const touchstone = sub.st_narrative?.touchstone?.response;
   if (!letter && !touchstone) return '';
+  // Legacy display only — no Edit button on the legacy path; editing requires
+  // the new personal_story field. ST should re-author rather than patch legacy.
   let h = '<div class="story-section">';
+  h += '<div class="story-section-header">';
   h += `<h4 class="story-section-head">Story Moment</h4>`;
+  h += '</div>';
+  h += '<div class="story-section-body">';
   if (touchstone) {
     const paras = touchstone.trim().split(/\n{2,}/).filter(Boolean);
     h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
@@ -184,23 +300,64 @@ function renderStoryMoment(sub) {
     const paras = letter.trim().split(/\n{2,}/).filter(Boolean);
     h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
   }
-  h += '</div>';
+  h += '</div></div>';
   return h;
 }
 
-function renderHomeReportSection(sub) {
-  return _storyNarrSection('Home Report', sub.st_narrative?.home_report?.response);
+function renderHomeReportSection(sub, opts = {}) {
+  const { editable } = opts;
+  return _storyNarrSection('Home Report', sub.st_narrative?.home_report?.response, {
+    editable, sectionKey: 'home_report', sub,
+  });
 }
 
-function renderRumoursSection(sub) {
+// DTSR-8: map outcome-section heading text to a section_key. Returns null
+// for headings without a flaggable identity (e.g. raw prose, mechanical-only).
+function _flagSectionKeyForHeading(heading) {
+  const h = (heading || '').toLowerCase().trim();
+  if (h === 'feeding')                          return 'feeding_validation';
+  if (h.startsWith('home report'))              return 'home_report';
+  if (h.startsWith('story moment'))             return 'story_moment';
+  if (h.includes('asset summary') || h.includes('allies & assets')) return 'merit_summary';
+  if (h === 'rumours')                          return 'cacophony_savvy';
+  return null;
+}
+
+function renderRumoursSection(sub, opts = {}) {
+  const { editable } = opts;
   const slots = sub.st_narrative?.cacophony_savvy || [];
   const rumours = sub.st_narrative?.rumours || [];
-  const all = [...slots.map(s => s?.response).filter(Boolean), ...rumours.map(r => r?.text || r).filter(Boolean)];
+  // Build editable + non-editable lines together. Cacophony Savvy slots have
+  // an index → editable per slot. The newer rumours[] array (text-only) is
+  // appended without per-slot edit; editing it would need a different shape.
+  const slotEntries = slots.map((s, i) => ({ text: s?.response || '', idx: i, editable: true }))
+                           .filter(e => e.text);
+  const rumourEntries = rumours.map(r => ({ text: r?.text || r || '', idx: null, editable: false }))
+                               .filter(e => e.text);
+  const all = [...slotEntries, ...rumourEntries];
   if (!all.length) return '';
   let h = '<div class="story-section story-section-rumours">';
+  h += '<div class="story-section-header">';
   h += `<h4 class="story-section-head">Rumours</h4>`;
+  h += '</div>';
   h += '<ul class="story-rumours-list">';
-  for (const r of all) h += `<li>${esc(String(r).trim())}</li>`;
+  for (const r of all) {
+    const rText = String(r.text).trim();
+    if (editable && r.editable && r.idx != null) {
+      h += `<li data-section-key="cacophony_savvy" data-section-idx="${r.idx}">`;
+      h += `<span class="story-rumour-text">${esc(rText)}</span>`;
+      h += `<button type="button" class="story-section-edit story-rumour-edit" title="Edit (ST only)">Edit</button>`;
+      h += renderFlagAffordance(sub, 'cacophony_savvy', r.idx);
+      h += `</li>`;
+    } else if (r.idx != null) {
+      h += `<li data-section-key="cacophony_savvy" data-section-idx="${r.idx}">`;
+      h += `<span class="story-rumour-text">${esc(rText)}</span>`;
+      h += renderFlagAffordance(sub, 'cacophony_savvy', r.idx);
+      h += `</li>`;
+    } else {
+      h += `<li>${esc(rText)}</li>`;
+    }
+  }
   h += '</ul></div>';
   return h;
 }
@@ -210,10 +367,11 @@ function renderRumoursSection(sub) {
  * after their matching section heading. Unmatched cards and merit action
  * cards are appended at the bottom.
  */
-export function renderOutcomeWithCards(sub) {
+export function renderOutcomeWithCards(sub, opts = {}) {
+  const { editable = false } = opts;
   const sections = parseOutcomeSections(sub.published_outcome);
 
-  // Build project card lookup: normalisedTitle → { html, used }
+  // Build project card lookup: normalisedTitle → { html, used, idx }
   const cardLookup = {};
   const responses  = sub.st_narrative?.project_responses || [];
   const resolved   = sub.projects_resolved || [];
@@ -263,19 +421,41 @@ export function renderOutcomeWithCards(sub) {
       cardHtml += '</div>';
     }
 
-    cardLookup[_normTitle(title)] = { html: cardHtml, used: false };
+    cardLookup[_normTitle(title)] = { html: cardHtml, used: false, idx: i };
     unmatched.push(_normTitle(title));
   }
 
   // ── Sections 1-2: Story Moment + Home Report (above main narrative) ──
   let h = '<div class="story-narrative">';
-  h += renderStoryMoment(sub);
-  h += renderHomeReportSection(sub);
+  h += renderStoryMoment(sub, { editable });
+  h += renderHomeReportSection(sub, { editable });
   for (const sec of sections) {
     if (sec.heading) {
       const isMech = sec.heading === 'Mechanical Outcomes';
-      h += `<div class="story-section${isMech ? ' story-section-mech' : ''}">`;
+      // Match the parsed heading to a project card to find its index. When
+      // editable, the heading section is treated as the editable surface for
+      // st_narrative.project_responses[idx].response.
+      const norm = _normTitle(sec.heading);
+      const projHit = cardLookup[norm];
+      const sectionEditable = editable && !isMech && projHit && !projHit.used;
+      const dataAttrs = sectionEditable
+        ? ` data-section-key="project_responses" data-section-idx="${projHit.idx}"`
+        : '';
+      h += `<div class="story-section${isMech ? ' story-section-mech' : ''}"${dataAttrs}>`;
+      h += '<div class="story-section-header">';
       h += `<h4 class="story-section-head">${esc(sec.heading)}</h4>`;
+      if (sectionEditable) h += _renderEditButton();
+      // DTSR-8: flag affordance per section. Project headings + a few well-known
+      // parsed-outcome headings get a per-section flag; raw prose without a
+      // recognised section key does not.
+      if (projHit) {
+        h += renderFlagAffordance(sub, 'project_responses', projHit.idx);
+      } else {
+        const headingKey = _flagSectionKeyForHeading(sec.heading);
+        if (headingKey) h += renderFlagAffordance(sub, headingKey);
+      }
+      h += '</div>';
+      h += '<div class="story-section-body">';
       const body = sec.lines.join('\n').trim();
       if (isMech) {
         h += `<pre class="story-pre">${esc(body)}</pre>`;
@@ -283,13 +463,12 @@ export function renderOutcomeWithCards(sub) {
         const paras = body.split(/\n{2,}/).filter(Boolean);
         h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
       }
-      h += '</div>';
+      h += '</div></div>';
 
       // Inject matching project card immediately after this section
-      const norm = _normTitle(sec.heading);
-      if (cardLookup[norm] && !cardLookup[norm].used) {
-        cardLookup[norm].used = true;
-        h += cardLookup[norm].html;
+      if (projHit && !projHit.used) {
+        projHit.used = true;
+        h += projHit.html;
       }
     } else {
       const body = sec.lines.join('\n').trim();
@@ -307,10 +486,13 @@ export function renderOutcomeWithCards(sub) {
   }
 
   // Section 5: Allies & Asset Summary
+  // DTSR-4: not editable in v1. Merit content lives in merit_actions_resolved
+  // and st_narrative.action_responses (two surfaces); the right edit shape is
+  // tied up with DTSR-5/6 work. Defer until those land.
   h += renderMeritSummarySection(sub);
 
   // Section 6: Rumours
-  h += renderRumoursSection(sub);
+  h += renderRumoursSection(sub, { editable });
 
   return h;
 }
@@ -678,4 +860,266 @@ function resolveRole(v) {
     ruler: 'Ruler', primogen: 'Primogen', administrator: 'Administrator',
     regent: 'Regent', socialite: 'Socialite', enforcer: 'Enforcer', none_yet: 'None yet',
   }[v] || v;
+}
+
+// ── DTSR-4: ST inline edit on historical chronicle entries ────────────────
+// Gate is enforced at render time (entries on closed/complete cycles get
+// .story-section-edit buttons). These handlers swap the section body for a
+// textarea + Save/Cancel, then on Save patch st_narrative.<key>.response,
+// recompile the published outcome, persist, and re-render the entry.
+
+function _findSubById(subId) {
+  return _chronicleCtx?.subs?.find(s => String(s._id) === String(subId)) || null;
+}
+
+function _renderEntryInPlace(entryEl, sub) {
+  // Recompute editability from the same gate the original render used.
+  const cycleStatus = _chronicleCtx?.cycleStatusMap?.[String(sub.cycle_id)] || '';
+  const editable = isSTRole() && (cycleStatus === 'closed' || cycleStatus === 'complete');
+  const body = renderOutcomeWithCards(sub, { editable });
+  const cycleLabel = entryEl.querySelector('.story-cycle-label')?.outerHTML || '';
+  entryEl.innerHTML = cycleLabel + body;
+}
+
+function _readSectionText(sub, sectionKey, sectionIdx) {
+  const sn = sub.st_narrative || {};
+  if (sectionIdx === '' || sectionIdx == null) {
+    return sn[sectionKey]?.response || '';
+  }
+  const i = parseInt(sectionIdx, 10);
+  return sn[sectionKey]?.[i]?.response || '';
+}
+
+function _editorContainer(sectionEl) {
+  // For rumour <li>, swap the whole <li> contents (including the Edit button)
+  // so the textarea isn't a block-in-span layout. For section <div>, swap
+  // only .story-section-body so the header (with Edit button) stays put.
+  return sectionEl.tagName === 'LI'
+    ? sectionEl
+    : sectionEl.querySelector('.story-section-body');
+}
+
+function handleSectionEditClick(btn) {
+  const sectionEl = btn.closest('.story-section, li[data-section-key]');
+  if (!sectionEl) return;
+  const sectionKey = sectionEl.dataset.sectionKey;
+  const sectionIdx = sectionEl.dataset.sectionIdx ?? '';
+  if (!sectionKey) return;
+
+  const entryEl = sectionEl.closest('.story-entry');
+  const subId = entryEl?.dataset.subId;
+  const sub = _findSubById(subId);
+  if (!sub) return;
+
+  const currentText = _readSectionText(sub, sectionKey, sectionIdx);
+  const isRumourLi = sectionEl.tagName === 'LI';
+  const container = _editorContainer(sectionEl);
+  if (!container) return;
+
+  container.dataset.originalHtml = container.innerHTML;
+  const rows = isRumourLi ? 2 : 6;
+  container.innerHTML =
+    `<textarea class="story-section-edit-ta" rows="${rows}">${esc(currentText)}</textarea>` +
+    '<div class="story-section-edit-actions">' +
+      '<button type="button" class="story-section-save">Save</button>' +
+      '<button type="button" class="story-section-cancel">Cancel</button>' +
+      '<span class="story-section-edit-status"></span>' +
+    '</div>';
+  sectionEl.classList.add('story-section-editing');
+  container.querySelector('.story-section-edit-ta')?.focus();
+
+  // Hide the section's Edit button on the section <div> path. For rumour
+  // <li> it's part of container.innerHTML and goes away naturally.
+  if (!isRumourLi) btn.style.display = 'none';
+}
+
+function handleSectionCancel(btn) {
+  const sectionEl = btn.closest('.story-section, li[data-section-key]');
+  if (!sectionEl) return;
+  const container = _editorContainer(sectionEl);
+  if (!container || container.dataset.originalHtml == null) return;
+  container.innerHTML = container.dataset.originalHtml;
+  delete container.dataset.originalHtml;
+  sectionEl.classList.remove('story-section-editing');
+  const editBtn = sectionEl.querySelector('.story-section-edit');
+  if (editBtn) editBtn.style.display = '';
+}
+
+async function handleSectionSave(btn) {
+  const sectionEl = btn.closest('.story-section, li[data-section-key]');
+  if (!sectionEl) return;
+  const sectionKey = sectionEl.dataset.sectionKey;
+  const sectionIdx = sectionEl.dataset.sectionIdx ?? '';
+  if (!sectionKey) return;
+
+  const entryEl = sectionEl.closest('.story-entry');
+  const subId = entryEl?.dataset.subId;
+  const sub = _findSubById(subId);
+  const char = _chronicleCtx?.char;
+  if (!sub || !char) return;
+
+  const ta = sectionEl.querySelector('.story-section-edit-ta');
+  const statusEl = sectionEl.querySelector('.story-section-edit-status');
+  if (!ta) return;
+  const newText = ta.value;
+
+  // Build the dotted-path patch. Mongo $set treats numeric path segments as
+  // array indices, so st_narrative.cacophony_savvy.0.response works directly.
+  let patchPath;
+  if (sectionIdx === '' || sectionIdx == null) {
+    patchPath = `st_narrative.${sectionKey}.response`;
+  } else {
+    patchPath = `st_narrative.${sectionKey}.${parseInt(sectionIdx, 10)}.response`;
+  }
+
+  // Apply locally so compilePushOutcome reads the new text.
+  const sn = sub.st_narrative = sub.st_narrative || {};
+  if (sectionIdx === '' || sectionIdx == null) {
+    sn[sectionKey] = { ...(sn[sectionKey] || {}), response: newText };
+  } else {
+    const i = parseInt(sectionIdx, 10);
+    sn[sectionKey] = sn[sectionKey] || [];
+    sn[sectionKey][i] = { ...(sn[sectionKey][i] || {}), response: newText };
+  }
+
+  const recompiled = compilePushOutcome(sub, char);
+  sub.published_outcome = recompiled;
+  sub.st_review = { ...(sub.st_review || {}), outcome_text: recompiled };
+
+  const patch = {
+    [patchPath]: newText,
+    'st_review.outcome_text': recompiled,
+  };
+
+  if (statusEl) statusEl.textContent = 'Saving…';
+  btn.disabled = true;
+
+  try {
+    await apiPut(`/api/downtime_submissions/${subId}`, patch);
+    if (statusEl) statusEl.textContent = 'Saved';
+    // Re-render the whole entry so any sections affected by the recompile
+    // (project sections embedded in published_outcome) update consistently.
+    if (entryEl) _renderEntryInPlace(entryEl, sub);
+  } catch (err) {
+    btn.disabled = false;
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}
+
+// ── DTSR-8: player flag form lifecycle ──────────────────────────────
+
+function _findSubInChronicle(subId) {
+  const subs = _chronicleCtx?.subs || [];
+  return subs.find(s => String(s._id) === String(subId)) || null;
+}
+
+function openFlagForm(btn) {
+  const subId = btn.dataset.subId;
+  const sectionKey = btn.dataset.sectionKey;
+  const sectionIdx = btn.dataset.sectionIdx ?? '';
+  // Replace the button with a small inline form. Submit is gated by category
+  // selection (and a 5-char minimum reason for category=other).
+  const form = document.createElement('form');
+  form.className = 'story-section-flag-form';
+  form.dataset.subId = subId;
+  form.dataset.sectionKey = sectionKey;
+  if (sectionIdx !== '') form.dataset.sectionIdx = sectionIdx;
+  form.innerHTML =
+    '<div class="story-section-flag-form-row">'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="inconsistent"> Inconsistent</label>'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="wrong_story"> Wrong story</label>'
+    + '<label class="story-section-flag-radio"><input type="radio" name="flag-cat" value="other"> Other</label>'
+    + '</div>'
+    + '<textarea class="story-section-flag-reason" rows="3" placeholder="Tell your Storyteller what is up (5+ characters for Other)."></textarea>'
+    + '<div class="story-section-flag-actions">'
+      + '<button type="button" class="story-section-flag-submit" disabled>Submit flag</button>'
+      + '<button type="button" class="story-section-flag-cancel">Cancel</button>'
+      + '<span class="story-section-flag-status"></span>'
+    + '</div>';
+  btn.replaceWith(form);
+}
+
+function closeFlagForm(cancelBtn) {
+  const form = cancelBtn.closest('.story-section-flag-form');
+  if (!form) return;
+  const sub = _findSubInChronicle(form.dataset.subId);
+  if (!sub) { form.remove(); return; }
+  const sectionKey = form.dataset.sectionKey;
+  const sectionIdx = form.dataset.sectionIdx ?? null;
+  const replacement = document.createElement('div');
+  replacement.innerHTML = renderFlagAffordance(sub, sectionKey, sectionIdx === null ? null : Number(sectionIdx));
+  const node = replacement.firstChild;
+  if (node) form.replaceWith(node);
+  else form.remove();
+}
+
+function _refreshFlagFormSubmitState(form) {
+  const cat = form.querySelector('input[name="flag-cat"]:checked')?.value || '';
+  const reason = (form.querySelector('.story-section-flag-reason')?.value || '').trim();
+  const submitBtn = form.querySelector('.story-section-flag-submit');
+  if (!submitBtn) return;
+  const ok = !!cat && (cat !== 'other' || reason.length >= 5);
+  submitBtn.disabled = !ok;
+}
+
+async function submitFlagForm(submitBtn) {
+  const form = submitBtn.closest('.story-section-flag-form');
+  if (!form) return;
+  const subId = form.dataset.subId;
+  const sectionKey = form.dataset.sectionKey;
+  const sectionIdxRaw = form.dataset.sectionIdx;
+  const sectionIdx = sectionIdxRaw == null || sectionIdxRaw === '' ? null : Number(sectionIdxRaw);
+  const category = form.querySelector('input[name="flag-cat"]:checked')?.value || '';
+  const reason = (form.querySelector('.story-section-flag-reason')?.value || '').trim();
+  const statusEl = form.querySelector('.story-section-flag-status');
+
+  if (!category) return;
+  if (category === 'other' && reason.length < 5) return;
+
+  submitBtn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Submitting…';
+
+  try {
+    const flag = await apiPost(`/api/downtime_submissions/${subId}/section-flag`, {
+      section_key: sectionKey,
+      section_idx: sectionIdx,
+      category,
+      reason,
+    });
+    // Optimistic local update — push into the in-memory submission so the
+    // re-rendered affordance shows the Flagged state.
+    const sub = _findSubInChronicle(subId);
+    if (sub) {
+      if (!Array.isArray(sub.section_flags)) sub.section_flags = [];
+      sub.section_flags.push(flag);
+      const entryEl = document.querySelector(`.story-entry[data-sub-id="${CSS.escape(subId)}"]`);
+      if (entryEl) _renderEntryInPlace(entryEl, sub);
+    } else {
+      form.remove();
+    }
+  } catch (err) {
+    submitBtn.disabled = false;
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'error'}`;
+  }
+}
+
+async function recallFlag(btn) {
+  const subId = btn.dataset.subId;
+  const flagId = btn.dataset.flagId;
+  btn.disabled = true;
+  btn.textContent = 'Recalling…';
+  try {
+    await apiPatch(`/api/downtime_submissions/${subId}/section-flag/${flagId}`, { status: 'recalled' });
+    const sub = _findSubInChronicle(subId);
+    if (sub) {
+      const flag = (sub.section_flags || []).find(f => String(f._id) === String(flagId));
+      if (flag) flag.status = 'recalled';
+      const entryEl = document.querySelector(`.story-entry[data-sub-id="${CSS.escape(subId)}"]`);
+      if (entryEl) _renderEntryInPlace(entryEl, sub);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Recall flag';
+    alert(`Recall failed: ${err?.message || 'error'}`);
+  }
 }

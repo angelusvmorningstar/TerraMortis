@@ -4,7 +4,7 @@
  * Renders into #attendance-content in the admin app.
  */
 
-import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import { apiGet, apiPut, apiDelete } from '../data/api.js';
 import { displayName, sortName, redactPlayer } from '../data/helpers.js';
 
 let chars = [];
@@ -12,6 +12,16 @@ let sessions = [];
 let activeSession = null;
 let _saveTimer = null;
 let _sortBy = 'character'; // 'character' | 'player'
+
+// FIN-5: 'Player A/B/C' placeholder strings seeded by an early redacted
+// import. Treat as missing and fall back to the character's player field.
+const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
+function resolvePlayerName(a, c) {
+  const raw = (a.player || '').trim();
+  if (raw && !PLACEHOLDER_RE.test(raw)) return raw;
+  if (c?.player) return c.player;
+  return raw || '';
+}
 
 function esc(s) {
   if (s == null) return '';
@@ -123,8 +133,8 @@ function renderToolbar(el) {
       <select class="att-select" id="att-session-sel">
         ${sessions.map(s => `<option value="${s._id}">${esc(s.session_date)}${s.title ? ' — ' + esc(s.title) : ''}</option>`).join('')}
       </select>
-      <input type="date" class="att-date-input" id="att-new-date">
-      <button class="att-btn" id="att-new-btn">+ New Session</button>
+      <!-- Session creation moved to the Next Session panel above; this
+           toolbar only switches between existing sessions. -->
     </div>
     <div class="att-toolbar-right">
       <span class="att-save-status" id="att-save-status"></span>
@@ -142,7 +152,6 @@ function renderToolbar(el) {
     if (s) selectSession(s);
   });
 
-  document.getElementById('att-new-btn').addEventListener('click', createNewSession);
   document.getElementById('att-add-btn').addEventListener('click', showAddForm);
   document.getElementById('att-delete-btn').addEventListener('click', deleteSession);
 }
@@ -182,48 +191,9 @@ async function doAutosave() {
   }
 }
 
-async function createNewSession() {
-  const dateInput = document.getElementById('att-new-date');
-  const date = dateInput.value;
-  if (!date) { dateInput.focus(); return; }
-
-  const gameNumber = sessions.length + 1;
-  const title = 'Game ' + gameNumber;
-
-  // Pre-populate with all active players (1:1 with characters)
-  const attendance = chars
-    .map(c => ({
-      player: c.player || '',
-      character_id: c._id,
-      character_name: c.name,
-      character_display: displayName(c),
-      attended: false,
-      costuming: false,
-      downtime: false,
-      extra: 0,
-      paid: false,
-      payment_method: ''
-    }))
-    .sort((a, b) => a.player.localeCompare(b.player));
-
-  try {
-    const session = await apiPost('/api/game_sessions', {
-      session_date: date,
-      title,
-      attendance
-    });
-    sessions.unshift(session);
-    const sel = document.getElementById('att-session-sel');
-    const opt = document.createElement('option');
-    opt.value = session._id;
-    opt.textContent = date + ' — ' + title;
-    sel.prepend(opt);
-    sel.value = session._id;
-    selectSession(session);
-  } catch (err) {
-    alert('Failed to create session: ' + err.message);
-  }
-}
+// Session creation removed from this toolbar; the Next Session panel above
+// is now the canonical session creator. Attendance is populated at the door
+// via the Check-In tab (FIN-5/6/7) and edited here post-game.
 
 function renderGrid() {
   const wrap = document.getElementById('att-grid-wrap');
@@ -233,7 +203,7 @@ function renderGrid() {
 
   const sorted = att.map((a, i) => {
     const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
-    const player = a.player || (c ? c.player : '') || '';
+    const player = resolvePlayerName(a, c);
     return { a, i, c, player };
   });
   sorted.sort((x, y) => {
@@ -273,7 +243,7 @@ function renderGrid() {
   for (const { a, i, c } of sorted) {
     const rawName = c ? sortName(c) : (a.character_display || a.display_name || a.name || '');
     const charDisplay = rawName.replace(/\b\w/g, l => l.toUpperCase());
-    const playerName = a.player || (c ? c.player : '') || '';
+    const playerName = resolvePlayerName(a, c);
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
 

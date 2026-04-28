@@ -9,11 +9,11 @@
  *  - Blood Sorcery: from disciplines (Cruac/Theban)
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -21,11 +21,22 @@ import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
+import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
+import { promptForKind } from '../data/kind-prompts.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
 // Only 5 territories can receive influence (not The Barrens)
 const INFLUENCE_TERRITORIES = FEEDING_TERRITORIES.filter(t => !t.includes('Barrens'));
+
+// DTFP-2: render-time alphabetical sort for chip lists. Returns a new array;
+// never mutates the source (chip data often comes from shared modules like
+// FEED_METHODS that must not be reordered).
+function sortChips(items, keyFn = x => x) {
+  return items.slice().sort((a, b) =>
+    String(keyFn(a)).localeCompare(String(keyFn(b)), undefined, { sensitivity: 'base' })
+  );
+}
 
 // STs receive raw docs from the API (stripStReview not applied server-side for their role).
 // Promote st_review.outcome_text → published_outcome client-side so ST player-portal views
@@ -45,7 +56,8 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];   // DTOSL.2: NPCs linked to current character (all statuses for Other dropdown)
+let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
+let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
@@ -78,6 +90,18 @@ let feedRoteCustomSkill = '';
 let activeProjectTab = 1;
 // Sphere tab state
 let activeSphereTab = 1;
+// JDT-2: invitations for the current cycle, fetched on form open and
+// after each joint create. Read by renderJointAuthoring for status badges.
+let _jointInvitations = [];
+
+// JDT-2: status label map for invitation states.
+const JOINT_STATUS_LABELS = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  decoupled: 'Decoupled',
+  'cancelled-by-lead': 'Cancelled by lead',
+};
 
 const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
@@ -259,7 +283,15 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        responses['_feed_method'] = feedMethodId;
+        // DTFP-4: _feed_method is no longer persisted on new submissions.
+        // The method-card pick is UX-only scaffolding for the chip suggestions;
+        // the saved pool is whatever the player built via attr/skill/disc/spec.
+        // Legacy submissions keep their stored _feed_method for back-compat reads.
+        // DTFP-5: feed_violence persists only after the player clicks the toggle.
+        // Pre-selection is visual only; preserve any explicit choice through saves.
+        if (responseDoc?.responses?.feed_violence) {
+          responses.feed_violence = responseDoc.responses.feed_violence;
+        }
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
@@ -337,21 +369,19 @@ function collectResponses() {
   const psNpcId   = document.getElementById('dt-personal_story_npc_id');
   const psNpcName = document.getElementById('dt-personal_story_npc_name');
   const psNote    = document.getElementById('dt-personal_story_note');
-  const psDir     = document.querySelector('input[name="personal_story_direction"]:checked');
+  // NPCR.12 r3: personal_story_direction retired (Story direction radios
+  // removed). Existing legacy submissions still carry the field.
   responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
   responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
   responses['personal_story_note']     = psNote    ? psNote.value    : '';
-  responses['personal_story_direction'] = psDir    ? psDir.value     : 'continue';
 
-  // DTOSL.2/.4: structured Off-Screen Life choice + target + moment
-  const oslChoice     = document.getElementById('dt-osl_choice');
-  const oslTargetId   = document.getElementById('dt-osl_target_id');
-  const oslTargetType = document.getElementById('dt-osl_target_type');
-  const oslMoment     = document.getElementById('dt-osl_moment');
-  responses['osl_choice']      = oslChoice     ? oslChoice.value     : '';
-  responses['osl_target_id']   = oslTargetId   ? oslTargetId.value   : '';
-  responses['osl_target_type'] = oslTargetType ? oslTargetType.value : '';
-  responses['osl_moment']      = oslMoment     ? oslMoment.value     : '';
+  // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
+  // fields are no longer written from new submissions; legacy submissions in
+  // the DB are read by downstream renderers via fallback lookups.
+  const relIdEl = document.getElementById('dt-story_moment_relationship_id');
+  const noteEl  = document.getElementById('dt-story_moment_note');
+  responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
+  responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
 
   // Aspiration structured slots
   for (let n = 1; n <= 3; n++) {
@@ -371,6 +401,9 @@ function collectResponses() {
     const val = el ? el.value : '';
     responses[`game_recount_${n}`] = val;
     if (val.trim()) highlights.push(val.trim());
+    // DTFP-7: per-slot mechanical-flag boolean
+    const flagEl = document.getElementById(`dt-mechanical_flag_${n}`);
+    if (flagEl) responses[`mechanical_flag_${n}`] = flagEl.checked;
   }
   if (highlights.length > 0) {
     responses['game_recount'] = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n\n');
@@ -440,6 +473,39 @@ function collectResponses() {
     const meritKeys = [];
     meritCbs.forEach(cb => meritKeys.push(cb.value));
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
+
+    // JDT-4: support-slot personal notes
+    const personalNotesEl = document.getElementById(`dt-project_${n}_personal_notes`);
+    if (personalNotesEl) {
+      responses[`project_${n}_personal_notes`] = personalNotesEl.value;
+    }
+
+    // JDT-2: Joint scratch fields. Persist the lead's in-flight joint authoring
+    // state so a draft round-trip preserves it. The canonical joint document
+    // is created on save via POST /api/downtime_cycles/:id/joint_projects.
+    const soloJointRadio = document.querySelector(`input[name="dt-project_${n}_solo_joint"]:checked`);
+    responses[`project_${n}_is_joint`] = soloJointRadio?.value === 'joint' ? 'yes' : '';
+    const jointDescEl = document.getElementById(`dt-project_${n}_joint_description`);
+    responses[`project_${n}_joint_description`] = jointDescEl ? jointDescEl.value : '';
+    const jointTargetTypeEl = document.querySelector(`input[name="dt-project_${n}_joint_target_type"]:checked`);
+    const jointTargetType = jointTargetTypeEl ? jointTargetTypeEl.value : '';
+    responses[`project_${n}_joint_target_type`] = jointTargetType;
+    if (jointTargetType === 'character') {
+      // Multi-select character target — collect from the checkbox grid and
+      // serialise as a JSON array of character IDs.
+      const charCbs = document.querySelectorAll(
+        `.dt-flex-multi-char-cb[data-flex-multi-prefix="project_${n}_joint_target"]:checked`
+      );
+      const ids = Array.from(charCbs).map(cb => cb.value).filter(Boolean);
+      responses[`project_${n}_joint_target_value`] = JSON.stringify(ids);
+    } else {
+      const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
+      responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
+    }
+    const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
+    const jointInviteeIds = [];
+    jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
+    responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
   }
 
   // Collect sorcery slots (dynamic count)
@@ -449,8 +515,24 @@ function collectResponses() {
   for (let n = 1; n <= sorcerySlotCount; n++) {
     const riteEl = document.getElementById(`dt-sorcery_${n}_rite`);
     responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : '';
-    const targetsEl = document.getElementById(`dt-sorcery_${n}_targets`);
-    responses[`sorcery_${n}_targets`] = targetsEl ? targetsEl.value : '';
+    // DTFP-6: collect structured target rows for this sorcery slot.
+    // Persisted shape: array of {type, value} objects, omitting empty rows.
+    const targetsBlock = document.querySelector(`[data-sorcery-slot-targets="${n}"]`);
+    if (targetsBlock) {
+      const arr = [];
+      targetsBlock.querySelectorAll('.dt-sorcery-target-row').forEach((row, ti) => {
+        const typeEl = row.querySelector(`input[name="dt-sorcery_${n}_targets_${ti}_type"]:checked`);
+        const valEl  = row.querySelector(`#dt-sorcery_${n}_targets_${ti}_value`);
+        const type = typeEl ? typeEl.value : '';
+        const value = valEl ? (valEl.value || '').trim() : '';
+        if (type && value) arr.push({ type, value });
+      });
+      responses[`sorcery_${n}_targets`] = arr;
+    } else {
+      // No DOM block (slot not currently rendered) — preserve any previously-saved value
+      const prior = responseDoc?.responses?.[`sorcery_${n}_targets`];
+      if (prior !== undefined) responses[`sorcery_${n}_targets`] = prior;
+    }
     const notesEl = document.getElementById(`dt-sorcery_${n}_notes`);
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
@@ -626,8 +708,258 @@ async function saveDraft() {
     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
+
+    // JDT-2: After the submission save lands, fan out joint creations for any
+    // slot that authored a joint and doesn't yet have a backing joint document.
+    await createPendingJoints(responses);
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+  }
+}
+
+// JDT-3: Accept a pending invitation. On success the server returns the
+// updated invitation, joint, slot number, and the invitee's submission with
+// the joint markers written into slot N. We refresh local caches and
+// re-render. Race condition (409) → reload invitations and re-render.
+async function handleInvitationAccept(invId, container) {
+  if (!invId) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    const result = await apiPost(`/api/project_invitations/${invId}/accept`, {});
+    if (result?.submission) responseDoc = result.submission;
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = `Joined slot ${result?.slot ?? ''}`.trim();
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (/no longer pending|no longer available|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Accept failed: ' + err.message;
+    }
+  }
+}
+
+async function handleInvitationDecline(invId, container) {
+  if (!invId) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    await apiPost(`/api/project_invitations/${invId}/decline`, {});
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    if (/no longer pending|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Decline failed: ' + err.message;
+    }
+  }
+}
+
+// JDT-6: voluntary decouple from an accepted joint. Confirms with the
+// player, then calls /api/project_invitations/:id/decouple. On success the
+// server has cleared the joint slot fields on the submission; we re-fetch
+// the cycle + invitations and re-render to show the slot reverted to a
+// normal empty project slot.
+async function handleInvitationDecouple(invId, container) {
+  if (!invId) return;
+  const ok = window.confirm('Decouple from this joint? Your slot will be freed up.');
+  if (!ok) return;
+  const statusEl = document.getElementById('dt-save-status');
+  try {
+    const result = await apiPost(`/api/project_invitations/${invId}/decouple`, {});
+    if (result?.submission) responseDoc = result.submission;
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Decoupled.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (/not accepted|409/i.test(err.message)) {
+      await refreshJointCaches();
+      renderForm(container);
+      if (statusEl) {
+        statusEl.textContent = 'This joint is no longer in a state that can be decoupled. Refreshed.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'Decouple failed: ' + err.message;
+    }
+  }
+}
+
+// JDT-6: lead re-invite. Reads the ticked checkboxes inside the re-invite
+// panel and calls /api/downtime_cycles/:id/joint_projects/:jointId/reinvite.
+async function handleJointReinvite(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const cbs = container.querySelectorAll(`.dt-joint-reinvite-cb[data-joint-id="${jointId}"]:checked`);
+  const ids = Array.from(cbs).map(cb => cb.value).filter(Boolean);
+  const statusEl = container.querySelector(`.dt-joint-reinvite-status[data-joint-id="${jointId}"]`);
+  if (!ids.length) {
+    if (statusEl) {
+      statusEl.textContent = 'Tick at least one alternate to invite.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    }
+    return;
+  }
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/reinvite`, {
+      invitee_character_ids: ids,
+    });
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Re-invite failed: ' + err.message;
+  }
+}
+
+// JDT-6: lead cancel. Server enforces zero-supports / zero-pending precondition.
+async function handleJointCancel(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  const ok = window.confirm('Cancel this joint? Your slot will be freed up. The joint will remain on the cycle for audit.');
+  if (!ok) return;
+  const statusEl = container.querySelector(`.dt-joint-cancel-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {});
+    await refreshJointCaches();
+    // Lead's slot was cleared server-side; re-fetch the submission so the
+    // local responseDoc shows the cleared slot fields on next render.
+    if (responseDoc?._id) {
+      try {
+        const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+        const fresh = (subs || []).find(s => String(s._id) === String(responseDoc._id));
+        if (fresh) responseDoc = fresh;
+      } catch { /* keep existing */ }
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Cancel failed: ' + err.message;
+  }
+}
+
+// JDT-6: lead saves an edit to joint description. Bumps description_updated_at
+// server-side so support slots can render the change indicator on next render.
+async function handleJointDescriptionSave(jointId, container) {
+  if (!jointId || !currentCycle?._id) return;
+  // Locate the textarea inside the same authoring panel as this save button.
+  const btn = container.querySelector(`.dt-joint-desc-save-btn[data-joint-id="${jointId}"]`);
+  const textareaEl = btn?.closest('.dt-joint-authoring')?.querySelector('textarea[id$="_joint_description"]');
+  if (!textareaEl) return;
+  const description = textareaEl.value;
+  const statusEl = container.querySelector(`.dt-joint-desc-save-status[data-joint-id="${jointId}"]`);
+  try {
+    await apiPatch(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}`, { description });
+    await refreshJointCaches();
+    if (statusEl) {
+      statusEl.textContent = 'Saved.';
+      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    }
+    renderForm(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+  }
+}
+
+// JDT-6: support clicks "View and acknowledge" on the description-changed
+// indicator. Sets participant.description_change_acknowledged_at to now so
+// the indicator clears on next render.
+async function handleJointDescriptionAcknowledge(jointId, charId, container) {
+  if (!jointId || !charId || !currentCycle?._id) return;
+  try {
+    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/participants/${charId}/acknowledge`, {});
+    await refreshJointCaches();
+    renderForm(container);
+  } catch (err) {
+    const statusEl = document.getElementById('dt-save-status');
+    if (statusEl) statusEl.textContent = 'Acknowledge failed: ' + err.message;
+  }
+}
+
+// JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
+// invitations list so badges, panels, and slot UI all reflect the latest state.
+async function refreshJointCaches() {
+  if (!currentCycle?._id || currentCycle._id === 'dev-stub') return;
+  try {
+    const cycles = await apiGet('/api/downtime_cycles');
+    const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
+    if (fresh) {
+      const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
+        ? currentCycle.status
+        : null;
+      currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
+    }
+  } catch { /* keep prior cycle */ }
+  try {
+    _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
+  } catch { /* keep prior invitations */ }
+}
+
+// JDT-2: For each slot where the lead has selected Joint mode, has invitees,
+// and no joint yet exists on cycle.joint_projects, create the joint + invitations
+// via POST /api/downtime_cycles/:cycleId/joint_projects. Refresh local cycle and
+// invitation caches afterwards so the next render shows the saved state.
+async function createPendingJoints(responses) {
+  if (!responseDoc?._id || !currentCycle?._id) return;
+  if (currentCycle._id === 'dev-stub') return;
+
+  const slotsToCreate = [];
+  for (let n = 1; n <= 4; n++) {
+    if (responses[`project_${n}_is_joint`] !== 'yes') continue;
+    const action = responses[`project_${n}_action`];
+    if (!JOINT_ELIGIBLE_ACTIONS.includes(action)) continue;
+    if (findExistingJoint(n)) continue;
+
+    let inviteeIds = [];
+    try { inviteeIds = JSON.parse(responses[`project_${n}_joint_invited_ids`] || '[]'); }
+    catch { inviteeIds = []; }
+    if (!inviteeIds.length) continue;
+
+    slotsToCreate.push({
+      slot: n,
+      action,
+      description: responses[`project_${n}_joint_description`] || '',
+      target_type: responses[`project_${n}_joint_target_type`] || null,
+      target_value: responses[`project_${n}_joint_target_value`] || null,
+      invitee_character_ids: inviteeIds.map(String),
+    });
+  }
+  if (!slotsToCreate.length) return;
+
+  let anyCreated = false;
+  for (const s of slotsToCreate) {
+    try {
+      await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects`, {
+        lead_character_id: String(currentChar._id),
+        lead_submission_id: String(responseDoc._id),
+        lead_project_slot: s.slot,
+        description: s.description,
+        action_type: s.action,
+        target_type: s.target_type,
+        target_value: s.target_value,
+        invitee_character_ids: s.invitee_character_ids,
+      });
+      anyCreated = true;
+    } catch (err) {
+      const statusEl = document.getElementById('dt-save-status');
+      if (statusEl) statusEl.textContent = `Joint create failed (slot ${s.slot}): ${err.message}`;
+    }
+  }
+
+  if (anyCreated) {
+    await refreshJointCaches();
   }
 }
 
@@ -653,8 +985,8 @@ async function submitForm() {
       }
     }
   }
-  // Feeding method is required
-  if (!responses['_feed_method']) missing.push('Feeding Method');
+  // DTFP-4: feeding-method requirement dropped — pool components are the gate now
+  // (the existing pool-validation logic already flags incomplete attr/skill/disc).
   // Feeding territory is required
   const territories = (() => { try { return JSON.parse(responses['feeding_territories'] || '{}'); } catch { return {}; } })();
   if (!Object.values(territories).some(v => v && v !== 'none')) missing.push('Feeding Territory');
@@ -772,18 +1104,34 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       || null;
   } catch { /* no cycles */ }
 
-  // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
-  if ((!currentCycle || currentCycle.status !== 'active') && location.hostname === 'localhost') {
+  // Dev bypass: on localhost, coerce non-active cycles to 'active' for the
+  // form's other status gates, but preserve the underlying cycle's data
+  // (is_chapter_finale, maintenance_audit, etc.) so dev-time testing of
+  // those features works. Stub fallback still applies when no cycle exists.
+  if (currentCycle && currentCycle.status !== 'active' && location.hostname === 'localhost') {
+    currentCycle = { ...currentCycle, status: 'active' };
+  }
+  if (!currentCycle && location.hostname === 'localhost') {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2: load NPCs linked to this character (used by Off-Screen Life
-  // dropdowns). Fetch fails silently — form still renders, dropdowns go empty.
+  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
+  // don't break when viewing old cycles. The new flow (NPCR.12) does not
+  // use this list.
   _linkedNpcs = [];
   if (currentChar?._id) {
     try {
       _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
     } catch { _linkedNpcs = []; }
+  }
+
+  // NPCR.12: load this character's relationships (active + pending) for
+  // the Personal Story picker. Fails silently — picker shows empty state.
+  _myRelationships = [];
+  if (currentChar?._id) {
+    try {
+      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
+    } catch { _myRelationships = []; }
   }
 
   // Load existing submission for this character + cycle
@@ -875,6 +1223,16 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       residencyByTerritory[doc.territory] = new Set(doc.residents || []);
     }
   } catch { residencyByTerritory = {}; }
+
+  // JDT-2: load invitations visible to this character on the current cycle.
+  // Used by the joint authoring panel for live status badges (lead view) and
+  // by JDT-3 for the invitee inbox. Best-effort — empty array on error.
+  _jointInvitations = [];
+  if (currentCycle?._id && currentCycle._id !== 'dev-stub') {
+    try {
+      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
+    } catch { _jointInvitations = []; }
+  }
 
   // Restore feeding state from saved responses
   if (responseDoc?.responses) {
@@ -1256,22 +1614,49 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
-    // DTOSL.2: Off-Screen Life choice chip toggle
-    const oslChip = e.target.closest('[data-osl-choice]');
-    if (oslChip) {
-      const newChoice = oslChip.dataset.oslChoice;
-      const hidden = document.getElementById('dt-osl_choice');
-      const current = hidden?.value || '';
-      // Click same chip to deselect; otherwise switch
-      if (hidden) hidden.value = current === newChoice ? '' : newChoice;
-      // Changing choice resets target_id because the dropdown list changes
-      const tgt = document.getElementById('dt-osl_target_id');
-      if (tgt && current !== newChoice) tgt.value = '';
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      scheduleSave();
+    // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
+    // single relationships picker in renderPersonalStorySection).
+
+    // JDT-3: pending invitation Accept / Decline
+    const acceptBtn = e.target.closest('.dt-pending-invitation-accept');
+    if (acceptBtn && !acceptBtn.disabled) {
+      handleInvitationAccept(acceptBtn.dataset.invitationId, container);
+      return;
+    }
+    const declineBtn = e.target.closest('.dt-pending-invitation-decline');
+    if (declineBtn) {
+      handleInvitationDecline(declineBtn.dataset.invitationId, container);
+      return;
+    }
+
+    // JDT-6: voluntary decouple from an accepted joint
+    const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
+    if (decoupleBtn) {
+      handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
+      return;
+    }
+    // JDT-6: lead re-invite alternates
+    const reinviteBtn = e.target.closest('.dt-joint-reinvite-btn');
+    if (reinviteBtn) {
+      handleJointReinvite(reinviteBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead cancel joint
+    const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
+    if (cancelBtn) {
+      handleJointCancel(cancelBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: lead description save (mid-cycle edit)
+    const descSaveBtn = e.target.closest('.dt-joint-desc-save-btn');
+    if (descSaveBtn) {
+      handleJointDescriptionSave(descSaveBtn.dataset.jointId, container);
+      return;
+    }
+    // JDT-6: support acknowledge description change
+    const ackBtn = e.target.closest('.dt-joint-desc-acknowledge-btn');
+    if (ackBtn) {
+      handleJointDescriptionAcknowledge(ackBtn.dataset.jointId, ackBtn.dataset.characterId, container);
       return;
     }
 
@@ -1471,6 +1856,22 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // NPCR.12/13: relationship picker change — swap the kind-driven label
+    // and placeholder in place, preserving whatever the player has typed.
+    if (e.target.id === 'dt-story_moment_relationship_id') {
+      const relId = e.target.value;
+      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
+      const prompt = edge
+        ? promptForKind(edge.kind, edge.custom_label)
+        : promptForKind('_default', null);
+      const label = document.getElementById('dt-story_moment_note_label');
+      const note  = document.getElementById('dt-story_moment_note');
+      if (label) label.textContent = prompt.label;
+      if (note)  note.setAttribute('placeholder', prompt.placeholder);
+      scheduleSave();
+      return;
+    }
+
     // Personal story free-text NPC name — sync to hidden fields and deselect cards
     if (e.target.id === 'dt-personal_story_npc_name_free') {
       const val    = e.target.value.trim();
@@ -1529,6 +1930,16 @@ function renderForm(container) {
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
       activeProjectTab = parseInt(projectAction.dataset.projectAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // JDT-2: Solo/Joint toggle — re-render to show/hide the joint authoring panel
+    const soloJoint = e.target.closest('[data-project-solo-joint]');
+    if (soloJoint) {
+      activeProjectTab = parseInt(soloJoint.dataset.projectSoloJoint, 10);
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1657,6 +2068,46 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+    // DTFP-5: Kiss / Violent toggle
+    const viBtn = e.target.closest('[data-feed-violence]');
+    if (viBtn) {
+      if (!responseDoc) responseDoc = { responses: {} };
+      if (!responseDoc.responses) responseDoc.responses = {};
+      responseDoc.responses.feed_violence = viBtn.dataset.feedViolence;
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // DTFP-6: sorcery target row add / remove
+    const addTargetBtn = e.target.closest('.dt-sorcery-target-add-btn');
+    if (addTargetBtn) {
+      const responses = collectResponses();
+      const slot = addTargetBtn.dataset.sorcerySlot;
+      const key = `sorcery_${slot}_targets`;
+      const arr = Array.isArray(responses[key]) ? responses[key] : [];
+      arr.push({ type: '', value: '' });
+      responses[key] = arr;
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    const removeTargetBtn = e.target.closest('.dt-sorcery-target-remove-btn');
+    if (removeTargetBtn) {
+      const responses = collectResponses();
+      const slot = removeTargetBtn.dataset.sorcerySlot;
+      const idx = Number(removeTargetBtn.dataset.targetIdx);
+      const key = `sorcery_${slot}_targets`;
+      const arr = Array.isArray(responses[key]) ? responses[key] : [];
+      arr.splice(idx, 1);
+      if (arr.length === 0) arr.push({ type: '', value: '' }); // keep one empty row
+      responses[key] = arr;
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // NPC card selection
@@ -1891,6 +2342,17 @@ function renderForm(container) {
     valEl.classList.toggle('dt-inf-negative', newVal < 0);
     valEl.classList.toggle('dt-inf-positive', newVal > 0);
 
+    // Sync ambience-direction labels around the stepper (DTFP-1).
+    // Both label spans are always in the DOM; just update text so the
+    // stepper column doesn't shift horizontally between rows.
+    const controlEl = valEl.closest('.dt-influence-control');
+    if (controlEl) {
+      const leftEl  = controlEl.querySelector('.dt-influence-label-left');
+      const rightEl = controlEl.querySelector('.dt-influence-label-right');
+      if (leftEl)  leftEl.textContent  = newVal < 0 ? 'decreasing ambience' : '';
+      if (rightEl) rightEl.textContent = newVal > 0 ? 'increasing ambience' : '';
+    }
+
     // Update budget display
     const remaining = budget - totalSpent;
     const budgetEl = document.getElementById('dt-influence-budget');
@@ -2085,6 +2547,45 @@ function applyRoteToProjectSlot(container) {
 
 // ── Project slots (tabbed UI) ──
 
+// CHM-3: chapter-finale at-risk reminder for PT/MCI standing merits.
+// Renders zero, one, or two warning strips at the top of the Personal
+// Projects section. Gated on cycle.is_chapter_finale === true; cleared
+// per-merit by the ST ticking the matching box on CHM-2's audit panel
+// (cycle.maintenance_audit[char_id].{pt,mci}). MAINTENANCE_MERITS is
+// the source of truth for the gate set; PT and MCI need different
+// strawman copy so they're branched explicitly here.
+function maintenanceWarningHtml(meritName, cultNames) {
+  const label = cultNames && cultNames.length
+    ? `${meritName} (${cultNames.join(', ')})`
+    : meritName;
+  return `<div class="dt-maintenance-warning">`
+    + `<strong>Maintenance reminder.</strong> `
+    + `Your <strong>${esc(label)}</strong> has not been logged as maintained this chapter. `
+    + `This is the last cycle of the chapter, so use one of your projects below to maintain it, or it will lapse.`
+    + `</div>`;
+}
+
+function renderMaintenanceWarnings(char, cycle) {
+  if (!cycle || cycle.is_chapter_finale !== true) return '';
+  if (!char) return '';
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const merits = char.merits || [];
+  const out = [];
+
+  const hasPT = merits.some(m => m.name === 'Professional Training');
+  if (hasPT && audit.pt !== true) {
+    out.push(maintenanceWarningHtml('Professional Training', null));
+  }
+
+  const mciMerits = merits.filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false);
+  if (mciMerits.length && audit.mci !== true) {
+    const cults = mciMerits.map(m => m.cult_name).filter(Boolean);
+    out.push(maintenanceWarningHtml('Mystery Cult Initiation', cults));
+  }
+
+  return out.join('');
+}
+
 function renderProjectSlots(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
   const slotCount = section?.projectSlots || 4;
@@ -2108,7 +2609,7 @@ function renderProjectSlots(saved) {
   );
 
   const hasMaintenance = (currentChar.merits || []).some(m =>
-    m.name === 'Professional Training' || m.name === 'MCI'
+    MAINTENANCE_MERITS.includes(m.name)
   );
   const availableActions = PROJECT_ACTIONS.filter(opt =>
     opt.value !== 'maintenance' || hasMaintenance
@@ -2117,6 +2618,10 @@ function renderProjectSlots(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
+  // JDT-3: pending joint invitations sit at the top of the projects section
+  // so the player sees them as soon as they expand.
+  h += renderPendingInvitationsPanel();
+  h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
   // ── Tab bar ──
@@ -2127,10 +2632,15 @@ function renderProjectSlots(saved) {
     const label = ACTION_SHORT[actionVal] || 'No Action';
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-    h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-proj-tab="${n}">`;
+    // JDT-4: Joint badge on the tab when this slot has a joint role.
+    const jointRole = saved[`project_${n}_joint_role`];
+    const jointTabClass = jointRole ? ' dt-proj-tab-joint' : '';
+    const jointBadge = jointRole ? `<span class="dt-proj-tab-joint-badge">Joint</span>` : '';
+    h += `<button type="button" class="dt-proj-tab${active}${noAction}${jointTabClass}" data-proj-tab="${n}">`;
     h += `<span class="dt-proj-tab-icon">${icon}</span>`;
     h += `<span class="dt-proj-tab-num">Action ${n}</span>`;
     h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+    h += jointBadge;
     h += '</button>';
   }
   h += '</div>';
@@ -2139,9 +2649,14 @@ function renderProjectSlots(saved) {
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
     const visible = n === activeProjectTab;
-    const fields = ACTION_FIELDS[actionVal] || [];
+    let fields = ACTION_FIELDS[actionVal] || [];
 
-    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
+    // JDT-4: support-slot detection (set early so the pane wrapper class is right).
+    const slotJointRole = saved[`project_${n}_joint_role`];
+    const slotJointId = saved[`project_${n}_joint_id`];
+    const isSupportSlot = slotJointRole === 'support' && !!slotJointId;
+
+    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}${isSupportSlot ? ' dt-proj-support-pane' : ''}" data-proj-pane="${n}">`;
 
     // ── Rote-locked slot ──
     const isRoteLocked = feedRoteAction && n === feedRoteSlot;
@@ -2156,15 +2671,161 @@ function renderProjectSlots(saved) {
       continue;
     }
 
+    // ── JDT-4: support slot — locked, read-only joint metadata + editable
+    // pool builder + personal notes textarea. Skip the normal action-type
+    // select and per-action fields entirely.
+    if (isSupportSlot) {
+      const joint = (currentCycle?.joint_projects || [])
+        .find(j => String(j._id) === String(slotJointId) && !j.cancelled_at);
+      if (!joint) {
+        h += `<div class="dt-proj-pane-orphaned">`;
+        h += `<p class="qf-desc">This joint project is no longer available. Contact your Storyteller.</p>`;
+        h += `</div></div>`;
+        continue;
+      }
+      const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
+      const leadName = lead ? lead.name : 'Unknown lead';
+      const personalNotes = saved[`project_${n}_personal_notes`] || '';
+      const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
+
+      h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
+
+      // JDT-6: lead description-change indicator
+      const myParticipantForAck = (joint.participants || []).find(p =>
+        String(p.character_id) === String(currentChar._id) && !p.decoupled_at
+      );
+      const updatedAt = joint.description_updated_at;
+      const ackedAt = myParticipantForAck?.description_change_acknowledged_at;
+      const showIndicator = updatedAt && (!ackedAt || new Date(updatedAt) > new Date(ackedAt));
+      if (showIndicator) {
+        h += `<div class="dt-joint-desc-changed-indicator">`;
+        h += `<strong>The lead has updated this project description.</strong>`;
+        h += `<button type="button" class="dt-joint-desc-acknowledge-btn" data-joint-id="${esc(joint._id)}" data-character-id="${esc(String(currentChar._id))}">View and acknowledge</button>`;
+        h += `</div>`;
+      }
+
+      h += `<div class="dt-proj-support-readonly-block">`;
+      h += `<div class="dt-proj-support-label">Action type</div>`;
+      h += `<div class="dt-proj-support-action">${esc(actionLabel)}</div>`;
+
+      h += `<div class="dt-proj-support-label">Joint description</div>`;
+      const descText = (joint.description || '').trim();
+      if (descText) {
+        h += `<div class="dt-proj-support-desc">${esc(descText)}</div>`;
+      } else {
+        h += `<div class="dt-proj-support-desc dt-proj-support-desc-empty">No description provided.</div>`;
+      }
+
+      if (joint.target_type) {
+        let targetLbl = '';
+        if (joint.target_type === 'character') {
+          let ids = [];
+          try {
+            const parsed = JSON.parse(joint.target_value || '[]');
+            ids = Array.isArray(parsed) ? parsed : (joint.target_value ? [joint.target_value] : []);
+          } catch { ids = joint.target_value ? [joint.target_value] : []; }
+          targetLbl = ids
+            .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
+            .join(', ');
+        } else if (joint.target_type === 'territory') {
+          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
+        } else {
+          targetLbl = joint.target_value || '';
+        }
+        if (targetLbl) {
+          h += `<div class="dt-proj-support-label">Joint target</div>`;
+          h += `<div class="dt-proj-support-target">${esc(targetLbl)}</div>`;
+        }
+      }
+      h += `</div>`;
+
+      // Editable pool builders — same shape as a normal slot, so saves
+      // reuse project_${n}_pool_attr/skill/disc + pool2_* paths.
+      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
+      h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+
+      // Personal notes
+      h += `<div class="qf-field">`;
+      h += `<label class="qf-label" for="dt-project_${n}_personal_notes">Your personal notes</label>`;
+      h += `<p class="qf-desc">What do you bring to this joint? What is your character's angle on it?</p>`;
+      h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
+      h += `</div>`;
+
+      // JDT-6: Decouple — voluntary exit from this joint. The participant's
+      // invitation_id is recorded on joint.participants when accept landed.
+      const myParticipant = (joint.participants || []).find(p =>
+        String(p.submission_id) === String(responseDoc?._id) &&
+        Number(p.project_slot) === Number(n) &&
+        !p.decoupled_at
+      );
+      if (myParticipant?.invitation_id) {
+        h += `<div class="dt-joint-decouple-row">`;
+        h += `<button type="button" class="dt-joint-decouple-btn" data-invitation-id="${esc(myParticipant.invitation_id)}">Decouple from this joint</button>`;
+        h += `<p class="qf-desc dt-joint-decouple-help">Decoupling frees this slot. The lead is notified, and you can use the slot for a different project.</p>`;
+        h += `</div>`;
+      }
+
+      h += `</div>`; // close dt-proj-pane
+      continue;
+    }
+
+    // ── JDT-2: detect existing joint up front so JDT-6 can lock the
+    // action-type select while the joint has active invitations. ──
+    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
+    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
+    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
+
+    // JDT-6: action-type change is blocked while the joint has any pending
+    // or accepted (non-decoupled) invitation. Lead must cancel the joint
+    // first to repurpose the slot.
+    let lockActionType = false;
+    if (existingJoint) {
+      const activeInvs = _jointInvitations.filter(inv =>
+        String(inv.joint_project_id) === String(existingJoint._id) &&
+        (inv.status === 'pending' || inv.status === 'accepted')
+      );
+      if (activeInvs.length > 0) lockActionType = true;
+    }
+
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
-    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
+    const actionSelectAttrs = lockActionType
+      ? ' disabled title="Cancel the joint first to change action type."'
+      : '';
+    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}"${actionSelectAttrs}>`;
     for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
-    h += '</select></div>';
+    h += '</select>';
+    if (lockActionType) {
+      h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
+    }
+    h += '</div>';
+
+    // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
+    if (isJointEligible) {
+      h += `<div class="qf-field dt-project-solo-joint-toggle">`;
+      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}> Solo</label>`;
+      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}"> Joint</label>`;
+      h += `</div>`;
+      if (isJoint) {
+        h += renderJointAuthoring(n, saved, existingJoint);
+      }
+    }
+
+    // JDT-2: when the slot is in joint mode the joint description and joint
+    // target subsume the per-slot description and target pickers. Suppress
+    // those from the field list so they don't render twice.
+    if (isJoint) {
+      fields = fields.filter(f =>
+        f !== 'description' &&
+        f !== 'target_char' &&
+        f !== 'target_flex' &&
+        f !== 'target_own_merit'
+      );
+    }
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
@@ -2285,25 +2946,14 @@ function renderProjectSlots(saved) {
       const savedVal = saved[`project_${n}_target_value`] || '';
       h += '<div class="qf-field dt-target-flex">';
       h += `<label class="qf-label">What are you investigating?</label>`;
-      h += `<div class="dt-target-flex-radios">`;
-      for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
-        const chk = savedType === opt[0] ? ' checked' : '';
-        h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-project_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="project_${n}"> ${opt[1]}</label>`;
-      }
-      h += '</div>';
-      if (savedType === 'character') {
-        h += `<select id="dt-project_${n}_target_value" class="qf-select dt-flex-char-sel">`;
-        h += '<option value="">— Select Character —</option>';
-        for (const c of allCharacters) {
-          const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-          h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-        }
-        h += '</select>';
-      } else if (savedType === 'territory') {
-        h += renderTerritoryPills(`dt-project_${n}_target_value`, savedVal);
-      } else if (savedType === 'other') {
-        h += `<input type="text" id="dt-project_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
-      }
+      // DTFP-6: shared target picker; preserves the existing field id pattern
+      // (dt-project_N_target_value + dt-project_N_target_type radios) so the
+      // existing flex-type handler and collectResponses path keep working.
+      h += renderTargetPicker(`project_${n}_target`, {
+        savedType,
+        savedValue: savedVal,
+        allCharacters,
+      });
       h += '</div>';
     }
 
@@ -2703,109 +3353,89 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
-// DTOSL.2/.4: Personal Story: Off-Screen Life — structured choice flow
-// with contextual dropdown and moment prompt.
-const OSL_PROMPTS = {
-  correspondence: {
-    label: 'Your letter',
-    placeholder: 'Write the letter you are sending this cycle...',
-    emptyMsg: 'No correspondents set up yet. Ask your ST to flag an NPC as a correspondent.',
-  },
-  touchstone: {
-    label: 'Your moment with them',
-    placeholder: 'How do you want to interact with them?',
-    emptyMsg: 'No mortal touchstones on your sheet.',
-  },
-  other: {
-    label: 'What do you want to do?',
-    placeholder: 'Describe the off-screen moment...',
-    emptyMsg: 'No NPCs linked to this character yet.',
-  },
-};
-
-function _oslDropdownOptions(choice) {
-  if (choice === 'correspondence') {
-    return _linkedNpcs.filter(n => n.is_correspondent).map(n => ({ id: String(n._id), name: n.name }));
-  }
-  if (choice === 'touchstone') {
-    return (currentChar?.touchstones || []).map(t => ({ id: `ts:${t.name}`, name: t.name }));
-  }
-  return _linkedNpcs.map(n => ({ id: String(n._id), name: n.name }));
-}
+// NPCR.12: Personal Story: Off-Screen Life — relationships-driven picker.
+// Retires the DTOSL.2/.4 three-way choice. The picker shows a single list of
+// the character's active relationships (grouped by kind family); selecting
+// one stores its _id as responses.story_moment_relationship_id. The
+// follow-up textarea is kind-driven via kind-prompts.js (NPCR.13).
 
 function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  // Back-compat seeds from legacy fields (personal_story_npc_id, correspondence, etc.)
-  let savedChoice = saved['osl_choice'] || '';
-  if (!savedChoice && (saved['correspondence'] || '').trim()) savedChoice = 'correspondence';
-  const savedTargetId   = saved['osl_target_id']   || saved['personal_story_npc_id'] || '';
-  const savedMoment     = saved['osl_moment']     || saved['personal_story_note'] || saved['correspondence'] || '';
-  const savedDir        = saved['personal_story_direction']  || 'continue';
+  // Back-compat read: new submissions use story_moment_relationship_id;
+  // legacy submissions seeded the note into osl_moment / personal_story_note /
+  // correspondence. The direction radio used personal_story_direction.
+  const savedRelId = saved['story_moment_relationship_id'] || '';
+  const savedNote  = saved['story_moment_note']
+                   || saved['osl_moment']
+                   || saved['personal_story_note']
+                   || saved['correspondence']
+                   || '';
+  // NPCR.12 r3: personal_story_direction no longer read — Story direction radios removed.
+
+  // Only active edges are pickable. _myRelationships was loaded in
+  // renderDowntimeTab from /api/relationships/for-character/:id.
+  const activeEdges = (_myRelationships || []).filter(e => e.status === 'active');
+
+  // Resolve the selected edge (if still active) to drive the prompt copy.
+  const selectedEdge = activeEdges.find(e => String(e._id) === String(savedRelId)) || null;
+  const prompt = selectedEdge
+    ? promptForKind(selectedEdge.kind, selectedEdge.custom_label)
+    : promptForKind('_default', null);
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">How is your character spending off-screen time this cycle? Pick a lane — a letter to a correspondent, a moment with a mortal Touchstone, or something else entirely.</p>';
+  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the Relationships tab to add one, or submit without a story moment.</p>';
 
-  // Choice chips (Correspondence / Touchstone / Other)
-  h += '<div class="dt-osl-choice-group" role="radiogroup" aria-label="Off-screen life choice">';
-  for (const [val, label] of [['correspondence', 'Correspondence'], ['touchstone', 'Touchstone'], ['other', 'Other']]) {
-    const active = savedChoice === val ? ' dt-osl-choice-on' : '';
-    h += `<button type="button" class="dt-osl-choice${active}" data-osl-choice="${val}">${label}</button>`;
+  // Picker: grouped by kind family via <optgroup>.
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Who is this moment about?</label>';
+  if (activeEdges.length === 0) {
+    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the Relationships tab to create one, or submit this downtime without a story moment.</p>';
+    h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
+  } else {
+    // Group by kind family, sort entries by other-endpoint name within family.
+    const byFamily = Object.fromEntries(FAMILIES.map(f => [f, []]));
+    for (const e of activeEdges) {
+      const k = kindByCode(e.kind);
+      const fam = k?.family || 'Other';
+      byFamily[fam].push(e);
+    }
+    for (const fam of FAMILIES) {
+      byFamily[fam].sort((a, b) => String(a._other_name || '').localeCompare(String(b._other_name || ''), undefined, { sensitivity: 'base' }));
+    }
+
+    h += '<select id="dt-story_moment_relationship_id" class="qf-select">';
+    h += '<option value="">— None (no story moment this cycle) —</option>';
+    for (const fam of FAMILIES) {
+      const bucket = byFamily[fam];
+      if (bucket.length === 0) continue;
+      h += `<optgroup label="${esc(fam)}">`;
+      for (const e of bucket) {
+        const k = kindByCode(e.kind);
+        const kindLabel = k?.label || e.kind;
+        const custom = e.kind === 'other' && e.custom_label ? ` (${esc(e.custom_label)})` : '';
+        const name = e._other_name || '(unknown)';
+        const sel = String(savedRelId) === String(e._id) ? ' selected' : '';
+        h += `<option value="${esc(String(e._id))}"${sel}>${esc(name)} · ${esc(kindLabel)}${custom}</option>`;
+      }
+      h += '</optgroup>';
+    }
+    h += '</select>';
   }
   h += '</div>';
-  h += `<input type="hidden" id="dt-osl_choice" value="${esc(savedChoice)}">`;
 
-  // Contextual dropdown + moment prompt
-  if (savedChoice) {
-    const opts = _oslDropdownOptions(savedChoice);
-    const prompts = OSL_PROMPTS[savedChoice] || OSL_PROMPTS.other;
-    h += '<div class="qf-field" style="margin-top:12px;">';
-    if (opts.length === 0) {
-      h += `<p class="dt-osl-empty">${esc(prompts.emptyMsg)}</p>`;
-      h += `<input type="hidden" id="dt-osl_target_id" value="">`;
-      h += `<input type="hidden" id="dt-osl_target_type" value="">`;
-    } else {
-      const lbl = savedChoice === 'correspondence' ? 'Who are you writing to?'
-        : savedChoice === 'touchstone' ? 'Which Touchstone?'
-        : 'Who are you spending time with?';
-      h += `<label class="qf-label">${lbl}</label>`;
-      h += `<select id="dt-osl_target_id" class="qf-select">`;
-      h += '<option value="">— Select —</option>';
-      for (const o of opts) {
-        const sel = String(savedTargetId) === String(o.id) ? ' selected' : '';
-        h += `<option value="${esc(o.id)}"${sel}>${esc(o.name)}</option>`;
-      }
-      h += '</select>';
-      h += `<input type="hidden" id="dt-osl_target_type" value="${savedChoice === 'touchstone' ? 'touchstone' : 'npc'}">`;
-    }
-    h += '</div>';
+  // Kind-driven prompt (NPCR.13).
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += `<label class="qf-label" id="dt-story_moment_note_label">${esc(prompt.label)}</label>`;
+  h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
+  h += '</div>';
 
-    // Contextual moment prompt (DTOSL.4)
-    h += '<div class="qf-field" style="margin-top:12px;">';
-    h += `<label class="qf-label">${esc(prompts.label)}</label>`;
-    h += `<textarea id="dt-osl_moment" class="qf-textarea" rows="4" placeholder="${esc(prompts.placeholder)}">${esc(savedMoment)}</textarea>`;
-    h += '</div>';
-  }
-
-  // Legacy story direction radios (kept until DTOSL.3 lands the ST-suggested flow)
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I would like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
-  }
-  h += '</div></div>';
+  // NPCR.12 r3: Story direction radios retired — subsumed by the NPCs tab
+  // (players flag NPCs for review via NPCR.11, edit their own edges via
+  // NPCR.9, or propose direction shifts by editing edge state text).
 
   h += '</div></div>';
   return h;
@@ -2971,10 +3601,30 @@ function renderSorcerySection(saved) {
       if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
       if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
-      h += renderQuestion({
-        key: `sorcery_${n}_targets`, label: 'Target/s',
-        type: 'text', required: false, desc: null,
-      }, saved[`sorcery_${n}_targets`] || '');
+      // DTFP-6: structured multi-target picker. Persisted shape is an array of
+      // {type, value} objects on responses[`sorcery_N_targets`]. Legacy string
+      // values render as a single 'other' row; the next save converts to array.
+      const rawTargets = saved[`sorcery_${n}_targets`];
+      const targets = Array.isArray(rawTargets)
+        ? rawTargets
+        : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
+      h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
+      h += `<label class="qf-label">Target/s</label>`;
+      for (let ti = 0; ti < targets.length; ti++) {
+        const t = targets[ti] || { type: '', value: '' };
+        h += `<div class="dt-sorcery-target-row" data-sorcery-target-row="${n}-${ti}">`;
+        h += renderTargetPicker(`sorcery_${n}_targets_${ti}`, {
+          savedType: t.type || '',
+          savedValue: t.value || '',
+          allCharacters,
+        });
+        if (targets.length > 1 || (t.type || t.value)) {
+          h += `<button type="button" class="dt-sorcery-target-remove-btn" data-sorcery-slot="${n}" data-target-idx="${ti}" title="Remove target">×</button>`;
+        }
+        h += `</div>`;
+      }
+      h += `<button type="button" class="dt-sorcery-target-add-btn" data-sorcery-slot="${n}">+ Add target</button>`;
+      h += `</div>`;
 
       h += renderQuestion({
         key: `sorcery_${n}_notes`, label: 'Additional Notes',
@@ -3135,13 +3785,14 @@ function renderAcquisitionsSection(saved) {
   if (skNativeSpecs.length || skIsSpecs.length) {
     h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
     h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    for (const sp of skNativeSpecs) {
+    const allSkSpecs = [
+      ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+      ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+    ];
+    for (const { sp, fromSkill, native } of sortChips(allSkSpecs, item => item.sp)) {
       const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-    }
-    for (const { spec: sp, fromSkill } of skIsSpecs) {
-      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
     }
     h += '</div>';
   }
@@ -3286,13 +3937,14 @@ function renderMeritToggle(m, saved, formHtml) {
 // scope: 'feed' (main) or 'rote' — determines element IDs and data attributes
 function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec, scope) {
   const isOther = methodId === 'other';
+  const isOpen  = !methodId; // DTFP-4: no method picked — show all char discs in dropdown
   const m = isOther ? null : FEED_METHODS.find(fm => fm.id === methodId);
   const pfx = scope === 'rote' ? 'rote' : 'feed';
 
   // All attrs/skills the char has dots in
   const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
   const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
-  const allDiscs = isOther
+  const allDiscs = (isOther || isOpen)
     ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
     : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
 
@@ -3337,26 +3989,30 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   if (m && (m.attrs.length || m.skills.length || m.discs.length)) {
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
-    for (const a of m.attrs) {
+    for (const a of sortChips(m.attrs)) {
       const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
-    for (const s of m.skills) {
+    for (const s of sortChips(m.skills)) {
       const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
     }
     if (m.discs.length) {
       h += '<span class="dt-feed-suggest-sep">/</span>';
-      for (const d of m.discs) {
+      for (const d of sortChips(m.discs)) {
         const val = c.disciplines?.[d]?.dots || 0;
         const active = selDisc === d ? ' dt-feed-chip-on' : '';
         h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
       }
     }
     h += '</div>';
+    // DTFP-3: By Force teaching note when a brawl/weaponry-boosting discipline is picked
+    if (m.id === 'force' && (selDisc === 'Vigour' || selDisc === 'Celerity')) {
+      h += `<div class="dt-feed-teaching-note">Vigour and Celerity add bonus dice to Brawl and Weaponry pools. Confirm with your ST if your roll relies on this.</div>`;
+    }
   }
 
   // ── Spec chips (for selected skill) ──
@@ -3364,13 +4020,14 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   const isSpecsList = selSkill ? isSpecs(c).filter(({ spec }) => !nativeSpecs.includes(spec)) : [];
   if (nativeSpecs.length || isSpecsList.length) {
     h += '<div class="dt-feed-spec-row"><label class="dt-feed-disc-lbl">Specialisation:</label>';
-    for (const sp of nativeSpecs) {
+    const allSpecs = [
+      ...nativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+      ...isSpecsList.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+    ];
+    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
       const on = selSpec===sp?' dt-feed-spec-on':'';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
-    }
-    for (const { spec: sp, fromSkill } of isSpecsList) {
-      const on = selSpec===sp?' dt-feed-spec-on':'';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${label} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
     }
     h += '</div>';
   }
@@ -3382,6 +4039,341 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
 }
 
 // ── Territory pill switcher helpers ──
+
+/**
+ * DTFP-6: shared structured target picker. Renders a Character / Territory /
+ * Other radio group plus the appropriate value control for the chosen type.
+ *
+ * `prefix` is used for ids and field names — e.g. 'project_2_target' produces
+ * radio name 'dt-project_2_target_type' and value-field id 'dt-project_2_target_value'.
+ * Used by project target_flex (single picker per slot) and sorcery targets
+ * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
+ */
+// JDT-6: Display helper for joint description edit timestamps.
+function formatTimestamp(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// JDT-2: Locate an existing joint authored by the current submission for slot N.
+function findExistingJoint(slot) {
+  if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
+  const subId = String(responseDoc._id);
+  return currentCycle.joint_projects.find(j =>
+    String(j.lead_submission_id) === subId &&
+    Number(j.lead_project_slot) === Number(slot) &&
+    !j.cancelled_at
+  ) || null;
+}
+
+// JDT-2: Joint authoring panel — description, target, invitees, status badges.
+// `existingJoint` is read from cycle.joint_projects when the joint already
+// exists; otherwise the panel is in pre-save authoring mode and reads scratch
+// fields off `saved` (responses).
+function renderJointAuthoring(n, saved, existingJoint) {
+  const desc = existingJoint
+    ? (existingJoint.description || '')
+    : (saved[`project_${n}_joint_description`] || '');
+  const targetType = existingJoint
+    ? (existingJoint.target_type || '')
+    : (saved[`project_${n}_joint_target_type`] || '');
+  const targetValue = existingJoint
+    ? (existingJoint.target_value || '')
+    : (saved[`project_${n}_joint_target_value`] || '');
+
+  let invitedIds = [];
+  if (existingJoint) {
+    // Once the joint exists, invitees are the invitations bound to it.
+    invitedIds = _jointInvitations
+      .filter(inv => String(inv.joint_project_id) === String(existingJoint._id))
+      .map(inv => String(inv.invited_character_id));
+  } else {
+    try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); }
+    catch { invitedIds = []; }
+  }
+  const invitedSet = new Set(invitedIds.map(String));
+
+  let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
+  h += `<div class="dt-joint-banner">Joint project</div>`;
+
+  // Explainer — what the lead is committing to. Sets expectations before
+  // they invite anyone. Strawman wording (not yet locked).
+  h += `<div class="dt-joint-explainer">`;
+  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
+  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
+  h += `</div>`;
+
+  if (existingJoint) {
+    h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
+  }
+
+  // Joint description
+  h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
+  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
+  if (existingJoint) {
+    h += `<div class="dt-joint-desc-edit-row">`;
+    h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
+    if (existingJoint.description_updated_at) {
+      const ts = formatTimestamp(existingJoint.description_updated_at);
+      h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
+    }
+    h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
+    h += `</div>`;
+  }
+
+  // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
+  // since joints can target multiple characters.
+  h += `<label class="qf-label">Joint target</label>`;
+  if (existingJoint) {
+    const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+    const typeLbl = labelMap[targetType] || '—';
+    let valLbl = targetValue || '';
+    if (targetType === 'character') {
+      // target_value may be JSON array (multi) or a legacy single-id string.
+      let ids = [];
+      try {
+        const parsed = JSON.parse(targetValue || '[]');
+        ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
+      } catch {
+        ids = targetValue ? [targetValue] : [];
+      }
+      const names = ids
+        .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
+      valLbl = names.join(', ') || '—';
+    } else if (targetType === 'territory') {
+      const t = TERRITORY_DATA.find(x => x.id === targetValue);
+      if (t) valLbl = t.name;
+    }
+    h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
+  } else {
+    h += renderTargetPicker(`project_${n}_joint_target`, {
+      savedType: targetType,
+      savedValue: targetValue,
+      allCharacters,
+      includeOptions: ['character', 'territory', 'other'],
+      multiCharacter: true,
+    });
+  }
+
+  // Invitee grid
+  h += `<label class="qf-label">Invitees</label>`;
+  if (existingJoint) {
+    h += renderJointStatusBadges(existingJoint);
+    h += renderJointReinvitePanel(n, existingJoint);
+    h += renderJointCancelPanel(existingJoint);
+  } else {
+    h += renderJointInviteeGrid(n, invitedSet);
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Re-invite affordance for the lead. Shows characters not currently
+// invited (no pending or accepted invitation), lets the lead tick alternates
+// and submit. The pre-existing per-invitation status badges sit above.
+function renderJointReinvitePanel(n, joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const blocked = new Set(myInvs
+    .filter(inv => inv.status === 'pending' || inv.status === 'accepted')
+    .map(inv => String(inv.invited_character_id)));
+  // Lead can't re-invite themselves
+  blocked.add(String(joint.lead_character_id));
+  const candidates = allCharacters.filter(c => !blocked.has(String(c.id)));
+  if (!candidates.length) {
+    return `<p class="qf-desc dt-joint-reinvite-empty">No alternates available to re-invite.</p>`;
+  }
+
+  let h = `<div class="dt-joint-reinvite-panel" data-joint-id="${esc(joint._id)}">`;
+  h += `<div class="dt-joint-reinvite-title">Invite alternates</div>`;
+  h += `<div class="dt-joint-invitee-grid">`;
+  for (const c of candidates) {
+    h += `<label class="dt-joint-invitee-item">`;
+    h += `<input type="checkbox" class="dt-joint-reinvite-cb" data-joint-id="${esc(joint._id)}" value="${esc(String(c.id))}">`;
+    h += `<span>${esc(c.name)}</span>`;
+    h += `</label>`;
+  }
+  h += `</div>`;
+  h += `<button type="button" class="dt-joint-reinvite-btn" data-joint-id="${esc(joint._id)}" data-joint-slot="${n}">Send invitations</button>`;
+  h += `<span class="dt-joint-reinvite-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  return h;
+}
+
+// JDT-6: Cancel panel. The button is enabled only when zero accepted
+// participants AND zero pending invitations remain. Otherwise the panel
+// shows guidance about the path back to a cancellable state.
+function renderJointCancelPanel(joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  const acceptedSupports = (joint.participants || []).filter(p => !p.decoupled_at).length;
+  const pendingInvs = myInvs.filter(inv => inv.status === 'pending').length;
+  const canCancel = acceptedSupports === 0 && pendingInvs === 0;
+
+  let h = `<div class="dt-joint-cancel-panel" data-joint-id="${esc(joint._id)}">`;
+  if (canCancel) {
+    h += `<button type="button" class="dt-joint-cancel-btn" data-joint-id="${esc(joint._id)}">Cancel joint</button>`;
+    h += `<p class="qf-desc dt-joint-cancel-help">Cancelling frees this slot. The joint document is kept on the cycle for audit; a Storyteller can recover it if needed.</p>`;
+  } else {
+    h += `<p class="qf-desc dt-joint-cancel-help">You can only cancel this joint when there are zero accepted supports and zero pending invitations. Currently: ${acceptedSupports} accepted, ${pendingInvs} pending.</p>`;
+  }
+  h += `<span class="dt-joint-cancel-status" data-joint-id="${esc(joint._id)}"></span>`;
+  h += `</div>`;
+  return h;
+}
+
+function renderJointInviteeGrid(n, invitedSet) {
+  if (!allCharacters.length) {
+    return `<p class="qf-desc">No characters available to invite.</p>`;
+  }
+  let h = `<div class="dt-joint-invitee-grid">`;
+  for (const c of allCharacters) {
+    const checked = invitedSet.has(String(c.id)) ? ' checked' : '';
+    h += `<label class="dt-joint-invitee-item">`;
+    h += `<input type="checkbox" class="dt-joint-invitee-cb" data-joint-slot="${n}" value="${esc(String(c.id))}"${checked}>`;
+    h += `<span>${esc(c.name)}</span>`;
+    h += `</label>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+// JDT-3: panel rendered above the project tabs that lists pending joint
+// invitations addressed to the current character. Empty when the invitee
+// has no pending invitations on the active cycle.
+function renderPendingInvitationsPanel() {
+  if (!currentChar?._id) return '';
+  const myCharId = String(currentChar._id);
+  const pending = _jointInvitations
+    .filter(inv => String(inv.invited_character_id) === myCharId && inv.status === 'pending')
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  if (!pending.length) return '';
+
+  // Lowest-numbered slot with no action set is "available".
+  const responses = responseDoc?.responses || {};
+  let hasSlot = false;
+  for (let n = 1; n <= 4; n++) {
+    if (!responses[`project_${n}_action`]) { hasSlot = true; break; }
+  }
+
+  let h = `<section class="dt-pending-invitations-panel">`;
+  h += `<h3 class="dt-pending-invitations-title">Pending invitations</h3>`;
+  for (const inv of pending) {
+    const joint = inv._joint;
+    if (!joint) continue;
+    const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
+    const leadName = lead ? lead.name : 'Unknown lead';
+    const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
+    const desc = (joint.description || '').trim();
+    const descShort = desc.length > 220 ? desc.slice(0, 220).trimEnd() + '…' : desc;
+
+    h += `<div class="dt-pending-invitation-row" data-invitation-id="${esc(inv._id)}">`;
+    h += `<div class="dt-pending-invitation-meta">`;
+    h += `<span class="dt-pending-invitation-lead">${esc(leadName)} invites you</span>`;
+    h += `<span class="dt-pending-invitation-action">${esc(actionLabel)}</span>`;
+    h += `</div>`;
+    if (descShort) {
+      h += `<div class="dt-pending-invitation-desc">${esc(descShort)}</div>`;
+    } else {
+      h += `<div class="dt-pending-invitation-desc dt-pending-invitation-desc-empty">No description provided.</div>`;
+    }
+    h += `<div class="dt-pending-invitation-actions">`;
+    if (hasSlot) {
+      h += `<button type="button" class="dt-pending-invitation-accept" data-invitation-id="${esc(inv._id)}">Accept</button>`;
+    } else {
+      h += `<button type="button" class="dt-pending-invitation-accept" disabled title="You have no available project slots. Free up a slot to accept.">Accept</button>`;
+    }
+    h += `<button type="button" class="dt-pending-invitation-decline" data-invitation-id="${esc(inv._id)}">Decline</button>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += `</section>`;
+  return h;
+}
+
+function renderJointStatusBadges(joint) {
+  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
+  if (!myInvs.length) {
+    return `<p class="qf-desc">No invitations on this joint.</p>`;
+  }
+  let h = `<div class="dt-joint-status-grid">`;
+  for (const inv of myInvs) {
+    const c = allCharacters.find(x => String(x.id) === String(inv.invited_character_id));
+    const name = c ? c.name : 'Unknown';
+    const status = inv.status || 'pending';
+    const label = JOINT_STATUS_LABELS[status] || status;
+    h += `<div class="dt-joint-status-row">`;
+    h += `<span class="dt-joint-invitee-name">${esc(name)}</span>`;
+    h += `<span class="dt-joint-status-badge dt-joint-status-${esc(status)}">${esc(label)}</span>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function renderTargetPicker(prefix, opts) {
+  const {
+    savedType = '',
+    savedValue = '',
+    allCharacters = [],
+    includeOptions = ['character', 'territory', 'other'],
+    multiCharacter = false,
+  } = opts || {};
+  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+
+  let h = `<div class="dt-target-picker" data-target-prefix="${esc(prefix)}">`;
+  h += `<div class="dt-target-flex-radios">`;
+  for (const opt of includeOptions) {
+    const chk = savedType === opt ? ' checked' : '';
+    h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-${esc(prefix)}_type" value="${esc(opt)}"${chk} data-flex-type="${esc(prefix)}"> ${esc(labelMap[opt] || opt)}</label>`;
+  }
+  h += `</div>`;
+
+  if (savedType === 'character') {
+    if (multiCharacter) {
+      // Multi-select character target — checkbox grid; value persisted as
+      // JSON array of character IDs. Used by joint authoring (a joint can
+      // target multiple characters).
+      let selected = new Set();
+      try {
+        const parsed = JSON.parse(savedValue || '[]');
+        if (Array.isArray(parsed)) selected = new Set(parsed.map(String));
+        else if (savedValue) selected = new Set([String(savedValue)]);
+      } catch {
+        if (savedValue) selected = new Set([String(savedValue)]);
+      }
+      h += `<div class="dt-flex-multi-char-grid" data-flex-multi-prefix="${esc(prefix)}">`;
+      for (const c of allCharacters) {
+        const chk = selected.has(String(c.id)) ? ' checked' : '';
+        h += `<label class="dt-flex-multi-char-item">`;
+        h += `<input type="checkbox" class="dt-flex-multi-char-cb" data-flex-multi-prefix="${esc(prefix)}" value="${esc(String(c.id))}"${chk}>`;
+        h += `<span>${esc(c.name)}</span>`;
+        h += `</label>`;
+      }
+      h += `</div>`;
+    } else {
+      h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
+      h += '<option value="">— Select Character —</option>';
+      for (const c of allCharacters) {
+        const sel = String(c.id) === String(savedValue) ? ' selected' : '';
+        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      }
+      h += '</select>';
+    }
+  } else if (savedType === 'territory') {
+    h += renderTerritoryPills(`dt-${prefix}_value`, savedValue);
+  } else if (savedType === 'other') {
+    h += `<input type="text" id="dt-${esc(prefix)}_value" class="qf-input" value="${esc(savedValue)}" placeholder="Describe the target">`;
+  }
+  h += `</div>`;
+  return h;
+}
 
 /** Single-select territory pills. fieldId = the hidden input ID (same as old select ID). */
 function renderTerritoryPills(fieldId, savedVal) {
@@ -3511,25 +4503,12 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
     const savedVal = saved[`${prefix}_${n}_target_value`] || '';
     h += '<div class="qf-field dt-target-flex">';
     h += '<label class="qf-label">What are you investigating?</label>';
-    h += '<div class="dt-target-flex-radios">';
-    for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
-      const chk = savedType === opt[0] ? ' checked' : '';
-      h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-${prefix}_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="${prefix}_${n}"> ${opt[1]}</label>`;
-    }
-    h += '</div>';
-    if (savedType === 'character') {
-      h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select dt-flex-char-sel">`;
-      h += '<option value="">— Select Character —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-      }
-      h += '</select>';
-    } else if (savedType === 'territory') {
-      h += renderTerritoryPills(`dt-${prefix}_${n}_target_value`, savedVal);
-    } else if (savedType === 'other') {
-      h += `<input type="text" id="dt-${prefix}_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
-    }
+    // DTFP-6: shared target picker; field id pattern preserved for save/handlers.
+    h += renderTargetPicker(`${prefix}_${n}_target`, {
+      savedType,
+      savedValue: savedVal,
+      allCharacters,
+    });
     h += '</div>';
   }
 
@@ -4044,10 +5023,8 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (all methods) ──
-      if (feedMethodId) {
-        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
-      }
+      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
 
       // Blood type selection (always shown)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -4064,6 +5041,25 @@ function renderQuestion(q, value) {
         h += '</label>';
       }
       h += '</div></div>';
+
+      // ── DTFP-5: Kiss / Violent toggle ──
+      // Player choice wins. If unset, pre-select per method (stalking + other stay
+      // unselected so the player must commit). Pre-selection is visual only — the
+      // field is not persisted until the player clicks one of the buttons.
+      const persistedViolence = responseDoc?.responses?.feed_violence || '';
+      const preselect = persistedViolence || (FEED_VIOLENCE_DEFAULTS[feedMethodId] || '');
+      h += '<div class="qf-field">';
+      h += '<label class="qf-label">How loud was the feeding?</label>';
+      h += '<div class="dt-feed-violence-toggle">';
+      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'kiss' ? ' dt-feed-vi-on' : ''}" data-feed-violence="kiss">The Kiss (subtle)</button>`;
+      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'violent' ? ' dt-feed-vi-on' : ''}" data-feed-violence="violent">Violent</button>`;
+      h += '</div>';
+      if (!persistedViolence && !preselect) {
+        h += '<p class="qf-desc dt-feed-vi-hint">Pick one. Your method does not pre-select for you.</p>';
+      } else if (!persistedViolence && preselect) {
+        h += '<p class="qf-desc dt-feed-vi-hint">Pre-selected based on your method. Click to confirm or change.</p>';
+      }
+      h += '</div>';
 
       // ROTE checkbox + description (shown when method selected)
       if (feedMethodId) {
@@ -4212,9 +5208,15 @@ function renderQuestion(q, value) {
       h += '<div class="dt-highlight-slots" data-highlight-root>';
       for (let n = 1; n <= 5; n++) {
         const hidden = n > visibleCount ? ' style="display:none"' : '';
+        const flagChecked = saved[`mechanical_flag_${n}`] === true;
         h += `<div class="dt-highlight-slot" data-highlight-n="${n}"${hidden}>`;
         h += `<label class="qf-label">Highlight ${n}${n > 3 ? ' (optional)' : ''}</label>`;
         h += `<textarea id="dt-game_recount_${n}" class="qf-textarea dt-highlight-input" data-highlight-n="${n}" rows="2" placeholder="One highlight…">${esc(slotVals[n - 1])}</textarea>`;
+        // DTFP-7: per-slot mechanical-flag checkbox
+        h += `<label class="dt-highlight-flag">`;
+        h += `<input type="checkbox" id="dt-mechanical_flag_${n}" data-mechanical-flag-n="${n}"${flagChecked ? ' checked' : ''}>`;
+        h += `<span class="dt-highlight-flag-text">This involved a mechanical effect on another character or the world (flags this for your ST).</span>`;
+        h += `</label>`;
         h += '</div>';
       }
       h += '</div>';
@@ -4331,12 +5333,18 @@ function renderQuestion(q, value) {
       for (const terr of INFLUENCE_TERRITORIES) {
         const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
         const val = infVals[tk] || 0;
+        // DTFP-1: both label slots always present so the stepper column stays
+        // vertically aligned across rows; text content is value-driven.
+        const leftText  = val < 0 ? 'decreasing ambience' : '';
+        const rightText = val > 0 ? 'increasing ambience' : '';
         h += '<div class="dt-influence-row">';
         h += `<span class="dt-influence-terr">${esc(terr)}</span>`;
         h += '<span class="dt-influence-control">';
+        h += `<span class="dt-influence-label dt-influence-label-left">${leftText}</span>`;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
         h += `<span class="dt-inf-val" id="inf-val-${tk}">${val}</span>`;
         h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
+        h += `<span class="dt-influence-label dt-influence-label-right">${rightText}</span>`;
         h += '</span>';
         h += '</div>';
       }

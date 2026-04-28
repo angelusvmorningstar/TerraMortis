@@ -36,6 +36,14 @@ function buildPanel() {
       <span>Game Number</span>
       <input type="number" id="ns-game-number" min="1" style="width:5rem;">
     </label>
+    <label class="dt-deadline-edit">
+      <span>Chapter Number</span>
+      <input type="number" id="ns-chapter-number" min="1" style="width:5rem;">
+    </label>
+    <label class="dt-deadline-edit">
+      <span>Chapter Label</span>
+      <input type="text" id="ns-chapter-label" placeholder="e.g. Ch 1, Game 3">
+    </label>
     <label class="dt-deadline-edit" style="grid-column:1/-1;">
       <span>Downtime Deadline (shown on website)</span>
       <input type="text" id="ns-deadline" placeholder="e.g. Friday 1 May 2026 at 11:59 PM" style="width:100%;">
@@ -57,8 +65,10 @@ async function loadNext() {
       _sessionId = session._id;
       document.getElementById('ns-date').value        = session.session_date || '';
       document.getElementById('ns-time').value        = session.doors_open || '';
-      document.getElementById('ns-game-number').value = session.game_number != null ? session.game_number : '';
-      document.getElementById('ns-deadline').value    = session.downtime_deadline || '';
+      document.getElementById('ns-game-number').value    = session.game_number != null ? session.game_number : '';
+      document.getElementById('ns-chapter-number').value = session.chapter_number != null ? session.chapter_number : '';
+      document.getElementById('ns-chapter-label').value  = session.chapter_label || '';
+      document.getElementById('ns-deadline').value       = session.downtime_deadline || '';
       status.textContent = session.game_number != null
         ? `Loaded: Game ${session.game_number}`
         : `Loaded: ${session.session_date}`;
@@ -76,11 +86,15 @@ async function saveNext() {
   if (!date) { alert('Session date is required.'); return; }
 
   const gameNum = document.getElementById('ns-game-number').value;
+  const chapterNum = document.getElementById('ns-chapter-number').value;
+  const chapterLbl = document.getElementById('ns-chapter-label').value.trim();
   const deadline = document.getElementById('ns-deadline').value.trim();
   const body = {
     session_date:      date,
     doors_open:        document.getElementById('ns-time').value || undefined,
     game_number:       gameNum ? parseInt(gameNum, 10) : undefined,
+    chapter_number:    chapterNum ? parseInt(chapterNum, 10) : undefined,
+    chapter_label:     chapterLbl || undefined,
     downtime_deadline: deadline || undefined,
   };
 

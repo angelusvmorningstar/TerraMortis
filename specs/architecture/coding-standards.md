@@ -90,25 +90,45 @@ i++;
 
 ### Design Tokens
 
-All colour values are defined in `css/theme.css` as CSS custom properties. No hardcoded hex values in any other file.
+All colour and font values flow through tokens in `public/css/theme.css`. No bare hex in rule bodies.
 
-```css
-/* css/theme.css */
-:root {
-  --bg:     #0D0B09;    /* page background */
-  --surf1:  #1A1714;    /* surface tier 1 */
-  --surf2:  #241F1B;    /* surface tier 2 */
-  --surf3:  #2E2823;    /* surface tier 3 */
-  --gold1:  #C4A85A;    /* gold, muted */
-  --gold2:  #E0C47A;    /* gold, primary accent */
-  --gold3:  #F0D898;    /* gold, highlight */
-  --crim:   #8B0000;    /* crimson -- damage, alerts */
-  --text:   #E8DCC8;    /* primary text */
-  --muted:  #8A7E6E;    /* secondary text */
-}
-```
+The default theme is **Parchment** (warm light); `[data-theme="dark"]` provides the dark override. Tokens flip between themes; rule bodies stay theme-agnostic.
 
-All other CSS files use `var(--token-name)` exclusively for colour.
+Token families (see `public/css/theme.css` for the full set and per-theme values):
+
+| Family | Tokens | Purpose |
+|---|---|---|
+| Surfaces | `--bg`, `--surf`, `--surf1`, `--surf2`, `--surf3` | Page bg through rising contrast tiers |
+| Borders | `--bdr`, `--bdr2`, `--bdr3` | Default through lightest |
+| Text | `--txt`, `--txt2`, `--txt3` | Primary through subdued |
+| Text on coloured surfaces | `--txt-on-dark`, `--txt-on-gold`, `--txt-inverse` | Use on `--crim`, accent, dark rgba overlays |
+| Accent | `--accent`, `--gold`, `--gold2`, `--gdim` | Panel headers, hover states, active indicators |
+| Damage / alerts | `--crim`, `--crim2`, plus opacity variants `--crim-aN` | Crimson states |
+| Status | `--green`, `--green2-4`, `--result-succ`, `--result-pend` | Success / pending |
+| Fonts | `--fh` (Cinzel), `--fl` (Lato), `--ft` (Libre Baskerville), `--fh-decorative` (Cinzel Decorative) | See Typography below |
+
+**Rule:** never write bare hex in rule bodies. Tokens are the only colour source. The only hex allowed is inside `:root` / `[data-theme]` declarations in `theme.css`.
+
+### Shared Chrome Pattern
+
+When multiple classes share visual chrome (background, border, radius, padding) or shared text style (font, size, weight, letter-spacing), declare it once via a grouped selector rather than duplicating rule bodies.
+
+`public/css/admin-layout.css` uses this pattern extensively for the Downtimes admin tab. Canonical groups (line numbers approximate; check current file):
+
+| Group | Approx line | Purpose |
+|---|---|---|
+| Outer dashboard panels | ~1361 | `.dt-snapshot-panel`, `.dt-scene-panel`, etc. + `.dt-story-section` |
+| Loud collapsible toggle headers | ~1376 | `.dt-snapshot-toggle`, `.proc-phase-header`, etc. |
+| Title tiers T1/T2/T3 | ~1592-1628 | Panel header / sub-label / micro-label |
+| Inline detail panels | ~2049 | `.dt-proj-slot`, `.proc-pool-builder`, `.proc-feed-mod-panel`, etc. (+ stripe-accent variants) |
+| Detail wrapper sections | ~2092 | `.dt-feed-detail`, `.dt-narr-detail`, etc. (top-rule dividers) |
+| Story-tab inner cards | ~6688 | `.dt-story-proj-card`, `.dt-story-merit-card`, etc. (+ `.dt-feeding-locked` stripe) |
+
+Adding a new panel? Add it to the appropriate canonical group rather than declaring fresh chrome. Adding a new label? Add it to T1, T2, or T3 rather than inventing a new combination of size/weight/letter-spacing.
+
+**Stripe-accent gotcha:** when a class in a canonical group also has a `border-left: 3px solid <colour>` stripe, the stripe declaration MUST appear LATER in source than the grouped `border` shorthand, otherwise the shorthand resets all four sides and clobbers the stripe.
+
+Design contract: `specs/audits/downtime-ui-audit-2026-04-26.md`.
 
 ### Class Naming
 
@@ -156,12 +176,15 @@ Never use ASCII period or asterisk for dots. Never use emoji.
 
 ### Typography
 
-| Use | Font |
-|---|---|
-| Headings (H1-H3), character names | Cinzel Decorative |
-| Sub-headings (H4-H6), labels | Cinzel |
-| Body text, descriptions | Lora |
-| Numbers, stats | Lora or monospace fallback |
+| Use | Font | Token |
+|---|---|---|
+| Reading-pane h1/h2 (rules/lore documents only) | Cinzel Decorative | `--fh-decorative` |
+| Section headings, character names | Cinzel | `--fh` |
+| UI labels, buttons, panel titles, chips | Lato | `--fl` |
+| Body text, descriptions, prose | Libre Baskerville | `--ft` |
+| Numbers, stats | Lato or monospace fallback | `--fl` |
+
+Reference these via the tokens, never via literal family names. New themes can swap fonts by changing only `theme.css`.
 
 ### Punctuation
 

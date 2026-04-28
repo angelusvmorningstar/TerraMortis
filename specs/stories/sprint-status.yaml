@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-15 (DT-Fixes epic complete; E2E test suite added 33 tests)
+# last_updated: 2026-04-24 (+ NPCR-14 directory scope hardening — ready-for-dev)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-20 (sprint plan refresh — added DTFC, DTG, unified-nav, FIN epics; dt-story 1.11/1.14/1.15; 3 new bug backlog items)
+last_updated: 2026-04-27 (DTSR-1 + DTSR-2 implemented: section reorder + Cacophony Savvy → Rumours rename; Letter+Touchstone consolidated into Story Moment with format radio and back-compat legacy reads; both ready-for-dev → review. Earlier same day: FEAT batch drafted, DI epic flipped, DTUX-1 phase ribbon nav drafted, 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -328,17 +328,19 @@ development_status:
   epic-cr-retrospective: optional
 
   # ============================================================
-  # EPIC DI: DATA IMPORTS — BACKLOG
+  # EPIC DI: DATA IMPORTS — IN PROGRESS (specs drafted 2026-04-27)
   # ============================================================
   # DT1 narratives, Game 1 letters, ordeal data sync
   # Epic file: specs/epic-data-imports.md
-  # Note: DI-3 may be investigation-only (no code change)
+  # DI-1 script already merged to main; story spec covers run + Chronicle render verify
+  # DI-2 held at backlog: source data location unknown — needs product input before ready-for-dev
+  # DI-3 is an investigation-spike: produces an audit note, not a code change
 
-  epic-di: backlog
+  epic-di: in-progress
 
-  di-1-import-dt1-narratives: backlog
-  di-2-import-game1-letters: backlog
-  di-3-sync-ordeal-data: backlog
+  di-1-import-dt1-narratives: ready-for-dev
+  di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
+  di-3-sync-ordeal-data: ready-for-dev      # investigation spike — produces audit note, not code
 
   epic-di-retrospective: optional
 
@@ -349,16 +351,16 @@ development_status:
   # Epic file: specs/epic-features.md
   # FEAT-4 and FEAT-5 not ready for dev — need scoping
 
-  epic-feat: backlog
+  epic-feat: in-progress
 
   feat-1-remove-resolved-tickets: done
-  feat-2-non-vampire-territories: backlog
-  feat-3-duplicate-character-hard-delete: backlog
+  feat-2-non-vampire-territories: ready-for-dev
+  feat-3-duplicate-character-hard-delete: ready-for-dev
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
-  feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
-  feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
-  feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
+  feat-6-player-sheet-width-consistency: backlog  # needs-investigation per story front-matter — cause not isolated yet; needs DOM inspection on two visibly-differing characters before ready-for-dev
+  feat-7-player-read-latest-downtime: ready-for-dev  # exposes player's own raw responses[] alongside the existing published_outcome render
+  feat-8-contact-action-type: ready-for-dev       # suppress action-type selector in DT Processing + action-type badge in DT Story for contacts only
   feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
   feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
   feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
@@ -416,8 +418,8 @@ development_status:
   dtfc-12-remove-feed-project-action: done
   dtfc-13-merit-section-headers: done
   dtfc-14-form-buttons-layout: done
-  dtfc-9-npc-story-moment: backlog       # deferred — NPC system architecture needed
-  dtfc-10-collaborative-projects: backlog  # deferred — architecture needed
+  dtfc-9-npc-story-moment: done          # unshelved — implemented as DT Story 1.11 + 1.14 (see deferred-work.md)
+  dtfc-10-collaborative-projects: superseded  # superseded by Epic JDT (Joint Downtimes) — 2026-04-27 scoping
   dtfc-11-equipment-tab: backlog          # deferred
 
   epic-dtfc-retrospective: optional
@@ -498,4 +500,140 @@ development_status:
   fin-3-checkin-tab: ready-for-dev
   fin-4-finance-tab: ready-for-dev
 
+  # Check-In tab follow-on hardening (scoped 2026-04-27 from live coordinator
+  # use): real player names, drop redundant DNA option, single session rate.
+  fin-5-checkin-player-name-resolution: review
+  fin-6-drop-did-not-attend-payment-method: review
+  fin-7-session-rate-model: review
+
   epic-fin-retrospective: optional
+
+  # ============================================================
+  # EPIC ORD: ORDEAL TRACKING AND DOSSIER ARCHIVE
+  # ============================================================
+  # Questionnaire cleanup (no dead data), archive inline editor,
+  # historical ordeal submission migration, rubric authoring,
+  # character-history archive pipeline, and dossier restructure.
+  # Epic file: specs/epic-ord-ordeals-tracking.md
+
+  epic-ord: in-progress
+
+  # Tier 1 — Questionnaire cleanup (shipped 2026-04-24 in commit 21cba81)
+  ord-1-questionnaire-strip-redundant-fields: done
+  ord-2-questionnaire-retire-npcr-overlap-fields: done
+
+  # Tier 2 — Archive editor (shipped 2026-04-24 in commit 21cba81)
+  ord-3-archive-inline-editor: done
+  ord-4-archive-create-from-scratch: ready-for-dev
+
+  # Tier 3 — Ordeal submission migration (shipped 2026-04-24 in commit 21cba81;
+  # ORD-5 direct-migration approach supersedes ORD-6/7/8/9 in the epic shell)
+  ord-5-ordeal-submissions-direct-migration: done
+  ord-6-ordeal-submissions-dry-run-audit: done
+  ord-7-ordeal-submissions-player-id-linkage: done
+  ord-8-ordeal-submissions-covenant-slug-harmonisation: done
+  ord-9-ordeal-submissions-execute-import: done
+
+  # Tier 4 — Rubric content authoring (content task; run when authoring time)
+  ord-10-ordeal-rubric-content-authoring: backlog
+
+  # Tier 5 — History pipeline (depends on ORD-3 + ORD-4)
+  ord-11-character-history-to-archive-pipeline: backlog
+
+  # Follow-up — Dossier live-section restructure
+  ord-12-dossier-restructure-live-sections: review
+
+  epic-ord-retrospective: optional
+
+  # ============================================================
+  # EPIC NPCR (hardening follow-ups — main tier 1-3 shipped earlier)
+  # ============================================================
+  # NPCR.1-13 shipped prior to sprint-status registration. Listed only
+  # for hardening stories that emerge afterwards.
+
+  npcr-14-directory-scope-to-player-creations: review
+
+  # ============================================================
+  # DOWNTIME OVERHAUL — six-epic set scoped 2026-04-27
+  # ============================================================
+  # Source of truth: memory/project_dt_overhaul_2026-04-27.md
+  # 34 stories across 6 epics; ship order: NPCP → CHM-0 → DTSR/DTFP/CHM (parallel) → DTIL → JDT
+  # All product calls resolved during 2026-04-27 party-mode session
+
+  # ---- Epic NPCP — NPC Privacy Hardening (urgent, ships first) ----
+  epic-npcp: in-progress
+  npcp-1-server-side-scope-api-npcs: review
+  npcp-2-player-picker-removal-free-text: superseded  # superseded by NPCR.12+13 — DT form picker already shows only the player's own relationship edges with kind-driven prompts
+  epic-npcp-retrospective: optional
+
+  # ---- Epic CHM — Chapter & Maintenance Layer ----
+  # CHM-0 is a standalone prerequisite (MAINTENANCE_MERITS constant + MCI bug fix);
+  # ships ahead of the rest of the epic since it fixes a visible defect today.
+  epic-chm: in-progress
+  chm-0-maintenance-merits-constant: review
+  chm-1-chapter-finale-fields: review
+  chm-2-maintenance-audit-panel: review
+  chm-3-player-at-risk-warning: review
+  epic-chm-retrospective: optional
+
+  # ---- Epic DTSR — Story Surface Reform ----
+  # DT Story admin tab + player Story view + merit panels in DT Processing
+  # Pairs with epic-dtp (DTP-1/2/3 ready-for-dev = rendering half of v2 player report)
+  epic-dtsr: in-progress
+  dtsr-1-section-reorder-rumours-rename: review
+  dtsr-2-story-moment-consolidation: review
+  dtsr-3-active-cycle-scope: review
+  dtsr-4-inline-edit-historical-cycles: review
+  dtsr-5-merit-resolution-relocation: review
+  dtsr-6-merit-summary-format-verify: review
+  dtsr-7-feeding-narrative-field: review
+  dtsr-8-player-flag-ui: review
+  dtsr-9-st-flag-inbox: review
+  dtsr-10-narrative-textarea-min-height: review
+  dtsr-11-collapse-completed-cards: review
+  epic-dtsr-retrospective: optional
+
+  # ---- Epic DTFP — Player Form Polish ----
+  epic-dtfp: in-progress
+  dtfp-1-influence-stepper-labels: review
+  dtfp-2-alphabetical-chip-order: review
+  dtfp-3-feeding-methods-update: review
+  dtfp-4-templates-as-ux-only: review
+  dtfp-5-kiss-violent-toggle: review
+  dtfp-6-sorcery-target-picker: review
+  dtfp-7-mechanical-flag-checkbox: review
+  epic-dtfp-retrospective: optional
+
+  # ---- Epic DTIL — DT Intelligence Layer ----
+  # Court Pulse + Action Queue + Territory Pulse synthesis surfaces
+  # DTIL-3 depends on DTFP-7 (mechanical-flag checkbox)
+  epic-dtil: in-progress
+  dtil-1-court-pulse-synthesis: review
+  dtil-2-action-queue-triage: review
+  dtil-3-auto-state-mechanical-flag: review
+  dtil-4-territory-pulse-synthesis: review
+  epic-dtil-retrospective: optional
+
+  # ---- Epic JDT — Joint Downtimes (largest, ships last) ----
+  # All three product calls resolved (lead recourse, mid-cycle edits, action-type whitelist)
+  # JDT-1 ships first as no-op schema; verifies nothing existing breaks
+  epic-jdt: in-progress
+  jdt-1-schema-foundations: review
+  jdt-2-lead-invitation-flow: review
+  jdt-3-invitee-acceptance-flow: review
+  jdt-4-slot-lock-readonly-display: review
+  jdt-5-st-processing-joint-phase: review
+  jdt-6-lifecycle-edge-cases: review
+  epic-jdt-retrospective: optional
+
+  # ============================================================
+  # EPIC DTUX — DT ADMIN UX REFORM (sequencing-smart, ships before DTIL/JDT)
+  # ============================================================
+  # Consolidates three coexisting nav systems (sub-tabs + read-only ribbon + gate buttons)
+  # into a single clickable phase ribbon with per-phase sign-off badges.
+  # Story file: specs/stories/dtux-1-phase-ribbon-nav.story.md
+  # Recommended sequencing: land before DTIL-* and JDT-* so those new surfaces
+  # inherit the ribbon naturally rather than retrofit it.
+  epic-dtux: in-progress
+  dtux-1-phase-ribbon-nav: review
+  epic-dtux-retrospective: optional

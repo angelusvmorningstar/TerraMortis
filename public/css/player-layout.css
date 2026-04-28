@@ -765,20 +765,7 @@ body {
   line-height: 1.5;
 }
 
-.qf-back-btn {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-family: var(--fl);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 8px 0;
-  margin-bottom: 12px;
-  opacity: .7;
-  transition: opacity .2s;
-}
-
-.qf-back-btn:hover { opacity: 1; }
+/* .qf-back-btn rule lives in components.css (shared with game app) */
 
 /* Downtime form component CSS moved to components.css */
 /* ── Influence tab ── */
@@ -929,6 +916,146 @@ body {
 .story-section-head { font-family: var(--fl); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
 .story-section-mech { background: var(--surf3); padding: 10px; border-radius: 4px; }
 .story-pre { font-family: monospace; font-size: 12px; white-space: pre-wrap; margin: 0; color: var(--txt3); }
+
+/* DTSR-4: ST inline edit on historical chronicle entries */
+.story-section-header { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+.story-section-header .story-section-head { margin: 0; }
+.story-section-edit {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  background: transparent;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.story-section-edit:hover { color: var(--accent); border-color: var(--accent); }
+.story-section-editing { background: var(--surf2); padding: 8px; border-radius: 4px; }
+.story-section-edit-ta {
+  width: 100%;
+  min-height: 80px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  padding: 8px;
+  background: var(--surf);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.story-section-edit-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.story-section-save, .story-section-cancel {
+  padding: 4px 10px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.story-section-save { color: var(--accent); border-color: var(--accent); }
+.story-section-save:disabled { opacity: .5; cursor: default; }
+.story-section-edit-status { font-size: 11px; color: var(--txt3); font-style: italic; }
+.story-section-rumours li[data-section-key] { display: flex; align-items: baseline; gap: 8px; }
+.story-section-rumours li[data-section-key] .story-section-edit { margin-left: auto; }
+
+/* ── DTSR-8: Player section flag affordance ── */
+.story-section-flag-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.story-section-flag-btn:hover { color: var(--crim); border-color: var(--crim); }
+.story-section-flagged {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: rgba(139, 0, 0, 0.1);
+  border: 1px solid rgba(139, 0, 0, 0.4);
+  border-radius: 3px;
+  font-size: 11px;
+}
+.story-section-flagged-label { color: var(--crim); font-weight: 600; }
+.story-section-flag-recall {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 4px;
+}
+.story-section-flag-recall:hover { color: var(--crim); border-color: var(--crim); }
+.story-section-flag-form {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--crim);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.story-section-flag-form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.story-section-flag-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.story-section-flag-reason {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 12px;
+  padding: 4px 8px;
+  resize: vertical;
+}
+.story-section-flag-actions { display: flex; gap: 6px; align-items: center; }
+.story-section-flag-submit {
+  background: var(--crim);
+  border: 1px solid var(--crim);
+  border-radius: 3px;
+  color: var(--txt1);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 12px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
+.story-section-flag-submit:disabled { opacity: 0.4; cursor: default; }
+.story-section-flag-cancel {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.story-section-flag-status { color: var(--txt3); font-size: 11px; font-style: italic; }
 
 /* Downtime form component CSS moved to components.css */
 /* ── Document cards ── */
@@ -1256,6 +1383,10 @@ body {
 
 .arc-detail-header {
   padding: 8px 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .arc-detail-title {

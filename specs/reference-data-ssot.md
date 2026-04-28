@@ -25,8 +25,14 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
-| Territories (stats, ambience, regent) | `territories` | `GET/PUT /api/territories` | admin.html → City tab |
+| Territories (stats, ambience, regent) | `territories` | `GET` (auth) / `POST,PUT` (ST only) / `PATCH /:id/feeding-rights` (regent or ST) | admin.html → City tab (ST); game app → Regency tab (regent player) |
 | Territory residency | `territory_residency` | `GET/PUT /api/territory-residency` | admin.html → City tab |
+
+**Feeding-rights write path (RFR.1):** regent's player writes only `feeding_rights` via `PATCH /api/territories/:id/feeding-rights`. Server enforces:
+- Permission: `user.character_ids.includes(territory.regent_id)` OR ST role (via `isRegentOfTerritory` helper in `middleware/auth.js`)
+- Lock: cannot remove a character who has already submitted a DT marked `resident` on this territory in the active cycle (ST bypasses the lock)
+
+**Regent and Lieutenant are implicit rights-holders** — stored on `territory.regent_id` / `territory.lieutenant_id`, deliberately NOT duplicated into `feeding_rights[]`. Any feeding-rights check must include all three fields (client helpers at `downtime-form.js:renderFeedingTerritoryPills` and admin `downtime-views.js` mismatch check do this correctly as of 2026-04-23).
 
 ---
 
@@ -46,9 +52,13 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
-| Game sessions (dates, XP grants) | `game_sessions` | `GET /api/game_sessions` *(ST-auth)* | admin.html → Attendance & Finance tab |
+| Game sessions (dates, XP grants, payments, finances) | `game_sessions` | `GET/PUT /api/game_sessions` *(coordinator-auth: coordinator, ST, dev)* | admin.html → Attendance tab (ST); game app → Check-In tab + Finance tab (coordinator+) |
 | Session logs | `session_logs` | `GET /api/session_logs` *(ST-auth)* | admin.html → Engine tab |
-| Attendance | *(within game_sessions)* | `GET /api/attendance` | admin.html → Attendance & Finance tab |
+| Attendance | *(within game_sessions)* | `GET /api/attendance` | admin.html + game app Check-In tab |
+
+**Payment data (FIN):** Each `attendance[n]` entry carries structured `payment: { method, amount }` (fin.2 schema). Legacy submissions with flat `payment_method: 'Cash'` are read via `public/js/game/payment-helpers.js` → `readPayment(entry)` which normalises old values ('Cash' → 'cash', 'PayID (Symon)' → 'payid', etc.) and returns `{ method, amount: 0 }` for legacy rows. Both Check-In and Finance tabs read through this helper.
+
+**Finance shape:** `game_sessions[n].finances = { expenses: [{category, amount, date?, note?}], transfers: [{to, amount, date?}], notes }`. Takings card in Finance tab is derived from `attendance[n].payment` via `derivePayments(session)`. Balance = collected − expenses − transfers. Nothing is stored as a computed field.
 
 ---
 
@@ -70,7 +80,7 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 | Clan/covenant/mask/dirge constants | `public/js/data/constants.js` | Baked into JS |
 | Manoeuvre definitions | `public/js/data/man-db.js` | Baked into JS |
 | Rules content (powers, errata) | `rules` collection | `GET /api/rules` |
-| NPCs | `npcs` | `GET /api/npcs` |
+| NPCs | `npcs` | `GET /api/npcs` (ST only) / `GET /api/npcs/for-character/:id` (player-readable for linked NPCs; ST always). Schema adds `is_correspondent` (DTOSL.1), `st_suggested_for` (DTOSL.3 pending), `created_by` (DTOSL.5 pending). Status enum includes `pending` and `archived`. |
 | Feed methods + territory data | `public/js/player/downtime-data.js` | Shared constants — import from here, do not duplicate |
 
 ---

@@ -20,8 +20,13 @@ export const gameSessionSchema = {
     session_date:     { type: 'string', minLength: 1 },
     title:            { type: 'string' },
     game_number:      { type: 'integer', minimum: 1 },
+    chapter_number:   { type: 'integer', minimum: 1 },
+    chapter_label:    { type: 'string' },
     doors_open:       { type: 'string' },
     downtime_deadline:{ type: 'string' },
+    // FIN-7: single per-session door fee. Paid attendance rows mirror this
+    // value into payment.amount at write time.
+    session_rate:     { type: 'number', minimum: 0 },
     created_at:       { type: 'string' },
     updated_at:       { type: 'string' },
 
@@ -49,7 +54,7 @@ export const gameSessionSchema = {
             properties: {
               method: {
                 type: 'string',
-                enum: ['cash', 'payid', 'paypal', 'exiles', 'waived', 'did_not_attend', ''],
+                enum: ['cash', 'payid', 'paypal', 'exiles', 'waived', ''],
               },
               amount: { type: 'number', minimum: 0 },
               note:   { type: ['string', 'null'] },

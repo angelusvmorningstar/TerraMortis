@@ -249,3 +249,44 @@ Claude Opus 4.6
 ### Gate Status
 
 Gate: CONCERNS → specs/qa/gates/pp.9-schema-v3-inline-creation.yml
+
+---
+
+### Review Findings (bmad-code-review 2026-04-24)
+
+Three-layer parallel adversarial review (Blind Hunter, Edge Case Hunter, Acceptance Auditor) against commit `648e14c`.
+
+**Already fixed in current repo (dismissed):** migration DB target (`tm_suite_dev` → `tm_suite` in c36a62d), `cMc` ReferenceError in sheet.js contacts block, AC11 `additionalProperties: false` at schema root, disc wholesale replace (intentional per `additionalProperties: false` on discObj), pact rule_key hardcoded null (acceptable).
+
+#### Decisions needed
+
+- [ ] [Review][Decision] Migration all-or-nothing vs per-char skip on bad data — Ajv validation currently aborts the whole run on first failure. Known bad rows (Kirk Grimm XP=5, Gel/Magda skills=1 total, blank MCI cult_names) may tolerate the schema but a float/negative from Excel ingest would block all 31 migrations. Decide: fail-fast (status quo) or log-and-skip with report.
+- [ ] [Review][Decision] `meritRating` in `public/js/editor/xp.js:~175` now sums every grant-pool (`cp + free + free_mci + free_vm + free_lk + free_ohm + free_inv + free_pt + free_mdb + xp`). Pre-PP.9 it returned `cp + free + xp`. Is the new sum the intended semantics of the public helper, or should rating callers see only purchased+granted-from-pools-excluded?
+- [ ] [Review][Decision] AC12 unverified — prior Dev Agent notes admit "only 2 characters in tm_suite" at migration time; the schema now has 31 live characters. Either re-run the migration idempotently against the full dataset and capture the report, or flag AC12 as "validated post-hoc on the live data via natural usage" (the sheet hasn't broken for any of the 31 over 2+ weeks).
+
+#### Patches (code issues fixable without further input)
+
+- [ ] [Review][Patch] Attributes/skills/disciplines migration blocks unconditionally rewrite cp/xp/free — merit block has `if (merit.cp === undefined)` guard, others don't. Partial-state docs lose post-migration edits. [`server/scripts/migrate-schema-v3.js:61–103`]
+- [ ] [Review][Patch] Merit-to-creation index drift corruption risk — migrate pairs `merits[i]` with `merit_creation[i]` blindly; add length check + name cross-verification before merging. [`server/scripts/migrate-schema-v3.js:106–132`]
+- [ ] [Review][Patch] `free_attache` not copied from legacy — field was added to merit schema post-648e14c; any retrospective re-run loses it. Add to grant-pool list in the merit loop. [`server/scripts/migrate-schema-v3.js:112–121`]
+- [ ] [Review][Patch] Idempotency skip check uses only first discipline — `Object.values(doc.disciplines)[0]` fails for empty `{}` and mixed-state docs. Iterate all values; treat "any object, any integer" as partially-migrated. [`server/scripts/migrate-schema-v3.js:49–56`]
+- [ ] [Review][Patch] Powers `rule_key !== undefined` skip misinterprets `null` — once null is written, second run never retries lookup even if rules seeded; rite `xp` never recomputed after `level` edits. Tighten guard to `!== null && !== undefined`, recompute xp on every run. [`server/scripts/migrate-schema-v3.js:138`]
+- [ ] [Review][Patch] Migration doesn't recompute stale `rating` on merits — if stored `rating` diverged from `sum(creation)` (common per data audit), migrated doc has inconsistent `rating` vs inline fields. Add `merit.rating = cp + free + free_mci + ... + xp` after merge. [`server/scripts/migrate-schema-v3.js:106–132`]
+- [ ] [Review][Patch] Wizard writes `rule_key: null` for every attribute/skill/merit — migrated chars have populated rule_keys, wizard-created don't. Wizard should lookup `purchasable_powers` like migration does. [`public/js/player/wizard.js` — buildCharDoc]
+- [ ] [Review][Patch] `shStepMeritRating` CP-cap `current` reads only cp+free+xp, missing grant-pool fields — allows rating to exceed legal range when pools contribute. [`public/js/editor/edit.js:~688`]
+- [ ] [Review][Patch] Contacts edit block drops `free_ohm`/`free_pt` from dots total — display shows grant-pool dots missing. [`public/js/editor/sheet.js` — influence-merits Contacts block]
+- [ ] [Review][Patch] `ensureMeritSync` still called from several sites — verify body no longer references removed `merit_creation`; if it's dead code, strip it. [`public/js/editor/merits.js` — `ensureMeritSync`]
+- [ ] [Review][Patch] `sanitiseChar` — `(typeof val === 'object' ? val.dots : val)` throws on `val === null`. Add null guard. [`public/js/data/loader.js:22`]
+- [ ] [Review][Patch] Fighting style `rule_key` lookup uses `fs.name` directly; DB keys are sometimes display-name-normalised. Normalise before lookup, or fall back through known aliases. [`server/scripts/migrate-schema-v3.js:209–214`]
+
+#### Deferred (pre-existing, not caused by PP.9)
+
+- [x] [Review][Defer] Apostrophe slug regex strips ASCII only, not curly `’`/`‘` — consistent between seed and migrate so current data is fine; risk only on external imports with smart quotes.
+- [x] [Review][Defer] Two sanitisers in `public/js/data/loader.js` and `public/js/player.js` use different predicates for zero-dot disciplines — drift risk, align in a follow-up.
+- [x] [Review][Defer] `public/js/editor/export.js` splice removal assumes client cache is v3; stale localStorage docs with legacy parallel arrays now get rejected by schema `additionalProperties: false` at root — acceptable failure mode but surfaces as 400 without clear messaging.
+- [x] [Review][Defer] `scripts/migrate-points.js` and `scripts/validate-chars.js` still read/write legacy `*_creation` fields — tooling drift, needs v3 update.
+- [x] [Review][Defer] Wizard can persist zero-dot discipline objects — sanitise happens on load, not save; minor storage bloat.
+- [x] [Review][Defer] Rite XP formula yields `1` for `level === 0 || level === undefined` — unclear if level-less rites exist.
+- [x] [Review][Defer] Migration pre-validates before session opens — theoretical concurrency gap between read and transaction commit; low-probability for single-admin migrations.
+
+_Dismissed as already-fixed or intentional-per-spec: 5 findings. See review preamble._
