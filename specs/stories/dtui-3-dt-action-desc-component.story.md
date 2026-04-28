@@ -331,18 +331,34 @@ CC1, CC2, CC3, CC8 — not applicable to this foundation component story.
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+Added `.dt-action-desc` component CSS to `public/css/components.css` in the "Form components — DTUI" section (after `.dt-chip-grid` block). Cross-checked against `.qf-desc` at line 1670 — confirmed same italic-Lora approach; new component uses `var(--txt3)` rather than `var(--rp-neutral-warm)` for a slightly more muted contextual tone appropriate to read-only action copy.
+
+No parchment override needed — `.qf-desc` has no parchment-specific rule for colour and the same token vocabulary works in both themes. `.dt-action-desc` follows suit.
+
+All 11 ACs verified:
+- AC1–AC2: italic Lora `13px` `--txt3` with `1.6` line-height, `8px` top / `16px` bottom margin
+- AC3: `:empty { display: none }` collapses the element when no text content
+- AC4–AC5: fade-in via `@keyframes dt-action-desc-fade-in` (200ms); `.dt-action-desc--swapping` modifier retriggers animation for content-swap fade
+- AC6: both animation rules wrapped in `@media (prefers-reduced-motion: no-preference)`
+- AC7: `aria-live="polite"` is a static HTML attribute set by the consumer (documented in comment block); not enforced by CSS
+- AC8: `:empty` prevents screen reader announcement when no content
+- AC9: grep confirms zero bare hex/rgba in `.dt-action-desc` rule bodies
+- AC10: documentation comment block present with HTML structure, distinction from `.qf-desc`, and consumer stories (dtui-4, dtui-6, dtui-15)
+- AC11: `.qf-desc` at line 1670 unchanged; no selector collisions
+
+Manual verification with dev login required for live fade-in, fade-swap, NVDA announcement, and reduced-motion skip.
 
 ### File List
 
-(to be filled when implemented)
+- `public/css/components.css` — added `.dt-action-desc` component CSS block (~55 lines including comment)
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-3 story drafted by Bob; ready-for-dev. |
+| 2026-04-29 | Implemented by claude-sonnet-4-6; all 11 ACs satisfied; status → review. |

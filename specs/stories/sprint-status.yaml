@@ -682,9 +682,9 @@ development_status:
   epic-dtui: backlog
 
   # Wave 1 — Foundation Atomics
-  dtui-1-dt-ticker-component: ready-for-dev
-  dtui-2-dt-chip-and-chip-grid: ready-for-dev
-  dtui-3-dt-action-desc-component: ready-for-dev
+  dtui-1-dt-ticker-component: review
+  dtui-2-dt-chip-and-chip-grid: review
+  dtui-3-dt-action-desc-component: review
 
   # Wave 2 — Action Block Compound
   dtui-4-dt-action-block-shell: backlog
