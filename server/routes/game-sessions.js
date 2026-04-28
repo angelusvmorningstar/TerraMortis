@@ -32,9 +32,20 @@ export async function getNextSession(req, res) {
   );
   if (!session) return res.json(null);
 
-  // Merge active downtime cycle deadline if session has none
+  // Merge live downtime cycle deadline if session has none.
+  // Cycles legitimately coexist (e.g. last cycle in 'game' while next opens
+  // in 'prep'), so sort by the soonest deadline ascending — that's the cycle
+  // whose deadline is approaching first, which is what the banner should
+  // surface. The deadline_at filter prevents picking a 'prep' cycle that
+  // hasn't had a deadline set yet.
   if (!session.downtime_deadline) {
-    const cycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
+    const cycle = await getCollection('downtime_cycles').findOne(
+      {
+        status: { $in: ['prep', 'game', 'active', 'open'] },
+        deadline_at: { $exists: true, $ne: null },
+      },
+      { sort: { deadline_at: 1 } },
+    );
     if (cycle?.deadline_at) {
       session.downtime_deadline = formatDeadline(cycle.deadline_at);
     }

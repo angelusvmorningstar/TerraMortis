@@ -479,6 +479,7 @@ export async function initDowntimeView(passedChars) {
       if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
       if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
     }
+    try { await loadPlayers(); } catch (e) { console.warn('loadPlayers failed (no API?):', e.message); }
   } else {
     try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
   }
@@ -511,6 +512,10 @@ async function loadCharacters() {
     characters = [];
     charMap = new Map();
   }
+  await loadPlayers();
+}
+
+async function loadPlayers() {
   try { players = await apiGet('/api/players'); } catch { players = []; }
 }
 
@@ -1041,7 +1046,9 @@ async function loadCycleById(cycleId) {
   const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
+  const isOpen   = cycle.status === 'open';
   const isClosed = cycle.status === 'closed';
+  const isLive   = isPrep || isActive || isGame || isOpen;
   const deadlineStr = cycle.deadline_at
     ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
@@ -1053,7 +1060,7 @@ async function loadCycleById(cycleId) {
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
   }
-  if (isActive) {
+  if (isLive) {
     const dtVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
     statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
   }
