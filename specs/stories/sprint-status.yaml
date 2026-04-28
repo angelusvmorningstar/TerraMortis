@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-27 (DTSR-1 + DTSR-2 implemented: section reorder + Cacophony Savvy → Rumours rename; Letter+Touchstone consolidated into Story Moment with format radio and back-compat legacy reads; both ready-for-dev → review. Earlier same day: FEAT batch drafted, DI epic flipped, DTUX-1 phase ribbon nav drafted, 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
+last_updated: 2026-04-29 (DTUI epic registered: 32 stories across 6 waves backlogged, derived from comprehensive UX design spec at specs/ux-design-downtime-form.md and source-issue walk-through. Foundation atomics → action block compound → joint hub → filter-to-context per section → orientation chrome → form polish. Sonnet-friendly granularity. Earlier same day: 2026-04-27 DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -665,3 +665,64 @@ development_status:
   rde-14-disc-attr-migration: ready-for-dev
   rde-15-derived-stat-modifiers-migration: ready-for-dev
   epic-rde-retrospective: optional
+
+  # ============================================================
+  # EPIC DTUI — DOWNTIME FORM UX REFACTOR (drafted 2026-04-29, not started)
+  # ============================================================
+  # Refactors the player-facing Downtime Submission form to reduce mental load.
+  # Establishes a stable shell for project/merit-action blocks (Action Type →
+  # Description → Outcome → Target → Dice → Approach → Solo/Joint), unifies
+  # scattered UI patterns into ticker-and-chip-grid vocabulary, applies the
+  # form's existing "show only what's relevant" grammar universally.
+  # Source: specs/ux-design-downtime-form.md (full UX design spec)
+  # Epic file: specs/epic-dtui-downtime-form-ux-refactor.md
+  # Sequencing: Wave 1 (atomics) blocks Waves 2-4. Wave 2 blocks Wave 3.
+  # Wave 5 (chrome) parallel to anything after Wave 1. Wave 6 (polish) last.
+  # 32 stories total; Sonnet-friendly granularity (≤5 files, ≤7 ACs each).
+  epic-dtui: backlog
+
+  # Wave 1 — Foundation Atomics
+  dtui-1-dt-ticker-component: ready-for-dev
+  dtui-2-dt-chip-and-chip-grid: ready-for-dev
+  dtui-3-dt-action-desc-component: ready-for-dev
+
+  # Wave 2 — Action Block Compound
+  dtui-4-dt-action-block-shell: backlog
+  dtui-5-action-block-placement-changes: backlog
+  dtui-6-action-type-descriptions: backlog
+  dtui-7-approach-calibrated-prompts: backlog
+  dtui-8-per-action-target-scoping: backlog
+  dtui-9-per-action-outcome-treatments: backlog
+  dtui-10-ambience-consolidation: backlog
+  dtui-11-maintenance-target-chip-array: backlog
+
+  # Wave 3 — Joint Collaboration Hub
+  dtui-12-joint-panel-auto-expand: backlog
+  dtui-13-invitee-chip-grid: backlog
+  dtui-14-sphere-merit-auto-commit: backlog
+  dtui-15-allies-action-descriptions: backlog
+  dtui-16-allies-target-scoping: backlog
+  dtui-17-allies-ambience-eligibility: backlog
+  dtui-18-allies-ambience-display: backlog
+  dtui-19-allies-grow-xp-spend: backlog
+
+  # Wave 4 — Filter-to-Context per Section
+  dtui-20-court-acknowledge-peers: backlog
+  dtui-21-personal-story-npc-chips: backlog
+  dtui-22-mandragora-visibility-vitae-calc: backlog
+  dtui-23-feeding-territory-relocation: backlog
+  dtui-24-feeding-method-label-rename: backlog
+  dtui-25-rote-panel-ordering-selectors: backlog
+
+  # Wave 5 — Orientation Chrome
+  dtui-26-progress-rail: backlog
+  dtui-27-save-status-enhancement: backlog
+
+  # Wave 6 — Form Polish
+  dtui-28-st-portal-rename: backlog
+  dtui-29-mobile-desktop-only-notice: backlog
+  dtui-30-submit-button-placement: backlog
+  dtui-31-add-project-button-placement: backlog
+  dtui-32-accordion-dirty-stays-open: backlog
+
+  epic-dtui-retrospective: optional
