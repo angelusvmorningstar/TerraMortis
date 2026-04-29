@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -2977,13 +2977,14 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_xp`] || '');
     }
 
-    // ── Description ──
+    // ── Approach ──
     if (fields.includes('description')) {
-      h += renderQuestion({
-        key: `project_${n}_description`, label: 'Description',
-        type: 'textarea', required: false,
-        desc: 'Additional context, narrative, or details for this action.',
-      }, saved[`project_${n}_description`] || '');
+      const approachText = saved[`project_${n}_description`] || '';
+      const approachPrompt = ACTION_APPROACH_PROMPTS[actionVal] || 'Describe your approach in narrative terms.';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_description">Approach</label>`;
+      h += `<textarea id="dt-project_${n}_description" class="qf-textarea" rows="4" placeholder="${esc(approachPrompt)}">${esc(approachText)}</textarea>`;
+      h += '</div>';
     }
 
     // ── Solo/Joint toggle — bottom of block (dtui-5) ──

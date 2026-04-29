@@ -20,6 +20,17 @@ const PROJECT_ACTIONS = [
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
+export const ACTION_APPROACH_PROMPTS = {
+  'ambience_increase': 'How do you go about improving the ambience of this territory in narrative terms.',
+  'ambience_decrease': 'How do you go about degrading the ambience of this territory in narrative terms.',
+  'attack': 'How do you attempt to destroy or undermine this target in narrative terms.',
+  'hide_protect': 'How do you go about securing and hiding this target in narrative terms.',
+  'investigate': 'How does your character pursue this investigation in narrative terms.',
+  'patrol_scout': 'How does your character observe or patrol this territory in narrative terms.',
+  'misc': 'Describe your approach to this action in narrative terms.',
+  'maintenance': 'Describe how your character maintains this relationship or organisation in narrative terms.',
+};
+
 export const ACTION_DESCRIPTIONS = {
   'ambience_increase': 'This project will apply your successes directly towards improving the ambience of the selected territory.',
   'ambience_decrease': 'This project will apply your successes directly towards degrading the ambience of the selected territory.',
