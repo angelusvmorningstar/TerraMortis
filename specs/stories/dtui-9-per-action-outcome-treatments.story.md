@@ -1,7 +1,7 @@
 ---
 id: dtui.9
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4, dtui.5, dtui.1]
 ---
@@ -219,18 +219,23 @@ Radio buttons under `data-proj-outcome="${n}"` need to trigger save on change. T
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Added `'outcome'` to `ambience_increase`/`ambience_decrease` in `ACTION_FIELDS` (before `territory`).
+- Added `renderOutcomeZone()` helper: READONLY map for 5 action types; `.dt-ticker` with 3 pills (Destroy/Degrade/Disrupt) for attack (defaults to 'destroy'); freetext input for misc; returns '' for unhandled actions.
+- Replaced generic `renderQuestion` outcome block in `renderProjectSlots()` with `renderOutcomeZone(n, actionVal, saved)` call.
+- Updated `collectResponses()`: radio fallback (`input[name="dt-project_${n}_outcome"]:checked`) when no element with id `dt-project_${n}_outcome` exists (attack uses radio group).
+- Added `data-proj-outcome` change handler in delegated change listener — calls `scheduleSave()`.
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-9 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-9 implemented: renderOutcomeZone + ACTION_FIELDS update + collectResponses radio fallback. |
