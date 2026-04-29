@@ -3597,6 +3597,13 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   color: var(--txt);
 }
 .dt-vitae-cost span:last-child { color: var(--crim2); }
+.dt-vitae-pos span:last-child { color: var(--gold2); }
+.dt-vitae-subtotal {
+  border-top: 1px dashed var(--bdr2);
+  margin-top: 4px;
+  padding-top: 4px;
+  font-weight: 600;
+}
 .dt-vitae-total {
   border-top: 1px solid var(--bdr2);
   margin-top: 4px;
@@ -3988,23 +3995,20 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   border-color: rgba(139,0,0,.12);
 }
 
+.dt-feed-rote-section {
+  margin-top: 10px;
+  padding: 16px 18px;
+  background: var(--surf);
+  border: 1px solid rgba(201,169,98,.15);
+  border-radius: 6px;
+}
+.dt-feed-rote-section > * + * { margin-top: 12px; }
+.reading-pane .dt-feed-rote-section {
+  background: var(--rp-surf);
+  border-color: rgba(139,0,0,.12);
+}
+
 /* ── Blood type checkboxes ── */
-.dt-feed-blood-types {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.dt-feed-blood-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  color: var(--txt);
-}
-.dt-feed-blood-label input { accent-color: var(--accent); width: 16px; height: 16px; }
-.reading-pane .dt-feed-blood-label { color: var(--rp-txt); }
-.reading-pane .dt-feed-blood-label input { accent-color: var(--rp-accent); }
 
 /* ── Rote feeding checkbox ── */
 .dt-rote-toggle-wrap { margin-bottom: 8px; }
@@ -4669,12 +4673,13 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .dt-ticker__legend {
   flex: 0 0 100%;
+  display: block;
   font-family: var(--fl);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--txt);
   margin-bottom: 6px;
   padding: 0;
-  letter-spacing: .04em;
 }
 
 .dt-ticker__pill {
@@ -4747,6 +4752,53 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-target-other-input {
   margin-top: 8px;
 }
+
+/* Secondary dice pool — gated reveal so players read it as optional. */
+.dt-secondary-pool-toggle {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed var(--bdr);
+  border-radius: 4px;
+  font-family: var(--ft);
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.dt-secondary-pool-toggle:hover {
+  border-color: var(--gold2);
+  color: var(--txt);
+}
+.dt-secondary-pool-wrap[hidden] { display: none; }
+.dt-secondary-pool-clear {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px dashed var(--bdr);
+  border-radius: 4px;
+  font-family: var(--ft);
+  font-size: 12px;
+  color: var(--txt3);
+  cursor: pointer;
+}
+.dt-secondary-pool-clear:hover {
+  border-color: var(--crim);
+  color: var(--crim);
+}
+
+/* Consistent gap between any target-type ticker and the content below it,
+ * regardless of whether the picked mode renders chips, pills, or a textarea. */
+.dt-ticker + .dt-chip-grid,
+.dt-ticker + .dt-target-other-input { margin-top: 8px; }
+
+/* Target zone: normalise the gap between the "Target" label and the first
+ * piece of content below it. Some actions render a Character/Territory/Other
+ * ticker first, others go straight to a chip grid. We want the visual gap
+ * to be 8px in both cases — independent of the qf-label default margin. */
+.dt-target-zone > .qf-label { margin-bottom: 0; }
+.dt-target-zone > .qf-label + * { margin-top: 8px; }
 
 /* ════════════════════════════════════════════════════════════════════
    .dt-chip-grid + .dt-chip — chip grid for "pick from a roster"
@@ -4846,6 +4898,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   background: var(--surf2);
 }
 
+.dt-chip--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: var(--txt3);
+  border-color: var(--bdr);
+  pointer-events: none;
+}
+
 /* Optional state suffix inside a chip (e.g. "+3", "●●●") */
 .dt-chip__suffix {
   font-size: 11px;
@@ -4891,13 +4951,17 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
    ════════════════════════════════════════════════════════════════════ */
 
 .dt-action-desc {
-  font-family: var(--ft);
-  font-size: 13px;
-  font-style: italic;
-  color: var(--txt3);
-  line-height: 1.6;
   margin: 8px 0 16px;
+  padding: 10px 12px;
+  background: var(--gold2-a12);
+  border-left: 2px solid var(--gold2);
+  border-radius: 0 3px 3px 0;
+  font-family: var(--ft);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--txt);
 }
+.dt-action-desc strong { color: var(--gold2); }
 
 .dt-action-desc:empty {
   display: none;

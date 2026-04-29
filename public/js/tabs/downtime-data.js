@@ -233,20 +233,13 @@ export const DOWNTIME_SECTIONS = [
     sorcerySlots: 3,
   },
 
-  // 3. Territory — declared before Feeding so players know their ambience and cap
+  // 3. Territory — influence spend; feeding territory moved into Feeding section
   {
     key: 'territory',
     title: 'The City: Territory and Influence',
     gate: null,
     intro: null,
     questions: [
-      {
-        key: 'feeding_territories',
-        label: 'Which Territory does your character feed or poach in?',
-        type: 'territory_grid',
-        required: true,
-        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
-      },
       {
         key: 'influence_spend',
         label: 'Which Territories would you like to spend Influence on, if at all?',
@@ -257,13 +250,20 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 4. Feeding — method selection, pool, rote, description
+  // 4. Feeding — territory declaration, then method selection, pool, rote, description
   {
     key: 'feeding',
     title: 'Feeding: The Hunt',
     gate: null,
     intro: null,
     questions: [
+      {
+        key: 'feeding_territories',
+        label: 'Which Territory does your character feed or poach in?',
+        type: 'territory_grid',
+        required: true,
+        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
+      },
       {
         key: 'feeding_method',
         label: 'How does your character hunt?',
