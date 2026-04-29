@@ -2,7 +2,7 @@
 title: 'Mother-Daughter Bond migration — partner-rating-driven free dots into chosen style'
 type: 'refactor'
 created: '2026-04-28'
-status: 'ready-for-dev'
+status: 'complete'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md
