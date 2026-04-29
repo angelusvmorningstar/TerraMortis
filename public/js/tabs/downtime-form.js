@@ -139,7 +139,7 @@ const SPHERE_ACTION_FIELDS = {
   'hide_protect':      ['target_own_merit', 'outcome'],
   'investigate':       ['target_flex', 'investigate_lead', 'outcome'],
   'patrol_scout':      ['territory', 'outcome'],
-  'grow':              ['outcome'],
+  'grow':              ['grow_xp'],
   'misc':              ['outcome'],
   'maintenance':       ['maintenance_target'],
 };
@@ -557,7 +557,7 @@ function collectResponses() {
   // Sphere action fields (tabbed — up to 5 slots)
   const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
   for (let n = 1; n <= maxSpheres; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead', 'grow_target']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
@@ -1955,6 +1955,14 @@ function renderForm(container) {
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
       activeSphereTab = parseInt(sphereAction.dataset.sphereAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Grow target dots — re-render to update XP cost display
+    if (e.target.dataset.growTarget !== undefined) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -4727,6 +4735,30 @@ function getAlliesAmbienceEligible(m) {
   return effectiveDots >= 3;
 }
 
+// DTUI-19: Grow XP block — scoped to a specific Allies merit instance
+function renderAlliesGrowXp(n, prefix, m, saved) {
+  const currentDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
+  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+
+  let h = '<div class="qf-field">';
+  h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
+  h += `<label class="qf-label" for="dt-${prefix}_${n}_grow_target">Target dots</label>`;
+  h += `<select id="dt-${prefix}_${n}_grow_target" class="qf-select" data-grow-target="${prefix}_${n}">`;
+  h += '<option value="">— Select target —</option>';
+  for (let d = currentDots + 1; d <= 5; d++) {
+    const sel = savedTarget === d ? ' selected' : '';
+    h += `<option value="${d}"${sel}>${d} dot${d !== 1 ? 's' : ''}</option>`;
+  }
+  h += '</select>';
+  if (savedTarget > currentDots) {
+    const xpCost = (savedTarget - currentDots) * 1;
+    h += `<p class="qf-desc dt-grow-xp-cost">${xpCost} XP to reach ${savedTarget} dots.</p>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 // DTUI-18: Allies Ambience contribution magnitude
 function getAlliesAmbienceContribution(m) {
   const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
@@ -4890,6 +4922,10 @@ function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = 
     h += '</div>';
   }
 
+  if (fields.includes('grow_xp')) {
+    h += renderAlliesGrowXp(n, prefix, sphereMerit || {}, saved);
+  }
+
   return h;
 }
 
@@ -4949,10 +4985,9 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
       h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
-      // DTUI-17: filter per-merit eligibility; Grow handled by dtui-19
+      // DTUI-17/19: filter per-merit eligibility; Grow now included
       const ambienceEligible = getAlliesAmbienceEligible(m);
       const filteredActions = SPHERE_ACTIONS.filter(o => {
-        if (o.value === 'grow') return false;
         if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
         return true;
       });
