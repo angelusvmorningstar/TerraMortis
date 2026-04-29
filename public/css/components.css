@@ -4846,6 +4846,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   background: var(--surf2);
 }
 
+.dt-chip--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: var(--txt3);
+  border-color: var(--bdr);
+  pointer-events: none;
+}
+
 /* Optional state suffix inside a chip (e.g. "+3", "●●●") */
 .dt-chip__suffix {
   font-size: 11px;

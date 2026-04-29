@@ -1,4 +1,4 @@
-/* Downtime submission form — character-aware, section-gated, auto-saving.
+﻿/* Downtime submission form — character-aware, section-gated, auto-saving.
  * Uses existing /api/downtime_submissions API.
  * Lifecycle: draft → submitted (player can edit until deadline)
  *
@@ -276,7 +276,7 @@ function collectResponses() {
     for (const q of section.questions) {
       if (q.type === 'shoutout_picks') {
         const picks = [];
-        document.querySelectorAll('.dt-shoutout-cb:checked').forEach(cb => picks.push(cb.value));
+        document.querySelectorAll('[data-shoutout-pick].dt-chip--selected').forEach(btn => picks.push(btn.dataset.shoutoutPick));
         responses[q.key] = JSON.stringify(picks);
         continue;
       }
@@ -2042,31 +2042,6 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Shoutout picks — enforce 3-selection limit on checkbox grid
-    const shoutoutCb = e.target.closest('.dt-shoutout-cb');
-    if (shoutoutCb) {
-      const allCbs = container.querySelectorAll('.dt-shoutout-cb');
-      const checkedCount = container.querySelectorAll('.dt-shoutout-cb:checked').length;
-      const atLimit = checkedCount >= 3;
-      allCbs.forEach(cb => {
-        if (!cb.checked) cb.disabled = atLimit;
-      });
-      // Update limit hint
-      const limitMsg = container.querySelector('.dt-shoutout-limit');
-      if (atLimit && !limitMsg) {
-        const grid = container.querySelector('.dt-shoutout-grid');
-        if (grid) {
-          const msg = document.createElement('p');
-          msg.className = 'dt-shoutout-limit';
-          msg.textContent = '3 selections made \u2014 uncheck one to change.';
-          grid.insertAdjacentElement('afterend', msg);
-        }
-      } else if (!atLimit && limitMsg) {
-        limitMsg.remove();
-      }
-      scheduleSave();
-      return;
-    }
     // Main feed pool selector changes
     const feedPoolSel = e.target.closest('#dt-feed-custom-attr, #dt-feed-custom-skill, #dt-feed-disc');
     if (feedPoolSel) {
@@ -2206,6 +2181,34 @@ function renderForm(container) {
       return;
     }
     // DTUI-16: sphere character target chip — single-select
+    // Shoutout picks chip — multi-select up to 3, non-attendees disabled
+    const shoutoutChip = e.target.closest('[data-shoutout-pick]');
+    if (shoutoutChip && !shoutoutChip.disabled) {
+      const grid = container.querySelector('[data-shoutout-grid]');
+      const selected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
+      const wasSelected = shoutoutChip.classList.contains('dt-chip--selected');
+      if (wasSelected) {
+        shoutoutChip.classList.remove('dt-chip--selected');
+      } else if (selected.length < 3) {
+        shoutoutChip.classList.add('dt-chip--selected');
+      }
+      const newSelected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
+      const atLimit = newSelected.length >= 3;
+      grid?.querySelectorAll('[data-shoutout-pick]:not(.dt-chip--selected)').forEach(btn => {
+        btn.disabled = atLimit;
+      });
+      const limitMsg = container.querySelector('.dt-shoutout-limit');
+      if (atLimit && !limitMsg) {
+        const msg = document.createElement('p');
+        msg.className = 'dt-shoutout-limit';
+        msg.textContent = '3 selections made — unselect one to change.';
+        grid?.insertAdjacentElement('afterend', msg);
+      } else if (!atLimit && limitMsg) {
+        limitMsg.remove();
+      }
+      scheduleSave();
+      return;
+    }
     const sphereCharChip = e.target.closest('[data-sphere-char-target]');
     if (sphereCharChip && !sphereCharChip.disabled) {
       const prefixN = sphereCharChip.dataset.sphereCharTarget; // e.g. 'sphere_2'
@@ -5370,21 +5373,21 @@ function renderQuestion(q, value) {
       const pickSet = new Set(picks.map(String));
       const atLimit = pickSet.size >= 3;
 
-      h += '<div class="dt-shoutout-grid">';
+      h += '<div class="dt-chip-grid" data-shoutout-grid>';
       for (const char of allCharacters) {
-        const isChecked = pickSet.has(String(char.id));
-        const isAtt = lastGameAttendees.some(a => String(a.id) === String(char.id));
-        const disabled = (!isChecked && atLimit) ? ' disabled' : '';
-        const checkedAttr = isChecked ? ' checked' : '';
-        const attClass = isAtt ? ' dt-shoutout-att' : '';
-        h += `<label class="dt-shoutout-item${attClass}">`;
-        h += `<input type="checkbox" class="dt-shoutout-cb" value="${esc(String(char.id))}"${checkedAttr}${disabled}>`;
-        h += `<span>${esc(char.name)}</span>`;
-        h += `</label>`;
+        const id = String(char.id);
+        const isSelected = pickSet.has(id);
+        const isAtt = lastGameAttendees.some(a => String(a.id) === id);
+        const disabledAttr = (!isAtt || (!isSelected && atLimit)) ? ' disabled' : '';
+        const selectedClass = isSelected ? ' dt-chip--selected' : '';
+        const disabledClass = !isAtt ? ' dt-chip--disabled' : '';
+        const title = !isAtt ? ` title="Did not attend court"` : '';
+        h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"`;
+        h += ` data-shoutout-pick="${esc(id)}"${disabledAttr}${title}>${esc(char.name)}</button>`;
       }
       h += '</div>';
       if (atLimit) {
-        h += '<p class="dt-shoutout-limit">3 selections made &mdash; uncheck one to change.</p>';
+        h += '<p class="dt-shoutout-limit">3 selections made — uncheck one to change.</p>';
       }
       break;
     }
