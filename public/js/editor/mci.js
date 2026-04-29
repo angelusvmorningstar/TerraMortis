@@ -6,11 +6,11 @@
 
 import { addMerit, ensureMeritSync } from './merits.js';
 import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
-import { BLOODLINE_GRANTS } from '../data/constants.js';
 import { getRulesBySource } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
 import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
+import { applyBloodlineRulesFromDb } from './rule_engine/bloodline-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -183,42 +183,7 @@ export function applyDerivedMerits(c, allChars = []) {
   }
 
   // ── Bloodline grants (specs and merits) ──
-  // Clear stale free/free_bloodline on bloodline merits before re-applying so
-  // ex-bloodline characters don't carry orphaned grant dots indefinitely.
-  (c.merits || []).forEach(m => { if (m.granted_by === 'Bloodline') { m.free = 0; m.free_bloodline = 0; } });
-  const bloodlineGrants = BLOODLINE_GRANTS[c.bloodline];
-  if (bloodlineGrants) {
-    for (const { skill, spec } of (bloodlineGrants.skill_specs || [])) {
-      if (!c.skills) c.skills = {};
-      if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
-      if (!c.skills[skill].specs) c.skills[skill].specs = [];
-      if (!c.skills[skill].specs.includes(spec)) c.skills[skill].specs.push(spec);
-      c._bloodline_free_specs.push({ skill, spec });
-    }
-    for (const grant of (bloodlineGrants.merits || [])) {
-      const gq = (grant.qualifier || '').toLowerCase().trim();
-      // Case-insensitive qualifier match to avoid duplicates from capitalisation drift
-      const existing = (c.merits || []).find(m =>
-        m.name === grant.name && m.granted_by === 'Bloodline' &&
-        (m.qualifier || '').toLowerCase().trim() === gq
-      );
-      if (existing) {
-        // Normalise qualifier case to canonical form from grant definition
-        if (grant.qualifier != null) existing.qualifier = grant.qualifier;
-        existing.free_bloodline = 1;
-      } else {
-        if (!c.merits) c.merits = [];
-        c.merits.push({ name: grant.name, category: grant.category, qualifier: grant.qualifier || null, free_bloodline: 1, granted_by: 'Bloodline' });
-      }
-      // Remove any extra duplicates (stale case-mismatch entries already in DB)
-      const canonical = existing || c.merits[c.merits.length - 1];
-      const dupes = (c.merits || []).filter(m =>
-        m !== canonical && m.name === grant.name && m.granted_by === 'Bloodline' &&
-        (m.qualifier || '').toLowerCase().trim() === gq
-      );
-      dupes.forEach(d => c.merits.splice(c.merits.indexOf(d), 1));
-    }
-  }
+  applyBloodlineRulesFromDb(c, getRulesBySource('Bloodline'));
 
   // ── Sync ratings from inline creation fields (free + cp + xp) ──
   ensureMeritSync(c);

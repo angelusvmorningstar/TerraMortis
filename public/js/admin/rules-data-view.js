@@ -9,6 +9,7 @@ import { getRulesByCategory } from '../data/loader.js';
 import { invalidateRulesCache, preloadRules, getRulesBySource } from '../editor/rule_engine/load-rules.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { applyPTRulesFromDb } from '../editor/rule_engine/pt-evaluator.js';
+import { applyBloodlineRulesFromDb } from '../editor/rule_engine/bloodline-evaluator.js';
 import { ALL_SKILLS } from '../data/constants.js';
 
 // ── Family registry ──
@@ -124,7 +125,7 @@ function _renderList() {
   } else {
     for (const r of docs) {
       h += `<tr class="rde-row${_selectedRule?._id === r._id ? ' rde-row-active' : ''}" data-rule-id="${esc(r._id)}">
-        <td class="rde-td-source">${esc(r.source || r.discipline || '')}</td>
+        <td class="rde-td-source">${esc(r.source || r.discipline || '')}${r.bloodline_name ? ` <span class="rde-td-tag">${esc(r.bloodline_name)}</span>` : ''}</td>
         <td class="rde-td-tier">${r.tier ? '●'.repeat(r.tier) : '–'}</td>
         ${_rowCells(r)}
         <td class="rde-td-notes" title="${esc(r.notes || '')}">${esc(_truncate(r.notes || '', 40))}</td>
@@ -142,7 +143,7 @@ function _renderList() {
 function _matchesSearch(r) {
   if (!_searchQuery) return true;
   const q = _searchQuery.toLowerCase();
-  const fields = [r.source, r.discipline, r.notes, r.target, r.target_skill, r.target_name, r.spec];
+  const fields = [r.source, r.discipline, r.notes, r.target, r.target_skill, r.target_name, r.spec, r.bloodline_name];
   return fields.some(f => f && f.toLowerCase().includes(q));
 }
 
@@ -288,18 +289,22 @@ function _sel(id, options, selected, placeholder = '') {
 }
 
 function _fieldsGrant(r, isNew) {
-  const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present']];
-  const grantTypes = [['merit','merit'],['pool','pool']];
+  const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline']];
+  const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality']];
   const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit']];
   let h = '';
-  h += _ff('Source merit', 'rde-f-source', 'text', r?.source, 'Name of the merit that triggers this grant. Case-sensitive.');
+  h += _ff('Source merit', 'rde-f-source', 'text', r?.source, 'Name of the merit or grant source. Use "Bloodline" for bloodline grants.');
   h += _ff('Tier', 'rde-f-tier', 'number', r?.tier, 'Required PT/MCI dot level (blank = always).');
   h += _ff('Condition', 'rde-f-condition', 'select', null,
     null, _sel('rde-f-condition', [['','']].concat(conditions), r?.condition || '', 'always'));
+  h += _ff('Bloodline name', 'rde-f-bloodline-name', 'text', r?.bloodline_name,
+    'Required when condition=bloodline. Matched case-insensitively against character.bloodline (e.g. "Gorgons").');
   h += _ff('Grant type', 'rde-f-grant-type', 'select', null,
-    'merit = free dots on a merit; pool = named free-dot pool.',
+    'merit = free dots on a merit; pool = named free-dot pool; speciality = push spec onto a skill.',
     _sel('rde-f-grant-type', grantTypes, r?.grant_type || 'merit'));
-  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name for grant_type=merit; pool key for grant_type=pool.');
+  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name (grant_type=merit), pool key (grant_type=pool), or skill name (grant_type=speciality).');
+  h += _ff('Target qualifier', 'rde-f-target-qualifier', 'text', r?.target_qualifier,
+    'Merit qualifier/area (grant_type=merit) or spec name (grant_type=speciality).');
   h += _ff('Amount', 'rde-f-amount', 'number', r?.amount, 'Number of dots granted.', 'min="0"');
   h += _ff('Amount basis', 'rde-f-amount-basis', 'select', null, null,
     _sel('rde-f-amount-basis', bases, r?.amount_basis || 'flat'));
@@ -434,19 +439,30 @@ function _cloneChar(c) {
 function _simulateAfter(charClone, currentRule, proposedData) {
   switch (_activeFamily) {
     case 'grant': {
-      // Re-run PT evaluator with the proposed rule substituted
-      const ptGrants = (getRulesBySource('Professional Training').grants || []).map(r =>
-        r._id === currentRule._id ? { ...r, ...proposedData } : r
-      );
-      // Clear existing PT free_pt
-      (charClone.merits || []).forEach(m => { m.free_pt = 0; });
-      charClone._pt_nine_again_skills = new Set();
-      charClone._pt_dot4_bonus_skills = new Set();
-      applyPTRulesFromDb(charClone, {
-        grants: ptGrants,
-        nineAgain: getRulesBySource('Professional Training').nineAgain || [],
-        skillBonus: getRulesBySource('Professional Training').skillBonus || [],
-      });
+      if (currentRule?.condition === 'bloodline' || proposedData?.condition === 'bloodline') {
+        // Bloodline preview: re-run bloodline evaluator with the proposed rule substituted
+        (charClone.merits || []).forEach(m => {
+          if (m.granted_by === 'Bloodline') { m.free = 0; m.free_bloodline = 0; }
+        });
+        charClone._bloodline_free_specs = [];
+        const bloodlineGrants = (getRulesBySource('Bloodline').grants || []).map(r =>
+          r._id === currentRule._id ? { ...r, ...proposedData } : r,
+        );
+        applyBloodlineRulesFromDb(charClone, { grants: bloodlineGrants });
+      } else {
+        // PT preview: re-run PT evaluator with the proposed rule substituted
+        const ptGrants = (getRulesBySource('Professional Training').grants || []).map(r =>
+          r._id === currentRule._id ? { ...r, ...proposedData } : r,
+        );
+        (charClone.merits || []).forEach(m => { m.free_pt = 0; });
+        charClone._pt_nine_again_skills = new Set();
+        charClone._pt_dot4_bonus_skills = new Set();
+        applyPTRulesFromDb(charClone, {
+          grants: ptGrants,
+          nineAgain: getRulesBySource('Professional Training').nineAgain || [],
+          skillBonus: getRulesBySource('Professional Training').skillBonus || [],
+        });
+      }
       break;
     }
     case 'skill_bonus': {
@@ -487,14 +503,14 @@ function _renderPreviewDots(char, rule, proposed) {
 
   // Show merits that have any bonus-dot source
   const relevant = merits.filter(m =>
-    (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0) > 0 || m.free_pt !== undefined
+    (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0) + (m.free_bloodline || 0) > 0 || m.free_pt !== undefined
   );
   if (!relevant.length) return '<p class="rde-preview-empty">No bonus-dot merits on this character.</p>';
 
   let h = '<div class="rde-preview-merits">';
   for (const m of relevant) {
     const base = (m.cp || 0) + (m.xp || 0);
-    const bonus = (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0);
+    const bonus = (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0) + (m.free_bloodline || 0);
     h += `<div class="rde-preview-merit-row">
       <span class="rde-preview-merit-name">${esc(m.name)}</span>
       <span class="rde-preview-merit-dots">${shDotsWithBonus(base, bonus)}</span>
@@ -596,10 +612,9 @@ function _readFormData() {
   const n = (id) => { const el = document.getElementById(id); const val = parseFloat(el?.value); return isNaN(val) ? null : val; };
 
   switch (_activeFamily) {
-    case 'grant':
-      return {
+    case 'grant': {
+      const d = {
         source: v('rde-f-source'),
-        tier: n('rde-f-tier'),
         condition: v('rde-f-condition') || 'always',
         grant_type: v('rde-f-grant-type') || 'merit',
         target: v('rde-f-target'),
@@ -607,6 +622,14 @@ function _readFormData() {
         amount_basis: v('rde-f-amount-basis') || 'flat',
         notes: v('rde-notes'),
       };
+      const tier = n('rde-f-tier');
+      if (tier != null) d.tier = tier;
+      const bl = v('rde-f-bloodline-name');
+      if (bl) d.bloodline_name = bl;
+      const tq = v('rde-f-target-qualifier');
+      if (tq) d.target_qualifier = tq;
+      return d;
+    }
     case 'speciality_grant':
       return {
         source: v('rde-f-source'),

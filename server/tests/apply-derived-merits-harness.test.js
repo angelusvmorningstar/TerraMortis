@@ -79,6 +79,19 @@ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
         tierBudget:      null,
       };
     }
+    if (source === 'Bloodline') {
+      return {
+        grants: [
+          { source, grant_type: 'merit',     condition: 'bloodline', bloodline_name: 'Gorgons', target: 'Area of Expertise',          target_category: 'general', target_qualifier: 'snakes', amount: 1, amount_basis: 'flat', auto_create: true },
+          { source, grant_type: 'merit',     condition: 'bloodline', bloodline_name: 'Gorgons', target: 'Interdisciplinary Specialty', target_category: 'general', target_qualifier: 'snakes', amount: 1, amount_basis: 'flat', auto_create: true },
+          { source, grant_type: 'speciality', condition: 'bloodline', bloodline_name: 'Gorgons', target: 'Animal Ken',                  target_qualifier: 'snakes', amount: 1, amount_basis: 'flat' },
+        ],
+        nineAgain:       [],
+        skillBonus:      [],
+        specialityGrants:[],
+        tierBudget:      null,
+      };
+    }
     return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
   },
 }));

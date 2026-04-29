@@ -47,12 +47,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `server/scripts/seed-rules-bloodlines.js` (new) — reads `BLOODLINE_GRANTS`, expands to one rule doc per granted item, inserts into `rule_grant`. Idempotent. `--dry-run` / `--apply`.
-- [ ] `public/js/editor/rule_engine/bloodline-evaluator.js` (new) — replaces `mci.js:381-417`. Reads bloodline rules, applies grants, preserves case-insensitive qualifier match and dedup.
-- [ ] `server/tests/bloodline-parallel-write.test.js` (new) — covers each bloodline currently in `BLOODLINE_GRANTS` plus the no-bloodline and bloodline-change cases. Deep-equal.
-- [ ] Flip: replace block in `mci.js:381-417` with evaluator call. Delete legacy.
-- [ ] Decommission `BLOODLINE_GRANTS` constant once flip is green and tests pass. Or leave it for one cycle and delete in a follow-up — note the choice in the spec change log.
-- [ ] RDE-4 editor: bloodline rules visible under Merit Grants, filterable by `source` (bloodline name).
+- [x] `server/scripts/seed-rules-bloodlines.js` (new) — reads `BLOODLINE_GRANTS`, expands to one rule doc per granted item, inserts into `rule_grant`. Idempotent. `--dry-run` / `--apply`.
+- [x] `public/js/editor/rule_engine/bloodline-evaluator.js` (new) — replaces `mci.js:381-417`. Reads bloodline rules, applies grants, preserves case-insensitive qualifier match and dedup.
+- [x] `server/tests/bloodline-parallel-write.test.js` (new) — covers each bloodline currently in `BLOODLINE_GRANTS` plus the no-bloodline and bloodline-change cases. Deep-equal.
+- [x] Flip: replace block in `mci.js:381-417` with evaluator call. Delete legacy.
+- [x] Decommission `BLOODLINE_GRANTS` constant — decommissioned immediately (same cycle). Tests confirm equivalence; no reason to defer. Change log: deleted from `constants.js`.
+- [x] RDE-4 editor: bloodline rules visible under Merit Grants, filterable by `source` (bloodline name).
 
 **Acceptance Criteria:**
 - Given a Daeva character (or whichever has bloodline_grants today), when the evaluator runs, then auto-merits and free specs match legacy snapshots.

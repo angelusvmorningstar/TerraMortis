@@ -8,15 +8,19 @@ export const ruleGrantSchema = {
   properties: {
     source:           { type: 'string', minLength: 1 },
     tier:             { type: 'integer', minimum: 1, maximum: 5 },
-    condition:        { type: 'string', enum: ['always', 'tier', 'choice', 'pact_present'] },
-    grant_type:       { type: 'string', enum: ['merit', 'pool'] },
+    condition:        { type: 'string', enum: ['always', 'tier', 'choice', 'pact_present', 'bloodline'] },
+    grant_type:       { type: 'string', enum: ['merit', 'pool', 'speciality'] },
     target:           { type: 'string', minLength: 1 },
     target_qualifier: { type: 'string' },
+    target_category:  { type: 'string' },
+    bloodline_name:   { type: 'string' },
     amount:           { type: 'integer', minimum: 0 },
     amount_basis: {
       type: 'string',
       enum: ['flat', 'rating_of_source', 'rating_of_partner_merit'],
     },
+    auto_create:     { type: 'boolean' },
+    sphere_source:   { type: 'string' },
     choice_field:    { type: 'string' },
     excluded_choice: { type: 'string' },
     read_refs: {
