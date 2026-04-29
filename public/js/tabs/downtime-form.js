@@ -309,7 +309,7 @@ function collectResponses() {
         responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
         // Blood type checkboxes
         const bloodChecked = [];
-        document.querySelectorAll('[data-blood-type]:checked').forEach(cb => bloodChecked.push(cb.value));
+        document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
@@ -2072,6 +2072,13 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+    // Blood type toggle — multi-select pill buttons
+    const bloodBtn = e.target.closest('[data-blood-type]');
+    if (bloodBtn) {
+      bloodBtn.classList.toggle('dt-feed-vi-on');
+      scheduleSave();
       return;
     }
     // DTFP-5: Kiss / Violent toggle
@@ -5416,13 +5423,10 @@ function renderQuestion(q, value) {
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
       h += '<div class="qf-field">';
       h += '<label class="qf-label">Blood Type</label>';
-      h += '<div class="dt-feed-blood-types">';
+      h += '<div class="dt-feed-violence-toggle">';
       for (const bt of BLOOD_TYPES) {
-        const checked = savedBlood.includes(bt) ? ' checked' : '';
-        h += `<label class="dt-feed-blood-label">`;
-        h += `<input type="checkbox" value="${esc(bt)}" data-blood-type${checked}>`;
-        h += `<span>${esc(bt)}</span>`;
-        h += '</label>';
+        const on = savedBlood.includes(bt) ? ' dt-feed-vi-on' : '';
+        h += `<button type="button" class="dt-feed-vi-btn${on}" data-blood-type="${esc(bt)}">${esc(bt)}</button>`;
       }
       h += '</div></div>';
 
