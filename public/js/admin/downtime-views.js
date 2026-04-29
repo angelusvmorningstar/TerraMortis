@@ -2228,27 +2228,23 @@ function renderPrepPanel(cycle) {
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
-  // Active players — those with at least one non-retired linked character
-  const activePlayers = (players || [])
-    .filter(p => {
-      const charIds = (p.character_ids || []).map(String);
-      return characters.some(c => !c.retired && charIds.includes(String(c._id)));
-    })
-    .sort((a, b) => (a.player_name || a.username || '').localeCompare(b.player_name || b.username || ''));
+  // Active (non-retired) characters, sorted by display name
+  const activeChars = (characters || [])
+    .filter(c => !c.retired)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  const toggleHtml = activePlayers.map(p => {
-    const id = String(p._id);
+  const toggleHtml = activeChars.map(c => {
+    const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
-    const name = esc(p.player_name || p.username || id);
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${name}</span>
+      <span class="dt-early-name">${esc(displayName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
 
-  const earlyContent = activePlayers.length
+  const earlyContent = activeChars.length
     ? toggleHtml
-    : `<p class="placeholder">No active players.</p>`;
+    : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
     `<div class="dt-prep-grid">` +

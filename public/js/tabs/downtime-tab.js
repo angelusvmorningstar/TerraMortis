@@ -36,7 +36,7 @@ export async function initDowntimeTab(el, char, territories = []) {
     .sort((a, b) => LIVE_STATUSES.indexOf(a.status) - LIVE_STATUSES.indexOf(b.status))[0] || null;
 
   // Access gate: STs always pass; players need early access or auto_open_at reached or cycle is open
-  const inEarlyAccess = playerId && (activeCycle?.early_access_player_ids || []).includes(playerId);
+  const inEarlyAccess = charId && (activeCycle?.early_access_player_ids || []).includes(charId);
   const autoOpenPassed = activeCycle?.auto_open_at && new Date(activeCycle.auto_open_at) <= new Date();
   const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
   const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
