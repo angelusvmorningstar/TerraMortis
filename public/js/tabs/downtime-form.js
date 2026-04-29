@@ -2171,8 +2171,9 @@ function renderForm(container) {
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
+      const mPrefix = maintChip.dataset.maintenancePrefix || 'project';
       const targetId = maintChip.dataset.targetId;
-      const hidden = document.getElementById(`dt-project_${slotNum}_target_value`);
+      const hidden = document.getElementById(`dt-${mPrefix}_${slotNum}_target_value`);
       const wasSelected = maintChip.classList.contains('dt-chip--selected');
       container.querySelectorAll(`[data-maintenance-target="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
       if (!wasSelected) {
@@ -2193,6 +2194,25 @@ function renderForm(container) {
       const ids = [...selected].map(el => el.dataset.charId).filter(Boolean);
       const hidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
       if (hidden) hidden.value = JSON.stringify(ids);
+      scheduleSave();
+      return;
+    }
+    // DTUI-16: sphere character target chip — single-select
+    const sphereCharChip = e.target.closest('[data-sphere-char-target]');
+    if (sphereCharChip && !sphereCharChip.disabled) {
+      const prefixN = sphereCharChip.dataset.sphereCharTarget; // e.g. 'sphere_2'
+      const charId = sphereCharChip.dataset.charId;
+      const wasSelected = sphereCharChip.classList.contains('dt-chip--selected');
+      container.querySelectorAll(`[data-sphere-char-target="${prefixN}"]`).forEach(el => el.classList.remove('dt-chip--selected'));
+      const hidden = document.getElementById(`dt-${prefixN}_target_value`);
+      if (!wasSelected) {
+        sphereCharChip.classList.add('dt-chip--selected');
+        saved[`${prefixN}_target_value`] = charId;
+        if (hidden) hidden.value = charId;
+      } else {
+        saved[`${prefixN}_target_value`] = '';
+        if (hidden) hidden.value = '';
+      }
       scheduleSave();
       return;
     }
@@ -4461,13 +4481,14 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
-/** Chip grid of the character's own maintenance-eligible merits (dtui-11). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained) {
+/** Chip grid of the character's own maintenance-eligible merits (dtui-11).
+ *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
-  const savedTarget = saved[`project_${n}_target_value`] || '';
-  let h = `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedTarget)}">`;
+  const savedTarget = saved[`${prefix}_${n}_target_value`] || '';
+  let h = `<input type="hidden" id="dt-${prefix}_${n}_target_value" value="${esc(savedTarget)}">`;
 
   if (maintMerits.length === 0) {
     h += '<p class="qf-desc">No merits requiring maintenance found for this character.</p>';
@@ -4485,12 +4506,24 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained) {
     const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
-         `data-maintenance-target="${n}" data-target-id="${esc(id)}">` +
+         `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
          `${esc(m.name)}${dotStr ? ` <span class="dt-chip__suffix">${dotStr}</span>` : ''}` +
          `</button>`;
   }
   h += '</div>';
   return h;
+}
+
+/** Returns a Set of target_value ids already claimed by other sphere/status maintenance slots (dtui-16). */
+function getSphereAlreadyMaintainedTargets(prefix, n, saved, maxSlots) {
+  const maintained = new Set();
+  for (let k = 1; k <= maxSlots; k++) {
+    if (k === n) continue;
+    if (saved[`${prefix}_${k}_action`] === 'maintenance' && saved[`${prefix}_${k}_target_value`]) {
+      maintained.add(saved[`${prefix}_${k}_target_value`]);
+    }
+  }
+  return maintained;
 }
 
 /** Per-action outcome zone (dtui-9). */
@@ -4703,21 +4736,23 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
   }
 
   if (fields.includes('target_char')) {
-    let targetPicks = [];
-    try { targetPicks = JSON.parse(saved[`${prefix}_${n}_target_value`] || '[]'); } catch {
-      if (saved[`${prefix}_${n}_target_value`]) targetPicks = [saved[`${prefix}_${n}_target_value`]];
-    }
-    const targetSet = new Set(targetPicks.map(String));
+    // DTUI-16: replaced dt-shoutout-grid checkboxes with .dt-chip-grid--single
+    let savedTarget = saved[`${prefix}_${n}_target_value`] || '';
+    // Handle legacy JSON array saved values from old checkbox approach
+    try {
+      const parsed = JSON.parse(savedTarget);
+      if (Array.isArray(parsed) && parsed.length) savedTarget = String(parsed[0]);
+    } catch { /* plain string */ }
     h += '<div class="qf-field">';
-    h += '<label class="qf-label">Target Character(s)</label>';
-    h += `<div class="dt-shoutout-grid">`;
+    h += '<label class="qf-label">Target Character</label>';
+    h += `<input type="hidden" id="dt-${prefix}_${n}_target_value" value="${esc(savedTarget)}">`;
+    h += `<div class="dt-chip-grid dt-chip-grid--single" data-sphere-char-grid="${prefix}_${n}">`;
     for (const c of allCharacters) {
-      const isChecked = targetSet.has(String(c.id));
-      const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
-      h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
-      h += `<input type="checkbox" class="dt-target-char-sphere-cb" data-target-slot="${prefix}_${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
-      h += `<span>${esc(c.name)}</span>`;
-      h += '</label>';
+      const id = String(c.id);
+      const isSelected = savedTarget === id;
+      const selectedClass = isSelected ? ' dt-chip--selected' : '';
+      h += `<button type="button" class="dt-chip${selectedClass}"`;
+      h += ` data-sphere-char-target="${prefix}_${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
     }
     h += '</div></div>';
   }
@@ -4803,6 +4838,16 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
       key: `${prefix}_${n}_description`, label: 'Description',
       type: 'textarea', required: false, desc: null,
     }, saved[`${prefix}_${n}_description`] || '');
+  }
+
+  if (fields.includes('maintenance_target')) {
+    // DTUI-16: sphere maintenance — reuse renderMaintenanceChips with sphere prefix
+    const maxSphereSlots = detectedMerits.spheres.length;
+    const alreadyMaint = getSphereAlreadyMaintainedTargets(prefix, n, saved, maxSphereSlots);
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">What are you maintaining?</label>';
+    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaint, prefix);
+    h += '</div>';
   }
 
   return h;
