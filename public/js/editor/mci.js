@@ -4,7 +4,7 @@
  * applyDerivedMerits computes available pools each render cycle.
  */
 
-import { addMerit, removeMerit, ensureMeritSync } from './merits.js';
+import { addMerit, ensureMeritSync } from './merits.js';
 import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
 import { BLOODLINE_GRANTS } from '../data/constants.js';
 
@@ -17,106 +17,6 @@ const MCI_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number (1-5), 0 unu
 
 export function applyDerivedMerits(c, allChars = []) {
   if (!c) return;
-
-  // Strip any legacy derived merits (migration cleanup)
-  if (c.merits) {
-    for (let i = c.merits.length - 1; i >= 0; i--) {
-      if (c.merits[i].derived) removeMerit(c, i);
-    }
-  }
-
-  // Migrate legacy 'up' field → 'cp' on merit objects (Excel import artifact)
-  (c.merits || []).forEach(m => {
-    if (!m || !m.up) return;
-    m.cp = (m.cp || 0) + m.up;
-    delete m.up;
-  });
-
-  // Migrate legacy MCI-granted merits: old code stamped granted_by on merits it created.
-  // Current system is pool-based (free_mci only) and never sets granted_by for MCI.
-  // Clear the field so these orphaned merits become ST-editable/deletable.
-  (c.merits || []).forEach(m => {
-    if (m.granted_by === 'Mystery Cult Initiation' || m.granted_by === 'MCI') delete m.granted_by;
-  });
-
-  // Migrate Fucking Thief stolen merits: backfill granted_by if missing
-  const ftMerit = (c.merits || []).find(m => m.name === 'Fucking Thief' && m.category === 'general');
-  if (ftMerit && ftMerit.qualifier) {
-    const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
-    if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
-  }
-  // Clear legacy free dot on Fucking Thief stolen merits (never legitimate)
-  (c.merits || []).forEach(m => { if (m.granted_by === 'Fucking Thief') m.free = 0; });
-
-  // Migrate legacy benefit_grants → tier_grants on MCI merits
-  (c.merits || []).forEach(m => {
-    if (m.name !== 'Mystery Cult Initiation') return;
-    if (m.tier_grants || !m.benefit_grants || !m.benefit_grants.length) return;
-    m.tier_grants = [];
-    m.benefit_grants.forEach((bg, i) => {
-      if (!bg || !bg.name) return;
-      m.tier_grants.push({ tier: i + 1, name: bg.name, category: bg.category || 'general', rating: bg.rating || 1, qualifier: bg.qualifier || bg.area || null });
-    });
-  });
-
-  // Auto-map free_mci allocations to tier_grants when tier_grants is absent.
-  // Matches merits by free_mci amount to available tier budgets (greedy, largest first).
-  // Runs once per MCI — once tier_grants exists, user manages it manually.
-  const _AUTO_TIER_BUDGETS = MCI_TIER_BUDGETS;
-  (c.merits || []).forEach(mci => {
-    if (mci.name !== 'Mystery Cult Initiation' || mci.tier_grants) return;
-    const rating = mci.rating || 0;
-    if (rating === 0) return;
-    const d1c = mci.dot1_choice || 'merits', d3c = mci.dot3_choice || 'merits', d5c = mci.dot5_choice || 'merits';
-    // Build list of available merit tiers (descending budget for greedy match)
-    const avail = [];
-    if (rating >= 5 && d5c === 'merits') avail.push(5);
-    if (rating >= 4) avail.push(4);
-    if (rating >= 3 && d3c === 'merits') avail.push(3);
-    if (rating >= 2) avail.push(2);
-    if (rating >= 1 && d1c === 'merits') avail.push(1);
-    if (!avail.length) return;
-    // Collect merits with free_mci, sorted largest first
-    const candidates = (c.merits || [])
-      .filter(m => m !== mci && (m.free_mci || 0) > 0)
-      .map(m => ({ name: m.name, category: m.category, rating: m.free_mci, qualifier: m.area || m.qualifier || null }))
-      .sort((a, b) => b.rating - a.rating);
-    if (!candidates.length) return;
-    mci.tier_grants = [];
-    const usedTiers = new Set();
-    for (const cand of candidates) {
-      // Find best matching tier: budget >= candidate rating, not yet used
-      const tier = avail.find(t => !usedTiers.has(t) && _AUTO_TIER_BUDGETS[t] >= cand.rating);
-      if (tier == null) continue;
-      usedTiers.add(tier);
-      mci.tier_grants.push({ tier, name: cand.name, category: cand.category, rating: Math.min(cand.rating, _AUTO_TIER_BUDGETS[tier]), qualifier: cand.qualifier });
-    }
-  });
-
-  // Migrate legacy 'Regular' fighting style → 'Fighting Merit' (type: merit)
-  (c.fighting_styles || []).forEach(fs => {
-    if (fs.name === 'Regular') { fs.name = 'Fighting Merit'; fs.type = 'merit'; }
-  });
-
-  // Migrate Mandragora Garden from general → domain if miscategorised
-  (c.merits || []).forEach(m => {
-    if (m.name === 'Mandragora Garden' && m.category !== 'domain') m.category = 'domain';
-  });
-  // De-duplicate domain Mandragora Gardens: keep the one with shared_with (proper domain entry),
-  // remove legacy extras (e.g. old general entry with granted_by). Splice in reverse index order.
-  {
-    const mgIdxs = (c.merits || []).reduce((a, m, i) => m.name === 'Mandragora Garden' ? [...a, i] : a, []);
-    if (mgIdxs.length > 1) {
-      // Prefer to keep: 1) has shared_with, 2) no granted_by, 3) first in array
-      let keepIdx = mgIdxs.find(i => (c.merits[i].shared_with || []).length > 0);
-      if (keepIdx === undefined) keepIdx = mgIdxs.find(i => !c.merits[i].granted_by);
-      if (keepIdx === undefined) keepIdx = mgIdxs[0];
-      const toRemove = mgIdxs.filter(i => i !== keepIdx).sort((a, b) => b - a);
-      for (const ri of toRemove) {
-        c.merits.splice(ri, 1);
-      }
-    }
-  }
 
   // Clear ephemeral tracking
   c._pt_nine_again_skills = new Set();
