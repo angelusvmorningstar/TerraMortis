@@ -40,6 +40,8 @@ export function applyPoolRulesFromDb(c, { grants = [] } = {}) {
 
 function _computeAmount(c, rule) {
   switch (rule.amount_basis) {
+    case 'vm_allies_pool':
+      return _vmAlliesPool(c);
     case 'rating_of_partner_merit':
       return _ratingOfPartner(c, rule.partner_merit_name);
     case 'flat':
@@ -47,6 +49,21 @@ function _computeAmount(c, rule) {
     default:
       return 0;
   }
+}
+
+/**
+ * Inline copy of domain.js:vmAlliesPool — no import needed.
+ * Sum of (cp + xp + free_mci) across non-VM-granted Allies influence merits.
+ * VM-granted Allies (granted_by: 'VM') excluded to prevent feedback loop.
+ */
+function _vmAlliesPool(c) {
+  let total = 0;
+  (c.merits || []).forEach(m => {
+    if (m.category !== 'influence' || m.name !== 'Allies') return;
+    if (m.granted_by === 'VM') return;
+    total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: VM pool basis = all non-VM Allies dots (purchased + MCI grants); free_mci counts because MCI Allies are real influence resources
+  });
+  return total;
 }
 
 /**

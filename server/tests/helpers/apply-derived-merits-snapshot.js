@@ -259,6 +259,16 @@ class FixtureBuilder {
     return this;
   }
 
+  /** Add the Viral Mythology merit and an Allies merit with the given purchased CP dots. */
+  withViralMythology(alliesCp = 2, { area = 'Police', xp = 0, free_mci = 0 } = {}) {
+    this._c.covenant = 'Circle of the Crone';
+    this._c.merits.push({ name: 'Viral Mythology', category: 'general', cp: 1, xp: 0, free: 0 });
+    if (alliesCp > 0 || xp > 0) {
+      this._c.merits.push({ name: 'Allies', category: 'influence', area, cp: alliesCp, xp, free_mci, free: 0 });
+    }
+    return this;
+  }
+
   /** Deep-clone and return the finished character. */
   build() {
     return JSON.parse(JSON.stringify(this._c));

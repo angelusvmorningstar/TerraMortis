@@ -5,7 +5,6 @@
  */
 
 import { addMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool } from './domain.js';
 import { getRulesBySource } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
@@ -47,19 +46,8 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── PT grant pools (evaluator reads from rule_grant / rule_nine_again / rule_skill_bonus) ──
   applyPTRulesFromDb(c, getRulesBySource('Professional Training'));
 
-  // ── VM grant pool (Allies) ──
-  if (hasViralMythology(c)) {
-    const vmPool = vmAlliesPool(c);
-    if (vmPool > 0) {
-      c._grant_pools.push({
-        source: 'VM',
-        name: '_vm',
-        category: 'vm',
-        amount: vmPool
-      });
-    }
-  }
-
+  // ── VM grant pool (Allies, evaluator reads from rule_grant, condition='merit_present') ──
+  applyPoolRulesFromDb(c, getRulesBySource('Viral Mythology'));
 
   // ── OHM: grants, FHP auto-create, and 9-again (evaluator reads from rule_grant / rule_nine_again) ──
   applyOHMRulesFromDb(c, getRulesBySource('Oath of the Hard Motherfucker'));
