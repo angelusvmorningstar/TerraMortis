@@ -3,6 +3,7 @@ title: 'Discipline → Attribute / derived stat migration — Vigour, Resilience
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — disc→attr maps + Celerity-into-derived-stats house rule (Speed/Defence, NOT Dexterity); touches calcSpeed/calcDefence and the dice pool helper'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

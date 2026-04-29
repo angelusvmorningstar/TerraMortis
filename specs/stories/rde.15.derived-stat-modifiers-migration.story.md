@@ -3,6 +3,7 @@ title: 'Derived stat modifiers migration — Giant, Fleet of Foot, Defensive Com
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — derived-stat modifier evaluator delegated from calcSize/calcSpeed/calcDefence; legacy inline merit lookups deleted post-flip'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

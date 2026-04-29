@@ -3,6 +3,7 @@ title: 'Oath of the Scapegoat migration — covenant-status floor and free style
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — dual rule (covenant-status floor + style-dot pool) + pact lifecycle + interactions with Oath of Fealty / vitae projection'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

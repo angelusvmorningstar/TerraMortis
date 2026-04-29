@@ -3,6 +3,7 @@ title: 'Mystery Cult Initiation migration — tier grants, choice tiers, tier bu
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — five interacting tier rules + tier-budget table + per-character choice fields drive branching'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md
