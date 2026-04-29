@@ -250,6 +250,15 @@ class FixtureBuilder {
     return this;
   }
 
+  /** Add the Lorekeeper merit and a Library merit with the given purchased dots. */
+  withLorekeeper(libraryDots = 2) {
+    this._c.merits.push({ name: 'Lorekeeper', category: 'general', cp: 1, xp: 0, free: 0 });
+    if (libraryDots > 0) {
+      this._c.merits.push({ name: 'Library', category: 'general', cp: libraryDots, xp: 0, free: 0 });
+    }
+    return this;
+  }
+
   /** Deep-clone and return the finished character. */
   build() {
     return JSON.parse(JSON.stringify(this._c));

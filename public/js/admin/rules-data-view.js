@@ -176,8 +176,13 @@ function _extraColCount() {
 
 function _rowCells(r) {
   switch (_activeFamily) {
-    case 'grant':
-      return `<td>${esc(r.grant_type || '')}</td><td>${esc(r.target || '')}</td><td>${r.amount ?? ''}</td>`;
+    case 'grant': {
+      const grantTarget = r.grant_type === 'pool'
+        ? (Array.isArray(r.pool_targets) ? r.pool_targets.join(', ') : (r.pool_targets || ''))
+        : (r.target || '');
+      const grantAmount = r.grant_type === 'pool' ? (r.amount_basis || '') : (r.amount ?? '');
+      return `<td>${esc(r.grant_type || '')}</td><td>${esc(grantTarget)}</td><td>${esc(String(grantAmount))}</td>`;
+    }
     case 'speciality_grant':
       return `<td>${esc(r.target_skill || '')}</td><td>${esc(r.spec || '')}</td>`;
     case 'skill_bonus':
@@ -292,6 +297,7 @@ function _fieldsGrant(r, isNew) {
   const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline']];
   const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality']];
   const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit']];
+  const poolTargetsVal = Array.isArray(r?.pool_targets) ? r.pool_targets.join(', ') : (r?.pool_targets || '');
   let h = '';
   h += _ff('Source merit', 'rde-f-source', 'text', r?.source, 'Name of the merit or grant source. Use "Bloodline" for bloodline grants.');
   h += _ff('Tier', 'rde-f-tier', 'number', r?.tier, 'Required PT/MCI dot level (blank = always).');
@@ -302,12 +308,16 @@ function _fieldsGrant(r, isNew) {
   h += _ff('Grant type', 'rde-f-grant-type', 'select', null,
     'merit = free dots on a merit; pool = named free-dot pool; speciality = push spec onto a skill.',
     _sel('rde-f-grant-type', grantTypes, r?.grant_type || 'merit'));
-  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name (grant_type=merit), pool key (grant_type=pool), or skill name (grant_type=speciality).');
+  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name (grant_type=merit) or skill name (grant_type=speciality). Leave blank for pool grants.');
   h += _ff('Target qualifier', 'rde-f-target-qualifier', 'text', r?.target_qualifier,
     'Merit qualifier/area (grant_type=merit) or spec name (grant_type=speciality).');
-  h += _ff('Amount', 'rde-f-amount', 'number', r?.amount, 'Number of dots granted.', 'min="0"');
+  h += _ff('Pool targets', 'rde-f-pool-targets', 'text', poolTargetsVal,
+    'Comma-separated merit names eligible for allocation (grant_type=pool only). E.g. "Herd, Mentor, Resources, Retainer".');
+  h += _ff('Amount', 'rde-f-amount', 'number', r?.amount, 'Flat dot count (amount_basis=flat). Leave blank for pool grants (amount is computed at render time).', 'min="0"');
   h += _ff('Amount basis', 'rde-f-amount-basis', 'select', null, null,
     _sel('rde-f-amount-basis', bases, r?.amount_basis || 'flat'));
+  h += _ff('Partner merit name', 'rde-f-partner-merit-name', 'text', r?.partner_merit_name,
+    'Merit whose rating determines pool size (amount_basis=rating_of_partner_merit). Use "Invictus Status" for covenant status, or a merit name like "Library".');
   return h;
 }
 
@@ -531,13 +541,17 @@ function _validate(data) {
     case 'grant': {
       if (!data.source?.trim()) errs.push({ id: 'rde-f-source-err', msg: 'Source is required.' });
       if (!data.grant_type) errs.push({ id: 'rde-f-grant-type-err', msg: 'Grant type is required.' });
-      if (!data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Target is required.' });
-      if (data.grant_type === 'merit' && data.target && !meritNames.has(data.target.toLowerCase())) {
-        errs.push({ id: 'rde-f-target-err', msg: `"${data.target}" is not in MERITS_DB. Check spelling.` });
-      }
-      if (data.source?.trim() === data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Source and target must differ.' });
-      if (data.amount == null || isNaN(data.amount)) errs.push({ id: 'rde-f-amount-err', msg: 'Amount is required.' });
       if (!data.amount_basis) errs.push({ id: 'rde-f-amount-basis-err', msg: 'Amount basis is required.' });
+      if (data.grant_type === 'pool') {
+        if (!data.pool_targets?.length) errs.push({ id: 'rde-f-pool-targets-err', msg: 'Pool targets are required for pool grants.' });
+      } else {
+        if (!data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Target is required.' });
+        if (data.grant_type === 'merit' && data.target && !meritNames.has(data.target.toLowerCase())) {
+          errs.push({ id: 'rde-f-target-err', msg: `"${data.target}" is not in MERITS_DB. Check spelling.` });
+        }
+        if (data.source?.trim() === data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Source and target must differ.' });
+        if (data.amount == null || isNaN(data.amount)) errs.push({ id: 'rde-f-amount-err', msg: 'Amount is required.' });
+      }
       break;
     }
     case 'speciality_grant': {
@@ -628,6 +642,10 @@ function _readFormData() {
       if (bl) d.bloodline_name = bl;
       const tq = v('rde-f-target-qualifier');
       if (tq) d.target_qualifier = tq;
+      const ptRaw = v('rde-f-pool-targets');
+      if (ptRaw) d.pool_targets = ptRaw.split(',').map(s => s.trim()).filter(Boolean);
+      const pm = v('rde-f-partner-merit-name');
+      if (pm) d.partner_merit_name = pm;
       return d;
     }
     case 'speciality_grant':

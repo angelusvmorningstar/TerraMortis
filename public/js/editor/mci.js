@@ -5,12 +5,13 @@
  */
 
 import { addMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
+import { hasViralMythology, vmAlliesPool } from './domain.js';
 import { getRulesBySource } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
 import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
 import { applyBloodlineRulesFromDb } from './rule_engine/bloodline-evaluator.js';
+import { applyPoolRulesFromDb } from './rule_engine/pool-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -130,18 +131,8 @@ export function applyDerivedMerits(c, allChars = []) {
     }
   }
 
-  // ── Invested grant pool (Herd/Mentor/Resources/Retainer = Invictus Status dots) ──
-  if (hasInvested(c)) {
-    const invPool = investedPool(c);
-    if (invPool > 0) {
-      c._grant_pools.push({
-        source: 'Invested',
-        names: ['Herd', 'Mentor', 'Resources', 'Retainer'],
-        category: 'inv',
-        amount: invPool
-      });
-    }
-  }
+  // ── Invested grant pool (evaluator reads from rule_grant) ──
+  applyPoolRulesFromDb(c, getRulesBySource('Invested'));
 
   // ── MDB: auto-apply free_mdb to chosen Crúac Style = Mentor rating ──
   const mdbMerit = (c.merits || []).find(m => m.name === 'The Mother-Daughter Bond');
@@ -156,18 +147,8 @@ export function applyDerivedMerits(c, allChars = []) {
     }
   }
 
-  // ── Lorekeeper grant pool (Herd/Retainer) ──
-  if (hasLorekeeper(c)) {
-    const lkPool = lorekeeperPool(c);
-    if (lkPool > 0) {
-      c._grant_pools.push({
-        source: 'Lorekeeper',
-        names: ['Herd', 'Retainer'],
-        category: 'lk',
-        amount: lkPool
-      });
-    }
-  }
+  // ── Lorekeeper grant pool (evaluator reads from rule_grant) ──
+  applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
 
   // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
   const otsOath = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the scapegoat');
