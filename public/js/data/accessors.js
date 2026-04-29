@@ -160,25 +160,56 @@ export function pacts(c) {
 // ── Derived stats ──
 
 export function calcSize(c) {
-  const giant = (c.merits || []).find(m => m.name === 'Giant');
-  return 5 + (giant ? 1 : 0);
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  if (!rules) {
+    const giant = (c.merits || []).find(m => m.name === 'Giant');
+    return 5 + (giant ? 1 : 0);
+  }
+  return 5 + _derivedStatModBonus(c, 'size', rules);
 }
 
 export function calcSpeed(c) {
   const str = getAttrEffective(c, 'Strength');
   const dex = getAttrTotal(c, 'Dexterity');
   const sz = calcSize(c);
-  const fleet = (c.merits || []).find(m => m.name === 'Fleet of Foot');
-  return str + dex + sz + _discDerivedBonus(c, 'Speed') + (fleet ? fleet.rating : 0);
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  const bonus = rules
+    ? _derivedStatModBonus(c, 'speed', rules)
+    : ((c.merits || []).find(m => m.name === 'Fleet of Foot')?.rating || 0);
+  return str + dex + sz + _discDerivedBonus(c, 'Speed') + bonus;
 }
 
 export function calcDefence(c) {
   const dex = getAttrTotal(c, 'Dexterity');
   const wits = getAttrVal(c, 'Wits');
   const base = Math.min(dex, wits);
-  const dc = (c.merits || []).find(m => m.name === 'Defensive Combat');
-  const skill = dc ? skDots(c, dc.qualifier || 'Athletics') : skDots(c, 'Athletics');
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  const skill = rules
+    ? _getDefenceSkill(c, rules)
+    : (() => { const dc = (c.merits || []).find(m => m.name === 'Defensive Combat'); return dc ? skDots(c, dc.qualifier || 'Athletics') : skDots(c, 'Athletics'); })();
   return base + skill + _discDerivedBonus(c, 'Defence');
+}
+
+/** Sum flat and rating bonuses from derived_stat_modifier rules for a target stat. */
+function _derivedStatModBonus(c, targetStat, rules) {
+  return rules
+    .filter(r => r.target_stat === targetStat && r.mode !== 'skill_swap')
+    .reduce((sum, rule) => {
+      const merit = (c.merits || []).find(m => m.name === rule.source);
+      if (!merit) return sum;
+      if (rule.mode === 'flat') return sum + (rule.flat_amount || 0);
+      if (rule.mode === 'rating') return sum + (merit.rating || 0);
+      return sum;
+    }, 0);
+}
+
+/** Determine the skill dots for the Defence formula, respecting any skill_swap rules. */
+function _getDefenceSkill(c, rules) {
+  const swapRule = rules.find(r => r.target_stat === 'defence' && r.mode === 'skill_swap');
+  if (!swapRule) return skDots(c, 'Athletics');
+  const merit = (c.merits || []).find(m => m.name === swapRule.source);
+  if (!merit) return skDots(c, swapRule.swap_from || 'Athletics');
+  return skDots(c, merit.qualifier || swapRule.swap_to || swapRule.swap_from || 'Athletics');
 }
 
 export function calcHealth(c) {

@@ -27,7 +27,7 @@ export function applyOTSRulesFromDb(c, { grants = [] } = {}) {
     return;
   }
 
-  const pactRating = (otsPact.cp || 0) + (otsPact.xp || 0);
+  const pactRating = (otsPact.cp || 0) + (otsPact.xp || 0); // inherent-intentional: pact rating = cp + xp; pacts have no free_* channels
 
   if (pactRating <= 0) {
     // Oath unpurchased — treat same as absent

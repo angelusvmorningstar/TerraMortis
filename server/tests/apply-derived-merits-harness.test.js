@@ -104,6 +104,12 @@ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
         nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
       };
     }
+    if (source === 'Oath of the Safe Word') {
+      return {
+        grants: [{ source, grant_type: 'merit', condition: 'partner_pact_confirmation', target_field: 'free_sw', mirror_category: 'influence' }],
+        nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
+      };
+    }
     return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
   },
 }));

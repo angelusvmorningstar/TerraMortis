@@ -83,6 +83,7 @@ export function applySafeWordRulesFromDb(c, { grants = [] } = {}, allChars = [])
 function _removeStaleSwMerit(c) {
   const idx = (c.merits || []).findIndex(m =>
     m.granted_by === 'Safe Word' &&
+    // inherent-intentional: zero-checks all dot channels to confirm merit is phantom (no purchased or derived dots remain)
     !(m.cp) && !(m.xp) && !(m.free_mci) && !(m.free_vm) && !(m.free_bloodline) &&
     !(m.free_pet) && !(m.free_lk) && !(m.free_ohm) && !(m.free_inv) && !(m.free_pt) && !(m.free_mdb),
   );
@@ -94,7 +95,8 @@ function _removeStaleSwMerit(c) {
  * Excludes free_sw to prevent circular reference (one-hop only).
  */
 function _effectivePartnerRating(m) {
-  return (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) +
+  // inherent-intentional: effective partner rating sums all purchased + free dot sources; mirrors legacy mci.js line 79-81
+  return (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + // inherent-intentional: continuation
     (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) +
-    (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0);
+    (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0); // inherent-intentional: continuation
 }
