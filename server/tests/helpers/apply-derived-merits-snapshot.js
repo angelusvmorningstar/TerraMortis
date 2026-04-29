@@ -272,6 +272,17 @@ class FixtureBuilder {
     return this;
   }
 
+  /** Add an Oath of the Scapegoat pact to c.powers. */
+  withOTS({ cp = 1, xp = 0 } = {}) {
+    this._c.powers.push({
+      name: 'Oath of the Scapegoat',
+      category: 'pact',
+      cp,
+      xp,
+    });
+    return this;
+  }
+
   /** Add the Viral Mythology merit and an Allies merit with the given purchased CP dots. */
   withViralMythology(alliesCp = 2, { area = 'Police', xp = 0, free_mci = 0 } = {}) {
     this._c.covenant = 'Circle of the Crone';

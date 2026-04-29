@@ -2,7 +2,7 @@
 title: 'Oath of the Scapegoat migration — covenant-status floor and free style dots'
 type: 'refactor'
 created: '2026-04-28'
-status: 'ready-for-dev'
+status: 'complete'
 recommended_model: 'opus — dual rule (covenant-status floor + style-dot pool) + pact lifecycle + interactions with Oath of Fealty / vitae projection'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
@@ -45,10 +45,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `server/scripts/seed-rules-ots.js` — two rule docs.
-- [ ] `public/js/editor/rule_engine/ots-evaluator.js` — replaces legacy.
-- [ ] `server/tests/ots-parallel-write.test.js` — I/O Matrix. Deep-equal.
-- [ ] Flip: replace `mci.js:368-379`.
+- [x] `server/scripts/seed-rules-ots.js` — two rule docs.
+- [x] `public/js/editor/rule_engine/ots-evaluator.js` — replaces legacy.
+- [x] `server/tests/ots-parallel-write.test.js` — I/O Matrix. Deep-equal.
+- [x] Flip: replace `mci.js:368-379`.
 
 **Acceptance Criteria:**
 - Given an OTS pact rating 2 character, when evaluator runs, then `_ots_covenant_bonus: 2`, `_ots_free_dots: 4`.

@@ -14,6 +14,7 @@ import { applyPoolRulesFromDb } from './rule_engine/pool-evaluator.js';
 import { applyStyleRetainerRulesFromDb } from './rule_engine/style-retainer-evaluator.js';
 import { applyMDBRulesFromDb } from './rule_engine/mdb-evaluator.js';
 import { applySafeWordRulesFromDb } from './rule_engine/safe-word-evaluator.js';
+import { applyOTSRulesFromDb } from './rule_engine/ots-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -68,17 +69,7 @@ export function applyDerivedMerits(c, allChars = []) {
   applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
 
   // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
-  const otsOath = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the scapegoat');
-  c._ots_covenant_bonus = 0;
-  c._ots_free_dots = 0;
-  const _otsDots = otsOath ? ((otsOath.cp || 0) + (otsOath.xp || 0)) : 0;
-  if (_otsDots > 0) {
-    c._ots_covenant_bonus = _otsDots;
-    c._ots_free_dots = _otsDots * 2;
-  } else {
-    // Oath absent or unpurchased — clear user-allocated OTS dots from all styles
-    (c.fighting_styles || []).forEach(fs => { fs.free_ots = 0; });
-  }
+  applyOTSRulesFromDb(c, getRulesBySource('Oath of the Scapegoat'));
 
   // ── Bloodline grants (specs and merits) ──
   applyBloodlineRulesFromDb(c, getRulesBySource('Bloodline'));
