@@ -2,7 +2,7 @@
 title: 'Oath of the Safe Word migration — bidirectional partner shared-merit mirror'
 type: 'refactor'
 created: '2026-04-28'
-status: 'ready-for-dev'
+status: 'complete'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md
@@ -45,10 +45,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `server/scripts/seed-rules-safe-word.js` — one `rule_grant` doc.
-- [ ] `public/js/editor/rule_engine/safe-word-evaluator.js` — replaces legacy. Takes `allChars` (already passed to `applyDerivedMerits`) for partner lookup.
-- [ ] `server/tests/safe-word-parallel-write.test.js` — I/O Matrix. Deep-equal. Test fixture with two characters.
-- [ ] Flip: replace `mci.js:278-327`.
+- [x] `server/scripts/seed-rules-safe-word.js` — one `rule_grant` doc.
+- [x] `public/js/editor/rule_engine/safe-word-evaluator.js` — replaces legacy. Takes `allChars` (already passed to `applyDerivedMerits`) for partner lookup.
+- [x] `server/tests/safe-word-parallel-write.test.js` — I/O Matrix. Deep-equal. Test fixture with two characters.
+- [x] Flip: replace `mci.js:278-327`.
 
 **Acceptance Criteria:**
 - Given two characters with mutual OSW pacts and B's Resources rating 4, when evaluator runs against A, then A's mirrored Resources `free_sw: 4`.
