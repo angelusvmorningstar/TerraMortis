@@ -9,17 +9,38 @@
 // Action type options shared across project slots
 const PROJECT_ACTIONS = [
   { value: '', label: '— No Action Taken —' },
-  { value: 'ambience_increase', label: 'Ambience Change (Increase): Make a Territory delicious' },
-  { value: 'ambience_decrease', label: 'Ambience Change (Decrease): Make Territory not delicious' },
+  { value: 'ambience_change', label: 'Ambience Change: Improve or degrade the ambience of a territory' },
   { value: 'attack', label: 'Attack: Attempt to destroy merits, holdings, projects, or NPCs' },
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
-  { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
+
+export const ACTION_APPROACH_PROMPTS = {
+  'ambience_change_improve': 'How do you go about improving the ambience of this territory in narrative terms.',
+  'ambience_change_degrade': 'How do you go about degrading the ambience of this territory in narrative terms.',
+  'attack': 'How do you attempt to destroy or undermine this target in narrative terms.',
+  'hide_protect': 'How do you go about securing and hiding this target in narrative terms.',
+  'investigate': 'How does your character pursue this investigation in narrative terms.',
+  'patrol_scout': 'How does your character observe or patrol this territory in narrative terms.',
+  'misc': 'Describe your approach to this action in narrative terms.',
+  'maintenance': 'Describe how your character maintains this relationship or organisation in narrative terms.',
+};
+
+export const ACTION_DESCRIPTIONS = {
+  'ambience_change_improve': 'This project will apply your successes directly towards improving the ambience of the selected territory.',
+  'ambience_change_degrade': 'This project will apply your successes directly towards degrading the ambience of the selected territory.',
+  'attack': 'You are attempting to destroy, ruin, or harm a specific target. You will need to select a character you\'re targeting, and detail to us the specific thing attached to them you\'re trying to affect: a merit, a holding, a project, or an NPC. Describe how you\'re going about harming that thing.',
+  'hide_protect': 'You are attempting to secure a specific target from harm or discovery this downtime. You will need to select what you are protecting: a merit, a holding, a project, or a person. Describe how you are securing it.',
+  'investigate': 'You are attempting to find out secrets about this target. You will need a lead or some starting point for your investigation; you can\'t investigate someone out of thin air. Describe what it is that you\'re investigating and what your lead is.',
+  'patrol_scout': 'You are actively observing the activity of the chosen territory. Describe how your character goes about observing: who they talk to, where they watch from, how long they spend.',
+  'xp_spend': 'You are spending experience to grow your character. Select the trait below.',
+  'misc': 'This is for downtime actions that don\'t neatly fit into any other category. Describe what you\'re attempting to achieve and how your character goes about it.',
+  'maintenance': 'You are maintaining your professional or cult relationships. Select the asset you are maintaining below.',
+};
 
 // Action type options for sphere (social merit) slots
 export const SPHERE_ACTIONS = [
@@ -31,10 +52,9 @@ export const SPHERE_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
-  { value: 'rumour', label: 'Rumour: When you don\'t know what you want, but you want something' },
-  { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'grow', label: 'Grow: Attempt to acquire Allies or Status 4 or 5' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
+  { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
 export const FEEDING_TERRITORIES = [
@@ -94,8 +114,7 @@ export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initia
 // Excluded: support (recursive role conflict), xp_spend (personal),
 // maintenance (personal). The toggle is hidden for these.
 export const JOINT_ELIGIBLE_ACTIONS = [
-  'ambience_increase',
-  'ambience_decrease',
+  'ambience_change',
   'attack',
   'hide_protect',
   'investigate',
@@ -214,20 +233,13 @@ export const DOWNTIME_SECTIONS = [
     sorcerySlots: 3,
   },
 
-  // 3. Territory — declared before Feeding so players know their ambience and cap
+  // 3. Territory — influence spend; feeding territory moved into Feeding section
   {
     key: 'territory',
     title: 'The City: Territory and Influence',
     gate: null,
     intro: null,
     questions: [
-      {
-        key: 'feeding_territories',
-        label: 'Which Territory does your character feed or poach in?',
-        type: 'territory_grid',
-        required: true,
-        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
-      },
       {
         key: 'influence_spend',
         label: 'Which Territories would you like to spend Influence on, if at all?',
@@ -238,13 +250,20 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 4. Feeding — method selection, pool, rote, description
+  // 4. Feeding — territory declaration, then method selection, pool, rote, description
   {
     key: 'feeding',
     title: 'Feeding: The Hunt',
     gate: null,
     intro: null,
     questions: [
+      {
+        key: 'feeding_territories',
+        label: 'Which Territory does your character feed or poach in?',
+        type: 'territory_grid',
+        required: true,
+        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
+      },
       {
         key: 'feeding_method',
         label: 'How does your character hunt?',

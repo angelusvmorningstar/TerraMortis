@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-27 (DTSR-1 + DTSR-2 implemented: section reorder + Cacophony Savvy → Rumours rename; Letter+Touchstone consolidated into Story Moment with format radio and back-compat legacy reads; both ready-for-dev → review. Earlier same day: FEAT batch drafted, DI epic flipped, DTUX-1 phase ribbon nav drafted, 6 new epics + 34 backlog stories from downtime overhaul scoping pass: NPCP, CHM, DTSR, DTFP, DTIL, JDT)
+last_updated: 2026-04-29 (DTUI Wave 3 complete: dtui-12 through dtui-19 all at review. Earlier: Wave 3 story files drafted; Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition; Wave 1 implemented; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -665,3 +665,66 @@ development_status:
   rde-14-disc-attr-migration: ready-for-dev
   rde-15-derived-stat-modifiers-migration: ready-for-dev
   epic-rde-retrospective: optional
+
+  # ============================================================
+  # EPIC DTUI — DOWNTIME FORM UX REFACTOR (drafted 2026-04-29, not started)
+  # ============================================================
+  # Refactors the player-facing Downtime Submission form to reduce mental load.
+  # Establishes a stable shell for project/merit-action blocks (Action Type →
+  # Description → Outcome → Target → Dice → Approach → Solo/Joint), unifies
+  # scattered UI patterns into ticker-and-chip-grid vocabulary, applies the
+  # form's existing "show only what's relevant" grammar universally.
+  # Source: specs/ux-design-downtime-form.md (full UX design spec)
+  # Epic file: specs/epic-dtui-downtime-form-ux-refactor.md
+  # Sequencing: Wave 1 (atomics) blocks Waves 2-4. Wave 2 blocks Wave 3.
+  # Wave 5 (chrome) parallel to anything after Wave 1. Wave 6 (polish) last.
+  # 32 stories total; Sonnet-friendly granularity (≤5 files, ≤7 ACs each).
+  epic-dtui: in-progress
+
+  # Wave 1 — Foundation Atomics
+  dtui-1-dt-ticker-component: review
+  dtui-2-dt-chip-and-chip-grid: review
+  dtui-3-dt-action-desc-component: review
+
+  # Wave 2 — Action Block Compound
+  dtui-4-dt-action-block-shell: review
+  dtui-5-action-block-placement-changes: review
+  dtui-6-action-type-descriptions: review
+  dtui-7-approach-calibrated-prompts: review
+  dtui-8-per-action-target-scoping: review
+  dtui-9-per-action-outcome-treatments: review
+  dtui-10-ambience-consolidation: review
+  dtui-11-maintenance-target-chip-array: review
+  dtui-33-target-type-selector-ticker: review  # Wave 2 addition — ticker polish for target type radios
+  dtui-34-action-block-ui-polish: review  # Wave 2 addition — Direction/Target Type labels, spacing, placeholder audit
+
+  # Wave 3 — Joint Collaboration Hub
+  dtui-12-joint-panel-auto-expand: review
+  dtui-13-invitee-chip-grid: review
+  dtui-14-sphere-merit-auto-commit: review
+  dtui-15-allies-action-descriptions: review
+  dtui-16-allies-target-scoping: review
+  dtui-17-allies-ambience-eligibility: review
+  dtui-18-allies-ambience-display: review
+  dtui-19-allies-grow-xp-spend: review
+
+  # Wave 4 — Filter-to-Context per Section
+  dtui-20-court-acknowledge-peers: backlog
+  dtui-21-personal-story-npc-chips: backlog
+  dtui-22-mandragora-visibility-vitae-calc: backlog
+  dtui-23-feeding-territory-relocation: backlog
+  dtui-24-feeding-method-label-rename: backlog
+  dtui-25-rote-panel-ordering-selectors: backlog
+
+  # Wave 5 — Orientation Chrome
+  dtui-26-progress-rail: backlog
+  dtui-27-save-status-enhancement: backlog
+
+  # Wave 6 — Form Polish
+  dtui-28-st-portal-rename: backlog
+  dtui-29-mobile-desktop-only-notice: backlog
+  dtui-30-submit-button-placement: backlog
+  dtui-31-add-project-button-placement: backlog
+  dtui-32-accordion-dirty-stays-open: backlog
+
+  epic-dtui-retrospective: optional
