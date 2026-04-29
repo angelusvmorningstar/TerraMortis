@@ -1985,6 +1985,40 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Single/Dual roll toggle — show or hide the secondary dice pool
+    const poolCountRadio = e.target.closest('[data-project-pool-count]');
+    if (poolCountRadio) {
+      const slot = poolCountRadio.dataset.projectPoolCount;
+      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
+      if (wrap) {
+        if (poolCountRadio.value === 'dual') {
+          wrap.removeAttribute('hidden');
+        } else {
+          wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
+    // Solo / Support Assets toggle — show or hide the Allies/Retainers picker
+    const supportAssetsRadio = e.target.closest('[data-project-support-assets]');
+    if (supportAssetsRadio) {
+      const slot = supportAssetsRadio.dataset.projectSupportAssets;
+      const wrap = container.querySelector(`[data-support-assets-wrap="${slot}"]`);
+      if (wrap) {
+        if (supportAssetsRadio.value === 'support') {
+          wrap.removeAttribute('hidden');
+        } else {
+          // Reuse the existing chip-click handler to deselect each chip
+          // cleanly — keeps sphere_${i}_action and joint_sphere_chips in sync.
+          wrap.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected').forEach(chip => chip.click());
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
     // Sphere action change — re-render for action-specific fields
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
@@ -2120,29 +2154,6 @@ function renderForm(container) {
     if (roteBtn) {
       feedRoteAction = roteBtn.dataset.feedRote === 'on';
       applyRoteToProjectSlot(container);
-      return;
-    }
-    // Secondary dice pool toggle — reveals the optional pool2 inputs
-    const secondaryBtn = e.target.closest('[data-secondary-toggle]');
-    if (secondaryBtn) {
-      const slot = secondaryBtn.dataset.secondaryToggle;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) wrap.removeAttribute('hidden');
-      secondaryBtn.setAttribute('hidden', '');
-      return;
-    }
-    // Secondary dice pool clear — wipes pool2 selects and re-hides
-    const secondaryClearBtn = e.target.closest('[data-secondary-clear]');
-    if (secondaryClearBtn) {
-      const slot = secondaryClearBtn.dataset.secondaryClear;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) {
-        wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-        wrap.setAttribute('hidden', '');
-      }
-      const toggleBtn = container.querySelector(`[data-secondary-toggle="${slot}"]`);
-      if (toggleBtn) toggleBtn.removeAttribute('hidden');
-      scheduleSave();
       return;
     }
     // DTFP-5: Kiss / Violent toggle
@@ -3172,6 +3183,30 @@ function renderProjectSlots(saved) {
       if (isJoint) {
         h += renderJointAuthoring(n, saved, existingJoint);
       }
+
+      // Support Assets toggle — gates the Allies/Retainers picker so it
+      // doesn't read as required. Auto-defaults to "Support Assets" if any
+      // chips were saved previously, so returning players see their picks.
+      const hasAssetMerits = (detectedMerits.spheres?.length || 0) + (detectedMerits.retainers?.length || 0) > 0;
+      if (hasAssetMerits) {
+        const savedChips = saved[`project_${n}_joint_sphere_chips`];
+        const isSupport = !!(savedChips && savedChips !== '[]');
+        h += `<fieldset class="dt-ticker" data-proj-support-assets-ticker="${n}">`;
+        h += `<legend class="dt-ticker__legend">Support</legend>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="solo"${!isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Solo</label>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="support"${isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Support Assets</label>`;
+        h += `</fieldset>`;
+        h += `<div class="dt-support-assets-panel" data-support-assets-wrap="${n}"${isSupport ? '' : ' hidden'}>`;
+        h += `<h4 class="dt-joint-panel__heading">Your Allies and Retainers</h4>`;
+        h += `<div class="dt-chip-grid dt-chip-grid--multi">`;
+        h += renderJointSphereChips(n, saved);
+        h += `</div>`;
+        h += `</div>`;
+      }
     }
 
     h += '</div>'; // dt-action-block
@@ -3267,18 +3302,24 @@ function isClanDisc(discName) {
 }
 
 /**
- * Renders the optional Secondary Dice Pool gated behind a button so players
- * don't read it as required. If the slot has any saved pool2 values, the
- * pool renders directly (no button). Otherwise, an "+ Add secondary dice
- * pool" button reveals the pool when clicked.
+ * Renders the optional Secondary Dice Pool behind a Single Roll / Dual Roll
+ * pill toggle (mirrors the Solo/Joint pattern). Defaults to Single. If the
+ * slot has any saved pool2 values, the toggle starts on Dual.
  */
 function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
-  const hasSaved = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
+  const isDual = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
   let h = '';
-  h += `<button type="button" class="dt-secondary-pool-toggle"${hasSaved ? ' hidden' : ''} data-secondary-toggle="${n}">+ Add secondary dice pool</button>`;
-  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${hasSaved ? '' : ' hidden'}>`;
+  h += `<fieldset class="dt-ticker" data-proj-pool-count-ticker="${n}">`;
+  h += `<legend class="dt-ticker__legend">Roll</legend>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="single"${!isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Single Roll</label>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="dual"${isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Dual Roll</label>`;
+  h += `</fieldset>`;
+  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${isDual ? '' : ' hidden'}>`;
   h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-  h += `<button type="button" class="dt-secondary-pool-clear" data-secondary-clear="${n}" title="Remove secondary dice pool">× Clear secondary pool</button>`;
   h += '</div>';
   return h;
 }
@@ -4311,13 +4352,8 @@ function renderDtJointPanel(n, saved) {
   h += `</div>`;
   h += `</div>`;
 
-  const meritsHeadingId = `dt-joint-merits-heading-${n}`;
-  h += `<div class="dt-joint-panel__section">`;
-  h += `<h4 class="dt-joint-panel__heading" id="${meritsHeadingId}">Your Allies and Retainers</h4>`;
-  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${meritsHeadingId}" data-joint-merits="${n}">`;
-  h += renderJointSphereChips(n, saved);
-  h += `</div>`;
-  h += `</div>`;
+  // Allies/Retainers picker now lives outside the joint panel — controlled by
+  // the separate Solo / Support Assets toggle on the project slot.
 
   h += `</div>`;
   return h;

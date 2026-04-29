@@ -4753,40 +4753,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin-top: 8px;
 }
 
-/* Secondary dice pool — gated reveal so players read it as optional. */
-.dt-secondary-pool-toggle {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px dashed var(--bdr);
-  border-radius: 4px;
-  font-family: var(--ft);
-  font-size: 13px;
-  color: var(--txt2);
-  cursor: pointer;
-}
-.dt-secondary-pool-toggle:hover {
-  border-color: var(--gold2);
-  color: var(--txt);
-}
+/* Secondary dice pool — visibility toggled by the Single/Dual ticker. */
 .dt-secondary-pool-wrap[hidden] { display: none; }
-.dt-secondary-pool-clear {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px dashed var(--bdr);
-  border-radius: 4px;
-  font-family: var(--ft);
-  font-size: 12px;
-  color: var(--txt3);
-  cursor: pointer;
-}
-.dt-secondary-pool-clear:hover {
-  border-color: var(--crim);
-  color: var(--crim);
-}
+
+/* Support Assets panel — chip grid for picking allies/retainers as project
+ * support, gated by the Solo / Support Assets ticker on the project slot. */
+.dt-support-assets-panel { margin-top: 12px; }
+.dt-support-assets-panel[hidden] { display: none; }
+.dt-support-assets-panel .dt-joint-panel__heading { margin-top: 0; }
 
 /* Consistent gap between any target-type ticker and the content below it,
  * regardless of whether the picked mode renders chips, pills, or a textarea. */
