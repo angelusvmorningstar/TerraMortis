@@ -7,6 +7,8 @@
 import { addMerit, ensureMeritSync } from './merits.js';
 import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
 import { BLOODLINE_GRANTS } from '../data/constants.js';
+import { getRulesBySource } from './rule_engine/load-rules.js';
+import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -81,39 +83,8 @@ export function applyDerivedMerits(c, allChars = []) {
     m.free_pet = 1;
   });
 
-  // ── PT grant pools ──
-  const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
-  // Sync PT rating from inline creation fields before applying grants (mirrors MCI early sync)
-  for (const pt of pts) {
-    const _ptInlineTotal = (pt.cp || 0) + (pt.xp || 0) + (pt.free || 0);
-    if (_ptInlineTotal > 0) pt.rating = _ptInlineTotal;
-  }
-  for (const pt of pts) {
-    const dots = pt.rating || 0;
-    const role = pt.role || '';
-    const assets = (pt.asset_skills || []).filter(Boolean);
-
-    // Dot 1: 2 free Contacts dots — auto-applied like OHM (no role required)
-    if (dots >= 1) {
-      let ctM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Contacts');
-      if (!ctM) {
-        if (!c.merits) c.merits = [];
-        ctM = { name: 'Contacts', category: 'influence', rating: 0, granted_by: 'PT' };
-        c.merits.push(ctM);
-      }
-      ctM.free_pt = 2;
-    }
-
-    // Dot 2: nine_again on all asset skills (3rd skill added at dot 3 also qualifies)
-    if (dots >= 2 && assets.length) {
-      for (const sk of assets) c._pt_nine_again_skills.add(sk);
-    }
-
-    // Dot 4: bonus dot on chosen asset skill
-    if (dots >= 4 && pt.dot4_skill) {
-      c._pt_dot4_bonus_skills.add(pt.dot4_skill);
-    }
-  }
+  // ── PT grant pools (evaluator reads from rule_grant / rule_nine_again / rule_skill_bonus) ──
+  applyPTRulesFromDb(c, getRulesBySource('Professional Training'));
 
   // ── VM grant pool (Allies) ──
   if (hasViralMythology(c)) {

@@ -34,6 +34,22 @@ vi.mock('../../public/js/data/loader.js', () => ({
   loadCharsFromApi: async () => null,
 }));
 
+// Mock load-rules.js — post-flip mci.js imports this, which pulls in api.js.
+// Supply the canonical PT rules so evaluator fires correctly in harness tests.
+vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
+  preloadRules: async () => {},
+  invalidateRulesCache: () => {},
+  getRulesCache: () => null,
+  getRulesBySource: (source) => {
+    if (source !== 'Professional Training') return { grants: [], nineAgain: [], skillBonus: [] };
+    return {
+      grants:     [{ source: 'Professional Training', tier: 1, grant_type: 'merit', target: 'Contacts', amount: 2, amount_basis: 'flat' }],
+      nineAgain:  [{ source: 'Professional Training', tier: 2, target_skills: 'asset_skills' }],
+      skillBonus: [{ source: 'Professional Training', tier: 4, target_skill: 'dot4_skill', amount: 1, cap_at: 5 }],
+    };
+  },
+}));
+
 import { applyDerivedMerits } from '../lib/rule_engine/_legacy-bridge.js';
 import {
   snapshotCharacter,

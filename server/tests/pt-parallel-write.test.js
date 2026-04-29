@@ -15,13 +15,25 @@
 
 import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-// Stub loader.js before any import triggers api.js (browser globals)
+// Hoisted store — shared between vi.mock factory (hoisted) and beforeAll (runtime)
+const store = vi.hoisted(() => ({ grants: [], nineAgain: [], skillBonus: [] }));
+
+// Stub loader.js — prevents api.js (browser-only) from evaluating
 vi.mock('../../public/js/data/loader.js', () => ({
   getRulesByCategory: () => [],
   getRuleByKey: () => null,
   getRulesDB: () => [],
   sanitiseChar: c => c,
   loadCharsFromApi: async () => null,
+}));
+
+// Stub load-rules.js — post-flip mci.js imports this (→ api.js, browser-only).
+// getRulesBySource returns the DB-seeded rules populated in beforeAll.
+vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
+  preloadRules: async () => {},
+  invalidateRulesCache: () => {},
+  getRulesCache: () => null,
+  getRulesBySource: () => store,
 }));
 
 import { applyDerivedMerits } from '../lib/rule_engine/_legacy-bridge.js';
@@ -94,7 +106,9 @@ beforeAll(async () => {
     getCollection('rule_nine_again').find({ source: 'Professional Training' }).toArray(),
     getCollection('rule_skill_bonus').find({ source: 'Professional Training' }).toArray(),
   ]);
-  ptRules = { grants, nineAgain, skillBonus };
+  // Populate hoisted store so the mocked getRulesBySource returns DB rules to applyDerivedMerits
+  Object.assign(store, { grants, nineAgain, skillBonus });
+  ptRules = store;
 
   if (!grants.length || !nineAgain.length || !skillBonus.length) {
     throw new Error(
