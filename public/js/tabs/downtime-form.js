@@ -4717,6 +4717,16 @@ function renderFeedingTerritoryPills(gridVals) {
   return h;
 }
 
+// DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
+function getAlliesAmbienceEligible(m) {
+  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const hwv = (currentChar.merits || []).some(
+    merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
+  );
+  if (hwv) return effectiveDots >= 2;
+  return effectiveDots >= 3;
+}
+
 // DTUI-15: map sphere action values to ACTION_DESCRIPTIONS keys
 function sphereActionDescKey(val) {
   if (val === 'ambience_increase') return 'ambience_change_improve';
@@ -4909,7 +4919,14 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
       h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
-      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'grow')) {
+      // DTUI-17: filter per-merit eligibility; Grow handled by dtui-19
+      const ambienceEligible = getAlliesAmbienceEligible(m);
+      const filteredActions = SPHERE_ACTIONS.filter(o => {
+        if (o.value === 'grow') return false;
+        if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
+        return true;
+      });
+      for (const opt of filteredActions) {
         const sel = actionVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
