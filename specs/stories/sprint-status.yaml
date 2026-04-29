@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-29 (DTUI Wave 1 implemented (dtui-1/2/3 at review); Wave 2 story files written (dtui-4 through dtui-11 at ready-for-dev). Earlier: DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
+last_updated: 2026-04-29 (DTUI Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition (ready-for-dev). Earlier: Wave 1 implemented; Wave 2 story files written; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -695,6 +695,7 @@ development_status:
   dtui-9-per-action-outcome-treatments: review
   dtui-10-ambience-consolidation: review
   dtui-11-maintenance-target-chip-array: review
+  dtui-33-target-type-selector-ticker: review  # Wave 2 addition — ticker polish for target type radios
 
   # Wave 3 — Joint Collaboration Hub
   dtui-12-joint-panel-auto-expand: backlog
