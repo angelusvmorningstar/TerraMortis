@@ -15,7 +15,7 @@ import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, h
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
-import { calcTotalInfluence } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
@@ -251,6 +251,31 @@ function getInfluenceBudget() {
   return calcTotalInfluence(currentChar);
 }
 
+/**
+ * Effective rating for a merit instance. Reads m.rating (which the editor
+ * keeps as the comprehensive sum of cp + free_* + xp), then layers on the
+ * dynamic bonuses that aren't baked into rating: SSJ + Flock for Herd, and
+ * partner pool for shared domain merits.
+ */
+function effectiveMeritRating(c, m) {
+  if (!c || !m) return 0;
+  // Shared domain merits: domMeritTotal already pulls in partners + SSJ/Flock
+  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
+    return domMeritTotal(c, m.name);
+  }
+  let total = m.rating || 0;
+  if (m.name === 'Herd') {
+    total += ssjHerdBonus(c) + flockHerdBonus(c);
+  }
+  return total;
+}
+
+/** Convenience: effective rating for a domain merit by name (looks up the instance). */
+function effectiveDomainDots(c, name) {
+  const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
+  return effectiveMeritRating(c, m);
+}
+
 /** Get the feeding cap for the regent's territory based on its ambience. */
 function collectResponses() {
   const responses = {};
@@ -307,12 +332,22 @@ function collectResponses() {
         responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
         responses['_rote_custom_attr'] = feedRoteAction ? feedRoteCustomAttr : '';
         responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
-        // Blood type checkboxes
+        // Blood type
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
+        // Rote territory picker
+        if (feedRoteAction) {
+          const roteGridVals = {};
+          for (const terr of FEEDING_TERRITORIES) {
+            const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const el = document.getElementById(`feed-rote-val-${terrKey}`);
+            roteGridVals[terrKey] = el ? el.value : 'none';
+          }
+          responses['feeding_territories_rote'] = JSON.stringify(roteGridVals);
+        }
         continue;
       }
       if (q.type === 'xp_grid') {
@@ -641,7 +676,8 @@ function collectResponses() {
   acqMeritCbs.forEach(cb => acqMeritKeys.push(cb.value));
   responses['acq_merits'] = JSON.stringify(acqMeritKeys);
   // Backwards compat: combined into old key
-  const resourcesRating = (currentChar.merits || []).find(m => m.name === 'Resources')?.rating || 0;
+  const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
+  const resourcesRating = effectiveMeritRating(currentChar, resourcesM);
   responses['resources_acquisitions'] = [
     resourcesRating ? `Resources ${resourcesRating}` : '',
     acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
@@ -1533,7 +1569,11 @@ function renderForm(container) {
     h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
     h += '<div class="qf-section-body">';
     if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
-    for (const q of section.questions) h += renderQuestion(q, saved[q.key] || '');
+    for (const q of section.questions) {
+      // territory_grid in the feeding section is rendered inside dt-feed-card-wrap
+      if (key === 'feeding' && q.type === 'territory_grid') continue;
+      h += renderQuestion(q, saved[q.key] || '');
+    }
     h += '</div></div>';
   }
 
@@ -1888,12 +1928,6 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Rote feeding checkbox
-    if (e.target.id === 'dt-feed-rote') {
-      feedRoteAction = e.target.checked;
-      applyRoteToProjectSlot(container);
-      return;
-    }
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -2081,6 +2115,36 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // Rote hunt toggle (Standard / Rote pill pair)
+    const roteBtn = e.target.closest('[data-feed-rote]');
+    if (roteBtn) {
+      feedRoteAction = roteBtn.dataset.feedRote === 'on';
+      applyRoteToProjectSlot(container);
+      return;
+    }
+    // Secondary dice pool toggle — reveals the optional pool2 inputs
+    const secondaryBtn = e.target.closest('[data-secondary-toggle]');
+    if (secondaryBtn) {
+      const slot = secondaryBtn.dataset.secondaryToggle;
+      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
+      if (wrap) wrap.removeAttribute('hidden');
+      secondaryBtn.setAttribute('hidden', '');
+      return;
+    }
+    // Secondary dice pool clear — wipes pool2 selects and re-hides
+    const secondaryClearBtn = e.target.closest('[data-secondary-clear]');
+    if (secondaryClearBtn) {
+      const slot = secondaryClearBtn.dataset.secondaryClear;
+      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
+      if (wrap) {
+        wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+        wrap.setAttribute('hidden', '');
+      }
+      const toggleBtn = container.querySelector(`[data-secondary-toggle="${slot}"]`);
+      if (toggleBtn) toggleBtn.removeAttribute('hidden');
+      scheduleSave();
+      return;
+    }
     // DTFP-5: Kiss / Violent toggle
     const viBtn = e.target.closest('[data-feed-violence]');
     if (viBtn) {
@@ -2264,19 +2328,18 @@ function renderForm(container) {
       if (hidden) hidden.value = newVal;
       // Update pill active states without full re-render
       container.querySelectorAll(`[data-terr-single="${fieldId}"]`).forEach(p => {
-        p.classList.toggle('dt-terr-pill-on', p.dataset.terrVal === newVal);
+        p.classList.toggle('dt-chip--selected', p.dataset.terrVal === newVal);
       });
       scheduleSave();
       updateSectionTicks(container);
       return;
     }
-    // Single-select feeding territory pills
+    // Single-select feeding territory pills (main)
     const feedTerrPill = e.target.closest('[data-feed-terr-key]');
     if (feedTerrPill) {
       const terrKey = feedTerrPill.dataset.feedTerrKey;
       const statusVal = feedTerrPill.dataset.feedStatus;
       const isActive = feedTerrPill.dataset.feedActive === '1';
-      // Deactivate all other pills first (single-select)
       container.querySelectorAll('[data-feed-terr-key]').forEach(pill => {
         const key = pill.dataset.feedTerrKey;
         if (key !== terrKey) {
@@ -2286,7 +2349,27 @@ function renderForm(container) {
       });
       const hidden = document.getElementById(`feed-val-${terrKey}`);
       if (hidden) hidden.value = isActive ? 'none' : statusVal;
-      // Re-render to update pill appearance and vitae projection
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Single-select rote territory pills
+    const feedRoteTerrPill = e.target.closest('[data-feed-rote-terr-key]');
+    if (feedRoteTerrPill) {
+      const terrKey = feedRoteTerrPill.dataset.feedRoteTerrKey;
+      const statusVal = feedRoteTerrPill.dataset.feedRoteStatus;
+      const isActive = feedRoteTerrPill.dataset.feedRoteActive === '1';
+      container.querySelectorAll('[data-feed-rote-terr-key]').forEach(pill => {
+        const key = pill.dataset.feedRoteTerrKey;
+        if (key !== terrKey) {
+          const h = document.getElementById(`feed-rote-val-${key}`);
+          if (h) h.value = 'none';
+        }
+      });
+      const hidden = document.getElementById(`feed-rote-val-${terrKey}`);
+      if (hidden) hidden.value = isActive ? 'none' : statusVal;
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2653,7 +2736,7 @@ function openCastModal(slotId, container) {
 
 function applyRoteToProjectSlot(container) {
   const responses = collectResponses();
-  if (feedRoteAction && feedMethodId) {
+  if (feedRoteAction) {
     // Auto-find first available slot
     feedRoteSlot = [1,2,3,4].find(n => {
       const act = responses[`project_${n}_action`];
@@ -2880,7 +2963,7 @@ function renderProjectSlots(saved) {
       // Editable pool builders — same shape as a normal slot, so saves
       // reuse project_${n}_pool_attr/skill/disc + pool2_* paths.
       h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
 
       // Personal notes
       h += `<div class="qf-field">`;
@@ -3052,7 +3135,7 @@ function renderProjectSlots(saved) {
     // ── Dice pools ──
     if (fields.includes('pools')) {
       h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
     }
 
     // ── XP note ──
@@ -3183,6 +3266,23 @@ function isClanDisc(discName) {
   return false;
 }
 
+/**
+ * Renders the optional Secondary Dice Pool gated behind a button so players
+ * don't read it as required. If the slot has any saved pool2 values, the
+ * pool renders directly (no button). Otherwise, an "+ Add secondary dice
+ * pool" button reveals the pool when clicked.
+ */
+function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
+  const hasSaved = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
+  let h = '';
+  h += `<button type="button" class="dt-secondary-pool-toggle"${hasSaved ? ' hidden' : ''} data-secondary-toggle="${n}">+ Add secondary dice pool</button>`;
+  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${hasSaved ? '' : ' hidden'}>`;
+  h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+  h += `<button type="button" class="dt-secondary-pool-clear" data-secondary-clear="${n}" title="Remove secondary dice pool">× Clear secondary pool</button>`;
+  h += '</div>';
+  return h;
+}
+
 /** Parse merit rating string: "2" → { flat: true, min: 2, max: 2 }, "1–5" → { flat: false, min: 1, max: 5 } */
 function parseMeritRating(ratingStr) {
   if (!ratingStr) return { flat: true, min: 1, max: 1 };
@@ -3251,7 +3351,7 @@ function getItemsForCategory(category) {
         const found = charMerits.filter(m =>
           m.name && m.name.toLowerCase() === meritName.toLowerCase()
         );
-        return found.length ? Math.max(...found.map(m => m.rating || 0)) : 0;
+        return found.length ? Math.max(...found.map(m => effectiveMeritRating(c, m))) : 0;
       }
 
       // Try rules cache first, fallback to MERITS_DB
@@ -3626,7 +3726,7 @@ function renderSorcerySection(saved) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
       const mandDisabled = !isCruac ? ' disabled' : '';
       const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = mandMerit ? (mandMerit.rating || 0) : 0;
+      const mandDots = effectiveMeritRating(currentChar, mandMerit);
       h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
@@ -3697,7 +3797,7 @@ function renderAcquisitionsSection(saved) {
   const c = currentChar;
   // Find Resources merit rating
   const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = resourcesMerit ? (resourcesMerit.rating || 0) : 0;
+  const resourcesRating = effectiveMeritRating(c, resourcesMerit);
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
@@ -4002,7 +4102,7 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   if (selAttr) { const a = c.attributes?.[selAttr]; if (a) total += (a.dots||0)+(a.bonus||0); }
   if (selSkill) { const s = c.skills?.[selSkill]; if (s) total += (s.dots||0)+(s.bonus||0); }
   if (selDisc) total += c.disciplines?.[selDisc]?.dots || 0;
-  const fgVal = (c.merits||[]).find(mr=>mr.name==='Feeding Grounds')?.rating || 0;
+  const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
   total += fgVal;
   const specBonus = selSpec ? (hasAoE(c, selSpec) ? 2 : 1) : 0;
   total += specBonus;
@@ -4033,6 +4133,9 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   }
   if (total > 0) h += `<span class="dt-feed-total">= ${total} dice</span>`;
   h += '</div>';
+  if (selDisc) {
+    h += '<p class="qf-desc" style="margin-top:6px">By adding a Discipline, if this roll fails, it will count as a dramatic failure.</p>';
+  }
 
   // ── Suggestion chips (non-Other only) ──
   if (m && (m.attrs.length || m.skills.length || m.discs.length)) {
@@ -4191,6 +4294,15 @@ function renderJointAuthoring(n, saved, existingJoint) {
 function renderDtJointPanel(n, saved) {
   let h = `<div class="dt-joint-panel" aria-expanded="true" data-joint-slot="${n}">`;
 
+  // Joint project explainer — shown in pre-save authoring mode so players
+  // know what they're committing to before they invite anyone. The same
+  // copy is shown in the existingJoint path of renderJointAuthoring.
+  h += `<div class="dt-joint-banner">Joint project</div>`;
+  h += `<div class="dt-joint-explainer">`;
+  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
+  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
+  h += `</div>`;
+
   const playersHeadingId = `dt-joint-players-heading-${n}`;
   h += `<div class="dt-joint-panel__section">`;
   h += `<h4 class="dt-joint-panel__heading" id="${playersHeadingId}">Players</h4>`;
@@ -4281,7 +4393,7 @@ function renderJointSphereChips(n, saved) {
     const isUsed = isSphereMeritUsed(slotKey, type, saved);
     const isSelected = selectedSet.has(slotKey);
     const isDisabled = isUsed && !isSelected;
-    const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+    const effectiveDots = effectiveMeritRating(currentChar, m);
     const area = m.area || m.qualifier || '';
     const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
@@ -4556,23 +4668,10 @@ function getSphereAlreadyMaintainedTargets(prefix, n, saved, maxSlots) {
 function renderOutcomeZone(n, actionVal, saved) {
   const savedOutcome = saved[`project_${n}_outcome`] || '';
 
-  if (actionVal === 'ambience_change') {
-    const dir = saved[`project_${n}_ambience_dir`] || 'improve';
-    const text = dir === 'improve'
-      ? 'Improve the ambience of the targeted territory.'
-      : 'Degrade the ambience of the targeted territory.';
-    return `<div class="qf-field"><p class="dt-outcome-readonly qf-desc">${esc(text)}</p></div>`;
-  }
-
-  const READONLY = {
-    'hide_protect':  'Attempt to protect the asset from attacks this downtime.',
-    'investigate':   'Uncover a secret or mystery about the target.',
-    'patrol_scout':  'Observe the territory closely for intrusive or adversarial activity.',
-  };
-
-  if (READONLY[actionVal]) {
-    return `<div class="qf-field"><p class="dt-outcome-readonly qf-desc">${esc(READONLY[actionVal])}</p></div>`;
-  }
+  // ambience_change, hide_protect, investigate, patrol_scout have no
+  // interactive outcome — their goal is already covered by ACTION_DESCRIPTIONS
+  // shown above the project title. Static readonly outcome lines were dropped
+  // as redundant (2026-04-29).
 
   if (actionVal === 'attack') {
     const pills = ['destroy', 'degrade', 'disrupt'];
@@ -4613,7 +4712,7 @@ function renderTargetZone(n, actionVal, saved, chars) {
   const savedTerrId = saved[`project_${n}_target_terr`] || '';
   const savedOther  = saved[`project_${n}_target_other`] || '';
 
-  let h = '<div class="qf-field">';
+  let h = '<div class="qf-field dt-target-zone">';
   h += '<label class="qf-label">Target</label>';
 
   if (['ambience_change', 'patrol_scout'].includes(actionVal)) {
@@ -4675,20 +4774,26 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   return h;
 }
 
-/** Single-select territory pills. fieldId = the hidden input ID (same as old select ID). */
+/** Single-select territory pills. fieldId = the hidden input ID (same as old select ID).
+ *  Uses the canonical .dt-chip-grid / .dt-chip styling so target-zone territory chips
+ *  match the character roster visually. */
 function renderTerritoryPills(fieldId, savedVal) {
-  let h = `<div class="dt-terr-pills" data-terr-single="${fieldId}">`;
+  let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const active = savedVal === t.id ? ' dt-terr-pill-on' : '';
-    h += `<button type="button" class="dt-terr-pill${active}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+    const selected = savedVal === t.id ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
   h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;
   return h;
 }
 
-/** Multi-select feeding territory pills (territory_grid). */
-function renderFeedingTerritoryPills(gridVals) {
+/** Feeding territory pills. Pass rote=true for the rote-hunt variant (separate IDs/data-attrs). */
+function renderFeedingTerritoryPills(gridVals, rote = false) {
+  const idPfx = rote ? 'feed-rote-val' : 'feed-val';
+  const keyAttr = rote ? 'data-feed-rote-terr-key' : 'data-feed-terr-key';
+  const statusAttr = rote ? 'data-feed-rote-status' : 'data-feed-status';
+  const activeAttr = rote ? 'data-feed-rote-active' : 'data-feed-active';
   let h = '<div class="dt-terr-pills dt-feed-terr-pills">';
   for (const terr of FEEDING_TERRITORIES) {
     const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -4726,7 +4831,7 @@ function renderFeedingTerritoryPills(gridVals) {
       : '';
 
     h += `<button type="button" class="dt-terr-pill${activeClass}"`;
-    h += ` data-feed-terr-key="${terrKey}" data-feed-status="${statusVal}" data-feed-active="${isActive ? '1' : '0'}">`;
+    h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
       if (isActive) h += `<span class="dt-terr-pill-amb">Barrens (-4)</span>`;
@@ -4737,7 +4842,7 @@ function renderFeedingTerritoryPills(gridVals) {
     }
     if (isActive && !isBarrens) h += `<span class="dt-terr-pill-status">${statusLabel}</span>`;
     h += '</button>';
-    h += `<input type="hidden" id="feed-val-${terrKey}" value="${savedVal}">`;
+    h += `<input type="hidden" id="${idPfx}-${terrKey}" value="${savedVal}">`;
   }
   h += '</div>';
   return h;
@@ -4745,7 +4850,7 @@ function renderFeedingTerritoryPills(gridVals) {
 
 // DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
 function getAlliesAmbienceEligible(m) {
-  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const effectiveDots = effectiveMeritRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -4755,7 +4860,7 @@ function getAlliesAmbienceEligible(m) {
 
 // DTUI-19: Grow XP block — scoped to a specific Allies merit instance
 function renderAlliesGrowXp(n, prefix, m, saved) {
-  const currentDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const currentDots = effectiveMeritRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
   const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
 
@@ -4779,7 +4884,7 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
 
 // DTUI-18: Allies Ambience contribution magnitude
 function getAlliesAmbienceContribution(m) {
-  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const effectiveDots = effectiveMeritRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -5324,7 +5429,10 @@ function renderQuestion(q, value) {
   const reqMark = q.required ? ' <span class="qf-req">*</span>' : '';
   const extraClass = q.key === 'form_feedback' ? ' dt-feedback-field' : '';
   let h = `<div class="qf-field${extraClass}">`;
-  h += `<label class="qf-label" for="dt-${q.key}">${esc(q.label)}${reqMark}</label>`;
+  // feeding_method renders its own label inside the container
+  if (q.type !== 'feeding_method') {
+    h += `<label class="qf-label" for="dt-${q.key}">${esc(q.label)}${reqMark}</label>`;
+  }
 
   if (q.desc) {
     let descHtml = esc(q.desc).replace(/\n/g, '<br>');
@@ -5411,7 +5519,22 @@ function renderQuestion(q, value) {
       const c = currentChar;
       const savedDesc = responseDoc?.responses?.['feeding_description'] || '';
 
+      // ── Container 1: Main hunt ──
       h += '<div class="dt-feed-card-wrap">';
+      // Territory picker embedded at top of this container
+      {
+        const feedingSect = DOWNTIME_SECTIONS.find(s => s.key === 'feeding');
+        const terrQ = feedingSect?.questions.find(q => q.type === 'territory_grid');
+        if (terrQ) {
+          const terrVal = (responseDoc?.responses || {})[terrQ.key] || '';
+          let terrGridVals = {};
+          try { terrGridVals = JSON.parse(terrVal); } catch { /* ignore */ }
+          h += '<label class="qf-label">Where does your character hunt? <span class="qf-req">*</span></label>';
+          h += `<div id="dt-${terrQ.key}" style="margin-top:10px">${renderFeedingTerritoryPills(terrGridVals)}</div>`;
+          h += '<p class="qf-desc" style="margin-top:10px">Ambience shown is current. Actual feeding ambience is calculated after Downtime processing and may shift based on how many Kindred feed in each territory.</p>';
+        }
+      }
+      h += `<label class="qf-label" style="margin-top:10px;display:block">How does your character hunt? <span class="qf-req">*</span></label>`;
       h += '<div class="dt-feed-methods">';
       for (const m of FEED_METHODS) {
         const sel = feedMethodId === m.id ? ' dt-feed-sel' : '';
@@ -5439,16 +5562,13 @@ function renderQuestion(q, value) {
       h += '</div></div>';
 
       // ── DTFP-5: Kiss / Violent toggle ──
-      // Player choice wins. If unset, pre-select per method (stalking + other stay
-      // unselected so the player must commit). Pre-selection is visual only — the
-      // field is not persisted until the player clicks one of the buttons.
       const persistedViolence = responseDoc?.responses?.feed_violence || '';
       const preselect = persistedViolence || (FEED_VIOLENCE_DEFAULTS[feedMethodId] || '');
       h += '<div class="qf-field">';
       h += '<label class="qf-label">How loud was the feeding?</label>';
       h += '<div class="dt-feed-violence-toggle">';
       h += `<button type="button" class="dt-feed-vi-btn${preselect === 'kiss' ? ' dt-feed-vi-on' : ''}" data-feed-violence="kiss">The Kiss (subtle)</button>`;
-      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'violent' ? ' dt-feed-vi-on' : ''}" data-feed-violence="violent">Violent</button>`;
+      h += `<button type="button" class="dt-feed-vi-btn${preselect === 'violent' ? ' dt-feed-vi-on' : ''}" data-feed-violence="violent">The Assault (violent)</button>`;
       h += '</div>';
       if (!persistedViolence && !preselect) {
         h += '<p class="qf-desc dt-feed-vi-hint">Pick one. Your method does not pre-select for you.</p>';
@@ -5457,9 +5577,13 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ROTE checkbox + description (shown when method selected)
-      if (feedMethodId) {
-        // Restore rote state from saved responses
+      h += '<div class="qf-field">';
+      h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(savedDesc)}</textarea>`;
+      h += '</div>';
+      h += '</div>'; // dt-feed-card-wrap
+
+      // ── Container 2: Feeding quality (Standard / Rote) ──
+      {
         const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
         if (savedRote && !feedRoteAction) feedRoteAction = true;
         feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
@@ -5469,7 +5593,6 @@ function renderQuestion(q, value) {
 
         const saved = responseDoc?.responses || {};
 
-        // Auto-assign first available slot
         const firstAvail = [1,2,3,4].find(n => {
           const act = saved[`project_${n}_action`];
           return !act || act === 'feed';
@@ -5478,39 +5601,41 @@ function renderQuestion(q, value) {
 
         const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
 
-        h += '<div class="dt-rote-toggle-wrap">';
-        h += `<label class="dt-feed-rote-label"><input type="checkbox" id="dt-feed-rote"${feedRoteAction ? ' checked' : ''}> Commit a Project action for Rote quality on this hunt</label>`;
+        h += '<div class="dt-feed-rote-section">';
+        h += '<label class="qf-label">Commit a project to hunting this downtime?</label>';
+        h += '<div class="dt-feed-violence-toggle">';
+        h += `<button type="button" class="dt-feed-vi-btn${!feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="off">Standard Hunt</button>`;
+        h += `<button type="button" class="dt-feed-vi-btn${feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="on">Rote Hunt</button>`;
+        h += '</div>';
         if (feedRoteAction) {
           h += '<div class="dt-rote-slot-picker">';
-          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt.</p>`;
-
-          // Pool (same helper as main feed, separate state)
+          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt. IF this roll is successful, it will apply the Rote quality to your feeding roll (roll twice, take the best result).</p>`;
+          {
+            const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
+            let roteTerrGridVals = {};
+            try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+            h += '<div class="qf-field">';
+            h += renderFeedingTerritoryPills(roteTerrGridVals, true);
+            h += '</div>';
+          }
           h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
-
-          h += renderQuestion({
-            key: 'rote-description', label: 'Describe your dedicated feeding effort',
-            type: 'textarea', required: false,
-            desc: 'Describe where, how, and any relevant context for this dedicated hunt.',
-          }, roteDesc);
+          h += `<div class="qf-field"><textarea id="dt-rote-description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(roteDesc)}</textarea></div>`;
           h += '</div>';
         }
         h += '</div>';
-
-        h += '<div class="qf-field">';
-        h += '<label class="qf-label" for="dt-feeding_description">Describe how your character hunts</label>';
-        h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4">${esc(savedDesc)}</textarea>`;
-        h += '</div>';
       }
 
-      // ── Vitae Projection ──
+      // ── Container 3: Vitae Projection ──
       {
         const allResp = responseDoc?.responses || {};
         const vitaeMax = calcVitaeMax(c);
 
         // Monthly costs
+        // Ghoul Retainer: 1 vitae per ghoul retainer merit (not per dot)
         const ghoulCost = (c.merits || [])
           .filter(m => m.name === 'Retainer' && (m.ghoul || m.type === 'ghoul'))
-          .reduce((sum, m) => sum + (m.rating || 0), 0);
+          .length;
+        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5
         const rites = (c.powers || []).filter(p => p.category === 'rite');
         const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
         let riteVitaeCost = 0;
@@ -5518,52 +5643,127 @@ function renderQuestion(q, value) {
           const riteName = allResp[`sorcery_${sn}_rite`];
           if (riteName) {
             const rite = rites.find(r => r.name === riteName);
-            if (rite && rite.tradition === 'Cruac') riteVitaeCost += rite.level || 0;
+            if (rite && rite.tradition === 'Cruac') {
+              riteVitaeCost += (rite.level || 0) >= 4 ? 2 : 1;
+            }
           }
         }
-        const mandMerit = (c.merits || []).find(m => m.name === 'Mandragora Garden');
-        const mandDots = mandMerit ? (mandMerit.rating || 0) : 0;
-        const totalCost = ghoulCost + riteVitaeCost + mandDots;
-        const mandFruit = mandDots * 2;
-
-        // Ambience from selected feeding territory
-        let feedingGrid = {};
-        try { feedingGrid = JSON.parse(allResp['feeding_territories'] || '{}'); } catch { /* ignore */ }
-        const primaryTerrKey = Object.keys(feedingGrid).find(k =>
-          feedingGrid[k] === 'feeding_rights' || feedingGrid[k] === 'poaching' ||
-          feedingGrid[k] === 'resident' || feedingGrid[k] === 'poacher' ||
-          feedingGrid[k] === 'barrens'
+        // Mandragora Garden — effective dots across all bonus channels
+        const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
+        // Each effective dot produces 1 Blood Fruit (worth 2 vitae if consumed; not on the vitae track)
+        const bloodFruit = mandDots;
+        // Herd: TM errata — 1 vitae per effective dot per month, all bonus channels included.
+        const herdDots = effectiveDomainDots(c, 'Herd');
+        // Oath of Fealty: stored as a power (category 'pact'), not a merit.
+        // +vitae equal to effective Invictus Status when present.
+        //
+        // Effective Invictus Status = max(stored covenant status, OTS floor).
+        // OTS (Oath of the Scapegoat) provides a covenant-status floor equal to
+        // its dot rating, which lets characters whose stored status is otherwise
+        // depressed (negative reputation in fiction) still benefit mechanically.
+        // We compute the OTS floor inline as a fallback in case the cached
+        // c._ots_covenant_bonus hasn't been refreshed for this character.
+        const otsPact = (c.powers || []).find(p =>
+          p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the scapegoat'
         );
-        const primaryTerrName = primaryTerrKey
-          ? FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === primaryTerrKey)
-          : null;
-        const isBarrensSelected = primaryTerrKey ? feedingGrid[primaryTerrKey] === 'barrens' : false;
-        const terrData = (!isBarrensSelected && primaryTerrName) ? TERRITORY_DATA.find(t => t.name === primaryTerrName) : null;
-        const ambienceMod = !primaryTerrName ? null : isBarrensSelected ? -4 : (terrData ? (terrData.ambienceMod || 0) : null);
+        const otsFloor = Math.max(
+          c._ots_covenant_bonus || 0,
+          otsPact ? ((otsPact.cp || 0) + (otsPact.xp || 0)) : 0
+        );
+        const hasOathOfFealty = (c.powers || []).some(p =>
+          p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of fealty'
+        );
+        const invStatusForOath = Math.max(c.status?.covenant?.['Invictus'] || 0, otsFloor);
+        const oathBonus = hasOathOfFealty ? invStatusForOath : 0;
 
-        const netVitae = ambienceMod !== null
-          ? Math.max(0, Math.min(vitaeMax, vitaeMax - totalCost + ambienceMod))
-          : null;
+        // Resolve ambienceMod from a territory grid — returns {mod, label} or null
+        const resolveTerrAmbience = (gridJson) => {
+          let grid = {};
+          try { grid = JSON.parse(gridJson || '{}'); } catch { /* ignore */ }
+          const key = Object.keys(grid).find(k =>
+            grid[k] === 'feeding_rights' || grid[k] === 'poaching' ||
+            grid[k] === 'resident' || grid[k] === 'poacher' || grid[k] === 'barrens'
+          );
+          if (!key) return null;
+          if (grid[key] === 'barrens') return { mod: -4, label: 'Barrens (The Barrens)' };
+          const name = FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key);
+          if (!name) return null;
+          const td = TERRITORY_DATA.find(t => t.name === name);
+          if (!td) return null;
+          return { mod: td.ambienceMod || 0, label: `${td.ambience} (${name})` };
+        };
+
+        const mainAmb = resolveTerrAmbience(allResp['feeding_territories']);
+        const roteAmb = feedRoteAction ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
+
+        // Best of the two territories (highest mod wins)
+        let bestAmb = null;
+        if (mainAmb !== null && roteAmb !== null) {
+          const useRote = roteAmb.mod > mainAmb.mod;
+          bestAmb = { ...(useRote ? roteAmb : mainAmb), fromRote: useRote };
+        } else {
+          bestAmb = mainAmb ?? roteAmb ?? null;
+        }
+
+        // Compute main hunt dice pool (used for average vitae yield)
+        let mainPool = 0;
+        if (feedCustomAttr) {
+          const a = c.attributes?.[feedCustomAttr];
+          if (a) mainPool += (a.dots || 0) + (a.bonus || 0);
+        }
+        if (feedCustomSkill) {
+          const s = c.skills?.[feedCustomSkill];
+          if (s) mainPool += (s.dots || 0) + (s.bonus || 0);
+        }
+        if (feedDiscName) mainPool += c.disciplines?.[feedDiscName]?.dots || 0;
+        const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
+        mainPool += fgVal;
+        if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
+        // Average vitae: base = floor(2N/3); rote = floor(5N/6) (max of two rolls)
+        const avgGathered = feedRoteAction
+          ? Math.floor((mainPool * 5) / 6)
+          : Math.floor((mainPool * 2) / 3);
+
+        // Group mods into positives and negatives
+        const posMods = [];
+        const negMods = [];
+        if (bestAmb !== null) {
+          const fromNote = bestAmb.fromRote ? ' (rote territory)' : '';
+          const lbl = `Ambience: ${bestAmb.label}${fromNote}`;
+          if (bestAmb.mod >= 0) posMods.push({ label: lbl, val: bestAmb.mod });
+          else negMods.push({ label: lbl, val: bestAmb.mod });
+        }
+        if (herdDots > 0) posMods.push({ label: `Herd (${'●'.repeat(herdDots)})`, val: herdDots });
+        if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
+        if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
+        if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
+        if (mandDots > 0) negMods.push({ label: `Mandragora Garden (${'●'.repeat(mandDots)})`, val: -mandDots });
+
+        const netStarting = posMods.reduce((s, m) => s + m.val, 0) + negMods.reduce((s, m) => s + m.val, 0);
+        const projected = Math.max(0, Math.min(vitaeMax, netStarting + avgGathered));
 
         h += '<div class="dt-vitae-budget">';
         h += '<div class="dt-vitae-budget-title">Vitae Projection</div>';
-        h += `<div class="dt-vitae-row"><span>Vitae Max (BP ${c.blood_potency || 1})</span><span>${vitaeMax}</span></div>`;
-        if (ghoulCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Ghoul Retainers</span><span>\u2212${ghoulCost}</span></div>`;
-        if (riteVitaeCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Cruac Rites</span><span>\u2212${riteVitaeCost}</span></div>`;
-        if (mandDots > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Mandragora Garden (${'●'.repeat(mandDots)})</span><span>\u2212${mandDots}</span></div>`;
-        if (ambienceMod !== null) {
-          const ambLabel = isBarrensSelected ? 'Barrens (The Barrens)' : `${esc(terrData.ambience)} (${primaryTerrName})`;
-          const modStr = ambienceMod >= 0 ? `+${ambienceMod}` : `${ambienceMod}`;
-          h += `<div class="dt-vitae-row dt-vitae-note"><span>Ambience: ${ambLabel}</span><span>${modStr}</span></div>`;
-          h += `<div class="dt-vitae-row dt-vitae-total"><span>Net Vitae after feeding</span><span class="${netVitae === 0 ? 'dt-vitae-over' : ''}">${netVitae}</span></div>`;
-        } else {
-          h += `<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Select a feeding territory above to see your projection.</span><span></span></div>`;
+        h += '<div class="dt-vitae-row"><span>Starting Vitae</span><span>0</span></div>';
+        for (const mod of posMods) {
+          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}</span></div>`;
         }
-        if (mandFruit > 0) h += `<div class="dt-vitae-row dt-vitae-note"><span>Mandragora Fruit (equipment, not on Vitae track)</span><span>+${mandFruit}</span></div>`;
+        for (const mod of negMods) {
+          h += `<div class="dt-vitae-row dt-vitae-cost"><span>${esc(mod.label)}</span><span>−${Math.abs(mod.val)}</span></div>`;
+        }
+        const netSign = netStarting >= 0 ? '+' : '−';
+        h += `<div class="dt-vitae-row dt-vitae-subtotal"><span>Net starting Vitae</span><span>${netSign}${Math.abs(netStarting)}</span></div>`;
+        if (mainPool > 0) {
+          const yieldLabel = feedRoteAction ? 'Projected average gathered (rote)' : 'Projected average gathered';
+          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${yieldLabel}</span><span>+${avgGathered}</span></div>`;
+        } else {
+          h += '<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Build your hunt pool above to see expected yield.</span><span></span></div>';
+        }
+        h += `<div class="dt-vitae-row dt-vitae-total"><span>Projected Vitae after feeding</span><span class="${projected === 0 ? 'dt-vitae-over' : ''}">${projected} / ${vitaeMax}</span></div>`;
+        if (bloodFruit > 0) h += `<div class="dt-vitae-row dt-vitae-note"><span>Blood Fruit produced (worth 2 vitae each if consumed)</span><span>${bloodFruit}</span></div>`;
         h += '</div>';
       }
 
-      h += '</div>'; // dt-feed-card-wrap
       break;
     }
 
