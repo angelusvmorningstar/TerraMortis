@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -2804,6 +2804,10 @@ function renderProjectSlots(saved) {
       h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
     }
     h += '</div>';
+
+    // .dt-action-desc — descriptive copy for the selected action type
+    const actionDesc = ACTION_DESCRIPTIONS[actionVal] || '';
+    h += `<p class="dt-action-desc" aria-live="polite">${esc(actionDesc)}</p>`;
 
     // Backward-compat: saved support actions are no longer a valid action type
     if (actionVal === 'support') {

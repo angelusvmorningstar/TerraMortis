@@ -20,6 +20,18 @@ const PROJECT_ACTIONS = [
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
+export const ACTION_DESCRIPTIONS = {
+  'ambience_increase': 'This project will apply your successes directly towards improving the ambience of the selected territory.',
+  'ambience_decrease': 'This project will apply your successes directly towards degrading the ambience of the selected territory.',
+  'attack': 'You are attempting to destroy, ruin, or harm a specific target. You will need to select a character you\'re targeting, and detail to us the specific thing attached to them you\'re trying to affect: a merit, a holding, a project, or an NPC. Describe how you\'re going about harming that thing.',
+  'hide_protect': 'You are attempting to secure a specific target from harm or discovery this downtime. You will need to select what you are protecting: a merit, a holding, a project, or a person. Describe how you are securing it.',
+  'investigate': 'You are attempting to find out secrets about this target. You will need a lead or some starting point for your investigation; you can\'t investigate someone out of thin air. Describe what it is that you\'re investigating and what your lead is.',
+  'patrol_scout': 'You are actively observing the activity of the chosen territory. Describe how your character goes about observing: who they talk to, where they watch from, how long they spend.',
+  'xp_spend': 'You are spending experience to grow your character. Select the trait below.',
+  'misc': 'This is for downtime actions that don\'t neatly fit into any other category. Describe what you\'re attempting to achieve and how your character goes about it.',
+  'maintenance': 'You are maintaining your professional or cult relationships. Select the asset you are maintaining below.',
+};
+
 // Action type options for sphere (social merit) slots
 export const SPHERE_ACTIONS = [
   { value: '', label: '— No Action Taken —' },
