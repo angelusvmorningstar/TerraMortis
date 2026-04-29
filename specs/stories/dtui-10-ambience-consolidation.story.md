@@ -1,7 +1,7 @@
 ---
 id: dtui.10
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4, dtui.8, dtui.9]
 ---
@@ -243,18 +243,30 @@ This ensures legacy submissions render via the new unified flow without crashing
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- `PROJECT_ACTIONS`: replaced `ambience_increase`/`ambience_decrease` with single `ambience_change` entry.
+- `ACTION_DESCRIPTIONS` and `ACTION_APPROACH_PROMPTS`: renamed keys to `ambience_change_improve`/`ambience_change_degrade`.
+- `JOINT_ELIGIBLE_ACTIONS`: replaced two entries with `'ambience_change'`.
+- `ACTION_FIELDS`: replaced both ambience entries with `ambience_change: ['title', 'outcome', 'target', 'pools', 'description']`.
+- Legacy normalisation in `renderProjectSlots()`: `ambience_increase`/`ambience_decrease` map to `ambience_change` + seed `ambience_dir` from action name (AC6).
+- `actionVal` changed from `const` to `let` to allow normalisation mutation.
+- `ambienceDir` derived at render time; `descKey`/`promptKey` use `ambience_change_${ambienceDir}` for desc and approach prompt (AC4).
+- `renderOutcomeZone()`: `ambience_change` branch derives direction-aware read-only text from `saved` (AC4).
+- `renderTargetZone()`: `ambience_change` appended Improve/Degrade `.dt-ticker` after territory chips; `data-proj-ambience-dir` attribute on radios (AC2, AC3).
+- `collectResponses()`: added `project_N_ambience_dir` radio read.
+- Delegated change handler for `data-proj-ambience-dir`: full re-render to propagate direction to desc/prompt/outcome (AC4).
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-data.js`
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-10 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-10 implemented: ambience_change unified action with direction ticker; legacy compat; direction-aware desc/prompt/outcome. |
