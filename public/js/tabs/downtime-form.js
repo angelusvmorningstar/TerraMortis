@@ -120,8 +120,7 @@ const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_increase': ['title', 'outcome', 'territory', 'pools', 'description'],
-  'ambience_decrease': ['title', 'outcome', 'territory', 'pools', 'description'],
+  'ambience_change':   ['title', 'outcome', 'target', 'pools', 'description'],
   'attack':            ['title', 'outcome', 'target', 'pools', 'description'],
   'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
   'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
@@ -456,6 +455,8 @@ function collectResponses() {
     responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
     responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
+    const ambienceDirEl = document.querySelector(`input[name="dt-project_${n}_ambience_dir"]:checked`);
+    responses[`project_${n}_ambience_dir`] = ambienceDirEl ? ambienceDirEl.value : '';
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -1977,6 +1978,16 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // Ambience direction ticker — re-render so desc/prompt/outcome update
+    const projAmbienceDir = e.target.closest('[data-proj-ambience-dir]');
+    if (projAmbienceDir) {
+      activeProjectTab = parseInt(projAmbienceDir.dataset.projAmbienceDir, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Dice pool dropdown — update total
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
@@ -2667,8 +2678,14 @@ function renderProjectSlots(saved) {
 
   // ── Tab panes ──
   for (let n = 1; n <= slotCount; n++) {
-    const actionVal = saved[`project_${n}_action`] || '';
+    let actionVal = saved[`project_${n}_action`] || '';
     const visible = n === activeProjectTab;
+    // Legacy backward-compat: normalise old ambience action types to ambience_change (dtui-10)
+    if (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') {
+      const legacyDir = actionVal === 'ambience_increase' ? 'improve' : 'degrade';
+      if (!saved[`project_${n}_ambience_dir`]) saved[`project_${n}_ambience_dir`] = legacyDir;
+      actionVal = 'ambience_change';
+    }
     let fields = ACTION_FIELDS[actionVal] || [];
 
     // JDT-4: support-slot detection (set early so the pane wrapper class is right).
@@ -2827,7 +2844,9 @@ function renderProjectSlots(saved) {
     h += '</div>';
 
     // .dt-action-desc — descriptive copy for the selected action type
-    const actionDesc = ACTION_DESCRIPTIONS[actionVal] || '';
+    const ambienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
+    const descKey = actionVal === 'ambience_change' ? `ambience_change_${ambienceDir}` : actionVal;
+    const actionDesc = ACTION_DESCRIPTIONS[descKey] || '';
     h += `<p class="dt-action-desc" aria-live="polite">${esc(actionDesc)}</p>`;
 
     // Backward-compat: saved support actions are no longer a valid action type
@@ -2947,7 +2966,8 @@ function renderProjectSlots(saved) {
     // ── Approach ──
     if (fields.includes('description')) {
       const approachText = saved[`project_${n}_description`] || '';
-      const approachPrompt = ACTION_APPROACH_PROMPTS[actionVal] || 'Describe your approach in narrative terms.';
+      const promptKey = actionVal === 'ambience_change' ? `ambience_change_${ambienceDir}` : actionVal;
+      const approachPrompt = ACTION_APPROACH_PROMPTS[promptKey] || 'Describe your approach in narrative terms.';
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-project_${n}_description">Approach</label>`;
       h += `<textarea id="dt-project_${n}_description" class="qf-textarea" rows="4" placeholder="${esc(approachPrompt)}">${esc(approachText)}</textarea>`;
@@ -4307,12 +4327,18 @@ function renderTargetPicker(prefix, opts) {
 function renderOutcomeZone(n, actionVal, saved) {
   const savedOutcome = saved[`project_${n}_outcome`] || '';
 
+  if (actionVal === 'ambience_change') {
+    const dir = saved[`project_${n}_ambience_dir`] || 'improve';
+    const text = dir === 'improve'
+      ? 'Improve the ambience of the targeted territory.'
+      : 'Degrade the ambience of the targeted territory.';
+    return `<div class="qf-field"><p class="dt-outcome-readonly qf-desc">${esc(text)}</p></div>`;
+  }
+
   const READONLY = {
-    'ambience_increase': 'Improve the ambience of the targeted territory.',
-    'ambience_decrease': 'Degrade the ambience of the targeted territory.',
-    'hide_protect':      'Attempt to protect the asset from attacks this downtime.',
-    'investigate':       'Uncover a secret or mystery about the target.',
-    'patrol_scout':      'Observe the territory closely for intrusive or adversarial activity.',
+    'hide_protect':  'Attempt to protect the asset from attacks this downtime.',
+    'investigate':   'Uncover a secret or mystery about the target.',
+    'patrol_scout':  'Observe the territory closely for intrusive or adversarial activity.',
   };
 
   if (READONLY[actionVal]) {
@@ -4361,8 +4387,18 @@ function renderTargetZone(n, actionVal, saved, chars) {
   let h = '<div class="qf-field">';
   h += '<label class="qf-label">Target</label>';
 
-  if (['patrol_scout'].includes(actionVal)) {
+  if (['ambience_change', 'patrol_scout'].includes(actionVal)) {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
+    if (actionVal === 'ambience_change') {
+      const savedAmbienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
+      h += `<fieldset class="dt-ticker" style="margin-top:8px">`;
+      h += '<legend class="dt-ticker__legend">Direction</legend>';
+      for (const d of ['improve', 'degrade']) {
+        const dLabel = d[0].toUpperCase() + d.slice(1);
+        h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_ambience_dir" value="${d}"${savedAmbienceDir === d ? ' checked' : ''} data-proj-ambience-dir="${n}"> ${dLabel}</label>`;
+      }
+      h += '</fieldset>';
+    }
   } else if (['attack', 'hide_protect'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
   } else if (['investigate', 'misc'].includes(actionVal)) {

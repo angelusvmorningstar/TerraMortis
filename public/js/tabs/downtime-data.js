@@ -9,8 +9,7 @@
 // Action type options shared across project slots
 const PROJECT_ACTIONS = [
   { value: '', label: '— No Action Taken —' },
-  { value: 'ambience_increase', label: 'Ambience Change (Increase): Make a Territory delicious' },
-  { value: 'ambience_decrease', label: 'Ambience Change (Decrease): Make Territory not delicious' },
+  { value: 'ambience_change', label: 'Ambience Change: Improve or degrade the ambience of a territory' },
   { value: 'attack', label: 'Attack: Attempt to destroy merits, holdings, projects, or NPCs' },
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
@@ -21,8 +20,8 @@ const PROJECT_ACTIONS = [
 ];
 
 export const ACTION_APPROACH_PROMPTS = {
-  'ambience_increase': 'How do you go about improving the ambience of this territory in narrative terms.',
-  'ambience_decrease': 'How do you go about degrading the ambience of this territory in narrative terms.',
+  'ambience_change_improve': 'How do you go about improving the ambience of this territory in narrative terms.',
+  'ambience_change_degrade': 'How do you go about degrading the ambience of this territory in narrative terms.',
   'attack': 'How do you attempt to destroy or undermine this target in narrative terms.',
   'hide_protect': 'How do you go about securing and hiding this target in narrative terms.',
   'investigate': 'How does your character pursue this investigation in narrative terms.',
@@ -32,8 +31,8 @@ export const ACTION_APPROACH_PROMPTS = {
 };
 
 export const ACTION_DESCRIPTIONS = {
-  'ambience_increase': 'This project will apply your successes directly towards improving the ambience of the selected territory.',
-  'ambience_decrease': 'This project will apply your successes directly towards degrading the ambience of the selected territory.',
+  'ambience_change_improve': 'This project will apply your successes directly towards improving the ambience of the selected territory.',
+  'ambience_change_degrade': 'This project will apply your successes directly towards degrading the ambience of the selected territory.',
   'attack': 'You are attempting to destroy, ruin, or harm a specific target. You will need to select a character you\'re targeting, and detail to us the specific thing attached to them you\'re trying to affect: a merit, a holding, a project, or an NPC. Describe how you\'re going about harming that thing.',
   'hide_protect': 'You are attempting to secure a specific target from harm or discovery this downtime. You will need to select what you are protecting: a merit, a holding, a project, or a person. Describe how you are securing it.',
   'investigate': 'You are attempting to find out secrets about this target. You will need a lead or some starting point for your investigation; you can\'t investigate someone out of thin air. Describe what it is that you\'re investigating and what your lead is.',
@@ -116,8 +115,7 @@ export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initia
 // Excluded: support (recursive role conflict), xp_spend (personal),
 // maintenance (personal). The toggle is hidden for these.
 export const JOINT_ELIGIBLE_ACTIONS = [
-  'ambience_increase',
-  'ambience_decrease',
+  'ambience_change',
   'attack',
   'hide_protect',
   'investigate',
