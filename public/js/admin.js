@@ -29,6 +29,7 @@ import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
+import { initRulesDataView } from './admin/rules-data-view.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -204,6 +205,7 @@ function switchDomain(domain) {
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'));
+  if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
