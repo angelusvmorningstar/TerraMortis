@@ -93,11 +93,11 @@ Note: `ambience_increase` and `ambience_decrease` currently have no `outcome` en
 
 ### Update ACTION_FIELDS
 
-Add `'outcome'` to `ambience_increase` and `ambience_decrease` entries (after dtui-8 has run, these are):
+Add `'outcome'` to `ambience_increase` and `ambience_decrease` entries, keeping outcome before territory (spec zone order — Outcome before Target):
 
 ```javascript
-'ambience_increase': ['title', 'territory', 'outcome', 'pools', 'description'],
-'ambience_decrease': ['title', 'territory', 'outcome', 'pools', 'description'],
+'ambience_increase': ['title', 'outcome', 'territory', 'pools', 'description'],
+'ambience_decrease': ['title', 'outcome', 'territory', 'pools', 'description'],
 ```
 
 ### New `renderOutcomeZone()` helper
