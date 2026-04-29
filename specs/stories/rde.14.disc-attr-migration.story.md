@@ -2,7 +2,7 @@
 title: 'Discipline → Attribute / derived stat migration — Vigour, Resilience, Celerity'
 type: 'refactor'
 created: '2026-04-28'
-status: 'ready-for-dev'
+status: 'complete'
 recommended_model: 'opus — disc→attr maps + Celerity-into-derived-stats house rule (Speed/Defence, NOT Dexterity); touches calcSpeed/calcDefence and the dice pool helper'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
@@ -47,10 +47,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `server/scripts/seed-rules-disc-attr.js` — three docs (Vigour→Strength, Resilience→Stamina, Celerity→Speed; Celerity→Defence is the same discipline different target so it's a fourth doc).
-- [ ] Refactor `discAttrBonus()` and the `calcSpeed`/`calcDefence` Celerity reads to consult the rules collection. Cache rules per render to avoid repeated lookups.
-- [ ] `server/tests/disc-attr-parallel-write.test.js` — I/O Matrix.
-- [ ] Flip: delete `DISC_ATTR_MAP` constant and inline Celerity reads.
+- [x] `server/scripts/seed-rules-disc-attr.js` — four docs (Vigour→Strength, Resilience→Stamina, Celerity→Speed, Celerity→Defence).
+- [x] Refactor `discAttrBonus()` and the `calcSpeed`/`calcDefence` Celerity reads to consult the rules collection via `getRulesCache().rule_disc_attr`. Legacy fallback when cache not loaded.
+- [x] `server/tests/disc-attr-parallel-write.test.js` — I/O Matrix. 13 tests.
+- [x] Flip: deleted `DISC_ATTR_MAP` constant and inline Celerity reads.
 
 **Acceptance Criteria:**
 - Given a character with Vigour 2, when `getAttrEffective(c, 'Strength')` is called, then the result includes the +2 bonus.

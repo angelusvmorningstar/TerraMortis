@@ -14,12 +14,13 @@ let _cache = null; // { rule_grant, rule_nine_again, rule_skill_bonus, rule_spec
  */
 export async function preloadRules() {
   if (_cache) return _cache;
-  const [grant, nineAgain, skillBonus, specialityGrant, tierBudget] = await Promise.all([
+  const [grant, nineAgain, skillBonus, specialityGrant, tierBudget, discAttr] = await Promise.all([
     apiGet('/api/rules/grant'),
     apiGet('/api/rules/nine_again'),
     apiGet('/api/rules/skill_bonus'),
     apiGet('/api/rules/speciality_grant'),
     apiGet('/api/rules/tier_budget'),
+    apiGet('/api/rules/disc_attr'),
   ]);
   _cache = {
     rule_grant:            Array.isArray(grant)           ? grant           : [],
@@ -27,6 +28,7 @@ export async function preloadRules() {
     rule_skill_bonus:      Array.isArray(skillBonus)      ? skillBonus      : [],
     rule_speciality_grant: Array.isArray(specialityGrant) ? specialityGrant : [],
     rule_tier_budget:      Array.isArray(tierBudget)      ? tierBudget      : [],
+    rule_disc_attr:        Array.isArray(discAttr)        ? discAttr        : [],
   };
   return _cache;
 }
