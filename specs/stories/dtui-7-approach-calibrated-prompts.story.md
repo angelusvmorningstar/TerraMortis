@@ -1,7 +1,7 @@
 ---
 id: dtui.7
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4]
 ---
@@ -179,18 +179,24 @@ In `renderSphereFields()` (line 4446), the `description` field also renders for 
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Added `ACTION_APPROACH_PROMPTS` export to `downtime-data.js` (8 entries; xp_spend excluded as it has no description field). British English throughout ("organisation").
+- Added `ACTION_APPROACH_PROMPTS` to the import in `downtime-form.js`.
+- Replaced the `renderQuestion` call for the description field in `renderProjectSlots()` with an inlined render: label "Approach", textarea with `id="dt-project_${n}_description"` (preserved for collectResponses compatibility), and `placeholder` set from `ACTION_APPROACH_PROMPTS[actionVal]`. The `qf-desc` helper text is dropped as `.dt-action-desc` (dtui-6) already provides per-action context.
+- AC4 (value preservation): textarea reads from `saved[project_${n}_description]` — unchanged field key.
+- Allies description field in `renderSphereFields()` is untouched per out-of-scope note.
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-data.js`
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-7 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-7 implemented: ACTION_APPROACH_PROMPTS added; description field renamed Approach with per-action placeholder. |
