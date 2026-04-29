@@ -1,7 +1,7 @@
 ---
 id: dtui.8
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4, dtui.2]
 ---
@@ -214,18 +214,26 @@ Territory and character chips use `data-project-target-char` and `data-project-t
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Updated ACTION_FIELDS: replaced target_char/target_flex/target_own_merit with unified 'target' key; removed territory from attack/patrol_scout; reordered to put outcome before target per spec zone order.
+- Updated collectResponses: removed old .dt-target-char-cb checkbox logic; reads target_value from hidden input; added target_terr and target_other reads.
+- Replaced old target render blocks in renderProjectSlots() and reordered: outcome → target → investigate_lead → pools.
+- Added renderTargetZone() dispatcher: patrol_scout → territory chips; attack/hide_protect → char-or-other; investigate/misc → char/terr/other.
+- Added renderTargetCharOrOther(): type radios with data-flex-type (re-render on change); character .dt-chip-grid with hidden input for value; territory uses existing renderTerritoryPills with dt-project_N_target_terr; other uses text input. Defaults to 'character' for two-way actions (backward compat with old attack submissions).
+- Added character chip click handler in event delegation: single-select toggle, updates hidden input, calls scheduleSave().
+- Backward compat (AC6): renderTargetZone parses old JSON array format in target_value and extracts first ID.
+- XP Spend and Maintenance have no 'target' in ACTION_FIELDS — target zone absent (AC4). ✓
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-8 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-8 implemented: unified target zone with .dt-chip-grid, renderTargetZone + renderTargetCharOrOther helpers, chip click handler. |
