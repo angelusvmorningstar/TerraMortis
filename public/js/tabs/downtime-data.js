@@ -15,7 +15,6 @@ const PROJECT_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
-  { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },

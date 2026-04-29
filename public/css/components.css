@@ -4883,6 +4883,15 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   to   { opacity: 1; }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   .dt-action-block — stable shell container for project/merit-action fields
+   ════════════════════════════════════════════════════════════════════ */
+.dt-action-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Downtime/feeding parchment theme weight floor */
 html:not([data-theme="dark"]) .feeding-roll-btn,
 html:not([data-theme="dark"]) .feeding-confirmed-head,

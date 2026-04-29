@@ -1,7 +1,7 @@
 ---
 id: dtui.4
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.1, dtui.2, dtui.3]
 ---
@@ -200,18 +200,26 @@ No additional code needed for AC5 — this is existing behaviour. Verify by test
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Added `.dt-action-block { display:flex; flex-direction:column; gap:12px }` CSS after `.dt-action-desc` keyframes block in components.css. No bare hex; uses no `:root` tokens (layout-only rule).
+- Removed `{ value: 'support', ... }` entry from `PROJECT_ACTIONS` in downtime-data.js. `SPHERE_ACTIONS` untouched (dtui-15 handles it). `JOINT_ELIGIBLE_ACTIONS` already excluded `support` by comment.
+- Removed `'support': ['title', 'pools', 'outcome', 'cast', 'description']` from `ACTION_FIELDS` in downtime-form.js. Legacy submissions with `actionVal === 'support'` will now hit the `|| []` fallback (no fields), plus the new legacy notice.
+- Opened `<div class="dt-action-block">` immediately before the action-type select in `renderProjectSlots()`. Closed it immediately before `</div> // proj-pane`. Rote-locked and joint-support-slot paths both use `continue` before the open tag, so they are unaffected.
+- Added backward-compat legacy notice (`qf-desc dt-action-legacy-notice`) after the action-type `</div>`, guarded by `if (actionVal === 'support')`.
+- AC5 (value preservation) confirmed as pre-existing behaviour — no code change needed.
 
 ### File List
 
-(to be filled when implemented)
+- `public/css/components.css`
+- `public/js/tabs/downtime-data.js`
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-4 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-4 implemented: `.dt-action-block` CSS + wrapper, support removed from PROJECT_ACTIONS + ACTION_FIELDS, legacy notice added. |

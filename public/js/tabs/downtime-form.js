@@ -126,7 +126,6 @@ const ACTION_FIELDS = {
   'investigate': ['title', 'target_flex', 'investigate_lead', 'pools', 'outcome', 'cast', 'merits', 'description'],
   'hide_protect': ['title', 'target_own_merit', 'pools', 'outcome', 'cast', 'merits', 'description'],
   'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
-  'support': ['title', 'pools', 'outcome', 'cast', 'description'],
   'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
   'maintenance': ['description'],
 };
@@ -2787,6 +2786,8 @@ function renderProjectSlots(saved) {
       if (activeInvs.length > 0) lockActionType = true;
     }
 
+    h += '<div class="dt-action-block">';
+
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
@@ -2803,6 +2804,11 @@ function renderProjectSlots(saved) {
       h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
     }
     h += '</div>';
+
+    // Backward-compat: saved support actions are no longer a valid action type
+    if (actionVal === 'support') {
+      h += '<p class="qf-desc dt-action-legacy-notice">This action type is no longer available. Please select a new action type.</p>';
+    }
 
     // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
     if (isJointEligible) {
@@ -3043,6 +3049,7 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_description`] || '');
     }
 
+    h += '</div>'; // dt-action-block
     h += '</div>'; // proj-pane
   }
 
