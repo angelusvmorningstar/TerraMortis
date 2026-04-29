@@ -135,10 +135,10 @@ Replace:
 ```
 with:
 ```javascript
-'ambience_change':   ['title', 'target', 'outcome', 'pools', 'description'],
+'ambience_change':   ['title', 'outcome', 'target', 'pools', 'description'],
 ```
 
-Note: `target` (not `territory`) — the territory chips + Improve/Degrade ticker both live inside `renderTargetZone()` for `ambience_change`.
+Note: `target` (not `territory`) — the territory chips + Improve/Degrade ticker both live inside `renderTargetZone()` for `ambience_change`. Outcome zone (read-only direction text) renders before the target zone (spec zone order).
 
 ### renderTargetZone() update (downtime-form.js)
 

@@ -112,16 +112,18 @@ const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_increase': ['title', 'territory', 'pools', 'description'],  // territory stays separate; ambience target = territory
+  'ambience_increase': ['title', 'territory', 'pools', 'description'],  // territory stays separate; outcome added by dtui-9
   'ambience_decrease': ['title', 'territory', 'pools', 'description'],
-  'attack':            ['title', 'target', 'pools', 'outcome', 'description'],
-  'investigate':       ['title', 'target', 'investigate_lead', 'pools', 'outcome', 'description'],
-  'hide_protect':      ['title', 'target', 'pools', 'outcome', 'description'],
-  'patrol_scout':      ['title', 'target', 'pools', 'outcome', 'description'],  // patrol uses territory target
-  'misc':              ['title', 'target', 'pools', 'outcome', 'description'],
+  'attack':            ['title', 'outcome', 'target', 'pools', 'description'],  // outcome before target (spec zone order)
+  'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
+  'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
+  'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],  // patrol uses territory target
+  'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
   'maintenance':       ['description'],  // maintenance_target handled by dtui-11
 };
 ```
+
+Note on field order: the spec zone order (dtui-4) places Outcome zone BEFORE Target zone. ACTION_FIELDS iteration order must match. In `renderProjectSlots()`, ensure the `renderOutcomeZone()` call (dtui-9) is placed before `renderTargetZone()` in the if-block sequence.
 
 Note: `ambience_increase`/`ambience_decrease` keep `territory` as a separate field because territory display (with ambience mod info) has additional context. The Ambience Improve/Degrade ticker is added by dtui-10.
 
