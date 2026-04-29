@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-29 (DTUI Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition (ready-for-dev). Earlier: Wave 1 implemented; Wave 2 story files written; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
+last_updated: 2026-04-29 (DTUI Wave 3 complete: dtui-12 through dtui-19 all at review. Earlier: Wave 3 story files drafted; Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition; Wave 1 implemented; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -696,16 +696,17 @@ development_status:
   dtui-10-ambience-consolidation: review
   dtui-11-maintenance-target-chip-array: review
   dtui-33-target-type-selector-ticker: review  # Wave 2 addition — ticker polish for target type radios
+  dtui-34-action-block-ui-polish: review  # Wave 2 addition — Direction/Target Type labels, spacing, placeholder audit
 
   # Wave 3 — Joint Collaboration Hub
-  dtui-12-joint-panel-auto-expand: backlog
-  dtui-13-invitee-chip-grid: backlog
-  dtui-14-sphere-merit-auto-commit: backlog
-  dtui-15-allies-action-descriptions: backlog
-  dtui-16-allies-target-scoping: backlog
-  dtui-17-allies-ambience-eligibility: backlog
-  dtui-18-allies-ambience-display: backlog
-  dtui-19-allies-grow-xp-spend: backlog
+  dtui-12-joint-panel-auto-expand: review
+  dtui-13-invitee-chip-grid: review
+  dtui-14-sphere-merit-auto-commit: review
+  dtui-15-allies-action-descriptions: review
+  dtui-16-allies-target-scoping: review
+  dtui-17-allies-ambience-eligibility: review
+  dtui-18-allies-ambience-display: review
+  dtui-19-allies-grow-xp-spend: review
 
   # Wave 4 — Filter-to-Context per Section
   dtui-20-court-acknowledge-peers: backlog

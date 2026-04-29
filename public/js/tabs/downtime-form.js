@@ -58,6 +58,7 @@ let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from l
 let priorPublishedLabel = null; // label of most recent published cycle other than current
 let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
 let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
@@ -133,15 +134,14 @@ const SPHERE_ACTION_FIELDS = {
   '': [],
   'ambience_increase': ['territory', 'outcome'],
   'ambience_decrease': ['territory', 'outcome'],
-  'attack': ['target_char', 'outcome'],
-  'block': ['target_char', 'block_merit', 'outcome'],
-  'hide_protect': ['target_own_merit', 'outcome'],
-  'investigate': ['target_flex', 'investigate_lead', 'outcome'],
-  'patrol_scout': ['territory', 'outcome', 'description'],
-  'rumour': ['outcome', 'description'],
-  'support': ['project_support', 'outcome'],
-  'grow': ['outcome', 'description'],
-  'misc': ['outcome', 'description'],
+  'attack':            ['target_char', 'outcome'],
+  'block':             ['target_char', 'block_merit', 'outcome'],
+  'hide_protect':      ['target_own_merit', 'outcome'],
+  'investigate':       ['target_flex', 'investigate_lead', 'outcome'],
+  'patrol_scout':      ['territory', 'outcome'],
+  'grow':              ['grow_xp'],
+  'misc':              ['outcome'],
+  'maintenance':       ['maintenance_target'],
 };
 
 function scheduleSave() {
@@ -500,10 +500,16 @@ function collectResponses() {
       const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
       responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
     }
-    const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
-    const jointInviteeIds = [];
-    jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
-    responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
+    // dtui-13: prefer hidden input (chip path) over legacy checkboxes (existingJoint re-invite path)
+    const invitedHidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
+    if (invitedHidden) {
+      responses[`project_${n}_joint_invited_ids`] = invitedHidden.value;
+    } else {
+      const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
+      const jointInviteeIds = [];
+      jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
+      responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
+    }
   }
 
   // Collect sorcery slots (dynamic count)
@@ -551,7 +557,7 @@ function collectResponses() {
   // Sphere action fields (tabbed — up to 5 slots)
   const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
   for (let n = 1; n <= maxSpheres; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead', 'grow_target']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
@@ -1137,6 +1143,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   if (currentCycle) {
     try {
       const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+      _allSubmissions = subs || [];
       responseDoc = subs.find(s =>
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
@@ -1954,6 +1961,14 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Grow target dots — re-render to update XP cost display
+    if (e.target.dataset.growTarget !== undefined) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Status action change — re-render for action-specific fields
     const statusAction = e.target.closest('[data-status-action]');
     if (statusAction) {
@@ -2164,8 +2179,9 @@ function renderForm(container) {
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
+      const mPrefix = maintChip.dataset.maintenancePrefix || 'project';
       const targetId = maintChip.dataset.targetId;
-      const hidden = document.getElementById(`dt-project_${slotNum}_target_value`);
+      const hidden = document.getElementById(`dt-${mPrefix}_${slotNum}_target_value`);
       const wasSelected = maintChip.classList.contains('dt-chip--selected');
       container.querySelectorAll(`[data-maintenance-target="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
       if (!wasSelected) {
@@ -2174,6 +2190,56 @@ function renderForm(container) {
       } else {
         if (hidden) hidden.value = '';
       }
+      scheduleSave();
+      return;
+    }
+    // DTUI-13: joint invitee chip — multi-select, writes to hidden input
+    const inviteeChip = e.target.closest('[data-joint-invitee-slot]');
+    if (inviteeChip && !inviteeChip.disabled) {
+      const n = inviteeChip.dataset.jointInviteeSlot;
+      inviteeChip.classList.toggle('dt-chip--selected');
+      const selected = container.querySelectorAll(`[data-joint-invitee-slot="${n}"].dt-chip--selected`);
+      const ids = [...selected].map(el => el.dataset.charId).filter(Boolean);
+      const hidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
+      if (hidden) hidden.value = JSON.stringify(ids);
+      scheduleSave();
+      return;
+    }
+    // DTUI-16: sphere character target chip — single-select
+    const sphereCharChip = e.target.closest('[data-sphere-char-target]');
+    if (sphereCharChip && !sphereCharChip.disabled) {
+      const prefixN = sphereCharChip.dataset.sphereCharTarget; // e.g. 'sphere_2'
+      const charId = sphereCharChip.dataset.charId;
+      const wasSelected = sphereCharChip.classList.contains('dt-chip--selected');
+      container.querySelectorAll(`[data-sphere-char-target="${prefixN}"]`).forEach(el => el.classList.remove('dt-chip--selected'));
+      const hidden = document.getElementById(`dt-${prefixN}_target_value`);
+      if (!wasSelected) {
+        sphereCharChip.classList.add('dt-chip--selected');
+        saved[`${prefixN}_target_value`] = charId;
+        if (hidden) hidden.value = charId;
+      } else {
+        saved[`${prefixN}_target_value`] = '';
+        if (hidden) hidden.value = '';
+      }
+      scheduleSave();
+      return;
+    }
+    // DTUI-14: sphere-merit collaborator chip — multi-select, auto-commits Support
+    const sphereChip = e.target.closest('[data-joint-sphere-slot]');
+    if (sphereChip && !sphereChip.disabled) {
+      const n = sphereChip.dataset.jointSphereSlot;
+      const slotKey = sphereChip.dataset.sphereKey;
+      const type = sphereChip.dataset.sphereType;
+      const willSelect = !sphereChip.classList.contains('dt-chip--selected');
+      sphereChip.classList.toggle('dt-chip--selected', willSelect);
+      if (type === 'sphere') {
+        saved[`${slotKey}_action`] = willSelect ? 'support' : '';
+      }
+      const allSphereChips = container.querySelectorAll(`[data-joint-sphere-slot="${n}"]`);
+      const keys = [...allSphereChips]
+        .filter(el => el.classList.contains('dt-chip--selected'))
+        .map(el => el.dataset.sphereKey);
+      saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
       scheduleSave();
       return;
     }
@@ -2923,7 +2989,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_xp_trait`, label: 'In-character justification',
         type: 'textarea', required: false,
-        desc: 'Describe the activity or events that justify this growth.',
+        placeholder: 'Describe the activity or events that justify this growth.',
       }, saved[`project_${n}_xp_trait`] || '');
 
       h += '</div>';
@@ -2933,7 +2999,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_title`, label: 'Project Title',
         type: 'text', required: false,
-        desc: 'A short name for this project.',
+        placeholder: 'A short name for this project.',
       }, saved[`project_${n}_title`] || '');
     }
 
@@ -2976,7 +3042,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_xp`, label: 'XP Expenditure',
         type: 'textarea', required: false, rows: 2,
-        desc: 'Describe what you are spending XP on in this action.',
+        placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
     }
 
@@ -4043,101 +4109,172 @@ function findExistingJoint(slot) {
 // exists; otherwise the panel is in pre-save authoring mode and reads scratch
 // fields off `saved` (responses).
 function renderJointAuthoring(n, saved, existingJoint) {
-  const desc = existingJoint
-    ? (existingJoint.description || '')
-    : (saved[`project_${n}_joint_description`] || '');
-  const targetType = existingJoint
-    ? (existingJoint.target_type || '')
-    : (saved[`project_${n}_joint_target_type`] || '');
-  const targetValue = existingJoint
-    ? (existingJoint.target_value || '')
-    : (saved[`project_${n}_joint_target_value`] || '');
-
-  let invitedIds = [];
-  if (existingJoint) {
-    // Once the joint exists, invitees are the invitations bound to it.
-    invitedIds = _jointInvitations
-      .filter(inv => String(inv.joint_project_id) === String(existingJoint._id))
-      .map(inv => String(inv.invited_character_id));
-  } else {
-    try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); }
-    catch { invitedIds = []; }
+  if (!existingJoint) {
+    return renderDtJointPanel(n, saved);
   }
-  const invitedSet = new Set(invitedIds.map(String));
+
+  // existingJoint path — JDT lifecycle controls (unchanged)
+  const desc = existingJoint.description || '';
+  const targetType = existingJoint.target_type || '';
+  const targetValue = existingJoint.target_value || '';
 
   let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
   h += `<div class="dt-joint-banner">Joint project</div>`;
 
-  // Explainer — what the lead is committing to. Sets expectations before
-  // they invite anyone. Strawman wording (not yet locked).
   h += `<div class="dt-joint-explainer">`;
   h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
   h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
   h += `</div>`;
 
-  if (existingJoint) {
-    h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
-  }
+  h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
 
-  // Joint description
   h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
   h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
-  if (existingJoint) {
-    h += `<div class="dt-joint-desc-edit-row">`;
-    h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
-    if (existingJoint.description_updated_at) {
-      const ts = formatTimestamp(existingJoint.description_updated_at);
-      h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
-    }
-    h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
-    h += `</div>`;
+  h += `<div class="dt-joint-desc-edit-row">`;
+  h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
+  if (existingJoint.description_updated_at) {
+    const ts = formatTimestamp(existingJoint.description_updated_at);
+    h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
   }
+  h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
+  h += `</div>`;
 
-  // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
-  // since joints can target multiple characters.
   h += `<label class="qf-label">Joint target</label>`;
-  if (existingJoint) {
-    const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-    const typeLbl = labelMap[targetType] || '—';
-    let valLbl = targetValue || '';
-    if (targetType === 'character') {
-      // target_value may be JSON array (multi) or a legacy single-id string.
-      let ids = [];
-      try {
-        const parsed = JSON.parse(targetValue || '[]');
-        ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
-      } catch {
-        ids = targetValue ? [targetValue] : [];
-      }
-      const names = ids
-        .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
-      valLbl = names.join(', ') || '—';
-    } else if (targetType === 'territory') {
-      const t = TERRITORY_DATA.find(x => x.id === targetValue);
-      if (t) valLbl = t.name;
+  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+  const typeLbl = labelMap[targetType] || '—';
+  let valLbl = targetValue || '';
+  if (targetType === 'character') {
+    let ids = [];
+    try {
+      const parsed = JSON.parse(targetValue || '[]');
+      ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
+    } catch {
+      ids = targetValue ? [targetValue] : [];
     }
-    h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
-  } else {
-    h += renderTargetPicker(`project_${n}_joint_target`, {
-      savedType: targetType,
-      savedValue: targetValue,
-      allCharacters,
-      includeOptions: ['character', 'territory', 'other'],
-      multiCharacter: true,
-    });
+    const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
+    valLbl = names.join(', ') || '—';
+  } else if (targetType === 'territory') {
+    const t = TERRITORY_DATA.find(x => x.id === targetValue);
+    if (t) valLbl = t.name;
   }
+  h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
 
-  // Invitee grid
   h += `<label class="qf-label">Invitees</label>`;
-  if (existingJoint) {
-    h += renderJointStatusBadges(existingJoint);
-    h += renderJointReinvitePanel(n, existingJoint);
-    h += renderJointCancelPanel(existingJoint);
-  } else {
-    h += renderJointInviteeGrid(n, invitedSet);
-  }
+  h += renderJointStatusBadges(existingJoint);
+  h += renderJointReinvitePanel(n, existingJoint);
+  h += renderJointCancelPanel(existingJoint);
 
   h += `</div>`;
+  return h;
+}
+
+// DTUI-12: new authoring panel for when no joint document exists yet.
+// Two stacked chip-grid sections: Players (dtui-13) + Sphere merits (dtui-14).
+function renderDtJointPanel(n, saved) {
+  let h = `<div class="dt-joint-panel" aria-expanded="true" data-joint-slot="${n}">`;
+
+  const playersHeadingId = `dt-joint-players-heading-${n}`;
+  h += `<div class="dt-joint-panel__section">`;
+  h += `<h4 class="dt-joint-panel__heading" id="${playersHeadingId}">Players</h4>`;
+  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${playersHeadingId}" data-joint-players="${n}">`;
+  h += renderJointInviteeChips(n, saved);
+  h += `</div>`;
+  h += `</div>`;
+
+  const meritsHeadingId = `dt-joint-merits-heading-${n}`;
+  h += `<div class="dt-joint-panel__section">`;
+  h += `<h4 class="dt-joint-panel__heading" id="${meritsHeadingId}">Your Allies and Retainers</h4>`;
+  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${meritsHeadingId}" data-joint-merits="${n}">`;
+  h += renderJointSphereChips(n, saved);
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`;
+  return h;
+}
+
+// DTUI-13: free-slot detection for invitee chip greying
+function getCharFreeSlotCount(charId) {
+  const sub = _allSubmissions.find(s => String(s.character_id) === String(charId));
+  if (!sub) return (DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4);
+  const responses = sub.responses || {};
+  const maxSlots = DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4;
+  let used = 0;
+  for (let p = 1; p <= maxSlots; p++) {
+    if (responses[`project_${p}_action`]) used++;
+  }
+  return maxSlots - used;
+}
+
+// DTUI-13: player invitee chip grid — replaces renderJointInviteeGrid for new-joint path
+function renderJointInviteeChips(n, saved) {
+  const myId = String(currentChar?._id || '');
+  const candidates = allCharacters.filter(c => String(c.id) !== myId);
+
+  let invitedIds = [];
+  try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); } catch { invitedIds = []; }
+  const invitedSet = new Set(invitedIds.map(String));
+  const savedJson = JSON.stringify(invitedIds);
+
+  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
+  if (!candidates.length) {
+    return h + '<p class="qf-desc">No other characters available to invite.</p>';
+  }
+
+  const sorted = [...candidates].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  for (const c of sorted) {
+    const id = String(c.id);
+    const freeSlots = getCharFreeSlotCount(id);
+    const isSelected = invitedSet.has(id);
+    const isDisabled = freeSlots <= 0;
+    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
+    const titleAttr = isDisabled ? ' title="This player has no free projects this cycle."' : '';
+    const selectedClass = isSelected ? ' dt-chip--selected' : '';
+    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
+    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
+    h += ` data-joint-invitee-slot="${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
+  }
+  return h;
+}
+
+// DTUI-14: already-used detection for sphere/retainer merits
+function isSphereMeritUsed(slotKey, type, saved) {
+  if (type === 'sphere') return !!(saved[`${slotKey}_action`]);
+  if (type === 'retainer') return !!(saved[`${slotKey}_type`] || saved[`${slotKey}_task`]);
+  return false;
+}
+
+// DTUI-14: sphere-merit collaborator chip grid (Allies + Retainers)
+function renderJointSphereChips(n, saved) {
+  const spheres = (detectedMerits.spheres || []).map((m, i) => ({ m, slotKey: `sphere_${i + 1}`, type: 'sphere' }));
+  const retainers = (detectedMerits.retainers || []).map((m, i) => ({ m, slotKey: `retainer_${i + 1}`, type: 'retainer' }));
+  const all = [...spheres, ...retainers];
+
+  if (!all.length) {
+    return '<p class="qf-desc">You have no Allies or Retainer merits to contribute.</p>';
+  }
+
+  let selectedKeys = [];
+  try { selectedKeys = JSON.parse(saved[`project_${n}_joint_sphere_chips`] || '[]'); } catch { selectedKeys = []; }
+  const selectedSet = new Set(selectedKeys);
+
+  let h = '';
+  for (const { m, slotKey, type } of all) {
+    const isUsed = isSphereMeritUsed(slotKey, type, saved);
+    const isSelected = selectedSet.has(slotKey);
+    const isDisabled = isUsed && !isSelected;
+    const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+    const area = m.area || m.qualifier || '';
+    const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
+    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
+    const titleAttr = isDisabled ? ' title="This merit\'s action is already committed elsewhere."' : '';
+    const selectedClass = isSelected ? ' dt-chip--selected' : '';
+    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
+    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
+    h += ` data-joint-sphere-slot="${n}" data-sphere-key="${esc(slotKey)}" data-sphere-type="${type}">`;
+    h += esc(label);
+    h += `</button>`;
+  }
   return h;
 }
 
@@ -4352,13 +4489,14 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
-/** Chip grid of the character's own maintenance-eligible merits (dtui-11). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained) {
+/** Chip grid of the character's own maintenance-eligible merits (dtui-11).
+ *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
-  const savedTarget = saved[`project_${n}_target_value`] || '';
-  let h = `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedTarget)}">`;
+  const savedTarget = saved[`${prefix}_${n}_target_value`] || '';
+  let h = `<input type="hidden" id="dt-${prefix}_${n}_target_value" value="${esc(savedTarget)}">`;
 
   if (maintMerits.length === 0) {
     h += '<p class="qf-desc">No merits requiring maintenance found for this character.</p>';
@@ -4376,12 +4514,24 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained) {
     const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
-         `data-maintenance-target="${n}" data-target-id="${esc(id)}">` +
+         `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
          `${esc(m.name)}${dotStr ? ` <span class="dt-chip__suffix">${dotStr}</span>` : ''}` +
          `</button>`;
   }
   h += '</div>';
   return h;
+}
+
+/** Returns a Set of target_value ids already claimed by other sphere/status maintenance slots (dtui-16). */
+function getSphereAlreadyMaintainedTargets(prefix, n, saved, maxSlots) {
+  const maintained = new Set();
+  for (let k = 1; k <= maxSlots; k++) {
+    if (k === n) continue;
+    if (saved[`${prefix}_${k}_action`] === 'maintenance' && saved[`${prefix}_${k}_target_value`]) {
+      maintained.add(saved[`${prefix}_${k}_target_value`]);
+    }
+  }
+  return maintained;
 }
 
 /** Per-action outcome zone (dtui-9). */
@@ -4452,8 +4602,7 @@ function renderTargetZone(n, actionVal, saved, chars) {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     if (actionVal === 'ambience_change') {
       const savedAmbienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
-      h += `<fieldset class="dt-ticker" style="margin-top:8px">`;
-      h += '<legend class="dt-ticker__legend">Direction</legend>';
+      h += `<fieldset class="dt-ticker" aria-label="Direction" style="margin-top:8px">`;
       for (const d of ['improve', 'degrade']) {
         const dLabel = d[0].toUpperCase() + d.slice(1);
         h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_ambience_dir" value="${d}"${savedAmbienceDir === d ? ' checked' : ''} data-proj-ambience-dir="${n}"> ${dLabel}</label>`;
@@ -4480,8 +4629,7 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   // Default to 'character' for two-way (attack/hide_protect) when no type saved
   const effectiveType = savedType || (includeTerritory ? '' : 'character');
 
-  let h = `<fieldset class="dt-ticker">`;
-  h += '<legend class="dt-ticker__legend">Target Type</legend>';
+  let h = `<fieldset class="dt-ticker" aria-label="Target type">`;
   for (const opt of options) {
     const chk = effectiveType === opt ? ' checked' : '';
     h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_target_type" value="${esc(opt)}"${chk} data-flex-type="project_${n}_target"> ${esc(labelMap[opt])}</label>`;
@@ -4500,7 +4648,9 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
   } else if (effectiveType === 'other') {
+    h += `<div class="dt-target-other-input">`;
     h += `<input type="text" id="dt-project_${n}_target_other" class="qf-input" value="${esc(savedOther)}" placeholder="Describe the target">`;
+    h += `</div>`;
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
   }
 
@@ -4575,7 +4725,73 @@ function renderFeedingTerritoryPills(gridVals) {
   return h;
 }
 
-function renderSphereFields(n, prefix, fields, saved, charMerits) {
+// DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
+function getAlliesAmbienceEligible(m) {
+  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const hwv = (currentChar.merits || []).some(
+    merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
+  );
+  if (hwv) return effectiveDots >= 2;
+  return effectiveDots >= 3;
+}
+
+// DTUI-19: Grow XP block — scoped to a specific Allies merit instance
+function renderAlliesGrowXp(n, prefix, m, saved) {
+  const currentDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
+  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+
+  let h = '<div class="qf-field">';
+  h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
+  h += `<label class="qf-label" for="dt-${prefix}_${n}_grow_target">Target dots</label>`;
+  h += `<select id="dt-${prefix}_${n}_grow_target" class="qf-select" data-grow-target="${prefix}_${n}">`;
+  h += '<option value="">— Select target —</option>';
+  for (let d = currentDots + 1; d <= 5; d++) {
+    const sel = savedTarget === d ? ' selected' : '';
+    h += `<option value="${d}"${sel}>${d} dot${d !== 1 ? 's' : ''}</option>`;
+  }
+  h += '</select>';
+  if (savedTarget > currentDots) {
+    const xpCost = (savedTarget - currentDots) * 1;
+    h += `<p class="qf-desc dt-grow-xp-cost">${xpCost} XP to reach ${savedTarget} dots.</p>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// DTUI-18: Allies Ambience contribution magnitude
+function getAlliesAmbienceContribution(m) {
+  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const hwv = (currentChar.merits || []).some(
+    merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
+  );
+  if (hwv) {
+    if (effectiveDots >= 4) return 2;
+    if (effectiveDots >= 2) return 1;
+    return 0;
+  }
+  if (effectiveDots >= 5) return 2;
+  if (effectiveDots >= 3) return 1;
+  return 0;
+}
+
+// DTUI-18: read-only contribution notice for Ambience actions
+function renderAlliesAmbienceDisplay(m, actionVal) {
+  const contribution = getAlliesAmbienceContribution(m);
+  if (contribution === 0) return '';
+  const sign = actionVal === 'ambience_increase' ? '+' : '-';
+  const copy = `You are exhausting these allies for the next game. These allies will count ${sign}${contribution} towards the targeted territory's ambience.`;
+  return `<div class="dt-action-desc" aria-live="polite">${esc(copy)}</div>`;
+}
+
+// DTUI-15: map sphere action values to ACTION_DESCRIPTIONS keys
+function sphereActionDescKey(val) {
+  if (val === 'ambience_increase') return 'ambience_change_improve';
+  if (val === 'ambience_decrease') return 'ambience_change_degrade';
+  return val;
+}
+
+function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = null) {
   let h = '';
 
   if (fields.includes('territory')) {
@@ -4584,24 +4800,31 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
     h += '<label class="qf-label">Territory</label>';
     h += renderTerritoryPills(`dt-${prefix}_${n}_territory`, savedTerr);
     h += '</div>';
+    // DTUI-18: Allies Ambience contribution display (after territory picker)
+    const actionVal = saved[`${prefix}_${n}_action`] || '';
+    if (sphereMerit && (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease')) {
+      h += renderAlliesAmbienceDisplay(sphereMerit, actionVal);
+    }
   }
 
   if (fields.includes('target_char')) {
-    let targetPicks = [];
-    try { targetPicks = JSON.parse(saved[`${prefix}_${n}_target_value`] || '[]'); } catch {
-      if (saved[`${prefix}_${n}_target_value`]) targetPicks = [saved[`${prefix}_${n}_target_value`]];
-    }
-    const targetSet = new Set(targetPicks.map(String));
+    // DTUI-16: replaced dt-shoutout-grid checkboxes with .dt-chip-grid--single
+    let savedTarget = saved[`${prefix}_${n}_target_value`] || '';
+    // Handle legacy JSON array saved values from old checkbox approach
+    try {
+      const parsed = JSON.parse(savedTarget);
+      if (Array.isArray(parsed) && parsed.length) savedTarget = String(parsed[0]);
+    } catch { /* plain string */ }
     h += '<div class="qf-field">';
-    h += '<label class="qf-label">Target Character(s)</label>';
-    h += `<div class="dt-shoutout-grid">`;
+    h += '<label class="qf-label">Target Character</label>';
+    h += `<input type="hidden" id="dt-${prefix}_${n}_target_value" value="${esc(savedTarget)}">`;
+    h += `<div class="dt-chip-grid dt-chip-grid--single" data-sphere-char-grid="${prefix}_${n}">`;
     for (const c of allCharacters) {
-      const isChecked = targetSet.has(String(c.id));
-      const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
-      h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
-      h += `<input type="checkbox" class="dt-target-char-sphere-cb" data-target-slot="${prefix}_${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
-      h += `<span>${esc(c.name)}</span>`;
-      h += '</label>';
+      const id = String(c.id);
+      const isSelected = savedTarget === id;
+      const selectedClass = isSelected ? ' dt-chip--selected' : '';
+      h += `<button type="button" class="dt-chip${selectedClass}"`;
+      h += ` data-sphere-char-target="${prefix}_${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
     }
     h += '</div></div>';
   }
@@ -4689,6 +4912,20 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
     }, saved[`${prefix}_${n}_description`] || '');
   }
 
+  if (fields.includes('maintenance_target')) {
+    // DTUI-16: sphere maintenance — reuse renderMaintenanceChips with sphere prefix
+    const maxSphereSlots = detectedMerits.spheres.length;
+    const alreadyMaint = getSphereAlreadyMaintainedTargets(prefix, n, saved, maxSphereSlots);
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">What are you maintaining?</label>';
+    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaint, prefix);
+    h += '</div>';
+  }
+
+  if (fields.includes('grow_xp')) {
+    h += renderAlliesGrowXp(n, prefix, sphereMerit || {}, saved);
+  }
+
   return h;
 }
 
@@ -4748,13 +4985,25 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
       h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
-      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'grow')) {
+      // DTUI-17/19: filter per-merit eligibility; Grow now included
+      const ambienceEligible = getAlliesAmbienceEligible(m);
+      const filteredActions = SPHERE_ACTIONS.filter(o => {
+        if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
+        return true;
+      });
+      for (const opt of filteredActions) {
         const sel = actionVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
 
-      h += renderSphereFields(n, 'sphere', fields, saved, charMerits);
+      // DTUI-15: action description below dropdown
+      const descKey = sphereActionDescKey(actionVal);
+      if (actionVal && ACTION_DESCRIPTIONS[descKey]) {
+        h += `<div class="dt-action-desc" aria-live="polite">${esc(ACTION_DESCRIPTIONS[descKey])}</div>`;
+      }
+
+      h += renderSphereFields(n, 'sphere', fields, saved, charMerits, m);
 
       h += '</div>'; // pane
     }
@@ -5067,11 +5316,11 @@ function renderQuestion(q, value) {
 
   switch (q.type) {
     case 'text':
-      h += `<input type="text" id="dt-${q.key}" class="qf-input" value="${esc(value)}">`;
+      h += `<input type="text" id="dt-${q.key}" class="qf-input" value="${esc(value)}"${q.placeholder ? ` placeholder="${esc(q.placeholder)}"` : ''}>`;
       break;
 
     case 'textarea':
-      h += `<textarea id="dt-${q.key}" class="qf-textarea" rows="${q.rows || 4}">${esc(value)}</textarea>`;
+      h += `<textarea id="dt-${q.key}" class="qf-textarea" rows="${q.rows || 4}"${q.placeholder ? ` placeholder="${esc(q.placeholder)}"` : ''}>${esc(value)}</textarea>`;
       break;
 
     case 'select':

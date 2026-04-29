@@ -52,10 +52,9 @@ export const SPHERE_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
-  { value: 'rumour', label: 'Rumour: When you don\'t know what you want, but you want something' },
-  { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'grow', label: 'Grow: Attempt to acquire Allies or Status 4 or 5' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
+  { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
 export const FEEDING_TERRITORIES = [
