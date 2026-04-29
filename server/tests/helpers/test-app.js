@@ -17,6 +17,10 @@ import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
+import {
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
+} from '../../routes/rules-engine.js';
 import relationshipsRouter from '../../routes/relationships.js';
 import npcFlagsRouter from '../../routes/npc-flags.js';
 import npcsRouter from '../../routes/npcs.js';
@@ -64,6 +68,16 @@ export function createTestApp() {
   app.use('/api/tracker_state', mockAuth, requireRole('st'), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
   app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
+  // Rules engine — must mount before /api/rules (purchasable_powers)
+  const reRoleST = requireRole('st');
+  app.use('/api/rules/grant',                 mockAuth, reRoleST, grantRouter);
+  app.use('/api/rules/speciality_grant',      mockAuth, reRoleST, specialityGrantRouter);
+  app.use('/api/rules/skill_bonus',           mockAuth, reRoleST, skillBonusRouter);
+  app.use('/api/rules/nine_again',            mockAuth, reRoleST, nineAgainRouter);
+  app.use('/api/rules/disc_attr',             mockAuth, reRoleST, discAttrRouter);
+  app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, derivedStatModRouter);
+  app.use('/api/rules/tier_budget',           mockAuth, reRoleST, tierBudgetRouter);
+  app.use('/api/rules/status_floor',          mockAuth, reRoleST, statusFloorRouter);
   app.use('/api/rules', mockAuth, rulesRouter);
   app.use('/api/relationships', mockAuth, relationshipsRouter);
   app.use('/api/npcs', mockAuth, npcsRouter);
