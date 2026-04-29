@@ -122,12 +122,12 @@ const ACTION_FIELDS = {
   'xp_spend': ['xp_picker'],
   'ambience_increase': ['title', 'territory', 'pools', 'description'],
   'ambience_decrease': ['title', 'territory', 'pools', 'description'],
-  'attack': ['title', 'target_char', 'pools', 'outcome', 'territory', 'description'],
-  'investigate': ['title', 'target_flex', 'investigate_lead', 'pools', 'outcome', 'description'],
-  'hide_protect': ['title', 'target_own_merit', 'pools', 'outcome', 'description'],
-  'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'description'],
-  'misc': ['title', 'pools', 'outcome', 'description'],
-  'maintenance': ['description'],
+  'attack':            ['title', 'outcome', 'target', 'pools', 'description'],
+  'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
+  'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
+  'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
+  'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
+  'maintenance':       ['description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -446,18 +446,15 @@ function collectResponses() {
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
     if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
-    // Target pickers (attack, hide_protect, investigate)
+    // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
-    // target_char uses checkbox grid; others use hidden input or select
-    const targetCharCbs = document.querySelectorAll(`.dt-target-char-cb[data-target-slot="${n}"]:checked`);
-    if (targetCharCbs.length) {
-      const ids = []; targetCharCbs.forEach(cb => ids.push(cb.value));
-      responses[`project_${n}_target_value`] = JSON.stringify(ids);
-    } else {
-      const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
-      responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
-    }
+    const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
+    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    const targetTerrEl = document.getElementById(`dt-project_${n}_target_terr`);
+    responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
+    const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
+    responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -2128,6 +2125,23 @@ function renderForm(container) {
       updateSectionTicks(container);
       return;
     }
+    // Target character chip (single-select, dtui-8)
+    const targetCharChip = e.target.closest('[data-project-target-char]');
+    if (targetCharChip) {
+      const slotNum = targetCharChip.dataset.projectTargetChar;
+      const charId  = targetCharChip.dataset.charId;
+      const hidden  = document.getElementById(`dt-project_${slotNum}_target_value`);
+      const wasSelected = targetCharChip.classList.contains('dt-chip--selected');
+      container.querySelectorAll(`[data-project-target-char="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
+      if (!wasSelected) {
+        targetCharChip.classList.add('dt-chip--selected');
+        if (hidden) hidden.value = charId;
+      } else {
+        if (hidden) hidden.value = '';
+      }
+      scheduleSave();
+      return;
+    }
     // Single-select territory pills
     const terrPill = e.target.closest('[data-terr-single][data-terr-val]');
     if (terrPill) {
@@ -2889,65 +2903,24 @@ function renderProjectSlots(saved) {
       h += '</div>';
     }
 
-    // ── Target: character (attack) — checkbox grid ──
-    if (fields.includes('target_char')) {
-      let targetPicks = [];
-      try { targetPicks = JSON.parse(saved[`project_${n}_target_value`] || '[]'); } catch {
-        // legacy single ID
-        if (saved[`project_${n}_target_value`]) targetPicks = [saved[`project_${n}_target_value`]];
-      }
-      const targetSet = new Set(targetPicks.map(String));
-      h += '<div class="qf-field">';
-      h += '<label class="qf-label">Target Character(s)</label>';
-      h += `<div class="dt-shoutout-grid">`;
-      for (const c of allCharacters) {
-        const isChecked = targetSet.has(String(c.id));
-        const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
-        h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
-        h += `<input type="checkbox" class="dt-target-char-cb" data-target-slot="${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
-        h += `<span>${esc(c.name)}</span>`;
-        h += '</label>';
-      }
-      h += '</div></div>';
+    // ── Desired outcome ──
+    if (fields.includes('outcome')) {
+      h += renderQuestion({
+        key: `project_${n}_outcome`, label: 'Desired Outcome',
+        type: 'text', required: false,
+        desc: 'Each Project must aim to achieve ONE clear thing.',
+      }, saved[`project_${n}_outcome`] || '');
     }
 
-    // ── Target: own merit (hide_protect) ──
-    if (fields.includes('target_own_merit')) {
-      const savedVal = saved[`project_${n}_target_value`] || '';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_target_value">What are you protecting?</label>`;
-      h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
-      h += '<option value="">— Select Merit / Asset —</option>';
-      for (const m of charMerits) {
-        const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-        const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-        const sel = mKey === savedVal ? ' selected' : '';
-        h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
-      }
-      h += '</select></div>';
-    }
-
-    // ── Target: flex (investigate) ──
-    if (fields.includes('target_flex')) {
-      const savedType = saved[`project_${n}_target_type`] || '';
-      const savedVal = saved[`project_${n}_target_value`] || '';
-      h += '<div class="qf-field dt-target-flex">';
-      h += `<label class="qf-label">What are you investigating?</label>`;
-      // DTFP-6: shared target picker; preserves the existing field id pattern
-      // (dt-project_N_target_value + dt-project_N_target_type radios) so the
-      // existing flex-type handler and collectResponses path keep working.
-      h += renderTargetPicker(`project_${n}_target`, {
-        savedType,
-        savedValue: savedVal,
-        allCharacters,
-      });
-      h += '</div>';
+    // ── Target zone ──
+    if (fields.includes('target')) {
+      h += renderTargetZone(n, actionVal, saved, allCharacters);
     }
 
     // ── Investigate lead (mandatory for investigate) ──
     if (fields.includes('investigate_lead')) {
       h += renderQuestion({
-        key: `project_${n}_investigate_lead`, label: 'What is your lead on this investigation? \u2731',
+        key: `project_${n}_investigate_lead`, label: 'What is your lead on this investigation? ✱',
         type: 'textarea', required: true,
         desc: 'Provide a specific starting point, source, or known fact. Investigations without a lead cannot proceed.',
       }, saved[`project_${n}_investigate_lead`] || '');
@@ -2957,15 +2930,6 @@ function renderProjectSlots(saved) {
     if (fields.includes('pools')) {
       h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
       h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-    }
-
-    // ── Desired outcome ──
-    if (fields.includes('outcome')) {
-      h += renderQuestion({
-        key: `project_${n}_outcome`, label: 'Desired Outcome',
-        type: 'text', required: false,
-        desc: 'Each Project must aim to achieve ONE clear thing.',
-      }, saved[`project_${n}_outcome`] || '');
     }
 
     // ── XP note ──
@@ -4333,6 +4297,68 @@ function renderTargetPicker(prefix, opts) {
     h += `<input type="text" id="dt-${esc(prefix)}_value" class="qf-input" value="${esc(savedValue)}" placeholder="Describe the target">`;
   }
   h += `</div>`;
+  return h;
+}
+
+/** Unified target zone dispatcher (dtui-8). */
+function renderTargetZone(n, actionVal, saved, chars) {
+  let savedCharId = saved[`project_${n}_target_value`] || '';
+  // backward compat: old submissions stored char IDs as JSON array string
+  if (savedCharId.startsWith('[')) {
+    try {
+      const arr = JSON.parse(savedCharId);
+      savedCharId = Array.isArray(arr) && arr.length > 0 ? String(arr[0]) : '';
+    } catch { savedCharId = ''; }
+  }
+  const savedType   = saved[`project_${n}_target_type`] || '';
+  const savedTerrId = saved[`project_${n}_target_terr`] || '';
+  const savedOther  = saved[`project_${n}_target_other`] || '';
+
+  let h = '<div class="qf-field">';
+  h += '<label class="qf-label">Target</label>';
+
+  if (['patrol_scout'].includes(actionVal)) {
+    h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
+  } else if (['attack', 'hide_protect'].includes(actionVal)) {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
+  } else if (['investigate', 'misc'].includes(actionVal)) {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, true);
+  }
+
+  h += '</div>';
+  return h;
+}
+
+/** Character-or-Other (or Character/Territory/Other) target sub-widget. */
+function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, includeTerritory) {
+  const options = includeTerritory ? ['character', 'territory', 'other'] : ['character', 'other'];
+  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+  // Default to 'character' for two-way (attack/hide_protect) when no type saved
+  const effectiveType = savedType || (includeTerritory ? '' : 'character');
+
+  let h = '<div class="dt-target-type-radios">';
+  for (const opt of options) {
+    const chk = effectiveType === opt ? ' checked' : '';
+    h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-project_${n}_target_type" value="${esc(opt)}"${chk} data-flex-type="project_${n}_target"> ${esc(labelMap[opt])}</label>`;
+  }
+  h += '</div>';
+
+  if (effectiveType === 'character') {
+    h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
+    for (const c of chars) {
+      const isSelected = String(c.id) === String(savedCharId);
+      h += `<button type="button" class="dt-chip${isSelected ? ' dt-chip--selected' : ''}" data-project-target-char="${n}" data-char-id="${esc(String(c.id))}">${esc(c.name)}</button>`;
+    }
+    h += '</div>';
+    h += `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedCharId)}">`;
+  } else if (effectiveType === 'territory') {
+    h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
+    h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
+  } else if (effectiveType === 'other') {
+    h += `<input type="text" id="dt-project_${n}_target_other" class="qf-input" value="${esc(savedOther)}" placeholder="Describe the target">`;
+    h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
+  }
+
   return h;
 }
 
