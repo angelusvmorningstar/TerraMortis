@@ -10,6 +10,7 @@ import { BLOODLINE_GRANTS } from '../data/constants.js';
 import { getRulesBySource } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
+import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -75,51 +76,8 @@ export function applyDerivedMerits(c, allChars = []) {
   }
 
 
-  // ── OHM: auto-apply 1 free dot each to Contacts and Resources; 1 to chosen Allies sphere;
-  //        also grant Friends in High Places for free ──
-  const ohmPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
-  // Clear stale OHM free dots on all merits before re-applying
-  (c.merits || []).forEach(m => { m.free_ohm = 0; });
-  if (ohmPact) {
-    // Auto-apply 1 free_ohm to Contacts and Resources (if they exist)
-    ['Contacts', 'Resources'].forEach(mName => {
-      const m = (c.merits || []).find(m => m.category === 'influence' && m.name === mName);
-      if (m) m.free_ohm = 1;
-    });
-    // Auto-apply 1 free_ohm to the chosen Allies sphere (if set and merit exists)
-    const ohmSphere = (ohmPact.ohm_allies_sphere || '').trim();
-    if (ohmSphere) {
-      const m = (c.merits || []).find(m =>
-        m.category === 'influence' && m.name === 'Allies' &&
-        (m.area || '').toLowerCase() === ohmSphere.toLowerCase()
-      );
-      if (m) m.free_ohm = 1;
-    }
-    // Auto-grant Friends in High Places (general merit) for free
-    let fhpM = (c.merits || []).find(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
-    if (!fhpM) {
-      if (!c.merits) c.merits = [];
-      fhpM = { name: 'Friends in High Places', category: 'general', granted_by: 'OHM', rating: 0 };
-      c.merits.push(fhpM);
-    }
-    fhpM.free_ohm = 1;
-    // Grant pool for tracking display
-    c._grant_pools.push({
-      source: 'Oath of the Hard Motherfucker',
-      names: ['Allies', 'Contacts', 'Resources'],
-      category: 'ohm',
-      amount: 3
-    });
-    // 9-again on chosen skills
-    const skills = ohmPact.ohm_skills || [];
-    if (skills.length) {
-      c._ohm_nine_again_skills = new Set(skills.filter(Boolean));
-    }
-  } else {
-    // No OHM — remove auto-granted FHP if present
-    const fhpIdx = (c.merits || []).findIndex(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
-    if (fhpIdx !== -1) c.merits.splice(fhpIdx, 1);
-  }
+  // ── OHM: grants, FHP auto-create, and 9-again (evaluator reads from rule_grant / rule_nine_again) ──
+  applyOHMRulesFromDb(c, getRulesBySource('Oath of the Hard Motherfucker'));
 
   // ── Safe Word: grant partner's shared_merit as free_sw dots ──
   (c.merits || []).forEach(m => { m.free_sw = 0; });

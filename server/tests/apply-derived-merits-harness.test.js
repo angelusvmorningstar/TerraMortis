@@ -65,6 +65,20 @@ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
         tierBudget:      { source, budgets: [0, 1, 1, 2, 3, 3] },
       };
     }
+    if (source === 'Oath of the Hard Motherfucker') {
+      return {
+        grants: [
+          { source, grant_type: 'merit', target: 'Contacts',              target_category: 'influence', condition: 'pact_present', amount: 1 },
+          { source, grant_type: 'merit', target: 'Resources',             target_category: 'influence', condition: 'pact_present', amount: 1 },
+          { source, grant_type: 'merit', target: 'Allies',                target_category: 'influence', condition: 'pact_present', sphere_source: 'ohm_allies_sphere', amount: 1 },
+          { source, grant_type: 'merit', target: 'Friends in High Places', target_category: 'general',  condition: 'pact_present', auto_create: true, amount: 1 },
+        ],
+        nineAgain:       [{ source, target_skills: 'ohm_skills' }],
+        skillBonus:      [],
+        specialityGrants:[],
+        tierBudget:      null,
+      };
+    }
     return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
   },
 }));
