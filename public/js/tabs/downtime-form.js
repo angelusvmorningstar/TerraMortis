@@ -2923,7 +2923,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_xp_trait`, label: 'In-character justification',
         type: 'textarea', required: false,
-        desc: 'Describe the activity or events that justify this growth.',
+        placeholder: 'Describe the activity or events that justify this growth.',
       }, saved[`project_${n}_xp_trait`] || '');
 
       h += '</div>';
@@ -2933,7 +2933,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_title`, label: 'Project Title',
         type: 'text', required: false,
-        desc: 'A short name for this project.',
+        placeholder: 'A short name for this project.',
       }, saved[`project_${n}_title`] || '');
     }
 
@@ -2976,7 +2976,7 @@ function renderProjectSlots(saved) {
       h += renderQuestion({
         key: `project_${n}_xp`, label: 'XP Expenditure',
         type: 'textarea', required: false, rows: 2,
-        desc: 'Describe what you are spending XP on in this action.',
+        placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
     }
 
@@ -4452,8 +4452,7 @@ function renderTargetZone(n, actionVal, saved, chars) {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     if (actionVal === 'ambience_change') {
       const savedAmbienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
-      h += `<fieldset class="dt-ticker" style="margin-top:8px">`;
-      h += '<legend class="dt-ticker__legend">Direction</legend>';
+      h += `<fieldset class="dt-ticker" aria-label="Direction" style="margin-top:8px">`;
       for (const d of ['improve', 'degrade']) {
         const dLabel = d[0].toUpperCase() + d.slice(1);
         h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_ambience_dir" value="${d}"${savedAmbienceDir === d ? ' checked' : ''} data-proj-ambience-dir="${n}"> ${dLabel}</label>`;
@@ -4480,8 +4479,7 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   // Default to 'character' for two-way (attack/hide_protect) when no type saved
   const effectiveType = savedType || (includeTerritory ? '' : 'character');
 
-  let h = `<fieldset class="dt-ticker">`;
-  h += '<legend class="dt-ticker__legend">Target Type</legend>';
+  let h = `<fieldset class="dt-ticker" aria-label="Target type">`;
   for (const opt of options) {
     const chk = effectiveType === opt ? ' checked' : '';
     h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_target_type" value="${esc(opt)}"${chk} data-flex-type="project_${n}_target"> ${esc(labelMap[opt])}</label>`;
@@ -4500,7 +4498,9 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
   } else if (effectiveType === 'other') {
+    h += `<div class="dt-target-other-input">`;
     h += `<input type="text" id="dt-project_${n}_target_other" class="qf-input" value="${esc(savedOther)}" placeholder="Describe the target">`;
+    h += `</div>`;
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
   }
 
@@ -5067,11 +5067,11 @@ function renderQuestion(q, value) {
 
   switch (q.type) {
     case 'text':
-      h += `<input type="text" id="dt-${q.key}" class="qf-input" value="${esc(value)}">`;
+      h += `<input type="text" id="dt-${q.key}" class="qf-input" value="${esc(value)}"${q.placeholder ? ` placeholder="${esc(q.placeholder)}"` : ''}>`;
       break;
 
     case 'textarea':
-      h += `<textarea id="dt-${q.key}" class="qf-textarea" rows="${q.rows || 4}">${esc(value)}</textarea>`;
+      h += `<textarea id="dt-${q.key}" class="qf-textarea" rows="${q.rows || 4}"${q.placeholder ? ` placeholder="${esc(q.placeholder)}"` : ''}>${esc(value)}</textarea>`;
       break;
 
     case 'select':

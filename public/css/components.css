@@ -4710,6 +4710,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   }
 }
 
+.dt-target-other-input {
+  margin-top: 8px;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    .dt-chip-grid + .dt-chip — chip grid for "pick from a roster"
    ────────────────────────────────────────────────────────────────────
