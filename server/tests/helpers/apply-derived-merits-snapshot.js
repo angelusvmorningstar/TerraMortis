@@ -259,6 +259,19 @@ class FixtureBuilder {
     return this;
   }
 
+  /** Add the Mother-Daughter Bond merit, a Mentor merit, and optionally the target Crúac style. */
+  withMDB({ styleName = 'Opening the Void', mentorCp = 3, addStyle = true } = {}) {
+    this._c.covenant = 'Lancea et Sanctum';
+    this._c.merits.push({ name: 'The Mother-Daughter Bond', category: 'general', qualifier: styleName, cp: 1, xp: 0, free: 0, free_mdb: 0 });
+    if (mentorCp > 0) {
+      this._c.merits.push({ name: 'Mentor', category: 'influence', cp: mentorCp, xp: 0, free: 0 });
+    }
+    if (addStyle && styleName) {
+      this._c.merits.push({ name: styleName, category: 'general', cp: 0, xp: 0, free: 0, free_mdb: 0 });
+    }
+    return this;
+  }
+
   /** Add the Viral Mythology merit and an Allies merit with the given purchased CP dots. */
   withViralMythology(alliesCp = 2, { area = 'Police', xp = 0, free_mci = 0 } = {}) {
     this._c.covenant = 'Circle of the Crone';

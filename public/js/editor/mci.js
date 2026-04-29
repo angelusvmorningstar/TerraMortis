@@ -12,6 +12,7 @@ import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
 import { applyBloodlineRulesFromDb } from './rule_engine/bloodline-evaluator.js';
 import { applyPoolRulesFromDb } from './rule_engine/pool-evaluator.js';
 import { applyStyleRetainerRulesFromDb } from './rule_engine/style-retainer-evaluator.js';
+import { applyMDBRulesFromDb } from './rule_engine/mdb-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -106,18 +107,8 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── Invested grant pool (evaluator reads from rule_grant) ──
   applyPoolRulesFromDb(c, getRulesBySource('Invested'));
 
-  // ── MDB: auto-apply free_mdb to chosen Crúac Style = Mentor rating ──
-  const mdbMerit = (c.merits || []).find(m => m.name === 'The Mother-Daughter Bond');
-  if (mdbMerit && mdbMerit.qualifier) {
-    const mentorM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Mentor');
-    if (mentorM) {
-      const mentorRating = (mentorM.cp||0) + (mentorM.free||0) + (mentorM.free_mci||0) + (mentorM.free_vm||0) + (mentorM.free_lk||0) + (mentorM.free_ohm||0) + (mentorM.free_inv||0) + (mentorM.free_pt||0) + (mentorM.xp||0);
-      if (mentorRating > 0) {
-        const styleM = (c.merits || []).find(m => m.category === 'general' && m.name === mdbMerit.qualifier);
-        if (styleM) styleM.free_mdb = mentorRating;
-      }
-    }
-  }
+  // ── MDB: free dots into chosen Crúac style = Mentor rating (evaluator reads from rule_grant, condition='merit_present') ──
+  applyMDBRulesFromDb(c, getRulesBySource('The Mother-Daughter Bond'));
 
   // ── Lorekeeper grant pool (evaluator reads from rule_grant) ──
   applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
