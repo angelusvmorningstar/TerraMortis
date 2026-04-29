@@ -58,6 +58,7 @@ let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from l
 let priorPublishedLabel = null; // label of most recent published cycle other than current
 let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
 let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
@@ -500,10 +501,16 @@ function collectResponses() {
       const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
       responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
     }
-    const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
-    const jointInviteeIds = [];
-    jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
-    responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
+    // dtui-13: prefer hidden input (chip path) over legacy checkboxes (existingJoint re-invite path)
+    const invitedHidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
+    if (invitedHidden) {
+      responses[`project_${n}_joint_invited_ids`] = invitedHidden.value;
+    } else {
+      const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
+      const jointInviteeIds = [];
+      jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
+      responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
+    }
   }
 
   // Collect sorcery slots (dynamic count)
@@ -1137,6 +1144,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   if (currentCycle) {
     try {
       const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
+      _allSubmissions = subs || [];
       responseDoc = subs.find(s =>
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
@@ -2174,6 +2182,18 @@ function renderForm(container) {
       } else {
         if (hidden) hidden.value = '';
       }
+      scheduleSave();
+      return;
+    }
+    // DTUI-13: joint invitee chip — multi-select, writes to hidden input
+    const inviteeChip = e.target.closest('[data-joint-invitee-slot]');
+    if (inviteeChip && !inviteeChip.disabled) {
+      const n = inviteeChip.dataset.jointInviteeSlot;
+      inviteeChip.classList.toggle('dt-chip--selected');
+      const selected = container.querySelectorAll(`[data-joint-invitee-slot="${n}"].dt-chip--selected`);
+      const ids = [...selected].map(el => el.dataset.charId).filter(Boolean);
+      const hidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
+      if (hidden) hidden.value = JSON.stringify(ids);
       scheduleSave();
       return;
     }
@@ -4127,8 +4147,49 @@ function renderDtJointPanel(n, saved) {
   return h;
 }
 
-// Stub — implemented in dtui-13
-function renderJointInviteeChips(n, saved) { return ''; }
+// DTUI-13: free-slot detection for invitee chip greying
+function getCharFreeSlotCount(charId) {
+  const sub = _allSubmissions.find(s => String(s.character_id) === String(charId));
+  if (!sub) return (DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4);
+  const responses = sub.responses || {};
+  const maxSlots = DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4;
+  let used = 0;
+  for (let p = 1; p <= maxSlots; p++) {
+    if (responses[`project_${p}_action`]) used++;
+  }
+  return maxSlots - used;
+}
+
+// DTUI-13: player invitee chip grid — replaces renderJointInviteeGrid for new-joint path
+function renderJointInviteeChips(n, saved) {
+  const myId = String(currentChar?._id || '');
+  const candidates = allCharacters.filter(c => String(c.id) !== myId);
+
+  let invitedIds = [];
+  try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); } catch { invitedIds = []; }
+  const invitedSet = new Set(invitedIds.map(String));
+  const savedJson = JSON.stringify(invitedIds);
+
+  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
+  if (!candidates.length) {
+    return h + '<p class="qf-desc">No other characters available to invite.</p>';
+  }
+
+  const sorted = [...candidates].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  for (const c of sorted) {
+    const id = String(c.id);
+    const freeSlots = getCharFreeSlotCount(id);
+    const isSelected = invitedSet.has(id);
+    const isDisabled = freeSlots <= 0;
+    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
+    const titleAttr = isDisabled ? ' title="This player has no free projects this cycle."' : '';
+    const selectedClass = isSelected ? ' dt-chip--selected' : '';
+    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
+    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
+    h += ` data-joint-invitee-slot="${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
+  }
+  return h;
+}
 
 // Stub — implemented in dtui-14
 function renderJointSphereChips(n, saved) { return ''; }
