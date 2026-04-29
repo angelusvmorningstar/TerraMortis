@@ -120,8 +120,8 @@ const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_increase': ['title', 'territory', 'pools', 'description'],
-  'ambience_decrease': ['title', 'territory', 'pools', 'description'],
+  'ambience_increase': ['title', 'outcome', 'territory', 'pools', 'description'],
+  'ambience_decrease': ['title', 'outcome', 'territory', 'pools', 'description'],
   'attack':            ['title', 'outcome', 'target', 'pools', 'description'],
   'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
   'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
@@ -424,11 +424,12 @@ function collectResponses() {
       responses[`${prefix}_disc`] = discEl ? discEl.value : '';
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
+    const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
     const descEl = document.getElementById(`dt-project_${n}_description`);
     const titleEl = document.getElementById(`dt-project_${n}_title`);
     const terrEl = document.getElementById(`dt-project_${n}_territory`);
     const xpEl = document.getElementById(`dt-project_${n}_xp`);
-    responses[`project_${n}_outcome`] = outcomeEl ? outcomeEl.value : '';
+    responses[`project_${n}_outcome`] = outcomeEl ? outcomeEl.value : (outcomeRadio ? outcomeRadio.value : '');
     responses[`project_${n}_description`] = descEl ? descEl.value : '';
     // Rote-locked slot: pull description from rote textarea
     if (feedRoteAction && n === feedRoteSlot) {
@@ -1970,6 +1971,12 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Attack outcome ticker radio
+    const projOutcome = e.target.closest('[data-proj-outcome]');
+    if (projOutcome) {
+      scheduleSave();
+      return;
+    }
     // Dice pool dropdown — update total
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
@@ -2905,11 +2912,7 @@ function renderProjectSlots(saved) {
 
     // ── Desired outcome ──
     if (fields.includes('outcome')) {
-      h += renderQuestion({
-        key: `project_${n}_outcome`, label: 'Desired Outcome',
-        type: 'text', required: false,
-        desc: 'Each Project must aim to achieve ONE clear thing.',
-      }, saved[`project_${n}_outcome`] || '');
+      h += renderOutcomeZone(n, actionVal, saved);
     }
 
     // ── Target zone ──
@@ -4298,6 +4301,47 @@ function renderTargetPicker(prefix, opts) {
   }
   h += `</div>`;
   return h;
+}
+
+/** Per-action outcome zone (dtui-9). */
+function renderOutcomeZone(n, actionVal, saved) {
+  const savedOutcome = saved[`project_${n}_outcome`] || '';
+
+  const READONLY = {
+    'ambience_increase': 'Improve the ambience of the targeted territory.',
+    'ambience_decrease': 'Degrade the ambience of the targeted territory.',
+    'hide_protect':      'Attempt to protect the asset from attacks this downtime.',
+    'investigate':       'Uncover a secret or mystery about the target.',
+    'patrol_scout':      'Observe the territory closely for intrusive or adversarial activity.',
+  };
+
+  if (READONLY[actionVal]) {
+    return `<div class="qf-field"><p class="dt-outcome-readonly qf-desc">${esc(READONLY[actionVal])}</p></div>`;
+  }
+
+  if (actionVal === 'attack') {
+    const pills = ['destroy', 'degrade', 'disrupt'];
+    const sel = savedOutcome || 'destroy';
+    let h = `<fieldset class="dt-ticker" id="dt-project_${n}_outcome_group">`;
+    h += '<legend class="dt-ticker__legend">Desired Outcome</legend>';
+    for (const p of pills) {
+      const label = p[0].toUpperCase() + p.slice(1);
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_outcome" value="${p}"${sel === p ? ' checked' : ''} data-proj-outcome="${n}"> ${label}</label>`;
+    }
+    h += '</fieldset>';
+    return h;
+  }
+
+  if (actionVal === 'misc') {
+    return `<div class="qf-field">` +
+      `<label class="qf-label" for="dt-project_${n}_outcome">Desired Outcome</label>` +
+      `<input type="text" id="dt-project_${n}_outcome" class="qf-input" data-proj-outcome="${n}" ` +
+      `placeholder="${esc('State the goal of this project, aiming to achieve one clear thing.')}" ` +
+      `value="${esc(savedOutcome)}">` +
+      `</div>`;
+  }
+
+  return '';
 }
 
 /** Unified target zone dispatcher (dtui-8). */
