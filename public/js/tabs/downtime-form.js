@@ -134,15 +134,14 @@ const SPHERE_ACTION_FIELDS = {
   '': [],
   'ambience_increase': ['territory', 'outcome'],
   'ambience_decrease': ['territory', 'outcome'],
-  'attack': ['target_char', 'outcome'],
-  'block': ['target_char', 'block_merit', 'outcome'],
-  'hide_protect': ['target_own_merit', 'outcome'],
-  'investigate': ['target_flex', 'investigate_lead', 'outcome'],
-  'patrol_scout': ['territory', 'outcome', 'description'],
-  'rumour': ['outcome', 'description'],
-  'support': ['project_support', 'outcome'],
-  'grow': ['outcome', 'description'],
-  'misc': ['outcome', 'description'],
+  'attack':            ['target_char', 'outcome'],
+  'block':             ['target_char', 'block_merit', 'outcome'],
+  'hide_protect':      ['target_own_merit', 'outcome'],
+  'investigate':       ['target_flex', 'investigate_lead', 'outcome'],
+  'patrol_scout':      ['territory', 'outcome'],
+  'grow':              ['outcome'],
+  'misc':              ['outcome'],
+  'maintenance':       ['maintenance_target'],
 };
 
 function scheduleSave() {
@@ -4685,6 +4684,13 @@ function renderFeedingTerritoryPills(gridVals) {
   return h;
 }
 
+// DTUI-15: map sphere action values to ACTION_DESCRIPTIONS keys
+function sphereActionDescKey(val) {
+  if (val === 'ambience_increase') return 'ambience_change_improve';
+  if (val === 'ambience_decrease') return 'ambience_change_degrade';
+  return val;
+}
+
 function renderSphereFields(n, prefix, fields, saved, charMerits) {
   let h = '';
 
@@ -4863,6 +4869,12 @@ function renderMeritToggles(saved) {
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
+
+      // DTUI-15: action description below dropdown
+      const descKey = sphereActionDescKey(actionVal);
+      if (actionVal && ACTION_DESCRIPTIONS[descKey]) {
+        h += `<div class="dt-action-desc" aria-live="polite">${esc(ACTION_DESCRIPTIONS[descKey])}</div>`;
+      }
 
       h += renderSphereFields(n, 'sphere', fields, saved, charMerits);
 
