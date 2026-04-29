@@ -120,13 +120,13 @@ const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_increase': ['title', 'territory', 'pools', 'cast', 'description'],
-  'ambience_decrease': ['title', 'territory', 'pools', 'cast', 'description'],
-  'attack': ['title', 'target_char', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
-  'investigate': ['title', 'target_flex', 'investigate_lead', 'pools', 'outcome', 'cast', 'merits', 'description'],
-  'hide_protect': ['title', 'target_own_merit', 'pools', 'outcome', 'cast', 'merits', 'description'],
-  'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
-  'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
+  'ambience_increase': ['title', 'territory', 'pools', 'description'],
+  'ambience_decrease': ['title', 'territory', 'pools', 'description'],
+  'attack': ['title', 'target_char', 'pools', 'outcome', 'territory', 'description'],
+  'investigate': ['title', 'target_flex', 'investigate_lead', 'pools', 'outcome', 'description'],
+  'hide_protect': ['title', 'target_own_merit', 'pools', 'outcome', 'description'],
+  'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'description'],
+  'misc': ['title', 'pools', 'outcome', 'description'],
   'maintenance': ['description'],
 };
 
@@ -2810,29 +2810,6 @@ function renderProjectSlots(saved) {
       h += '<p class="qf-desc dt-action-legacy-notice">This action type is no longer available. Please select a new action type.</p>';
     }
 
-    // ── JDT-2: Solo/Joint toggle (only on joint-eligible action types) ──
-    if (isJointEligible) {
-      h += `<div class="qf-field dt-project-solo-joint-toggle">`;
-      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}> Solo</label>`;
-      h += `<label class="dt-project-mode-label"><input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}"> Joint</label>`;
-      h += `</div>`;
-      if (isJoint) {
-        h += renderJointAuthoring(n, saved, existingJoint);
-      }
-    }
-
-    // JDT-2: when the slot is in joint mode the joint description and joint
-    // target subsume the per-slot description and target pickers. Suppress
-    // those from the field list so they don't render twice.
-    if (isJoint) {
-      fields = fields.filter(f =>
-        f !== 'description' &&
-        f !== 'target_char' &&
-        f !== 'target_flex' &&
-        f !== 'target_own_merit'
-      );
-    }
-
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
       const savedCat  = saved[`project_${n}_xp_category`] || '';
@@ -2987,50 +2964,6 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_outcome`] || '');
     }
 
-    // ── Cast (other characters involved) — inline checkbox grid ──
-    if (fields.includes('cast')) {
-      let castPicks = [];
-      try { castPicks = JSON.parse(saved[`project_${n}_cast`] || '[]'); } catch { /* ignore */ }
-      const castSet = new Set(castPicks.map(String));
-      h += '<div class="qf-field">';
-      h += '<label class="qf-label">Characters Involved</label>';
-      h += '<p class="qf-desc">Tick any characters your character collaborates with on this action. Attendees from last game are highlighted.</p>';
-      h += `<div class="dt-shoutout-grid">`;
-      for (const c of allCharacters) {
-        const isChecked = castSet.has(String(c.id));
-        const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
-        h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
-        h += `<input type="checkbox" class="dt-cast-proj-cb" data-cast-slot="${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
-        h += `<span>${esc(c.name)}</span>`;
-        h += '</label>';
-      }
-      h += '</div></div>';
-    }
-
-    // ── Merits (applicable character merits) ──
-    if (fields.includes('merits')) {
-      let meritPicks = [];
-      try { meritPicks = JSON.parse(saved[`project_${n}_merits`] || '[]'); } catch { /* ignore */ }
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label">Applicable Merits</label>`;
-      h += '<p class="qf-desc">Select merits from your sheet that support this action.</p>';
-      h += `<div class="dt-proj-merits" data-proj-merits="${n}">`;
-      for (const m of charMerits) {
-        const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-        const dots = '\u25CF'.repeat(m.rating || 0);
-        const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-        const checked = meritPicks.includes(mKey) ? ' checked' : '';
-        h += `<label class="dt-proj-merit-label">`;
-        h += `<input type="checkbox" value="${esc(mKey)}" data-proj-merit-cb="${n}"${checked}>`;
-        h += `<span>${esc(mName)} ${dots}</span>`;
-        h += '</label>';
-      }
-      if (!charMerits.length) {
-        h += '<p class="qf-desc">No applicable merits on this character.</p>';
-      }
-      h += '</div></div>';
-    }
-
     // ── XP note ──
     if (fields.includes('xp')) {
       h += renderQuestion({
@@ -3047,6 +2980,22 @@ function renderProjectSlots(saved) {
         type: 'textarea', required: false,
         desc: 'Additional context, narrative, or details for this action.',
       }, saved[`project_${n}_description`] || '');
+    }
+
+    // ── Solo/Joint toggle — bottom of block (dtui-5) ──
+    if (isJointEligible) {
+      h += `<fieldset class="dt-ticker" data-proj-solo-joint-ticker="${n}">`;
+      h += `<legend class="dt-ticker__legend">Mode</legend>`;
+      h += `<label class="dt-ticker__pill">`;
+      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}>`;
+      h += `Solo</label>`;
+      h += `<label class="dt-ticker__pill">`;
+      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}">`;
+      h += `Joint</label>`;
+      h += `</fieldset>`;
+      if (isJoint) {
+        h += renderJointAuthoring(n, saved, existingJoint);
+      }
     }
 
     h += '</div>'; // dt-action-block
