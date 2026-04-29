@@ -699,7 +699,7 @@ development_status:
   dtui-34-action-block-ui-polish: review  # Wave 2 addition — Direction/Target Type labels, spacing, placeholder audit
 
   # Wave 3 — Joint Collaboration Hub
-  dtui-12-joint-panel-auto-expand: ready-for-dev
+  dtui-12-joint-panel-auto-expand: review
   dtui-13-invitee-chip-grid: ready-for-dev
   dtui-14-sphere-merit-auto-commit: ready-for-dev
   dtui-15-allies-action-descriptions: ready-for-dev

@@ -2993,6 +2993,40 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-joint-status-cancelled-by-lead { background: var(--crim); color: var(--bg); }
 .dt-joint-status-decoupled { background: var(--surf3); color: var(--crim); }
 
+/* ── DTUI-12: .dt-joint-panel — new authoring panel (no existingJoint) ── */
+.dt-joint-panel {
+  margin-top: var(--space-3, 12px);
+  border: 1px solid var(--surf2);
+  border-radius: 4px;
+  padding: var(--space-3, 12px);
+  background: var(--surf1);
+}
+
+.dt-joint-panel__section + .dt-joint-panel__section {
+  margin-top: var(--space-4, 16px);
+  padding-top: var(--space-4, 16px);
+  border-top: 1px solid var(--surf2);
+}
+
+.dt-joint-panel__heading {
+  font-family: var(--fl);
+  font-size: 0.85rem;
+  color: var(--gold3);
+  margin: 0 0 var(--space-2, 8px) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dt-joint-panel {
+    animation: dt-panel-fadein 200ms ease-out;
+  }
+  @keyframes dt-panel-fadein {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
 /* ── Acquisitions ── */
 .dt-acq-card {
   padding: 16px 18px;

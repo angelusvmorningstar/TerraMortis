@@ -4043,103 +4043,95 @@ function findExistingJoint(slot) {
 // exists; otherwise the panel is in pre-save authoring mode and reads scratch
 // fields off `saved` (responses).
 function renderJointAuthoring(n, saved, existingJoint) {
-  const desc = existingJoint
-    ? (existingJoint.description || '')
-    : (saved[`project_${n}_joint_description`] || '');
-  const targetType = existingJoint
-    ? (existingJoint.target_type || '')
-    : (saved[`project_${n}_joint_target_type`] || '');
-  const targetValue = existingJoint
-    ? (existingJoint.target_value || '')
-    : (saved[`project_${n}_joint_target_value`] || '');
-
-  let invitedIds = [];
-  if (existingJoint) {
-    // Once the joint exists, invitees are the invitations bound to it.
-    invitedIds = _jointInvitations
-      .filter(inv => String(inv.joint_project_id) === String(existingJoint._id))
-      .map(inv => String(inv.invited_character_id));
-  } else {
-    try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); }
-    catch { invitedIds = []; }
+  if (!existingJoint) {
+    return renderDtJointPanel(n, saved);
   }
-  const invitedSet = new Set(invitedIds.map(String));
+
+  // existingJoint path — JDT lifecycle controls (unchanged)
+  const desc = existingJoint.description || '';
+  const targetType = existingJoint.target_type || '';
+  const targetValue = existingJoint.target_value || '';
 
   let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
   h += `<div class="dt-joint-banner">Joint project</div>`;
 
-  // Explainer — what the lead is committing to. Sets expectations before
-  // they invite anyone. Strawman wording (not yet locked).
   h += `<div class="dt-joint-explainer">`;
   h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
   h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
   h += `</div>`;
 
-  if (existingJoint) {
-    h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
-  }
+  h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
 
-  // Joint description
   h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
   h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
-  if (existingJoint) {
-    h += `<div class="dt-joint-desc-edit-row">`;
-    h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
-    if (existingJoint.description_updated_at) {
-      const ts = formatTimestamp(existingJoint.description_updated_at);
-      h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
-    }
-    h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
-    h += `</div>`;
+  h += `<div class="dt-joint-desc-edit-row">`;
+  h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
+  if (existingJoint.description_updated_at) {
+    const ts = formatTimestamp(existingJoint.description_updated_at);
+    h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
   }
+  h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
+  h += `</div>`;
 
-  // Joint target picker — reuses renderTargetPicker (DTFP-6) with multiCharacter
-  // since joints can target multiple characters.
   h += `<label class="qf-label">Joint target</label>`;
-  if (existingJoint) {
-    const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-    const typeLbl = labelMap[targetType] || '—';
-    let valLbl = targetValue || '';
-    if (targetType === 'character') {
-      // target_value may be JSON array (multi) or a legacy single-id string.
-      let ids = [];
-      try {
-        const parsed = JSON.parse(targetValue || '[]');
-        ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
-      } catch {
-        ids = targetValue ? [targetValue] : [];
-      }
-      const names = ids
-        .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
-      valLbl = names.join(', ') || '—';
-    } else if (targetType === 'territory') {
-      const t = TERRITORY_DATA.find(x => x.id === targetValue);
-      if (t) valLbl = t.name;
+  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
+  const typeLbl = labelMap[targetType] || '—';
+  let valLbl = targetValue || '';
+  if (targetType === 'character') {
+    let ids = [];
+    try {
+      const parsed = JSON.parse(targetValue || '[]');
+      ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
+    } catch {
+      ids = targetValue ? [targetValue] : [];
     }
-    h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
-  } else {
-    h += renderTargetPicker(`project_${n}_joint_target`, {
-      savedType: targetType,
-      savedValue: targetValue,
-      allCharacters,
-      includeOptions: ['character', 'territory', 'other'],
-      multiCharacter: true,
-    });
+    const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
+    valLbl = names.join(', ') || '—';
+  } else if (targetType === 'territory') {
+    const t = TERRITORY_DATA.find(x => x.id === targetValue);
+    if (t) valLbl = t.name;
   }
+  h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
 
-  // Invitee grid
   h += `<label class="qf-label">Invitees</label>`;
-  if (existingJoint) {
-    h += renderJointStatusBadges(existingJoint);
-    h += renderJointReinvitePanel(n, existingJoint);
-    h += renderJointCancelPanel(existingJoint);
-  } else {
-    h += renderJointInviteeGrid(n, invitedSet);
-  }
+  h += renderJointStatusBadges(existingJoint);
+  h += renderJointReinvitePanel(n, existingJoint);
+  h += renderJointCancelPanel(existingJoint);
 
   h += `</div>`;
   return h;
 }
+
+// DTUI-12: new authoring panel for when no joint document exists yet.
+// Two stacked chip-grid sections: Players (dtui-13) + Sphere merits (dtui-14).
+function renderDtJointPanel(n, saved) {
+  let h = `<div class="dt-joint-panel" aria-expanded="true" data-joint-slot="${n}">`;
+
+  const playersHeadingId = `dt-joint-players-heading-${n}`;
+  h += `<div class="dt-joint-panel__section">`;
+  h += `<h4 class="dt-joint-panel__heading" id="${playersHeadingId}">Players</h4>`;
+  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${playersHeadingId}" data-joint-players="${n}">`;
+  h += renderJointInviteeChips(n, saved);
+  h += `</div>`;
+  h += `</div>`;
+
+  const meritsHeadingId = `dt-joint-merits-heading-${n}`;
+  h += `<div class="dt-joint-panel__section">`;
+  h += `<h4 class="dt-joint-panel__heading" id="${meritsHeadingId}">Your Allies and Retainers</h4>`;
+  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${meritsHeadingId}" data-joint-merits="${n}">`;
+  h += renderJointSphereChips(n, saved);
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`;
+  return h;
+}
+
+// Stub — implemented in dtui-13
+function renderJointInviteeChips(n, saved) { return ''; }
+
+// Stub — implemented in dtui-14
+function renderJointSphereChips(n, saved) { return ''; }
 
 // JDT-6: Re-invite affordance for the lead. Shows characters not currently
 // invited (no pending or accepted invitation), lets the lead tick alternates
