@@ -1,7 +1,7 @@
 ---
 id: dtui.5
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4]
 ---
@@ -205,18 +205,24 @@ The `project_N_cast` data key continues to be collected and saved (in `collectRe
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Removed `cast` and `merits` from every entry in `ACTION_FIELDS`; neither field key exists in any action's field list.
+- Removed the cast render block (was ~lines 2967-2985) and merits render block (was ~lines 2987-3009) from `renderProjectSlots()`. `collectResponses()` at line 464 still queries `.dt-cast-proj-cb` checkboxes safely — produces `'[]'` when none exist (backward compat preserved).
+- Removed the Solo/Joint radio toggle from its original position (was after action-type select at lines 2813-2822) and the isJoint target suppression block (was lines 2824-2834). Target fields now render in both Solo and Joint modes.
+- Added `.dt-ticker` fieldset for Solo/Joint at the bottom of the block — after the description textarea, before closing `.dt-action-block`. `renderJointAuthoring()` still follows immediately when `isJoint`. The `data-project-solo-joint` attribute on radio inputs is preserved for the existing change handler.
+- AC2: Solo/Joint ticker is guarded by `isJointEligible`, which is false when `actionVal` is empty — ticker correctly absent when no action selected.
+- AC5: `lockActionType` logic and `renderJointAuthoring()` call are untouched — existing joint flows unaffected.
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-5 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-5 implemented: Solo/Joint moved to bottom as .dt-ticker, cast+merits removed, isJoint target suppression removed. |
