@@ -1,7 +1,7 @@
 ---
 id: dtui.6
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4, dtui.3]
 ---
@@ -166,18 +166,22 @@ The `esc()` function (existing HTML-escape helper in the file) sanitises the des
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Added `ACTION_DESCRIPTIONS` export to `downtime-data.js` after `PROJECT_ACTIONS`. All 9 action types covered. Em-dashes from spec copy replaced with colons/semicolons per AC5 and CLAUDE.md convention.
+- Added `ACTION_DESCRIPTIONS` to the import line in `downtime-form.js` (line 16).
+- Rendered `<p class="dt-action-desc" aria-live="polite">` immediately after the action-type select's closing `</div>` in `renderProjectSlots()`. Empty string when no action selected; `:empty { display:none }` CSS (dtui-3) collapses it automatically.
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-data.js`
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-6 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-6 implemented: ACTION_DESCRIPTIONS constant added; .dt-action-desc rendered per action type. |

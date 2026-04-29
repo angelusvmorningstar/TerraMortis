@@ -689,7 +689,7 @@ development_status:
   # Wave 2 — Action Block Compound
   dtui-4-dt-action-block-shell: review
   dtui-5-action-block-placement-changes: review
-  dtui-6-action-type-descriptions: ready-for-dev
+  dtui-6-action-type-descriptions: review
   dtui-7-approach-calibrated-prompts: ready-for-dev
   dtui-8-per-action-target-scoping: ready-for-dev
   dtui-9-per-action-outcome-treatments: ready-for-dev
