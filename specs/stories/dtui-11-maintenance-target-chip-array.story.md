@@ -1,7 +1,7 @@
 ---
 id: dtui.11
 epic: dtui
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [dtui.4, dtui.8]
 ---
@@ -235,18 +235,24 @@ If `collectResponses()` reads from DOM elements only, add a maintenance target f
 
 ### Agent Model Used
 
-(to be filled at implementation time)
+claude-sonnet-4-6
 
 ### Completion Notes
 
-(to be filled when implemented)
+- Added `'target'` to `ACTION_FIELDS['maintenance']` so the target zone renders.
+- Added `getAlreadyMaintainedTargets(n, saved, maxSlots)` helper: scans all other slots for matching maintenance actions.
+- Added `renderMaintenanceChips(n, saved, charData, alreadyMaintained)` helper: filters `charData.merits` by `MAINTENANCE_MERITS`, renders a `.dt-chip-grid` with hidden input `id="dt-project_${n}_target_value"` for `collectResponses()` compatibility. Empty-state notice when no eligible merits (AC5). Disabled chips with tooltip for already-targeted merits (AC2). Identifier format: `"${name}_${dots}"` for disambiguation.
+- Added `maintenance` branch in `renderTargetZone()`: uses `currentChar` (module-level) for character data, passes `saved` and `getAlreadyMaintainedTargets` result.
+- Added `data-maintenance-target` click handler in delegated click listener: single-select toggle (AC6), writes to hidden input, calls `scheduleSave()`. Disabled chips are guarded against click (AC2).
+- `collectResponses()` unchanged: reads `project_N_target_value` via `getElementById` which finds the hidden input.
 
 ### File List
 
-(to be filled when implemented)
+- `public/js/tabs/downtime-form.js`
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-29 | DTUI-11 story drafted; ready-for-dev. |
+| 2026-04-29 | DTUI-11 implemented: maintenance target chip grid from MAINTENANCE_MERITS; getAlreadyMaintainedTargets; hidden input for collectResponses compat. |

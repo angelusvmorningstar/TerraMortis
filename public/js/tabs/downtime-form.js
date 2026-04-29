@@ -126,7 +126,7 @@ const ACTION_FIELDS = {
   'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
   'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
   'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
-  'maintenance':       ['description'],
+  'maintenance':       ['target', 'description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -2154,6 +2154,23 @@ function renderForm(container) {
       if (!wasSelected) {
         targetCharChip.classList.add('dt-chip--selected');
         if (hidden) hidden.value = charId;
+      } else {
+        if (hidden) hidden.value = '';
+      }
+      scheduleSave();
+      return;
+    }
+    // Maintenance merit chip — single-select, writes to hidden target_value input
+    const maintChip = e.target.closest('[data-maintenance-target]');
+    if (maintChip && !maintChip.disabled) {
+      const slotNum = maintChip.dataset.maintenanceTarget;
+      const targetId = maintChip.dataset.targetId;
+      const hidden = document.getElementById(`dt-project_${slotNum}_target_value`);
+      const wasSelected = maintChip.classList.contains('dt-chip--selected');
+      container.querySelectorAll(`[data-maintenance-target="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
+      if (!wasSelected) {
+        maintChip.classList.add('dt-chip--selected');
+        if (hidden) hidden.value = targetId;
       } else {
         if (hidden) hidden.value = '';
       }
@@ -4323,6 +4340,50 @@ function renderTargetPicker(prefix, opts) {
   return h;
 }
 
+/** Returns a Set of target_value identifiers already claimed by other maintenance slots (dtui-11). */
+function getAlreadyMaintainedTargets(n, saved, maxSlots) {
+  const maintained = new Set();
+  for (let k = 1; k <= maxSlots; k++) {
+    if (k === n) continue;
+    if (saved[`project_${k}_action`] === 'maintenance' && saved[`project_${k}_target_value`]) {
+      maintained.add(saved[`project_${k}_target_value`]);
+    }
+  }
+  return maintained;
+}
+
+/** Chip grid of the character's own maintenance-eligible merits (dtui-11). */
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained) {
+  const maintMerits = (charData?.merits || [])
+    .filter(m => MAINTENANCE_MERITS.includes(m.name));
+
+  const savedTarget = saved[`project_${n}_target_value`] || '';
+  let h = `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedTarget)}">`;
+
+  if (maintMerits.length === 0) {
+    h += '<p class="qf-desc">No merits requiring maintenance found for this character.</p>';
+    return h;
+  }
+
+  h += `<div class="dt-chip-grid" role="group" aria-label="Select merit to maintain">`;
+  for (const m of maintMerits) {
+    const dots = m.dots || m.rating || 0;
+    const id = `${m.name}_${dots}`;
+    const dotStr = '●'.repeat(dots);
+    const isSelected = savedTarget === id;
+    const isDisabled = alreadyMaintained.has(id);
+    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
+    const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
+    const selectedClass = isSelected ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
+         `data-maintenance-target="${n}" data-target-id="${esc(id)}">` +
+         `${esc(m.name)}${dotStr ? ` <span class="dt-chip__suffix">${dotStr}</span>` : ''}` +
+         `</button>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 /** Per-action outcome zone (dtui-9). */
 function renderOutcomeZone(n, actionVal, saved) {
   const savedOutcome = saved[`project_${n}_outcome`] || '';
@@ -4403,6 +4464,9 @@ function renderTargetZone(n, actionVal, saved, chars) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
   } else if (['investigate', 'misc'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, true);
+  } else if (actionVal === 'maintenance') {
+    const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
+    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
   }
 
   h += '</div>';

@@ -694,7 +694,7 @@ development_status:
   dtui-8-per-action-target-scoping: review
   dtui-9-per-action-outcome-treatments: review
   dtui-10-ambience-consolidation: review
-  dtui-11-maintenance-target-chip-array: ready-for-dev
+  dtui-11-maintenance-target-chip-array: review
 
   # Wave 3 — Joint Collaboration Hub
   dtui-12-joint-panel-auto-expand: backlog
