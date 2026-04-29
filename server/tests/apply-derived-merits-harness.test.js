@@ -92,6 +92,18 @@ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
         tierBudget:      null,
       };
     }
+    if (source === 'K-9') {
+      return {
+        grants: [{ source: 'K-9', grant_type: 'merit', condition: 'fighting_style_present', target: 'Retainer', target_qualifier: 'Dog', amount: 1, amount_basis: 'flat', category: 'influence' }],
+        nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
+      };
+    }
+    if (source === 'Falconry') {
+      return {
+        grants: [{ source: 'Falconry', grant_type: 'merit', condition: 'fighting_style_present', target: 'Retainer', target_qualifier: 'Falcon', amount: 1, amount_basis: 'flat', category: 'influence' }],
+        nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
+      };
+    }
     return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
   },
 }));

@@ -12,6 +12,7 @@ import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
 import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
 import { applyBloodlineRulesFromDb } from './rule_engine/bloodline-evaluator.js';
 import { applyPoolRulesFromDb } from './rule_engine/pool-evaluator.js';
+import { applyStyleRetainerRulesFromDb } from './rule_engine/style-retainer-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -39,26 +40,9 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── MDB: clear stale free_mdb before re-applying ──
   (c.merits || []).forEach(m => { m.free_mdb = 0; });
 
-  // ── K-9 / Falconry: clear then auto-apply 1 free dot to their granted Retainers ──
-  const _STYLE_RETAINER_GRANTS = ['K-9', 'Falconry'];
-  (c.merits || []).forEach(m => {
-    if (m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) { m.free = 0; m.free_pet = 0; }
-  });
-  _STYLE_RETAINER_GRANTS.forEach(styleName => {
-    const hasStyle = (c.fighting_styles || []).some(fs =>
-      fs.type !== 'merit' && fs.name === styleName &&
-      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0) + (fs.up||0)) >= 1
-    );
-    if (!hasStyle) return;
-    let m = (c.merits || []).find(m => m.name === 'Retainer' && m.granted_by === styleName);
-    if (!m) {
-      const area = styleName === 'K-9' ? 'Dog' : 'Falcon';
-      if (!c.merits) c.merits = [];
-      m = { name: 'Retainer', category: 'influence', rating: 0, area, granted_by: styleName };
-      c.merits.push(m);
-    }
-    m.free_pet = 1;
-  });
+  // ── K-9 / Falconry: auto-create Retainer grant (evaluator reads from rule_grant, condition='fighting_style_present') ──
+  applyStyleRetainerRulesFromDb(c, getRulesBySource('K-9'));
+  applyStyleRetainerRulesFromDb(c, getRulesBySource('Falconry'));
 
   // ── PT grant pools (evaluator reads from rule_grant / rule_nine_again / rule_skill_bonus) ──
   applyPTRulesFromDb(c, getRulesBySource('Professional Training'));

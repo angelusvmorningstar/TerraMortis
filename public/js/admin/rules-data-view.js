@@ -294,7 +294,7 @@ function _sel(id, options, selected, placeholder = '') {
 }
 
 function _fieldsGrant(r, isNew) {
-  const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline']];
+  const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline'],['fighting_style_present','fighting_style_present']];
   const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality']];
   const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit']];
   const poolTargetsVal = Array.isArray(r?.pool_targets) ? r.pool_targets.join(', ') : (r?.pool_targets || '');
