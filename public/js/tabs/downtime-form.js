@@ -4480,12 +4480,13 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   // Default to 'character' for two-way (attack/hide_protect) when no type saved
   const effectiveType = savedType || (includeTerritory ? '' : 'character');
 
-  let h = '<div class="dt-target-type-radios">';
+  let h = `<fieldset class="dt-ticker">`;
+  h += '<legend class="dt-ticker__legend">Target Type</legend>';
   for (const opt of options) {
     const chk = effectiveType === opt ? ' checked' : '';
-    h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-project_${n}_target_type" value="${esc(opt)}"${chk} data-flex-type="project_${n}_target"> ${esc(labelMap[opt])}</label>`;
+    h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_target_type" value="${esc(opt)}"${chk} data-flex-type="project_${n}_target"> ${esc(labelMap[opt])}</label>`;
   }
-  h += '</div>';
+  h += '</fieldset>';
 
   if (effectiveType === 'character') {
     h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
