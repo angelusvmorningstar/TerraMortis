@@ -35,18 +35,37 @@ vi.mock('../../public/js/data/loader.js', () => ({
 }));
 
 // Mock load-rules.js — post-flip mci.js imports this, which pulls in api.js.
-// Supply the canonical PT rules so evaluator fires correctly in harness tests.
+// Supply canonical PT and MCI rules so both evaluators fire correctly in harness tests.
 vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
   preloadRules: async () => {},
   invalidateRulesCache: () => {},
   getRulesCache: () => null,
   getRulesBySource: (source) => {
-    if (source !== 'Professional Training') return { grants: [], nineAgain: [], skillBonus: [] };
-    return {
-      grants:     [{ source: 'Professional Training', tier: 1, grant_type: 'merit', target: 'Contacts', amount: 2, amount_basis: 'flat' }],
-      nineAgain:  [{ source: 'Professional Training', tier: 2, target_skills: 'asset_skills' }],
-      skillBonus: [{ source: 'Professional Training', tier: 4, target_skill: 'dot4_skill', amount: 1, cap_at: 5 }],
-    };
+    if (source === 'Professional Training') {
+      return {
+        grants:          [{ source: 'Professional Training', tier: 1, grant_type: 'merit', target: 'Contacts', amount: 2, amount_basis: 'flat' }],
+        nineAgain:       [{ source: 'Professional Training', tier: 2, target_skills: 'asset_skills' }],
+        skillBonus:      [{ source: 'Professional Training', tier: 4, target_skill: 'dot4_skill', amount: 1, cap_at: 5 }],
+        specialityGrants:[],
+        tierBudget:      null,
+      };
+    }
+    if (source === 'Mystery Cult Initiation') {
+      return {
+        grants: [
+          { source, tier: 1, condition: 'choice', grant_type: 'pool', target: '_mci', amount: 1, amount_basis: 'flat', choice_field: 'dot1_choice', excluded_choice: 'speciality' },
+          { source, tier: 2, condition: 'tier',   grant_type: 'pool', target: '_mci', amount: 1, amount_basis: 'flat' },
+          { source, tier: 3, condition: 'choice', grant_type: 'pool', target: '_mci', amount: 2, amount_basis: 'flat', choice_field: 'dot3_choice', excluded_choice: 'skill' },
+          { source, tier: 4, condition: 'tier',   grant_type: 'pool', target: '_mci', amount: 3, amount_basis: 'flat' },
+          { source, tier: 5, condition: 'choice', grant_type: 'pool', target: '_mci', amount: 3, amount_basis: 'flat', choice_field: 'dot5_choice', excluded_choice: 'advantage' },
+        ],
+        nineAgain:       [],
+        skillBonus:      [{ source, tier: 3, target_skill: 'dot3_skill', amount: 1, cap_at: 5 }],
+        specialityGrants:[{ source, tier: 1, condition: 'choice', target_skill: 'dot1_spec_skill', spec: 'dot1_spec' }],
+        tierBudget:      { source, budgets: [0, 1, 1, 2, 3, 3] },
+      };
+    }
+    return { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null };
   },
 }));
 

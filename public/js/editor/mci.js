@@ -9,14 +9,13 @@ import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekee
 import { BLOODLINE_GRANTS } from '../data/constants.js';
 import { getRulesBySource } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
+import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
  * Does NOT modify merit ratings or free dots — those are user-controlled.
  * @param {object} c - character object (mutated in place)
  */
-const MCI_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number (1-5), 0 unused
-
 export function applyDerivedMerits(c, allChars = []) {
   if (!c) return;
 
@@ -29,32 +28,8 @@ export function applyDerivedMerits(c, allChars = []) {
   c._mci_free_specs = [];
   c._bloodline_free_specs = [];
 
-  // ── MCI grant pools ──
-  const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
-  // Sync MCI rating from inline creation fields. MCI is excluded from the general merit sync
-  // (edit.js ensureMeritSync skips it), but rating must be accurate for tier grant pruning and
-  // pool calculations. The ingest script sets cp/xp but leaves rating at 0, causing tier grants
-  // to be pruned on every render. Only sync when inline fields are present (legacy JSON data
-  // only has rating, no cp/xp, and must not be overwritten with 0).
-  for (const mci of mcis) {
-    const _inlineTotal = (mci.cp || 0) + (mci.xp || 0) + (mci.free || 0);
-    if (_inlineTotal > 0) {
-      mci.rating = _inlineTotal;
-    }
-  }
-  // Collect free specialisations granted by active MCIs at dot 1
-  mcis.filter(m => m.active !== false && (m.rating || 0) >= 1 && m.dot1_choice === 'speciality').forEach(m => {
-    if (m.dot1_spec_skill && m.dot1_spec) c._mci_free_specs.push({ skill: m.dot1_spec_skill, spec: m.dot1_spec });
-  });
-  // Collect bonus skill dots granted by active MCIs at dot 3
-  mcis.filter(m => m.active !== false && (m.rating || 0) >= 3 && m.dot3_choice === 'skill' && m.dot3_skill).forEach(m => {
-    if (!c._mci_dot3_skills) c._mci_dot3_skills = new Set();
-    c._mci_dot3_skills.add(m.dot3_skill);
-  });
-  const totalMCIPool = mcis.filter(m => m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
-  if (totalMCIPool > 0) {
-    c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
-  }
+  // ── MCI grant pools (evaluator reads from rule_grant / rule_speciality_grant / rule_skill_bonus / rule_tier_budget) ──
+  applyMCIRulesFromDb(c, getRulesBySource('Mystery Cult Initiation'));
 
   // ── PT: clear stale free_pt before re-applying ──
   (c.merits || []).forEach(m => { m.free_pt = 0; });
@@ -297,6 +272,8 @@ export function applyDerivedMerits(c, allChars = []) {
   });
 }
 
+const _MCI_DEFAULT_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier (1-indexed), 0 unused
+
 /**
  * Compute total merit pool dots granted by an MCI merit based on per-dot choices.
  * Dot 1: Speciality or 1 merit dot
@@ -304,15 +281,18 @@ export function applyDerivedMerits(c, allChars = []) {
  * Dot 3: Skill dot or 2 merit dots
  * Dot 4: fixed 3 merit dots
  * Dot 5: Advantage or 3 merit dots
+ *
+ * @param {object} mci - MCI merit instance
+ * @param {number[]} [budgets] - per-tier amounts from rule_tier_budget (defaults to hardcoded)
  */
-export function mciPoolTotal(mci) {
+export function mciPoolTotal(mci, budgets = _MCI_DEFAULT_BUDGETS) {
   const r = mci.rating || 0;
   let pool = 0;
-  if (r >= 1) pool += mci.dot1_choice === 'speciality' ? 0 : 1;
-  if (r >= 2) pool += 1;
-  if (r >= 3) pool += mci.dot3_choice === 'skill' ? 0 : 2;
-  if (r >= 4) pool += 3;
-  if (r >= 5) pool += mci.dot5_choice === 'advantage' ? 0 : 3;
+  if (r >= 1) pool += mci.dot1_choice === 'speciality' ? 0 : (budgets[1] ?? 1);
+  if (r >= 2) pool += (budgets[2] ?? 1);
+  if (r >= 3) pool += mci.dot3_choice === 'skill' ? 0 : (budgets[3] ?? 2);
+  if (r >= 4) pool += (budgets[4] ?? 3);
+  if (r >= 5) pool += mci.dot5_choice === 'advantage' ? 0 : (budgets[5] ?? 3);
   return pool;
 }
 

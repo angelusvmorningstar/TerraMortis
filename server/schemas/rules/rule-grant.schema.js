@@ -17,6 +17,8 @@ export const ruleGrantSchema = {
       type: 'string',
       enum: ['flat', 'rating_of_source', 'rating_of_partner_merit'],
     },
+    choice_field:    { type: 'string' },
+    excluded_choice: { type: 'string' },
     read_refs: {
       type: 'array',
       items: {
