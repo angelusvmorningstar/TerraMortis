@@ -5531,13 +5531,15 @@ function renderQuestion(q, value) {
         try { feedingGrid = JSON.parse(allResp['feeding_territories'] || '{}'); } catch { /* ignore */ }
         const primaryTerrKey = Object.keys(feedingGrid).find(k =>
           feedingGrid[k] === 'feeding_rights' || feedingGrid[k] === 'poaching' ||
-          feedingGrid[k] === 'resident' || feedingGrid[k] === 'poacher'
+          feedingGrid[k] === 'resident' || feedingGrid[k] === 'poacher' ||
+          feedingGrid[k] === 'barrens'
         );
         const primaryTerrName = primaryTerrKey
           ? FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === primaryTerrKey)
           : null;
-        const terrData = primaryTerrName ? TERRITORY_DATA.find(t => t.name === primaryTerrName) : null;
-        const ambienceMod = terrData ? (terrData.ambienceMod || 0) : null;
+        const isBarrensSelected = primaryTerrKey ? feedingGrid[primaryTerrKey] === 'barrens' : false;
+        const terrData = (!isBarrensSelected && primaryTerrName) ? TERRITORY_DATA.find(t => t.name === primaryTerrName) : null;
+        const ambienceMod = !primaryTerrName ? null : isBarrensSelected ? -4 : (terrData ? (terrData.ambienceMod || 0) : null);
 
         const netVitae = ambienceMod !== null
           ? Math.max(0, Math.min(vitaeMax, vitaeMax - totalCost + ambienceMod))
@@ -5550,7 +5552,7 @@ function renderQuestion(q, value) {
         if (riteVitaeCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Cruac Rites</span><span>\u2212${riteVitaeCost}</span></div>`;
         if (mandDots > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Mandragora Garden (${'●'.repeat(mandDots)})</span><span>\u2212${mandDots}</span></div>`;
         if (ambienceMod !== null) {
-          const ambLabel = `${esc(terrData.ambience)} (${primaryTerrName})`;
+          const ambLabel = isBarrensSelected ? 'Barrens (The Barrens)' : `${esc(terrData.ambience)} (${primaryTerrName})`;
           const modStr = ambienceMod >= 0 ? `+${ambienceMod}` : `${ambienceMod}`;
           h += `<div class="dt-vitae-row dt-vitae-note"><span>Ambience: ${ambLabel}</span><span>${modStr}</span></div>`;
           h += `<div class="dt-vitae-row dt-vitae-total"><span>Net Vitae after feeding</span><span class="${netVitae === 0 ? 'dt-vitae-over' : ''}">${netVitae}</span></div>`;
