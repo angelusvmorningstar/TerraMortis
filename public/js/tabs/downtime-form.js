@@ -4727,6 +4727,31 @@ function getAlliesAmbienceEligible(m) {
   return effectiveDots >= 3;
 }
 
+// DTUI-18: Allies Ambience contribution magnitude
+function getAlliesAmbienceContribution(m) {
+  const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+  const hwv = (currentChar.merits || []).some(
+    merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
+  );
+  if (hwv) {
+    if (effectiveDots >= 4) return 2;
+    if (effectiveDots >= 2) return 1;
+    return 0;
+  }
+  if (effectiveDots >= 5) return 2;
+  if (effectiveDots >= 3) return 1;
+  return 0;
+}
+
+// DTUI-18: read-only contribution notice for Ambience actions
+function renderAlliesAmbienceDisplay(m, actionVal) {
+  const contribution = getAlliesAmbienceContribution(m);
+  if (contribution === 0) return '';
+  const sign = actionVal === 'ambience_increase' ? '+' : '-';
+  const copy = `You are exhausting these allies for the next game. These allies will count ${sign}${contribution} towards the targeted territory's ambience.`;
+  return `<div class="dt-action-desc" aria-live="polite">${esc(copy)}</div>`;
+}
+
 // DTUI-15: map sphere action values to ACTION_DESCRIPTIONS keys
 function sphereActionDescKey(val) {
   if (val === 'ambience_increase') return 'ambience_change_improve';
@@ -4734,7 +4759,7 @@ function sphereActionDescKey(val) {
   return val;
 }
 
-function renderSphereFields(n, prefix, fields, saved, charMerits) {
+function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = null) {
   let h = '';
 
   if (fields.includes('territory')) {
@@ -4743,6 +4768,11 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
     h += '<label class="qf-label">Territory</label>';
     h += renderTerritoryPills(`dt-${prefix}_${n}_territory`, savedTerr);
     h += '</div>';
+    // DTUI-18: Allies Ambience contribution display (after territory picker)
+    const actionVal = saved[`${prefix}_${n}_action`] || '';
+    if (sphereMerit && (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease')) {
+      h += renderAlliesAmbienceDisplay(sphereMerit, actionVal);
+    }
   }
 
   if (fields.includes('target_char')) {
@@ -4938,7 +4968,7 @@ function renderMeritToggles(saved) {
         h += `<div class="dt-action-desc" aria-live="polite">${esc(ACTION_DESCRIPTIONS[descKey])}</div>`;
       }
 
-      h += renderSphereFields(n, 'sphere', fields, saved, charMerits);
+      h += renderSphereFields(n, 'sphere', fields, saved, charMerits, m);
 
       h += '</div>'; // pane
     }
