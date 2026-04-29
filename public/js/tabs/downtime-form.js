@@ -2270,12 +2270,20 @@ function renderForm(container) {
       updateSectionTicks(container);
       return;
     }
-    // Multi-select feeding territory pills
+    // Single-select feeding territory pills
     const feedTerrPill = e.target.closest('[data-feed-terr-key]');
     if (feedTerrPill) {
       const terrKey = feedTerrPill.dataset.feedTerrKey;
       const statusVal = feedTerrPill.dataset.feedStatus;
       const isActive = feedTerrPill.dataset.feedActive === '1';
+      // Deactivate all other pills first (single-select)
+      container.querySelectorAll('[data-feed-terr-key]').forEach(pill => {
+        const key = pill.dataset.feedTerrKey;
+        if (key !== terrKey) {
+          const h = document.getElementById(`feed-val-${key}`);
+          if (h) h.value = 'none';
+        }
+      });
       const hidden = document.getElementById(`feed-val-${terrKey}`);
       if (hidden) hidden.value = isActive ? 'none' : statusVal;
       // Re-render to update pill appearance and vitae projection
@@ -4710,10 +4718,8 @@ function renderFeedingTerritoryPills(gridVals) {
     }
 
     const isActive = savedVal !== 'none';
-    const statusVal = isBarrens ? (isActive ? 'barrens' : 'none')
-      : (hasFeedingRights ? 'feeding_rights' : 'poaching');
-    const statusLabel = isBarrens ? 'The Barrens'
-      : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
+    const statusVal = isBarrens ? 'barrens' : (hasFeedingRights ? 'feeding_rights' : 'poaching');
+    const statusLabel = isBarrens ? 'The Barrens' : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
 
     const activeClass = isActive
       ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
@@ -4722,7 +4728,9 @@ function renderFeedingTerritoryPills(gridVals) {
     h += `<button type="button" class="dt-terr-pill${activeClass}"`;
     h += ` data-feed-terr-key="${terrKey}" data-feed-status="${statusVal}" data-feed-active="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
-    if (ambience && !isBarrens) {
+    if (isBarrens) {
+      if (isActive) h += `<span class="dt-terr-pill-amb">Barrens (-4)</span>`;
+    } else if (ambience) {
       const mod = terrData?.ambienceMod;
       const modStr = mod !== undefined ? ` (${mod >= 0 ? '+' : ''}${mod})` : '';
       h += `<span class="dt-terr-pill-amb">${esc(ambience)}${modStr}</span>`;
