@@ -701,7 +701,7 @@ development_status:
   # Wave 3 — Joint Collaboration Hub
   dtui-12-joint-panel-auto-expand: review
   dtui-13-invitee-chip-grid: review
-  dtui-14-sphere-merit-auto-commit: ready-for-dev
+  dtui-14-sphere-merit-auto-commit: review
   dtui-15-allies-action-descriptions: ready-for-dev
   dtui-16-allies-target-scoping: ready-for-dev
   dtui-17-allies-ambience-eligibility: ready-for-dev

@@ -2197,6 +2197,25 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // DTUI-14: sphere-merit collaborator chip — multi-select, auto-commits Support
+    const sphereChip = e.target.closest('[data-joint-sphere-slot]');
+    if (sphereChip && !sphereChip.disabled) {
+      const n = sphereChip.dataset.jointSphereSlot;
+      const slotKey = sphereChip.dataset.sphereKey;
+      const type = sphereChip.dataset.sphereType;
+      const willSelect = !sphereChip.classList.contains('dt-chip--selected');
+      sphereChip.classList.toggle('dt-chip--selected', willSelect);
+      if (type === 'sphere') {
+        saved[`${slotKey}_action`] = willSelect ? 'support' : '';
+      }
+      const allSphereChips = container.querySelectorAll(`[data-joint-sphere-slot="${n}"]`);
+      const keys = [...allSphereChips]
+        .filter(el => el.classList.contains('dt-chip--selected'))
+        .map(el => el.dataset.sphereKey);
+      saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
+      scheduleSave();
+      return;
+    }
     // Single-select territory pills
     const terrPill = e.target.closest('[data-terr-single][data-terr-val]');
     if (terrPill) {
@@ -4191,8 +4210,46 @@ function renderJointInviteeChips(n, saved) {
   return h;
 }
 
-// Stub — implemented in dtui-14
-function renderJointSphereChips(n, saved) { return ''; }
+// DTUI-14: already-used detection for sphere/retainer merits
+function isSphereMeritUsed(slotKey, type, saved) {
+  if (type === 'sphere') return !!(saved[`${slotKey}_action`]);
+  if (type === 'retainer') return !!(saved[`${slotKey}_type`] || saved[`${slotKey}_task`]);
+  return false;
+}
+
+// DTUI-14: sphere-merit collaborator chip grid (Allies + Retainers)
+function renderJointSphereChips(n, saved) {
+  const spheres = (detectedMerits.spheres || []).map((m, i) => ({ m, slotKey: `sphere_${i + 1}`, type: 'sphere' }));
+  const retainers = (detectedMerits.retainers || []).map((m, i) => ({ m, slotKey: `retainer_${i + 1}`, type: 'retainer' }));
+  const all = [...spheres, ...retainers];
+
+  if (!all.length) {
+    return '<p class="qf-desc">You have no Allies or Retainer merits to contribute.</p>';
+  }
+
+  let selectedKeys = [];
+  try { selectedKeys = JSON.parse(saved[`project_${n}_joint_sphere_chips`] || '[]'); } catch { selectedKeys = []; }
+  const selectedSet = new Set(selectedKeys);
+
+  let h = '';
+  for (const { m, slotKey, type } of all) {
+    const isUsed = isSphereMeritUsed(slotKey, type, saved);
+    const isSelected = selectedSet.has(slotKey);
+    const isDisabled = isUsed && !isSelected;
+    const effectiveDots = (m.dots || m.rating || 0) + (m.bonus || 0);
+    const area = m.area || m.qualifier || '';
+    const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
+    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
+    const titleAttr = isDisabled ? ' title="This merit\'s action is already committed elsewhere."' : '';
+    const selectedClass = isSelected ? ' dt-chip--selected' : '';
+    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
+    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
+    h += ` data-joint-sphere-slot="${n}" data-sphere-key="${esc(slotKey)}" data-sphere-type="${type}">`;
+    h += esc(label);
+    h += `</button>`;
+  }
+  return h;
+}
 
 // JDT-6: Re-invite affordance for the lead. Shows characters not currently
 // invited (no pending or accepted invitation), lets the lead tick alternates
