@@ -128,7 +128,6 @@ export const FEED_METHODS = [
   { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Celerity'] },
   { id: 'familiar', name: 'Deception', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Wits'], skills: ['Persuasion', 'Subterfuge'], discs: ['Auspex', 'Obfuscate'] },
   { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Intelligence', 'Presence'], skills: ['Expression', 'Intimidation'], discs: ['Nightmare', 'Dominate'] },
-  { id: 'other', name: 'Other', desc: 'Custom method (subject to ST approval)', attrs: [], skills: [], discs: [] },
 ];
 
 // DTFP-5: Kiss / Violent feeding declaration. Pre-selection per method;
