@@ -3780,6 +3780,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-terr-pill-poach { background: rgba(180,100,0,.12); color: var(--terr-poach-fg); border-color: rgba(180,100,0,.35); font-weight: 600; }
 .dt-terr-pill-poach .dt-terr-pill-status { color: var(--terr-poach-fg); }
 .dt-terr-pill-barrens { background: rgba(139,0,0,.1); color: var(--crim); border-color: rgba(139,0,0,.3); font-weight: 600; }
+.dt-terr-pill-disabled, .dt-terr-pill[disabled] { opacity: .35; cursor: not-allowed; pointer-events: none; }
 
 /* ── Feed pool suggestion chips ── */
 .dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

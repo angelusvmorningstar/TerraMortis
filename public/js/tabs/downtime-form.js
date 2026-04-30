@@ -2397,6 +2397,17 @@ function renderForm(container) {
       });
       const hidden = document.getElementById(`feed-val-${terrKey}`);
       if (hidden) hidden.value = isActive ? 'none' : statusVal;
+      // Sync rote selection: clear it if the new main selection makes it invalid.
+      // A rote pick is invalid when (main=Barrens AND rote!=Barrens) or
+      // (main!=Barrens AND rote=Barrens).
+      const newMainIsBarrens = !isActive && statusVal === 'barrens';
+      container.querySelectorAll('[data-feed-rote-terr-key]').forEach(rotePill => {
+        const rk = rotePill.dataset.feedRoteTerrKey;
+        const rh = document.getElementById(`feed-rote-val-${rk}`);
+        if (!rh || rh.value === 'none') return;
+        const roteIsBarrens = rotePill.dataset.feedRoteStatus === 'barrens';
+        if (newMainIsBarrens !== roteIsBarrens) rh.value = 'none';
+      });
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -4977,12 +4988,26 @@ function renderTerritoryPills(fieldId, savedVal) {
   return h;
 }
 
-/** Feeding territory pills. Pass rote=true for the rote-hunt variant (separate IDs/data-attrs). */
-function renderFeedingTerritoryPills(gridVals, rote = false) {
+/** Feeding territory pills. Pass rote=true for the rote-hunt variant (separate IDs/data-attrs).
+ *  When rote=true, supply mainGridVals so rote pills can disable invalid pairings:
+ *  - rote-Barrens is only enabled when main feed is Barrens
+ *  - non-Barrens rote pills are disabled when main feed is Barrens
+ */
+function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null) {
   const idPfx = rote ? 'feed-rote-val' : 'feed-val';
   const keyAttr = rote ? 'data-feed-rote-terr-key' : 'data-feed-terr-key';
   const statusAttr = rote ? 'data-feed-rote-status' : 'data-feed-status';
   const activeAttr = rote ? 'data-feed-rote-active' : 'data-feed-active';
+  // Determine main-feed Barrens state for rote-pill gating
+  let mainIsBarrens = false;
+  if (rote && mainGridVals) {
+    for (const t of FEEDING_TERRITORIES) {
+      const k = t.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      if (mainGridVals[k] && mainGridVals[k] !== 'none' && t.includes('Barrens')) {
+        mainIsBarrens = true;
+      }
+    }
+  }
   let h = '<div class="dt-terr-pills dt-feed-terr-pills">';
   for (const terr of FEEDING_TERRITORIES) {
     const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -5019,7 +5044,21 @@ function renderFeedingTerritoryPills(gridVals, rote = false) {
       ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
       : '';
 
-    h += `<button type="button" class="dt-terr-pill${activeClass}"`;
+    // Rote-feed Barrens lock: if main is Barrens, only Barrens-rote is allowed;
+    // if main is non-Barrens, Barrens-rote is disallowed. Also disable Barrens
+    // rote when no main territory is picked yet (you can't rote without main).
+    let disabled = false;
+    if (rote) {
+      if (isBarrens) {
+        if (!mainIsBarrens) disabled = true;
+      } else {
+        if (mainIsBarrens) disabled = true;
+      }
+    }
+    const disabledAttrs = disabled ? ' disabled aria-disabled="true" title="Rote territory must match main feed territory"' : '';
+    const disabledClass = disabled ? ' dt-terr-pill-disabled' : '';
+
+    h += `<button type="button" class="dt-terr-pill${activeClass}${disabledClass}"${disabledAttrs}`;
     h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
@@ -5823,8 +5862,12 @@ function renderQuestion(q, value) {
             const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
             let roteTerrGridVals = {};
             try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
+            let mainTerrGridVals = {};
+            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
             h += '<div class="qf-field">';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true);
+            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
             h += '</div>';
           }
           h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
