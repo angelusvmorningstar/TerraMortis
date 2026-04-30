@@ -2322,7 +2322,11 @@ function renderForm(container) {
         .filter(el => el.classList.contains('dt-chip--selected'))
         .map(el => el.dataset.sphereKey);
       saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
-      scheduleSave();
+      // T24 (DTLT-6): re-render so the sphere pane lock badge appears immediately
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       return;
     }
     // Single-select territory pills
@@ -4808,10 +4812,12 @@ function renderTargetZone(n, actionVal, saved, chars) {
       }
       h += '</fieldset>';
     }
-  } else if (['attack', 'hide_protect'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
+  } else if (actionVal === 'attack') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false });
+  } else if (actionVal === 'hide_protect') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false, includeOwnMerit: true });
   } else if (['investigate', 'misc'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, true);
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
     const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
     h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
@@ -4822,11 +4828,15 @@ function renderTargetZone(n, actionVal, saved, chars) {
 }
 
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */
-function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, includeTerritory) {
-  const options = includeTerritory ? ['character', 'territory', 'other'] : ['character', 'other'];
-  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-  // Default to 'character' for two-way (attack/hide_protect) when no type saved
-  const effectiveType = savedType || (includeTerritory ? '' : 'character');
+function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, opts = {}) {
+  const { includeTerritory = false, includeOwnMerit = false } = opts;
+  const options = [];
+  if (includeOwnMerit) options.push('own_merit');
+  options.push('character');
+  if (includeTerritory) options.push('territory');
+  options.push('other');
+  const labelMap = { own_merit: 'Own Merit', character: 'Character', territory: 'Territory', other: 'Other' };
+  const effectiveType = savedType || (includeOwnMerit ? 'own_merit' : (includeTerritory ? '' : 'character'));
 
   let h = `<fieldset class="dt-ticker" aria-label="Target type">`;
   for (const opt of options) {
@@ -4835,7 +4845,17 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   }
   h += '</fieldset>';
 
-  if (effectiveType === 'character') {
+  if (effectiveType === 'own_merit') {
+    h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
+    h += '<option value="">— Select Merit / Asset —</option>';
+    for (const m of (currentChar.merits || [])) {
+      const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const sel = mKey === savedCharId ? ' selected' : '';
+      h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
+    }
+    h += '</select>';
+  } else if (effectiveType === 'character') {
     h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
     for (const c of chars) {
       const isSelected = String(c.id) === String(savedCharId);
@@ -5183,6 +5203,25 @@ function renderMeritToggles(saved) {
 
       // Merit info header
       h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
+
+      // T24 (DTLT-6): if committed as support to a project, lock the pane
+      if (actionVal === 'support') {
+        const sphereSlotKey = `sphere_${n}`;
+        let owningProject = null;
+        for (let pn = 1; pn <= 4; pn++) {
+          let chips = [];
+          try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+          if (Array.isArray(chips) && chips.includes(sphereSlotKey)) { owningProject = pn; break; }
+        }
+        h += '<div class="dt-sphere-locked">';
+        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${owningProject || '?'}</span>`;
+        h += `<p class="dt-sphere-locked-help">Un-tick this Ally's chip in the project's Support Assets panel to free this slot.</p>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-sphere_${n}_action" value="support">`;
+        h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
+        h += '</div>';
+        continue;
+      }
 
       // Store which merit this slot references
       h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;

@@ -743,7 +743,7 @@ development_status:
   dtlt-3-theme-purge-migration: review                      # T17 + T22 (downstream)
   dtlt-4-effective-rating-and-cap-sweep: review             # T3,T4,T21,T23
   dtlt-5-sorcery-cost-and-target-picker: review             # T12,T14,T15
-  dtlt-6-pickers-and-lock-state: ready-for-dev              # T6,T10,T20,T24
+  dtlt-6-pickers-and-lock-state: review                     # T6,T10,T20,T24
   dtlt-7-st-processing-skill-acq-parity: ready-for-dev      # T27
   dtlt-8-resources-multi-acquisition: ready-for-dev         # T26
   dtlt-9-archive-all-published-cycles: ready-for-dev        # T1 (specs Option B; A/C alternatives in story)

@@ -861,6 +861,7 @@ function renderAddPanel(el, char) {
           ${kindGroups}
         </select>
       </label>
+      <p class="rel-add-hint rel-add-touchstone-hint">Touchstones are added on the character sheet.</p>
       ${showCustomLabel ? `
         <label class="rel-add-field">
           <span class="rel-add-field-label">Custom label *</span>
