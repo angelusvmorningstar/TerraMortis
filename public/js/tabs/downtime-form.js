@@ -530,6 +530,19 @@ function collectResponses() {
       jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
       responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
     }
+
+    // Support Assets sphere/retainer chip selection — read from DOM so the
+    // post-click state survives the responses replacement in re-render.
+    const chipPanel = document.querySelector(`[data-support-assets-wrap="${n}"]`);
+    if (chipPanel) {
+      const selectedChips = chipPanel.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected');
+      const chipKeys = [...selectedChips].map(el => el.dataset.sphereKey).filter(Boolean);
+      responses[`project_${n}_joint_sphere_chips`] = JSON.stringify(chipKeys);
+    } else {
+      // Panel not rendered (Support Assets ticker = Solo) — preserve prior value
+      const prior = responseDoc?.responses?.[`project_${n}_joint_sphere_chips`];
+      if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
+    }
   }
 
   // Collect sorcery slots (dynamic count)
@@ -605,6 +618,18 @@ function collectResponses() {
     const castIds = [];
     castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
+    // If this sphere is committed to a project's Support Assets, force action
+    // to 'support'. The dropdown may still be rendered with an empty value at
+    // first-click time; the chips are the source of truth for support state.
+    const sphereSlotKey = `sphere_${n}`;
+    for (let pn = 1; pn <= projectSlotCount; pn++) {
+      let chips = [];
+      try { chips = JSON.parse(responses[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+      if (Array.isArray(chips) && chips.includes(sphereSlotKey)) {
+        responses[`sphere_${n}_action`] = 'support';
+        break;
+      }
+    }
   }
 
   // Status action fields
@@ -655,8 +680,12 @@ function collectResponses() {
     const typeEl = document.getElementById(`dt-retainer_${n}_type`);
     const taskEl = document.getElementById(`dt-retainer_${n}_task`);
     const meritEl = document.getElementById(`dt-retainer_${n}_merit`);
-    responses[`retainer_${n}_type`] = typeEl ? typeEl.value : '';
-    responses[`retainer_${n}_task`] = taskEl ? taskEl.value : '';
+    // Preserve prior task data when the retainer row is locked into support
+    // mode (its inputs are not rendered, so reading them would wipe the data).
+    const priorType = responseDoc?.responses?.[`retainer_${n}_type`] || '';
+    const priorTask = responseDoc?.responses?.[`retainer_${n}_task`] || '';
+    responses[`retainer_${n}_type`] = typeEl ? typeEl.value : priorType;
+    responses[`retainer_${n}_task`] = taskEl ? taskEl.value : priorTask;
     responses[`retainer_${n}_merit`] = meritEl ? meritEl.value : '';
     // Backwards compat: combined value in old key
     const combined = [responses[`retainer_${n}_type`], responses[`retainer_${n}_task`]].filter(Boolean).join('\n');
@@ -5585,6 +5614,35 @@ function renderMeritToggles(saved) {
       const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
+
+      // Lock the retainer to "support" if its slot is referenced in any
+      // project's joint_sphere_chips (matches the sphere section pattern).
+      const retainerSlotKey = `retainer_${n}`;
+      let supportingProject = null;
+      for (let pn = 1; pn <= 4; pn++) {
+        let chips = [];
+        try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+        if (Array.isArray(chips) && chips.includes(retainerSlotKey)) { supportingProject = pn; break; }
+      }
+
+      if (supportingProject) {
+        h += `<div class="dt-contact-row dt-contact-used" data-retainer-row="${n}">`;
+        h += `<div class="dt-contact-header">`;
+        h += `<span class="dt-contact-area">${esc(area)}${esc(ghoulTag)}</span>`;
+        h += `<span class="dt-contact-dots">${dots}</span>`;
+        h += `<span class="dt-contact-status">Support</span>`;
+        h += '</div>';
+        h += `<div class="dt-contact-panel">`;
+        h += '<div class="dt-sphere-locked">';
+        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${supportingProject}</span>`;
+        h += `<p class="dt-sphere-locked-help">Un-tick this Retainer's chip in the project's Support Assets panel to free this slot.</p>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-retainer_${n}_merit" value="${esc(meritLabel(m))}">`;
+        h += '</div>'; // panel
+        h += '</div>'; // row
+        continue;
+      }
+
       const isUsed = savedType || savedTask;
       const expanded = isUsed;
 
@@ -5639,7 +5697,7 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // Retainers: tick when any retainer has content
+    // Retainers: tick when any retainer has a task OR is committed to support
     if (key === 'retainers') {
       const maxR = detectedMerits.retainers.length;
       let anyUsed = false;
@@ -5647,6 +5705,15 @@ function updateSectionTicks(container) {
         const t = document.getElementById(`dt-retainer_${n}_type`);
         const d = document.getElementById(`dt-retainer_${n}_task`);
         if ((t && t.value.trim()) || (d && d.value.trim())) { anyUsed = true; break; }
+      }
+      // Also tick if any retainer slot is in a project's joint_sphere_chips
+      if (!anyUsed) {
+        const r = responseDoc?.responses || {};
+        for (let pn = 1; pn <= 4 && !anyUsed; pn++) {
+          let chips = [];
+          try { chips = JSON.parse(r[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+          if (Array.isArray(chips) && chips.some(k => k.startsWith('retainer_'))) anyUsed = true;
+        }
       }
       tick.classList.toggle('visible', anyUsed);
       return;
