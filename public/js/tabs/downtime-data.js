@@ -54,7 +54,6 @@ export const SPHERE_ACTIONS = [
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
   { value: 'grow', label: 'Grow: Attempt to acquire Allies or Status 4 or 5' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
-  { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
 export const FEEDING_TERRITORIES = [

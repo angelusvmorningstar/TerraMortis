@@ -2854,8 +2854,15 @@ function renderProjectSlots(saved) {
   h += '<div class="dt-proj-tabs">';
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
-    const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
-    const label = ACTION_SHORT[actionVal] || 'No Action';
+    let icon, label;
+    if (actionVal === 'ambience_change') {
+      const dir = saved[`project_${n}_ambience_dir`] || 'improve';
+      icon = dir === 'improve' ? '▲' : '▼';
+      label = dir === 'improve' ? 'Ambience +' : 'Ambience −';
+    } else {
+      icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+      label = ACTION_SHORT[actionVal] || 'No Action';
+    }
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
     // JDT-4: Joint badge on the tab when this slot has a joint role.
@@ -3577,13 +3584,13 @@ function renderPersonalStorySection(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the Relationships tab to add one, or submit without a story moment.</p>';
+  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
 
   // Picker: grouped by kind family via <optgroup>.
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Who is this moment about?</label>';
   if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the Relationships tab to create one, or submit this downtime without a story moment.</p>';
+    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
     h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
   } else {
     // Group by kind family, sort entries by other-endpoint name within family.
@@ -4905,7 +4912,8 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
   h += `<label class="qf-label" for="dt-${prefix}_${n}_grow_target">Target dots</label>`;
   h += `<select id="dt-${prefix}_${n}_grow_target" class="qf-select" data-grow-target="${prefix}_${n}">`;
   h += '<option value="">— Select target —</option>';
-  for (let d = currentDots + 1; d <= 5; d++) {
+  const maxTarget = currentDots < 3 ? 3 : Math.min(currentDots + 1, 5);
+  for (let d = currentDots + 1; d <= maxTarget; d++) {
     const sel = savedTarget === d ? ' selected' : '';
     h += `<option value="${d}"${sel}>${d} dot${d !== 1 ? 's' : ''}</option>`;
   }
@@ -5260,7 +5268,7 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-contact_${n}_request">What specific information are you requesting?</label>`;
       h += `<p class="qf-desc">Name a person, event, or piece of information your contact would plausibly know. Vague requests (\u201Canything useful about X\u201D) will be resolved at ST discretion.</p>`;
-      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Lord Vance know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
+      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Marcus Reilly know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
       h += '</div>';
       // Store merit label
       h += `<input type="hidden" id="dt-contact_${n}_merit" value="${esc(meritLabel(m))}">`;

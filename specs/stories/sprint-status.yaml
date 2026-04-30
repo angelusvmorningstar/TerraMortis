@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-29 (DTUI Wave 3 complete: dtui-12 through dtui-19 all at review. Earlier: Wave 3 story files drafted; Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition; Wave 1 implemented; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
+last_updated: 2026-04-30 (DTLT-1 descoped from DTLT epic — confirmed rules-engine work (new rule_bonus_success collection + evaluator + 7-surface integration), not downtime UI. Story file remains as Sonnet-grade backlog item, picked up when rules-engine workstream prioritises it. T5 is pre-existing (STY never fired in code); zero regression cost. Earlier same day: scope correction removed Vigour/Resilience migration after rereading errata 'bonus successes such as those granted by Vigour' — that line is example-in-exclusion for Street Fighting 'Kick em While They're Down', not a Vigour mechanic def. Vigour/Resilience stay in rule_disc_attr per RDE-14. Memory feedback_errata_vigour_example.md captures the lesson. DTLT-2 through DTLT-9 story files ready-for-dev; DTLT-10 story file written but stays at status=backlog awaiting ST ruling. DTLT-10 (Mandragora fruit conditionality) specs both reading paths: Reading A adds a single maintain toggle gating both cost and fruit; Reading B reuses existing per-rite mandragora flags. Story includes shared infra changes + reading-specific implementation; dev picks one path once ruling lands. DTLT-9 fixes the Archive pipeline (Option B per epic recommendation): client-side query swap so Archive reads downtime narratives from downtime_submissions instead of archive_documents (mirrors Story tab Chronicle pattern). Reuses renderOutcomeWithCards for detail view. Legacy DT 1 archive_documents entries silently shadowed; A/C alternatives documented in story. DTLT-8 converts Resources Acquisition to multi-slot mirroring the rite-slot pattern: per-slot acq_${n}_description/availability/merits keys, +Add Item button, per-slot remove with shift-down, backwards-compat (legacy keys mirror slot 1), composite blob includes all slots. ST-side per-item processing deferred to follow-up. DTLT-7 surfaces structured skill_acq_pool_* fields in the ST action queue + processing panel: new skillAcqPoolStr helper in accessors.js, queue construction at admin/downtime-views.js:2771-2785 builds poolPlayer from structured fields, processing panel splits acquisition branch by actionType so skill_acquisitions gets the standard 2-column Submitted/Validated layout. DTLT-6 bundles four UX/render fixes: Safe Word evaluator graceful when allChars empty (T6), Touchstone hint in relationships add panel (T10), project Hide/Protect Own Merit target type (T20), sphere slot lock when committed as project support (T24, mirrors rote-feeding lock pattern + re-render on chip-click). DTLT-5 extracts canonical riteCost(rite) helper to accessors.js, replaces ruleEntry.cost reads at sheet drawer + DT rites Stats line, consolidates DT vitae projection + admin feeding tally on the helper, drops the && value guard on sorcery target collector at downtime-form.js:567. DTLT-4 is the effective-rating + cap sweep across Influence calc (domain.js), feeding pool (3 builders), XP picker (4 branches), project dice pool (with new spec picker). Adds canonical meritEffectiveRating helper to accessors.js. DTLT-3 is the Theme purge migration: $unset Theme keys from disciplines map, close ingest inflow (remove Theme rows from DISC_ROWS), defence-in-depth filter at XP picker. Resolves T17 and T22 in one pass; clears legacy data before DTLT-4 effective-rating sweep. DTLT-2 bundles six DT form one-liners (T7,T8,T9,T11,T19,T25) for Sonnet — exact line numbers given. DTLT-1 is the Opus story for bonus-success mechanic with new rule_bonus_success collection, evaluator, 7-surface roll integration, Vigour/Resilience model migration from rule_disc_attr. Earlier: DTLT epic registered: 11 stories triaging the 27 issues from ST team's DT 2 live form review. dtlt-1 (bonus-success mechanic) flagged for Opus; dtlt-2 through dtlt-9 Sonnet-doable; dtlt-10/11 blocked on ST ruling. Earlier: DTUI Wave 3 complete: dtui-12 through dtui-19 all at review; Wave 3 story files drafted; Wave 2 complete (dtui-4 through dtui-11 at review); dtui-33 target-type-selector-ticker added as Wave 2 addition; Wave 1 implemented; DTUI epic registered 32 stories backlogged; DTSR-1 + DTSR-2 implemented; FEAT batch drafted; DI epic flipped; DTUX-1 phase ribbon nav drafted; 6 new epics + 34 backlog stories from downtime overhaul scoping pass)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -728,3 +728,25 @@ development_status:
   dtui-32-accordion-dirty-stays-open: backlog
 
   epic-dtui-retrospective: optional
+
+  # ============================================================
+  # DTLT — DT 2 LIVE FORM TRIAGE (2026-04-30 ST review fixes)
+  # ============================================================
+  # Epic file: specs/epic-dtlt-dt2-live-form-triage.md
+  # 11 stories resolving 25 of 27 diagnostic findings.
+  # T2 (NPC relationships population) and T18 (Ambience Change supporting merits)
+  # parked outside this epic — see Out of Epic section in the epic file.
+
+  epic-dtlt: in-progress
+  dtlt-1-bonus-success-mechanic: backlog                    # descoped from DTLT 2026-04-30 — rules-engine work, not downtime UI; story file is Sonnet-grade dev-ready when prioritised against rules engine workstream
+  dtlt-2-dt-form-quick-fixes: review                        # T7,T8,T9,T11,T19,T25 bundled
+  dtlt-3-theme-purge-migration: ready-for-dev               # T17 + T22 (downstream)
+  dtlt-4-effective-rating-and-cap-sweep: ready-for-dev      # T3,T4,T21,T23
+  dtlt-5-sorcery-cost-and-target-picker: ready-for-dev      # T12,T14,T15
+  dtlt-6-pickers-and-lock-state: ready-for-dev              # T6,T10,T20,T24
+  dtlt-7-st-processing-skill-acq-parity: ready-for-dev      # T27
+  dtlt-8-resources-multi-acquisition: ready-for-dev         # T26
+  dtlt-9-archive-all-published-cycles: ready-for-dev        # T1 (specs Option B; A/C alternatives in story)
+  dtlt-10-mandragora-fruit-conditionality: backlog          # T13 — blocked on ST ruling (story file specced for both readings A/B; see dtlt.10.mandragora-fruit-conditionality.story.md)
+  dtlt-11-rote-barrens-ambience-rule: backlog               # T16 — blocked on ST ruling
+  epic-dtlt-retrospective: optional
