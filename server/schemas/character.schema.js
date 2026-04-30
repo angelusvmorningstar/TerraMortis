@@ -450,6 +450,9 @@ export const characterSchema = {
         effect:    { type: 'string' },
         tradition:    { type: 'string' },
         free:         { type: 'boolean' },
+        // Mandragora Garden parking — Cruac rites only. When true, the rite is
+        // sustained by the garden across downtimes; player form auto-prefills it.
+        mandragora_parked: { type: 'boolean' },
         // Pact-specific fields
         cp:                { type: 'integer', minimum: 0 },
         xp:                { type: 'integer', minimum: 0 },
