@@ -5981,16 +5981,19 @@ function renderQuestion(q, value) {
         const ghoulCost = (c.merits || [])
           .filter(m => m.name === 'Retainer' && (m.ghoul || m.type === 'ghoul'))
           .length;
-        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5
+        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5.
+        // Mandragora 3: parked rites (sorcery_N_mandragora === 'yes') are
+        // sustained by the garden and cost no vitae for this casting — skip
+        // their cost from the projection.
         const rites = (c.powers || []).filter(p => p.category === 'rite');
         const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
         let riteVitaeCost = 0;
         for (let sn = 1; sn <= sorcCount; sn++) {
           const riteName = allResp[`sorcery_${sn}_rite`];
-          if (riteName) {
-            const rite = rites.find(r => r.name === riteName);
-            if (rite) riteVitaeCost += riteCost(rite).vitae;
-          }
+          if (!riteName) continue;
+          if (allResp[`sorcery_${sn}_mandragora`] === 'yes') continue;
+          const rite = rites.find(r => r.name === riteName);
+          if (rite) riteVitaeCost += riteCost(rite).vitae;
         }
         // Mandragora Garden — effective dots across all bonus channels
         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
