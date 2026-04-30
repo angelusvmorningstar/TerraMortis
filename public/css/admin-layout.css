@@ -9120,3 +9120,22 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   font-size: 12px;
   padding: 8px 0;
 }
+
+/* ── Hard-delete confirm modal ── */
+.hd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 2100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.hd-modal { max-width: 420px; width: 100%; background: var(--surf); border: 1px solid rgba(139,0,0,.6); border-radius: 6px; padding: 18px 20px; box-shadow: 0 6px 24px rgba(0,0,0,.55); }
+.hd-title { font-family: var(--fl); font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--err, #c0392b); margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--bdr); }
+.hd-body { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; font-size: 13px; color: var(--txt); }
+.hd-cascade-info { font-size: 12px; color: var(--txt2); }
+.hd-label { display: block; font-size: 11px; color: var(--accent); font-family: var(--fl); margin-bottom: 4px; }
+.hd-confirm-input { width: 100%; box-sizing: border-box; padding: 7px 10px; background: var(--surf); color: var(--txt1); border: 1px solid var(--bdr); border-radius: 4px; font-family: inherit; font-size: 13px; }
+.hd-confirm-input:focus { border-color: var(--crim); outline: none; }
+.hd-error { font-size: 12px; color: var(--err, #c0392b); min-height: 16px; }
+.hd-footer { display: flex; gap: 8px; justify-content: flex-end; }
+.hd-btn-cancel { padding: 6px 16px; background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt2); cursor: pointer; font-family: inherit; font-size: 12px; }
+.hd-btn-cancel:hover { border-color: var(--txt2); color: var(--txt); }
+.hd-btn-delete { padding: 6px 16px; background: var(--crim, #8B0000); border: 1px solid var(--crim, #8B0000); border-radius: 4px; color: #fff; cursor: pointer; font-family: inherit; font-size: 12px; }
+.hd-btn-delete:disabled { opacity: .4; cursor: not-allowed; }
+.hd-btn-delete:not(:disabled):hover { background: #a00; }
+.cd-hard-delete-btn { border-color: var(--crim, #8B0000) !important; color: var(--err, #c0392b) !important; }
+.cd-hard-delete-btn:hover { background: rgba(139,0,0,.15) !important; }

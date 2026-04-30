@@ -355,7 +355,7 @@ development_status:
 
   feat-1-remove-resolved-tickets: done
   feat-2-non-vampire-territories: ready-for-dev
-  feat-3-duplicate-character-hard-delete: ready-for-dev
+  feat-3-duplicate-character-hard-delete: review
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
   feat-6-player-sheet-width-consistency: backlog  # needs-investigation per story front-matter — cause not isolated yet; needs DOM inspection on two visibly-differing characters before ready-for-dev
