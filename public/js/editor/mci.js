@@ -56,7 +56,12 @@ export function applyDerivedMerits(c, allChars = []) {
   applyOHMRulesFromDb(c, getRulesBySource('Oath of the Hard Motherfucker'));
 
   // ── Safe Word: mirror partner's shared_merit as free_sw dots ──
-  (c.merits || []).forEach(m => { m.free_sw = 0; });
+  // Only clear when we can re-apply: when allChars is empty the SW evaluator
+  // skips (can't verify partner), so clearing would strip persisted free_sw
+  // values on every player-side single-arg render.
+  if (Array.isArray(allChars) && allChars.length > 0) {
+    (c.merits || []).forEach(m => { m.free_sw = 0; });
+  }
   applySafeWordRulesFromDb(c, getRulesBySource('Oath of the Safe Word'), allChars);
 
   // ── Invested grant pool (evaluator reads from rule_grant) ──

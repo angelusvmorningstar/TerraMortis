@@ -41,9 +41,6 @@ export async function initDowntimeTab(el, char, territories = []) {
   const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
   const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
   const mySubs = subs.filter(s => String(s.character_id) === charId);
-  const myActiveSub = activeCycle
-    ? mySubs.find(s => String(s.cycle_id) === String(activeCycle._id)) || null
-    : null;
 
   const cycleMap = {};
   for (const c of cycles) cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
@@ -76,19 +73,16 @@ export async function initDowntimeTab(el, char, territories = []) {
       </div>`;
     }
   } else if (activeCycle) {
-    const cycleLabel = activeCycle.label || `Cycle ${String(activeCycle._id).slice(-4)}`;
+    // Always render the form, regardless of submission status. A submitted
+    // record is editable until the deadline; the form itself surfaces the
+    // submitted/draft state via in-form badges and changes its submit button
+    // to "Update Submission". The mobile notice still applies for non-ST,
+    // non-localhost on small screens.
     const forceForm = location.hostname === 'localhost' || isST;
-    if (!myActiveSub || forceForm) {
-      if (!forceForm && window.innerWidth <= 600) {
-        currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
-      } else {
-        renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
-      }
+    if (!forceForm && window.innerWidth <= 600) {
+      currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
     } else {
-      currentZone.innerHTML = `<div class="dt-state-card">
-        <p class="dt-state-title">${esc(cycleLabel)} — Submitted</p>
-        <p class="dt-state-body">Your ST is processing your actions.</p>
-      </div>`;
+      renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
     }
   } else if (isST) {
     renderDowntimeTab(currentZone, char, territories, { singleColumn: true });

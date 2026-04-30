@@ -1325,9 +1325,8 @@ function renderPlayerResponses(s) {
     const targets = normaliseSorceryTargets(r[`sorcery_${n}_targets`]);
     const notes = r[`sorcery_${n}_notes`] || '';
     const mand = r[`sorcery_${n}_mandragora`] === 'yes';
-    const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
     let line = rite;
-    if (mand) line += mandPaid ? ' [Mandragora Garden \u2014 Vitae paid]' : ' [Mandragora Garden \u2014 Vitae outstanding]';
+    if (mand) line += ' [Parked in Mandragora Garden]';
     if (targets) line += ` — targets: ${targets}`;
     if (notes) line += ` — ${notes}`;
     sorcRows.push(line);
@@ -5078,18 +5077,6 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire Mandragora Garden toggle (sorcery) — save and re-render
-  container.querySelectorAll('.proc-ritual-mg-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key   = cb.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      await saveEntryReview(entry, { ritual_mg_used: cb.checked });
-      renderProcessingMode(container);
-    });
-  });
-
   // Wire ritual result note (sorcery) — save on blur
   container.querySelectorAll('.proc-ritual-note-input').forEach(ta => {
     ta.addEventListener('blur', async e => {
@@ -5123,13 +5110,12 @@ function renderProcessingMode(container) {
       const char        = (charIdStr && characters.find(c => String(c._id) === charIdStr))
                         || charMap.get(charNameKey) || null;
 
-      // Pool = tradition stats + 3 (DT) + Mandragora (Cruac, if toggled)
+      // Pool = tradition stats + 3 (DT) + Mandragora (flat +3, Cruac users
+      // with the merit, always-on; not gated by per-rite parked toggle)
       const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
-      const mandUsed     = rev.ritual_mg_used || false;
-      const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-      const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
-      const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
+      const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+      const mgDots       = hasMandragora ? 3 : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
       if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
@@ -6406,10 +6392,8 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
 
   const isCruac      = (rev.sorc_tradition || entry.tradition) === 'Cruac';
-  const mandUsed     = rev.ritual_mg_used || false;
-  const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-  const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
-  const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
+  const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+  const mgDots       = hasMandragora ? 3 : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
   const eqStr        = _fmtMod(eqMod);
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
@@ -6427,12 +6411,11 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
 
-  // Mandragora Garden toggle (Cruac only — only if this character has the merit)
-  if (isCruac && mgPool > 0) {
-    h += `<div class="proc-mod-row">`;
-    h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}${_sorcDis}> Mandragora Garden (+${mgPool})`;
-    h += `</label></div>`;
+  // Mandragora Garden — flat +3 for Cruac users with the merit, always-on.
+  // No toggle: the player-side parked-rite flag is for sustained-cost storage,
+  // not for gating the dice bonus.
+  if (hasMandragora) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+3</span></div>`;
   }
 
   // Equipment / other ticker
@@ -7782,10 +7765,8 @@ function renderActionPanel(entry, review) {
     if (resolvedRitInfo) {
       const base         = _computeRitePool(sorcChar, resolvedRitInfo.attr, resolvedRitInfo.skill, resolvedRitInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
-      const mandUsed     = rev.ritual_mg_used || false;
-      const mgMeritL     = isCruac ? (sorcChar?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-      const mgPoolL      = mgMeritL ? (mgMeritL.rating || mgMeritL.dots || 0) + (mgMeritL.bonus || 0) : 0;
-      const mgDots       = (isCruac && mandUsed) ? mgPoolL : 0;
+      const hasMandragora = isCruac && (sorcChar?.merits || []).some(m => m.name === 'Mandragora Garden');
+      const mgDots       = hasMandragora ? 3 : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
 
