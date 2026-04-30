@@ -14,7 +14,7 @@ import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
@@ -3380,11 +3380,17 @@ function getItemsForCategory(category) {
         return { value: s, label: `${s} (${dots} → ${dots + 1})` };
       });
     case 'discipline': {
-      // Character's current disciplines + all core clan discs they might learn
+      // Character's current disciplines + all core clan discs they might learn.
+      // Filter against canonical discipline names — defence-in-depth against legacy
+      // data leaks (e.g. retired themes; see specs/stories/dtlt.3.*).
       const owned = Object.keys(c.disciplines || {});
       const clanDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline])
         || (c.clan && CLAN_DISCS[c.clan]) || [];
-      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])].sort();
+      const bloodlineDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || [];
+      const validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS, ...bloodlineDiscs]);
+      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])]
+        .filter(d => validDiscs.has(d))
+        .sort();
       return all.map(d => {
         const dots = c.disciplines?.[d]?.dots || 0;
         const cost = isClanDisc(d) ? 3 : 4;

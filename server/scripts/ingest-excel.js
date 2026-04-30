@@ -58,8 +58,7 @@ const DISC_ROWS = {
   Majesty: 168, Nightmare: 169, Obfuscate: 170, Protean: 171,
   Resilience: 172, Vigour: 173,
   Cruac: 183, Theban: 184,
-  Creation: 186, Destruction: 187, Divination: 188,
-  Protection: 189, Transmutation: 190,
+  // Themes (rows 186-190) intentionally absent — retired post-Fix.1 (fc5af08).
 };
 const DOMAIN_ROWS = { 'Safe Place': 131, Haven: 132, 'Feeding Grounds': 133, Herd: 134 };
 const MERIT_ROW_START = 78;
@@ -423,6 +422,7 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   if (!c.powers.length) {
     const RITUAL_DISCS = ['Cruac', 'Theban'];
     const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+    // (kept for the parser-skip below; themes themselves are retired post-Fix.1 (fc5af08))
     for (let i = 0; i < 30; i++) {
       const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 253 + i })]?.v;
       if (!raw || raw === '¬') continue;
