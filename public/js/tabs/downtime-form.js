@@ -2164,10 +2164,23 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Dice pool dropdown — update total
+    // Dice pool dropdown — update total, then re-render so spec chips appear
+    // (or disappear) for the newly-selected skill. Skill change clears any
+    // stale spec from the prior skill.
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
-      updatePoolTotal(poolSelect.dataset.poolPrefix);
+      const prefix = poolSelect.dataset.poolPrefix;
+      updatePoolTotal(prefix);
+      // If the changed dropdown is the skill picker, clear any stale spec.
+      if (poolSelect.id === `dt-${prefix}_skill`) {
+        const specHidden = document.getElementById(`dt-${prefix}_spec`);
+        if (specHidden) specHidden.value = '';
+      }
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
     }
     // Project dice pool spec chip — toggle selection and re-render
     const poolSpecChip = e.target.closest('[data-pool-spec]');
