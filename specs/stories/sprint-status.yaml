@@ -338,7 +338,7 @@ development_status:
 
   epic-di: in-progress
 
-  di-1-import-dt1-narratives: ready-for-dev
+  di-1-import-dt1-narratives: review
   di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
   di-3-sync-ordeal-data: ready-for-dev      # investigation spike — produces audit note, not code
 
