@@ -3034,6 +3034,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   border: 1px solid rgba(201,169,98,.15);
   border-radius: 6px;
 }
+.dt-acq-card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
 .dt-acq-card-title {
   font-family: var(--fl);
   font-size: 15px;

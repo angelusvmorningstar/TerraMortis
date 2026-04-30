@@ -649,25 +649,46 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (custom render)
-  const acqDescEl = document.getElementById('dt-acq_description');
-  responses['acq_description'] = acqDescEl ? acqDescEl.value : '';
-  const acqAvailEl = document.getElementById('dt-acq_availability');
-  responses['acq_availability'] = acqAvailEl ? acqAvailEl.value : '';
-  // Acquisition merits
-  const acqMeritCbs = document.querySelectorAll('[data-acq-merit-cb]:checked');
-  const acqMeritKeys = [];
-  acqMeritCbs.forEach(cb => acqMeritKeys.push(cb.value));
-  responses['acq_merits'] = JSON.stringify(acqMeritKeys);
-  // Backwards compat: combined into old key
+  // Acquisition fields (multi-slot, per-slot keys)
+  const acqCountEl = document.getElementById('dt-acq-slot-count');
+  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
+  responses['acq_slot_count'] = String(acqSlotCount);
+  const acqSlots = [];
+  for (let n = 1; n <= acqSlotCount; n++) {
+    const descEl = document.getElementById(`dt-acq_${n}_description`);
+    const availEl = document.getElementById(`dt-acq_${n}_availability`);
+    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
+    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
+    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
+    const keys = [];
+    cbs.forEach(cb => keys.push(cb.value));
+    responses[`acq_${n}_merits`] = JSON.stringify(keys);
+    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  }
+  // Legacy keys: slot 1 mirror
+  responses['acq_description']  = responses['acq_1_description']  || '';
+  responses['acq_availability'] = responses['acq_1_availability'] || '';
+  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
+  // Composite blob: all slots
   const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
   const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
-  responses['resources_acquisitions'] = [
-    resourcesRating ? `Resources ${resourcesRating}` : '',
-    acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
-    responses['acq_description'],
-    responses['acq_availability'] ? `Availability: ${responses['acq_availability'] === 'unknown' ? 'Unknown' : responses['acq_availability'] + '/5'}` : '',
-  ].filter(Boolean).join('\n');
+  const blobLines = [];
+  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
+  if (acqSlotCount === 1) {
+    const s = acqSlots[0];
+    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   blobLines.push(s.description);
+    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else {
+    acqSlots.forEach((s, i) => {
+      blobLines.push('');
+      blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   blobLines.push(s.description);
+      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+    });
+  }
+  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
 
   // Skill acquisition fields
   const skDescEl = document.getElementById('dt-skill_acq_description');
@@ -1718,7 +1739,9 @@ function renderForm(container) {
     const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
     if (acqUnknown) {
       const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = 'unknown';
       const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -1736,7 +1759,9 @@ function renderForm(container) {
     if (acqDot) {
       const isSkill = !!acqDot.dataset.skillAcqDot;
       const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = val;
       const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -2513,6 +2538,38 @@ function renderForm(container) {
       delete responses[`sorcery_${current}_mandragora`];
       delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Add Acquisition button
+    if (e.target.closest('#dt-add-acquisition')) {
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      responses['acq_slot_count'] = String(current + 1);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Remove Acquisition button
+    const removeAcqBtn = e.target.closest('[data-remove-acq]');
+    if (removeAcqBtn) {
+      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      for (let n = removeN; n < current; n++) {
+        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
+        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
+        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
+      }
+      delete responses[`acq_${current}_description`];
+      delete responses[`acq_${current}_availability`];
+      delete responses[`acq_${current}_merits`];
+      responses['acq_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
@@ -3904,65 +3961,22 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="qf-section-body">';
 
   // ── Resources acquisition ──
-  h += '<div class="dt-acq-card">';
-  h += '<div class="dt-acq-card-title">Resources Acquisition</div>';
+    // -- Resources acquisition (multi-slot) --
+  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
+  const slotCount = Math.max(1, savedCount);
+  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
 
-  // Resources level (auto from sheet)
-  h += '<div class="dt-acq-resources-row">';
+  // Resources Level header (section-level, shared across all slots)
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
   h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '\u25CF'.repeat(resourcesRating) : 'None'}</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
   h += '</div>';
 
-  // Relevant merits (checkbox picker)
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(saved['acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += '<div class="dt-proj-merits" data-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  for (let n = 1; n <= slotCount; n++) {
+    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
   }
-  if (!charMerits.length) {
-    h += '<p class="qf-desc">No applicable merits.</p>';
-  }
-  h += '</div></div>';
 
-  // Description
-  h += renderQuestion({
-    key: 'acq_description', label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, saved['acq_description'] || '');
-
-  // Availability (dot selector 1-5 + Unknown)
-  const savedAvailRaw = saved['acq_availability'];
-  const savedAvail = savedAvailRaw === 'unknown' ? 'unknown' : (parseInt(savedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-acq-avail>';
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}">\u25CF</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown>Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
-
-  h += '</div>'; // acq-card
+  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
   const skAttrs = ALL_ATTRS.filter(a => {
@@ -4083,6 +4097,68 @@ function renderAcquisitionsSection(saved) {
   h += '</div>';
 
   h += '</div></div>'; // section-body, section
+  return h;
+}
+
+function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
+  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
+  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
+  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
+  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
+
+  let meritPicks = [];
+  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
+
+  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
+  if (slotCount > 1) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
+  for (const m of charMerits) {
+    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+    const dots = '●'.repeat(m.rating || 0);
+    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+    const checked = meritPicks.includes(mKey) ? ' checked' : '';
+    h += `<label class="dt-proj-merit-label">`;
+    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
+    h += `<span>${esc(mName)} ${dots}</span>`;
+    h += '</label>';
+  }
+  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
+  h += '</div></div>';
+
+  h += renderQuestion({
+    key: `acq_${n}_description`, label: 'Acquisition Description',
+    type: 'textarea', required: false,
+    desc: 'What are you attempting to acquire? Include context and purpose.',
+  }, description);
+
+  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
+  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
+  for (let d = 1; d <= 5; d++) {
+    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
+  }
+  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
+  if (savedAvail) {
+    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
+    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
+  }
+  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
+  h += '</div></div>';
+
+  h += '</div>';
   return h;
 }
 
