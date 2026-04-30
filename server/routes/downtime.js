@@ -615,6 +615,14 @@ submissionsRouter.put('/:id', async (req, res) => {
 
   if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
 
+  // Sync Mandragora Garden parked flags on the character based on the latest
+  // submission state. Per-rite intent: rites named in the submission have
+  // their flag set/cleared by sorcery_${n}_mandragora; rites not mentioned
+  // in this submission are unchanged.
+  await _syncMandragoraParkedFlags(result).catch(err =>
+    console.error('[mandragora] flag sync error:', err.message)
+  );
+
   // Strip st_review from player responses
   if (req.user.role === 'player') {
     stripStReview(result);
@@ -629,6 +637,50 @@ submissionsRouter.put('/:id', async (req, res) => {
     );
   }
 });
+
+/** Sync Mandragora Garden parked flags on a character from a downtime
+ *  submission. For each sorcery slot in the submission with a rite name set,
+ *  the corresponding rite power on the character has its mandragora_parked
+ *  flag set to match `sorcery_${n}_mandragora === 'yes'`. Rites not mentioned
+ *  in the submission are left unchanged. */
+async function _syncMandragoraParkedFlags(submission) {
+  const responses = submission?.responses;
+  if (!responses || !submission.character_id) return;
+  const slotCount = parseInt(responses.sorcery_slot_count || '0', 10);
+  if (slotCount <= 0) return;
+
+  const wantedByName = new Map();
+  for (let n = 1; n <= slotCount; n++) {
+    const riteName = responses[`sorcery_${n}_rite`];
+    if (!riteName) continue;
+    wantedByName.set(String(riteName), responses[`sorcery_${n}_mandragora`] === 'yes');
+  }
+  if (wantedByName.size === 0) return;
+
+  const charOid = submission.character_id instanceof ObjectId
+    ? submission.character_id
+    : parseId(String(submission.character_id));
+  if (!charOid) return;
+
+  const character = await getCollection('characters').findOne({ _id: charOid });
+  if (!character?.powers) return;
+
+  let changed = false;
+  const newPowers = character.powers.map(p => {
+    if (p.category !== 'rite') return p;
+    if (!wantedByName.has(p.name)) return p;
+    const wantParked = wantedByName.get(p.name);
+    if (Boolean(p.mandragora_parked) === wantParked) return p;
+    changed = true;
+    return { ...p, mandragora_parked: wantParked };
+  });
+  if (changed) {
+    await getCollection('characters').updateOne(
+      { _id: charOid },
+      { $set: { powers: newPowers } }
+    );
+  }
+}
 
 // JDT-6: Delete a downtime submission with joint cascade. ST only.
 //   - If the submission is the lead on any joint, cancel that joint

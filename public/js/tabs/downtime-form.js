@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -132,8 +132,9 @@ const ACTION_FIELDS = {
 
 const SPHERE_ACTION_FIELDS = {
   '': [],
-  'ambience_increase': ['territory', 'outcome'],
-  'ambience_decrease': ['territory', 'outcome'],
+  'ambience_change':   ['territory', 'ambience_dir', 'outcome'],
+  'ambience_increase': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
+  'ambience_decrease': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
   'attack':            ['target_char', 'outcome'],
   'block':             ['target_char', 'block_merit', 'outcome'],
   'hide_protect':      ['target_own_merit', 'outcome'],
@@ -175,10 +176,10 @@ function meritKey(merit) {
   return `${merit.name}_${merit.rating}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
-/** Format a merit for display: "Allies ●●● (Health)" */
+/** Format a merit for display: "Allies ●●● (Health)" using effective rating. */
 function meritLabel(merit) {
   const area = merit.area || merit.qualifier || '';
-  const dots = '●'.repeat(merit.rating);
+  const dots = '●'.repeat(meritEffectiveRating(currentChar, merit));
   return area ? `${merit.name} ${dots} (${area})` : `${merit.name} ${dots}`;
 }
 
@@ -243,7 +244,7 @@ function detectMerits() {
     m.category === 'influence' && m.name === 'Retainer'
   ));
 
-  gateValues.has_sorcery = (discs.Cruac || discs.Theban) ? 'yes' : 'no';
+  gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
 }
 
 /** Calculate monthly influence budget from character data. */
@@ -560,8 +561,6 @@ function collectResponses() {
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
     responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
-    const mandPaidEl = document.getElementById(`dt-sorcery_${n}_mand_paid`);
-    responses[`sorcery_${n}_mand_paid`] = mandPaidEl ? (mandPaidEl.checked ? 'yes' : 'no') : 'no';
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -579,6 +578,14 @@ function collectResponses() {
     for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead', 'grow_target']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
+    }
+    // Ambience direction (radio) — when sphere action is ambience_change, resolve
+    // to legacy ambience_increase/ambience_decrease so downstream code is untouched.
+    const dirEl = document.querySelector(`input[name="dt-sphere_${n}_ambience_dir"]:checked`);
+    const ambienceDir = dirEl ? dirEl.value : '';
+    responses[`sphere_${n}_ambience_dir`] = ambienceDir;
+    if (responses[`sphere_${n}_action`] === 'ambience_change') {
+      responses[`sphere_${n}_action`] = ambienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
     }
     const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
     responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
@@ -617,6 +624,13 @@ function collectResponses() {
     }
     const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
     responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    // Ambience direction (radio) — resolve ambience_change to legacy values
+    const stDirEl = document.querySelector(`input[name="dt-status_${n}_ambience_dir"]:checked`);
+    const stAmbienceDir = stDirEl ? stDirEl.value : '';
+    responses[`status_${n}_ambience_dir`] = stAmbienceDir;
+    if (responses[`status_${n}_action`] === 'ambience_change') {
+      responses[`status_${n}_action`] = stAmbienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
+    }
     const sm = detectedMerits.status[n - 1];
     if (sm) responses[`status_${n}_merit`] = meritLabel(sm);
   }
@@ -1222,6 +1236,27 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     }
   }
 
+  // Mandragora 2b: when there's no existing submission for this cycle, seed
+  // sorcery slots from any rites the character has parked in their Mandragora
+  // Garden (powers[].mandragora_parked === true). Parked rites are sustained
+  // from the previous downtime — pre-filling avoids the player re-entering
+  // them every cycle. Only fires when responseDoc is fully null (no server
+  // doc, no local draft); existing drafts are respected.
+  if (!responseDoc && currentChar?.powers && currentCycle && currentCycle._id !== 'dev-stub') {
+    const parked = currentChar.powers.filter(
+      p => p.category === 'rite' && p.mandragora_parked === true,
+    );
+    if (parked.length > 0) {
+      const seeded = { sorcery_slot_count: String(parked.length) };
+      parked.forEach((rite, i) => {
+        const n = i + 1;
+        seeded[`sorcery_${n}_rite`] = rite.name;
+        seeded[`sorcery_${n}_mandragora`] = 'yes';
+      });
+      responseDoc = { responses: seeded };
+    }
+  }
+
   // Check for published outcomes from previous cycles (for "results available" banner)
   if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
     try {
@@ -1487,7 +1522,7 @@ function renderForm(container) {
   if (published) {
     h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
   } else if (pending) {
-    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime submission has been received and is awaiting ST review. Results will appear here once published.</p></div>';
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
@@ -1528,8 +1563,8 @@ function renderForm(container) {
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
-    if (currentChar.disciplines?.Cruac?.dots) traditions.push('Cruac');
-    if (currentChar.disciplines?.Theban?.dots) traditions.push('Theban');
+    if (discDots(currentChar, 'Cruac') > 0) traditions.push('Cruac');
+    if (discDots(currentChar, 'Theban') > 0) traditions.push('Theban');
     h += `<span class="dt-badge dt-badge-on">${traditions.join(' / ')}</span>`;
   }
   const bp = currentChar.blood_potency || 0;
@@ -2091,6 +2126,15 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Sphere/Status ambience direction ticker — re-render so resolved action reflects direction
+    const sphereAmbienceDir = e.target.closest('[data-sphere-ambience-dir]');
+    if (sphereAmbienceDir) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Dice pool dropdown — update total
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
@@ -2175,10 +2219,12 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Blood type toggle — multi-select pill buttons
+    // Blood type toggle — single-select pill buttons
     const bloodBtn = e.target.closest('[data-blood-type]');
     if (bloodBtn) {
-      bloodBtn.classList.toggle('dt-feed-vi-on');
+      const wasOn = bloodBtn.classList.contains('dt-feed-vi-on');
+      document.querySelectorAll('[data-blood-type]').forEach(b => b.classList.remove('dt-feed-vi-on'));
+      if (!wasOn) bloodBtn.classList.add('dt-feed-vi-on');
       scheduleSave();
       return;
     }
@@ -2507,7 +2553,8 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Mandragora Garden checkbox — re-render to show/hide "already paid" sub-checkbox
+    // Mandragora Garden checkbox — re-render so the capacity counter and
+    // disabled state on other slots' Park toggles update (2c).
     const mandCb = e.target.closest('.dt-mand-cb[id$="_mandragora"]');
     if (mandCb) {
       const responses = collectResponses();
@@ -2540,14 +2587,12 @@ function renderForm(container) {
         responses[`sorcery_${n}_targets`] = responses[`sorcery_${n + 1}_targets`] || '';
         responses[`sorcery_${n}_notes`] = responses[`sorcery_${n + 1}_notes`] || '';
         responses[`sorcery_${n}_mandragora`] = responses[`sorcery_${n + 1}_mandragora`] || 'no';
-        responses[`sorcery_${n}_mand_paid`] = responses[`sorcery_${n + 1}_mand_paid`] || 'no';
       }
       // Clear last slot
       delete responses[`sorcery_${current}_rite`];
       delete responses[`sorcery_${current}_targets`];
       delete responses[`sorcery_${current}_notes`];
       delete responses[`sorcery_${current}_mandragora`];
-      delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2897,17 +2942,9 @@ function renderProjectSlots(saved) {
   const slotCount = section?.projectSlots || 4;
 
   // Build attribute/skill/discipline option lists from character data
-  const attrs = ALL_ATTRS.filter(a => {
-    const v = currentChar.attributes?.[a];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skills = ALL_SKILLS.filter(s => {
-    const v = currentChar.skills?.[s];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const discs = Object.keys(currentChar.disciplines || {}).filter(d =>
-    (currentChar.disciplines[d]?.dots || 0) > 0
-  );
+  const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);
+  const skills = ALL_SKILLS.filter(s => skTotal(currentChar, s) > 0);
+  const discs = Object.keys(currentChar.disciplines || {}).filter(d => discDots(currentChar, d) > 0);
 
   // Character merits for the merit picker and own-merit target
   const charMerits = (currentChar.merits || []).filter(m =>
@@ -3315,16 +3352,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
 
   // Calculate total from saved selections
   let total = 0;
-  if (savedAttr) {
-    const a = currentChar.attributes?.[savedAttr];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (savedSkill) {
-    total += skTotal(currentChar, savedSkill);
-  }
-  if (savedDisc) {
-    total += currentChar.disciplines?.[savedDisc]?.dots || 0;
-  }
+  if (savedAttr) total += getAttrEffective(currentChar, savedAttr);
+  if (savedSkill) total += skTotal(currentChar, savedSkill);
+  if (savedDisc) total += discDots(currentChar, savedDisc);
   if (savedSpec && bestSpecs.includes(savedSpec)) {
     const na = skNineAgain(currentChar, savedSkill);
     total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
@@ -3338,8 +3368,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_attr" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Attribute</option>';
   for (const a of attrs) {
-    const v = currentChar.attributes[a];
-    const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(currentChar, a);
     const sel = savedAttr === a ? ' selected' : '';
     h += `<option value="${esc(a)}"${sel}>${esc(a)} (${dots})</option>`;
   }
@@ -3360,7 +3389,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_disc" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Discipline</option>';
   for (const d of discs) {
-    const dots = currentChar.disciplines[d]?.dots || 0;
+    const dots = discDots(currentChar, d);
     const sel = savedDisc === d ? ' selected' : '';
     h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dots})</option>`;
   }
@@ -3469,8 +3498,7 @@ function getItemsForCategory(category) {
   switch (category) {
     case 'attribute':
       return ALL_ATTRS.map(a => {
-        const v = c.attributes?.[a];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = getAttrEffective(c, a);
         if (dots >= 5) return null;
         return { value: a, label: `${a} (${dots} → ${dots + 1})` };
       }).filter(Boolean);
@@ -3493,7 +3521,7 @@ function getItemsForCategory(category) {
         .filter(d => validDiscs.has(d))
         .sort();
       return all.map(d => {
-        const dots = c.disciplines?.[d]?.dots || 0;
+        const dots = discDots(c, d);
         if (dots >= 5) return null;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
@@ -3555,8 +3583,8 @@ function getItemsForCategory(category) {
         .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
-      const cruacLevel = c.disciplines?.Cruac?.dots || 0;
-      const thebanLevel = c.disciplines?.Theban?.dots || 0;
+      const cruacLevel = discDots(c, 'Cruac');
+      const thebanLevel = discDots(c, 'Theban');
       if (cruacLevel === 0 && thebanLevel === 0) return [];
       const ownedRiteNames = new Set(
         (c.powers || []).filter(p => p.category === 'rite').map(p => p.name)
@@ -3835,17 +3863,57 @@ function _legacyRenderPersonalStorySection(saved) {
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
   const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
-  const rites = (currentChar.powers || []).filter(p => p.category === 'rite');
-  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level);
+
+  // Augmented rite list: known rites + castable-but-unlearned rites at
+  // level ≤ (Cruac/Theban rating − 2). House rule per VtR2: any sorcerer
+  // can attempt a rite two ranks below their discipline rating without
+  // having learned it. Cruac 3 → level-1 rites are open; Cruac 5 → 1-3.
+  const knownRites = (currentChar.powers || []).filter(p => p.category === 'rite');
+  const knownNames = new Set(knownRites.map(r => r.name));
+  const cruacDots = discDots(currentChar, 'Cruac');
+  const thebanDots = discDots(currentChar, 'Theban');
+  const ruleRites = getRulesByCategory('rite') || [];
+  const unlearnedRites = [];
+  for (const rule of ruleRites) {
+    if (knownNames.has(rule.name)) continue;
+    const trad = rule.parent;
+    const rank = rule.rank || 1;
+    const limit = trad === 'Cruac' ? cruacDots - 2
+               : trad === 'Theban' ? thebanDots - 2
+               : -1;
+    if (rank <= limit) {
+      unlearnedRites.push({ category: 'rite', name: rule.name, tradition: trad, level: rank, _unlearned: true });
+    }
+  }
+  const rites = [...knownRites, ...unlearnedRites];
+  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level || a.name.localeCompare(b.name));
   const cruacRites = rites.filter(r => r.tradition === 'Cruac');
 
   const savedCount = parseInt(saved['sorcery_slot_count'] || '1', 10);
   const slotCount = Math.max(1, savedCount);
 
+  // Mandragora 2c: capacity = Mandragora Garden effective dots. Count
+  // currently-parked rites from `saved` so the cap can disable the Park
+  // toggle on additional slots once full.
+  const mandragoraCap = hasMandragora ? effectiveDomainDots(currentChar, 'Mandragora Garden') : 0;
+  let parkedCount = 0;
+  for (let i = 1; i <= slotCount; i++) {
+    if (saved[`sorcery_${i}_mandragora`] === 'yes') parkedCount++;
+  }
+  const capacityReached = mandragoraCap > 0 && parkedCount >= mandragoraCap;
+
   let h = '<div class="qf-section collapsed" data-section-key="blood_sorcery">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">\u2714</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  // Mandragora Garden +3 dice — flat, always-on for Cruac users with the merit
+  if (hasMandragora && cruacDots > 0) {
+    h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Mandragora Garden grants +3 dice to every Cruac rite cast this downtime.</p>`;
+    if (mandragoraCap > 0) {
+      h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Garden capacity: <strong>${parkedCount} / ${mandragoraCap}</strong> rite${mandragoraCap !== 1 ? 's' : ''} parked.</p>`;
+    }
+  }
 
   // Hidden field tracking slot count
   h += `<input type="hidden" id="dt-sorcery-slot-count" value="${slotCount}">`;
@@ -3878,30 +3946,29 @@ function renderSorcerySection(saved) {
         lastTradition = r.tradition;
       }
       const sel = selectedRite === r.name ? ' selected' : '';
-      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})</option>`;
+      const suffix = r._unlearned ? ' — unlearned' : '';
+      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})${suffix}</option>`;
     }
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
 
-    // Mandragora Garden checkbox — Cruac rites only, when character has the merit
+    // Mandragora Garden checkbox — Cruac rites only, when character has the merit.
+    // Storage only: the +3 dice bonus is automatic (shown above the slots) and
+    // applies whether or not this rite is parked. Parking the rite means it
+    // costs no vitae for this casting and is sustained by the garden.
     if (hasMandragora && cruacRites.length) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
-      const mandDisabled = !isCruac ? ' disabled' : '';
-      const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = meritEffectiveRating(currentChar, mandMerit);
-      h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
+      // 2c: disable when not Cruac, OR when capacity is full and this rite
+      // isn't already parked (so unticking remains possible to free a slot).
+      const overCap = capacityReached && !mandSaved;
+      const mandDisabled = (!isCruac || overCap) ? ' disabled' : '';
+      const mandTitle = overCap
+        ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+        : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+      h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
-      h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
+      h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
       h += '</label>';
-      // "Already paid" checkbox — shown when garden checkbox is ticked
-      if (isCruac && mandSaved) {
-        const paidSaved = saved[`sorcery_${n}_mand_paid`] === 'yes';
-        const paidChecked = paidSaved ? ' checked' : '';
-        h += `<label class="dt-mand-label dt-mand-paid-label" title="Tick if you have already set aside ${mandDots} Vitae to cover this rite's sustained cost for the month.">`;
-        h += `<input type="checkbox" id="dt-sorcery_${n}_mand_paid" class="dt-mand-cb"${paidChecked}>`;
-        h += ` Vitae cost already paid (${mandDots}V)`;
-        h += '</label>';
-      }
     }
 
     h += '</div>';
@@ -3991,12 +4058,8 @@ function renderAcquisitionsSection(saved) {
   h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
-  const skAttrs = ALL_ATTRS.filter(a => {
-    const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skSkills = ALL_SKILLS.filter(s => {
-    const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
+  const skAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
 
   h += '<div class="dt-acq-card" style="margin-top:16px;">';
   h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
@@ -4019,7 +4082,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
   h += '<option value="">Attribute</option>';
   for (const a of skAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
@@ -4027,7 +4090,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
   h += '<option value="">Skill</option>';
   for (const s of skSkills) {
-    const v = c.skills[s]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
@@ -4043,11 +4106,11 @@ function renderAcquisitionsSection(saved) {
   }
 
   // Pool total
-  let skTotal = 0;
-  if (skSavedAttr) { const a = c.attributes?.[skSavedAttr]; if (a) skTotal += (a.dots || 0) + (a.bonus || 0); }
-  if (skSavedSkill) { const s = c.skills?.[skSavedSkill]; if (s) skTotal += (s.dots || 0) + (s.bonus || 0); }
-  skTotal += specBonus;
-  h += `<span class="dt-pool-total">${skTotal || '\u2014'}</span>`;
+  let skPoolTotal = 0;
+  if (skSavedAttr) skPoolTotal += getAttrEffective(c, skSavedAttr);
+  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
+  skPoolTotal += specBonus;
+  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
   h += '</div>';
 
   // Spec chips row + hidden input
@@ -4076,7 +4139,7 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="dt-proj-merits" data-skill-acq-merits>';
   for (const m of charMerits) {
     const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
+    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
     const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
     const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
     h += `<label class="dt-proj-merit-label">`;
@@ -4135,7 +4198,7 @@ function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
   h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
   for (const m of charMerits) {
     const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '●'.repeat(m.rating || 0);
+    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
     const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
     const checked = meritPicks.includes(mKey) ? ' checked' : '';
     h += `<label class="dt-proj-merit-label">`;
@@ -4223,16 +4286,9 @@ function updatePoolTotal(prefix) {
   if (!totalEl) return;
 
   let total = 0;
-  if (attrEl?.value) {
-    const a = currentChar.attributes?.[attrEl.value];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (skillEl?.value) {
-    total += skTotal(currentChar, skillEl.value);
-  }
-  if (discEl?.value) {
-    total += currentChar.disciplines?.[discEl.value]?.dots || 0;
-  }
+  if (attrEl?.value) total += getAttrEffective(currentChar, attrEl.value);
+  if (skillEl?.value) total += skTotal(currentChar, skillEl.value);
+  if (discEl?.value) total += discDots(currentChar, discEl.value);
   if (specEl?.value && skillEl?.value) {
     const specs = currentChar.skills?.[skillEl.value]?.specs || [];
     if (specs.includes(specEl.value)) {
@@ -4281,17 +4337,17 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   const pfx = scope === 'rote' ? 'rote' : 'feed';
 
   // All attrs/skills the char has dots in
-  const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
-  const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
+  const allAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const allSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
   const allDiscs = (isOther || isOpen)
-    ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
-    : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
+    ? Object.keys(c.disciplines || {}).filter(d => discDots(c, d) > 0)
+    : (m?.discs || []).filter(d => discDots(c, d) > 0);
 
   // Calculate total from current selections
   let total = 0;
-  if (selAttr) { const a = c.attributes?.[selAttr]; if (a) total += (a.dots||0)+(a.bonus||0); }
-  if (selSkill) { const s = c.skills?.[selSkill]; if (s) total += (s.dots||0)+(s.bonus||0); }
-  if (selDisc) total += c.disciplines?.[selDisc]?.dots || 0;
+  if (selAttr) total += getAttrEffective(c, selAttr);
+  if (selSkill) total += skTotal(c, selSkill);
+  if (selDisc) total += discDots(c, selDisc);
   const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
   total += fgVal;
   const specBonus = selSpec ? (hasAoE(c, selSpec) ? 2 : 1) : 0;
@@ -4303,20 +4359,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   h += '<div class="dt-feed-custom-row">';
   h += `<select class="qf-select" id="dt-${pfx}-custom-attr"><option value="">Attribute</option>`;
   for (const a of allAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${selAttr===a?' selected':''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
   h += `<select class="qf-select" id="dt-${pfx}-custom-skill"><option value="">Skill</option>`;
   for (const s of allSkills) {
-    const v = c.skills[s]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${selSkill===s?' selected':''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
   if (allDiscs.length) {
     h += `<select class="qf-select" id="dt-${pfx}-disc"><option value="">Discipline</option>`;
     for (const d of allDiscs) {
-      const dv = c.disciplines[d]?.dots || 0;
+      const dv = discDots(c, d);
       h += `<option value="${esc(d)}"${selDisc===d?' selected':''}>${esc(d)} (${dv})</option>`;
     }
     h += '</select>';
@@ -4332,20 +4388,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
     for (const a of sortChips(m.attrs)) {
-      const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = getAttrEffective(c, a);
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
     for (const s of sortChips(m.skills)) {
-      const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = skTotal(c, s);
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
     }
     if (m.discs.length) {
       h += '<span class="dt-feed-suggest-sep">/</span>';
       for (const d of sortChips(m.discs)) {
-        const val = c.disciplines?.[d]?.dots || 0;
+        const val = discDots(c, d);
         const active = selDisc === d ? ' dt-feed-chip-on' : '';
         h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
       }
@@ -4820,7 +4876,7 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
 
   h += `<div class="dt-chip-grid" role="group" aria-label="Select merit to maintain">`;
   for (const m of maintMerits) {
-    const dots = m.dots || m.rating || 0;
+    const dots = meritEffectiveRating(currentChar, m);
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
@@ -5160,6 +5216,26 @@ function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = 
     }
   }
 
+  if (fields.includes('ambience_dir')) {
+    // Direction toggle for ambience_change. Mirrors the project pattern.
+    // Default 'improve' if no saved direction yet. Reads legacy
+    // ambience_increase/_decrease as improve/degrade for back-compat.
+    const actionVal = saved[`${prefix}_${n}_action`] || '';
+    let savedDir = saved[`${prefix}_${n}_ambience_dir`] || '';
+    if (!savedDir) {
+      if (actionVal === 'ambience_decrease') savedDir = 'degrade';
+      else savedDir = 'improve';
+    }
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Direction</label>';
+    h += `<fieldset class="dt-ticker" aria-label="Ambience direction">`;
+    for (const [d, dLabel] of [['improve', 'Increase (+)'], ['degrade', 'Decrease (−)']]) {
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-${prefix}_${n}_ambience_dir" value="${d}"${savedDir === d ? ' checked' : ''} data-sphere-ambience-dir="${n}"> ${dLabel}</label>`;
+    }
+    h += `</fieldset>`;
+    h += '</div>';
+  }
+
   if (fields.includes('target_char')) {
     // DTUI-16: replaced dt-shoutout-grid checkboxes with .dt-chip-grid--single
     let savedTarget = saved[`${prefix}_${n}_target_value`] || '';
@@ -5360,11 +5436,13 @@ function renderMeritToggles(saved) {
       // DTUI-17/19: filter per-merit eligibility; Grow now included
       const ambienceEligible = getAlliesAmbienceEligible(m);
       const filteredActions = SPHERE_ACTIONS.filter(o => {
-        if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
+        if (!ambienceEligible && o.value === 'ambience_change') return false;
         return true;
       });
+      // Legacy actionVals 'ambience_increase'/'ambience_decrease' map to 'ambience_change' for the dropdown
+      const dropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of filteredActions) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = dropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
@@ -5421,8 +5499,10 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
+      // Legacy actionVals map to 'ambience_change' for the dropdown
+      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of SPHERE_ACTIONS) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
@@ -5446,7 +5526,7 @@ function renderMeritToggles(saved) {
     h += '<div class="dt-contacts-table">';
     for (let n = 1; n <= maxContacts; n++) {
       const m = detectedMerits.contacts[n - 1];
-      const area = m.area || m.qualifier || 'General';
+      const area = m.area || m.qualifier || '— sphere unset —';
       const dots = '\u25CF'.repeat(m.rating || 1);
       const savedInfo = saved[`contact_${n}_info`] || '';
       const savedReq = saved[`contact_${n}_request`] || '';
@@ -5497,7 +5577,7 @@ function renderMeritToggles(saved) {
     for (let n = 1; n <= maxRetainers; n++) {
       const m = detectedMerits.retainers[n - 1];
       const area = m.area || m.qualifier || 'Retainer';
-      const dots = '\u25CF'.repeat(m.rating || 1);
+      const dots = '\u25CF'.repeat(meritEffectiveRating(currentChar, m) || 1);
       const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
@@ -5797,15 +5877,16 @@ function renderQuestion(q, value) {
       // ── Unified pool builder (DTFP-4: always visible, method optional) ──
       h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
 
-      // Blood type selection (always shown)
+      // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
       let savedBlood = [];
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
+      const selectedBlood = Array.isArray(savedBlood) && savedBlood.length ? savedBlood[0] : '';
       h += '<div class="qf-field">';
       h += '<label class="qf-label">Blood Type</label>';
       h += '<div class="dt-feed-violence-toggle">';
       for (const bt of BLOOD_TYPES) {
-        const on = savedBlood.includes(bt) ? ' dt-feed-vi-on' : '';
+        const on = selectedBlood === bt ? ' dt-feed-vi-on' : '';
         h += `<button type="button" class="dt-feed-vi-btn${on}" data-blood-type="${esc(bt)}">${esc(bt)}</button>`;
       }
       h += '</div></div>';
@@ -5888,16 +5969,19 @@ function renderQuestion(q, value) {
         const ghoulCost = (c.merits || [])
           .filter(m => m.name === 'Retainer' && (m.ghoul || m.type === 'ghoul'))
           .length;
-        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5
+        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5.
+        // Mandragora 3: parked rites (sorcery_N_mandragora === 'yes') are
+        // sustained by the garden and cost no vitae for this casting — skip
+        // their cost from the projection.
         const rites = (c.powers || []).filter(p => p.category === 'rite');
         const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
         let riteVitaeCost = 0;
         for (let sn = 1; sn <= sorcCount; sn++) {
           const riteName = allResp[`sorcery_${sn}_rite`];
-          if (riteName) {
-            const rite = rites.find(r => r.name === riteName);
-            if (rite) riteVitaeCost += riteCost(rite).vitae;
-          }
+          if (!riteName) continue;
+          if (allResp[`sorcery_${sn}_mandragora`] === 'yes') continue;
+          const rite = rites.find(r => r.name === riteName);
+          if (rite) riteVitaeCost += riteCost(rite).vitae;
         }
         // Mandragora Garden — effective dots across all bonus channels
         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
@@ -5958,15 +6042,9 @@ function renderQuestion(q, value) {
 
         // Compute main hunt dice pool (used for average vitae yield)
         let mainPool = 0;
-        if (feedCustomAttr) {
-          const a = c.attributes?.[feedCustomAttr];
-          if (a) mainPool += (a.dots || 0) + (a.bonus || 0);
-        }
-        if (feedCustomSkill) {
-          const s = c.skills?.[feedCustomSkill];
-          if (s) mainPool += (s.dots || 0) + (s.bonus || 0);
-        }
-        if (feedDiscName) mainPool += c.disciplines?.[feedDiscName]?.dots || 0;
+        if (feedCustomAttr) mainPool += getAttrEffective(c, feedCustomAttr);
+        if (feedCustomSkill) mainPool += skTotal(c, feedCustomSkill);
+        if (feedDiscName) mainPool += discDots(c, feedDiscName);
         const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
