@@ -1503,7 +1503,7 @@ function renderForm(container) {
   if (published) {
     h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
   } else if (pending) {
-    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime submission has been received and is awaiting ST review. Results will appear here once published.</p></div>';
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
