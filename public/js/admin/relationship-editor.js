@@ -153,7 +153,6 @@ function rowHtml(edge) {
   const dir = edge.direction === 'mutual' ? '↔' : (side === 'a' ? '→' : '←');
   const retiredCls = edge.status === 'retired' ? ' retired' : '';
   const dispCls = edge.disposition ? ` disp-${edge.disposition}` : '';
-  const hiddenBadge = edge.st_hidden ? '<span class="npcr-rels-hidden-badge" title="Hidden from non-ST views">H</span>' : '';
 
   let h = `<div class="npcr-rels-row${retiredCls}${dispCls}" data-edge-id="${esc(edge._id)}">`;
   h += `<div class="npcr-rels-row-head">`;
@@ -161,7 +160,6 @@ function rowHtml(edge) {
   h += `<span class="npcr-rels-kind">${esc(kindLabel)}${customSuffix}</span>`;
   h += `<span class="npcr-rels-dir">${dir}</span>`;
   h += `<span class="npcr-rels-other">${esc(endpointLabel(other))}</span>`;
-  h += hiddenBadge;
   if (edge.status === 'retired') h += `<span class="npcr-rels-status">retired</span>`;
   if (edge.status === 'pending_confirmation') h += `<span class="npcr-rels-status pending">pending</span>`;
   h += `</div>`;
@@ -195,7 +193,6 @@ function formHtml(edge) {
   const direction = isNew ? defaultDirectionFor(kind) : edge.direction;
   const disposition = edge?.disposition || '';
   const state = edge?.state || '';
-  const stHidden = !!edge?.st_hidden;
   const customLabel = edge?.custom_label || '';
   const id = isNew ? 'new' : edge._id;
 
@@ -274,11 +271,8 @@ function formHtml(edge) {
     <textarea id="npcr-rels-f-state-${id}" class="npcr-textarea" rows="2">${esc(state)}</textarea>
   </label>`;
 
-  // st_hidden
-  h += `<label class="npcr-field-inline">
-    <input type="checkbox" id="npcr-rels-f-sth-${id}"${stHidden ? ' checked' : ''} />
-    <span>Hidden from non-ST views (st_hidden)</span>
-  </label>`;
+  // st_hidden removed: NPC visibility is scoped automatically by linked
+  // characters / connection edges; per-edge hide flag is no longer surfaced.
 
   // History log
   if (!isNew && edge.history?.length) {
@@ -438,7 +432,6 @@ async function saveEdge(formId) {
   const direction = document.getElementById(`npcr-rels-f-dir-${formId}`)?.value || defaultDirectionFor(kind);
   const disposition = document.getElementById(`npcr-rels-f-disp-${formId}`)?.value || '';
   const state     = document.getElementById(`npcr-rels-f-state-${formId}`)?.value.trim() || '';
-  const stHidden  = !!document.getElementById(`npcr-rels-f-sth-${formId}`)?.checked;
   const customLabel = document.getElementById(`npcr-rels-f-custom-${formId}`)?.value.trim() || '';
 
   if (!otherId) return setError('Pick the other party.');
@@ -467,7 +460,7 @@ async function saveEdge(formId) {
   }
 
   const body = {
-    a, b, kind, direction, state, st_hidden: stHidden,
+    a, b, kind, direction, state, st_hidden: false,
   };
   // Only send custom_label when kind === 'other'; otherwise clear it so a
   // prior label from the 'other' kind can't persist after a kind change.
