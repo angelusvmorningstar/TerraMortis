@@ -132,8 +132,9 @@ const ACTION_FIELDS = {
 
 const SPHERE_ACTION_FIELDS = {
   '': [],
-  'ambience_increase': ['territory', 'outcome'],
-  'ambience_decrease': ['territory', 'outcome'],
+  'ambience_change':   ['territory', 'ambience_dir', 'outcome'],
+  'ambience_increase': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
+  'ambience_decrease': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
   'attack':            ['target_char', 'outcome'],
   'block':             ['target_char', 'block_merit', 'outcome'],
   'hide_protect':      ['target_own_merit', 'outcome'],
@@ -580,6 +581,14 @@ function collectResponses() {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
+    // Ambience direction (radio) — when sphere action is ambience_change, resolve
+    // to legacy ambience_increase/ambience_decrease so downstream code is untouched.
+    const dirEl = document.querySelector(`input[name="dt-sphere_${n}_ambience_dir"]:checked`);
+    const ambienceDir = dirEl ? dirEl.value : '';
+    responses[`sphere_${n}_ambience_dir`] = ambienceDir;
+    if (responses[`sphere_${n}_action`] === 'ambience_change') {
+      responses[`sphere_${n}_action`] = ambienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
+    }
     const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
     responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
     const sphTargetCbs = document.querySelectorAll(`.dt-target-char-sphere-cb[data-target-slot="sphere_${n}"]:checked`);
@@ -617,6 +626,13 @@ function collectResponses() {
     }
     const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
     responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    // Ambience direction (radio) — resolve ambience_change to legacy values
+    const stDirEl = document.querySelector(`input[name="dt-status_${n}_ambience_dir"]:checked`);
+    const stAmbienceDir = stDirEl ? stDirEl.value : '';
+    responses[`status_${n}_ambience_dir`] = stAmbienceDir;
+    if (responses[`status_${n}_action`] === 'ambience_change') {
+      responses[`status_${n}_action`] = stAmbienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
+    }
     const sm = detectedMerits.status[n - 1];
     if (sm) responses[`status_${n}_merit`] = meritLabel(sm);
   }
@@ -2085,6 +2101,15 @@ function renderForm(container) {
     const projAmbienceDir = e.target.closest('[data-proj-ambience-dir]');
     if (projAmbienceDir) {
       activeProjectTab = parseInt(projAmbienceDir.dataset.projAmbienceDir, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Sphere/Status ambience direction ticker — re-render so resolved action reflects direction
+    const sphereAmbienceDir = e.target.closest('[data-sphere-ambience-dir]');
+    if (sphereAmbienceDir) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -5185,6 +5210,26 @@ function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = 
     }
   }
 
+  if (fields.includes('ambience_dir')) {
+    // Direction toggle for ambience_change. Mirrors the project pattern.
+    // Default 'improve' if no saved direction yet. Reads legacy
+    // ambience_increase/_decrease as improve/degrade for back-compat.
+    const actionVal = saved[`${prefix}_${n}_action`] || '';
+    let savedDir = saved[`${prefix}_${n}_ambience_dir`] || '';
+    if (!savedDir) {
+      if (actionVal === 'ambience_decrease') savedDir = 'degrade';
+      else savedDir = 'improve';
+    }
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Direction</label>';
+    h += `<fieldset class="dt-ticker" aria-label="Ambience direction">`;
+    for (const [d, dLabel] of [['improve', 'Increase (+)'], ['degrade', 'Decrease (−)']]) {
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-${prefix}_${n}_ambience_dir" value="${d}"${savedDir === d ? ' checked' : ''} data-sphere-ambience-dir="${n}"> ${dLabel}</label>`;
+    }
+    h += `</fieldset>`;
+    h += '</div>';
+  }
+
   if (fields.includes('target_char')) {
     // DTUI-16: replaced dt-shoutout-grid checkboxes with .dt-chip-grid--single
     let savedTarget = saved[`${prefix}_${n}_target_value`] || '';
@@ -5385,11 +5430,13 @@ function renderMeritToggles(saved) {
       // DTUI-17/19: filter per-merit eligibility; Grow now included
       const ambienceEligible = getAlliesAmbienceEligible(m);
       const filteredActions = SPHERE_ACTIONS.filter(o => {
-        if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
+        if (!ambienceEligible && o.value === 'ambience_change') return false;
         return true;
       });
+      // Legacy actionVals 'ambience_increase'/'ambience_decrease' map to 'ambience_change' for the dropdown
+      const dropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of filteredActions) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = dropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
@@ -5446,8 +5493,10 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
+      // Legacy actionVals map to 'ambience_change' for the dropdown
+      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of SPHERE_ACTIONS) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';

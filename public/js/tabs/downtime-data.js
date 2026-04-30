@@ -45,8 +45,7 @@ export const ACTION_DESCRIPTIONS = {
 // Action type options for sphere (social merit) slots
 export const SPHERE_ACTIONS = [
   { value: '', label: '— No Action Taken —' },
-  { value: 'ambience_increase', label: 'Ambience Change (Increase): Make a Territory delicious' },
-  { value: 'ambience_decrease', label: 'Ambience Change (Decrease): Make Territory not delicious' },
+  { value: 'ambience_change', label: 'Ambience Change: Modify a territory\'s ambience' },
   { value: 'attack', label: 'Attack: Attempt to destroy merits, holdings, projects, or NPCs' },
   { value: 'block', label: 'Block: Prevent someone else from using a specific Social Merit' },
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
