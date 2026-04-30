@@ -524,7 +524,7 @@ development_status:
 
   # Tier 2 — Archive editor (shipped 2026-04-24 in commit 21cba81)
   ord-3-archive-inline-editor: done
-  ord-4-archive-create-from-scratch: ready-for-dev
+  ord-4-archive-create-from-scratch: review
 
   # Tier 3 — Ordeal submission migration (shipped 2026-04-24 in commit 21cba81;
   # ORD-5 direct-migration approach supersedes ORD-6/7/8/9 in the epic shell)

@@ -86,6 +86,68 @@ router.put('/:id', requireRole('st'), async (req, res) => {
   res.json(updated);
 });
 
+// POST /api/archive_documents — ST only; create a blank document without uploading a file.
+// Body JSON: { character_id (required unless type=primer), type, title?, content_html?, visible_to_player? }
+router.post('/', requireRole('st'), async (req, res) => {
+  const { character_id, type, title, content_html, visible_to_player } = req.body || {};
+
+  const ALLOWED_TYPES = ['dossier', 'history_submission', 'downtime_response', 'primer'];
+  if (!type || !ALLOWED_TYPES.includes(type)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `type must be one of: ${ALLOWED_TYPES.join(', ')}` });
+  }
+
+  const isPrimer = type === 'primer';
+
+  if (!isPrimer && !character_id) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id required' });
+  }
+
+  let charOid = null;
+  if (!isPrimer) {
+    charOid = parseId(character_id);
+    if (!charOid) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
+    }
+    const charExists = await getCollection('characters').findOne({ _id: charOid }, { projection: { _id: 1 } });
+    if (!charExists) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Character not found' });
+    }
+  }
+
+  if (isPrimer) {
+    const existing = await col().findOne({ type: 'primer' });
+    if (existing) {
+      return res.status(409).json({ error: 'CONFLICT', message: 'Primer already exists. Open it to edit.' });
+    }
+  } else if (type === 'dossier' || type === 'history_submission') {
+    const existing = await col().findOne({ character_id: { $in: [charOid, charOid.toString()] }, type });
+    if (existing) {
+      const label = type === 'dossier' ? 'dossier' : 'character history';
+      return res.status(409).json({ error: 'CONFLICT', message: `This character already has a ${label}. Open it to edit.` });
+    }
+  }
+
+  const DEFAULT_TITLES = {
+    dossier: 'Dossier',
+    history_submission: 'Character History',
+    downtime_response: 'Downtime Response',
+    primer: 'Primer',
+  };
+
+  const doc = {
+    ...(charOid ? { character_id: charOid } : {}),
+    type,
+    title:             (typeof title === 'string' && title.trim()) ? title.trim() : DEFAULT_TITLES[type],
+    content_html:      typeof content_html === 'string' ? content_html : '',
+    visible_to_player: visible_to_player !== false,
+    created_at:        new Date().toISOString(),
+  };
+
+  const result = await col().insertOne(doc);
+  const created = await col().findOne({ _id: result.insertedId });
+  res.status(201).json(created);
+});
+
 // POST /api/archive_documents/upload — ST only; raw .docx → mammoth → store
 // Query params: type (required), character_id (required unless type=primer), cycle, title
 router.post('/upload', requireRole('st'),
