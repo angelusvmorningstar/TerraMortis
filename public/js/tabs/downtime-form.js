@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, skNineAgain, riteCost } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -684,8 +684,19 @@ function collectResponses() {
   const skAcqMeritKeys = [];
   skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
   responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat
-  responses['skill_acquisitions'] = responses['skill_acq_description'];
+  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  const _skPoolStr = skillAcqPoolStr(currentChar, {
+    attr: responses['skill_acq_pool_attr'],
+    skill: responses['skill_acq_pool_skill'],
+    spec: responses['skill_acq_pool_spec'],
+  });
+  responses['skill_acquisitions'] = [
+    responses['skill_acq_description'],
+    _skPoolStr ? `Pool: ${_skPoolStr}` : '',
+    responses['skill_acq_availability']
+      ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
+      : '',
+  ].filter(Boolean).join('\n');
 
   // Collect equipment slots
   const equipCountEl = document.getElementById('dt-equipment-slot-count');

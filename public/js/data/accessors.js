@@ -2,6 +2,7 @@
 
 import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
 import { getRulesCache } from '../editor/rule_engine/load-rules.js';
+import { hasAoE } from './helpers.js';
 export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
@@ -158,7 +159,7 @@ export function pacts(c) {
   return (c.powers || []).filter(p => p.category === 'pact');
 }
 
-// ── Rite cost ──
+// ── Rite cost + skill acquisition pool string ──
 
 export function riteCost(rite) {
   const tradition = rite.tradition || rite.parent || '';
@@ -169,6 +170,33 @@ export function riteCost(rite) {
     return { vitae, wp: 0, label: vitae + ' V' };
   }
   return { vitae: 0, wp: 0, label: '' };
+}
+
+/** Build a human-readable pool expression for a skill acquisition.
+ *  Used by the player form's legacy blob and the ST queue construction. */
+export function skillAcqPoolStr(c, { attr = '', skill = '', spec = '' } = {}) {
+  if (!attr && !skill) return '';
+  const parts = [];
+  let total = 0;
+  if (attr) {
+    const v = getAttrEffective(c, attr);
+    parts.push(`${attr} ${v}`);
+    total += v;
+  }
+  if (skill) {
+    const v = skTotal(c, skill);
+    parts.push(`${skill} ${v}`);
+    total += v;
+  }
+  if (spec && skill) {
+    const skillSpecs = c.skills?.[skill]?.specs || [];
+    if (skillSpecs.includes(spec)) {
+      const bonus = (skNineAgain(c, skill) || hasAoE(c, spec)) ? 2 : 1;
+      parts.push(spec);
+      total += bonus;
+    }
+  }
+  return parts.length ? `${parts.join(' + ')} — ${total}` : '';
 }
 
 // ── Derived stats ──
