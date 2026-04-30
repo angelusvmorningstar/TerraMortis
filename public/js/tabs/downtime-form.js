@@ -3837,8 +3837,30 @@ function _legacyRenderPersonalStorySection(saved) {
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
   const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
-  const rites = (currentChar.powers || []).filter(p => p.category === 'rite');
-  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level);
+
+  // Augmented rite list: known rites + castable-but-unlearned rites at
+  // level ≤ (Cruac/Theban rating − 2). House rule per VtR2: any sorcerer
+  // can attempt a rite two ranks below their discipline rating without
+  // having learned it. Cruac 3 → level-1 rites are open; Cruac 5 → 1-3.
+  const knownRites = (currentChar.powers || []).filter(p => p.category === 'rite');
+  const knownNames = new Set(knownRites.map(r => r.name));
+  const cruacDots = currentChar.disciplines?.Cruac?.dots || 0;
+  const thebanDots = currentChar.disciplines?.Theban?.dots || 0;
+  const ruleRites = getRulesByCategory('rite') || [];
+  const unlearnedRites = [];
+  for (const rule of ruleRites) {
+    if (knownNames.has(rule.name)) continue;
+    const trad = rule.parent;
+    const rank = rule.rank || 1;
+    const limit = trad === 'Cruac' ? cruacDots - 2
+               : trad === 'Theban' ? thebanDots - 2
+               : -1;
+    if (rank <= limit) {
+      unlearnedRites.push({ category: 'rite', name: rule.name, tradition: trad, level: rank, _unlearned: true });
+    }
+  }
+  const rites = [...knownRites, ...unlearnedRites];
+  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level || a.name.localeCompare(b.name));
   const cruacRites = rites.filter(r => r.tradition === 'Cruac');
 
   const savedCount = parseInt(saved['sorcery_slot_count'] || '1', 10);
@@ -3880,7 +3902,8 @@ function renderSorcerySection(saved) {
         lastTradition = r.tradition;
       }
       const sel = selectedRite === r.name ? ' selected' : '';
-      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})</option>`;
+      const suffix = r._unlearned ? ' — unlearned' : '';
+      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})${suffix}</option>`;
     }
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
