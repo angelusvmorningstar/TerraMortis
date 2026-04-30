@@ -207,7 +207,7 @@ export function serialiseForPrint(c, territories) {
       if (flock) { effectiveRating += flock; bonuses.push('+' + flock + ' Flock'); }
     }
     let inf = 0;
-    if (m.category === 'influence') inf = calcMeritInfluence(m, hwv);
+    if (m.category === 'influence') inf = calcMeritInfluence(c, m, hwv);
     const lookup = meritLookup(m.name);
     return {
       name: m.name,

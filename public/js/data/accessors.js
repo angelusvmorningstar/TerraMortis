@@ -2,6 +2,7 @@
 
 import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
 import { getRulesCache } from '../editor/rule_engine/load-rules.js';
+export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
 

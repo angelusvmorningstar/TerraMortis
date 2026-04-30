@@ -15,8 +15,8 @@ import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, h
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
-import { calcVitaeMax } from '../data/accessors.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcVitaeMax, skTotal, skNineAgain } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -252,28 +252,10 @@ function getInfluenceBudget() {
 }
 
 /**
- * Effective rating for a merit instance. Reads m.rating (which the editor
- * keeps as the comprehensive sum of cp + free_* + xp), then layers on the
- * dynamic bonuses that aren't baked into rating: SSJ + Flock for Herd, and
- * partner pool for shared domain merits.
- */
-function effectiveMeritRating(c, m) {
-  if (!c || !m) return 0;
-  // Shared domain merits: domMeritTotal already pulls in partners + SSJ/Flock
-  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
-    return domMeritTotal(c, m.name);
-  }
-  let total = m.rating || 0;
-  if (m.name === 'Herd') {
-    total += ssjHerdBonus(c) + flockHerdBonus(c);
-  }
-  return total;
-}
-
 /** Convenience: effective rating for a domain merit by name (looks up the instance). */
 function effectiveDomainDots(c, name) {
   const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
-  return effectiveMeritRating(c, m);
+  return meritEffectiveRating(c, m);
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
@@ -453,9 +435,11 @@ function collectResponses() {
       const attrEl = document.getElementById(`dt-${prefix}_attr`);
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
       const discEl = document.getElementById(`dt-${prefix}_disc`);
+      const specEl = document.getElementById(`dt-${prefix}_spec`);
       responses[`${prefix}_attr`] = attrEl ? attrEl.value : '';
       responses[`${prefix}_skill`] = skillEl ? skillEl.value : '';
       responses[`${prefix}_disc`] = discEl ? discEl.value : '';
+      responses[`${prefix}_spec`] = specEl ? specEl.value : '';
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
@@ -677,7 +661,7 @@ function collectResponses() {
   responses['acq_merits'] = JSON.stringify(acqMeritKeys);
   // Backwards compat: combined into old key
   const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(currentChar, resourcesM);
+  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
   responses['resources_acquisitions'] = [
     resourcesRating ? `Resources ${resourcesRating}` : '',
     acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
@@ -2076,6 +2060,19 @@ function renderForm(container) {
     if (poolSelect) {
       updatePoolTotal(poolSelect.dataset.poolPrefix);
     }
+    // Project dice pool spec chip — toggle selection and re-render
+    const poolSpecChip = e.target.closest('[data-pool-spec]');
+    if (poolSpecChip) {
+      const prefix = poolSpecChip.dataset.poolSpec;
+      const specName = poolSpecChip.dataset.specName;
+      const hidden = document.getElementById(`dt-${prefix}_spec`);
+      if (hidden) hidden.value = hidden.value === specName ? '' : specName;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // XP category/item change — collect current state and re-render
     const xpCat = e.target.closest('[data-xp-cat]');
     const xpItem = e.target.closest('[data-xp-item]');
@@ -3229,7 +3226,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const prefix = `project_${slotNum}_${poolKey}`;
   const savedAttr  = saved[`${prefix}_attr`]  || '';
   const savedSkill = saved[`${prefix}_skill`] || '';
-  const savedDisc = saved[`${prefix}_disc`] || '';
+  const savedDisc  = saved[`${prefix}_disc`]  || '';
+  const savedSpec  = saved[`${prefix}_spec`]  || '';
+  const bestSpecs  = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
 
   // Calculate total from saved selections
   let total = 0;
@@ -3238,11 +3237,14 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
     if (a) total += (a.dots || 0) + (a.bonus || 0);
   }
   if (savedSkill) {
-    const s = currentChar.skills?.[savedSkill];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
+    total += skTotal(currentChar, savedSkill);
   }
   if (savedDisc) {
     total += currentChar.disciplines?.[savedDisc]?.dots || 0;
+  }
+  if (savedSpec && bestSpecs.includes(savedSpec)) {
+    const na = skNineAgain(currentChar, savedSkill);
+    total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
   }
 
   let h = '<div class="qf-field">';
@@ -3264,9 +3266,8 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_skill" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Skill</option>';
   for (const s of skills) {
-    const v = currentChar.skills[s];
-    const dots = (v.dots || 0) + (v.bonus || 0);
-    const specs = v.specs?.length ? ` [${v.specs.join(', ')}]` : '';
+    const dots = skTotal(currentChar, s);
+    const specs = currentChar.skills?.[s]?.specs?.length ? ` [${currentChar.skills[s].specs.join(', ')}]` : '';
     const sel = savedSkill === s ? ' selected' : '';
     h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})${esc(specs)}</option>`;
   }
@@ -3284,7 +3285,23 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
 
   // Total
   h += `<span class="dt-pool-total" id="${prefix}_total">${total || '—'}</span>`;
-  h += '</div></div>';
+  h += '</div>';
+
+  // Spec chip row
+  h += `<input type="hidden" id="dt-${prefix}_spec" value="${esc(savedSpec)}">`;
+  if (savedSkill && bestSpecs.length > 0) {
+    h += '<div class="dt-feed-spec-row">';
+    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+    for (const sp of bestSpecs) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const na = skNineAgain(currentChar, savedSkill);
+      const bonus = (na || hasAoE(currentChar, sp)) ? 2 : 1;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-pool-spec="${esc(prefix)}" data-spec-name="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${bonus}</span></button>`;
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
   return h;
 }
 
@@ -3371,14 +3388,15 @@ function getItemsForCategory(category) {
       return ALL_ATTRS.map(a => {
         const v = c.attributes?.[a];
         const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        if (dots >= 5) return null;
         return { value: a, label: `${a} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'skill':
       return ALL_SKILLS.map(s => {
-        const v = c.skills?.[s];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = skTotal(c, s);
+        if (dots >= 5) return null;
         return { value: s, label: `${s} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'discipline': {
       // Character's current disciplines + all core clan discs they might learn.
       // Filter against canonical discipline names — defence-in-depth against legacy
@@ -3393,10 +3411,11 @@ function getItemsForCategory(category) {
         .sort();
       return all.map(d => {
         const dots = c.disciplines?.[d]?.dots || 0;
+        if (dots >= 5) return null;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
         return { value: d, label: `${d} (${dots} → ${dots + 1}) [${tag}, ${cost} XP]` };
-      });
+      }).filter(Boolean);
     }
     case 'merit': {
       const items = [];
@@ -3405,7 +3424,7 @@ function getItemsForCategory(category) {
         const found = charMerits.filter(m =>
           m.name && m.name.toLowerCase() === meritName.toLowerCase()
         );
-        return found.length ? Math.max(...found.map(m => effectiveMeritRating(c, m))) : 0;
+        return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
       }
 
       // Try rules cache first, fallback to MERITS_DB
@@ -3453,20 +3472,26 @@ function getItemsForCategory(category) {
         .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
-      // Rites they could learn at their current Cruac/Theban level
       const cruacLevel = c.disciplines?.Cruac?.dots || 0;
       const thebanLevel = c.disciplines?.Theban?.dots || 0;
+      if (cruacLevel === 0 && thebanLevel === 0) return [];
+      const ownedRiteNames = new Set(
+        (c.powers || []).filter(p => p.category === 'rite').map(p => p.name)
+      );
+      const allRites = getRulesByCategory('rite') || [];
       const items = [];
-      if (cruacLevel > 0) {
-        for (let lvl = 1; lvl <= cruacLevel; lvl++) {
-          items.push({ value: `Cruac Rite (Level ${lvl})`, label: `Cruac Rite (Level ${lvl})` });
-        }
+      for (const rule of allRites) {
+        if (ownedRiteNames.has(rule.name)) continue;
+        const tradition = rule.parent;
+        const charRank = tradition === 'Cruac' ? cruacLevel
+                       : tradition === 'Theban' ? thebanLevel
+                       : 0;
+        if (charRank === 0) continue;
+        const rank = rule.rank || 1;
+        if (rank > charRank) continue;
+        items.push({ value: rule.name, label: `${rule.name} (${tradition} Rank ${rank})` });
       }
-      if (thebanLevel > 0) {
-        for (let lvl = 1; lvl <= thebanLevel; lvl++) {
-          items.push({ value: `Theban Rite (Level ${lvl})`, label: `Theban Rite (Level ${lvl})` });
-        }
-      }
+      items.sort((a, b) => a.label.localeCompare(b.label));
       return items;
     }
     default: return [];
@@ -3780,7 +3805,7 @@ function renderSorcerySection(saved) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
       const mandDisabled = !isCruac ? ' disabled' : '';
       const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = effectiveMeritRating(currentChar, mandMerit);
+      const mandDots = meritEffectiveRating(currentChar, mandMerit);
       h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
@@ -3851,7 +3876,7 @@ function renderAcquisitionsSection(saved) {
   const c = currentChar;
   // Find Resources merit rating
   const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(c, resourcesMerit);
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
@@ -4086,9 +4111,10 @@ function renderEquipmentRow(n, saved) {
 
 /** Recalculate and display the dice pool total for a given pool prefix. */
 function updatePoolTotal(prefix) {
-  const attrEl = document.getElementById(`dt-${prefix}_attr`);
+  const attrEl  = document.getElementById(`dt-${prefix}_attr`);
   const skillEl = document.getElementById(`dt-${prefix}_skill`);
-  const discEl = document.getElementById(`dt-${prefix}_disc`);
+  const discEl  = document.getElementById(`dt-${prefix}_disc`);
+  const specEl  = document.getElementById(`dt-${prefix}_spec`);
   const totalEl = document.getElementById(`${prefix}_total`);
   if (!totalEl) return;
 
@@ -4098,11 +4124,17 @@ function updatePoolTotal(prefix) {
     if (a) total += (a.dots || 0) + (a.bonus || 0);
   }
   if (skillEl?.value) {
-    const s = currentChar.skills?.[skillEl.value];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
+    total += skTotal(currentChar, skillEl.value);
   }
   if (discEl?.value) {
     total += currentChar.disciplines?.[discEl.value]?.dots || 0;
+  }
+  if (specEl?.value && skillEl?.value) {
+    const specs = currentChar.skills?.[skillEl.value]?.specs || [];
+    if (specs.includes(specEl.value)) {
+      const na = skNineAgain(currentChar, skillEl.value);
+      total += (na || hasAoE(currentChar, specEl.value)) ? 2 : 1;
+    }
   }
 
   totalEl.textContent = total || '—';
@@ -4442,7 +4474,7 @@ function renderJointSphereChips(n, saved) {
     const isUsed = isSphereMeritUsed(slotKey, type, saved);
     const isSelected = selectedSet.has(slotKey);
     const isDisabled = isUsed && !isSelected;
-    const effectiveDots = effectiveMeritRating(currentChar, m);
+    const effectiveDots = meritEffectiveRating(currentChar, m);
     const area = m.area || m.qualifier || '';
     const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
@@ -4899,7 +4931,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false) {
 
 // DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
 function getAlliesAmbienceEligible(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -4909,7 +4941,7 @@ function getAlliesAmbienceEligible(m) {
 
 // DTUI-19: Grow XP block — scoped to a specific Allies merit instance
 function renderAlliesGrowXp(n, prefix, m, saved) {
-  const currentDots = effectiveMeritRating(currentChar, m);
+  const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
   const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
 
@@ -4934,7 +4966,7 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
 
 // DTUI-18: Allies Ambience contribution magnitude
 function getAlliesAmbienceContribution(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );

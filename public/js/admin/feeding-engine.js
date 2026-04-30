@@ -4,7 +4,7 @@
  */
 
 import { esc, displayName, displayNameRaw } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, skDots, calcVitaeMax } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skTotal, calcVitaeMax } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 
 // ── Dice math (10-again, no state coupling) ──
@@ -84,7 +84,7 @@ function buildPool() {
 
   let bestSkillVal = 0, bestSkillName = '', bestSkillSpec = '';
   for (const s of m.skills) {
-    const v = skDots(feedChar, s);
+    const v = skTotal(feedChar, s);
     if (v > bestSkillVal) {
       bestSkillVal = v; bestSkillName = s;
       const sk = feedChar.skills?.[s];
