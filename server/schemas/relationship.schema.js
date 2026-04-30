@@ -18,7 +18,7 @@
  */
 
 export const KIND_ENUM = [
-  'sire', 'childe', 'grand-sire', 'clan-mate',
+  'sire', 'childe', 'grand-sire', 'grand-childe', 'clan-mate',
   'coterie', 'ally', 'rival', 'enemy', 'mentor', 'debt-holder', 'debt-bearer',
   'touchstone', 'family', 'contact', 'retainer', 'correspondent', 'romantic',
   'other',

@@ -27,8 +27,9 @@ function resetTabState(charId) {
     charId: String(charId),
     mode: 'closed',
     // NPCR.7 + NPCR.8: picker has two sub-modes — pick an existing NPC or
-    // quick-add a new pending one. npc_mode = 'existing' | 'new'.
-    npc_mode: 'existing',
+    // quick-add a new pending one. npc_mode = 'new' | 'pc' (existing removed
+    // from index.html — STs handle existing-NPC linking via admin.html).
+    npc_mode: 'new',
     draft: {
       npc_id: '',
       new_name: '',
@@ -46,11 +47,9 @@ function resetTabState(charId) {
 }
 
 // Kinds players may create from the Relationships tab: anything with b='npc'
-// or b='any', MINUS touchstone (lives on character.touchstones[] via the sheet
-// picker in NPCR.4). Grouped by family for the picker dropdown.
+// or b='any'. Grouped by family for the picker dropdown.
 function playerCreatableKinds() {
   return RELATIONSHIP_KINDS.filter(k => {
-    if (k.code === 'touchstone') return false;
     const bType = k.typicalEndpoints?.b;
     return bType === 'npc' || bType === 'any';
   });
@@ -60,10 +59,7 @@ function playerCreatableKinds() {
 // (Lineage + Political + 'romantic' + 'other'). Mortal kinds that are
 // b='npc'-only (family, contact, retainer, correspondent) stay excluded.
 function playerPcPcKinds() {
-  return RELATIONSHIP_KINDS.filter(k => {
-    if (k.code === 'touchstone') return false;
-    return k.typicalEndpoints?.b === 'any';
-  });
+  return RELATIONSHIP_KINDS.filter(k => k.typicalEndpoints?.b === 'any');
 }
 
 const LAST_SEEN_PREFIX     = 'tm:rel_last_seen:';
@@ -725,7 +721,7 @@ function attachHandlers(root, charId, char, edges) {
 
 async function openAddPicker(el, char) {
   _tabState.mode = 'add';
-  _tabState.npc_mode = 'existing';
+  _tabState.npc_mode = 'new';
   _tabState.error = null;
   _tabState.submitting = false;
   _tabState.draft = {
@@ -755,7 +751,7 @@ async function openAddPicker(el, char) {
 }
 
 function setNpcMode(el, char, mode) {
-  _tabState.npc_mode = (mode === 'new' || mode === 'pc') ? mode : 'existing';
+  _tabState.npc_mode = (mode === 'pc') ? 'pc' : 'new';
   _tabState.error = null;
   renderAddPanel(el, char);
 }
@@ -803,7 +799,6 @@ function renderAddPanel(el, char) {
       ${_tabState.error ? `<div class="rel-error" role="alert">${esc(_tabState.error)}</div>` : ''}
 
       <div class="rel-add-mode-chips" role="radiogroup" aria-label="Connection target">
-        <button type="button" class="rel-add-mode-chip${npcMode === 'existing' ? ' on' : ''}" data-npc-mode="existing">Existing NPC</button>
         <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
         <button type="button" class="rel-add-mode-chip${npcMode === 'pc' ? ' on' : ''}" data-npc-mode="pc">Another PC</button>
       </div>

@@ -211,7 +211,7 @@ router.post('/', validate(relationshipSchema), async (req, res) => {
     // endpoint type (Lineage / Political / 'romantic' / 'other'). Mortal
     // kinds (family, contact, retainer, correspondent) remain NPC-only.
     if (body.b?.type === 'pc') {
-      const pcPcKinds = new Set(['sire','childe','grand-sire','clan-mate','coterie','ally','rival','enemy','mentor','debt-holder','debt-bearer','romantic','other']);
+      const pcPcKinds = new Set(['sire','childe','grand-sire','grand-childe','clan-mate','coterie','ally','rival','enemy','mentor','debt-holder','debt-bearer','romantic','other']);
       if (!pcPcKinds.has(body.kind)) {
         return res.status(400).json({
           error: 'VALIDATION_ERROR',

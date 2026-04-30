@@ -58,7 +58,7 @@ async function renderArchiveList() {
   const cycleOrderMap = {};
   for (const c of cycles) {
     cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
-    cycleOrderMap[String(c._id)] = c.cycle_number || c.created_at || c._id;
+    cycleOrderMap[String(c._id)] = c.game_number ?? c.cycle_number ?? c.created_at ?? c._id;
   }
   const charId = String(_char._id);
   const downtimeSubs = subs
