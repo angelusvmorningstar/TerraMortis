@@ -1,20 +1,20 @@
 # Architectural Reset Charter: Audit & Freeze
 
-**Status:** Working document v0.2 — internal
+**Status:** Working document v0.3 — internal
 **Author:** Angelus (with structured input from BMAD roundtable)
 **Date:** 2026-05-01
 
 ## In one paragraph
 
-The Terra Mortis Suite has accumulated structural drift faster than feature work can keep up with. Effective-rating calculations have no canonical home and have been re-derived in multiple call-sites; cross-cutting concerns ship in two forms simultaneously (two trackers, two editor-handler importers); the documented schema and the live MongoDB shape have parted ways; and AI-generated code has, by default, reached for whatever local fragment was closest rather than a single source of truth. Yusuf's Discord critique on 2026-04-30 surfaced that this is structural rather than incidental. This charter records the decision to call a stop-the-line on all proposed feature development, run a comprehensive audit to produce a complete drift map, and use the audit's findings to inform a layer-by-layer refactor. The post-audit diagnosis and path-forward proposal — the document Peter will be invited to comment on — is a separate artefact, not this one. This charter scopes only the freeze and the audit.
+The Terra Mortis Suite has accumulated structural drift faster than feature work can keep up with. Effective-rating calculations have no canonical home and have been re-derived in multiple call-sites; cross-cutting concerns ship in two forms simultaneously (two trackers, two editor-handler importers); the documented schema and the live MongoDB shape have parted ways; and AI-generated code has, by default, reached for whatever local fragment was closest rather than a single source of truth. Peter's Discord critique on 2026-04-30 surfaced that this is structural rather than incidental. This charter records the decision to call a stop-the-line on all proposed feature development, run a focused audit to produce a complete drift map, and use the audit's findings to inform a layer-by-layer refactor. The post-audit diagnosis and path-forward proposal — the document Peter will be invited to comment on — is a separate artefact, not this one. This charter scopes only the freeze and the audit. The DT cycle launches **7 May 2026** — six days from charter acceptance — and the phasing is sized to fit that constraint.
 
 ## A note on the audit's purpose
 
-The audit is diagnostic and pedagogical, deliberately. Much of the drift in this codebase is invisible to the project lead because it was AI-generated and reached for local fragments rather than a single source of truth. The audit phase is therefore owned by Angelus, not delegated to Peter, even though delegation would be faster: the goal is to build the architectural mental model in the project lead so that drift is visible at PR-review time, not just at audit time. This trade-off (slower Phase 1 in exchange for durable understanding) is named here so it can be challenged on its own terms. Peter's role is review of findings as they emerge, not execution. Sanity-check the methodology and the conclusions; don't shortcut the walk-through.
+The audit is diagnostic and pedagogical, deliberately. Much of the drift in this codebase is invisible to the project lead because it was AI-generated and reached for local fragments rather than a single source of truth. The audit phase is owned by Angelus rather than delegated to Peter because the goal is to build the architectural mental model in the project lead so that drift is visible at PR-review time, not just at audit time. Peter's role is review of findings, not execution. Sanity-check the methodology and the conclusions; don't shortcut the walk-through.
 
 ## Acknowledgements
 
-**Yusuf / PK** catalysed this charter. His structural diagnosis is named verbatim throughout. He is offered a review seat on the audit findings.
+**Peter** catalysed this charter. His structural diagnosis is named verbatim throughout. The substantive collaboration on what follows is with him.
 
 **The BMAD roundtable** drafted earlier versions of this document in four sections: Mary (Analyst), Winston (Architect), Bob (Scrum Master), John (Product Manager). The architecture and guardrails sections from that earlier draft have been removed pending audit findings; what remains is methodology, freeze rules, and comms.
 
@@ -35,7 +35,7 @@ This charter does not contain target architecture or drift-prevention guardrails
 
 ## Diagnosis
 
-The drift is real, multi-axial, and now self-reinforcing. Yusuf's verbatim framing names the mechanism precisely: *"AI has vibe-coded several competing and duplicate implementations of things that should be consistent helper functions."* What follows is the catalogue of where that mechanism has already left tracks. This is the partial picture the project lead can see today; the audit's job is to find the rest.
+The drift is real, multi-axial, and now self-reinforcing. Peter's verbatim framing names the mechanism precisely: *"AI has vibe-coded several competing and duplicate implementations of things that should be consistent helper functions."* What follows is the catalogue of where that mechanism has already left tracks. This is the partial picture the project lead can see today; the audit's job is to find the rest.
 
 ### Derivation drift (the largest category)
 Derived values are computed inline at render sites instead of routed through a single helper. We have canonical helpers for some derivations (`xpEarned`, `xpSpent`, `xpLeft`, `displayName`, `sortName`) but the **effective-rating layer has no canonical home**. Effective dots flow in from at least five channels: manual `bonus`, `free_*` fields, `_mci_/_pt_/_ohm_` standing-merit grants, discipline-to-attribute bonuses (e.g. Vigour), and derived-stat modifiers. Each consumer (pool calculators, prerequisite checks, sheet renderers, DT roller) has incentive to reinvent the sum locally, and the AI loop accelerates that. Hollow-dot rendering is display-only, but pool maths must read effective rating; the failure mode is silent under-counting.
@@ -43,7 +43,7 @@ Derived values are computed inline at render sites instead of routed through a s
 Other derivations with the same vulnerability: health max, vitae max, willpower max, defence, size, speed, influence total, vitae deficit. Memory note "Bonus dots are real dots" exists precisely because this drift has already produced bugs.
 
 ### Duplicate implementations of cross-cutting concerns
-Two tracker clients ship simultaneously: `public/js/game/tracker.js` (keyed by `_id`, canonical) and `public/js/suite/tracker.js` (keyed by name, legacy). Two editor-handler importers (`admin.js` and `app.js`) must be kept in sync manually, and memory explicitly warns about it. These are confirmed instances of the pattern Yusuf described; the audit's job is to find the unconfirmed ones.
+Two tracker clients ship simultaneously: `public/js/game/tracker.js` (keyed by `_id`, canonical) and `public/js/suite/tracker.js` (keyed by name, legacy). Two editor-handler importers (`admin.js` and `app.js`) must be kept in sync manually, and memory explicitly warns about it. These are confirmed instances of the pattern Peter described; the audit's job is to find the unconfirmed ones.
 
 ### Schema gaps and shape tangles
 `schemas/schema_v2_proposal.md` is the stated source of truth, but live MongoDB documents drift past it (validation errors of the "additional properties" form already observed). Index-coupled merit arrays remain unfixed. `character.npcs[]` and `character.touchstones[]` are deprecated but extant. We do not yet know how far the live shape has departed from the documented shape, only that it has.
@@ -94,7 +94,7 @@ The freeze takes effect at the moment this charter is accepted. It is operationa
 | `Morningstar` | Restricted | Hotfixes, audit findings, doc updates, freeze-rule enforcement only |
 | `Piatra` | Coordinated | Peter completes any in-flight story to a clean commit, then mirrors Morningstar's posture. No new feature stories started. |
 | `dev` | Integration only | Accepts hotfix merges from either dev branch. No epic merges. |
-| `main` | Deploy-on-demand | Merges from `dev` only for hotfixes or the pre-cycle stabilisation pass (see below). User approval per deploy as always. |
+| `main` | Deploy-on-demand | Merges from `dev` only for hotfixes or the pre-cycle stabilisation pass. User approval per deploy as always. |
 
 **Hotfix definition (strict):** a code change that (a) fixes a bug blocking the live DT cycle or admin operations, (b) touches the minimum surface area required, (c) does not introduce new schema fields, new collections, or new helper modules. Anything else is a feature and waits.
 
@@ -102,38 +102,40 @@ The freeze takes effect at the moment this charter is accepted. It is operationa
 
 ### Coordination with Peter
 
-Peter finishes whatever Piatra story is mid-flight, commits, and merges to `dev` once. From that point Piatra holds. Daily-ish async check-in (Discord or commit comments) is sufficient — no ceremony.
+Peter finishes whatever work is mid-flight, commits, and merges to `dev` once. From that point his branch holds. Daily-ish async check-in (Discord or commit comments) is sufficient — no ceremony.
 
-### The pre-cycle stabilisation question
+### The pre-cycle stabilisation pass
 
-**Position: run a minimal pre-cycle stabilisation pass within the freeze. Do not run the cycle on the current state, do not delay the cycle.**
+**Constraint: the DT cycle launches 7 May 2026.** The audit, diagnosis, triage, and hotfix work all fit inside the six days from charter acceptance to cycle launch. Sequencing:
 
-Defence: players are waiting and the cycle is non-negotiable from a game-runner perspective. But shipping a known-broken submission flow burns trust and creates dirty data the refactor will then have to migrate. The compromise is a tightly-scoped triage:
+1. **Audit (Phase 1)** runs today/tomorrow — half a day of focused walkthrough.
+2. **Diagnosis + path-forward report (Phase 2)** drafted Saturday/Sunday and sent to Peter.
+3. **Hotfix list triaged with Peter** Sunday, using the audit's findings as input.
+4. **Submission-blocker hotfixes ship** Monday through Wednesday.
+5. **Cycle launches Thursday 7 May** on stabilised state.
 
-1. Enumerate submission-blocker bugs only (player cannot submit, ST cannot process, data corrupts on save).
-2. Hotfix list approved by Angelus before any code lands.
-3. One deploy, one cycle, then freeze closes around the audit.
+The trade-off: shipping a known-broken submission flow burns trust and creates dirty data the refactor will then have to migrate. Hence: audit and diagnose first, even at compressed pace, so the triage list is informed by what's actually wrong rather than just what's been noticed.
 
 ## Phases
 
 ### Phase 0 — Freeze declared
 - **Starts:** charter accepted by Angelus.
-- **Finishes:** freeze rules posted to repo (`FREEZE.md` or pinned issue), in-flight Piatra work committed, pre-cycle hotfix list agreed.
+- **Finishes:** `FREEZE.md` posted, Peter notified via Discord, in-flight work on his branch committed.
 - **Owner:** Angelus.
 
 ### Phase 1 — Audit
 - **Starts:** Phase 0 closed.
 - **Finishes:** audit deliverable per Part 1 is complete.
-- **Owner:** Angelus drives. Peter reviews findings as they emerge (cadence per Peter's bandwidth).
-- **Timeline:** 3 to 6 weeks of elapsed time. The wider range than initially estimated reflects the audit's pedagogical purpose: this is also the project lead building the architectural model that prevents the next drift cycle, not only mechanical discovery. Not a deadline; a range.
+- **Owner:** Angelus drives. Peter reviews findings (likely batch review given the timeline below).
+- **Timeline:** Half a day to a day of focused work. The codebase is small and the project lead authored most of it; "deep audit" here means a methodical walkthrough, not weeks of forensics.
 
 ### Phase 2 — Diagnosis Report drafted and sent to Peter
 - **Starts:** audit deliverable complete.
-- **Finishes:** post-audit Diagnosis + Path Forward report drafted (separate file, proposed location: `specs/architectural-diagnosis-report.md`); sent to Peter inviting comment; refactor direction ratified after his response.
+- **Finishes:** post-audit Diagnosis + Path Forward report drafted (separate file, proposed location: `specs/architectural-diagnosis-report.md`); sent to Peter inviting comment; refactor direction ratified after his response. Hotfix list triaged together as part of this phase.
 - **Owner:** Angelus drafts; Peter reviews and comments.
 
 ### Phase 3 — Refactor execution
-- **Starts:** Phase 2 ratified.
+- **Starts:** Phase 2 ratified, the 7 May DT cycle has launched.
 - **Sub-phases:** sequenced per the post-audit report. Each its own freeze point. (Sub-phase shape is not specified here; it is the post-audit report's job.)
 - **Finishes:** each sub-phase exits when its guardrails are in place and the next sub-phase's preconditions are met.
 - **Owner:** as defined at Phase 2.
@@ -154,9 +156,9 @@ Defence: players are waiting and the cycle is non-negotiable from a game-runner 
 
 ### Rollback escape valve
 
-If Phase 1 reveals the refactor is multi-month rather than multi-week:
+If Phase 1 reveals the refactor is multi-week rather than days:
 - **Off-ramp A — Scope cut:** ratify only the highest-leverage refactor target identified by the audit; defer the rest; lift freeze with a narrower guardrail set.
-- **Off-ramp B — Parallel track:** keep `main` on current architecture, branch `refactor/*` for long-haul work, lift freeze on `Morningstar`/`Piatra` for non-conflicting features. Decision point: end of Phase 2.
+- **Off-ramp B — Parallel track:** keep `main` on current architecture, branch `refactor/*` for long-haul work, lift freeze on `Morningstar` and `Piatra` for non-conflicting features. Decision point: end of Phase 2.
 
 The off-ramp is chosen at Phase 2, not improvised mid-Phase 3.
 
@@ -167,7 +169,7 @@ The off-ramp is chosen at Phase 2, not improvised mid-Phase 3.
 
 ## Why We Are Pausing
 
-Feature velocity is a vanity metric when the substrate underneath is drifting. We have been shipping onto a foundation whose contracts are implicit, whose conventions are inferred from the last person who touched the file, and whose data shape disagrees with itself across surfaces. Yusuf's critique surfaced what was already structurally true: three layers were moving at once — schema, helpers, UI — and any polish applied to the top layer was being undone by motion in the layers below it. You cannot finish a surface that is still being structurally extended.
+Feature velocity is a vanity metric when the substrate underneath is drifting. We have been shipping onto a foundation whose contracts are implicit, whose conventions are inferred from the last person who touched the file, and whose data shape disagrees with itself across surfaces. Peter's critique surfaced what was already structurally true: three layers were moving at once — schema, helpers, UI — and any polish applied to the top layer was being undone by motion in the layers below it. You cannot finish a surface that is still being structurally extended.
 
 The actual product is not the Downtime app. The product is **player trust in the suite**. Thirty players are about to have their first sustained, app-mediated interaction with this system. Trust on a tool like this is a one-shot event: the first cycle either feels coherent or it feels brittle, and the second impression is much harder to earn than the first. The DT overhaul backlog, the NPC/edges integration, and the unverified merit-action matrices are not features that improve trust — they are surface area that risks it.
 
@@ -202,18 +204,15 @@ If a thing is not visibly listed above, default-paused, raise it to the group.
 ## Communication Plan
 
 ### Peter
-This charter is internal — Peter is informed of the freeze and the audit, but the substantive engagement comes via the post-audit Diagnosis + Path Forward report (Phase 2 deliverable). When that report lands, Peter is invited to comment, sanity-check methodology and findings, and contribute to ratifying the refactor direction. Architecture decisions where Angelus and Peter disagree are recorded as ADRs with both positions; a contested architecture is not shipped. While Phase 1 audit is in progress, Peter receives findings as they emerge (cadence per his bandwidth) so the post-audit report doesn't land cold.
+Peter catalysed this charter and is the substantive collaborator on the work that follows. The post-audit Diagnosis + Path Forward report (Phase 2 deliverable) is the artefact specifically inviting his comment; this charter is the orientation. Architecture decisions where Angelus and Peter disagree are recorded as ADRs with both positions; a contested architecture is not shipped.
 
-A specific ask: when reviewing audit findings as they emerge, prefer answers that explain over answers that conclude. The audit is also a learning exercise for the project lead, and "this is wrong because X, and the pattern that produces it is Y" is more durable than "fix this." If a conclusion is so obvious it doesn't need explaining, say that too — it's data about where the project lead's mental model needs filling in.
+A specific ask on the diagnosis report: prefer answers that explain over answers that conclude. The audit is also a learning exercise for the project lead, and "this is wrong because X, and the pattern that produces it is Y" is more durable than "fix this." If a conclusion is so obvious it doesn't need explaining, say that too — it's data about where the project lead's mental model needs filling in.
 
 ### Third ST
 Informed, not consulted at architectural depth. A summary of the freeze, the timeline shape (criteria, not dates), and what changes for them operationally. They are not asked to review audit findings.
 
 ### Players
 One short message before the imminent cycle. Honest, not effusive. Suggested shape: the app is in a known-rough state for cycle one, the team is doing a structural pass after this cycle to make later cycles feel right, here is what works today and here is what to expect quirks on. No dates promised. Apologise once, then stop. Treat them as adults running a LARP with us, not customers owed an SLA.
-
-### Yusuf
-Named in the acknowledgements of this charter. His Discord critique catalysed the stop-the-line and reframed the drift as structural rather than incidental. He is offered a review seat on the audit findings. He is not on the hook for execution.
 
 ## Resumption Criteria
 
@@ -245,4 +244,4 @@ These are flagged here so the audit phase consciously gathers evidence to answer
 
 ---
 
-*End of charter v0.2.*
+*End of charter v0.3.*
