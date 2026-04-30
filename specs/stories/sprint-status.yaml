@@ -359,7 +359,7 @@ development_status:
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
   feat-6-player-sheet-width-consistency: backlog  # needs-investigation per story front-matter — cause not isolated yet; needs DOM inspection on two visibly-differing characters before ready-for-dev
-  feat-7-player-read-latest-downtime: ready-for-dev  # exposes player's own raw responses[] alongside the existing published_outcome render
+  feat-7-player-read-latest-downtime: review  # exposes player's own raw responses[] alongside the existing published_outcome render
   feat-8-contact-action-type: review       # suppress action-type selector in DT Processing + action-type badge in DT Story for contacts only
   feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
   feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
