@@ -2175,10 +2175,12 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Blood type toggle — multi-select pill buttons
+    // Blood type toggle — single-select pill buttons
     const bloodBtn = e.target.closest('[data-blood-type]');
     if (bloodBtn) {
-      bloodBtn.classList.toggle('dt-feed-vi-on');
+      const wasOn = bloodBtn.classList.contains('dt-feed-vi-on');
+      document.querySelectorAll('[data-blood-type]').forEach(b => b.classList.remove('dt-feed-vi-on'));
+      if (!wasOn) bloodBtn.classList.add('dt-feed-vi-on');
       scheduleSave();
       return;
     }
@@ -3899,7 +3901,7 @@ function renderSorcerySection(saved) {
         const paidChecked = paidSaved ? ' checked' : '';
         h += `<label class="dt-mand-label dt-mand-paid-label" title="Tick if you have already set aside ${mandDots} Vitae to cover this rite's sustained cost for the month.">`;
         h += `<input type="checkbox" id="dt-sorcery_${n}_mand_paid" class="dt-mand-cb"${paidChecked}>`;
-        h += ` Vitae cost already paid (${mandDots}V)`;
+        h += ` Vitae cost already paid`;
         h += '</label>';
       }
     }
@@ -5797,15 +5799,16 @@ function renderQuestion(q, value) {
       // ── Unified pool builder (DTFP-4: always visible, method optional) ──
       h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
 
-      // Blood type selection (always shown)
+      // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
       let savedBlood = [];
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
+      const selectedBlood = Array.isArray(savedBlood) && savedBlood.length ? savedBlood[0] : '';
       h += '<div class="qf-field">';
       h += '<label class="qf-label">Blood Type</label>';
       h += '<div class="dt-feed-violence-toggle">';
       for (const bt of BLOOD_TYPES) {
-        const on = savedBlood.includes(bt) ? ' dt-feed-vi-on' : '';
+        const on = selectedBlood === bt ? ' dt-feed-vi-on' : '';
         h += `<button type="button" class="dt-feed-vi-btn${on}" data-blood-type="${esc(bt)}">${esc(bt)}</button>`;
       }
       h += '</div></div>';
