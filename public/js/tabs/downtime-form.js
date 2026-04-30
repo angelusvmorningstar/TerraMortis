@@ -3488,7 +3488,11 @@ function getXpCost(category, item) {
       const rule = getRuleByKey(slug);
       return rule ? (rule.xp_fixed || 2) : 2;
     }
-    case 'rite': return 4;
+    case 'rite': {
+      const rule = (getRulesByCategory('rite') || []).find(r => r.name === item);
+      const rank = rule?.rank || 1;
+      return rank >= 4 ? 2 : 1;
+    }
     default: return 0;
   }
 }
