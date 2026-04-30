@@ -742,7 +742,7 @@ development_status:
   dtlt-2-dt-form-quick-fixes: review                        # T7,T8,T9,T11,T19,T25 bundled
   dtlt-3-theme-purge-migration: review                      # T17 + T22 (downstream)
   dtlt-4-effective-rating-and-cap-sweep: review             # T3,T4,T21,T23
-  dtlt-5-sorcery-cost-and-target-picker: ready-for-dev      # T12,T14,T15
+  dtlt-5-sorcery-cost-and-target-picker: review             # T12,T14,T15
   dtlt-6-pickers-and-lock-state: ready-for-dev              # T6,T10,T20,T24
   dtlt-7-st-processing-skill-acq-parity: ready-for-dev      # T27
   dtlt-8-resources-multi-acquisition: ready-for-dev         # T26

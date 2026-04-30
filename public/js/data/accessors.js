@@ -158,6 +158,19 @@ export function pacts(c) {
   return (c.powers || []).filter(p => p.category === 'pact');
 }
 
+// ── Rite cost ──
+
+export function riteCost(rite) {
+  const tradition = rite.tradition || rite.parent || '';
+  const level = rite.level || rite.rank || 1;
+  if (tradition === 'Theban') return { vitae: 0, wp: 1, label: '1 WP' };
+  if (tradition === 'Cruac') {
+    const vitae = level >= 4 ? 2 : 1;
+    return { vitae, wp: 0, label: vitae + ' V' };
+  }
+  return { vitae: 0, wp: 0, label: '' };
+}
+
 // ── Derived stats ──
 
 export function calcSize(c) {

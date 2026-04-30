@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, skNineAgain } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -548,7 +548,7 @@ function collectResponses() {
         const valEl  = row.querySelector(`#dt-sorcery_${n}_targets_${ti}_value`);
         const type = typeEl ? typeEl.value : '';
         const value = valEl ? (valEl.value || '').trim() : '';
-        if (type && value) arr.push({ type, value });
+        if (type) arr.push({ type, value });
       });
       responses[`sorcery_${n}_targets`] = arr;
     } else {
@@ -3826,7 +3826,8 @@ function renderSorcerySection(saved) {
     if (rite) {
       h += '<div class="dt-sorcery-details">';
       h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Tradition/Level:</span> ${esc(rite.tradition)} ${rite.level}</div>`;
-      if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
+      const costLabel = riteCost(rite).label;
+      if (costLabel) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Cost:</span> ${esc(costLabel)}</div>`;
       if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
       // DTFP-6: structured multi-target picker. Persisted shape is an array of
@@ -5725,9 +5726,7 @@ function renderQuestion(q, value) {
           const riteName = allResp[`sorcery_${sn}_rite`];
           if (riteName) {
             const rite = rites.find(r => r.name === riteName);
-            if (rite && rite.tradition === 'Cruac') {
-              riteVitaeCost += (rite.level || 0) >= 4 ? 2 : 1;
-            }
+            if (rite) riteVitaeCost += riteCost(rite).vitae;
           }
         }
         // Mandragora Garden — effective dots across all bonus channels

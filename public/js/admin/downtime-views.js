@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -8066,7 +8066,7 @@ function _computeRiteVitaeCost(sub, char) {
     const rite = resp[`sorcery_${n}_rite`];
     if (!rite) continue;
     const level = _getRiteLevel(rite) || 0;
-    total += level >= 4 ? 2 : level >= 1 ? 1 : 0;
+    if (level) total += riteCost({ tradition: 'Cruac', level }).vitae;
   }
   return total;
 }
@@ -8080,7 +8080,7 @@ function _computeRiteWpCost(sub, char) {
   const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
   let total = 0;
   for (let n = 1; n <= count; n++) {
-    if (resp[`sorcery_${n}_rite`]) total++;
+    if (resp[`sorcery_${n}_rite`]) total += riteCost({ tradition: 'Theban' }).wp;
   }
   return total;
 }
