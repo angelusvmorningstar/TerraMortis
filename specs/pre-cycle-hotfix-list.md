@@ -25,20 +25,20 @@ UX papercuts, contrast issues, label clarity, and tab ordering are **not** submi
 3. Each Blocker gets an owner (Angelus or Peter) and an estimated touch surface.
 4. Cycle launch only proceeds when every Blocker is shipped to `main` and every other item is Defer or out-of-scope.
 
-## Items raised by Yusuf, 2026-04-30 Discord
+## Items raised by Peter, 2026-04-30 Discord
 
 | # | Issue | Source | Classification |
 |---|---|---|---|
-| 1 | Hysteresis bug: territory residency markers vanish after button interaction | Yusuf (DT feeding flow) | Pending triage |
-| 2 | Support Assets > Allies click dismisses panel and reverts to Solo | Yusuf (DT support flow) | Pending triage |
-| 3 | Joint-action toggle stickiness — can't return to solo after auto-save | Yusuf (DT joint-action flow) | Pending triage |
-| 4 | Selecting a feeding method locks disciplines for the second feeding action (unintended) | Yusuf (DT feeding flow) | Pending triage |
-| 5 | Rote feed copy says "must use same territory type as main feed; Barrens locks both" — wrong per current rule | Yusuf (DT feeding copy) | Pending triage |
-| 6 | Contacts dots not rendering on character sheet | Yusuf (sheet renderer) | Pending triage |
-| 7 | XP calc misbehaving on a sheet (specifics to confirm) | Yusuf (XP derivation) | Pending triage |
-| 8 | Player-selection chips have poor contrast on standout-moments selection | Yusuf (already flagged before round) | Pending triage |
-| 9 | Action tabs scroll off-screen by the time players reach the bottom — silent missed-action risk | Yusuf (DT action tabs) | Pending triage |
-| 10 | Feeding Rights tab order — currently after Territory Influence, logically should be before | Yusuf (DT tab order) | Pending triage |
+| 1 | Hysteresis bug: territory residency markers vanish after button interaction | Peter (DT feeding flow) | Pending triage |
+| 2 | Support Assets > Allies click dismisses panel and reverts to Solo | Peter (DT support flow) | Pending triage |
+| 3 | Joint-action toggle stickiness — can't return to solo after auto-save | Peter (DT joint-action flow) | Pending triage |
+| 4 | Selecting a feeding method locks disciplines for the second feeding action (unintended) | Peter (DT feeding flow) | Pending triage |
+| 5 | Rote feed copy says "must use same territory type as main feed; Barrens locks both" — wrong per current rule | Peter (DT feeding copy) | Pending triage |
+| 6 | Contacts dots not rendering on character sheet | Peter (sheet renderer) | Pending triage |
+| 7 | XP calc misbehaving on a sheet (specifics to confirm) | Peter (XP derivation) | Pending triage |
+| 8 | Player-selection chips have poor contrast on standout-moments selection | Peter (already flagged before round) | Pending triage |
+| 9 | Action tabs scroll off-screen by the time players reach the bottom — silent missed-action risk | Peter (DT action tabs) | Pending triage |
+| 10 | Feeding Rights tab order — currently after Territory Influence, logically should be before | Peter (DT tab order) | Pending triage |
 
 ## Possible blockers — require investigation
 
