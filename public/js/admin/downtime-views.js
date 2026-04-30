@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -2228,27 +2228,23 @@ function renderPrepPanel(cycle) {
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
-  // Active players — those with at least one non-retired linked character
-  const activePlayers = (players || [])
-    .filter(p => {
-      const charIds = (p.character_ids || []).map(String);
-      return characters.some(c => !c.retired && charIds.includes(String(c._id)));
-    })
-    .sort((a, b) => (a.player_name || a.username || '').localeCompare(b.player_name || b.username || ''));
+  // Active (non-retired) characters, sorted by display name
+  const activeChars = (characters || [])
+    .filter(c => !c.retired)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  const toggleHtml = activePlayers.map(p => {
-    const id = String(p._id);
+  const toggleHtml = activeChars.map(c => {
+    const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
-    const name = esc(p.player_name || p.username || id);
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${name}</span>
+      <span class="dt-early-name">${esc(displayName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
 
-  const earlyContent = activePlayers.length
+  const earlyContent = activeChars.length
     ? toggleHtml
-    : `<p class="placeholder">No active players.</p>`;
+    : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
     `<div class="dt-prep-grid">` +
@@ -2773,6 +2769,12 @@ function buildProcessingQueue(subs) {
       });
     }
     if (skillAcq) {
+      const _skAcqChar = findCharacter(sub.character_name, sub.player_name);
+      const _skPoolPlayer = _skAcqChar ? skillAcqPoolStr(_skAcqChar, {
+        attr: resp.skill_acq_pool_attr || '',
+        skill: resp.skill_acq_pool_skill || '',
+        spec: resp.skill_acq_pool_spec || '',
+      }) : '';
       queue.push({
         key: `${sub._id}:acq:skills`,
         subId: sub._id,
@@ -2785,7 +2787,7 @@ function buildProcessingQueue(subs) {
         acqNotes: skillAcq,
         source: 'acquisition',
         actionIdx: 1,
-        poolPlayer: '',
+        poolPlayer: _skPoolPlayer,
       });
     }
 
@@ -7814,11 +7816,23 @@ function renderActionPanel(entry, review) {
     h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target\u2026">${esc(resultNote)}</textarea>`;
     h += '</div>';
   } else if (entry.source === 'acquisition') {
-    // Acquisitions: show full player-submitted text, no pool needed
+    // Acquisitions: Resources has no roll (notes only). Skill has a roll — show 2-column pool layout.
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Player Notes</div>';
     h += `<div class="proc-acq-notes">${esc(entry.acqNotes || entry.description).replace(/\n/g, '<br>')}</div>`;
     h += '</div>';
+    if (entry.actionType === 'skill_acquisitions') {
+      h += '<div class="proc-detail-grid">';
+      h += '<div class="proc-detail-col">';
+      h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+      h += `<div class="proc-detail-value">${esc(poolPlayer || '—')}</div>`;
+      h += '</div>';
+      h += '<div class="proc-detail-col">';
+      h += `<div class="proc-detail-label">ST Validated Pool</div>`;
+      h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+      h += '</div>';
+      h += '</div>';
+    }
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
     h += '<div class="proc-detail-grid">';
@@ -8070,7 +8084,7 @@ function _computeRiteVitaeCost(sub, char) {
     const rite = resp[`sorcery_${n}_rite`];
     if (!rite) continue;
     const level = _getRiteLevel(rite) || 0;
-    total += level >= 4 ? 2 : level >= 1 ? 1 : 0;
+    if (level) total += riteCost({ tradition: 'Cruac', level }).vitae;
   }
   return total;
 }
@@ -8084,7 +8098,7 @@ function _computeRiteWpCost(sub, char) {
   const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
   let total = 0;
   for (let n = 1; n <= count; n++) {
-    if (resp[`sorcery_${n}_rite`]) total++;
+    if (resp[`sorcery_${n}_rite`]) total += riteCost({ tradition: 'Theban' }).wp;
   }
   return total;
 }

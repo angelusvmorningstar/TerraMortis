@@ -3,6 +3,7 @@ title: 'Oath of the Hard Motherfucker migration — multi-target grants and 9-Ag
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — four distinct grant effects + pact lifecycle + auto-create / auto-remove of FHP merit'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

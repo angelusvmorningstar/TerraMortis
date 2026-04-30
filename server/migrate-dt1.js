@@ -143,7 +143,7 @@ function mapSubmission(raw, cycleOid) {
 }
 
 async function main() {
-  const srcPath = join(__dirname, '../TM_downtime1_submissions.json');
+  const srcPath = join(__dirname, '../st-working/downtime/dt1/TM_downtime1_submissions.json');
   if (!fs.existsSync(srcPath)) {
     console.error('Source file not found:', srcPath);
     process.exit(1);

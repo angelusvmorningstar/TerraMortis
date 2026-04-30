@@ -1845,6 +1845,21 @@ details[open] > .dt-history-summary::before { content: '▾'; }
 .dt-history-status { font-family: var(--ft); font-size: 11px; color: var(--accent); background: var(--accent-a8); border: 1px solid var(--accent-a25); border-radius: 4px; padding: 2px 6px; }
 .dt-history-body { padding: 16px; border-top: 1px solid var(--bdr); }
 
+/* ── Raw submission toggle (FEAT-7) ── */
+.raw-toggle-row { margin-bottom: 12px; }
+.raw-toggle-btn { background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt2); cursor: pointer; font-family: var(--ft); font-size: 11px; padding: 4px 10px; }
+.raw-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.raw-submission { background: var(--surf2, #161412); border: 1px solid var(--bdr); border-radius: 6px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.raw-banner { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); border-bottom: 1px solid var(--bdr); padding-bottom: 8px; }
+.raw-section { display: flex; flex-direction: column; gap: 5px; }
+.raw-section-head { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
+.raw-field { font-size: 13px; color: var(--txt); line-height: 1.5; }
+.raw-lbl { color: var(--txt2); font-size: 12px; margin-right: 4px; }
+.raw-project { padding: 6px 10px; background: var(--surf, #1a1814); border-radius: 4px; display: flex; flex-direction: column; gap: 3px; }
+.raw-proj-title { font-family: var(--fl); font-size: 12px; color: var(--txt); font-weight: 600; }
+.raw-narrative { font-style: italic; color: var(--txt2); margin-top: 2px; }
+.raw-empty { font-size: 13px; color: var(--txt3); font-style: italic; }
+
 /* ── Desktop mode (nav-desktop-mode — revised) ── */
 
 /* #app stays flex-column always; header hidden in desktop mode */

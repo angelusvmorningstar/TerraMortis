@@ -1,6 +1,9 @@
 /* v2 schema accessor functions — shared between Editor and Suite */
 
 import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
+import { getRulesCache } from '../editor/rule_engine/load-rules.js';
+import { hasAoE } from './helpers.js';
+export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
 
@@ -22,19 +25,37 @@ export function isInClanDisc(c, discName) {
   return false;
 }
 
-// ── Physical discipline → attribute mapping (VtR 2e) ──
-// Vigour adds to Strength, Resilience adds to Stamina.
-// Celerity does NOT add to Dexterity — it adds to Defence and Speed directly.
-const DISC_ATTR_MAP = { Strength: 'Vigour', Stamina: 'Resilience' };
+// ── Physical discipline → attribute / derived-stat mapping ──
+// Rules sourced from rule_disc_attr collection (seeded by seed-rules-disc-attr.js).
+// TM house rule: Celerity adds to Speed + Defence only — NOT Dexterity.
+// Legacy fallback (cache not loaded): Vigour→Strength, Resilience→Stamina only.
 
 /**
  * Discipline bonus for a physical attribute.
- * Returns the discipline dots if the character has Celerity/Vigour/Resilience, else 0.
+ * Reads from rule_disc_attr where target_kind='attribute'.
+ * Falls back to hardcoded map when rules are not loaded.
  */
 export function discAttrBonus(c, attr) {
-  const disc = DISC_ATTR_MAP[attr];
-  if (!disc) return 0;
-  return c.disciplines?.[disc]?.dots || 0;
+  const cache = getRulesCache();
+  if (!cache?.rule_disc_attr) {
+    const LEGACY = { Strength: 'Vigour', Stamina: 'Resilience' };
+    const disc = LEGACY[attr];
+    return disc ? (c.disciplines?.[disc]?.dots || 0) : 0;
+  }
+  const rule = cache.rule_disc_attr.find(r => r.target_kind === 'attribute' && r.target_name === attr);
+  if (!rule) return 0;
+  return c.disciplines?.[rule.discipline]?.dots || 0;
+}
+
+/** Discipline bonus for a derived stat (Speed, Defence). Reads from rule_disc_attr. */
+function _discDerivedBonus(c, derivedStat) {
+  const cache = getRulesCache();
+  if (!cache?.rule_disc_attr) {
+    return c.disciplines?.Celerity?.dots || 0;
+  }
+  return cache.rule_disc_attr
+    .filter(r => r.target_kind === 'derived_stat' && r.target_name === derivedStat)
+    .reduce((sum, rule) => sum + (c.disciplines?.[rule.discipline]?.dots || 0), 0);
 }
 
 // ── Attributes ──
@@ -138,30 +159,99 @@ export function pacts(c) {
   return (c.powers || []).filter(p => p.category === 'pact');
 }
 
+// ── Rite cost + skill acquisition pool string ──
+
+export function riteCost(rite) {
+  const tradition = rite.tradition || rite.parent || '';
+  const level = rite.level || rite.rank || 1;
+  if (tradition === 'Theban') return { vitae: 0, wp: 1, label: '1 WP' };
+  if (tradition === 'Cruac') {
+    const vitae = level >= 4 ? 2 : 1;
+    return { vitae, wp: 0, label: vitae + ' V' };
+  }
+  return { vitae: 0, wp: 0, label: '' };
+}
+
+/** Build a human-readable pool expression for a skill acquisition.
+ *  Used by the player form's legacy blob and the ST queue construction. */
+export function skillAcqPoolStr(c, { attr = '', skill = '', spec = '' } = {}) {
+  if (!attr && !skill) return '';
+  const parts = [];
+  let total = 0;
+  if (attr) {
+    const v = getAttrEffective(c, attr);
+    parts.push(`${attr} ${v}`);
+    total += v;
+  }
+  if (skill) {
+    const v = skTotal(c, skill);
+    parts.push(`${skill} ${v}`);
+    total += v;
+  }
+  if (spec && skill) {
+    const skillSpecs = c.skills?.[skill]?.specs || [];
+    if (skillSpecs.includes(spec)) {
+      const bonus = (skNineAgain(c, skill) || hasAoE(c, spec)) ? 2 : 1;
+      parts.push(spec);
+      total += bonus;
+    }
+  }
+  return parts.length ? `${parts.join(' + ')} — ${total}` : '';
+}
+
 // ── Derived stats ──
 
 export function calcSize(c) {
-  const giant = (c.merits || []).find(m => m.name === 'Giant');
-  return 5 + (giant ? 1 : 0);
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  if (!rules) {
+    const giant = (c.merits || []).find(m => m.name === 'Giant');
+    return 5 + (giant ? 1 : 0);
+  }
+  return 5 + _derivedStatModBonus(c, 'size', rules);
 }
 
 export function calcSpeed(c) {
   const str = getAttrEffective(c, 'Strength');
   const dex = getAttrTotal(c, 'Dexterity');
   const sz = calcSize(c);
-  const celerity = c.disciplines?.Celerity?.dots || 0;
-  const fleet = (c.merits || []).find(m => m.name === 'Fleet of Foot');
-  return str + dex + sz + celerity + (fleet ? fleet.rating : 0);
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  const bonus = rules
+    ? _derivedStatModBonus(c, 'speed', rules)
+    : ((c.merits || []).find(m => m.name === 'Fleet of Foot')?.rating || 0);
+  return str + dex + sz + _discDerivedBonus(c, 'Speed') + bonus;
 }
 
 export function calcDefence(c) {
   const dex = getAttrTotal(c, 'Dexterity');
   const wits = getAttrVal(c, 'Wits');
-  const celerity = c.disciplines?.Celerity?.dots || 0;
   const base = Math.min(dex, wits);
-  const dc = (c.merits || []).find(m => m.name === 'Defensive Combat');
-  const skill = dc ? skDots(c, dc.qualifier || 'Athletics') : skDots(c, 'Athletics');
-  return base + skill + celerity;
+  const rules = getRulesCache()?.rule_derived_stat_modifier;
+  const skill = rules
+    ? _getDefenceSkill(c, rules)
+    : (() => { const dc = (c.merits || []).find(m => m.name === 'Defensive Combat'); return dc ? skDots(c, dc.qualifier || 'Athletics') : skDots(c, 'Athletics'); })();
+  return base + skill + _discDerivedBonus(c, 'Defence');
+}
+
+/** Sum flat and rating bonuses from derived_stat_modifier rules for a target stat. */
+function _derivedStatModBonus(c, targetStat, rules) {
+  return rules
+    .filter(r => r.target_stat === targetStat && r.mode !== 'skill_swap')
+    .reduce((sum, rule) => {
+      const merit = (c.merits || []).find(m => m.name === rule.source);
+      if (!merit) return sum;
+      if (rule.mode === 'flat') return sum + (rule.flat_amount || 0);
+      if (rule.mode === 'rating') return sum + (merit.rating || 0);
+      return sum;
+    }, 0);
+}
+
+/** Determine the skill dots for the Defence formula, respecting any skill_swap rules. */
+function _getDefenceSkill(c, rules) {
+  const swapRule = rules.find(r => r.target_stat === 'defence' && r.mode === 'skill_swap');
+  if (!swapRule) return skDots(c, 'Athletics');
+  const merit = (c.merits || []).find(m => m.name === swapRule.source);
+  if (!merit) return skDots(c, swapRule.swap_from || 'Athletics');
+  return skDots(c, merit.qualifier || swapRule.swap_to || swapRule.swap_from || 'Athletics');
 }
 
 export function calcHealth(c) {

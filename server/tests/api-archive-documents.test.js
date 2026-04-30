@@ -14,6 +14,7 @@ import { ObjectId } from 'mongodb';
 let app;
 let testCharId;
 let otherCharId;
+let cleanCharId;
 const insertedIds = [];
 
 beforeAll(async () => {
@@ -22,10 +23,11 @@ beforeAll(async () => {
 
   const chars = await getCollection('characters')
     .find({ retired: { $ne: true } }, { projection: { _id: 1 } })
-    .limit(2)
+    .limit(3)
     .toArray();
   testCharId  = chars[0]._id;
   otherCharId = chars[1]._id;
+  cleanCharId = chars[2]._id;
 
   // Seed two archive documents
   const col = getCollection('archive_documents');
@@ -159,6 +161,81 @@ describe('GET /api/archive_documents/:id', () => {
     const res = await request(app)
       .get('/api/archive_documents/not-an-id')
       .set('X-Test-User', stUser());
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── POST / ────────────────────────────────────────────────────────────────────
+
+describe('POST /api/archive_documents', () => {
+  const createdIds = [];
+
+  afterAll(async () => {
+    if (createdIds.length) {
+      await getCollection('archive_documents').deleteMany({ _id: { $in: createdIds } });
+    }
+  });
+
+  it('ST creates a blank dossier', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ character_id: cleanCharId.toString(), type: 'dossier', title: 'Test New Dossier' });
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe('dossier');
+    expect(res.body.content_html).toBe('');
+    createdIds.push(new ObjectId(res.body._id));
+  });
+
+  it('ST creates a blank history_submission', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ character_id: cleanCharId.toString(), type: 'history_submission' });
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe('history_submission');
+    expect(res.body.title).toBe('Character History');
+    createdIds.push(new ObjectId(res.body._id));
+  });
+
+  it('409 when creating a duplicate dossier for same character', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ character_id: cleanCharId.toString(), type: 'dossier', title: 'Duplicate Dossier' });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/already has a dossier/);
+  });
+
+  it('player gets 403', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', playerUser([cleanCharId.toString()]))
+      .send({ character_id: cleanCharId.toString(), type: 'history_submission' });
+    expect(res.status).toBe(403);
+  });
+
+  it('400 on missing type', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ character_id: cleanCharId.toString() });
+    expect(res.status).toBe(400);
+  });
+
+  it('400 on missing character_id for non-primer', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ type: 'dossier' });
+    expect(res.status).toBe(400);
+  });
+
+  it('400 on invalid character_id', async () => {
+    const res = await request(app)
+      .post('/api/archive_documents')
+      .set('X-Test-User', stUser())
+      .send({ character_id: 'bad-id', type: 'dossier' });
     expect(res.status).toBe(400);
   });
 });

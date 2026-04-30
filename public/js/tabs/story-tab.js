@@ -45,12 +45,16 @@ export async function renderLatestReport(el, char) {
   }
 
   const cycleMap = {};
-  for (const c of cycles) cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+  for (const c of cycles) cycleMap[String(c._id)] = c;
 
   const charId = String(char._id);
   const published = subs
     .filter(s => String(s.character_id) === charId && s.published_outcome)
-    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+    .sort((a, b) => {
+      const ga = cycleMap[String(a.cycle_id)]?.game_number ?? 0;
+      const gb = cycleMap[String(b.cycle_id)]?.game_number ?? 0;
+      return gb - ga;
+    });
 
   if (!published.length) {
     el.innerHTML = '<p class="placeholder-msg">No published downtime narratives yet.</p>';
@@ -58,7 +62,7 @@ export async function renderLatestReport(el, char) {
   }
 
   const sub = published[0];
-  const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+  const cycleLabel = cycleMap[String(sub.cycle_id)]?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
   let h = '<div class="story-feed">';
   h += `<div class="story-entry">`;
   h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
@@ -169,14 +173,18 @@ function renderChronicle(subs, cycles, char) {
   const cycleMap = {};
   const cycleStatusMap = {};
   for (const c of cycles) {
-    cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+    cycleMap[String(c._id)] = c;
     cycleStatusMap[String(c._id)] = c.status || '';
   }
 
   const charId = String(char._id);
   const published = subs
     .filter(s => String(s.character_id) === charId && s.published_outcome)
-    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+    .sort((a, b) => {
+      const ga = cycleMap[String(a.cycle_id)]?.game_number ?? 0;
+      const gb = cycleMap[String(b.cycle_id)]?.game_number ?? 0;
+      return gb - ga;
+    });
 
   if (!published.length) {
     return '<p class="placeholder-msg story-placeholder">No published downtime narratives yet.</p>';
@@ -185,7 +193,7 @@ function renderChronicle(subs, cycles, char) {
   const isST = isSTRole();
   let h = '<div class="story-feed">';
   for (const sub of published) {
-    const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+    const cycleLabel = cycleMap[String(sub.cycle_id)]?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
     const cycleStatus = cycleStatusMap[String(sub.cycle_id)] || '';
     // DTSR-4: ST inline edit gated to historical cycles (closed/complete only).
     const editable = isST && (cycleStatus === 'closed' || cycleStatus === 'complete');
@@ -542,7 +550,7 @@ function renderMeritSummarySection(sub) {
     const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
     groups[cat].push({
       meritLabel,
-      actionLabel: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '',
+      actionLabel: cat === 'contacts' ? '' : (ACTION_TYPE_LABELS[a.action_type] || a.action_type || ''),
       summary,
     });
   });
@@ -647,7 +655,7 @@ function renderMeritActionCards(sub) {
   for (const { a, rev } of cards) {
     // Strip dot characters from stored label: "Allies ●●● (Finance)" → "Allies (Finance)"
     const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
-    const actionLabel = ACTION_TYPE_LABELS[a.action_type] || a.action_type || '';
+    const actionLabel = _deriveMeritCat(a.merit_type) === 'contacts' ? '' : (ACTION_TYPE_LABELS[a.action_type] || a.action_type || '');
 
     h += '<div class="proj-card">';
     h += '<div class="proj-card-header">';

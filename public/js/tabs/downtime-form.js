@@ -14,9 +14,9 @@ import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
-import { calcVitaeMax } from '../data/accessors.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -252,28 +252,10 @@ function getInfluenceBudget() {
 }
 
 /**
- * Effective rating for a merit instance. Reads m.rating (which the editor
- * keeps as the comprehensive sum of cp + free_* + xp), then layers on the
- * dynamic bonuses that aren't baked into rating: SSJ + Flock for Herd, and
- * partner pool for shared domain merits.
- */
-function effectiveMeritRating(c, m) {
-  if (!c || !m) return 0;
-  // Shared domain merits: domMeritTotal already pulls in partners + SSJ/Flock
-  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
-    return domMeritTotal(c, m.name);
-  }
-  let total = m.rating || 0;
-  if (m.name === 'Herd') {
-    total += ssjHerdBonus(c) + flockHerdBonus(c);
-  }
-  return total;
-}
-
 /** Convenience: effective rating for a domain merit by name (looks up the instance). */
 function effectiveDomainDots(c, name) {
   const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
-  return effectiveMeritRating(c, m);
+  return meritEffectiveRating(c, m);
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
@@ -453,9 +435,11 @@ function collectResponses() {
       const attrEl = document.getElementById(`dt-${prefix}_attr`);
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
       const discEl = document.getElementById(`dt-${prefix}_disc`);
+      const specEl = document.getElementById(`dt-${prefix}_spec`);
       responses[`${prefix}_attr`] = attrEl ? attrEl.value : '';
       responses[`${prefix}_skill`] = skillEl ? skillEl.value : '';
       responses[`${prefix}_disc`] = discEl ? discEl.value : '';
+      responses[`${prefix}_spec`] = specEl ? specEl.value : '';
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
@@ -564,7 +548,7 @@ function collectResponses() {
         const valEl  = row.querySelector(`#dt-sorcery_${n}_targets_${ti}_value`);
         const type = typeEl ? typeEl.value : '';
         const value = valEl ? (valEl.value || '').trim() : '';
-        if (type && value) arr.push({ type, value });
+        if (type) arr.push({ type, value });
       });
       responses[`sorcery_${n}_targets`] = arr;
     } else {
@@ -665,25 +649,46 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (custom render)
-  const acqDescEl = document.getElementById('dt-acq_description');
-  responses['acq_description'] = acqDescEl ? acqDescEl.value : '';
-  const acqAvailEl = document.getElementById('dt-acq_availability');
-  responses['acq_availability'] = acqAvailEl ? acqAvailEl.value : '';
-  // Acquisition merits
-  const acqMeritCbs = document.querySelectorAll('[data-acq-merit-cb]:checked');
-  const acqMeritKeys = [];
-  acqMeritCbs.forEach(cb => acqMeritKeys.push(cb.value));
-  responses['acq_merits'] = JSON.stringify(acqMeritKeys);
-  // Backwards compat: combined into old key
+  // Acquisition fields (multi-slot, per-slot keys)
+  const acqCountEl = document.getElementById('dt-acq-slot-count');
+  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
+  responses['acq_slot_count'] = String(acqSlotCount);
+  const acqSlots = [];
+  for (let n = 1; n <= acqSlotCount; n++) {
+    const descEl = document.getElementById(`dt-acq_${n}_description`);
+    const availEl = document.getElementById(`dt-acq_${n}_availability`);
+    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
+    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
+    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
+    const keys = [];
+    cbs.forEach(cb => keys.push(cb.value));
+    responses[`acq_${n}_merits`] = JSON.stringify(keys);
+    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  }
+  // Legacy keys: slot 1 mirror
+  responses['acq_description']  = responses['acq_1_description']  || '';
+  responses['acq_availability'] = responses['acq_1_availability'] || '';
+  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
+  // Composite blob: all slots
   const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(currentChar, resourcesM);
-  responses['resources_acquisitions'] = [
-    resourcesRating ? `Resources ${resourcesRating}` : '',
-    acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
-    responses['acq_description'],
-    responses['acq_availability'] ? `Availability: ${responses['acq_availability'] === 'unknown' ? 'Unknown' : responses['acq_availability'] + '/5'}` : '',
-  ].filter(Boolean).join('\n');
+  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
+  const blobLines = [];
+  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
+  if (acqSlotCount === 1) {
+    const s = acqSlots[0];
+    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   blobLines.push(s.description);
+    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else {
+    acqSlots.forEach((s, i) => {
+      blobLines.push('');
+      blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   blobLines.push(s.description);
+      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+    });
+  }
+  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
 
   // Skill acquisition fields
   const skDescEl = document.getElementById('dt-skill_acq_description');
@@ -700,8 +705,19 @@ function collectResponses() {
   const skAcqMeritKeys = [];
   skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
   responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat
-  responses['skill_acquisitions'] = responses['skill_acq_description'];
+  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  const _skPoolStr = skillAcqPoolStr(currentChar, {
+    attr: responses['skill_acq_pool_attr'],
+    skill: responses['skill_acq_pool_skill'],
+    spec: responses['skill_acq_pool_spec'],
+  });
+  responses['skill_acquisitions'] = [
+    responses['skill_acq_description'],
+    _skPoolStr ? `Pool: ${_skPoolStr}` : '',
+    responses['skill_acq_availability']
+      ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
+      : '',
+  ].filter(Boolean).join('\n');
 
   // Collect equipment slots
   const equipCountEl = document.getElementById('dt-equipment-slot-count');
@@ -1723,7 +1739,9 @@ function renderForm(container) {
     const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
     if (acqUnknown) {
       const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = 'unknown';
       const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -1741,7 +1759,9 @@ function renderForm(container) {
     if (acqDot) {
       const isSkill = !!acqDot.dataset.skillAcqDot;
       const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = val;
       const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -1985,6 +2005,40 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Single/Dual roll toggle — show or hide the secondary dice pool
+    const poolCountRadio = e.target.closest('[data-project-pool-count]');
+    if (poolCountRadio) {
+      const slot = poolCountRadio.dataset.projectPoolCount;
+      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
+      if (wrap) {
+        if (poolCountRadio.value === 'dual') {
+          wrap.removeAttribute('hidden');
+        } else {
+          wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
+    // Solo / Support Assets toggle — show or hide the Allies/Retainers picker
+    const supportAssetsRadio = e.target.closest('[data-project-support-assets]');
+    if (supportAssetsRadio) {
+      const slot = supportAssetsRadio.dataset.projectSupportAssets;
+      const wrap = container.querySelector(`[data-support-assets-wrap="${slot}"]`);
+      if (wrap) {
+        if (supportAssetsRadio.value === 'support') {
+          wrap.removeAttribute('hidden');
+        } else {
+          // Reuse the existing chip-click handler to deselect each chip
+          // cleanly — keeps sphere_${i}_action and joint_sphere_chips in sync.
+          wrap.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected').forEach(chip => chip.click());
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
     // Sphere action change — re-render for action-specific fields
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
@@ -2041,6 +2095,19 @@ function renderForm(container) {
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
       updatePoolTotal(poolSelect.dataset.poolPrefix);
+    }
+    // Project dice pool spec chip — toggle selection and re-render
+    const poolSpecChip = e.target.closest('[data-pool-spec]');
+    if (poolSpecChip) {
+      const prefix = poolSpecChip.dataset.poolSpec;
+      const specName = poolSpecChip.dataset.specName;
+      const hidden = document.getElementById(`dt-${prefix}_spec`);
+      if (hidden) hidden.value = hidden.value === specName ? '' : specName;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
     }
     // XP category/item change — collect current state and re-render
     const xpCat = e.target.closest('[data-xp-cat]');
@@ -2120,29 +2187,6 @@ function renderForm(container) {
     if (roteBtn) {
       feedRoteAction = roteBtn.dataset.feedRote === 'on';
       applyRoteToProjectSlot(container);
-      return;
-    }
-    // Secondary dice pool toggle — reveals the optional pool2 inputs
-    const secondaryBtn = e.target.closest('[data-secondary-toggle]');
-    if (secondaryBtn) {
-      const slot = secondaryBtn.dataset.secondaryToggle;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) wrap.removeAttribute('hidden');
-      secondaryBtn.setAttribute('hidden', '');
-      return;
-    }
-    // Secondary dice pool clear — wipes pool2 selects and re-hides
-    const secondaryClearBtn = e.target.closest('[data-secondary-clear]');
-    if (secondaryClearBtn) {
-      const slot = secondaryClearBtn.dataset.secondaryClear;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) {
-        wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-        wrap.setAttribute('hidden', '');
-      }
-      const toggleBtn = container.querySelector(`[data-secondary-toggle="${slot}"]`);
-      if (toggleBtn) toggleBtn.removeAttribute('hidden');
-      scheduleSave();
       return;
     }
     // DTFP-5: Kiss / Violent toggle
@@ -2314,7 +2358,11 @@ function renderForm(container) {
         .filter(el => el.classList.contains('dt-chip--selected'))
         .map(el => el.dataset.sphereKey);
       saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
-      scheduleSave();
+      // T24 (DTLT-6): re-render so the sphere pane lock badge appears immediately
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       return;
     }
     // Single-select territory pills
@@ -2490,6 +2538,38 @@ function renderForm(container) {
       delete responses[`sorcery_${current}_mandragora`];
       delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Add Acquisition button
+    if (e.target.closest('#dt-add-acquisition')) {
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      responses['acq_slot_count'] = String(current + 1);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Remove Acquisition button
+    const removeAcqBtn = e.target.closest('[data-remove-acq]');
+    if (removeAcqBtn) {
+      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      for (let n = removeN; n < current; n++) {
+        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
+        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
+        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
+      }
+      delete responses[`acq_${current}_description`];
+      delete responses[`acq_${current}_availability`];
+      delete responses[`acq_${current}_merits`];
+      responses['acq_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
@@ -2843,8 +2923,15 @@ function renderProjectSlots(saved) {
   h += '<div class="dt-proj-tabs">';
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
-    const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
-    const label = ACTION_SHORT[actionVal] || 'No Action';
+    let icon, label;
+    if (actionVal === 'ambience_change') {
+      const dir = saved[`project_${n}_ambience_dir`] || 'improve';
+      icon = dir === 'improve' ? '▲' : '▼';
+      label = dir === 'improve' ? 'Ambience +' : 'Ambience −';
+    } else {
+      icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+      label = ACTION_SHORT[actionVal] || 'No Action';
+    }
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
     // JDT-4: Joint badge on the tab when this slot has a joint role.
@@ -3172,6 +3259,30 @@ function renderProjectSlots(saved) {
       if (isJoint) {
         h += renderJointAuthoring(n, saved, existingJoint);
       }
+
+      // Support Assets toggle — gates the Allies/Retainers picker so it
+      // doesn't read as required. Auto-defaults to "Support Assets" if any
+      // chips were saved previously, so returning players see their picks.
+      const hasAssetMerits = (detectedMerits.spheres?.length || 0) + (detectedMerits.retainers?.length || 0) > 0;
+      if (hasAssetMerits) {
+        const savedChips = saved[`project_${n}_joint_sphere_chips`];
+        const isSupport = !!(savedChips && savedChips !== '[]');
+        h += `<fieldset class="dt-ticker" data-proj-support-assets-ticker="${n}">`;
+        h += `<legend class="dt-ticker__legend">Support</legend>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="solo"${!isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Solo</label>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="support"${isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Support Assets</label>`;
+        h += `</fieldset>`;
+        h += `<div class="dt-support-assets-panel" data-support-assets-wrap="${n}"${isSupport ? '' : ' hidden'}>`;
+        h += `<h4 class="dt-joint-panel__heading">Your Allies and Retainers</h4>`;
+        h += `<div class="dt-chip-grid dt-chip-grid--multi">`;
+        h += renderJointSphereChips(n, saved);
+        h += `</div>`;
+        h += `</div>`;
+      }
     }
 
     h += '</div>'; // dt-action-block
@@ -3187,7 +3298,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const prefix = `project_${slotNum}_${poolKey}`;
   const savedAttr  = saved[`${prefix}_attr`]  || '';
   const savedSkill = saved[`${prefix}_skill`] || '';
-  const savedDisc = saved[`${prefix}_disc`] || '';
+  const savedDisc  = saved[`${prefix}_disc`]  || '';
+  const savedSpec  = saved[`${prefix}_spec`]  || '';
+  const bestSpecs  = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
 
   // Calculate total from saved selections
   let total = 0;
@@ -3196,11 +3309,14 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
     if (a) total += (a.dots || 0) + (a.bonus || 0);
   }
   if (savedSkill) {
-    const s = currentChar.skills?.[savedSkill];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
+    total += skTotal(currentChar, savedSkill);
   }
   if (savedDisc) {
     total += currentChar.disciplines?.[savedDisc]?.dots || 0;
+  }
+  if (savedSpec && bestSpecs.includes(savedSpec)) {
+    const na = skNineAgain(currentChar, savedSkill);
+    total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
   }
 
   let h = '<div class="qf-field">';
@@ -3222,9 +3338,8 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_skill" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Skill</option>';
   for (const s of skills) {
-    const v = currentChar.skills[s];
-    const dots = (v.dots || 0) + (v.bonus || 0);
-    const specs = v.specs?.length ? ` [${v.specs.join(', ')}]` : '';
+    const dots = skTotal(currentChar, s);
+    const specs = currentChar.skills?.[s]?.specs?.length ? ` [${currentChar.skills[s].specs.join(', ')}]` : '';
     const sel = savedSkill === s ? ' selected' : '';
     h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})${esc(specs)}</option>`;
   }
@@ -3242,7 +3357,23 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
 
   // Total
   h += `<span class="dt-pool-total" id="${prefix}_total">${total || '—'}</span>`;
-  h += '</div></div>';
+  h += '</div>';
+
+  // Spec chip row
+  h += `<input type="hidden" id="dt-${prefix}_spec" value="${esc(savedSpec)}">`;
+  if (savedSkill && bestSpecs.length > 0) {
+    h += '<div class="dt-feed-spec-row">';
+    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+    for (const sp of bestSpecs) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const na = skNineAgain(currentChar, savedSkill);
+      const bonus = (na || hasAoE(currentChar, sp)) ? 2 : 1;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-pool-spec="${esc(prefix)}" data-spec-name="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${bonus}</span></button>`;
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
   return h;
 }
 
@@ -3267,18 +3398,24 @@ function isClanDisc(discName) {
 }
 
 /**
- * Renders the optional Secondary Dice Pool gated behind a button so players
- * don't read it as required. If the slot has any saved pool2 values, the
- * pool renders directly (no button). Otherwise, an "+ Add secondary dice
- * pool" button reveals the pool when clicked.
+ * Renders the optional Secondary Dice Pool behind a Single Roll / Dual Roll
+ * pill toggle (mirrors the Solo/Joint pattern). Defaults to Single. If the
+ * slot has any saved pool2 values, the toggle starts on Dual.
  */
 function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
-  const hasSaved = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
+  const isDual = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
   let h = '';
-  h += `<button type="button" class="dt-secondary-pool-toggle"${hasSaved ? ' hidden' : ''} data-secondary-toggle="${n}">+ Add secondary dice pool</button>`;
-  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${hasSaved ? '' : ' hidden'}>`;
+  h += `<fieldset class="dt-ticker" data-proj-pool-count-ticker="${n}">`;
+  h += `<legend class="dt-ticker__legend">Roll</legend>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="single"${!isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Single Roll</label>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="dual"${isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Dual Roll</label>`;
+  h += `</fieldset>`;
+  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${isDual ? '' : ' hidden'}>`;
   h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-  h += `<button type="button" class="dt-secondary-pool-clear" data-secondary-clear="${n}" title="Remove secondary dice pool">× Clear secondary pool</button>`;
   h += '</div>';
   return h;
 }
@@ -3323,26 +3460,34 @@ function getItemsForCategory(category) {
       return ALL_ATTRS.map(a => {
         const v = c.attributes?.[a];
         const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        if (dots >= 5) return null;
         return { value: a, label: `${a} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'skill':
       return ALL_SKILLS.map(s => {
-        const v = c.skills?.[s];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = skTotal(c, s);
+        if (dots >= 5) return null;
         return { value: s, label: `${s} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'discipline': {
-      // Character's current disciplines + all core clan discs they might learn
+      // Character's current disciplines + all core clan discs they might learn.
+      // Filter against canonical discipline names — defence-in-depth against legacy
+      // data leaks (e.g. retired themes; see specs/stories/dtlt.3.*).
       const owned = Object.keys(c.disciplines || {});
       const clanDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline])
         || (c.clan && CLAN_DISCS[c.clan]) || [];
-      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])].sort();
+      const bloodlineDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || [];
+      const validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS, ...bloodlineDiscs]);
+      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])]
+        .filter(d => validDiscs.has(d))
+        .sort();
       return all.map(d => {
         const dots = c.disciplines?.[d]?.dots || 0;
+        if (dots >= 5) return null;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
         return { value: d, label: `${d} (${dots} → ${dots + 1}) [${tag}, ${cost} XP]` };
-      });
+      }).filter(Boolean);
     }
     case 'merit': {
       const items = [];
@@ -3351,7 +3496,7 @@ function getItemsForCategory(category) {
         const found = charMerits.filter(m =>
           m.name && m.name.toLowerCase() === meritName.toLowerCase()
         );
-        return found.length ? Math.max(...found.map(m => effectiveMeritRating(c, m))) : 0;
+        return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
       }
 
       // Try rules cache first, fallback to MERITS_DB
@@ -3399,20 +3544,26 @@ function getItemsForCategory(category) {
         .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
-      // Rites they could learn at their current Cruac/Theban level
       const cruacLevel = c.disciplines?.Cruac?.dots || 0;
       const thebanLevel = c.disciplines?.Theban?.dots || 0;
+      if (cruacLevel === 0 && thebanLevel === 0) return [];
+      const ownedRiteNames = new Set(
+        (c.powers || []).filter(p => p.category === 'rite').map(p => p.name)
+      );
+      const allRites = getRulesByCategory('rite') || [];
       const items = [];
-      if (cruacLevel > 0) {
-        for (let lvl = 1; lvl <= cruacLevel; lvl++) {
-          items.push({ value: `Cruac Rite (Level ${lvl})`, label: `Cruac Rite (Level ${lvl})` });
-        }
+      for (const rule of allRites) {
+        if (ownedRiteNames.has(rule.name)) continue;
+        const tradition = rule.parent;
+        const charRank = tradition === 'Cruac' ? cruacLevel
+                       : tradition === 'Theban' ? thebanLevel
+                       : 0;
+        if (charRank === 0) continue;
+        const rank = rule.rank || 1;
+        if (rank > charRank) continue;
+        items.push({ value: rule.name, label: `${rule.name} (${tradition} Rank ${rank})` });
       }
-      if (thebanLevel > 0) {
-        for (let lvl = 1; lvl <= thebanLevel; lvl++) {
-          items.push({ value: `Theban Rite (Level ${lvl})`, label: `Theban Rite (Level ${lvl})` });
-        }
-      }
+      items.sort((a, b) => a.label.localeCompare(b.label));
       return items;
     }
     default: return [];
@@ -3536,13 +3687,13 @@ function renderPersonalStorySection(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the Relationships tab to add one, or submit without a story moment.</p>';
+  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
 
   // Picker: grouped by kind family via <optgroup>.
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Who is this moment about?</label>';
   if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the Relationships tab to create one, or submit this downtime without a story moment.</p>';
+    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
     h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
   } else {
     // Group by kind family, sort entries by other-endpoint name within family.
@@ -3726,7 +3877,7 @@ function renderSorcerySection(saved) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
       const mandDisabled = !isCruac ? ' disabled' : '';
       const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = effectiveMeritRating(currentChar, mandMerit);
+      const mandDots = meritEffectiveRating(currentChar, mandMerit);
       h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
@@ -3747,7 +3898,8 @@ function renderSorcerySection(saved) {
     if (rite) {
       h += '<div class="dt-sorcery-details">';
       h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Tradition/Level:</span> ${esc(rite.tradition)} ${rite.level}</div>`;
-      if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
+      const costLabel = riteCost(rite).label;
+      if (costLabel) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Cost:</span> ${esc(costLabel)}</div>`;
       if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
       // DTFP-6: structured multi-target picker. Persisted shape is an array of
@@ -3797,7 +3949,7 @@ function renderAcquisitionsSection(saved) {
   const c = currentChar;
   // Find Resources merit rating
   const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(c, resourcesMerit);
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
@@ -3809,65 +3961,22 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="qf-section-body">';
 
   // ── Resources acquisition ──
-  h += '<div class="dt-acq-card">';
-  h += '<div class="dt-acq-card-title">Resources Acquisition</div>';
+    // -- Resources acquisition (multi-slot) --
+  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
+  const slotCount = Math.max(1, savedCount);
+  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
 
-  // Resources level (auto from sheet)
-  h += '<div class="dt-acq-resources-row">';
+  // Resources Level header (section-level, shared across all slots)
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
   h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '\u25CF'.repeat(resourcesRating) : 'None'}</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
   h += '</div>';
 
-  // Relevant merits (checkbox picker)
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(saved['acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += '<div class="dt-proj-merits" data-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  for (let n = 1; n <= slotCount; n++) {
+    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
   }
-  if (!charMerits.length) {
-    h += '<p class="qf-desc">No applicable merits.</p>';
-  }
-  h += '</div></div>';
 
-  // Description
-  h += renderQuestion({
-    key: 'acq_description', label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, saved['acq_description'] || '');
-
-  // Availability (dot selector 1-5 + Unknown)
-  const savedAvailRaw = saved['acq_availability'];
-  const savedAvail = savedAvailRaw === 'unknown' ? 'unknown' : (parseInt(savedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-acq-avail>';
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}">\u25CF</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown>Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
-
-  h += '</div>'; // acq-card
+  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
   const skAttrs = ALL_ATTRS.filter(a => {
@@ -3991,6 +4100,68 @@ function renderAcquisitionsSection(saved) {
   return h;
 }
 
+function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
+  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
+  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
+  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
+  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
+
+  let meritPicks = [];
+  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
+
+  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
+  if (slotCount > 1) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
+  for (const m of charMerits) {
+    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+    const dots = '●'.repeat(m.rating || 0);
+    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+    const checked = meritPicks.includes(mKey) ? ' checked' : '';
+    h += `<label class="dt-proj-merit-label">`;
+    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
+    h += `<span>${esc(mName)} ${dots}</span>`;
+    h += '</label>';
+  }
+  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
+  h += '</div></div>';
+
+  h += renderQuestion({
+    key: `acq_${n}_description`, label: 'Acquisition Description',
+    type: 'textarea', required: false,
+    desc: 'What are you attempting to acquire? Include context and purpose.',
+  }, description);
+
+  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
+  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
+  for (let d = 1; d <= 5; d++) {
+    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
+  }
+  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
+  if (savedAvail) {
+    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
+    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
+  }
+  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
+  h += '</div></div>';
+
+  h += '</div>';
+  return h;
+}
+
 // ── Equipment ──
 
 function renderEquipmentSection(saved) {
@@ -4032,9 +4203,10 @@ function renderEquipmentRow(n, saved) {
 
 /** Recalculate and display the dice pool total for a given pool prefix. */
 function updatePoolTotal(prefix) {
-  const attrEl = document.getElementById(`dt-${prefix}_attr`);
+  const attrEl  = document.getElementById(`dt-${prefix}_attr`);
   const skillEl = document.getElementById(`dt-${prefix}_skill`);
-  const discEl = document.getElementById(`dt-${prefix}_disc`);
+  const discEl  = document.getElementById(`dt-${prefix}_disc`);
+  const specEl  = document.getElementById(`dt-${prefix}_spec`);
   const totalEl = document.getElementById(`${prefix}_total`);
   if (!totalEl) return;
 
@@ -4044,11 +4216,17 @@ function updatePoolTotal(prefix) {
     if (a) total += (a.dots || 0) + (a.bonus || 0);
   }
   if (skillEl?.value) {
-    const s = currentChar.skills?.[skillEl.value];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
+    total += skTotal(currentChar, skillEl.value);
   }
   if (discEl?.value) {
     total += currentChar.disciplines?.[discEl.value]?.dots || 0;
+  }
+  if (specEl?.value && skillEl?.value) {
+    const specs = currentChar.skills?.[skillEl.value]?.specs || [];
+    if (specs.includes(specEl.value)) {
+      const na = skNineAgain(currentChar, skillEl.value);
+      total += (na || hasAoE(currentChar, specEl.value)) ? 2 : 1;
+    }
   }
 
   totalEl.textContent = total || '—';
@@ -4311,13 +4489,8 @@ function renderDtJointPanel(n, saved) {
   h += `</div>`;
   h += `</div>`;
 
-  const meritsHeadingId = `dt-joint-merits-heading-${n}`;
-  h += `<div class="dt-joint-panel__section">`;
-  h += `<h4 class="dt-joint-panel__heading" id="${meritsHeadingId}">Your Allies and Retainers</h4>`;
-  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${meritsHeadingId}" data-joint-merits="${n}">`;
-  h += renderJointSphereChips(n, saved);
-  h += `</div>`;
-  h += `</div>`;
+  // Allies/Retainers picker now lives outside the joint panel — controlled by
+  // the separate Solo / Support Assets toggle on the project slot.
 
   h += `</div>`;
   return h;
@@ -4393,7 +4566,7 @@ function renderJointSphereChips(n, saved) {
     const isUsed = isSphereMeritUsed(slotKey, type, saved);
     const isSelected = selectedSet.has(slotKey);
     const isDisabled = isUsed && !isSelected;
-    const effectiveDots = effectiveMeritRating(currentChar, m);
+    const effectiveDots = meritEffectiveRating(currentChar, m);
     const area = m.area || m.qualifier || '';
     const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
@@ -4726,10 +4899,12 @@ function renderTargetZone(n, actionVal, saved, chars) {
       }
       h += '</fieldset>';
     }
-  } else if (['attack', 'hide_protect'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
+  } else if (actionVal === 'attack') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false });
+  } else if (actionVal === 'hide_protect') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false, includeOwnMerit: true });
   } else if (['investigate', 'misc'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, true);
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
     const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
     h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
@@ -4740,11 +4915,15 @@ function renderTargetZone(n, actionVal, saved, chars) {
 }
 
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */
-function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, includeTerritory) {
-  const options = includeTerritory ? ['character', 'territory', 'other'] : ['character', 'other'];
-  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-  // Default to 'character' for two-way (attack/hide_protect) when no type saved
-  const effectiveType = savedType || (includeTerritory ? '' : 'character');
+function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, opts = {}) {
+  const { includeTerritory = false, includeOwnMerit = false } = opts;
+  const options = [];
+  if (includeOwnMerit) options.push('own_merit');
+  options.push('character');
+  if (includeTerritory) options.push('territory');
+  options.push('other');
+  const labelMap = { own_merit: 'Own Merit', character: 'Character', territory: 'Territory', other: 'Other' };
+  const effectiveType = savedType || (includeOwnMerit ? 'own_merit' : (includeTerritory ? '' : 'character'));
 
   let h = `<fieldset class="dt-ticker" aria-label="Target type">`;
   for (const opt of options) {
@@ -4753,7 +4932,17 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   }
   h += '</fieldset>';
 
-  if (effectiveType === 'character') {
+  if (effectiveType === 'own_merit') {
+    h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
+    h += '<option value="">— Select Merit / Asset —</option>';
+    for (const m of (currentChar.merits || [])) {
+      const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const sel = mKey === savedCharId ? ' selected' : '';
+      h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
+    }
+    h += '</select>';
+  } else if (effectiveType === 'character') {
     h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
     for (const c of chars) {
       const isSelected = String(c.id) === String(savedCharId);
@@ -4850,7 +5039,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false) {
 
 // DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
 function getAlliesAmbienceEligible(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -4860,7 +5049,7 @@ function getAlliesAmbienceEligible(m) {
 
 // DTUI-19: Grow XP block — scoped to a specific Allies merit instance
 function renderAlliesGrowXp(n, prefix, m, saved) {
-  const currentDots = effectiveMeritRating(currentChar, m);
+  const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
   const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
 
@@ -4869,7 +5058,8 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
   h += `<label class="qf-label" for="dt-${prefix}_${n}_grow_target">Target dots</label>`;
   h += `<select id="dt-${prefix}_${n}_grow_target" class="qf-select" data-grow-target="${prefix}_${n}">`;
   h += '<option value="">— Select target —</option>';
-  for (let d = currentDots + 1; d <= 5; d++) {
+  const maxTarget = currentDots < 3 ? 3 : Math.min(currentDots + 1, 5);
+  for (let d = currentDots + 1; d <= maxTarget; d++) {
     const sel = savedTarget === d ? ' selected' : '';
     h += `<option value="${d}"${sel}>${d} dot${d !== 1 ? 's' : ''}</option>`;
   }
@@ -4884,7 +5074,7 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
 
 // DTUI-18: Allies Ambience contribution magnitude
 function getAlliesAmbienceContribution(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -5101,6 +5291,25 @@ function renderMeritToggles(saved) {
       // Merit info header
       h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
 
+      // T24 (DTLT-6): if committed as support to a project, lock the pane
+      if (actionVal === 'support') {
+        const sphereSlotKey = `sphere_${n}`;
+        let owningProject = null;
+        for (let pn = 1; pn <= 4; pn++) {
+          let chips = [];
+          try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+          if (Array.isArray(chips) && chips.includes(sphereSlotKey)) { owningProject = pn; break; }
+        }
+        h += '<div class="dt-sphere-locked">';
+        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${owningProject || '?'}</span>`;
+        h += `<p class="dt-sphere-locked-help">Un-tick this Ally's chip in the project's Support Assets panel to free this slot.</p>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-sphere_${n}_action" value="support">`;
+        h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
+        h += '</div>';
+        continue;
+      }
+
       // Store which merit this slot references
       h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
 
@@ -5224,7 +5433,7 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-contact_${n}_request">What specific information are you requesting?</label>`;
       h += `<p class="qf-desc">Name a person, event, or piece of information your contact would plausibly know. Vague requests (\u201Canything useful about X\u201D) will be resolved at ST discretion.</p>`;
-      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Lord Vance know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
+      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Marcus Reilly know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
       h += '</div>';
       // Store merit label
       h += `<input type="hidden" id="dt-contact_${n}_merit" value="${esc(meritLabel(m))}">`;
@@ -5643,9 +5852,7 @@ function renderQuestion(q, value) {
           const riteName = allResp[`sorcery_${sn}_rite`];
           if (riteName) {
             const rite = rites.find(r => r.name === riteName);
-            if (rite && rite.tradition === 'Cruac') {
-              riteVitaeCost += (rite.level || 0) >= 4 ? 2 : 1;
-            }
+            if (rite) riteVitaeCost += riteCost(rite).vitae;
           }
         }
         // Mandragora Garden — effective dots across all bonus channels
