@@ -1,7 +1,7 @@
 ---
 id: ord.4
 epic: ord
-status: draft
+status: review
 priority: medium
 depends_on: [ord.3]
 ---

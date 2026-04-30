@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-24 (+ NPCR-14 directory scope hardening — ready-for-dev)
+# last_updated: 2026-04-30 (RDE epic done; FIN-1..4 marked done; DTLT-2..9 + FEAT-3/7/8 + ORD-4 to review)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -487,18 +487,18 @@ development_status:
   epic-unified-nav-polish-retrospective: optional
 
   # ============================================================
-  # EPIC FIN: FINANCE & COORDINATOR ACCESS — READY FOR DEV
+  # EPIC FIN: FINANCE & COORDINATOR ACCESS — DONE
   # ============================================================
   # Coordinator role for Lyn; door check-in + payment recording; finance summary
   # Epic file: specs/epic-finance-coordinator.md
-  # Story files written; no implementation yet
+  # Shipped to main 2026-04-23; FIN-5/6/7 hardening on dev (review)
 
   epic-fin: in-progress
 
-  fin-1-coordinator-role: ready-for-dev
-  fin-2-finance-schema: ready-for-dev
-  fin-3-checkin-tab: ready-for-dev
-  fin-4-finance-tab: ready-for-dev
+  fin-1-coordinator-role: done
+  fin-2-finance-schema: done
+  fin-3-checkin-tab: done
+  fin-4-finance-tab: done
 
   # Check-In tab follow-on hardening (scoped 2026-04-27 from live coordinator
   # use): real player names, drop redundant DNA option, single session rate.
@@ -639,31 +639,28 @@ development_status:
   epic-dtux-retrospective: optional
 
   # ============================================================
-  # EPIC RDE — RULES DATA ENGINE (drafted 2026-04-28, not started)
+  # EPIC RDE — RULES DATA ENGINE — DONE (2026-04-30)
   # ============================================================
-  # Migrates every hardcoded character-affecting rule out of mci.js applyDerivedMerits
-  # and the accessors.js calc functions into ST-editable Mongo collections.
+  # All 16 stories (RDE-0..15) complete. Every hardcoded character rule migrated
+  # into ST-editable Mongo collections (8 typed rule collections). Parallel-write
+  # pattern proved by PT pilot; all evaluators flipped live.
   # ADR: specs/architecture/adr-001-rules-engine-schema.md
-  # Sequencing: RDE-1 (harness) blocks all. RDE-2 (schemas+API) blocks RDE-3+.
-  # RDE-3 (PT pilot) proves the parallel-write pattern. RDE-4 (UI shell + PT editor)
-  # follows. RDE-5+ are family-by-family migrations using PT as the template.
-  # Goal: STs control every bonus-dot rule from the admin Engine panel.
-  epic-rde: backlog
-  rde-1-test-harness: ready-for-dev
-  rde-2-schema-and-api: ready-for-dev
-  rde-3-pt-migration-pilot: ready-for-dev
-  rde-4-rules-data-shell-and-pt-editor: ready-for-dev
-  rde-5-mci-migration: ready-for-dev
-  rde-6-ohm-migration: ready-for-dev
-  rde-7-bloodline-grants-migration: ready-for-dev
-  rde-8-invested-lorekeeper-migration: ready-for-dev
-  rde-9-k9-falconry-migration: ready-for-dev
-  rde-10-viral-mythology-migration: ready-for-dev
-  rde-11-mdb-migration: ready-for-dev
-  rde-12-safe-word-migration: ready-for-dev
-  rde-13-ots-migration: ready-for-dev
-  rde-14-disc-attr-migration: ready-for-dev
-  rde-15-derived-stat-modifiers-migration: ready-for-dev
+  epic-rde: done
+  rde-1-test-harness: done
+  rde-2-schema-and-api: done
+  rde-3-pt-migration-pilot: done
+  rde-4-rules-data-shell-and-pt-editor: done
+  rde-5-mci-migration: done
+  rde-6-ohm-migration: done
+  rde-7-bloodline-grants-migration: done
+  rde-8-invested-lorekeeper-migration: done
+  rde-9-k9-falconry-migration: done
+  rde-10-viral-mythology-migration: done
+  rde-11-mdb-migration: done
+  rde-12-safe-word-migration: done
+  rde-13-ots-migration: done
+  rde-14-disc-attr-migration: done
+  rde-15-derived-stat-modifiers-migration: done
   epic-rde-retrospective: optional
 
   # ============================================================
