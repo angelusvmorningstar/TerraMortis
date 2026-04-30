@@ -1238,6 +1238,27 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     }
   }
 
+  // Mandragora 2b: when there's no existing submission for this cycle, seed
+  // sorcery slots from any rites the character has parked in their Mandragora
+  // Garden (powers[].mandragora_parked === true). Parked rites are sustained
+  // from the previous downtime — pre-filling avoids the player re-entering
+  // them every cycle. Only fires when responseDoc is fully null (no server
+  // doc, no local draft); existing drafts are respected.
+  if (!responseDoc && currentChar?.powers && currentCycle && currentCycle._id !== 'dev-stub') {
+    const parked = currentChar.powers.filter(
+      p => p.category === 'rite' && p.mandragora_parked === true,
+    );
+    if (parked.length > 0) {
+      const seeded = { sorcery_slot_count: String(parked.length) };
+      parked.forEach((rite, i) => {
+        const n = i + 1;
+        seeded[`sorcery_${n}_rite`] = rite.name;
+        seeded[`sorcery_${n}_mandragora`] = 'yes';
+      });
+      responseDoc = { responses: seeded };
+    }
+  }
+
   // Check for published outcomes from previous cycles (for "results available" banner)
   if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
     try {
