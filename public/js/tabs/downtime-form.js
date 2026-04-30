@@ -3896,6 +3896,11 @@ function renderSorcerySection(saved) {
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
+  // Mandragora Garden +3 dice — flat, always-on for Cruac users with the merit
+  if (hasMandragora && cruacDots > 0) {
+    h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Mandragora Garden grants +3 dice to every Cruac rite cast this downtime.</p>`;
+  }
+
   // Hidden field tracking slot count
   h += `<input type="hidden" id="dt-sorcery-slot-count" value="${slotCount}">`;
 
@@ -3933,15 +3938,16 @@ function renderSorcerySection(saved) {
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
 
-    // Mandragora Garden checkbox — Cruac rites only, when character has the merit
+    // Mandragora Garden checkbox — Cruac rites only, when character has the merit.
+    // Storage only: the +3 dice bonus is automatic (shown above the slots) and
+    // applies whether or not this rite is parked. Parking the rite means it
+    // costs no vitae for this casting and is sustained by the garden.
     if (hasMandragora && cruacRites.length) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
       const mandDisabled = !isCruac ? ' disabled' : '';
-      const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = meritEffectiveRating(currentChar, mandMerit);
-      h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
+      h += `<label class="dt-mand-label" title="If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
-      h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
+      h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
       h += '</label>';
       // "Already paid" checkbox — shown when garden checkbox is ticked
       if (isCruac && mandSaved) {
