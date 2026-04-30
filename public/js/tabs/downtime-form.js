@@ -3895,6 +3895,16 @@ function renderSorcerySection(saved) {
   const savedCount = parseInt(saved['sorcery_slot_count'] || '1', 10);
   const slotCount = Math.max(1, savedCount);
 
+  // Mandragora 2c: capacity = Mandragora Garden effective dots. Count
+  // currently-parked rites from `saved` so the cap can disable the Park
+  // toggle on additional slots once full.
+  const mandragoraCap = hasMandragora ? effectiveDomainDots(currentChar, 'Mandragora Garden') : 0;
+  let parkedCount = 0;
+  for (let i = 1; i <= slotCount; i++) {
+    if (saved[`sorcery_${i}_mandragora`] === 'yes') parkedCount++;
+  }
+  const capacityReached = mandragoraCap > 0 && parkedCount >= mandragoraCap;
+
   let h = '<div class="qf-section collapsed" data-section-key="blood_sorcery">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">\u2714</span></h4>`;
   h += '<div class="qf-section-body">';
@@ -3903,6 +3913,9 @@ function renderSorcerySection(saved) {
   // Mandragora Garden +3 dice — flat, always-on for Cruac users with the merit
   if (hasMandragora && cruacDots > 0) {
     h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Mandragora Garden grants +3 dice to every Cruac rite cast this downtime.</p>`;
+    if (mandragoraCap > 0) {
+      h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Garden capacity: <strong>${parkedCount} / ${mandragoraCap}</strong> rite${mandragoraCap !== 1 ? 's' : ''} parked.</p>`;
+    }
   }
 
   // Hidden field tracking slot count
@@ -3948,8 +3961,14 @@ function renderSorcerySection(saved) {
     // costs no vitae for this casting and is sustained by the garden.
     if (hasMandragora && cruacRites.length) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
-      const mandDisabled = !isCruac ? ' disabled' : '';
-      h += `<label class="dt-mand-label" title="If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.">`;
+      // 2c: disable when not Cruac, OR when capacity is full and this rite
+      // isn't already parked (so unticking remains possible to free a slot).
+      const overCap = capacityReached && !mandSaved;
+      const mandDisabled = (!isCruac || overCap) ? ' disabled' : '';
+      const mandTitle = overCap
+        ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+        : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+      h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
       h += '</label>';
