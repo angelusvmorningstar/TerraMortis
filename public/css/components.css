@@ -3034,6 +3034,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   border: 1px solid rgba(201,169,98,.15);
   border-radius: 6px;
 }
+.dt-acq-card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
 .dt-acq-card-title {
   font-family: var(--fl);
   font-size: 15px;
@@ -4016,6 +4022,9 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-proj-rote-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
 .dt-proj-rote-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
 .dt-proj-rote-desc { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
+.dt-sphere-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
+.dt-sphere-locked-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-sphere-locked-help { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
 .dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
   display: flex;

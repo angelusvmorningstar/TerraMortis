@@ -18,6 +18,13 @@ export function applySafeWordRulesFromDb(c, { grants = [] } = {}, allChars = [])
   const meritGrants = grants.filter(r => r.grant_type === 'merit' && r.condition === 'partner_pact_confirmation');
   if (!meritGrants.length) return;
 
+  // T6 (DTLT-6): when allChars is empty/missing the partner-presence check can't
+  // run. Treat as "can't verify, skip" rather than "pact broken, delete merit".
+  // Eight call sites pass single-arg applyDerivedMerits(c) with no allChars;
+  // without this guard the SW merit is stripped on every player-side render.
+  // Deletion is preserved when allChars is non-empty and the partner check fails.
+  const canVerifyPartner = Array.isArray(allChars) && allChars.length > 0;
+
   for (const rule of meritGrants) {
     const sourceLower = rule.source.toLowerCase();
     const swPact = (c.powers || []).find(
@@ -25,6 +32,8 @@ export function applySafeWordRulesFromDb(c, { grants = [] } = {}, allChars = [])
     );
 
     if (!swPact || !swPact.partner) continue; // pact absent — no-op; stale free_sw cleared by applyDerivedMerits
+
+    if (!canVerifyPartner) continue; // can't verify partner — skip; merit stays until a render with allChars runs
 
     const partner = allChars.find(ch => ch.name === swPact.partner);
     const isActive = partner && (partner.powers || []).some(

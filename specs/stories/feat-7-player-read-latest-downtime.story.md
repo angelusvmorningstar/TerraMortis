@@ -1,7 +1,7 @@
 ---
 id: feat.7
 epic: feat
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: []
 ---

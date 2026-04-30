@@ -150,6 +150,7 @@ export async function renderPastOutcomes(el, char) {
   for (const sub of publishedSubs) {
     const label = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
     const dateStr = _cycleDate(sub, cycles);
+    const hasResponses = sub.responses && Object.keys(sub.responses).length > 0;
     h += `<details class="dt-history-row">`;
     h += `<summary class="dt-history-summary">`;
     h += `<span class="dt-history-label">${esc(label)}</span>`;
@@ -157,11 +158,118 @@ export async function renderPastOutcomes(el, char) {
     h += `<span class="dt-history-status">Outcome published</span>`;
     h += `</summary>`;
     h += `<div class="dt-history-body">`;
-    h += renderOutcomeWithCards(sub);
-    h += `</div>`;
-    h += `</details>`;
+    if (hasResponses) {
+      h += `<div class="raw-toggle-row"><button class="raw-toggle-btn">View my submission</button></div>`;
+    }
+    h += `<div class="dt-narrative-panel">${renderOutcomeWithCards(sub)}</div>`;
+    if (hasResponses) {
+      h += `<div class="dt-raw-panel raw-submission" hidden>`;
+      h += `<div class="raw-banner">Read-only — your original submission</div>`;
+      h += renderRawSubmission(sub);
+      h += `</div>`;
+    }
+    h += `</div></details>`;
   }
   el.innerHTML = h;
+
+  el.querySelectorAll('.raw-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const body = btn.closest('.dt-history-body');
+      const rawPanel = body.querySelector('.dt-raw-panel');
+      const narPanel = body.querySelector('.dt-narrative-panel');
+      const showingNar = !narPanel.hidden;
+      narPanel.hidden = showingNar;
+      rawPanel.hidden = !showingNar;
+      btn.textContent = showingNar ? 'View ST narrative' : 'View my submission';
+    });
+  });
+}
+
+function renderRawSubmission(sub) {
+  const r = sub.responses || {};
+  let h = '';
+
+  // Court & Aspirations
+  const shortTerms = Array.isArray(r.aspirations_short_term) ? r.aspirations_short_term : [];
+  const longTerms  = Array.isArray(r.aspirations_long_term)  ? r.aspirations_long_term  : [];
+  if (r.court_present || shortTerms.length || longTerms.length) {
+    h += '<div class="raw-section"><div class="raw-section-head">Court &amp; Aspirations</div>';
+    if (r.court_present) h += `<div class="raw-field"><span class="raw-lbl">Court presence:</span> ${esc(r.court_present)}</div>`;
+    if (shortTerms.length) h += `<div class="raw-field"><span class="raw-lbl">Short-term:</span> ${shortTerms.map(a => esc(a)).join(' / ')}</div>`;
+    if (longTerms.length)  h += `<div class="raw-field"><span class="raw-lbl">Long-term:</span> ${longTerms.map(a => esc(a)).join(' / ')}</div>`;
+    h += '</div>';
+  }
+
+  // Feeding
+  if (r.feeding_method || r.feeding_pool) {
+    h += '<div class="raw-section"><div class="raw-section-head">Feeding</div>';
+    if (r.feeding_method) h += `<div class="raw-field"><span class="raw-lbl">Method:</span> ${esc(r.feeding_method)}</div>`;
+    if (r.feeding_pool)   h += `<div class="raw-field"><span class="raw-lbl">Pool:</span> ${esc(String(r.feeding_pool))}</div>`;
+    if (r.feeding_narrative) h += `<div class="raw-field raw-narrative">${esc(r.feeding_narrative)}</div>`;
+    h += '</div>';
+  }
+
+  // Projects
+  let projH = '';
+  for (let n = 1; n <= 5; n++) {
+    const title  = r[`project_${n}_title`] || r[`proj_${n}_title`];
+    const action = r[`project_${n}_action`] || r[`proj_${n}_action`];
+    const desc   = r[`project_${n}_description`] || r[`proj_${n}_description`];
+    if (!title && !action && !desc) continue;
+    projH += '<div class="raw-project">';
+    if (title)  projH += `<div class="raw-proj-title">${esc(title)}</div>`;
+    if (action) projH += `<div class="raw-field"><span class="raw-lbl">Action:</span> ${esc(action)}</div>`;
+    if (desc)   projH += `<div class="raw-field">${esc(desc)}</div>`;
+    projH += '</div>';
+  }
+  if (projH) h += `<div class="raw-section"><div class="raw-section-head">Projects</div>${projH}</div>`;
+
+  // Sorcery
+  let sorH = '';
+  for (let n = 1; n <= 5; n++) {
+    const rite   = r[`sorcery_${n}_rite`];
+    const target = r[`sorcery_${n}_target`];
+    if (!rite) continue;
+    sorH += `<div class="raw-field"><span class="raw-lbl">Rite:</span> ${esc(rite)}${target ? ` — Target: ${esc(target)}` : ''}</div>`;
+  }
+  if (sorH) h += `<div class="raw-section"><div class="raw-section-head">Sorcery</div>${sorH}</div>`;
+
+  // Merit actions
+  let merH = '';
+  for (let n = 1; n <= 5; n++) {
+    const merit = r[`sphere_${n}_merit`];
+    const desc  = r[`sphere_${n}_description`] || r[`sphere_${n}_outcome`];
+    if (merit) merH += `<div class="raw-field"><span class="raw-lbl">${esc(merit)}:</span> ${esc(desc || '')}</div>`;
+  }
+  for (let n = 1; n <= 5; n++) {
+    const req   = r[`contact_${n}_request`];
+    const merit = r[`contact_${n}_merit`] || 'Contacts';
+    if (req) merH += `<div class="raw-field"><span class="raw-lbl">${esc(merit)}:</span> ${esc(req)}</div>`;
+  }
+  for (let n = 1; n <= 4; n++) {
+    const task = r[`retainer_${n}_task`];
+    if (task) merH += `<div class="raw-field"><span class="raw-lbl">Retainer:</span> ${esc(task)}</div>`;
+  }
+  if (merH) h += `<div class="raw-section"><div class="raw-section-head">Merit Actions</div>${merH}</div>`;
+
+  // Game Highlights
+  let hiH = '';
+  for (let n = 1; n <= 5; n++) {
+    const txt = r[`game_recount_${n}`]?.trim();
+    if (txt) hiH += `<div class="raw-field"><span class="raw-lbl">Highlight ${n}:</span> ${esc(txt)}</div>`;
+  }
+  if (hiH) h += `<div class="raw-section"><div class="raw-section-head">Game Highlights</div>${hiH}</div>`;
+
+  // XP Spends
+  let xpH = '';
+  for (let n = 1; n <= 5; n++) {
+    const trait = r[`xp_spend_${n}_trait`];
+    const dots  = r[`xp_spend_${n}_dots`];
+    if (trait) xpH += `<div class="raw-field">${esc(trait)}${dots ? ` (${esc(String(dots))} dots)` : ''}</div>`;
+  }
+  if (xpH) h += `<div class="raw-section"><div class="raw-section-head">XP Spends</div>${xpH}</div>`;
+
+  return h || '<p class="raw-empty">No submission content recorded for this cycle.</p>';
 }
 
 function _cycleDate(sub, cycles) {

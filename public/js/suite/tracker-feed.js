@@ -10,7 +10,7 @@ import state from './data.js';
 import { rollPool, cntSuc } from '../shared/dice.js';
 import { toast } from './tracker.js';
 import { trackerAdj } from '../game/tracker.js';
-import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skTotal, skSpecStr } from '../data/accessors.js';
 import { displayName } from '../data/helpers.js';
 import { FEED_METHODS, TERRITORY_DATA } from '../tabs/downtime-data.js';
 
@@ -86,7 +86,7 @@ function feedBuildPool() {
   // Best skill
   let bestSkillVal = 0, bestSkillName = 'none', bestSkillSpec = null;
   m.skills.forEach(s => {
-    const v = skDots(c, s);
+    const v = skTotal(c, s);
     if (v > bestSkillVal) { bestSkillVal = v; bestSkillName = s; bestSkillSpec = skSpecStr(c, s) || null; }
   });
 

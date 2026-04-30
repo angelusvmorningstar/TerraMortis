@@ -755,7 +755,7 @@ async function openAddPicker(el, char) {
 }
 
 function setNpcMode(el, char, mode) {
-  _tabState.npc_mode = mode === 'new' ? 'new' : 'existing';
+  _tabState.npc_mode = (mode === 'new' || mode === 'pc') ? mode : 'existing';
   _tabState.error = null;
   renderAddPanel(el, char);
 }
@@ -861,6 +861,7 @@ function renderAddPanel(el, char) {
           ${kindGroups}
         </select>
       </label>
+      <p class="rel-add-hint rel-add-touchstone-hint">Touchstones are added on the character sheet.</p>
       ${showCustomLabel ? `
         <label class="rel-add-field">
           <span class="rel-add-field-label">Custom label *</span>
