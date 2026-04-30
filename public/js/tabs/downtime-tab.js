@@ -41,8 +41,14 @@ export async function initDowntimeTab(el, char, territories = []) {
   const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
   const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
   const mySubs = subs.filter(s => String(s.character_id) === charId);
+  // "Submitted" state only fires when an actual submission exists for this
+  // cycle. A draft is in-progress work — let the form render so the player
+  // can resume editing.
   const myActiveSub = activeCycle
-    ? mySubs.find(s => String(s.cycle_id) === String(activeCycle._id)) || null
+    ? mySubs.find(s =>
+        String(s.cycle_id) === String(activeCycle._id) &&
+        s.status === 'submitted'
+      ) || null
     : null;
 
   const cycleMap = {};
