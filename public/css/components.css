@@ -4859,11 +4859,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .dt-chip--selected {
   border-color: var(--gold2);
-  background: var(--gold-a12);
+  background: var(--gold2);
+  color: var(--bg);
+  font-weight: 600;
 }
 
 .dt-chip--selected:hover {
-  background: var(--gold-a15);
+  background: var(--gold);
+  border-color: var(--gold);
 }
 
 .dt-chip:focus-visible {
@@ -4902,7 +4905,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 .dt-chip--selected .dt-chip__suffix {
-  color: var(--gold2);
+  color: var(--bg);
 }
 
 /* Transitions skipped when reduced motion is requested */
