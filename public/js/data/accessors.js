@@ -101,6 +101,9 @@ export function setSkillObj(c, skill, obj) {
   }
 }
 
+/** Effective discipline rating. Disciplines have no bonus channel — `dots` is canonical. */
+export function discDots(c, disc) { return c.disciplines?.[disc]?.dots || 0; }
+
 export function skDots(c, skill) { return c.skills?.[skill]?.dots || 0; }
 export function skBonus(c, skill) { return c.skills?.[skill]?.bonus || 0; }
 export function skTotal(c, skill) {

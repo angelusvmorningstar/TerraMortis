@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -176,10 +176,10 @@ function meritKey(merit) {
   return `${merit.name}_${merit.rating}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
-/** Format a merit for display: "Allies ●●● (Health)" */
+/** Format a merit for display: "Allies ●●● (Health)" using effective rating. */
 function meritLabel(merit) {
   const area = merit.area || merit.qualifier || '';
-  const dots = '●'.repeat(merit.rating);
+  const dots = '●'.repeat(meritEffectiveRating(currentChar, merit));
   return area ? `${merit.name} ${dots} (${area})` : `${merit.name} ${dots}`;
 }
 
@@ -244,7 +244,7 @@ function detectMerits() {
     m.category === 'influence' && m.name === 'Retainer'
   ));
 
-  gateValues.has_sorcery = (discs.Cruac || discs.Theban) ? 'yes' : 'no';
+  gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
 }
 
 /** Calculate monthly influence budget from character data. */
@@ -1544,8 +1544,8 @@ function renderForm(container) {
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
-    if (currentChar.disciplines?.Cruac?.dots) traditions.push('Cruac');
-    if (currentChar.disciplines?.Theban?.dots) traditions.push('Theban');
+    if (discDots(currentChar, 'Cruac') > 0) traditions.push('Cruac');
+    if (discDots(currentChar, 'Theban') > 0) traditions.push('Theban');
     h += `<span class="dt-badge dt-badge-on">${traditions.join(' / ')}</span>`;
   }
   const bp = currentChar.blood_potency || 0;
@@ -2924,17 +2924,9 @@ function renderProjectSlots(saved) {
   const slotCount = section?.projectSlots || 4;
 
   // Build attribute/skill/discipline option lists from character data
-  const attrs = ALL_ATTRS.filter(a => {
-    const v = currentChar.attributes?.[a];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skills = ALL_SKILLS.filter(s => {
-    const v = currentChar.skills?.[s];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const discs = Object.keys(currentChar.disciplines || {}).filter(d =>
-    (currentChar.disciplines[d]?.dots || 0) > 0
-  );
+  const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);
+  const skills = ALL_SKILLS.filter(s => skTotal(currentChar, s) > 0);
+  const discs = Object.keys(currentChar.disciplines || {}).filter(d => discDots(currentChar, d) > 0);
 
   // Character merits for the merit picker and own-merit target
   const charMerits = (currentChar.merits || []).filter(m =>
@@ -3342,16 +3334,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
 
   // Calculate total from saved selections
   let total = 0;
-  if (savedAttr) {
-    const a = currentChar.attributes?.[savedAttr];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (savedSkill) {
-    total += skTotal(currentChar, savedSkill);
-  }
-  if (savedDisc) {
-    total += currentChar.disciplines?.[savedDisc]?.dots || 0;
-  }
+  if (savedAttr) total += getAttrEffective(currentChar, savedAttr);
+  if (savedSkill) total += skTotal(currentChar, savedSkill);
+  if (savedDisc) total += discDots(currentChar, savedDisc);
   if (savedSpec && bestSpecs.includes(savedSpec)) {
     const na = skNineAgain(currentChar, savedSkill);
     total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
@@ -3365,8 +3350,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_attr" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Attribute</option>';
   for (const a of attrs) {
-    const v = currentChar.attributes[a];
-    const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(currentChar, a);
     const sel = savedAttr === a ? ' selected' : '';
     h += `<option value="${esc(a)}"${sel}>${esc(a)} (${dots})</option>`;
   }
@@ -3387,7 +3371,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_disc" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Discipline</option>';
   for (const d of discs) {
-    const dots = currentChar.disciplines[d]?.dots || 0;
+    const dots = discDots(currentChar, d);
     const sel = savedDisc === d ? ' selected' : '';
     h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dots})</option>`;
   }
@@ -3496,8 +3480,7 @@ function getItemsForCategory(category) {
   switch (category) {
     case 'attribute':
       return ALL_ATTRS.map(a => {
-        const v = c.attributes?.[a];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = getAttrEffective(c, a);
         if (dots >= 5) return null;
         return { value: a, label: `${a} (${dots} → ${dots + 1})` };
       }).filter(Boolean);
@@ -3520,7 +3503,7 @@ function getItemsForCategory(category) {
         .filter(d => validDiscs.has(d))
         .sort();
       return all.map(d => {
-        const dots = c.disciplines?.[d]?.dots || 0;
+        const dots = discDots(c, d);
         if (dots >= 5) return null;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
@@ -3582,8 +3565,8 @@ function getItemsForCategory(category) {
         .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
-      const cruacLevel = c.disciplines?.Cruac?.dots || 0;
-      const thebanLevel = c.disciplines?.Theban?.dots || 0;
+      const cruacLevel = discDots(c, 'Cruac');
+      const thebanLevel = discDots(c, 'Theban');
       if (cruacLevel === 0 && thebanLevel === 0) return [];
       const ownedRiteNames = new Set(
         (c.powers || []).filter(p => p.category === 'rite').map(p => p.name)
@@ -3869,8 +3852,8 @@ function renderSorcerySection(saved) {
   // having learned it. Cruac 3 → level-1 rites are open; Cruac 5 → 1-3.
   const knownRites = (currentChar.powers || []).filter(p => p.category === 'rite');
   const knownNames = new Set(knownRites.map(r => r.name));
-  const cruacDots = currentChar.disciplines?.Cruac?.dots || 0;
-  const thebanDots = currentChar.disciplines?.Theban?.dots || 0;
+  const cruacDots = discDots(currentChar, 'Cruac');
+  const thebanDots = discDots(currentChar, 'Theban');
   const ruleRites = getRulesByCategory('rite') || [];
   const unlearnedRites = [];
   for (const rule of ruleRites) {
@@ -4047,12 +4030,8 @@ function renderAcquisitionsSection(saved) {
   h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
-  const skAttrs = ALL_ATTRS.filter(a => {
-    const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skSkills = ALL_SKILLS.filter(s => {
-    const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
+  const skAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
 
   h += '<div class="dt-acq-card" style="margin-top:16px;">';
   h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
@@ -4075,7 +4054,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
   h += '<option value="">Attribute</option>';
   for (const a of skAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
@@ -4083,7 +4062,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
   h += '<option value="">Skill</option>';
   for (const s of skSkills) {
-    const v = c.skills[s]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
@@ -4099,11 +4078,11 @@ function renderAcquisitionsSection(saved) {
   }
 
   // Pool total
-  let skTotal = 0;
-  if (skSavedAttr) { const a = c.attributes?.[skSavedAttr]; if (a) skTotal += (a.dots || 0) + (a.bonus || 0); }
-  if (skSavedSkill) { const s = c.skills?.[skSavedSkill]; if (s) skTotal += (s.dots || 0) + (s.bonus || 0); }
-  skTotal += specBonus;
-  h += `<span class="dt-pool-total">${skTotal || '\u2014'}</span>`;
+  let skPoolTotal = 0;
+  if (skSavedAttr) skPoolTotal += getAttrEffective(c, skSavedAttr);
+  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
+  skPoolTotal += specBonus;
+  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
   h += '</div>';
 
   // Spec chips row + hidden input
@@ -4132,7 +4111,7 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="dt-proj-merits" data-skill-acq-merits>';
   for (const m of charMerits) {
     const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
+    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
     const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
     const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
     h += `<label class="dt-proj-merit-label">`;
@@ -4191,7 +4170,7 @@ function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
   h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
   for (const m of charMerits) {
     const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '●'.repeat(m.rating || 0);
+    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
     const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
     const checked = meritPicks.includes(mKey) ? ' checked' : '';
     h += `<label class="dt-proj-merit-label">`;
@@ -4279,16 +4258,9 @@ function updatePoolTotal(prefix) {
   if (!totalEl) return;
 
   let total = 0;
-  if (attrEl?.value) {
-    const a = currentChar.attributes?.[attrEl.value];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (skillEl?.value) {
-    total += skTotal(currentChar, skillEl.value);
-  }
-  if (discEl?.value) {
-    total += currentChar.disciplines?.[discEl.value]?.dots || 0;
-  }
+  if (attrEl?.value) total += getAttrEffective(currentChar, attrEl.value);
+  if (skillEl?.value) total += skTotal(currentChar, skillEl.value);
+  if (discEl?.value) total += discDots(currentChar, discEl.value);
   if (specEl?.value && skillEl?.value) {
     const specs = currentChar.skills?.[skillEl.value]?.specs || [];
     if (specs.includes(specEl.value)) {
@@ -4337,17 +4309,17 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   const pfx = scope === 'rote' ? 'rote' : 'feed';
 
   // All attrs/skills the char has dots in
-  const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
-  const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
+  const allAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const allSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
   const allDiscs = (isOther || isOpen)
-    ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
-    : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
+    ? Object.keys(c.disciplines || {}).filter(d => discDots(c, d) > 0)
+    : (m?.discs || []).filter(d => discDots(c, d) > 0);
 
   // Calculate total from current selections
   let total = 0;
-  if (selAttr) { const a = c.attributes?.[selAttr]; if (a) total += (a.dots||0)+(a.bonus||0); }
-  if (selSkill) { const s = c.skills?.[selSkill]; if (s) total += (s.dots||0)+(s.bonus||0); }
-  if (selDisc) total += c.disciplines?.[selDisc]?.dots || 0;
+  if (selAttr) total += getAttrEffective(c, selAttr);
+  if (selSkill) total += skTotal(c, selSkill);
+  if (selDisc) total += discDots(c, selDisc);
   const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
   total += fgVal;
   const specBonus = selSpec ? (hasAoE(c, selSpec) ? 2 : 1) : 0;
@@ -4359,20 +4331,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   h += '<div class="dt-feed-custom-row">';
   h += `<select class="qf-select" id="dt-${pfx}-custom-attr"><option value="">Attribute</option>`;
   for (const a of allAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${selAttr===a?' selected':''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
   h += `<select class="qf-select" id="dt-${pfx}-custom-skill"><option value="">Skill</option>`;
   for (const s of allSkills) {
-    const v = c.skills[s]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${selSkill===s?' selected':''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
   if (allDiscs.length) {
     h += `<select class="qf-select" id="dt-${pfx}-disc"><option value="">Discipline</option>`;
     for (const d of allDiscs) {
-      const dv = c.disciplines[d]?.dots || 0;
+      const dv = discDots(c, d);
       h += `<option value="${esc(d)}"${selDisc===d?' selected':''}>${esc(d)} (${dv})</option>`;
     }
     h += '</select>';
@@ -4388,20 +4360,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
     for (const a of sortChips(m.attrs)) {
-      const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = getAttrEffective(c, a);
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
     for (const s of sortChips(m.skills)) {
-      const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = skTotal(c, s);
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
     }
     if (m.discs.length) {
       h += '<span class="dt-feed-suggest-sep">/</span>';
       for (const d of sortChips(m.discs)) {
-        const val = c.disciplines?.[d]?.dots || 0;
+        const val = discDots(c, d);
         const active = selDisc === d ? ' dt-feed-chip-on' : '';
         h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
       }
@@ -4876,7 +4848,7 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
 
   h += `<div class="dt-chip-grid" role="group" aria-label="Select merit to maintain">`;
   for (const m of maintMerits) {
-    const dots = m.dots || m.rating || 0;
+    const dots = meritEffectiveRating(currentChar, m);
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
@@ -5577,7 +5549,7 @@ function renderMeritToggles(saved) {
     for (let n = 1; n <= maxRetainers; n++) {
       const m = detectedMerits.retainers[n - 1];
       const area = m.area || m.qualifier || 'Retainer';
-      const dots = '\u25CF'.repeat(m.rating || 1);
+      const dots = '\u25CF'.repeat(meritEffectiveRating(currentChar, m) || 1);
       const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
@@ -6039,15 +6011,9 @@ function renderQuestion(q, value) {
 
         // Compute main hunt dice pool (used for average vitae yield)
         let mainPool = 0;
-        if (feedCustomAttr) {
-          const a = c.attributes?.[feedCustomAttr];
-          if (a) mainPool += (a.dots || 0) + (a.bonus || 0);
-        }
-        if (feedCustomSkill) {
-          const s = c.skills?.[feedCustomSkill];
-          if (s) mainPool += (s.dots || 0) + (s.bonus || 0);
-        }
-        if (feedDiscName) mainPool += c.disciplines?.[feedDiscName]?.dots || 0;
+        if (feedCustomAttr) mainPool += getAttrEffective(c, feedCustomAttr);
+        if (feedCustomSkill) mainPool += skTotal(c, feedCustomSkill);
+        if (feedDiscName) mainPool += discDots(c, feedDiscName);
         const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
