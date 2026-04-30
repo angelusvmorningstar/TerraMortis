@@ -46,11 +46,9 @@ function resetTabState(charId) {
 }
 
 // Kinds players may create from the Relationships tab: anything with b='npc'
-// or b='any', MINUS touchstone (lives on character.touchstones[] via the sheet
-// picker in NPCR.4). Grouped by family for the picker dropdown.
+// or b='any'. Grouped by family for the picker dropdown.
 function playerCreatableKinds() {
   return RELATIONSHIP_KINDS.filter(k => {
-    if (k.code === 'touchstone') return false;
     const bType = k.typicalEndpoints?.b;
     return bType === 'npc' || bType === 'any';
   });
@@ -60,10 +58,7 @@ function playerCreatableKinds() {
 // (Lineage + Political + 'romantic' + 'other'). Mortal kinds that are
 // b='npc'-only (family, contact, retainer, correspondent) stay excluded.
 function playerPcPcKinds() {
-  return RELATIONSHIP_KINDS.filter(k => {
-    if (k.code === 'touchstone') return false;
-    return k.typicalEndpoints?.b === 'any';
-  });
+  return RELATIONSHIP_KINDS.filter(k => k.typicalEndpoints?.b === 'any');
 }
 
 const LAST_SEEN_PREFIX     = 'tm:rel_last_seen:';
