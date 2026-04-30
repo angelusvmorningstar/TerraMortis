@@ -5526,7 +5526,7 @@ function renderMeritToggles(saved) {
     h += '<div class="dt-contacts-table">';
     for (let n = 1; n <= maxContacts; n++) {
       const m = detectedMerits.contacts[n - 1];
-      const area = m.area || m.qualifier || 'General';
+      const area = m.area || m.qualifier || '— sphere unset —';
       const dots = '\u25CF'.repeat(m.rating || 1);
       const savedInfo = saved[`contact_${n}_info`] || '';
       const savedReq = saved[`contact_${n}_request`] || '';
