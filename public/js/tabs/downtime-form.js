@@ -108,13 +108,13 @@ const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
-  'xp_spend': '\u2726', 'misc': '\u25CF',
+  'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
-  'xp_spend': 'XP Spend', 'misc': 'Misc',
+  'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
@@ -3922,6 +3922,7 @@ function renderSorcerySection(saved) {
         : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
       h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
       h += `<label class="qf-label">Target/s</label>`;
+      h += `<p class="qf-desc" style="margin:0 0 8px;font-size:.85em;opacity:.8">Not all target types are valid for every rite — check the rite's description for valid targets. The ST will reject any mismatched targeting at processing.</p>`;
       for (let ti = 0; ti < targets.length; ti++) {
         const t = targets[ti] || { type: '', value: '' };
         h += `<div class="dt-sorcery-target-row" data-sorcery-target-row="${n}-${ti}">`;

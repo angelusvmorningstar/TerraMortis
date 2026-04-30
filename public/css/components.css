@@ -4775,7 +4775,9 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 /* Consistent gap between any target-type ticker and the content below it,
  * regardless of whether the picked mode renders chips, pills, or a textarea. */
 .dt-ticker + .dt-chip-grid,
-.dt-ticker + .dt-target-other-input { margin-top: 8px; }
+.dt-ticker + .dt-target-other-input,
+.dt-ticker + select,
+.dt-ticker + .qf-select { margin-top: 8px; }
 
 /* Target zone: normalise the gap between the "Target" label and the first
  * piece of content below it. Some actions render a Character/Territory/Other
