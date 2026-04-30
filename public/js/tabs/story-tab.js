@@ -550,7 +550,7 @@ function renderMeritSummarySection(sub) {
     const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
     groups[cat].push({
       meritLabel,
-      actionLabel: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '',
+      actionLabel: cat === 'contacts' ? '' : (ACTION_TYPE_LABELS[a.action_type] || a.action_type || ''),
       summary,
     });
   });
@@ -655,7 +655,7 @@ function renderMeritActionCards(sub) {
   for (const { a, rev } of cards) {
     // Strip dot characters from stored label: "Allies ●●● (Finance)" → "Allies (Finance)"
     const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
-    const actionLabel = ACTION_TYPE_LABELS[a.action_type] || a.action_type || '';
+    const actionLabel = _deriveMeritCat(a.merit_type) === 'contacts' ? '' : (ACTION_TYPE_LABELS[a.action_type] || a.action_type || '');
 
     h += '<div class="proj-card">';
     h += '<div class="proj-card-header">';
