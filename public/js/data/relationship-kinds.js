@@ -20,6 +20,7 @@ export const RELATIONSHIP_KINDS = [
   { code: 'sire',        label: 'Sire',        family: 'Lineage',   direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a is the sire of b' },
   { code: 'childe',      label: 'Childe',      family: 'Lineage',   direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a is the childe of b (inverse of sire)' },
   { code: 'grand-sire',  label: 'Grand-sire',  family: 'Lineage',   direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a is the grand-sire of b' },
+  { code: 'grand-childe', label: 'Grand-childe', family: 'Lineage', direction: 'directed', typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a is the grand-childe of b' },
   { code: 'clan-mate',   label: 'Clan-mate',   family: 'Lineage',   direction: 'mutual',   typicalEndpoints: { a: 'any', b: 'any' }, custom_label_allowed: false, description: 'a and b share a clan' },
 
   // ── Political ──────────────────────────────────────────────────────────────

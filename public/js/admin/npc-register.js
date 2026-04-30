@@ -31,11 +31,13 @@ export function initNpcRegister(chars) {
 
 async function loadNpcs() {
   try {
-    const [npcs, flags] = await Promise.all([
+    const [npcs, archived, flags] = await Promise.all([
       apiGet('/api/npcs'),
+      apiGet('/api/npcs?status=archived').catch(() => []),
       apiGet('/api/npc-flags?status=open').catch(() => []),
     ]);
-    _npcs = npcs;
+    const archivedArr = Array.isArray(archived) ? archived : [];
+    _npcs = [...npcs, ...archivedArr];
     _openFlags = Array.isArray(flags) ? flags : [];
     _sessionResolved.clear(); // fresh load invalidates session-resolved cache
   } catch (err) {
@@ -100,15 +102,21 @@ function npcsForSelection() {
 }
 
 function visibleNpcs() {
-  let list = npcsForSelection();
-  if (_activeChip === 'pending') {
-    list = list.filter(n => n.status === 'pending');
-  } else if (_activeChip === 'correspondents') {
-    list = list.filter(n => n.is_correspondent);
-  } else if (_activeChip === 'suggested') {
-    list = list.filter(n => Array.isArray(n.st_suggested_for) && n.st_suggested_for.length > 0);
-  } else if (_activeChip === 'flagged') {
-    list = list.filter(n => openFlagCount(n._id) > 0);
+  let list;
+  if (_activeChip === 'archived') {
+    // Archived chip ignores PC filter; archived NPCs are shown across all linked-character buckets
+    list = _npcs.filter(n => n.status === 'archived');
+  } else {
+    list = npcsForSelection();
+    if (_activeChip === 'pending') {
+      list = list.filter(n => n.status === 'pending');
+    } else if (_activeChip === 'correspondents') {
+      list = list.filter(n => n.is_correspondent);
+    } else if (_activeChip === 'suggested') {
+      list = list.filter(n => Array.isArray(n.st_suggested_for) && n.st_suggested_for.length > 0);
+    } else if (_activeChip === 'flagged') {
+      list = list.filter(n => openFlagCount(n._id) > 0);
+    }
   }
   if (_search) {
     const q = _search.toLowerCase();
@@ -220,11 +228,13 @@ function renderHeader() {
 
   const list = visibleNpcs();
   const flaggedTotal = _openFlags.length;
+  const archivedTotal = _npcs.filter(n => n.status === 'archived').length;
   const chips = [
     ['pending', 'Pending', null],
     ['correspondents', 'Correspondents', null],
     ['suggested', 'Suggested', null],
     ['flagged', 'Flagged', flaggedTotal > 0 ? flaggedTotal : null],
+    ['archived', 'Archived', archivedTotal > 0 ? archivedTotal : null],
   ];
   header.innerHTML = `
     <div class="npcr-main-head-row">
@@ -350,7 +360,7 @@ function renderDetail() {
   if (!isNew && !npc) { detail.innerHTML = ''; return; }
 
   const status = npc.status || 'active';
-  const statusOpts = ['active', 'pending', 'inactive', 'destroyed'];
+  const statusOpts = ['active', 'pending', 'inactive', 'destroyed', 'archived'];
   const linkedIds = Array.isArray(npc.linked_character_ids) ? npc.linked_character_ids : [];
   const suggestedFor = Array.isArray(npc.st_suggested_for) ? npc.st_suggested_for : [];
 
@@ -436,10 +446,12 @@ function renderDetail() {
     }
   }
 
+  const isArchived = !isNew && status === 'archived';
   h += '<div class="npcr-actions">';
   h += `<button class="npcr-btn save" id="npcr-save">Save</button>`;
   h += `<button class="npcr-btn muted" id="npcr-cancel">Cancel</button>`;
-  if (!isNew) h += `<button class="npcr-btn dim" id="npcr-retire">Retire</button>`;
+  if (!isNew && !isArchived) h += `<button class="npcr-btn dim" id="npcr-retire">Retire</button>`;
+  if (isArchived) h += `<button class="npcr-btn save" id="npcr-restore">Restore</button>`;
   h += '</div>';
   h += '</div>';
 
@@ -453,6 +465,7 @@ function renderDetail() {
   document.getElementById('npcr-save')?.addEventListener('click', () => saveNpc(isNew));
   if (!isNew) {
     document.getElementById('npcr-retire')?.addEventListener('click', () => retireNpc(npc._id));
+    document.getElementById('npcr-restore')?.addEventListener('click', () => unretireNpc(npc._id));
     detail.querySelectorAll('[data-act="resolve-flag"]').forEach(btn => {
       btn.addEventListener('click', () => resolveFlag(btn.dataset.flagId));
     });
@@ -590,6 +603,23 @@ async function retireNpc(id) {
   } catch (err) {
     console.error('[npc-register] retire error:', err);
     if (errEl) errEl.textContent = 'Retire failed: ' + (err?.message || 'unknown error');
+  }
+}
+
+async function unretireNpc(id) {
+  if (!confirm('Restore this NPC to active status?')) return;
+  const errEl = document.getElementById('npcr-detail-err');
+  if (errEl) errEl.textContent = '';
+  try {
+    const updated = await apiPut(`/api/npcs/${id}`, { status: 'active' });
+    const idx = _npcs.findIndex(n => String(n._id) === String(id));
+    if (idx >= 0) _npcs[idx] = updated;
+    _selectedNpcId = null;
+    _activeChip = null;
+    renderShell();
+  } catch (err) {
+    console.error('[npc-register] unretire error:', err);
+    if (errEl) errEl.textContent = 'Restore failed: ' + (err?.message || 'unknown error');
   }
 }
 
