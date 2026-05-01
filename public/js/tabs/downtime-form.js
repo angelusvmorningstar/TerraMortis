@@ -14,9 +14,9 @@ import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
-import { calcVitaeMax } from '../data/accessors.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -108,13 +108,13 @@ const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
-  'xp_spend': '\u2726', 'misc': '\u25CF',
+  'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
-  'xp_spend': 'XP Spend', 'misc': 'Misc',
+  'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
@@ -132,8 +132,9 @@ const ACTION_FIELDS = {
 
 const SPHERE_ACTION_FIELDS = {
   '': [],
-  'ambience_increase': ['territory', 'outcome'],
-  'ambience_decrease': ['territory', 'outcome'],
+  'ambience_change':   ['territory', 'ambience_dir', 'outcome'],
+  'ambience_increase': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
+  'ambience_decrease': ['territory', 'ambience_dir', 'outcome'],  // legacy alias
   'attack':            ['target_char', 'outcome'],
   'block':             ['target_char', 'block_merit', 'outcome'],
   'hide_protect':      ['target_own_merit', 'outcome'],
@@ -175,10 +176,10 @@ function meritKey(merit) {
   return `${merit.name}_${merit.rating}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
-/** Format a merit for display: "Allies ●●● (Health)" */
+/** Format a merit for display: "Allies ●●● (Health)" using effective rating. */
 function meritLabel(merit) {
   const area = merit.area || merit.qualifier || '';
-  const dots = '●'.repeat(merit.rating);
+  const dots = '●'.repeat(meritEffectiveRating(currentChar, merit));
   return area ? `${merit.name} ${dots} (${area})` : `${merit.name} ${dots}`;
 }
 
@@ -243,7 +244,7 @@ function detectMerits() {
     m.category === 'influence' && m.name === 'Retainer'
   ));
 
-  gateValues.has_sorcery = (discs.Cruac || discs.Theban) ? 'yes' : 'no';
+  gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
 }
 
 /** Calculate monthly influence budget from character data. */
@@ -252,28 +253,10 @@ function getInfluenceBudget() {
 }
 
 /**
- * Effective rating for a merit instance. Reads m.rating (which the editor
- * keeps as the comprehensive sum of cp + free_* + xp), then layers on the
- * dynamic bonuses that aren't baked into rating: SSJ + Flock for Herd, and
- * partner pool for shared domain merits.
- */
-function effectiveMeritRating(c, m) {
-  if (!c || !m) return 0;
-  // Shared domain merits: domMeritTotal already pulls in partners + SSJ/Flock
-  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
-    return domMeritTotal(c, m.name);
-  }
-  let total = m.rating || 0;
-  if (m.name === 'Herd') {
-    total += ssjHerdBonus(c) + flockHerdBonus(c);
-  }
-  return total;
-}
-
 /** Convenience: effective rating for a domain merit by name (looks up the instance). */
 function effectiveDomainDots(c, name) {
   const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
-  return effectiveMeritRating(c, m);
+  return meritEffectiveRating(c, m);
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
@@ -453,9 +436,11 @@ function collectResponses() {
       const attrEl = document.getElementById(`dt-${prefix}_attr`);
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
       const discEl = document.getElementById(`dt-${prefix}_disc`);
+      const specEl = document.getElementById(`dt-${prefix}_spec`);
       responses[`${prefix}_attr`] = attrEl ? attrEl.value : '';
       responses[`${prefix}_skill`] = skillEl ? skillEl.value : '';
       responses[`${prefix}_disc`] = discEl ? discEl.value : '';
+      responses[`${prefix}_spec`] = specEl ? specEl.value : '';
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
@@ -564,7 +549,7 @@ function collectResponses() {
         const valEl  = row.querySelector(`#dt-sorcery_${n}_targets_${ti}_value`);
         const type = typeEl ? typeEl.value : '';
         const value = valEl ? (valEl.value || '').trim() : '';
-        if (type && value) arr.push({ type, value });
+        if (type) arr.push({ type, value });
       });
       responses[`sorcery_${n}_targets`] = arr;
     } else {
@@ -576,8 +561,6 @@ function collectResponses() {
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
     responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
-    const mandPaidEl = document.getElementById(`dt-sorcery_${n}_mand_paid`);
-    responses[`sorcery_${n}_mand_paid`] = mandPaidEl ? (mandPaidEl.checked ? 'yes' : 'no') : 'no';
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -595,6 +578,14 @@ function collectResponses() {
     for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead', 'grow_target']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
+    }
+    // Ambience direction (radio) — when sphere action is ambience_change, resolve
+    // to legacy ambience_increase/ambience_decrease so downstream code is untouched.
+    const dirEl = document.querySelector(`input[name="dt-sphere_${n}_ambience_dir"]:checked`);
+    const ambienceDir = dirEl ? dirEl.value : '';
+    responses[`sphere_${n}_ambience_dir`] = ambienceDir;
+    if (responses[`sphere_${n}_action`] === 'ambience_change') {
+      responses[`sphere_${n}_action`] = ambienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
     }
     const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
     responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
@@ -633,6 +624,13 @@ function collectResponses() {
     }
     const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
     responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    // Ambience direction (radio) — resolve ambience_change to legacy values
+    const stDirEl = document.querySelector(`input[name="dt-status_${n}_ambience_dir"]:checked`);
+    const stAmbienceDir = stDirEl ? stDirEl.value : '';
+    responses[`status_${n}_ambience_dir`] = stAmbienceDir;
+    if (responses[`status_${n}_action`] === 'ambience_change') {
+      responses[`status_${n}_action`] = stAmbienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
+    }
     const sm = detectedMerits.status[n - 1];
     if (sm) responses[`status_${n}_merit`] = meritLabel(sm);
   }
@@ -665,25 +663,46 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (custom render)
-  const acqDescEl = document.getElementById('dt-acq_description');
-  responses['acq_description'] = acqDescEl ? acqDescEl.value : '';
-  const acqAvailEl = document.getElementById('dt-acq_availability');
-  responses['acq_availability'] = acqAvailEl ? acqAvailEl.value : '';
-  // Acquisition merits
-  const acqMeritCbs = document.querySelectorAll('[data-acq-merit-cb]:checked');
-  const acqMeritKeys = [];
-  acqMeritCbs.forEach(cb => acqMeritKeys.push(cb.value));
-  responses['acq_merits'] = JSON.stringify(acqMeritKeys);
-  // Backwards compat: combined into old key
+  // Acquisition fields (multi-slot, per-slot keys)
+  const acqCountEl = document.getElementById('dt-acq-slot-count');
+  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
+  responses['acq_slot_count'] = String(acqSlotCount);
+  const acqSlots = [];
+  for (let n = 1; n <= acqSlotCount; n++) {
+    const descEl = document.getElementById(`dt-acq_${n}_description`);
+    const availEl = document.getElementById(`dt-acq_${n}_availability`);
+    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
+    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
+    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
+    const keys = [];
+    cbs.forEach(cb => keys.push(cb.value));
+    responses[`acq_${n}_merits`] = JSON.stringify(keys);
+    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  }
+  // Legacy keys: slot 1 mirror
+  responses['acq_description']  = responses['acq_1_description']  || '';
+  responses['acq_availability'] = responses['acq_1_availability'] || '';
+  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
+  // Composite blob: all slots
   const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(currentChar, resourcesM);
-  responses['resources_acquisitions'] = [
-    resourcesRating ? `Resources ${resourcesRating}` : '',
-    acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
-    responses['acq_description'],
-    responses['acq_availability'] ? `Availability: ${responses['acq_availability'] === 'unknown' ? 'Unknown' : responses['acq_availability'] + '/5'}` : '',
-  ].filter(Boolean).join('\n');
+  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
+  const blobLines = [];
+  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
+  if (acqSlotCount === 1) {
+    const s = acqSlots[0];
+    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   blobLines.push(s.description);
+    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else {
+    acqSlots.forEach((s, i) => {
+      blobLines.push('');
+      blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   blobLines.push(s.description);
+      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+    });
+  }
+  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
 
   // Skill acquisition fields
   const skDescEl = document.getElementById('dt-skill_acq_description');
@@ -700,8 +719,19 @@ function collectResponses() {
   const skAcqMeritKeys = [];
   skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
   responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat
-  responses['skill_acquisitions'] = responses['skill_acq_description'];
+  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  const _skPoolStr = skillAcqPoolStr(currentChar, {
+    attr: responses['skill_acq_pool_attr'],
+    skill: responses['skill_acq_pool_skill'],
+    spec: responses['skill_acq_pool_spec'],
+  });
+  responses['skill_acquisitions'] = [
+    responses['skill_acq_description'],
+    _skPoolStr ? `Pool: ${_skPoolStr}` : '',
+    responses['skill_acq_availability']
+      ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
+      : '',
+  ].filter(Boolean).join('\n');
 
   // Collect equipment slots
   const equipCountEl = document.getElementById('dt-equipment-slot-count');
@@ -1206,6 +1236,27 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     }
   }
 
+  // Mandragora 2b: when there's no existing submission for this cycle, seed
+  // sorcery slots from any rites the character has parked in their Mandragora
+  // Garden (powers[].mandragora_parked === true). Parked rites are sustained
+  // from the previous downtime — pre-filling avoids the player re-entering
+  // them every cycle. Only fires when responseDoc is fully null (no server
+  // doc, no local draft); existing drafts are respected.
+  if (!responseDoc && currentChar?.powers && currentCycle && currentCycle._id !== 'dev-stub') {
+    const parked = currentChar.powers.filter(
+      p => p.category === 'rite' && p.mandragora_parked === true,
+    );
+    if (parked.length > 0) {
+      const seeded = { sorcery_slot_count: String(parked.length) };
+      parked.forEach((rite, i) => {
+        const n = i + 1;
+        seeded[`sorcery_${n}_rite`] = rite.name;
+        seeded[`sorcery_${n}_mandragora`] = 'yes';
+      });
+      responseDoc = { responses: seeded };
+    }
+  }
+
   // Check for published outcomes from previous cycles (for "results available" banner)
   if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
     try {
@@ -1471,7 +1522,7 @@ function renderForm(container) {
   if (published) {
     h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
   } else if (pending) {
-    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime submission has been received and is awaiting ST review. Results will appear here once published.</p></div>';
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
@@ -1512,8 +1563,8 @@ function renderForm(container) {
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
-    if (currentChar.disciplines?.Cruac?.dots) traditions.push('Cruac');
-    if (currentChar.disciplines?.Theban?.dots) traditions.push('Theban');
+    if (discDots(currentChar, 'Cruac') > 0) traditions.push('Cruac');
+    if (discDots(currentChar, 'Theban') > 0) traditions.push('Theban');
     h += `<span class="dt-badge dt-badge-on">${traditions.join(' / ')}</span>`;
   }
   const bp = currentChar.blood_potency || 0;
@@ -1723,7 +1774,9 @@ function renderForm(container) {
     const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
     if (acqUnknown) {
       const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = 'unknown';
       const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -1741,7 +1794,9 @@ function renderForm(container) {
     if (acqDot) {
       const isSkill = !!acqDot.dataset.skillAcqDot;
       const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
+      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
+      const input = document.getElementById(inputId);
       if (input) input.value = val;
       const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
@@ -1985,6 +2040,40 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Single/Dual roll toggle — show or hide the secondary dice pool
+    const poolCountRadio = e.target.closest('[data-project-pool-count]');
+    if (poolCountRadio) {
+      const slot = poolCountRadio.dataset.projectPoolCount;
+      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
+      if (wrap) {
+        if (poolCountRadio.value === 'dual') {
+          wrap.removeAttribute('hidden');
+        } else {
+          wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
+    // Solo / Support Assets toggle — show or hide the Allies/Retainers picker
+    const supportAssetsRadio = e.target.closest('[data-project-support-assets]');
+    if (supportAssetsRadio) {
+      const slot = supportAssetsRadio.dataset.projectSupportAssets;
+      const wrap = container.querySelector(`[data-support-assets-wrap="${slot}"]`);
+      if (wrap) {
+        if (supportAssetsRadio.value === 'support') {
+          wrap.removeAttribute('hidden');
+        } else {
+          // Reuse the existing chip-click handler to deselect each chip
+          // cleanly — keeps sphere_${i}_action and joint_sphere_chips in sync.
+          wrap.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected').forEach(chip => chip.click());
+          wrap.setAttribute('hidden', '');
+          scheduleSave();
+        }
+      }
+      return;
+    }
     // Sphere action change — re-render for action-specific fields
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
@@ -2037,10 +2126,32 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Sphere/Status ambience direction ticker — re-render so resolved action reflects direction
+    const sphereAmbienceDir = e.target.closest('[data-sphere-ambience-dir]');
+    if (sphereAmbienceDir) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Dice pool dropdown — update total
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
       updatePoolTotal(poolSelect.dataset.poolPrefix);
+    }
+    // Project dice pool spec chip — toggle selection and re-render
+    const poolSpecChip = e.target.closest('[data-pool-spec]');
+    if (poolSpecChip) {
+      const prefix = poolSpecChip.dataset.poolSpec;
+      const specName = poolSpecChip.dataset.specName;
+      const hidden = document.getElementById(`dt-${prefix}_spec`);
+      if (hidden) hidden.value = hidden.value === specName ? '' : specName;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
     }
     // XP category/item change — collect current state and re-render
     const xpCat = e.target.closest('[data-xp-cat]');
@@ -2108,10 +2219,12 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Blood type toggle — multi-select pill buttons
+    // Blood type toggle — single-select pill buttons
     const bloodBtn = e.target.closest('[data-blood-type]');
     if (bloodBtn) {
-      bloodBtn.classList.toggle('dt-feed-vi-on');
+      const wasOn = bloodBtn.classList.contains('dt-feed-vi-on');
+      document.querySelectorAll('[data-blood-type]').forEach(b => b.classList.remove('dt-feed-vi-on'));
+      if (!wasOn) bloodBtn.classList.add('dt-feed-vi-on');
       scheduleSave();
       return;
     }
@@ -2120,29 +2233,6 @@ function renderForm(container) {
     if (roteBtn) {
       feedRoteAction = roteBtn.dataset.feedRote === 'on';
       applyRoteToProjectSlot(container);
-      return;
-    }
-    // Secondary dice pool toggle — reveals the optional pool2 inputs
-    const secondaryBtn = e.target.closest('[data-secondary-toggle]');
-    if (secondaryBtn) {
-      const slot = secondaryBtn.dataset.secondaryToggle;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) wrap.removeAttribute('hidden');
-      secondaryBtn.setAttribute('hidden', '');
-      return;
-    }
-    // Secondary dice pool clear — wipes pool2 selects and re-hides
-    const secondaryClearBtn = e.target.closest('[data-secondary-clear]');
-    if (secondaryClearBtn) {
-      const slot = secondaryClearBtn.dataset.secondaryClear;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) {
-        wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-        wrap.setAttribute('hidden', '');
-      }
-      const toggleBtn = container.querySelector(`[data-secondary-toggle="${slot}"]`);
-      if (toggleBtn) toggleBtn.removeAttribute('hidden');
-      scheduleSave();
       return;
     }
     // DTFP-5: Kiss / Violent toggle
@@ -2314,7 +2404,11 @@ function renderForm(container) {
         .filter(el => el.classList.contains('dt-chip--selected'))
         .map(el => el.dataset.sphereKey);
       saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
-      scheduleSave();
+      // T24 (DTLT-6): re-render so the sphere pane lock badge appears immediately
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       return;
     }
     // Single-select territory pills
@@ -2349,6 +2443,17 @@ function renderForm(container) {
       });
       const hidden = document.getElementById(`feed-val-${terrKey}`);
       if (hidden) hidden.value = isActive ? 'none' : statusVal;
+      // Sync rote selection: clear it if the new main selection makes it invalid.
+      // A rote pick is invalid when (main=Barrens AND rote!=Barrens) or
+      // (main!=Barrens AND rote=Barrens).
+      const newMainIsBarrens = !isActive && statusVal === 'barrens';
+      container.querySelectorAll('[data-feed-rote-terr-key]').forEach(rotePill => {
+        const rk = rotePill.dataset.feedRoteTerrKey;
+        const rh = document.getElementById(`feed-rote-val-${rk}`);
+        if (!rh || rh.value === 'none') return;
+        const roteIsBarrens = rotePill.dataset.feedRoteStatus === 'barrens';
+        if (newMainIsBarrens !== roteIsBarrens) rh.value = 'none';
+      });
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2448,7 +2553,8 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Mandragora Garden checkbox — re-render to show/hide "already paid" sub-checkbox
+    // Mandragora Garden checkbox — re-render so the capacity counter and
+    // disabled state on other slots' Park toggles update (2c).
     const mandCb = e.target.closest('.dt-mand-cb[id$="_mandragora"]');
     if (mandCb) {
       const responses = collectResponses();
@@ -2481,15 +2587,45 @@ function renderForm(container) {
         responses[`sorcery_${n}_targets`] = responses[`sorcery_${n + 1}_targets`] || '';
         responses[`sorcery_${n}_notes`] = responses[`sorcery_${n + 1}_notes`] || '';
         responses[`sorcery_${n}_mandragora`] = responses[`sorcery_${n + 1}_mandragora`] || 'no';
-        responses[`sorcery_${n}_mand_paid`] = responses[`sorcery_${n + 1}_mand_paid`] || 'no';
       }
       // Clear last slot
       delete responses[`sorcery_${current}_rite`];
       delete responses[`sorcery_${current}_targets`];
       delete responses[`sorcery_${current}_notes`];
       delete responses[`sorcery_${current}_mandragora`];
-      delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Add Acquisition button
+    if (e.target.closest('#dt-add-acquisition')) {
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      responses['acq_slot_count'] = String(current + 1);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Remove Acquisition button
+    const removeAcqBtn = e.target.closest('[data-remove-acq]');
+    if (removeAcqBtn) {
+      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-acq-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      for (let n = removeN; n < current; n++) {
+        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
+        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
+        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
+      }
+      delete responses[`acq_${current}_description`];
+      delete responses[`acq_${current}_availability`];
+      delete responses[`acq_${current}_merits`];
+      responses['acq_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
@@ -2806,17 +2942,9 @@ function renderProjectSlots(saved) {
   const slotCount = section?.projectSlots || 4;
 
   // Build attribute/skill/discipline option lists from character data
-  const attrs = ALL_ATTRS.filter(a => {
-    const v = currentChar.attributes?.[a];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skills = ALL_SKILLS.filter(s => {
-    const v = currentChar.skills?.[s];
-    return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const discs = Object.keys(currentChar.disciplines || {}).filter(d =>
-    (currentChar.disciplines[d]?.dots || 0) > 0
-  );
+  const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);
+  const skills = ALL_SKILLS.filter(s => skTotal(currentChar, s) > 0);
+  const discs = Object.keys(currentChar.disciplines || {}).filter(d => discDots(currentChar, d) > 0);
 
   // Character merits for the merit picker and own-merit target
   const charMerits = (currentChar.merits || []).filter(m =>
@@ -2843,8 +2971,15 @@ function renderProjectSlots(saved) {
   h += '<div class="dt-proj-tabs">';
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
-    const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
-    const label = ACTION_SHORT[actionVal] || 'No Action';
+    let icon, label;
+    if (actionVal === 'ambience_change') {
+      const dir = saved[`project_${n}_ambience_dir`] || 'improve';
+      icon = dir === 'improve' ? '▲' : '▼';
+      label = dir === 'improve' ? 'Ambience +' : 'Ambience −';
+    } else {
+      icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+      label = ACTION_SHORT[actionVal] || 'No Action';
+    }
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
     // JDT-4: Joint badge on the tab when this slot has a joint role.
@@ -3172,6 +3307,30 @@ function renderProjectSlots(saved) {
       if (isJoint) {
         h += renderJointAuthoring(n, saved, existingJoint);
       }
+
+      // Support Assets toggle — gates the Allies/Retainers picker so it
+      // doesn't read as required. Auto-defaults to "Support Assets" if any
+      // chips were saved previously, so returning players see their picks.
+      const hasAssetMerits = (detectedMerits.spheres?.length || 0) + (detectedMerits.retainers?.length || 0) > 0;
+      if (hasAssetMerits) {
+        const savedChips = saved[`project_${n}_joint_sphere_chips`];
+        const isSupport = !!(savedChips && savedChips !== '[]');
+        h += `<fieldset class="dt-ticker" data-proj-support-assets-ticker="${n}">`;
+        h += `<legend class="dt-ticker__legend">Support</legend>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="solo"${!isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Solo</label>`;
+        h += `<label class="dt-ticker__pill">`;
+        h += `<input type="radio" name="dt-project_${n}_support_assets" value="support"${isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
+        h += `Support Assets</label>`;
+        h += `</fieldset>`;
+        h += `<div class="dt-support-assets-panel" data-support-assets-wrap="${n}"${isSupport ? '' : ' hidden'}>`;
+        h += `<h4 class="dt-joint-panel__heading">Your Allies and Retainers</h4>`;
+        h += `<div class="dt-chip-grid dt-chip-grid--multi">`;
+        h += renderJointSphereChips(n, saved);
+        h += `</div>`;
+        h += `</div>`;
+      }
     }
 
     h += '</div>'; // dt-action-block
@@ -3187,20 +3346,18 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const prefix = `project_${slotNum}_${poolKey}`;
   const savedAttr  = saved[`${prefix}_attr`]  || '';
   const savedSkill = saved[`${prefix}_skill`] || '';
-  const savedDisc = saved[`${prefix}_disc`] || '';
+  const savedDisc  = saved[`${prefix}_disc`]  || '';
+  const savedSpec  = saved[`${prefix}_spec`]  || '';
+  const bestSpecs  = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
 
   // Calculate total from saved selections
   let total = 0;
-  if (savedAttr) {
-    const a = currentChar.attributes?.[savedAttr];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (savedSkill) {
-    const s = currentChar.skills?.[savedSkill];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
-  }
-  if (savedDisc) {
-    total += currentChar.disciplines?.[savedDisc]?.dots || 0;
+  if (savedAttr) total += getAttrEffective(currentChar, savedAttr);
+  if (savedSkill) total += skTotal(currentChar, savedSkill);
+  if (savedDisc) total += discDots(currentChar, savedDisc);
+  if (savedSpec && bestSpecs.includes(savedSpec)) {
+    const na = skNineAgain(currentChar, savedSkill);
+    total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
   }
 
   let h = '<div class="qf-field">';
@@ -3211,8 +3368,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_attr" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Attribute</option>';
   for (const a of attrs) {
-    const v = currentChar.attributes[a];
-    const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(currentChar, a);
     const sel = savedAttr === a ? ' selected' : '';
     h += `<option value="${esc(a)}"${sel}>${esc(a)} (${dots})</option>`;
   }
@@ -3222,9 +3378,8 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_skill" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Skill</option>';
   for (const s of skills) {
-    const v = currentChar.skills[s];
-    const dots = (v.dots || 0) + (v.bonus || 0);
-    const specs = v.specs?.length ? ` [${v.specs.join(', ')}]` : '';
+    const dots = skTotal(currentChar, s);
+    const specs = currentChar.skills?.[s]?.specs?.length ? ` [${currentChar.skills[s].specs.join(', ')}]` : '';
     const sel = savedSkill === s ? ' selected' : '';
     h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})${esc(specs)}</option>`;
   }
@@ -3234,7 +3389,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += `<select id="dt-${prefix}_disc" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Discipline</option>';
   for (const d of discs) {
-    const dots = currentChar.disciplines[d]?.dots || 0;
+    const dots = discDots(currentChar, d);
     const sel = savedDisc === d ? ' selected' : '';
     h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dots})</option>`;
   }
@@ -3242,7 +3397,23 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
 
   // Total
   h += `<span class="dt-pool-total" id="${prefix}_total">${total || '—'}</span>`;
-  h += '</div></div>';
+  h += '</div>';
+
+  // Spec chip row
+  h += `<input type="hidden" id="dt-${prefix}_spec" value="${esc(savedSpec)}">`;
+  if (savedSkill && bestSpecs.length > 0) {
+    h += '<div class="dt-feed-spec-row">';
+    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+    for (const sp of bestSpecs) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const na = skNineAgain(currentChar, savedSkill);
+      const bonus = (na || hasAoE(currentChar, sp)) ? 2 : 1;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-pool-spec="${esc(prefix)}" data-spec-name="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${bonus}</span></button>`;
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
   return h;
 }
 
@@ -3267,18 +3438,24 @@ function isClanDisc(discName) {
 }
 
 /**
- * Renders the optional Secondary Dice Pool gated behind a button so players
- * don't read it as required. If the slot has any saved pool2 values, the
- * pool renders directly (no button). Otherwise, an "+ Add secondary dice
- * pool" button reveals the pool when clicked.
+ * Renders the optional Secondary Dice Pool behind a Single Roll / Dual Roll
+ * pill toggle (mirrors the Solo/Joint pattern). Defaults to Single. If the
+ * slot has any saved pool2 values, the toggle starts on Dual.
  */
 function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
-  const hasSaved = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
+  const isDual = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
   let h = '';
-  h += `<button type="button" class="dt-secondary-pool-toggle"${hasSaved ? ' hidden' : ''} data-secondary-toggle="${n}">+ Add secondary dice pool</button>`;
-  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${hasSaved ? '' : ' hidden'}>`;
+  h += `<fieldset class="dt-ticker" data-proj-pool-count-ticker="${n}">`;
+  h += `<legend class="dt-ticker__legend">Roll</legend>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="single"${!isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Single Roll</label>`;
+  h += `<label class="dt-ticker__pill">`;
+  h += `<input type="radio" name="dt-project_${n}_pool_count" value="dual"${isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
+  h += `Dual Roll</label>`;
+  h += `</fieldset>`;
+  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${isDual ? '' : ' hidden'}>`;
   h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-  h += `<button type="button" class="dt-secondary-pool-clear" data-secondary-clear="${n}" title="Remove secondary dice pool">× Clear secondary pool</button>`;
   h += '</div>';
   return h;
 }
@@ -3321,28 +3498,35 @@ function getItemsForCategory(category) {
   switch (category) {
     case 'attribute':
       return ALL_ATTRS.map(a => {
-        const v = c.attributes?.[a];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = getAttrEffective(c, a);
+        if (dots >= 5) return null;
         return { value: a, label: `${a} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'skill':
       return ALL_SKILLS.map(s => {
-        const v = c.skills?.[s];
-        const dots = v ? (v.dots || 0) + (v.bonus || 0) : 0;
+        const dots = skTotal(c, s);
+        if (dots >= 5) return null;
         return { value: s, label: `${s} (${dots} → ${dots + 1})` };
-      });
+      }).filter(Boolean);
     case 'discipline': {
-      // Character's current disciplines + all core clan discs they might learn
+      // Character's current disciplines + all core clan discs they might learn.
+      // Filter against canonical discipline names — defence-in-depth against legacy
+      // data leaks (e.g. retired themes; see specs/stories/dtlt.3.*).
       const owned = Object.keys(c.disciplines || {});
       const clanDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline])
         || (c.clan && CLAN_DISCS[c.clan]) || [];
-      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])].sort();
+      const bloodlineDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || [];
+      const validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS, ...bloodlineDiscs]);
+      const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])]
+        .filter(d => validDiscs.has(d))
+        .sort();
       return all.map(d => {
-        const dots = c.disciplines?.[d]?.dots || 0;
+        const dots = discDots(c, d);
+        if (dots >= 5) return null;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
         return { value: d, label: `${d} (${dots} → ${dots + 1}) [${tag}, ${cost} XP]` };
-      });
+      }).filter(Boolean);
     }
     case 'merit': {
       const items = [];
@@ -3351,7 +3535,7 @@ function getItemsForCategory(category) {
         const found = charMerits.filter(m =>
           m.name && m.name.toLowerCase() === meritName.toLowerCase()
         );
-        return found.length ? Math.max(...found.map(m => effectiveMeritRating(c, m))) : 0;
+        return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
       }
 
       // Try rules cache first, fallback to MERITS_DB
@@ -3399,20 +3583,26 @@ function getItemsForCategory(category) {
         .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
-      // Rites they could learn at their current Cruac/Theban level
-      const cruacLevel = c.disciplines?.Cruac?.dots || 0;
-      const thebanLevel = c.disciplines?.Theban?.dots || 0;
+      const cruacLevel = discDots(c, 'Cruac');
+      const thebanLevel = discDots(c, 'Theban');
+      if (cruacLevel === 0 && thebanLevel === 0) return [];
+      const ownedRiteNames = new Set(
+        (c.powers || []).filter(p => p.category === 'rite').map(p => p.name)
+      );
+      const allRites = getRulesByCategory('rite') || [];
       const items = [];
-      if (cruacLevel > 0) {
-        for (let lvl = 1; lvl <= cruacLevel; lvl++) {
-          items.push({ value: `Cruac Rite (Level ${lvl})`, label: `Cruac Rite (Level ${lvl})` });
-        }
+      for (const rule of allRites) {
+        if (ownedRiteNames.has(rule.name)) continue;
+        const tradition = rule.parent;
+        const charRank = tradition === 'Cruac' ? cruacLevel
+                       : tradition === 'Theban' ? thebanLevel
+                       : 0;
+        if (charRank === 0) continue;
+        const rank = rule.rank || 1;
+        if (rank > charRank) continue;
+        items.push({ value: rule.name, label: `${rule.name} (${tradition} Rank ${rank})` });
       }
-      if (thebanLevel > 0) {
-        for (let lvl = 1; lvl <= thebanLevel; lvl++) {
-          items.push({ value: `Theban Rite (Level ${lvl})`, label: `Theban Rite (Level ${lvl})` });
-        }
-      }
+      items.sort((a, b) => a.label.localeCompare(b.label));
       return items;
     }
     default: return [];
@@ -3536,13 +3726,13 @@ function renderPersonalStorySection(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the Relationships tab to add one, or submit without a story moment.</p>';
+  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
 
   // Picker: grouped by kind family via <optgroup>.
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Who is this moment about?</label>';
   if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the Relationships tab to create one, or submit this downtime without a story moment.</p>';
+    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
     h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
   } else {
     // Group by kind family, sort entries by other-endpoint name within family.
@@ -3673,17 +3863,57 @@ function _legacyRenderPersonalStorySection(saved) {
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
   const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
-  const rites = (currentChar.powers || []).filter(p => p.category === 'rite');
-  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level);
+
+  // Augmented rite list: known rites + castable-but-unlearned rites at
+  // level ≤ (Cruac/Theban rating − 2). House rule per VtR2: any sorcerer
+  // can attempt a rite two ranks below their discipline rating without
+  // having learned it. Cruac 3 → level-1 rites are open; Cruac 5 → 1-3.
+  const knownRites = (currentChar.powers || []).filter(p => p.category === 'rite');
+  const knownNames = new Set(knownRites.map(r => r.name));
+  const cruacDots = discDots(currentChar, 'Cruac');
+  const thebanDots = discDots(currentChar, 'Theban');
+  const ruleRites = getRulesByCategory('rite') || [];
+  const unlearnedRites = [];
+  for (const rule of ruleRites) {
+    if (knownNames.has(rule.name)) continue;
+    const trad = rule.parent;
+    const rank = rule.rank || 1;
+    const limit = trad === 'Cruac' ? cruacDots - 2
+               : trad === 'Theban' ? thebanDots - 2
+               : -1;
+    if (rank <= limit) {
+      unlearnedRites.push({ category: 'rite', name: rule.name, tradition: trad, level: rank, _unlearned: true });
+    }
+  }
+  const rites = [...knownRites, ...unlearnedRites];
+  rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level || a.name.localeCompare(b.name));
   const cruacRites = rites.filter(r => r.tradition === 'Cruac');
 
   const savedCount = parseInt(saved['sorcery_slot_count'] || '1', 10);
   const slotCount = Math.max(1, savedCount);
 
+  // Mandragora 2c: capacity = Mandragora Garden effective dots. Count
+  // currently-parked rites from `saved` so the cap can disable the Park
+  // toggle on additional slots once full.
+  const mandragoraCap = hasMandragora ? effectiveDomainDots(currentChar, 'Mandragora Garden') : 0;
+  let parkedCount = 0;
+  for (let i = 1; i <= slotCount; i++) {
+    if (saved[`sorcery_${i}_mandragora`] === 'yes') parkedCount++;
+  }
+  const capacityReached = mandragoraCap > 0 && parkedCount >= mandragoraCap;
+
   let h = '<div class="qf-section collapsed" data-section-key="blood_sorcery">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">\u2714</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  // Mandragora Garden +3 dice — flat, always-on for Cruac users with the merit
+  if (hasMandragora && cruacDots > 0) {
+    h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Mandragora Garden grants +3 dice to every Cruac rite cast this downtime.</p>`;
+    if (mandragoraCap > 0) {
+      h += `<p class="qf-desc" style="margin:4px 0 10px;font-style:italic">Garden capacity: <strong>${parkedCount} / ${mandragoraCap}</strong> rite${mandragoraCap !== 1 ? 's' : ''} parked.</p>`;
+    }
+  }
 
   // Hidden field tracking slot count
   h += `<input type="hidden" id="dt-sorcery-slot-count" value="${slotCount}">`;
@@ -3716,30 +3946,29 @@ function renderSorcerySection(saved) {
         lastTradition = r.tradition;
       }
       const sel = selectedRite === r.name ? ' selected' : '';
-      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})</option>`;
+      const suffix = r._unlearned ? ' — unlearned' : '';
+      h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})${suffix}</option>`;
     }
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
 
-    // Mandragora Garden checkbox — Cruac rites only, when character has the merit
+    // Mandragora Garden checkbox — Cruac rites only, when character has the merit.
+    // Storage only: the +3 dice bonus is automatic (shown above the slots) and
+    // applies whether or not this rite is parked. Parking the rite means it
+    // costs no vitae for this casting and is sustained by the garden.
     if (hasMandragora && cruacRites.length) {
       const mandChecked = isCruac && mandSaved ? ' checked' : '';
-      const mandDisabled = !isCruac ? ' disabled' : '';
-      const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
-      const mandDots = effectiveMeritRating(currentChar, mandMerit);
-      h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
+      // 2c: disable when not Cruac, OR when capacity is full and this rite
+      // isn't already parked (so unticking remains possible to free a slot).
+      const overCap = capacityReached && !mandSaved;
+      const mandDisabled = (!isCruac || overCap) ? ' disabled' : '';
+      const mandTitle = overCap
+        ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+        : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+      h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
-      h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
+      h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
       h += '</label>';
-      // "Already paid" checkbox — shown when garden checkbox is ticked
-      if (isCruac && mandSaved) {
-        const paidSaved = saved[`sorcery_${n}_mand_paid`] === 'yes';
-        const paidChecked = paidSaved ? ' checked' : '';
-        h += `<label class="dt-mand-label dt-mand-paid-label" title="Tick if you have already set aside ${mandDots} Vitae to cover this rite's sustained cost for the month.">`;
-        h += `<input type="checkbox" id="dt-sorcery_${n}_mand_paid" class="dt-mand-cb"${paidChecked}>`;
-        h += ` Vitae cost already paid (${mandDots}V)`;
-        h += '</label>';
-      }
     }
 
     h += '</div>';
@@ -3747,7 +3976,8 @@ function renderSorcerySection(saved) {
     if (rite) {
       h += '<div class="dt-sorcery-details">';
       h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Tradition/Level:</span> ${esc(rite.tradition)} ${rite.level}</div>`;
-      if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
+      const costLabel = riteCost(rite).label;
+      if (costLabel) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Cost:</span> ${esc(costLabel)}</div>`;
       if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
       // DTFP-6: structured multi-target picker. Persisted shape is an array of
@@ -3759,6 +3989,7 @@ function renderSorcerySection(saved) {
         : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
       h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
       h += `<label class="qf-label">Target/s</label>`;
+      h += `<p class="qf-desc" style="margin:0 0 8px;font-size:.85em;opacity:.8">Not all target types are valid for every rite — check the rite's description for valid targets. The ST will reject any mismatched targeting at processing.</p>`;
       for (let ti = 0; ti < targets.length; ti++) {
         const t = targets[ti] || { type: '', value: '' };
         h += `<div class="dt-sorcery-target-row" data-sorcery-target-row="${n}-${ti}">`;
@@ -3797,7 +4028,7 @@ function renderAcquisitionsSection(saved) {
   const c = currentChar;
   // Find Resources merit rating
   const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = effectiveMeritRating(c, resourcesMerit);
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
@@ -3809,73 +4040,26 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="qf-section-body">';
 
   // ── Resources acquisition ──
-  h += '<div class="dt-acq-card">';
-  h += '<div class="dt-acq-card-title">Resources Acquisition</div>';
+    // -- Resources acquisition (multi-slot) --
+  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
+  const slotCount = Math.max(1, savedCount);
+  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
 
-  // Resources level (auto from sheet)
-  h += '<div class="dt-acq-resources-row">';
+  // Resources Level header (section-level, shared across all slots)
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
   h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '\u25CF'.repeat(resourcesRating) : 'None'}</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
   h += '</div>';
 
-  // Relevant merits (checkbox picker)
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(saved['acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += '<div class="dt-proj-merits" data-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  for (let n = 1; n <= slotCount; n++) {
+    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
   }
-  if (!charMerits.length) {
-    h += '<p class="qf-desc">No applicable merits.</p>';
-  }
-  h += '</div></div>';
 
-  // Description
-  h += renderQuestion({
-    key: 'acq_description', label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, saved['acq_description'] || '');
-
-  // Availability (dot selector 1-5 + Unknown)
-  const savedAvailRaw = saved['acq_availability'];
-  const savedAvail = savedAvailRaw === 'unknown' ? 'unknown' : (parseInt(savedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-acq-avail>';
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}">\u25CF</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown>Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
-
-  h += '</div>'; // acq-card
+  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
-  const skAttrs = ALL_ATTRS.filter(a => {
-    const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
-  const skSkills = ALL_SKILLS.filter(s => {
-    const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0;
-  });
+  const skAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
 
   h += '<div class="dt-acq-card" style="margin-top:16px;">';
   h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
@@ -3898,7 +4082,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
   h += '<option value="">Attribute</option>';
   for (const a of skAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
@@ -3906,7 +4090,7 @@ function renderAcquisitionsSection(saved) {
   h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
   h += '<option value="">Skill</option>';
   for (const s of skSkills) {
-    const v = c.skills[s]; const dots = (v.dots || 0) + (v.bonus || 0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
@@ -3922,11 +4106,11 @@ function renderAcquisitionsSection(saved) {
   }
 
   // Pool total
-  let skTotal = 0;
-  if (skSavedAttr) { const a = c.attributes?.[skSavedAttr]; if (a) skTotal += (a.dots || 0) + (a.bonus || 0); }
-  if (skSavedSkill) { const s = c.skills?.[skSavedSkill]; if (s) skTotal += (s.dots || 0) + (s.bonus || 0); }
-  skTotal += specBonus;
-  h += `<span class="dt-pool-total">${skTotal || '\u2014'}</span>`;
+  let skPoolTotal = 0;
+  if (skSavedAttr) skPoolTotal += getAttrEffective(c, skSavedAttr);
+  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
+  skPoolTotal += specBonus;
+  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
   h += '</div>';
 
   // Spec chips row + hidden input
@@ -3955,7 +4139,7 @@ function renderAcquisitionsSection(saved) {
   h += '<div class="dt-proj-merits" data-skill-acq-merits>';
   for (const m of charMerits) {
     const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(m.rating || 0);
+    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
     const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
     const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
     h += `<label class="dt-proj-merit-label">`;
@@ -3988,6 +4172,68 @@ function renderAcquisitionsSection(saved) {
   h += '</div>';
 
   h += '</div></div>'; // section-body, section
+  return h;
+}
+
+function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
+  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
+  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
+  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
+  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
+
+  let meritPicks = [];
+  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
+
+  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
+  if (slotCount > 1) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
+  for (const m of charMerits) {
+    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
+    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+    const checked = meritPicks.includes(mKey) ? ' checked' : '';
+    h += `<label class="dt-proj-merit-label">`;
+    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
+    h += `<span>${esc(mName)} ${dots}</span>`;
+    h += '</label>';
+  }
+  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
+  h += '</div></div>';
+
+  h += renderQuestion({
+    key: `acq_${n}_description`, label: 'Acquisition Description',
+    type: 'textarea', required: false,
+    desc: 'What are you attempting to acquire? Include context and purpose.',
+  }, description);
+
+  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
+  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
+  for (let d = 1; d <= 5; d++) {
+    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
+  }
+  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
+  if (savedAvail) {
+    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
+    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
+  }
+  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
+  h += '</div></div>';
+
+  h += '</div>';
   return h;
 }
 
@@ -4032,23 +4278,23 @@ function renderEquipmentRow(n, saved) {
 
 /** Recalculate and display the dice pool total for a given pool prefix. */
 function updatePoolTotal(prefix) {
-  const attrEl = document.getElementById(`dt-${prefix}_attr`);
+  const attrEl  = document.getElementById(`dt-${prefix}_attr`);
   const skillEl = document.getElementById(`dt-${prefix}_skill`);
-  const discEl = document.getElementById(`dt-${prefix}_disc`);
+  const discEl  = document.getElementById(`dt-${prefix}_disc`);
+  const specEl  = document.getElementById(`dt-${prefix}_spec`);
   const totalEl = document.getElementById(`${prefix}_total`);
   if (!totalEl) return;
 
   let total = 0;
-  if (attrEl?.value) {
-    const a = currentChar.attributes?.[attrEl.value];
-    if (a) total += (a.dots || 0) + (a.bonus || 0);
-  }
-  if (skillEl?.value) {
-    const s = currentChar.skills?.[skillEl.value];
-    if (s) total += (s.dots || 0) + (s.bonus || 0);
-  }
-  if (discEl?.value) {
-    total += currentChar.disciplines?.[discEl.value]?.dots || 0;
+  if (attrEl?.value) total += getAttrEffective(currentChar, attrEl.value);
+  if (skillEl?.value) total += skTotal(currentChar, skillEl.value);
+  if (discEl?.value) total += discDots(currentChar, discEl.value);
+  if (specEl?.value && skillEl?.value) {
+    const specs = currentChar.skills?.[skillEl.value]?.specs || [];
+    if (specs.includes(specEl.value)) {
+      const na = skNineAgain(currentChar, skillEl.value);
+      total += (na || hasAoE(currentChar, specEl.value)) ? 2 : 1;
+    }
   }
 
   totalEl.textContent = total || '—';
@@ -4091,17 +4337,17 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   const pfx = scope === 'rote' ? 'rote' : 'feed';
 
   // All attrs/skills the char has dots in
-  const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
-  const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
+  const allAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
+  const allSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
   const allDiscs = (isOther || isOpen)
-    ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
-    : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
+    ? Object.keys(c.disciplines || {}).filter(d => discDots(c, d) > 0)
+    : (m?.discs || []).filter(d => discDots(c, d) > 0);
 
   // Calculate total from current selections
   let total = 0;
-  if (selAttr) { const a = c.attributes?.[selAttr]; if (a) total += (a.dots||0)+(a.bonus||0); }
-  if (selSkill) { const s = c.skills?.[selSkill]; if (s) total += (s.dots||0)+(s.bonus||0); }
-  if (selDisc) total += c.disciplines?.[selDisc]?.dots || 0;
+  if (selAttr) total += getAttrEffective(c, selAttr);
+  if (selSkill) total += skTotal(c, selSkill);
+  if (selDisc) total += discDots(c, selDisc);
   const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
   total += fgVal;
   const specBonus = selSpec ? (hasAoE(c, selSpec) ? 2 : 1) : 0;
@@ -4113,20 +4359,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   h += '<div class="dt-feed-custom-row">';
   h += `<select class="qf-select" id="dt-${pfx}-custom-attr"><option value="">Attribute</option>`;
   for (const a of allAttrs) {
-    const v = c.attributes[a]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = getAttrEffective(c, a);
     h += `<option value="${esc(a)}"${selAttr===a?' selected':''}>${esc(a)} (${dots})</option>`;
   }
   h += '</select>';
   h += `<select class="qf-select" id="dt-${pfx}-custom-skill"><option value="">Skill</option>`;
   for (const s of allSkills) {
-    const v = c.skills[s]; const dots = (v.dots||0)+(v.bonus||0);
+    const dots = skTotal(c, s);
     h += `<option value="${esc(s)}"${selSkill===s?' selected':''}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
   if (allDiscs.length) {
     h += `<select class="qf-select" id="dt-${pfx}-disc"><option value="">Discipline</option>`;
     for (const d of allDiscs) {
-      const dv = c.disciplines[d]?.dots || 0;
+      const dv = discDots(c, d);
       h += `<option value="${esc(d)}"${selDisc===d?' selected':''}>${esc(d)} (${dv})</option>`;
     }
     h += '</select>';
@@ -4142,20 +4388,20 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
     for (const a of sortChips(m.attrs)) {
-      const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = getAttrEffective(c, a);
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
     for (const s of sortChips(m.skills)) {
-      const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
+      const val = skTotal(c, s);
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
       h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
     }
     if (m.discs.length) {
       h += '<span class="dt-feed-suggest-sep">/</span>';
       for (const d of sortChips(m.discs)) {
-        const val = c.disciplines?.[d]?.dots || 0;
+        const val = discDots(c, d);
         const active = selDisc === d ? ' dt-feed-chip-on' : '';
         h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
       }
@@ -4311,13 +4557,8 @@ function renderDtJointPanel(n, saved) {
   h += `</div>`;
   h += `</div>`;
 
-  const meritsHeadingId = `dt-joint-merits-heading-${n}`;
-  h += `<div class="dt-joint-panel__section">`;
-  h += `<h4 class="dt-joint-panel__heading" id="${meritsHeadingId}">Your Allies and Retainers</h4>`;
-  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${meritsHeadingId}" data-joint-merits="${n}">`;
-  h += renderJointSphereChips(n, saved);
-  h += `</div>`;
-  h += `</div>`;
+  // Allies/Retainers picker now lives outside the joint panel — controlled by
+  // the separate Solo / Support Assets toggle on the project slot.
 
   h += `</div>`;
   return h;
@@ -4393,7 +4634,7 @@ function renderJointSphereChips(n, saved) {
     const isUsed = isSphereMeritUsed(slotKey, type, saved);
     const isSelected = selectedSet.has(slotKey);
     const isDisabled = isUsed && !isSelected;
-    const effectiveDots = effectiveMeritRating(currentChar, m);
+    const effectiveDots = meritEffectiveRating(currentChar, m);
     const area = m.area || m.qualifier || '';
     const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
@@ -4635,7 +4876,7 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
 
   h += `<div class="dt-chip-grid" role="group" aria-label="Select merit to maintain">`;
   for (const m of maintMerits) {
-    const dots = m.dots || m.rating || 0;
+    const dots = meritEffectiveRating(currentChar, m);
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
@@ -4726,10 +4967,12 @@ function renderTargetZone(n, actionVal, saved, chars) {
       }
       h += '</fieldset>';
     }
-  } else if (['attack', 'hide_protect'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, false);
+  } else if (actionVal === 'attack') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false });
+  } else if (actionVal === 'hide_protect') {
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false, includeOwnMerit: true });
   } else if (['investigate', 'misc'].includes(actionVal)) {
-    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, true);
+    h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
     const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
     h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
@@ -4740,11 +4983,15 @@ function renderTargetZone(n, actionVal, saved, chars) {
 }
 
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */
-function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, includeTerritory) {
-  const options = includeTerritory ? ['character', 'territory', 'other'] : ['character', 'other'];
-  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-  // Default to 'character' for two-way (attack/hide_protect) when no type saved
-  const effectiveType = savedType || (includeTerritory ? '' : 'character');
+function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, opts = {}) {
+  const { includeTerritory = false, includeOwnMerit = false } = opts;
+  const options = [];
+  if (includeOwnMerit) options.push('own_merit');
+  options.push('character');
+  if (includeTerritory) options.push('territory');
+  options.push('other');
+  const labelMap = { own_merit: 'Own Merit', character: 'Character', territory: 'Territory', other: 'Other' };
+  const effectiveType = savedType || (includeOwnMerit ? 'own_merit' : (includeTerritory ? '' : 'character'));
 
   let h = `<fieldset class="dt-ticker" aria-label="Target type">`;
   for (const opt of options) {
@@ -4753,7 +5000,17 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
   }
   h += '</fieldset>';
 
-  if (effectiveType === 'character') {
+  if (effectiveType === 'own_merit') {
+    h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
+    h += '<option value="">— Select Merit / Asset —</option>';
+    for (const m of (currentChar.merits || [])) {
+      const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const sel = mKey === savedCharId ? ' selected' : '';
+      h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
+    }
+    h += '</select>';
+  } else if (effectiveType === 'character') {
     h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
     for (const c of chars) {
       const isSelected = String(c.id) === String(savedCharId);
@@ -4788,12 +5045,26 @@ function renderTerritoryPills(fieldId, savedVal) {
   return h;
 }
 
-/** Feeding territory pills. Pass rote=true for the rote-hunt variant (separate IDs/data-attrs). */
-function renderFeedingTerritoryPills(gridVals, rote = false) {
+/** Feeding territory pills. Pass rote=true for the rote-hunt variant (separate IDs/data-attrs).
+ *  When rote=true, supply mainGridVals so rote pills can disable invalid pairings:
+ *  - rote-Barrens is only enabled when main feed is Barrens
+ *  - non-Barrens rote pills are disabled when main feed is Barrens
+ */
+function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null) {
   const idPfx = rote ? 'feed-rote-val' : 'feed-val';
   const keyAttr = rote ? 'data-feed-rote-terr-key' : 'data-feed-terr-key';
   const statusAttr = rote ? 'data-feed-rote-status' : 'data-feed-status';
   const activeAttr = rote ? 'data-feed-rote-active' : 'data-feed-active';
+  // Determine main-feed Barrens state for rote-pill gating
+  let mainIsBarrens = false;
+  if (rote && mainGridVals) {
+    for (const t of FEEDING_TERRITORIES) {
+      const k = t.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      if (mainGridVals[k] && mainGridVals[k] !== 'none' && t.includes('Barrens')) {
+        mainIsBarrens = true;
+      }
+    }
+  }
   let h = '<div class="dt-terr-pills dt-feed-terr-pills">';
   for (const terr of FEEDING_TERRITORIES) {
     const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -4830,7 +5101,21 @@ function renderFeedingTerritoryPills(gridVals, rote = false) {
       ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
       : '';
 
-    h += `<button type="button" class="dt-terr-pill${activeClass}"`;
+    // Rote-feed Barrens lock: if main is Barrens, only Barrens-rote is allowed;
+    // if main is non-Barrens, Barrens-rote is disallowed. Also disable Barrens
+    // rote when no main territory is picked yet (you can't rote without main).
+    let disabled = false;
+    if (rote) {
+      if (isBarrens) {
+        if (!mainIsBarrens) disabled = true;
+      } else {
+        if (mainIsBarrens) disabled = true;
+      }
+    }
+    const disabledAttrs = disabled ? ' disabled aria-disabled="true" title="Rote territory must match main feed territory"' : '';
+    const disabledClass = disabled ? ' dt-terr-pill-disabled' : '';
+
+    h += `<button type="button" class="dt-terr-pill${activeClass}${disabledClass}"${disabledAttrs}`;
     h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
@@ -4850,7 +5135,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false) {
 
 // DTUI-17: Allies Ambience eligibility — effective dots ≥ 3 without HwV, ≥ 2 with
 function getAlliesAmbienceEligible(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -4860,7 +5145,7 @@ function getAlliesAmbienceEligible(m) {
 
 // DTUI-19: Grow XP block — scoped to a specific Allies merit instance
 function renderAlliesGrowXp(n, prefix, m, saved) {
-  const currentDots = effectiveMeritRating(currentChar, m);
+  const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
   const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
 
@@ -4869,7 +5154,8 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
   h += `<label class="qf-label" for="dt-${prefix}_${n}_grow_target">Target dots</label>`;
   h += `<select id="dt-${prefix}_${n}_grow_target" class="qf-select" data-grow-target="${prefix}_${n}">`;
   h += '<option value="">— Select target —</option>';
-  for (let d = currentDots + 1; d <= 5; d++) {
+  const maxTarget = currentDots < 3 ? 3 : Math.min(currentDots + 1, 5);
+  for (let d = currentDots + 1; d <= maxTarget; d++) {
     const sel = savedTarget === d ? ' selected' : '';
     h += `<option value="${d}"${sel}>${d} dot${d !== 1 ? 's' : ''}</option>`;
   }
@@ -4884,7 +5170,7 @@ function renderAlliesGrowXp(n, prefix, m, saved) {
 
 // DTUI-18: Allies Ambience contribution magnitude
 function getAlliesAmbienceContribution(m) {
-  const effectiveDots = effectiveMeritRating(currentChar, m);
+  const effectiveDots = meritEffectiveRating(currentChar, m);
   const hwv = (currentChar.merits || []).some(
     merit => merit.name === 'Honey With Vinegar' || merit.name === 'Honey with Vinegar'
   );
@@ -4928,6 +5214,26 @@ function renderSphereFields(n, prefix, fields, saved, charMerits, sphereMerit = 
     if (sphereMerit && (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease')) {
       h += renderAlliesAmbienceDisplay(sphereMerit, actionVal);
     }
+  }
+
+  if (fields.includes('ambience_dir')) {
+    // Direction toggle for ambience_change. Mirrors the project pattern.
+    // Default 'improve' if no saved direction yet. Reads legacy
+    // ambience_increase/_decrease as improve/degrade for back-compat.
+    const actionVal = saved[`${prefix}_${n}_action`] || '';
+    let savedDir = saved[`${prefix}_${n}_ambience_dir`] || '';
+    if (!savedDir) {
+      if (actionVal === 'ambience_decrease') savedDir = 'degrade';
+      else savedDir = 'improve';
+    }
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Direction</label>';
+    h += `<fieldset class="dt-ticker" aria-label="Ambience direction">`;
+    for (const [d, dLabel] of [['improve', 'Increase (+)'], ['degrade', 'Decrease (−)']]) {
+      h += `<label class="dt-ticker__pill"><input type="radio" name="dt-${prefix}_${n}_ambience_dir" value="${d}"${savedDir === d ? ' checked' : ''} data-sphere-ambience-dir="${n}"> ${dLabel}</label>`;
+    }
+    h += `</fieldset>`;
+    h += '</div>';
   }
 
   if (fields.includes('target_char')) {
@@ -5101,6 +5407,25 @@ function renderMeritToggles(saved) {
       // Merit info header
       h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
 
+      // T24 (DTLT-6): if committed as support to a project, lock the pane
+      if (actionVal === 'support') {
+        const sphereSlotKey = `sphere_${n}`;
+        let owningProject = null;
+        for (let pn = 1; pn <= 4; pn++) {
+          let chips = [];
+          try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+          if (Array.isArray(chips) && chips.includes(sphereSlotKey)) { owningProject = pn; break; }
+        }
+        h += '<div class="dt-sphere-locked">';
+        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${owningProject || '?'}</span>`;
+        h += `<p class="dt-sphere-locked-help">Un-tick this Ally's chip in the project's Support Assets panel to free this slot.</p>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-sphere_${n}_action" value="support">`;
+        h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
+        h += '</div>';
+        continue;
+      }
+
       // Store which merit this slot references
       h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
 
@@ -5111,11 +5436,13 @@ function renderMeritToggles(saved) {
       // DTUI-17/19: filter per-merit eligibility; Grow now included
       const ambienceEligible = getAlliesAmbienceEligible(m);
       const filteredActions = SPHERE_ACTIONS.filter(o => {
-        if (!ambienceEligible && (o.value === 'ambience_increase' || o.value === 'ambience_decrease')) return false;
+        if (!ambienceEligible && o.value === 'ambience_change') return false;
         return true;
       });
+      // Legacy actionVals 'ambience_increase'/'ambience_decrease' map to 'ambience_change' for the dropdown
+      const dropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of filteredActions) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = dropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
@@ -5172,8 +5499,10 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
+      // Legacy actionVals map to 'ambience_change' for the dropdown
+      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
       for (const opt of SPHERE_ACTIONS) {
-        const sel = actionVal === opt.value ? ' selected' : '';
+        const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
@@ -5197,7 +5526,7 @@ function renderMeritToggles(saved) {
     h += '<div class="dt-contacts-table">';
     for (let n = 1; n <= maxContacts; n++) {
       const m = detectedMerits.contacts[n - 1];
-      const area = m.area || m.qualifier || 'General';
+      const area = m.area || m.qualifier || '— sphere unset —';
       const dots = '\u25CF'.repeat(m.rating || 1);
       const savedInfo = saved[`contact_${n}_info`] || '';
       const savedReq = saved[`contact_${n}_request`] || '';
@@ -5224,7 +5553,7 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-contact_${n}_request">What specific information are you requesting?</label>`;
       h += `<p class="qf-desc">Name a person, event, or piece of information your contact would plausibly know. Vague requests (\u201Canything useful about X\u201D) will be resolved at ST discretion.</p>`;
-      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Lord Vance know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
+      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Marcus Reilly know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
       h += '</div>';
       // Store merit label
       h += `<input type="hidden" id="dt-contact_${n}_merit" value="${esc(meritLabel(m))}">`;
@@ -5248,7 +5577,7 @@ function renderMeritToggles(saved) {
     for (let n = 1; n <= maxRetainers; n++) {
       const m = detectedMerits.retainers[n - 1];
       const area = m.area || m.qualifier || 'Retainer';
-      const dots = '\u25CF'.repeat(m.rating || 1);
+      const dots = '\u25CF'.repeat(meritEffectiveRating(currentChar, m) || 1);
       const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
@@ -5548,15 +5877,16 @@ function renderQuestion(q, value) {
       // ── Unified pool builder (DTFP-4: always visible, method optional) ──
       h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
 
-      // Blood type selection (always shown)
+      // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
       let savedBlood = [];
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
+      const selectedBlood = Array.isArray(savedBlood) && savedBlood.length ? savedBlood[0] : '';
       h += '<div class="qf-field">';
       h += '<label class="qf-label">Blood Type</label>';
       h += '<div class="dt-feed-violence-toggle">';
       for (const bt of BLOOD_TYPES) {
-        const on = savedBlood.includes(bt) ? ' dt-feed-vi-on' : '';
+        const on = selectedBlood === bt ? ' dt-feed-vi-on' : '';
         h += `<button type="button" class="dt-feed-vi-btn${on}" data-blood-type="${esc(bt)}">${esc(bt)}</button>`;
       }
       h += '</div></div>';
@@ -5614,8 +5944,12 @@ function renderQuestion(q, value) {
             const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
             let roteTerrGridVals = {};
             try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
+            let mainTerrGridVals = {};
+            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
             h += '<div class="qf-field">';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true);
+            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
             h += '</div>';
           }
           h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
@@ -5635,18 +5969,19 @@ function renderQuestion(q, value) {
         const ghoulCost = (c.merits || [])
           .filter(m => m.name === 'Retainer' && (m.ghoul || m.type === 'ghoul'))
           .length;
-        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5
+        // Cruac Rites: 1 vitae for level 1-3, 2 vitae for level 4-5.
+        // Mandragora 3: parked rites (sorcery_N_mandragora === 'yes') are
+        // sustained by the garden and cost no vitae for this casting — skip
+        // their cost from the projection.
         const rites = (c.powers || []).filter(p => p.category === 'rite');
         const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
         let riteVitaeCost = 0;
         for (let sn = 1; sn <= sorcCount; sn++) {
           const riteName = allResp[`sorcery_${sn}_rite`];
-          if (riteName) {
-            const rite = rites.find(r => r.name === riteName);
-            if (rite && rite.tradition === 'Cruac') {
-              riteVitaeCost += (rite.level || 0) >= 4 ? 2 : 1;
-            }
-          }
+          if (!riteName) continue;
+          if (allResp[`sorcery_${sn}_mandragora`] === 'yes') continue;
+          const rite = rites.find(r => r.name === riteName);
+          if (rite) riteVitaeCost += riteCost(rite).vitae;
         }
         // Mandragora Garden — effective dots across all bonus channels
         const mandDots = effectiveDomainDots(c, 'Mandragora Garden');
@@ -5707,15 +6042,9 @@ function renderQuestion(q, value) {
 
         // Compute main hunt dice pool (used for average vitae yield)
         let mainPool = 0;
-        if (feedCustomAttr) {
-          const a = c.attributes?.[feedCustomAttr];
-          if (a) mainPool += (a.dots || 0) + (a.bonus || 0);
-        }
-        if (feedCustomSkill) {
-          const s = c.skills?.[feedCustomSkill];
-          if (s) mainPool += (s.dots || 0) + (s.bonus || 0);
-        }
-        if (feedDiscName) mainPool += c.disciplines?.[feedDiscName]?.dots || 0;
+        if (feedCustomAttr) mainPool += getAttrEffective(c, feedCustomAttr);
+        if (feedCustomSkill) mainPool += skTotal(c, feedCustomSkill);
+        if (feedDiscName) mainPool += discDots(c, feedDiscName);
         const fgVal = effectiveDomainDots(c, 'Feeding Grounds');
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;

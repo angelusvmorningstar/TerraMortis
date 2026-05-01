@@ -25,6 +25,10 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
+import {
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
+} from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
 import { attachWS } from './ws.js';
@@ -80,6 +84,17 @@ app.use('/api/territory-residency', requireAuth, residencyRouter);
 app.use('/api/attendance', requireAuth, attendanceRouter);
 app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, ticketsRouter);
+// Rules engine — must mount before /api/rules (purchasable_powers) so Express
+// routes /api/rules/grant etc. to the engine, not the /:key wildcard.
+const RE_ST = [requireAuth, requireRole('st')];
+app.use('/api/rules/grant',                  ...RE_ST, grantRouter);
+app.use('/api/rules/speciality_grant',       ...RE_ST, specialityGrantRouter);
+app.use('/api/rules/skill_bonus',            ...RE_ST, skillBonusRouter);
+app.use('/api/rules/nine_again',             ...RE_ST, nineAgainRouter);
+app.use('/api/rules/disc_attr',              ...RE_ST, discAttrRouter);
+app.use('/api/rules/derived_stat_modifier',  ...RE_ST, derivedStatModRouter);
+app.use('/api/rules/tier_budget',            ...RE_ST, tierBudgetRouter);
+app.use('/api/rules/status_floor',           ...RE_ST, statusFloorRouter);
 app.use('/api/rules', requireAuth, rulesRouter);
 app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 

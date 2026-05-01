@@ -2,7 +2,8 @@
 title: 'Viral Mythology migration — Allies pool with half-dot bonus mechanic'
 type: 'refactor'
 created: '2026-04-28'
-status: 'ready-for-dev'
+status: 'complete'
+recommended_model: 'opus — doubling semantics + half-dot rendering quirk + Allies-only target with multi-sphere edge cases'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

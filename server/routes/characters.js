@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
+import { normalizeMeritsMiddleware } from '../lib/normalize-character.js';
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -341,7 +342,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters/wizard — player creates their own character
-router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, async (req, res) => {
+router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, async (req, res) => {
   const players = getCollection('players');
   const player = await players.findOne({ _id: req.user.player_id });
   const existingIds = player?.character_ids || [];
@@ -368,7 +369,7 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 });
 
 // POST /api/characters — ST only
-router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
+router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -380,7 +381,7 @@ router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (re
 // PUT /api/characters/:id — ST only
 // Uses partial schema validation: types/shapes checked but no field is required,
 // so both full document saves and partial updates (e.g. regent assignment) are valid.
-router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, async (req, res) => {
+router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, normalizeMeritsMiddleware, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
@@ -405,15 +406,44 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
   res.json(result);
 });
 
-// DELETE /api/characters/:id — ST only
+// GET /api/characters/:id/cascade-preview — ST only
+router.get('/:id/cascade-preview', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+  try {
+    const [submissions, sessionsAffected, players] = await Promise.all([
+      getCollection('downtime_submissions').countDocuments({ character_id: oid }),
+      getCollection('game_sessions').countDocuments({ 'attendance.character_id': oid }),
+      getCollection('players').countDocuments({ character_ids: oid }),
+    ]);
+    res.json({ submissions, sessionsAffected, players });
+  } catch (err) {
+    res.status(500).json({ error: 'PREVIEW_FAILED', message: err.message });
+  }
+});
+
+// DELETE /api/characters/:id — ST only (hard-delete with cascade)
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+  try {
+    // Cascade deletes first; character delete is last as the completion marker
+    await getCollection('downtime_submissions').deleteMany({ character_id: oid });
+    await getCollection('ordeal_submissions').deleteMany({ character_id: oid }).catch(() => {});
+    await getCollection('histories').deleteMany({ character_id: oid }).catch(() => {});
+    await getCollection('questionnaire_responses').deleteMany({ character_id: oid }).catch(() => {});
+    await getCollection('tracker_state').deleteMany({ character_id: oid }).catch(() => {});
+    await getCollection('game_sessions').updateMany({}, { $pull: { attendance: { character_id: oid } } });
+    await getCollection('players').updateMany({}, { $pull: { character_ids: oid } });
+    await getCollection('npcs').updateMany({}, { $pull: { linked_character_ids: oid } }).catch(() => {});
 
-  const result = await col().deleteOne({ _id: oid });
-  if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
-
-  res.status(204).end();
+    const result = await col().deleteOne({ _id: oid });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+    res.status(204).end();
+  } catch (err) {
+    console.error('Hard-delete cascade failed:', err);
+    res.status(500).json({ error: 'CASCADE_FAILED', message: err.message });
+  }
 });
 
 export default router;

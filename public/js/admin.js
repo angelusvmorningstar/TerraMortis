@@ -1,7 +1,7 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 console.log('%c[TM Admin] build 2026-04-08T1', 'color: #E0C47A; font-weight: bold');
 
-import { apiGet, apiPut, apiPost } from './data/api.js';
+import { apiGet, apiPut, apiPost, apiDelete } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
@@ -10,6 +10,7 @@ import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
@@ -28,6 +29,7 @@ import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
+import { initRulesDataView } from './admin/rules-data-view.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -203,6 +205,7 @@ function switchDomain(domain) {
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'));
+  if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -511,6 +514,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-archive">Archive</button>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
+        <button class="dt-btn cd-hard-delete-btn" id="cd-hard-delete">Hard-Delete</button>
         <button class="cd-close" id="cd-close">&times;</button>
       </div>
     </div>
@@ -552,6 +556,7 @@ function openCharDetail(c) {
   });
   document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
   document.getElementById('cd-retire').addEventListener('click', toggleRetire);
+  document.getElementById('cd-hard-delete').addEventListener('click', () => openHardDeleteModal(c));
   document.getElementById('cd-link-player').addEventListener('click', () => openPlayerLinkModal(c));
   document.getElementById('cd-archive').addEventListener('click', () => {
     initAdminArchive(document.getElementById('sh-content'), c);
@@ -621,6 +626,79 @@ async function showEmergencyContact(c) {
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   document.addEventListener('keydown', function onEsc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+  });
+}
+
+async function openHardDeleteModal(c) {
+  document.getElementById('hd-modal')?.remove();
+
+  const charName = displayName(c);
+  const overlay = document.createElement('div');
+  overlay.id = 'hd-modal';
+  overlay.className = 'hd-overlay';
+  overlay.innerHTML = `
+    <div class="hd-modal">
+      <div class="hd-title">Hard-Delete Character</div>
+      <div class="hd-body">
+        <div>Permanently remove <strong>${esc(charName)}</strong> and all associated data. This cannot be undone.</div>
+        <div class="hd-cascade-info" id="hd-cascade">Loading cascade preview…</div>
+        <div>
+          <label class="hd-label" for="hd-confirm-input">Type <em>${esc(charName)}</em> to confirm</label>
+          <input id="hd-confirm-input" class="hd-confirm-input" type="text" autocomplete="off" placeholder="${esc(charName)}">
+        </div>
+        <div class="hd-error" id="hd-error"></div>
+      </div>
+      <div class="hd-footer">
+        <button class="hd-btn-cancel" id="hd-cancel">Cancel</button>
+        <button class="hd-btn-delete" id="hd-delete" disabled>Delete permanently</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  try {
+    const preview = await apiGet('/api/characters/' + c._id + '/cascade-preview');
+    const parts = [];
+    if (preview.submissions)      parts.push(`${preview.submissions} downtime submission${preview.submissions !== 1 ? 's' : ''}`);
+    if (preview.sessionsAffected) parts.push(`${preview.sessionsAffected} game session${preview.sessionsAffected !== 1 ? 's' : ''} affected`);
+    if (preview.players)          parts.push(`${preview.players} player link${preview.players !== 1 ? 's' : ''}`);
+    document.getElementById('hd-cascade').textContent = parts.length
+      ? `Will also delete: ${parts.join(', ')}.`
+      : 'No linked submissions or session data found.';
+  } catch {
+    document.getElementById('hd-cascade').textContent = 'Cascade preview unavailable; proceed with caution.';
+  }
+
+  const input     = document.getElementById('hd-confirm-input');
+  const deleteBtn = document.getElementById('hd-delete');
+  input.addEventListener('input', () => { deleteBtn.disabled = input.value !== charName; });
+
+  const close = () => overlay.remove();
+  document.getElementById('hd-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    if (input.value !== charName) return;
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Deleting…';
+    document.getElementById('hd-error').textContent = '';
+    try {
+      await apiDelete('/api/characters/' + c._id);
+      const idx = chars.findIndex(ch => String(ch._id) === String(c._id));
+      if (idx !== -1) chars.splice(idx, 1);
+      selectedChar = null;
+      editorState.editMode = false;
+      editorState.dirty.clear();
+      document.getElementById('char-detail').style.display = 'none';
+      renderCharGrid();
+      close();
+    } catch (err) {
+      document.getElementById('hd-error').textContent = err.message || 'Delete failed.';
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = 'Delete permanently';
+    }
   });
 }
 
@@ -1024,6 +1102,7 @@ async function init() {
       renderSheet(chars[editorState.editIdx]);
     }
   }).catch(() => {});
+  preloadRules().catch(() => {});
 
   try {
     chars = await apiGet('/api/characters');

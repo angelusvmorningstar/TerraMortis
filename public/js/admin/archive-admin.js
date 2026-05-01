@@ -1,9 +1,10 @@
 /* AR-3: Admin archive management for a character.
  * Lists existing documents; provides .docx upload with type/cycle/title fields. */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPost } from '../data/api.js';
 import { displayName } from '../data/helpers.js';
 import { renderSheet } from '../editor/sheet.js';
+import { openInlineEditor } from '../editor/archive-inline-editor.js';
 
 function esc(s) {
   const d = document.createElement('div');
@@ -75,6 +76,13 @@ async function renderArchiveAdmin() {
   }
   h += '</div>';
 
+  // Create blank
+  h += '<div class="ar-create-row">';
+  h += '<button class="dt-btn" id="ar-new-dossier">+ New Dossier</button>';
+  h += '<button class="dt-btn" id="ar-new-history">+ New History</button>';
+  h += '<span id="ar-create-status" class="ar-upload-status"></span>';
+  h += '</div>';
+
   // Upload form
   h += '<div class="ar-upload-form">';
   h += '<div class="ar-upload-title">Upload Document</div>';
@@ -105,7 +113,34 @@ async function renderArchiveAdmin() {
     renderSheet(_char, _el);
   });
 
+  document.getElementById('ar-new-dossier').addEventListener('click', () => handleCreateBlank('dossier', 'Dossier'));
+  document.getElementById('ar-new-history').addEventListener('click', () => handleCreateBlank('history_submission', 'Character History'));
+
   document.getElementById('ar-upload-btn').addEventListener('click', handleUpload);
+}
+
+async function handleCreateBlank(type, title) {
+  const statusEl = document.getElementById('ar-create-status');
+  statusEl.textContent = 'Creating…';
+
+  try {
+    const doc = await apiPost('/api/archive_documents', {
+      character_id: String(_char._id),
+      type,
+      title,
+      content_html: '',
+      visible_to_player: true,
+    });
+
+    await renderArchiveAdmin();
+    openInlineEditor(_el, doc._id, '', {
+      onSaved:     () => renderArchiveAdmin(),
+      onCancelled: () => renderArchiveAdmin(),
+    });
+  } catch (err) {
+    const msg = err?.message || 'Unknown error';
+    statusEl.textContent = msg.includes('already has') ? msg : `Create failed: ${msg}`;
+  }
 }
 
 async function handleUpload() {

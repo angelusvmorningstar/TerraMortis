@@ -3,6 +3,7 @@ title: 'Professional Training migration pilot — proves parallel-write contract
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — pilot migration sets the pattern every later RDE story copies; subtle errors propagate'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.0.legacy-migration-cleanup.story.md

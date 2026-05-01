@@ -3,6 +3,7 @@ title: 'Invested + Lorekeeper migration — Status-pool grant pattern'
 type: 'refactor'
 created: '2026-04-28'
 status: 'ready-for-dev'
+recommended_model: 'opus — pool semantics across two merits with different amount_basis sources; partner-merit references'
 context:
   - specs/architecture/adr-001-rules-engine-schema.md
   - specs/stories/rde.3.pt-migration-pilot.story.md

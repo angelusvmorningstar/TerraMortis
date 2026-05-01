@@ -11,7 +11,7 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain, calcVitaeMax } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skTotal, skSpecStr, skNineAgain, calcVitaeMax } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
@@ -413,7 +413,7 @@ function buildPool(method, discName, specName) {
 
   let bestS = '', bestSV = 0, bestSpecs = [];
   for (const s of method.skills) {
-    const v = skDots(c, s);
+    const v = skTotal(c, s);
     if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
   }
 

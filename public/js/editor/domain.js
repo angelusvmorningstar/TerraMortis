@@ -81,6 +81,26 @@ export function domMeritTotal(c, name) {
 }
 
 /**
+ * Effective merit rating: sum of every dot channel + dynamic bonuses.
+ * Use this everywhere a calc references a merit's effective dots.
+ * Do NOT read m.rating directly — it is unreliable post-import and post-edit.
+ */
+export function meritEffectiveRating(c, m) {
+  if (!c || !m) return 0;
+  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
+    return domMeritTotal(c, m.name);
+  }
+  const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0)
+    + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
+    + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
+    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0);
+  if (m.name === 'Herd') {
+    return sum + ssjHerdBonus(c) + flockHerdBonus(c);
+  }
+  return sum;
+}
+
+/**
  * Effective domain merit access for a character — their own total, or the
  * total from any partner who lists this character in their shared_with.
  * Used by the prereq checker to validate access through shared resources.
@@ -113,9 +133,9 @@ export function domMeritAccess(c, name) {
  * @param {object} m - merit entry with name, rating, area
  * @returns {number}
  */
-export function calcMeritInfluence(m, hwv = false) {
+export function calcMeritInfluence(c, m, hwv = false) {
   if (m.name === 'Contacts') return 0;
-  const r = m.rating || 0;
+  const r = meritEffectiveRating(c, m);
   if (m.name === 'Status') {
     const area = (m.area || '').trim();
     const isNarrow = area && !INFLUENCE_SPHERES.some(s => area.toLowerCase().includes(s.toLowerCase()));
@@ -140,7 +160,7 @@ export function calcContactsInfluence(c) {
   const hwv = hasHoneyWithVinegar(c);
   const total = Math.min(5, (c.merits || [])
     .filter(m => m.category === 'influence' && m.name === 'Contacts')
-    .reduce((s, m) => s + (m.rating || 0), 0));
+    .reduce((s, m) => s + meritEffectiveRating(c, m), 0));
   if (hwv) return total >= 4 ? 2 : total >= 2 ? 1 : 0;
   if (total >= 5) return 2;
   if (total >= 3) return 1;
@@ -291,13 +311,13 @@ export function calcTotalInfluence(c) {
   total += (st.clan || 0) + (st.covenant?.[c.covenant] || 0);
   // Influence merits (Contacts excluded from per-entry calc)
   (c.merits || []).filter(m => m.category === 'influence').forEach(m => {
-    total += calcMeritInfluence(m, hwv);
+    total += calcMeritInfluence(c, m, hwv);
   });
   // Contacts: sum all dots, apply threshold to total
   total += calcContactsInfluence(c);
   // MCI at 5 dots: 1 influence
   const mci = (c.merits || []).find(m => m.name === 'Mystery Cult Initiation');
-  if (mci && mci.rating >= 5) total += 1;
+  if (mci && meritEffectiveRating(c, mci) >= 5) total += 1;
   return total;
 }
 
@@ -314,7 +334,7 @@ export function influenceBreakdown(c) {
   if (_covVal) lines.push('Covenant Status: ' + _covVal);
   const inflM = (c.merits || []).filter(m => m.category === 'influence' && m.name !== 'Contacts');
   for (const m of inflM) {
-    const inf = calcMeritInfluence(m, hwv);
+    const inf = calcMeritInfluence(c, m, hwv);
     if (!inf) continue;
     const area = (m.area || m.qualifier || '').trim();
     const label = m.name + (area ? ' (' + area + ')' : '');
@@ -323,6 +343,6 @@ export function influenceBreakdown(c) {
   const cInf = calcContactsInfluence(c);
   if (cInf) lines.push('Contacts: ' + cInf + (hwv ? ' (HWV)' : ''));
   const mci = (c.merits || []).find(m => m.name === 'Mystery Cult Initiation');
-  if (mci && mci.rating >= 5) lines.push('MCI 5: 1');
+  if (mci && meritEffectiveRating(c, mci) >= 5) lines.push('MCI 5: 1');
   return lines;
 }

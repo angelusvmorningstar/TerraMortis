@@ -1,4 +1,4 @@
-/* Archive tab — documents (dossier, downtime responses, history) + retired characters.
+﻿/* Archive tab — documents (dossier, downtime responses, history) + retired characters.
  *
  * Dossier detail view (ORD-12) renders three sections:
  *   1. Core Info Card — live from character sheet
@@ -13,6 +13,7 @@ import { openInlineEditor } from '../editor/archive-inline-editor.js';
 import { renderReadOnlyField } from '../editor/questionnaire-render.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
 import { isSTRole } from '../auth/discord.js';
+import { renderOutcomeWithCards } from './story-tab.js';
 
 const TYPE_LABELS = {
   dossier:           'Dossier',
@@ -34,26 +35,47 @@ export async function initArchiveTab(el, char, retiredChars) {
 // ── List view ─────────────────────────────────────────────────────────────────
 
 async function renderArchiveList() {
-  _el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+  _el.innerHTML = '<p class="placeholder-msg">Loading…</p>';
 
-  let docs = [];
+  let docs = [], subs = [], cycles = [];
   try {
-    docs = await apiGet(`/api/archive_documents?character_id=${_char._id}`);
-  } catch { /* non-fatal — show retired chars anyway */ }
+    [docs, subs, cycles] = await Promise.all([
+      apiGet(`/api/archive_documents?character_id=${_char._id}`).catch(() => []),
+      apiGet('/api/downtime_submissions').catch(() => []),
+      apiGet('/api/downtime_cycles').catch(() => []),
+    ]);
+    subs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
+  } catch { /* non-fatal */ }
 
   const dossiers  = docs.filter(d => d.type === 'dossier');
-  const downtimes = docs.filter(d => d.type === 'downtime_response')
-                        .sort((a, b) => (a.cycle || 0) - (b.cycle || 0));
   const histories = docs.filter(d => d.type === 'history_submission');
+
+  const cycleMap = {};
+  const cycleOrderMap = {};
+  for (const c of cycles) {
+    cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+    cycleOrderMap[String(c._id)] = c.game_number ?? c.cycle_number ?? c.created_at ?? c._id;
+  }
+  const charId = String(_char._id);
+  const downtimeSubs = subs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => {
+      const ka = cycleOrderMap[String(a.cycle_id)] || '';
+      const kb = cycleOrderMap[String(b.cycle_id)] || '';
+      return String(kb).localeCompare(String(ka));
+    });
 
   let h = '';
 
-  // ── Documents ──
-  if (dossiers.length || downtimes.length || histories.length) {
+  if (dossiers.length || downtimeSubs.length || histories.length) {
     h += '<div class="arc-docs">';
-    if (dossiers.length)  h += renderDocGroup('Dossier', dossiers);
-    if (downtimes.length) h += renderDocGroup('Downtime Reports', downtimes);
-    if (histories.length) h += renderDocGroup('Character History', histories);
+    if (dossiers.length)     h += renderDocGroup('Dossier', dossiers);
+    if (downtimeSubs.length) h += renderDowntimeGroup('Downtime Reports', downtimeSubs, cycleMap);
+    if (histories.length)    h += renderDocGroup('Character History', histories);
     h += '</div>';
   }
 
@@ -63,7 +85,7 @@ async function renderArchiveList() {
     h += '<h3 class="arc-section-title">Retired Characters</h3>';
     h += '<div class="archive-grid">';
     for (const c of _retiredChars) {
-      const meta = [c.clan, c.covenant].filter(Boolean).join(' \u00B7 ');
+      const meta = [c.clan, c.covenant].filter(Boolean).join(' · ');
       const bp   = c.blood_potency ? `BP ${c.blood_potency}` : '';
       h += `<div class="archive-card" data-char-id="${esc(String(c._id))}">`;
       h += `<div class="archive-card-name">${esc(displayName(c))}</div>`;
@@ -76,18 +98,19 @@ async function renderArchiveList() {
     h += '</div>';
   }
 
-  if (!docs.length && !_retiredChars.length) {
+  if (!dossiers.length && !downtimeSubs.length && !histories.length && !_retiredChars.length) {
     h = '<p class="placeholder-msg">Nothing archived yet.</p>';
   }
 
   _el.innerHTML = h;
 
-  // Wire doc item clicks
-  _el.querySelectorAll('.arc-doc-item').forEach(item => {
+  _el.querySelectorAll('.arc-doc-item[data-doc-id]').forEach(item => {
     item.addEventListener('click', () => openDocDetail(item.dataset.docId));
   });
+  _el.querySelectorAll('.arc-doc-item[data-sub-id]').forEach(item => {
+    item.addEventListener('click', () => openDowntimeDetail(item.dataset.subId, downtimeSubs, cycleMap));
+  });
 
-  // Wire retired char clicks
   _el.querySelectorAll('.archive-card').forEach(card => {
     card.addEventListener('click', () => {
       const c = _retiredChars.find(r => String(r._id) === card.dataset.charId);
@@ -109,6 +132,43 @@ function renderDocGroup(heading, docs) {
   }
   h += '</div>';
   return h;
+}
+
+function renderDowntimeGroup(heading, submissions, cycleMap) {
+  let h = `<div class="arc-doc-group">`;
+  h += `<div class="arc-doc-group-title">${esc(heading)}</div>`;
+  for (const sub of submissions) {
+    const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+    h += `<div class="arc-doc-item" data-sub-id="${esc(String(sub._id))}">`;
+    h += `<span class="arc-doc-title">${esc(cycleLabel)}</span>`;
+    h += `<span class="arc-doc-meta">Downtime narrative</span>`;
+    h += '<span class="arc-doc-arrow">&rsaquo;</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function openDowntimeDetail(subId, allSubs, cycleMap) {
+  const sub = allSubs.find(s => String(s._id) === String(subId));
+  if (!sub) {
+    _el.innerHTML = '<p class="placeholder-msg">Downtime narrative not found.</p>';
+    return;
+  }
+  const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+
+  let h = '<div class="arc-detail">';
+  h += `<button class="qf-back-btn" id="arc-back">&larr; Back to Archive</button>`;
+  h += `<div class="arc-detail-header">`;
+  h += `<div class="arc-detail-title">${esc(cycleLabel)} &mdash; Downtime narrative</div>`;
+  h += '</div>';
+  h += '<div class="arc-detail-body reading-pane">';
+  h += renderOutcomeWithCards(sub);
+  h += '</div>';
+  h += '</div>';
+
+  _el.innerHTML = h;
+  document.getElementById('arc-back').addEventListener('click', renderArchiveList);
 }
 
 // ── Document detail view ──────────────────────────────────────────────────────

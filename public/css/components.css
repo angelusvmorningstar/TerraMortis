@@ -3034,6 +3034,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   border: 1px solid rgba(201,169,98,.15);
   border-radius: 6px;
 }
+.dt-acq-card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
 .dt-acq-card-title {
   font-family: var(--fl);
   font-size: 15px;
@@ -3774,6 +3780,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-terr-pill-poach { background: rgba(180,100,0,.12); color: var(--terr-poach-fg); border-color: rgba(180,100,0,.35); font-weight: 600; }
 .dt-terr-pill-poach .dt-terr-pill-status { color: var(--terr-poach-fg); }
 .dt-terr-pill-barrens { background: rgba(139,0,0,.1); color: var(--crim); border-color: rgba(139,0,0,.3); font-weight: 600; }
+.dt-terr-pill-disabled, .dt-terr-pill[disabled] { opacity: .35; cursor: not-allowed; pointer-events: none; }
 
 /* ── Feed pool suggestion chips ── */
 .dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -4016,6 +4023,9 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-proj-rote-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
 .dt-proj-rote-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
 .dt-proj-rote-desc { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
+.dt-sphere-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
+.dt-sphere-locked-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-sphere-locked-help { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
 .dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
   display: flex;
@@ -4753,45 +4763,21 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin-top: 8px;
 }
 
-/* Secondary dice pool — gated reveal so players read it as optional. */
-.dt-secondary-pool-toggle {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px dashed var(--bdr);
-  border-radius: 4px;
-  font-family: var(--ft);
-  font-size: 13px;
-  color: var(--txt2);
-  cursor: pointer;
-}
-.dt-secondary-pool-toggle:hover {
-  border-color: var(--gold2);
-  color: var(--txt);
-}
+/* Secondary dice pool — visibility toggled by the Single/Dual ticker. */
 .dt-secondary-pool-wrap[hidden] { display: none; }
-.dt-secondary-pool-clear {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px dashed var(--bdr);
-  border-radius: 4px;
-  font-family: var(--ft);
-  font-size: 12px;
-  color: var(--txt3);
-  cursor: pointer;
-}
-.dt-secondary-pool-clear:hover {
-  border-color: var(--crim);
-  color: var(--crim);
-}
+
+/* Support Assets panel — chip grid for picking allies/retainers as project
+ * support, gated by the Solo / Support Assets ticker on the project slot. */
+.dt-support-assets-panel { margin-top: 12px; }
+.dt-support-assets-panel[hidden] { display: none; }
+.dt-support-assets-panel .dt-joint-panel__heading { margin-top: 0; }
 
 /* Consistent gap between any target-type ticker and the content below it,
  * regardless of whether the picked mode renders chips, pills, or a textarea. */
 .dt-ticker + .dt-chip-grid,
-.dt-ticker + .dt-target-other-input { margin-top: 8px; }
+.dt-ticker + .dt-target-other-input,
+.dt-ticker + select,
+.dt-ticker + .qf-select { margin-top: 8px; }
 
 /* Target zone: normalise the gap between the "Target" label and the first
  * piece of content below it. Some actions render a Character/Territory/Other

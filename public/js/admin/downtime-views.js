@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -1325,9 +1325,8 @@ function renderPlayerResponses(s) {
     const targets = normaliseSorceryTargets(r[`sorcery_${n}_targets`]);
     const notes = r[`sorcery_${n}_notes`] || '';
     const mand = r[`sorcery_${n}_mandragora`] === 'yes';
-    const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
     let line = rite;
-    if (mand) line += mandPaid ? ' [Mandragora Garden \u2014 Vitae paid]' : ' [Mandragora Garden \u2014 Vitae outstanding]';
+    if (mand) line += ' [Parked in Mandragora Garden]';
     if (targets) line += ` — targets: ${targets}`;
     if (notes) line += ` — ${notes}`;
     sorcRows.push(line);
@@ -2228,27 +2227,23 @@ function renderPrepPanel(cycle) {
 
   const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
-  // Active players — those with at least one non-retired linked character
-  const activePlayers = (players || [])
-    .filter(p => {
-      const charIds = (p.character_ids || []).map(String);
-      return characters.some(c => !c.retired && charIds.includes(String(c._id)));
-    })
-    .sort((a, b) => (a.player_name || a.username || '').localeCompare(b.player_name || b.username || ''));
+  // Active (non-retired) characters, sorted by display name
+  const activeChars = (characters || [])
+    .filter(c => !c.retired)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  const toggleHtml = activePlayers.map(p => {
-    const id = String(p._id);
+  const toggleHtml = activeChars.map(c => {
+    const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
-    const name = esc(p.player_name || p.username || id);
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${name}</span>
+      <span class="dt-early-name">${esc(displayName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
 
-  const earlyContent = activePlayers.length
+  const earlyContent = activeChars.length
     ? toggleHtml
-    : `<p class="placeholder">No active players.</p>`;
+    : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
     `<div class="dt-prep-grid">` +
@@ -2773,6 +2768,12 @@ function buildProcessingQueue(subs) {
       });
     }
     if (skillAcq) {
+      const _skAcqChar = findCharacter(sub.character_name, sub.player_name);
+      const _skPoolPlayer = _skAcqChar ? skillAcqPoolStr(_skAcqChar, {
+        attr: resp.skill_acq_pool_attr || '',
+        skill: resp.skill_acq_pool_skill || '',
+        spec: resp.skill_acq_pool_spec || '',
+      }) : '';
       queue.push({
         key: `${sub._id}:acq:skills`,
         subId: sub._id,
@@ -2785,7 +2786,7 @@ function buildProcessingQueue(subs) {
         acqNotes: skillAcq,
         source: 'acquisition',
         actionIdx: 1,
-        poolPlayer: '',
+        poolPlayer: _skPoolPlayer,
       });
     }
 
@@ -5076,18 +5077,6 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire Mandragora Garden toggle (sorcery) — save and re-render
-  container.querySelectorAll('.proc-ritual-mg-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key   = cb.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      await saveEntryReview(entry, { ritual_mg_used: cb.checked });
-      renderProcessingMode(container);
-    });
-  });
-
   // Wire ritual result note (sorcery) — save on blur
   container.querySelectorAll('.proc-ritual-note-input').forEach(ta => {
     ta.addEventListener('blur', async e => {
@@ -5121,13 +5110,12 @@ function renderProcessingMode(container) {
       const char        = (charIdStr && characters.find(c => String(c._id) === charIdStr))
                         || charMap.get(charNameKey) || null;
 
-      // Pool = tradition stats + 3 (DT) + Mandragora (Cruac, if toggled)
+      // Pool = tradition stats + 3 (DT) + Mandragora (flat +3, Cruac users
+      // with the merit, always-on; not gated by per-rite parked toggle)
       const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
-      const mandUsed     = rev.ritual_mg_used || false;
-      const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-      const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
-      const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
+      const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+      const mgDots       = hasMandragora ? 3 : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
       if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
@@ -6404,10 +6392,8 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
 
   const isCruac      = (rev.sorc_tradition || entry.tradition) === 'Cruac';
-  const mandUsed     = rev.ritual_mg_used || false;
-  const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-  const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
-  const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
+  const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+  const mgDots       = hasMandragora ? 3 : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
   const eqStr        = _fmtMod(eqMod);
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
@@ -6425,12 +6411,11 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
 
-  // Mandragora Garden toggle (Cruac only — only if this character has the merit)
-  if (isCruac && mgPool > 0) {
-    h += `<div class="proc-mod-row">`;
-    h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}${_sorcDis}> Mandragora Garden (+${mgPool})`;
-    h += `</label></div>`;
+  // Mandragora Garden — flat +3 for Cruac users with the merit, always-on.
+  // No toggle: the player-side parked-rite flag is for sustained-cost storage,
+  // not for gating the dice bonus.
+  if (hasMandragora) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+3</span></div>`;
   }
 
   // Equipment / other ticker
@@ -7780,10 +7765,8 @@ function renderActionPanel(entry, review) {
     if (resolvedRitInfo) {
       const base         = _computeRitePool(sorcChar, resolvedRitInfo.attr, resolvedRitInfo.skill, resolvedRitInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
-      const mandUsed     = rev.ritual_mg_used || false;
-      const mgMeritL     = isCruac ? (sorcChar?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
-      const mgPoolL      = mgMeritL ? (mgMeritL.rating || mgMeritL.dots || 0) + (mgMeritL.bonus || 0) : 0;
-      const mgDots       = (isCruac && mandUsed) ? mgPoolL : 0;
+      const hasMandragora = isCruac && (sorcChar?.merits || []).some(m => m.name === 'Mandragora Garden');
+      const mgDots       = hasMandragora ? 3 : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
 
@@ -7814,11 +7797,23 @@ function renderActionPanel(entry, review) {
     h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target\u2026">${esc(resultNote)}</textarea>`;
     h += '</div>';
   } else if (entry.source === 'acquisition') {
-    // Acquisitions: show full player-submitted text, no pool needed
+    // Acquisitions: Resources has no roll (notes only). Skill has a roll — show 2-column pool layout.
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Player Notes</div>';
     h += `<div class="proc-acq-notes">${esc(entry.acqNotes || entry.description).replace(/\n/g, '<br>')}</div>`;
     h += '</div>';
+    if (entry.actionType === 'skill_acquisitions') {
+      h += '<div class="proc-detail-grid">';
+      h += '<div class="proc-detail-col">';
+      h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+      h += `<div class="proc-detail-value">${esc(poolPlayer || '—')}</div>`;
+      h += '</div>';
+      h += '<div class="proc-detail-col">';
+      h += `<div class="proc-detail-label">ST Validated Pool</div>`;
+      h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+      h += '</div>';
+      h += '</div>';
+    }
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
     h += '<div class="proc-detail-grid">';
@@ -8070,7 +8065,7 @@ function _computeRiteVitaeCost(sub, char) {
     const rite = resp[`sorcery_${n}_rite`];
     if (!rite) continue;
     const level = _getRiteLevel(rite) || 0;
-    total += level >= 4 ? 2 : level >= 1 ? 1 : 0;
+    if (level) total += riteCost({ tradition: 'Cruac', level }).vitae;
   }
   return total;
 }
@@ -8084,7 +8079,7 @@ function _computeRiteWpCost(sub, char) {
   const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
   let total = 0;
   for (let n = 1; n <= count; n++) {
-    if (resp[`sorcery_${n}_rite`]) total++;
+    if (resp[`sorcery_${n}_rite`]) total += riteCost({ tradition: 'Theban' }).wp;
   }
   return total;
 }

@@ -89,6 +89,7 @@ import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } 
 import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
+import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -483,6 +484,8 @@ async function loadAllData() {
   // 0. Load rules data (purchasable powers) — must complete before sheet renders
   //    so discipline powers resolve from the rules cache
   await loadRulesFromApi().catch(() => {});
+  // 0b. Load rule-engine docs — PT, MCI etc. evaluators read from this cache
+  preloadRules().catch(() => {});
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
