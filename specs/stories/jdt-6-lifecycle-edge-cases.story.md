@@ -1,9 +1,10 @@
 ---
 id: jdt.6
 epic: jdt
-status: ready-for-dev
+status: complete
 priority: medium
 depends_on: [jdt.1, jdt.2, jdt.3, jdt.4, jdt.5]
+shipped: 2026-04-27
 ---
 
 # Story JDT-6: Joint Downtimes lifecycle edge cases — decouple, mid-cycle edits, action-type whitelist enforcement
@@ -430,3 +431,44 @@ All copy British; no em-dashes.
 - **Depends on JDT-1, JDT-2, JDT-3, JDT-4, JDT-5**.
 - **Closes Epic JDT** when shipped.
 - **Closes the Downtime Overhaul six-epic set** when shipped (alongside the rest of NPCP / CHM / DTSR / DTFP / DTIL).
+
+---
+
+## Completion notes (2026-04-27)
+
+Shipped on `Morningstar` in four commits, each merged into `dev` and finally into `main` as part of the closing merge `b2fe0e7`.
+
+### Commits
+- `e20af6f` — voluntary decouple endpoint + UI (6 tests)
+- `b9b7e29` — lead re-invite, lead cancel, ST override (11 tests)
+- `f90c945` — mid-cycle description edits + indicator (7 tests)
+- `13cbe6a` — action-type block + submission delete cascade (5 tests)
+
+### Files changed
+- `server/routes/downtime.js` — 5 new endpoints plus DELETE submission cascade
+- `server/tests/api-invitation-lifecycle.test.js` — decouple suite (6 tests)
+- `server/tests/api-joint-projects.test.js` — reinvite, cancel, PATCH joint, acknowledge participant, DELETE cascade (23 tests)
+- `public/js/tabs/downtime-form.js` — Decouple button, Re-invite + Cancel panels, description Save + last-edited, support indicator, action-type lock
+- `public/js/admin/downtime-views.js` — ST override safety-valve button on joint group panel
+- `public/css/components.css` — JDT-6 lifecycle controls + indicator styles
+- `public/css/admin-layout.css` — ST override button style
+
+### Endpoint summary
+- `POST /api/project_invitations/:id/decouple`
+- `POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/reinvite`
+- `POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/cancel` (lead path / `st_override:true` path)
+- `PATCH /api/downtime_cycles/:cycleId/joint_projects/:jointId`
+- `POST /api/downtime_cycles/:cycleId/joint_projects/:jointId/participants/:charId/acknowledge`
+- `DELETE /api/downtime_submissions/:id` (ST only) with joint cascade
+
+### Test totals
+112 server tests across `tm_suite_test`. JDT + downtime suite: 81/81 pass (decouple, joint-projects, compile-push-outcome, downtime regression). Pre-existing `npcs/directory` flake unchanged — unrelated to JDT.
+
+### Manual smoke deferred
+Real-data end-to-end smoke (invite → accept → edit description → support acknowledge → support decouple → lead invite alternate → all decline → lead cancel; separate ST override run) deferred until DT3 cycle opens.
+
+### Out-of-scope confirmation
+- Discord / email push notifications on lifecycle events — deliberately out of v1 scope (memory contract: "explicit events to affected parties" interpreted as in-UI events on next form open, which the indicator + status badges already cover).
+- Edit history / audit log of description changes — only the latest description + timestamp persisted.
+- Reverting an accept (unaccept) — use decouple instead; not implemented.
+- Cross-cycle visibility of cancelled / decoupled joints — they remain on the cycle document but are not surfaced in the active phase render.
