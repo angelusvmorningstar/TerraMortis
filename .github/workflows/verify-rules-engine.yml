@@ -1,0 +1,46 @@
+name: Verify Rules Engine (production)
+
+# Read-only smoke test against production tm_suite. Catches the failure mode
+# where evaluator code ships but the matching seed-rules-*.js was never run
+# against production (RDE-3 PT XP refund regression). Requires the
+# MONGODB_URI repo secret to point at the Atlas cluster; the script itself
+# only runs countDocuments() so it cannot mutate state.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify rules engine seed state in tm_suite
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DB: tm_suite
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::MONGODB_URI secret is not set on this repo"
+            exit 2
+          fi
+          # Strip ssl= param — not accepted by MongoDB driver v7
+          CLEAN_URI=$(echo "$MONGODB_URI" | sed 's/[&?]ssl=[^&]*//')
+          MONGODB_URI="$CLEAN_URI" node scripts/rules-verify/verify-rules-engine.js
