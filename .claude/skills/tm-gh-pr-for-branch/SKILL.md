@@ -23,7 +23,10 @@ Do **not** invoke for:
 
 - **Base branch** (optional, default = `dev`). Most PRs target `dev`. PRs to `main` require an explicit `--base main` from the user *and* the user's current message must explicitly authorise merging-to-main flow.
 - **Story path** (optional). If not given, the skill scans the branch's commits for `specs/stories/...` references and asks if exactly one match is found, or prompts if multiple/none.
-- **Closes #N** (optional). If not given, the skill scans branch commits for `Closes #N`, `Fixes #N`, or `#N` references; if found, surfaces them. Otherwise none.
+- **Closes #N** (optional). If not given, the skill auto-detects in this order:
+  1. **Branch name** matches `<owner>/issue-(\d+)-...` (the convention from `tm-gh-issue-pickup`) → that issue number is auto-added.
+  2. Branch commits scanned for `Closes #N`, `Fixes #N`, `Resolves #N`, or standalone `#N` references.
+  3. None — surface as "_None_" in the PR body, ask user if they want to add one before creating.
 - `--draft` → create as draft PR.
 - `--no-draft` → explicit non-draft (overrides any default).
 - Default: PRs are created **non-draft**.
