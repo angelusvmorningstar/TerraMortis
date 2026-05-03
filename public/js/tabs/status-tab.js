@@ -269,32 +269,40 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     }
     h += `</div>`;
   } else {
-    // Player view: clan + every covenant the active character holds standing in
-    // (the primary plus any non-primary covenants with status > 0). Each table
-    // lists every character with status > 0 in that covenant — not filtered to
-    // primary-covenant matches — so a player sees themselves and others wherever
-    // their standing places them.
+    // Player view — first principles, no clever filtering:
+    //   1. Always show the active character's primary covenant table (if any).
+    //   2. Also show a table for every other covenant the active char has
+    //      ANY standing > 0 in.
+    //   3. Each table lists every character who is either a rank-holder
+    //      (status.covenant[cov] > 0) OR a primary member (c.covenant === cov).
+    //
+    // Use the in-list copy of the active char from /api/characters/status
+    // (not the activeChar arg, which may be a stale snapshot from a different
+    // fetch path). Guarantees the standing values we test against are the
+    // same ones the table renders from.
+    const me = chars.find(c => String(c._id) === activeId) || activeChar;
+    const myStatus = me.status?.covenant || {};
+
+    // Clan table — same as before
     const clanRows = chars
-      .filter(c => c.clan && c.clan === activeChar.clan)
+      .filter(c => c.clan && c.clan === me.clan)
       .map(c => ({ c, val: c.status?.clan || 0 }))
       .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
 
-    // Build the covenant list: primary first (if set), then any others where
-    // the active char has > 0 standing.
-    const covsHeld = Object.entries(activeChar.status?.covenant || {})
-      .filter(([_, v]) => (v | 0) > 0)
-      .map(([k]) => k);
+    // Build the covenant list deterministically.
     const covList = [];
-    if (activeChar.covenant) covList.push(activeChar.covenant);
-    for (const cov of covsHeld) if (!covList.includes(cov)) covList.push(cov);
+    if (me.covenant) covList.push(me.covenant);
+    for (const [cov, v] of Object.entries(myStatus)) {
+      if ((v | 0) > 0 && !covList.includes(cov)) covList.push(cov);
+    }
 
     h += `<div class="status-split">`;
     h += renderStatusSection(
-      activeChar.clan || 'No clan',
-      activeChar.clan ? clanIcon(activeChar.clan, 18) : '',
+      me.clan || 'No clan',
+      me.clan ? clanIcon(me.clan, 18) : '',
       clanRows,
       activeId,
-      activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
+      me.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
     );
     if (!covList.length) {
       h += renderStatusSection(
@@ -302,13 +310,10 @@ export async function renderStatusTab(el, activeChar, isST = false) {
         '',
         [],
         activeId,
-        'Your character has no covenant set.'
+        'Your character has no covenant set, and holds no standing in any covenant.'
       );
     } else {
       for (const cov of covList) {
-        // Include rank-holders (status > 0 in this covenant) AND primary
-        // members of this covenant even at 0 standing. OTS no longer
-        // subtracts — it's narrative-only now.
         const covRows = chars
           .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
           .filter(r => r.val > 0 || r.c.covenant === cov)
@@ -318,7 +323,7 @@ export async function renderStatusTab(el, activeChar, isST = false) {
           covIcon(cov, 18),
           covRows,
           activeId,
-          'No members of this covenant.'
+          'No members or rank-holders in this covenant.'
         );
       }
     }
