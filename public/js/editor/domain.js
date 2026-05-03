@@ -191,41 +191,33 @@ export function hasViralMythology(c) {
 }
 
 /**
- * Count all non-VM Allies dots (CP + XP + Fr + MCI) to determine VM bonus pool size.
- * Only VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
+ * Count purchased dots across non-VM Allies and Herd merits — single shared
+ * VM pool spanning both target merits. Allies includes free_mci because MCI
+ * grants count as real influence resources (preserves prior behaviour).
+ * VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
  */
-export function vmAlliesPool(c) {
+export function vmPool(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.category !== 'influence' || m.name !== 'Allies') return;
-    if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
-    total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
-  });
-  return total;
-}
-
-/**
- * Count VM bonus Allies dots allocated via free_vm on non-VM-granted Allies merits.
- */
-export function vmAlliesUsed(c) {
-  let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.category !== 'influence' || m.name !== 'Allies') return;
+  (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
-    total += (m.free_vm || 0);
+    if (m.category === 'influence' && m.name === 'Allies') {
+      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
+    } else if (m.name === 'Herd') {
+      if (m.derived) return;
+      total += (m.cp || 0) + (m.xp || 0);
+    }
   });
   return total;
 }
 
-/**
- * Count purchased Herd dots (CP + XP). VM doubles these.
- */
-export function vmHerdPool(c) {
+/** Sum of free_vm allocated across Allies + Herd merits. */
+export function vmUsed(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.name !== 'Herd') return;
-    if (m.derived) return;
-    total += (m.cp || 0) + (m.xp || 0);
+  (c.merits || []).forEach((m) => {
+    if (m.granted_by === 'VM') return;
+    if ((m.category === 'influence' && m.name === 'Allies') || m.name === 'Herd') {
+      total += (m.free_vm || 0);
+    }
   });
   return total;
 }

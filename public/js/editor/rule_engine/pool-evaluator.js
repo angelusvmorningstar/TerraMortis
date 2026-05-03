@@ -40,8 +40,9 @@ export function applyPoolRulesFromDb(c, { grants = [] } = {}) {
 
 function _computeAmount(c, rule) {
   switch (rule.amount_basis) {
-    case 'vm_allies_pool':
-      return _vmAlliesPool(c);
+    case 'vm_pool':
+    case 'vm_allies_pool':  // legacy alias — pre-Herd-allocation rule docs
+      return _vmPool(c);
     case 'rating_of_partner_merit': {
       // Accept either partner_merit_names (array, summed) or partner_merit_name
       // (singular, legacy). Array form lets one pool draw from multiple source
@@ -59,16 +60,20 @@ function _computeAmount(c, rule) {
 }
 
 /**
- * Inline copy of domain.js:vmAlliesPool — no import needed.
- * Sum of (cp + xp + free_mci) across non-VM-granted Allies influence merits.
+ * Inline copy of domain.js:vmPool — no import needed.
+ * Single shared pool across Allies (cp + xp + free_mci) and Herd (cp + xp).
  * VM-granted Allies (granted_by: 'VM') excluded to prevent feedback loop.
  */
-function _vmAlliesPool(c) {
+function _vmPool(c) {
   let total = 0;
   (c.merits || []).forEach(m => {
-    if (m.category !== 'influence' || m.name !== 'Allies') return;
     if (m.granted_by === 'VM') return;
-    total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: VM pool basis = all non-VM Allies dots (purchased + MCI grants); free_mci counts because MCI Allies are real influence resources
+    if (m.category === 'influence' && m.name === 'Allies') {
+      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: free_mci counts because MCI Allies are real influence resources
+    } else if (m.name === 'Herd') {
+      if (m.derived) return;
+      total += (m.cp || 0) + (m.xp || 0);
+    }
   });
   return total;
 }

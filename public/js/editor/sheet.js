@@ -12,7 +12,7 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 import { shEnsureTouchstoneData } from './edit.js';
 
@@ -108,7 +108,7 @@ function _renderPoolCounters(c, category) {
     seen.add(key);
     let pTotal, pUsed;
     if (p.category === 'any') { pTotal = p.amount; pUsed = getMCIPoolUsed(c); }
-    else if (p.category === 'vm') { pTotal = p.amount; pUsed = vmAlliesUsed(c); }
+    else if (p.category === 'vm') { pTotal = p.amount; pUsed = vmUsed(c); }
     else if (p.category === 'lk') { pTotal = p.amount; pUsed = lorekeeperUsed(c); }
     else if (p.category === 'ohm') { pTotal = p.amount; pUsed = ohmUsed(c); }
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
@@ -811,7 +811,7 @@ export function shRenderInfluenceMerits(c, editMode) {
   const _inflOhmPools = (c._grant_pools || []).filter(p => p.category === 'ohm');
   const _inflInvPools = (c._grant_pools || []).filter(p => p.category === 'inv');
   let _inflAlert = null;
-  _inflVmPools.forEach(p => { const u = vmAlliesUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
+  _inflVmPools.forEach(p => { const u = vmUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   _inflOhmPools.forEach(p => { const u = ohmUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   _inflInvPools.forEach(p => { const u = investedUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   const _inflBadge = editMode ? _alertBadge(_inflAlert) : '';
@@ -924,7 +924,7 @@ export function shRenderDomainMerits(c, editMode) {
   let h = '<div class="sh-sec"><div class="sh-sec-title">Domain Merits' + _domBadge + '</div><div class="merit-list">';
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
-    const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
+    const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c); const _hasVM = hasViralMythology(c);
     // Per-domain-merit prereq gate: hide options the character can't take.
     // Only Mandragora Garden currently has prereqs (Safe Place + Crúac); others
     // are unrestricted. Lookup is keyed by canonical name → purchasable_powers key.
@@ -951,10 +951,9 @@ export function shRenderDomainMerits(c, editMode) {
       const _totalDots = _partnerDots > 0 ? shDotsMixed(_ownCapped, _partnerDots) : shDots(eT);
       const _dPurch = (m.cp || 0) + (m.xp || 0);
       h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
-      const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
-      if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div class="derived-note">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
       if (!['Herd', 'Feeding Grounds'].includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }

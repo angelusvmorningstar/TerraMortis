@@ -12,7 +12,7 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain.js';
+import { vmPool, vmUsed, investedPool, investedUsed } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1036,10 +1036,10 @@ export function shEditMeritPt(realIdx, field, val) {
     const otherFMCI = getMCIPoolUsed(c) - (m.free_mci || 0);
     val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
   }
-  // Cap free_vm edits by remaining VM pool
+  // Cap free_vm edits by remaining VM pool (shared across Allies + Herd)
   if (field === 'free_vm') {
-    const vmTotal = vmAlliesPool(c);
-    const otherFVM = vmAlliesUsed(c) - (m.free_vm || 0);
+    const vmTotal = vmPool(c);
+    const otherFVM = vmUsed(c) - (m.free_vm || 0);
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
   // Cap free_inv edits by remaining Invested pool

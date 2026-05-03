@@ -12,7 +12,7 @@ import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
-import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
+import { vmUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
@@ -413,7 +413,7 @@ function charAlerts(c) {
     const total = p.amount;
     let used;
     if (p.category === 'any') used = getMCIPoolUsed(c);
-    else if (p.category === 'vm') used = vmAlliesUsed(c);
+    else if (p.category === 'vm') used = vmUsed(c);
     else if (p.category === 'lk') used = lorekeeperUsed(c);
     else if (p.category === 'ohm') used = ohmUsed(c);
     else if (p.category === 'inv') used = investedUsed(c);
