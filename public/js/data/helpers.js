@@ -131,6 +131,14 @@ export function sortName(c) {
   return (c.moniker || c.name).toLowerCase();
 }
 
+/** Dropdown option label: moniker || name (no honorific, no redaction).
+ *  Honorifics make alphabetical scanning of long character lists hard
+ *  ("Dr A", "Lord A", "Sister A" all clump under their titles instead
+ *  of by name). Use for <option> labels in character pickers. */
+export function dropdownName(c) {
+  return c.moniker || c.name;
+}
+
 /**
  * Find a character's regent territory from the territories array.
  * Returns { territory, territoryId, lieutenantId } or null.

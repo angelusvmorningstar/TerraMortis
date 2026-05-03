@@ -256,7 +256,8 @@ function renderSidebarFooter() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const html = [];
 
-  if (path !== '' && path !== '/') html.push(`<a href="/" class="sb-link-btn">Game App</a>`);
+  // Single Player button — formerly two ("Game App" → /, "Player" → /player)
+  // pointing at what is now effectively the same player-side experience.
   if (path !== '/player') html.push(`<a href="/player" class="sb-link-btn">Player</a>`);
   // Storyteller (/admin) is always the current page here; never shown
 

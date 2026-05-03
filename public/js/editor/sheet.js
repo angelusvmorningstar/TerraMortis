@@ -5,7 +5,7 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, displayNameRaw, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, isInClanDisc, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
@@ -710,7 +710,7 @@ export function shRenderDisciplines(c, editMode) {
     const _oathDB = Object.fromEntries(Object.entries(MERITS_DB || {}).filter(([, v]) => v.type === 'Invictus Oath' || v.type === 'Carthian Law'));
     const _toTitle = s => s.replace(/\b\w/g, ch => ch.toUpperCase());
     const _allSkillOpts = ALL_SKILLS.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
-    const _charNames = [...(state.chars || [])].filter(ch => ch.name && ch.name !== c.name).sort((a, b) => sortName(a).localeCompare(sortName(b))).map(ch => '<option value="' + esc(ch.name) + '">' + esc(displayNameRaw(ch)) + '</option>').join('');
+    const _charNames = [...(state.chars || [])].filter(ch => ch.name && ch.name !== c.name).sort((a, b) => sortName(a).localeCompare(sortName(b))).map(ch => '<option value="' + esc(ch.name) + '">' + esc(dropdownName(ch)) + '</option>').join('');
     h += '<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">';
     pctP.forEach((p, i) => {
       const realPi = (c.powers || []).indexOf(p);
@@ -957,7 +957,7 @@ export function shRenderDomainMerits(c, editMode) {
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
       if (!['Herd', 'Feeding Grounds'].includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (!['Herd', 'Feeding Grounds'].includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(displayNameRaw(p)) + '</option>').join('') + '</select></div>';
+      if (!['Herd', 'Feeding Grounds'].includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
