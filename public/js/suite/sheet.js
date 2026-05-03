@@ -26,7 +26,8 @@ import {
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
-import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus, attacheBonusDots } from '../editor/domain.js';
+import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
+import { shRenderInfluenceMerits, shRenderDomainMerits } from '../editor/sheet.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
@@ -516,103 +517,15 @@ export function renderSheet() {
     }
   }
 
-  // ── Influence Merits ──
-  const inflMerits = influenceMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (inflMerits.length) {
-    const _inflTip = influenceBreakdown(c).join('\n');
-    const _inflTotal = calcTotalInfluence(c);
-    html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--accent);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
-
-    const nonContacts = inflMerits.filter(m => m.name !== 'Contacts');
-    const contactsMerits = inflMerits.filter(m => m.name === 'Contacts');
-
-    nonContacts.forEach((m, i) => {
-      const area = (m.area || '').trim() || null;
-      const ghoul = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '';
-      const tags = m._grant_sources || [];
-      const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
-      const meritKey = area ? m.name + ' (' + area + ')' : m.name;
-      const attBonus = attacheBonusDots(c, meritKey);
-      const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_attache || 0) + attBonus;
-      const dotH = (purch || bon)
-        ? dotsMixed(purch, bon)
-        : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
-      const label = area ? m.name + ' (' + area + ghoul + ')' : m.name + ghoul;
-      html += renderMeritRow({ name: label, rating: 0 }, 'infl', i, dotH + grantTag);
-    });
-
-    if (contactsMerits.length) {
-      let totalPurch = 0, totalRating = 0;
-      const allSpheres = [];
-      contactsMerits.forEach(m => {
-        totalPurch += (m.cp || 0) + (m.xp || 0);
-        totalRating += (m.rating || 0);
-        if (m.spheres && m.spheres.length) allSpheres.push(...m.spheres);
-        else if (m.area) allSpheres.push(m.area.trim());
-        else if (m.qualifier) allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
-      });
-      const cAttBonus = attacheBonusDots(c, 'Contacts' + (allSpheres.length ? ' (' + [...new Set(allSpheres.filter(Boolean))].join(', ') + ')' : ''));
-      // No 5-cap (engine bonuses like free_attache via the variant lift the
-      // effective rating past 5). totalRating already includes free_attache
-      // via mci.js's rating sync, so don't add cAttBonus separately for the
-      // variant case (it's only set for legacy Attaché where attacheBonusDots
-      // returns non-zero — variants land in m.rating instead).
-      totalRating = totalRating + cAttBonus;
-      const cPurch = Math.min(totalPurch, totalRating);
-      const cBon = Math.max(0, totalRating - cPurch);
-      const sp = [...new Set(allSpheres.filter(Boolean))].join(', ');
-      html += renderMeritRow({ name: 'Contacts' + (sp ? ' (' + sp + ')' : ''), rating: 0 }, 'infl', 'contacts', dotsMixed(cPurch, cBon));
-    }
-
-    html += `<div class="infl-total" title="${_inflTip}">Total Influence: <span class="inf-n">${_inflTotal}</span></div>`;
-    html += `</div></div>`;
-  }
-
-  // ── Domain Merits ──
-  const domMerits = domainMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (domMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
-    domMerits.forEach(m => {
-      const domKey = m.area ? m.name + ' (' + m.area + ')' : m.name;
-      const attBonus = attacheBonusDots(c, domKey);
-      const hasPartners = (m.shared_with || []).length > 0;
-      if (hasPartners) {
-        // Trust m.rating — synced by mci.js to include every free_* field
-        // including free_attache, free_fwb, free_pt, etc. Hand-summing here
-        // historically dropped fields each time a new free_* was added.
-        const purch = (m.cp || 0) + (m.xp || 0);
-        const ownTotal = m.rating || purch;
-        let partnerDots = 0;
-        for (const pName of m.shared_with) {
-          const p = (state.chars || []).find(ch => ch.name === pName);
-          if (p) {
-            const pm = (p.merits || []).find(pm => pm.category === 'domain' && pm.name === m.name);
-            if (pm) partnerDots += (pm.cp || 0) + (pm.free_mci || 0) + (pm.free_bloodline || 0) + (pm.xp || 0);
-          }
-        }
-        if (partnerDots === 0 && m._partner_dots > 0) partnerDots = m._partner_dots;
-        // No 5-cap: engine bonuses (Attaché, SSJ, Flock, FwB) lift effective
-        // rating past 5 and the renderer should reflect that.
-        const total = ownTotal + partnerDots;
-        const solid = Math.min(total, purch);  // solid = purchased only
-        const hollow = Math.max(0, total - solid);  // bonuses + partners
-        const dotH = dotsMixed(solid, hollow);
-        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotH}<span class="trait-qual" style="font-size:10px">Shared</span></div></div></div></div>`;
-      } else {
-        const purch = (m.cp || 0) + (m.xp || 0);
-        const ssjB = m.name === 'Herd' ? ssjHerdBonus(c) : 0;
-        const flockB = m.name === 'Herd' ? flockHerdBonus(c) : 0;
-        const derived = ssjB + flockB + attBonus;
-        const totalDots = purch + derived + Math.max(0, (m.rating || 0) - purch);
-        const bon = Math.max(0, totalDots - purch);
-        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
-      }
-    });
-    html += `</div></div>`;
-  }
+  // ── Influence + Domain Merits ──
+  // Delegated to the editor's view-mode renderers so the suite app and the
+  // admin/player editor stay byte-identical for these sections. Historically
+  // the suite hand-rolled its own dot math here and silently dropped each
+  // new free_* field (free_attache, free_fwb, free_pt, etc.) on landing.
+  // Keeping a single source of truth means new bonus fields appear in both
+  // places automatically — no parallel update required.
+  html += shRenderInfluenceMerits(c, false);
+  html += shRenderDomainMerits(c, false);
 
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
