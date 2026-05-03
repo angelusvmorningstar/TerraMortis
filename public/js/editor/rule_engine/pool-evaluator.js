@@ -42,8 +42,15 @@ function _computeAmount(c, rule) {
   switch (rule.amount_basis) {
     case 'vm_allies_pool':
       return _vmAlliesPool(c);
-    case 'rating_of_partner_merit':
-      return _ratingOfPartner(c, rule.partner_merit_name);
+    case 'rating_of_partner_merit': {
+      // Accept either partner_merit_names (array, summed) or partner_merit_name
+      // (singular, legacy). Array form lets one pool draw from multiple source
+      // merits — e.g. Lorekeeper accepting both Library and Esoteric Armoury.
+      const names = Array.isArray(rule.partner_merit_names)
+        ? rule.partner_merit_names
+        : (rule.partner_merit_name ? [rule.partner_merit_name] : []);
+      return names.reduce((sum, n) => sum + _ratingOfPartner(c, n), 0);
+    }
     case 'flat':
       return rule.amount ?? 0;
     default:

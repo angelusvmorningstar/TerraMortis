@@ -282,17 +282,6 @@ export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');
 }
 
-/** Lorekeeper pool: purchased Library dots (CP + XP) = free dots for Herd/Retainer. */
-export function lorekeeperPool(c) {
-  if (!hasLorekeeper(c)) return 0;
-  let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.name !== 'Library') return;
-    total += (m.cp || 0) + (m.xp || 0);
-  });
-  return total;
-}
-
 /** Count Lorekeeper bonus dots allocated via free_lk on Herd/Retainer entries. */
 export function lorekeeperUsed(c) {
   let total = 0;
