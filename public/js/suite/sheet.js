@@ -8,27 +8,22 @@ import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   RITUAL_DISCS, CORE_DISCS,
 } from './data.js';
-import { getRuleByKey } from '../data/loader.js';
-import { prereqLabel } from '../data/prereq.js';
-
 import {
   dots, dotsWithBonus, getAttrDots, getAttrBonus,
   skillDots, skillSpec,
-  meritBase, meritDotCount, meritLookup,
   powersForDisc, otherPowers,
   toggleExp, toggleDisc, expRow
 } from './sheet-helpers.js';
 
 import {
-  influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
+  standingMerits,
   influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
-import { shRenderInfluenceMerits, shRenderDomainMerits } from '../editor/sheet.js';
-import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
+import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
 
@@ -585,74 +580,12 @@ export function renderSheet() {
     html += `</div></div>`;
   }
 
-  // ── Other Merits + Manoeuvres ──
-  const otherMerits = generalMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const manMerits = manoeuvres(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-  // renderMeritRow — trait-row structure; dotHtml optional override (pass pre-built dotsMixed string)
-  function renderMeritRow(m, idPrefix, i, dotHtml) {
-    const base = meritBase(m);
-    const parenMatch = base.match(/^([^(]+?)\s*\((.+)\)$/);
-    const mainName = parenMatch ? parenMatch[1].trim() : base;
-    const subName = parenMatch ? parenMatch[2].trim() : null;
-    const db = meritLookup(m);
-    if (dotHtml === undefined) {
-      const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
-      const dcnt = meritDotCount(m);
-      dotHtml = (purch || bon) ? dotsMixed(purch, bon) : (dcnt ? `<span class="trait-dots">${dots(dcnt)}</span>` : '');
-    }
-    const hasDesc = db && db.desc;
-    const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${mainName}</span><div class="trait-right">${dotHtml}<span class="exp-arr${hasDesc ? '' : ' trait-arr-hidden'}">\u203A</span></div></div>${subName ? `<div class="trait-sub"><span class="trait-qual">${subName}</span></div>` : ''}</div>`;
-    if (hasDesc) {
-      const id = idPrefix + i;
-      const body = `<div>${db.desc}</div>${db.prereq ? `<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ${db.prereq}</div>` : ''}`;
-      return `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
-    }
-    return `<div class="merit-plain">${inner}</div>`;
-  }
-
-  if (otherMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">`;
-    otherMerits.forEach((m, i) => {
-      const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
-      if (m.granted_by) {
-        const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
-        const purch = (m.cp || 0) + (m.xp || 0);
-        const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-                 + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-                 + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
-        const dotH = (purch || bon)
-          ? dotsMixed(purch, bon)
-          : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
-        html += renderMeritRow({ name: m.name + qual, rating: 0 }, 'gmerit', i, dotH + `<span class="gen-granted-tag-view" title="Granted by ${m.granted_by}">${gb}</span>`);
-      } else {
-        // Let renderMeritRow compute dots from the merit object — handles purch/bon split
-        // with fallback to m.rating when no sources tracked
-        html += renderMeritRow(Object.assign({}, m, { name: m.name + qual }), 'merit', i);
-      }
-    });
-    html += `</div></div>`;
-  }
-
-  if (manMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div><div class="man-list">`;
-    manMerits.forEach((m, i) => {
-      const manName = m.manoeuvre || m.name;
-      const base = meritBase(m);
-      const rank = m.rating || 0;
-      const slug = manName ? manName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null;
-      const rule = slug ? getRuleByKey(slug) : null;
-      const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? prereqLabel(rule.prereq) : null } : null;
-      const id = 'man' + i;
-      const body = db ? `<div class="man-exp-body"><div class="man-style">${db.style} \u2014 Rank ${db.rank}</div><div>${db.effect || ''}</div>${db.prereq ? `<div class="man-prereq">Prerequisite: ${db.prereq}</div>` : ''}</div>` : `<div>${manName || base}</div>`;
-      const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${manName || base}</span><div class="trait-right"><span class="exp-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual">${base} \u2014 Rank ${rank}</span></div></div>`;
-      html += `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
-    });
-    html += `</div></div>`;
-  }
+  // ── General Merits + Manoeuvres ──
+  // Delegated to editor renderers (same rationale as Influence/Domain above):
+  // single source of truth keeps the suite app and editor in lockstep so new
+  // free_* fields show up in both views without parallel updates.
+  html += shRenderGeneralMerits(c, false);
+  html += shRenderManoeuvres(c, false);
 
   // ── Active Conditions (from tracker_state) ──
   const cs2 = trackerRead(String(c._id));
@@ -672,23 +605,8 @@ export function renderSheet() {
   }
 
   // ── Equipment ──
-  const equipment = getEquipment(c);
-  if (equipment.length) {
-    const weapons = equipment.filter(e => e.type === 'weapon');
-    const armour  = equipment.filter(e => e.type === 'armour');
-    const effDef  = effectiveDefence(c);
-    html += `<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">`;
-    weapons.forEach(w => {
-      const poolStr = weaponPoolLabel(c, w);
-      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(w.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${poolStr}</span></div></div></div></div>`;
-    });
-    armour.forEach(a => {
-      const arStr = `AR ${a.general_ar || 0}/${a.ballistic_ar || 0}`;
-      const defStr = a.mobility_penalty ? ` \u00B7 Def ${effDef} (\u2212${a.mobility_penalty})` : '';
-      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(a.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${arStr}${defStr}</span></div></div></div></div>`;
-    });
-    html += `</div></div>`;
-  }
+  // Delegated to editor renderer for parity with admin/player views.
+  html += shRenderEquipment(c, false);
 
   html += `</div>`; // end sh-body
   const powersHtml = html;
