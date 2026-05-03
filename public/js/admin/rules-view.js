@@ -20,6 +20,7 @@ let pageSize = parseInt(localStorage.getItem('tm_rules_page_size'), 10) || 50;
 let sortField = 'name';
 let sortOrder = 'asc';
 let _debounceTimer = null;
+let _lastSearchPos = null;
 
 const CATEGORIES = ['', 'attribute', 'skill', 'discipline', 'merit', 'devotion', 'rite', 'manoeuvre'];
 const CAT_LABELS = { '': 'All', attribute: 'Attr', skill: 'Skill', discipline: 'Disc', merit: 'Merit', devotion: 'Devot', rite: 'Rite', manoeuvre: 'Man' };
@@ -180,16 +181,20 @@ function handleInput(e) {
   if (e.target.id !== 'rules-search') return;
   const inp = e.target;
   searchQuery = inp.value;
+  // Capture cursor synchronously on every keystroke. Last value wins, so the
+  // restoration after the async fetchAndRender lands at the latest position
+  // the user was at — not where it was when the debounce timer fired (which
+  // could be 300ms+ stale if the user keeps typing past the fetch).
+  _lastSearchPos = inp.selectionStart;
   clearTimeout(_debounceTimer);
   _debounceTimer = setTimeout(() => {
-    // Capture position here — inside the callback — so it reflects the current
-    // cursor state after all typing is done, not where it was 300ms ago.
-    const live = document.getElementById('rules-search');
-    const pos = live ? live.selectionStart : searchQuery.length;
     currentPage = 1;
     fetchAndRender().then(() => {
       const restored = document.getElementById('rules-search');
-      if (restored) { restored.focus(); restored.selectionStart = restored.selectionEnd = Math.min(pos, restored.value.length); }
+      if (!restored) return;
+      restored.focus();
+      const pos = Math.min(_lastSearchPos ?? restored.value.length, restored.value.length);
+      restored.setSelectionRange(pos, pos);
     });
   }, 300);
 }

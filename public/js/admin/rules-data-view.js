@@ -824,11 +824,18 @@ function _rewireListEvents(main) {
   const search = main.querySelector('#rde-search');
   if (search) {
     search.addEventListener('input', e => {
+      // Capture cursor BEFORE the re-render destroys the input. Restore after
+      // re-binding so typing in the middle of the query doesn't kick the
+      // cursor back to the end on every keystroke.
+      const pos = e.target.selectionStart;
       _searchQuery = e.target.value;
       main.innerHTML = _renderList();
       _rewireListEvents(main);
       const el = main.querySelector('#rde-search');
-      if (el) el.focus();
+      if (el) {
+        el.focus();
+        try { el.setSelectionRange(pos, pos); } catch { /* setSelectionRange unsupported on some input types */ }
+      }
     });
   }
 
