@@ -5,7 +5,7 @@
  */
 
 import { addMerit, ensureMeritSync } from './merits.js';
-import { getRulesBySource } from './rule_engine/load-rules.js';
+import { getRulesBySource, getRulesCache } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
 import { applyOHMRulesFromDb } from './rule_engine/ohm-evaluator.js';
@@ -15,6 +15,7 @@ import { applyStyleRetainerRulesFromDb } from './rule_engine/style-retainer-eval
 import { applyMDBRulesFromDb } from './rule_engine/mdb-evaluator.js';
 import { applySafeWordRulesFromDb } from './rule_engine/safe-word-evaluator.js';
 import { applyOTSRulesFromDb } from './rule_engine/ots-evaluator.js';
+import { applyAutoBonusRulesFromDb } from './rule_engine/auto-bonus-evaluator.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -79,12 +80,18 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── Bloodline grants (specs and merits) ──
   applyBloodlineRulesFromDb(c, getRulesBySource('Bloodline'));
 
+  // ── Auto-bonus rules (FwB on Feeding Grounds, etc.) — single generic call
+  //    reading every grant_type='auto_bonus' rule from the cache so adding
+  //    a new auto-bonus merit is a seed change, not a code change. ──
+  const _autoBonusRules = (getRulesCache()?.rule_grant || []).filter(r => r.grant_type === 'auto_bonus');
+  applyAutoBonusRulesFromDb(c, { grants: _autoBonusRules });
+
   // ── Sync ratings from inline creation fields (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach(m => {
     // MCI and PT have their own render logic; MG's total includes partner contributions
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
-    const total = (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.cp || 0) + (m.xp || 0);
+    const total = (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0) + (m.cp || 0) + (m.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

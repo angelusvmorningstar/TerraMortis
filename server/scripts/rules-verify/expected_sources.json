@@ -138,6 +138,14 @@
     },
 
     {
+      "collection": "rule_grant",
+      "match": { "source": "Friends with Benefits", "grant_type": "auto_bonus" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/auto-bonus-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-fwb.js"
+    },
+
+    {
       "collection": "rule_disc_attr",
       "match": { "discipline": "Vigour" },
       "min_count": 1,

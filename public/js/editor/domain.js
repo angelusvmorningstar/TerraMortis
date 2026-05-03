@@ -20,7 +20,7 @@ export function domMeritContrib(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_fwb || 0) + (m.xp || 0);
   return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
 }
 
@@ -93,7 +93,8 @@ export function meritEffectiveRating(c, m) {
   const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0)
     + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
     + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
-    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0);
+    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0)
+    + (m.free_fwb || 0);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }
