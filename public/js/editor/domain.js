@@ -20,8 +20,10 @@ export function domMeritContrib(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_fwb || 0) + (m.xp || 0);
-  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
+  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  // Auto-bonus contributions (free_fwb, future free_ssj/free_flock once migrated)
+  // sit OUTSIDE purchased so the renderer can show them as hollow dots.
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0) + (m.free_fwb || 0);
 }
 
 /** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked inline). */
