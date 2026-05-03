@@ -1668,7 +1668,11 @@ export function shRenderEquipment(c, editMode) {
 }
 
 export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
-  const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^([^(]+?)\s*\((.+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
+  // Name parser: greedy prefix + final-paren-group capture that disallows
+  // nested parens. Handles variant merit names that already contain parens
+  // (e.g. "Attaché (Resources) (Nicole)") — splits to main "Attaché (Resources)"
+  // + sub "Nicole" instead of leaving a stray ')' in the subtitle.
+  const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^(.+?)\s*\(([^()]+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
   const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="trait-dots">' + ds + '</span>' : '');
   const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
