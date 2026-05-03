@@ -2,9 +2,11 @@
  * Seed script — inserts Oath of the Scapegoat rule docs.
  * Idempotent: uses replaceOne/upsert on stable composite key.
  *
- * Two docs in rule_grant:
- *   1. status_floor — sets _ots_covenant_bonus = pact rating
- *   2. style_pool   — sets _ots_free_dots = pact rating × 2
+ * One doc in rule_grant:
+ *   1. style_pool — sets _ots_free_dots = pact rating × 2
+ *
+ * The historical status_floor doc was removed: per game-rule, OTS is a
+ * notional social-check penalty only, never a covenant-status modifier.
  *
  * Usage:
  *   node server/scripts/seed-rules-ots.js --dry-run   (default)
@@ -29,20 +31,6 @@ if (!MONGODB_URI) {
 // ── Rule docs ─────────────────────────────────────────────────────────────────
 
 const GRANT_DOCS = [
-  {
-    doc: {
-      source: 'Oath of the Scapegoat',
-      grant_type: 'status_floor',
-      condition: 'pact_present',
-      target_stat: 'covenant_status',
-      ephemeral_field: '_ots_covenant_bonus',
-      amount_basis: 'pact_rating',
-      notes: "Sets _ots_covenant_bonus to the OTS pact rating (cp + xp). " +
-        "Implements the floor on the bearer's covenant status — the effective " +
-        "covenant status is Math.max(purchased, _ots_covenant_bonus).",
-    },
-    filter: { source: 'Oath of the Scapegoat', grant_type: 'status_floor' },
-  },
   {
     doc: {
       source: 'Oath of the Scapegoat',

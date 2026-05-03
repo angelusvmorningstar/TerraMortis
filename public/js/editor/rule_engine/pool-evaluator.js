@@ -101,5 +101,5 @@ function _ratingOfPartner(c, partnerMeritName) {
  */
 function _effectiveInvictusStatus(c) {
   if (c.covenant !== 'Invictus') return 0;
-  return Math.max(c.status?.covenant?.['Invictus'] || 0, c._ots_covenant_bonus || 0);
+  return c.status?.covenant?.['Invictus'] || 0;
 }

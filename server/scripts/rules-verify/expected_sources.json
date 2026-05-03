@@ -102,7 +102,7 @@
     {
       "collection": "rule_grant",
       "match": { "source": "Oath of the Scapegoat" },
-      "min_count": 2,
+      "min_count": 1,
       "consumer": "public/js/editor/rule_engine/ots-evaluator.js",
       "seed_script": "server/scripts/seed-rules-ots.js"
     },

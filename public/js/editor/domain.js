@@ -259,10 +259,11 @@ export function investedUsed(c) {
   return total;
 }
 
-/** Effective Invictus covenant status — includes Oath of the Scapegoat floor. */
+/** Effective Invictus covenant status — purchased dots only. OTS no longer
+ *  participates here (it's a notional social-check penalty, not a status floor). */
 export function effectiveInvictusStatus(c) {
   if (c.covenant !== 'Invictus') return 0;
-  return Math.max(c.status?.covenant?.['Invictus'] || 0, c._ots_covenant_bonus || 0);
+  return c.status?.covenant?.['Invictus'] || 0;
 }
 
 /** Dots granted by an Attaché merit linked to the named target merit. */

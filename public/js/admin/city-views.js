@@ -213,8 +213,7 @@ function getPrestigeData() {
     const st = c.status || {};
     const clan = st.clan || 0;
     const cov = st.covenant?.[c.covenant] || 0;
-    const otsBonus = c._ots_covenant_bonus || 0;
-    const effectiveCov = cov - otsBonus;
+    const effectiveCov = cov;
     const influence = calcTotalInfluence(c);
     const cSize = clanSize[c.clan] || 1;
     const cvSize = covSize[c.covenant] || 1;

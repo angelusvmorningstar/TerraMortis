@@ -1287,13 +1287,11 @@ function _checkSingleTerm(c, term) {
       const type = name.slice(0, -7).trim().toLowerCase();
       if (type === 'city') return ((c.status || {}).city || 0) >= req;
       if (type === 'clan') return ((c.status || {}).clan || 0) >= req;
-      if (type === 'covenant') return Math.max(c.status?.covenant?.[c.covenant] || 0, c._ots_covenant_bonus || 0) >= req;
+      if (type === 'covenant') return (c.status?.covenant?.[c.covenant] || 0) >= req;
       const cov = _COV_STATUS_MAP[type];
       if (!cov) return true;
       // Unified: all covenant standings keyed by full name in status.covenant
-      const covVal = c.status?.covenant?.[cov] || 0;
-      const dots = (cov === c.covenant) ? Math.max(covVal, c._ots_covenant_bonus || 0) : covVal;
-      return dots >= req;
+      return (c.status?.covenant?.[cov] || 0) >= req;
     }
 
     if (name === 'Willpower')
@@ -1767,8 +1765,8 @@ export function renderSheet(c, target = null) {
       + _statusPip(svg, sVal, sLbl)
       + '</div>';
   };
-  const _covBase = st.covenant?.[c.covenant] || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
-  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots);
+  const _covBase = st.covenant?.[c.covenant] || 0;
+  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covBase, 'Cov.', 'covenant', _covBase, 0);
   if (editMode) {
     const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');
     covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);

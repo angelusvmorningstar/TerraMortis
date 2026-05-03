@@ -1,10 +1,15 @@
 /**
  * Oath of the Scapegoat evaluator.
  *
- * Reads grant_type:'status_floor' and grant_type:'style_pool' rule docs
- * seeded by seed-rules-ots.js.
+ * Reads grant_type:'style_pool' rule doc seeded by seed-rules-ots.js.
+ * Sets _ots_free_dots on the character (free fighting-style dots, allocated
+ * by the player as free_ots on individual styles).
  *
- * Sets _ots_covenant_bonus and _ots_free_dots on the character.
+ * The historical status_floor branch was removed: per game-rule, OTS only
+ * imposes a notional social-check penalty, never raises or lowers covenant
+ * status maths. The status_floor rule_grant doc was deleted from the DB and
+ * dropped from the seed.
+ *
  * Clears stale free_ots on all fighting styles when the pact is absent.
  * No import dependencies — pure function; safe in Node.js test contexts.
  */
@@ -14,7 +19,6 @@
  * @param {{ grants: object[] }} otsRules - getRulesBySource('Oath of the Scapegoat')
  */
 export function applyOTSRulesFromDb(c, { grants = [] } = {}) {
-  c._ots_covenant_bonus = 0;
   c._ots_free_dots = 0;
 
   const otsPact = (c.powers || []).find(
@@ -36,9 +40,7 @@ export function applyOTSRulesFromDb(c, { grants = [] } = {}) {
   }
 
   for (const rule of grants) {
-    if (rule.grant_type === 'status_floor' && rule.amount_basis === 'pact_rating') {
-      c[rule.ephemeral_field] = pactRating;
-    } else if (rule.grant_type === 'style_pool' && rule.amount_basis === 'pact_rating') {
+    if (rule.grant_type === 'style_pool' && rule.amount_basis === 'pact_rating') {
       c[rule.ephemeral_field] = pactRating * (rule.amount_multiplier || 2);
     }
   }
