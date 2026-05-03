@@ -284,6 +284,7 @@ function renderModalContent(rule, isAdd) {
     h += mf('Key', 'text', 'key', '', 'auto-generated from name');
     h += mf('Name', 'text', 'name', '', 'required');
     h += ms('Category', 'category', '', CATEGORY_ENUM, 'required');
+    h += ms('Sub Category', 'sub_category', '', ['general', 'influence', 'domain', 'standing'], 'controls which picker the merit appears in (general/influence/domain/standing)');
     h += mf('Parent', 'text', 'parent', '');
     h += mf('Rank', 'number', 'rank', '');
     h += mf('XP Fixed', 'number', 'xp_fixed', '');
@@ -314,6 +315,7 @@ function renderModalContent(rule, isAdd) {
     h += '</div>';
     h += '<div class="rules-modal-grid">';
     h += mf('Name', 'text', 'name', rule.name || '');
+    h += ms('Sub Category', 'sub_category', rule.sub_category || '', ['general', 'influence', 'domain', 'standing'], 'controls which picker the merit appears in');
     h += mf('Parent', 'text', 'parent', rule.parent || '');
     h += mf('Rank', 'number', 'rank', rule.rank ?? '');
     h += mf('XP Fixed', 'number', 'xp_fixed', rule.xp_fixed ?? '');

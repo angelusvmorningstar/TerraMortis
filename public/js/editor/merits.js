@@ -302,6 +302,43 @@ export function buildMeritOptions(c, currentName) {
 }
 
 /**
+ * Build <option> HTML for an influence or domain merit type dropdown, driven
+ * by sub_category in the catalog. Enforces prereqs and exclusive lists, with
+ * the show-if-current escape hatch so an existing row whose merit no longer
+ * qualifies still displays in its own dropdown.
+ * @param {object} c - character
+ * @param {string} subCategory - 'influence' or 'domain'
+ * @param {string} currentName - name currently selected on this row
+ * @param {string[]} [extraNames] - additional names to include (e.g. legacy
+ *   names not yet in the catalog) so the picker stays usable during migration
+ */
+export function buildSubCategoryMeritOptions(c, subCategory, currentName, extraNames = []) {
+  const rulesDB = getRulesByCategory('merit');
+  if (!rulesDB.length) return '<option value="">— rules loading —</option>';
+  const curLow = (currentName || '').toLowerCase();
+
+  const qualified = [];
+  const seen = new Set();
+  for (const rule of rulesDB) {
+    if (rule.sub_category !== subCategory) continue;
+    if (!_meetsPrereq(c, rule.prereq) && rule.name.toLowerCase() !== curLow) continue;
+    if (_isExcluded(c, rule.name) && rule.name.toLowerCase() !== curLow) continue;
+    if (seen.has(rule.name)) continue;
+    seen.add(rule.name);
+    qualified.push(rule.name);
+  }
+  for (const n of extraNames) {
+    if (!seen.has(n)) { seen.add(n); qualified.push(n); }
+  }
+  qualified.sort((a, b) => a.localeCompare(b));
+
+  // Always include the current row's selected name even if filtered out.
+  if (currentName && !seen.has(currentName)) qualified.push(currentName);
+
+  return qualified.map(n => '<option value="' + _esc(n) + '"' + (n === currentName ? ' selected' : '') + '>' + _esc(n) + '</option>').join('');
+}
+
+/**
  * Build <option> HTML for MCI grant dropdown — includes influence and domain merits.
  * Filters by prerequisites and dot-level rating.
  * MCI dot ratings: dot 1-2 = 1-dot merits, dot 3 = 2-dot, dot 4-5 = 3-dot.

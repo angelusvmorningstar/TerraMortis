@@ -41,6 +41,7 @@ function buildMerit(variant, allNames) {
     key: variant.key,
     name: variant.name,
     category: 'merit',
+    sub_category: 'influence',
     parent: 'Kindred',
     rank: null,
     rating_range: [1, 1],
