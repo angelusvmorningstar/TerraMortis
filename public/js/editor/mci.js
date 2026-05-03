@@ -5,6 +5,7 @@
  */
 
 import { addMerit, ensureMeritSync } from './merits.js';
+import { syncMeritRating } from './domain.js';
 import { getRulesBySource, getRulesCache } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
@@ -91,7 +92,7 @@ export function applyDerivedMerits(c, allChars = []) {
   (c.merits || []).forEach(m => {
     // MCI and PT have their own render logic; MG's total includes partner contributions
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
-    const total = (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0) + (m.free_attache || 0) + (m.cp || 0) + (m.xp || 0);
+    const total = syncMeritRating(m);
     if (total > 0) m.rating = total;
   });
 }

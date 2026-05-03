@@ -12,7 +12,7 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed } from './domain.js';
+import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1066,8 +1066,10 @@ export function shEditMeritPt(realIdx, field, val) {
     val = Math.min(val, Math.max(0, lkTotal - otherFLK));
   }
   m[field] = val;
-  // Sync stored rating
-  m.rating = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+  // Sync stored rating via shared helper — never hand-roll the sum or new
+  // free_* channels get silently dropped on every edit (was the case for
+  // free_pt / free_mdb / free_sw / free_fwb / free_attache before this).
+  m.rating = syncMeritRating(m);
   _markDirty();
   _renderSheet(c);
 }
