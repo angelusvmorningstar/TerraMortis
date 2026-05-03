@@ -97,7 +97,10 @@ function _renderPoolCounters(c, category) {
   const ohmPools = category === 'influence' ? (c._grant_pools || []).filter(p => p.category === 'ohm') : [];
   // Also include 'inv' pools (Invested) in both domain and influence sections
   const invPools = (category === 'domain' || category === 'influence') ? (c._grant_pools || []).filter(p => p.category === 'inv') : [];
-  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools];
+  // Lorekeeper pools target Herd/Retainer — show in the domain section (Herd lives there;
+  // Retainer is influence but pool is unified). One row keeps the summary uncluttered.
+  const lkPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'lk') : [];
+  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
   const seen = new Set();

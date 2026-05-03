@@ -12,7 +12,7 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmPool, vmUsed, investedPool, investedUsed } from './domain.js';
+import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1047,6 +1047,12 @@ export function shEditMeritPt(realIdx, field, val) {
     const invTotal = investedPool(c);
     const otherFINV = investedUsed(c) - (m.free_inv || 0);
     val = Math.min(val, Math.max(0, invTotal - otherFINV));
+  }
+  // Cap free_lk edits by remaining Lorekeeper pool (rule-driven sum across LK rule_grant docs)
+  if (field === 'free_lk') {
+    const lkTotal = lorekeeperPool(c);
+    const otherFLK = lorekeeperUsed(c) - (m.free_lk || 0);
+    val = Math.min(val, Math.max(0, lkTotal - otherFLK));
   }
   m[field] = val;
   // Sync stored rating

@@ -277,6 +277,16 @@ export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');
 }
 
+/** Sum of Lorekeeper pool grants emitted by the rules engine into _grant_pools.
+ *  Used to cap free_lk edits and to display the X/Y counter at the top of
+ *  the merits section. Rule-driven; pool size comes from the LK rule_grant
+ *  doc (currently Library + Esoteric Armoury purchased dots). */
+export function lorekeeperPool(c) {
+  return (c._grant_pools || [])
+    .filter(p => p.category === 'lk')
+    .reduce((s, p) => s + (p.amount || 0), 0);
+}
+
 /** Count Lorekeeper bonus dots allocated via free_lk on Herd/Retainer entries. */
 export function lorekeeperUsed(c) {
   let total = 0;
