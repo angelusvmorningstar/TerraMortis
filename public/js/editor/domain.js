@@ -96,7 +96,7 @@ export function meritEffectiveRating(c, m) {
     + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
     + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
     + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0)
-    + (m.free_fwb || 0);
+    + (m.free_fwb || 0) + (m.free_attache || 0);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }

@@ -56,6 +56,15 @@ function _computeAmount(c, rule) {
         : (rule.partner_merit_name ? [rule.partner_merit_name] : []);
       return names.reduce((sum, n) => sum + _ratingOfPartner(c, n), 0);
     }
+    case 'rating_of_status': {
+      // amount = sum of named statuses (covenant/clan/city). Status name may
+      // be a covenant short form ('invictus', 'carthian') or full name; the
+      // helper normalises. Use partner_status_names (array) or _name (singular).
+      const names = Array.isArray(rule.partner_status_names)
+        ? rule.partner_status_names
+        : (rule.partner_status_name ? [rule.partner_status_name] : []);
+      return names.reduce((sum, n) => sum + _statusValue(c, n), 0);
+    }
     case 'flat':
       return rule.amount ?? 0;
     default:
@@ -75,4 +84,23 @@ function _ratingOfPartner(c, partnerMeritName) {
     total += (m.cp || 0) + (m.xp || 0);
   });
   return total;
+}
+
+/**
+ * Resolve a status qualifier (covenant short/full name, or 'city'/'clan')
+ * against the unified status shape on the character. Inline duplicate of
+ * data/prereq.js:_getStatus — evaluators must be import-free.
+ */
+const _COV_FULL = {
+  carthian: 'Carthian Movement', crone: 'Circle of the Crone',
+  invictus: 'Invictus', lance: 'Lancea et Sanctum',
+  sanctified: 'Lancea et Sanctum', ordo: 'Ordo Dracul',
+};
+function _statusValue(c, qualifier) {
+  if (!qualifier) return 0;
+  const q = String(qualifier).toLowerCase();
+  if (q === 'city') return c.status?.city || 0;
+  if (q === 'clan') return c.status?.clan || 0;
+  const fullName = _COV_FULL[q] || qualifier;
+  return c.status?.covenant?.[fullName] || 0;
 }

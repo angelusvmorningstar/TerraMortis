@@ -296,7 +296,7 @@ function _sel(id, options, selected, placeholder = '') {
 function _fieldsGrant(r, isNew) {
   const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline'],['fighting_style_present','fighting_style_present']];
   const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality'],['auto_bonus','auto_bonus'],['status_floor','status_floor'],['style_pool','style_pool']];
-  const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit']];
+  const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit'],['rating_of_status','rating_of_status']];
   const poolTargetsVal = Array.isArray(r?.pool_targets) ? r.pool_targets.join(', ') : (r?.pool_targets || '');
   let h = '';
   h += _ff('Source merit', 'rde-f-source', 'text', r?.source, 'Name of the merit or grant source. Use "Bloodline" for bloodline grants.');
@@ -323,6 +323,11 @@ function _fieldsGrant(r, isNew) {
     : (r?.partner_merit_names || r?.partner_merit_name || '');
   h += _ff('Partner merit name(s)', 'rde-f-partner-merit-names', 'text', partnerNamesVal,
     'Comma-separated. Merit(s) whose rating determines pool size (amount_basis=rating_of_partner_merit). Usually one (e.g. "Library", or the sentinel "Invictus Status"); list multiple to share one pool across sources (e.g. "Library, Esoteric Armoury").');
+  const partnerStatusVal = Array.isArray(r?.partner_status_names)
+    ? r.partner_status_names.join(', ')
+    : (r?.partner_status_names || r?.partner_status_name || '');
+  h += _ff('Partner status name(s)', 'rde-f-partner-status-names', 'text', partnerStatusVal,
+    'Comma-separated. Status(es) whose value contributes to the bonus (amount_basis=rating_of_status). Covenant short names ("invictus", "carthian") or full names; also "city" / "clan".');
   return h;
 }
 
@@ -657,6 +662,8 @@ function _readFormData() {
       if (ptRaw) d.pool_targets = ptRaw.split(',').map(s => s.trim()).filter(Boolean);
       const pmRaw = v('rde-f-partner-merit-names');
       if (pmRaw) d.partner_merit_names = pmRaw.split(',').map(s => s.trim()).filter(Boolean);
+      const psRaw = v('rde-f-partner-status-names');
+      if (psRaw) d.partner_status_names = psRaw.split(',').map(s => s.trim()).filter(Boolean);
       const tf = v('rde-f-target-field');
       if (tf) d.target_field = tf;
       return d;
