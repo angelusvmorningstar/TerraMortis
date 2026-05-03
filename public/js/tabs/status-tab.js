@@ -257,9 +257,13 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     h += `<div class="status-group-head">By Covenant</div>`;
     h += `<div class="status-multi-split">`;
     for (const cov of covenants) {
+      // Include any character with standing > 0 in this covenant (regardless
+      // of primary) AND any character whose primary IS this covenant (even
+      // with 0 standing — they're members, just unranked). OTS no longer
+      // adjusts displayed status; the penalty is narrative-only.
       const rows = chars
-        .filter(c => c.covenant === cov)
-        .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
+        .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
+        .filter(r => r.val > 0 || r.c.covenant === cov)
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
@@ -302,16 +306,19 @@ export async function renderStatusTab(el, activeChar, isST = false) {
       );
     } else {
       for (const cov of covList) {
+        // Include rank-holders (status > 0 in this covenant) AND primary
+        // members of this covenant even at 0 standing. OTS no longer
+        // subtracts — it's narrative-only now.
         const covRows = chars
-          .map(c => ({ c, val: (c.status?.covenant?.[cov] || 0) - (cov === c.covenant ? (c._ots_covenant_bonus || 0) : 0) }))
-          .filter(r => r.val > 0)
+          .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
+          .filter(r => r.val > 0 || r.c.covenant === cov)
           .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
         h += renderStatusSection(
           cov,
           covIcon(cov, 18),
           covRows,
           activeId,
-          'No standing holders in this covenant.'
+          'No members of this covenant.'
         );
       }
     }
