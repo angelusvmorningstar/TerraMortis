@@ -252,8 +252,10 @@ export function investedPool(c) {
 /** Count Invested bonus dots allocated via free_inv on eligible merits. */
 export function investedUsed(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (!['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)) return;
+  (c.merits || []).forEach((m) => {
+    const isInvictusTarget = ['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)
+      || (m.name && m.name.startsWith('Attach\u00e9 ('));  // variants count as Retainer-equivalent
+    if (!isInvictusTarget) return;
     total += (m.free_inv || 0);
   });
   return total;
