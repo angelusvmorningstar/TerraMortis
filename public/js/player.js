@@ -20,6 +20,7 @@ import { renderXpLogTab } from './tabs/xp-log-tab.js';
 import { startWizard } from './tabs/wizard.js';
 import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
 import { loadRulesFromApi } from './data/loader.js';
+import { preloadRules } from './editor/rule_engine/load-rules.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -157,6 +158,11 @@ async function openProfileModal() {
 async function loadCharacters() {
   // Load rules data (purchasable powers) — non-blocking, cached
   loadRulesFromApi().catch(() => {});
+  // MUST await rule-engine docs — applyDerivedMerits (called from renderSheet)
+  // unconditionally zeroes free_pt / free_mdb at start. Without rules in
+  // cache, the evaluators can't re-apply them, so the displayed m.rating
+  // collapses to (cp + xp) and any engine bonus disappears from the view.
+  await preloadRules().catch(() => {});
 
   try {
     chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');

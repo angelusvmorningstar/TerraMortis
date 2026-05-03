@@ -1103,7 +1103,10 @@ async function init() {
       renderSheet(chars[editorState.editIdx]);
     }
   }).catch(() => {});
-  preloadRules().catch(() => {});
+  // MUST await — applyDerivedMerits below (via charAlerts in renderCharGrid)
+  // calls getRulesBySource synchronously. Cache miss → engine bonuses skipped
+  // → m.rating gets re-synced to (cp + xp), wiping the saved bonus on display.
+  await preloadRules().catch(() => {});
 
   try {
     chars = await apiGet('/api/characters');
