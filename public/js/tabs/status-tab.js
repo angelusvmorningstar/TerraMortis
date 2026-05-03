@@ -16,6 +16,7 @@ import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
+import { resolveActiveChar, covenantListFor, covenantRowsFor, clanRowsFor } from '../data/status-data.js';
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -269,40 +270,19 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     }
     h += `</div>`;
   } else {
-    // Player view — first principles, no clever filtering:
-    //   1. Always show the active character's primary covenant table (if any).
-    //   2. Also show a table for every other covenant the active char has
-    //      ANY standing > 0 in.
-    //   3. Each table lists every character who is either a rank-holder
-    //      (status.covenant[cov] > 0) OR a primary member (c.covenant === cov).
-    //
-    // Use the in-list copy of the active char from /api/characters/status
-    // (not the activeChar arg, which may be a stale snapshot from a different
-    // fetch path). Guarantees the standing values we test against are the
-    // same ones the table renders from.
-    const me = chars.find(c => String(c._id) === activeId) || activeChar;
-    const myStatus = me.status?.covenant || {};
-
-    // Clan table — same as before
-    const clanRows = chars
-      .filter(c => c.clan && c.clan === me.clan)
-      .map(c => ({ c, val: c.status?.clan || 0 }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
-    // Build the covenant list deterministically.
-    const covList = [];
-    if (me.covenant) covList.push(me.covenant);
-    for (const [cov, v] of Object.entries(myStatus)) {
-      if ((v | 0) > 0 && !covList.includes(cov)) covList.push(cov);
-    }
+    // Player view — data shaping delegated to data/status-data.js so this
+    // file and suite/status.js stay byte-identical on the filter logic.
+    const me = resolveActiveChar(chars, activeChar);
+    const covList = covenantListFor(me);
+    const clanRows = me ? clanRowsFor(chars, me.clan, sortName) : [];
 
     h += `<div class="status-split">`;
     h += renderStatusSection(
-      me.clan || 'No clan',
-      me.clan ? clanIcon(me.clan, 18) : '',
+      me?.clan || 'No clan',
+      me?.clan ? clanIcon(me.clan, 18) : '',
       clanRows,
       activeId,
-      me.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
+      me?.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
     );
     if (!covList.length) {
       h += renderStatusSection(
@@ -314,10 +294,7 @@ export async function renderStatusTab(el, activeChar, isST = false) {
       );
     } else {
       for (const cov of covList) {
-        const covRows = chars
-          .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
-          .filter(r => r.val > 0 || r.c.covenant === cov)
-          .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+        const covRows = covenantRowsFor(chars, cov, sortName);
         h += renderStatusSection(
           cov,
           covIcon(cov, 18),

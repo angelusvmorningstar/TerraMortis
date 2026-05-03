@@ -16,6 +16,7 @@ import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
 import suiteState, { CITY_SVG, OTHER_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
+import { resolveActiveChar, covenantListFor, covenantRowsFor, clanRowsFor } from '../data/status-data.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
 let _statusTabEl  = null;   // stored for re-renders after edits
@@ -306,68 +307,43 @@ export async function renderSuiteStatusTab(el) {
   const cityCard = renderCitySection(chars, activeId, isST);
   let covCard = '', clanCard = '';
 
-  // Use the in-list copy of the active char so the standing values we test
-  // against match the values the rows are built from.
-  const me = activeChar ? (chars.find(c => String(c._id) === activeId) || activeChar) : null;
-  const myStatus = me?.status?.covenant || {};
+  // Data shaping delegated to data/status-data.js — single source of truth
+  // shared with tabs/status-tab.js. Both renderers test against identical
+  // filter logic; only the UI shell differs.
+  const me = resolveActiveChar(chars, activeChar);
 
   if (isST) {
     const covenants = [...new Set(chars.map(c => c.covenant).filter(Boolean))].sort();
     for (const cov of covenants) {
-      const rows = chars
-        .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
-        .filter(r => r.val > 0 || r.c.covenant === cov)
-        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+      const rows = covenantRowsFor(chars, cov, sortName);
       covCard += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
     const clans = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
     for (const clan of clans) {
-      const rows = chars
-        .filter(c => c.clan === clan)
-        .map(c => ({ c, val: c.status?.clan || 0 }))
-        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+      const rows = clanRowsFor(chars, clan, sortName);
       clanCard += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
     }
   } else {
-    // Player view — first principles, mirrors tabs/status-tab.js:
-    //   1. Always show the active char's primary covenant table (if any).
-    //   2. Also show a table for every other covenant the active char has
-    //      ANY standing > 0 in.
-    //   3. Each table includes anyone with status.covenant[cov] > 0 OR
-    //      whose primary IS that covenant.
-    //   No OTS subtraction.
-    const covList = [];
-    if (me?.covenant) covList.push(me.covenant);
-    for (const [cov, v] of Object.entries(myStatus)) {
-      if ((v | 0) > 0 && !covList.includes(cov)) covList.push(cov);
-    }
+    const covList = covenantListFor(me);
     if (!covList.length) {
       covCard = renderStatusSection(
         me?.covenant || 'No covenant',
         '',
         [], activeId,
-        me ? 'Your character has no covenant set, and holds no standing in any covenant.' : 'No character selected.'
+        me ? 'Your character has no covenant set, and holds no standing in any covenant.' : 'No character selected.',
       );
     } else {
       for (const cov of covList) {
-        const rows = chars
-          .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
-          .filter(r => r.val > 0 || r.c.covenant === cov)
-          .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+        const rows = covenantRowsFor(chars, cov, sortName);
         covCard += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, 'No members or rank-holders in this covenant.');
       }
     }
-
-    const clanRows = me
-      ? chars.filter(c => c.clan && c.clan === me.clan)
-            .map(c => ({ c, val: c.status?.clan || 0 }))
-            .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
-      : [];
+    const clanRows = me ? clanRowsFor(chars, me.clan, sortName) : [];
     clanCard = renderStatusSection(
       me?.clan || 'No clan',
       me?.clan ? clanIcon(me.clan, 18) : '',
       clanRows, activeId,
-      me?.clan ? 'No other members in your clan.' : 'No character selected.'
+      me?.clan ? 'No other members in your clan.' : 'No character selected.',
     );
   }
 
