@@ -30,7 +30,7 @@ const GRANT_DOCS = [
       source: 'The Mother-Daughter Bond',
       grant_type: 'merit',
       condition: 'merit_present',
-      partner_merit_name: 'Mentor',
+      partner_merit_names: ['Mentor'],
       target_field: 'free_mdb',
       target_category: 'general',
       notes: 'The Mother-Daughter Bond (Lancea et Sanctum): sets free_mdb on the Crúac style named in mdbMerit.qualifier equal to the character\'s effective Mentor rating (cp + free + free_mci + free_vm + free_lk + free_ohm + free_inv + free_pt + xp). No auto-create — style merit must exist.',

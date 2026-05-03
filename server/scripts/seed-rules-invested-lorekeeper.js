@@ -33,7 +33,7 @@ const GRANT_DOCS = [
       pool_targets: ['Herd', 'Mentor', 'Resources', 'Retainer'],
       category: 'inv',
       amount_basis: 'rating_of_partner_merit',
-      partner_merit_name: 'Invictus Status',
+      partner_merit_names: ['Invictus Status'],
       notes: 'Invested (Invictus): pool of free dots equal to effective Invictus covenant Status (including OTS floor), distributable across Herd, Mentor, Resources, Retainer. Allocation stored as free_inv on individual merit instances.',
     },
     filter: { source: 'Invested', grant_type: 'pool' },

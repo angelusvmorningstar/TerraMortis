@@ -316,8 +316,11 @@ function _fieldsGrant(r, isNew) {
   h += _ff('Amount', 'rde-f-amount', 'number', r?.amount, 'Flat dot count (amount_basis=flat). Leave blank for pool grants (amount is computed at render time).', 'min="0"');
   h += _ff('Amount basis', 'rde-f-amount-basis', 'select', null, null,
     _sel('rde-f-amount-basis', bases, r?.amount_basis || 'flat'));
-  h += _ff('Partner merit name', 'rde-f-partner-merit-name', 'text', r?.partner_merit_name,
-    'Merit whose rating determines pool size (amount_basis=rating_of_partner_merit). Use "Invictus Status" for covenant status, or a merit name like "Library".');
+  const partnerNamesVal = Array.isArray(r?.partner_merit_names)
+    ? r.partner_merit_names.join(', ')
+    : (r?.partner_merit_names || r?.partner_merit_name || '');
+  h += _ff('Partner merit name(s)', 'rde-f-partner-merit-names', 'text', partnerNamesVal,
+    'Comma-separated. Merit(s) whose rating determines pool size (amount_basis=rating_of_partner_merit). Usually one (e.g. "Library", or the sentinel "Invictus Status"); list multiple to share one pool across sources (e.g. "Library, Esoteric Armoury").');
   return h;
 }
 
@@ -644,8 +647,8 @@ function _readFormData() {
       if (tq) d.target_qualifier = tq;
       const ptRaw = v('rde-f-pool-targets');
       if (ptRaw) d.pool_targets = ptRaw.split(',').map(s => s.trim()).filter(Boolean);
-      const pm = v('rde-f-partner-merit-name');
-      if (pm) d.partner_merit_name = pm;
+      const pmRaw = v('rde-f-partner-merit-names');
+      if (pmRaw) d.partner_merit_names = pmRaw.split(',').map(s => s.trim()).filter(Boolean);
       return d;
     }
     case 'speciality_grant':
