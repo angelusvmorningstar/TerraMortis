@@ -529,6 +529,13 @@ export function shStatusUp(key) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
+  // status.covenant is an object keyed by full covenant name (post-unification),
+  // not an integer like status.city/clan. Writing to status[key] directly would
+  // clobber the whole object → NaN on next read → "wiped + locked" UI.
+  if (key === 'covenant') {
+    if (c.covenant) shCovStandingUp(c.covenant);
+    return;
+  }
   c.status[key] = Math.min(key === 'city' ? 10 : 5, (c.status[key] || 0) + 1);
   _markDirty();
   _renderSheet(c);
@@ -538,6 +545,10 @@ export function shStatusDown(key) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
+  if (key === 'covenant') {
+    if (c.covenant) shCovStandingDown(c.covenant);
+    return;
+  }
   c.status[key] = Math.max(0, (c.status[key] || 0) - 1);
   _markDirty();
   _renderSheet(c);
