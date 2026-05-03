@@ -946,10 +946,15 @@ export function shRenderDomainMerits(c, editMode) {
       // Total display: own dots filled + partner contribution hollow.
       // Cap own at the total so a single character can't double-paint dots
       // beyond the merit's effective rating.
+      const _dPurch = (m.cp || 0) + (m.xp || 0);
+      // Total display: solid = purchased (cp + xp), hollow = everything else
+      // (free_* bonuses + partner contributions). Conflating own-with-bonuses
+      // and purchased made auto-bonus dots render solid.
       const _ownCapped = Math.min(dd, eT);
       const _partnerDots = Math.max(0, eT - _ownCapped);
-      const _totalDots = _partnerDots > 0 ? shDotsMixed(_ownCapped, _partnerDots) : shDots(eT);
-      const _dPurch = (m.cp || 0) + (m.xp || 0);
+      const _totalSolid = Math.min(eT, _dPurch);
+      const _totalHollow = Math.max(0, eT - _totalSolid);
+      const _totalDots = shDotsMixed(_totalSolid, _totalHollow);
       h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
@@ -966,7 +971,12 @@ export function shRenderDomainMerits(c, editMode) {
       const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0, dPurch = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? _dRaw : Math.min(5, _dRaw);
       const dotHtml = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
       // Shared display: own dots filled + partner contribution hollow.
-      const _shOwn = Math.min(dO, de);
+      // Solid = purchased only (cp + xp); hollow = bonuses (free_attache,
+      // free_mci, free_fwb, etc.) + partner contributions. Using
+      // domMeritContrib (dO) marked free_* bonus dots as solid because they
+      // belong to "own" by source, but visually they should be hollow.
+      const _shPurch = (m.cp || 0) + (m.xp || 0);
+      const _shOwn = Math.min(de, _shPurch);
       const _shPart = Math.max(0, de - _shOwn);
       const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
       h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div></div>';
