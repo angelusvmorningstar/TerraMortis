@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -871,7 +871,7 @@ function _buildCharMenu() {
       let h = '<select id="sidebar-char-select">';
       visible.forEach(({ c, i }) => {
         const sel = String(c._id) === activeId ? ' selected' : '';
-        h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
+        h += `<option value="${i}"${sel}>${esc(dropdownName(c))}</option>`;
       });
       h += '</select>';
       sbSel.innerHTML = h;
@@ -893,7 +893,7 @@ function _renderCharMenuItems() {
     const isActive = String(c._id) === activeId;
     h += `<button class="hdr-char-menu-item${isActive ? ' active' : ''}" data-char-idx="${i}">`;
     h += `<span class="hdr-menu-check">${isActive ? '\u2713' : ''}</span>`;
-    h += `<span>${esc(displayName(c))}</span>`;
+    h += `<span>${esc(dropdownName(c))}</span>`;
     h += `</button>`;
   });
   menu.innerHTML = h;
