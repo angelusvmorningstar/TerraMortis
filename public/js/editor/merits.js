@@ -347,8 +347,23 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
 }
 
 /**
- * Build <option> HTML for Fucking Thief — all 1-dot merits, ignoring prerequisites.
- * Includes all categories since FT can steal covenant-restricted advantages.
+ * Walk a prereq tree and return true if every satisfying assignment requires
+ * Carthian status — i.e. no non-Carthian character could legitimately have
+ * the merit. `all` requires Carthian if any child does; `any` requires it
+ * only if every branch does.
+ */
+function _everyPrereqPathRequiresCarthian(node) {
+  if (!node) return false;
+  if (node.all) return node.all.some(_everyPrereqPathRequiresCarthian);
+  if (node.any) return node.any.every(_everyPrereqPathRequiresCarthian);
+  if (node.type === 'status' && node.qualifier) return /carthian/i.test(node.qualifier);
+  return false;
+}
+
+/**
+ * Build <option> HTML for Fucking Thief — single-dot non-Carthian merits.
+ * Excludes Carthian-locked merits (the thief is Carthian by prereq, so they
+ * can only steal what a non-Carthian could plausibly hold).
  */
 export function buildFThiefOptions(currentName) {
   const qualified = [];
@@ -362,6 +377,7 @@ export function buildFThiefOptions(currentName) {
       const minR = rr ? rr[0] : 1;
       if (minR > 1) continue;
       if (rr && rr[0] === rr[1] && rr[0] !== 1) continue;
+      if (_everyPrereqPathRequiresCarthian(rule.prereq)) continue;
       qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
     }
   } else {
