@@ -265,16 +265,24 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     }
     h += `</div>`;
   } else {
-    // Player view: only active character's clan and covenant
+    // Player view: clan + every covenant the active character holds standing in
+    // (the primary plus any non-primary covenants with status > 0). Each table
+    // lists every character with status > 0 in that covenant — not filtered to
+    // primary-covenant matches — so a player sees themselves and others wherever
+    // their standing places them.
     const clanRows = chars
       .filter(c => c.clan && c.clan === activeChar.clan)
       .map(c => ({ c, val: c.status?.clan || 0 }))
       .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
 
-    const covRows = chars
-      .filter(c => c.covenant && c.covenant === activeChar.covenant)
-      .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+    // Build the covenant list: primary first (if set), then any others where
+    // the active char has > 0 standing.
+    const covsHeld = Object.entries(activeChar.status?.covenant || {})
+      .filter(([_, v]) => (v | 0) > 0)
+      .map(([k]) => k);
+    const covList = [];
+    if (activeChar.covenant) covList.push(activeChar.covenant);
+    for (const cov of covsHeld) if (!covList.includes(cov)) covList.push(cov);
 
     h += `<div class="status-split">`;
     h += renderStatusSection(
@@ -284,13 +292,29 @@ export async function renderStatusTab(el, activeChar, isST = false) {
       activeId,
       activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
     );
-    h += renderStatusSection(
-      activeChar.covenant || 'No covenant',
-      activeChar.covenant ? covIcon(activeChar.covenant, 18) : '',
-      covRows,
-      activeId,
-      activeChar.covenant ? 'No other members in your covenant.' : 'Your character has no covenant set.'
-    );
+    if (!covList.length) {
+      h += renderStatusSection(
+        'No covenant',
+        '',
+        [],
+        activeId,
+        'Your character has no covenant set.'
+      );
+    } else {
+      for (const cov of covList) {
+        const covRows = chars
+          .map(c => ({ c, val: (c.status?.covenant?.[cov] || 0) - (cov === c.covenant ? (c._ots_covenant_bonus || 0) : 0) }))
+          .filter(r => r.val > 0)
+          .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+        h += renderStatusSection(
+          cov,
+          covIcon(cov, 18),
+          covRows,
+          activeId,
+          'No standing holders in this covenant.'
+        );
+      }
+    }
     h += `</div>`;
   }
 
