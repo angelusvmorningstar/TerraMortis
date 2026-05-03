@@ -889,7 +889,8 @@ export function shRenderInfluenceMerits(c, editMode) {
         totalPurch += (m.cp || 0) + (m.xp || 0);
         totalRating += (m.rating || 0);
       });
-      totalRating = Math.min(5, totalRating);
+      // No 5-cap: engine bonuses (Attaché variant, OHM, PT, etc.) can lift
+      // the effective Contacts rating past 5 and the renderer should show it.
       const cPurch = Math.min(totalPurch, totalRating);
       const cBon = Math.max(0, totalRating - cPurch);
       const allSp = [];
