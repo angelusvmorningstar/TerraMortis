@@ -15,6 +15,7 @@ import {
 } from '../data/accessors.js';
 import { isInClanDisc } from '../data/accessors.js';
 import { meritLookup } from './merits.js';
+import { fmtRuleStats } from '../suite/sheet-helpers.js';
 import {
   calcTotalInfluence, influenceBreakdown, calcMeritInfluence, calcContactsInfluence,
   hasHoneyWithVinegar, domMeritTotal, domMeritContrib, ssjHerdBonus, flockHerdBonus,
@@ -34,18 +35,6 @@ function skillCategory(name) {
   return 'Social';
 }
 
-function fmtRuleStats(r) {
-  const parts = [];
-  if (r.cost) parts.push('Cost: ' + r.cost);
-  if (r.pool) {
-    const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
-    const res = r.resistance ? ' \u2013 ' + r.resistance : '';
-    parts.push('Pool: ' + (p || '\u2013') + res);
-  }
-  if (r.action) parts.push(r.action);
-  if (r.duration) parts.push(r.duration);
-  return parts.length ? parts.join('  \u2022  ') : '';
-}
 
 /**
  * Produce the resolved print-ready JSON for a character.

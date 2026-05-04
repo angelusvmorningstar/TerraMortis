@@ -15,6 +15,7 @@ import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mci
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 import { shEnsureTouchstoneData } from './edit.js';
+import { powersForDisc } from '../suite/sheet-helpers.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -534,37 +535,12 @@ export function shRenderSkills(c, editMode) {
 export function shRenderDisciplines(c, editMode) {
   let h = '';
 
-  // ── Derive discipline powers from the purchasable_powers rules cache.
-  // Each power is keyed by parent (discipline name) + rank (1–5).
-  // Falls back to stored c.powers entries for any discipline not covered
-  // by the rules DB (e.g. homebrew).
-  const _discRules = getRulesByCategory('discipline');
+  // Derive discipline powers via the shared powersForDisc helper —
+  // single source of truth (was triple-duplicated locally + in suite/sheet-helpers.js +
+  // editor/export-character.js). Returns {name, stats, effect, rank} objects
+  // whether the source is the rules cache or stored c.powers fallback.
   function _discPowers(discName, dots) {
-    const fromRules = _discRules
-      .filter(r => r.parent === discName && r.rank != null && r.rank <= dots)
-      .sort((a, b) => a.rank - b.rank);
-    if (fromRules.length) return fromRules.map(r => ({
-      name: r.name,
-      stats: _fmtRuleStats(r),
-      effect: r.description || '',
-    }));
-    // Fallback: stored powers on the character (legacy / homebrew)
-    return (c.powers || [])
-      .filter(p => p.category === 'discipline' && p.discipline === discName)
-      .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-      .map(p => ({ name: p.name, stats: p.stats || '', effect: p.effect || '' }));
-  }
-  function _fmtRuleStats(r) {
-    const parts = [];
-    if (r.cost) parts.push('Cost: ' + r.cost);
-    if (r.pool) {
-      const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
-      const res = r.resistance ? ' \u2013 ' + r.resistance : '';
-      parts.push('Pool: ' + (p || '\u2013') + res);
-    }
-    if (r.action) parts.push(r.action);
-    if (r.duration) parts.push(r.duration);
-    return parts.length ? parts.join('  \u2022  ') : '';
+    return powersForDisc(c.powers || [], discName, dots);
   }
 
   function renderDiscRow(d, r, nameClass) {
