@@ -7,7 +7,7 @@
 import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { displayName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
 import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
 
@@ -213,8 +213,7 @@ function getPrestigeData() {
     const st = c.status || {};
     const clan = st.clan || 0;
     const cov = st.covenant?.[c.covenant] || 0;
-    const otsBonus = c._ots_covenant_bonus || 0;
-    const effectiveCov = cov - otsBonus;
+    const effectiveCov = cov;
     const influence = calcTotalInfluence(c);
     const cSize = clanSize[c.clan] || 1;
     const cvSize = covSize[c.covenant] || 1;
@@ -308,7 +307,7 @@ function renderFeedingDropdown(terrId) {
   const rights = getFeedingRights(terrId);
   const opts = active
     .filter(c => !rights.includes(String(c._id)))
-    .map(c => `<option value="${esc(String(c._id))}">${esc(displayNameRaw(c))}</option>`)
+    .map(c => `<option value="${esc(String(c._id))}">${esc(dropdownName(c))}</option>`)
     .join('');
   return `<select id="terr-feed-sel-${esc(terrId)}" class="terr-feed-sel">
     <option value="">\u2014 Add character \u2014</option>${opts}
@@ -366,7 +365,7 @@ function renderTerritories() {
       h += '<option value="">— Vacant —</option>';
       for (const c of active) {
         const sel = regentId === String(c._id) ? ' selected' : '';
-        h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayNameRaw(c))}</option>`;
+        h += `<option value="${esc(String(c._id))}"${sel}>${esc(dropdownName(c))}</option>`;
       }
       h += '</select>';
       h += `</div>`;
@@ -376,7 +375,7 @@ function renderTerritories() {
       h += '<option value="">— None —</option>';
       for (const c of active) {
         const sel = ltId === String(c._id) ? ' selected' : '';
-        h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayNameRaw(c))}</option>`;
+        h += `<option value="${esc(String(c._id))}"${sel}>${esc(dropdownName(c))}</option>`;
       }
       h += '</select>';
       h += `</div>`;
@@ -576,7 +575,7 @@ function patchFeedingDropdown(terrId) {
   el.innerHTML = `<option value="">\u2014 Add character \u2014</option>` +
     active
       .filter(c => !rights.includes(String(c._id)))
-      .map(c => `<option value="${esc(String(c._id))}">${esc(displayNameRaw(c))}</option>`)
+      .map(c => `<option value="${esc(String(c._id))}">${esc(dropdownName(c))}</option>`)
       .join('');
 }
 

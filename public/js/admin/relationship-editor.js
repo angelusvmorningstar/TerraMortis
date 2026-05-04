@@ -4,7 +4,7 @@
    different NPC id resets it. */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { esc, displayName, sortName } from '../data/helpers.js';
+import { esc, displayName, dropdownName, sortName } from '../data/helpers.js';
 import {
   RELATIONSHIP_KINDS, FAMILIES,
   kindByCode, kindsByFamily, defaultDirectionFor,
@@ -322,7 +322,7 @@ function pcOptions(selectedId) {
   let out = '<option value="">(pick a PC)</option>';
   for (const c of sorted) {
     const id = String(c._id);
-    out += `<option value="${esc(id)}"${id === selectedId ? ' selected' : ''}>${esc(displayName(c))}${c.retired ? ' (retired)' : ''}</option>`;
+    out += `<option value="${esc(id)}"${id === selectedId ? ' selected' : ''}>${esc(dropdownName(c))}${c.retired ? ' (retired)' : ''}</option>`;
   }
   return out;
 }

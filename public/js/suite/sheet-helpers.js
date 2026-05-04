@@ -82,7 +82,13 @@ export function meritLookup(m) {
 
 // ── Power helpers ──
 
-function _fmtRuleStats(r) {
+/**
+ * Format a discipline/devotion/rite rule entry into a one-line stats string
+ * (Cost / Pool / Action / Duration). Single source of truth \u2014 was
+ * triple-duplicated across editor/sheet.js, suite/sheet-helpers.js, and
+ * editor/export-character.js, drift waiting to happen.
+ */
+export function fmtRuleStats(r) {
   const parts = [];
   if (r.cost) parts.push('Cost: ' + r.cost);
   if (r.pool) {
@@ -113,24 +119,36 @@ export function powersForDisc(powers, discName, dots) {
       .sort((a, b) => a.rank - b.rank);
     if (fromRules.length) return fromRules.map(r => ({
       name: r.name,
-      stats: _fmtRuleStats(r),
+      stats: fmtRuleStats(r),
       effect: r.description || '',
+      rank: r.rank,
     }));
   }
-  // Fallback: stored powers on the character (legacy / homebrew)
-  return powers.filter(p => {
-    if (p.discipline === discName) return true;
-    if (RITUAL_DISCS.includes(discName)) {
-      return p.name.startsWith(discName + ' |') ||
-        p.name.startsWith(discName + '|') ||
-        p.name.includes('| ' + discName + ' ') ||
-        p.name.toLowerCase().startsWith(discName.toLowerCase() + ' \u25CF') ||
-        p.name.toLowerCase().startsWith(discName.toLowerCase() + '\u25CF');
-    }
-    return p.name === discName ||
-      p.name.startsWith(discName + ' ') ||
-      p.name.startsWith(discName + '|');
-  });
+  // Fallback: stored powers on the character (legacy / homebrew). Match by
+  // p.discipline (v2) plus a permissive name-startsWith for legacy data where
+  // the discipline lives in the name string. Sort by rank, normalise the
+  // return shape so callers can rely on {name, stats, effect, rank}.
+  return powers
+    .filter(p => {
+      if (p.discipline === discName) return true;
+      if (RITUAL_DISCS.includes(discName)) {
+        return p.name.startsWith(discName + ' |') ||
+          p.name.startsWith(discName + '|') ||
+          p.name.includes('| ' + discName + ' ') ||
+          p.name.toLowerCase().startsWith(discName.toLowerCase() + ' \u25CF') ||
+          p.name.toLowerCase().startsWith(discName.toLowerCase() + '\u25CF');
+      }
+      return p.name === discName ||
+        p.name.startsWith(discName + ' ') ||
+        p.name.startsWith(discName + '|');
+    })
+    .sort((a, b) => (a.rank || 0) - (b.rank || 0))
+    .map(p => ({
+      name: p.name,
+      stats: p.stats || '',
+      effect: p.effect || '',
+      rank: p.rank,
+    }));
 }
 
 export function otherPowers(c) {

@@ -1,7 +1,7 @@
 // Service worker — network-first for JS/CSS to ensure deploys take effect.
 // No offline cache — the app requires the API for all data.
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 self.addEventListener('install', e => {
   self.skipWaiting();

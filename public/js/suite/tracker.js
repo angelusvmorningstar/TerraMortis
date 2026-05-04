@@ -8,7 +8,8 @@
 
 import state from './data.js';
 import { displayName, redactPlayer } from '../data/helpers.js';
-import { getAttrVal, influenceTotal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
+import { getAttrVal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 
 // ══════════════════════════════════════════════
 //  STATE HELPERS
@@ -18,7 +19,7 @@ function stMaxVitae(c) { return calcVitaeMax(c); }
 
 function stMaxWP(c) { return calcWillpowerMax(c); }
 
-function stMaxInf(c) { return influenceTotal(c); }
+function stMaxInf(c) { return calcTotalInfluence(c); }
 
 function stGetTracker(c) {
   const key = 'tm_tracker_' + c.name;
@@ -115,7 +116,7 @@ function renderPrestige() {
     const cov = st.covenant?.[c.covenant] || 0;
     const otsBonus = c._ots_covenant_bonus || 0;
     const prestige = clan + cov - otsBonus;
-    const influence = influenceTotal(c);
+    const influence = calcTotalInfluence(c);
     return { name: displayName(c), clan, cov, prestige, influence };
   }).sort((a, b) => b.prestige - a.prestige || b.influence - a.influence).slice(0, 6);
 

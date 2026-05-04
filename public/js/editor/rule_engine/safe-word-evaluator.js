@@ -54,7 +54,10 @@ export function applySafeWordRulesFromDb(c, { grants = [] } = {}, allChars = [])
     const smStr = ((partnerPact && partnerPact.shared_merit) ? partnerPact.shared_merit : '').trim();
     if (!smStr) continue;
 
-    const parenMatch = smStr.match(/^(.+?)\s*\((.+)\)$/);
+    // Inner capture excludes parens so a partner's shared_merit pointing at
+    // a variant merit name (e.g. "Attaché (Resources) (Nicole)") splits to
+    // ("Attaché (Resources)", "Nicole") instead of ("Attaché", "Resources) (Nicole").
+    const parenMatch = smStr.match(/^(.+?)\s*\(([^()]+)\)$/);
     const mName = parenMatch ? parenMatch[1].trim() : smStr;
     const mArea = parenMatch ? parenMatch[2].trim() : '';
 

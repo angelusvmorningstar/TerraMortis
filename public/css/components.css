@@ -4516,6 +4516,11 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   padding: 16px;
 }
 
+/* Downtime form lives inside .reading-pane for layout, but the user's
+   reading font-size setting is meant for primer/rules prose only — pin
+   the form back to the default so submission boxes stay legible. */
+#dt-container.reading-pane { --reading-font-size: 15px; }
+
 /* Downtime keeps using dt-split class names — map to tab-split */
 .dt-split { display: flex; height: 100%; min-height: 0; }
 .dt-split-left { flex: 1; min-width: 0; border-right: 1px solid var(--bdr); overflow-y: auto; }

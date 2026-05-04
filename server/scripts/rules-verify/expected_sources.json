@@ -1,0 +1,214 @@
+{
+  "$comment": "SSOT manifest of every (collection, discriminator) tuple the rules engine requires. verify-rules-engine.js asserts each entry has at least min_count docs in the active MongoDB. Add an entry whenever a new evaluator is wired up; remove an entry only when the corresponding evaluator is deleted. Each entry references its consumer (the evaluator that reads it) and the seed script that produces it, so a missing entry is traceable in both directions.",
+  "expected": [
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Professional Training" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pt-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-pt.js"
+    },
+    {
+      "collection": "rule_nine_again",
+      "match": { "source": "Professional Training" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pt-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-pt.js"
+    },
+    {
+      "collection": "rule_skill_bonus",
+      "match": { "source": "Professional Training" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pt-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-pt.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Mystery Cult Initiation" },
+      "min_count": 5,
+      "consumer": "public/js/editor/rule_engine/mci-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-mci.js"
+    },
+    {
+      "collection": "rule_speciality_grant",
+      "match": { "source": "Mystery Cult Initiation" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/mci-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-mci.js"
+    },
+    {
+      "collection": "rule_skill_bonus",
+      "match": { "source": "Mystery Cult Initiation" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/mci-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-mci.js"
+    },
+    {
+      "collection": "rule_tier_budget",
+      "match": { "source": "Mystery Cult Initiation" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/mci-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-mci.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Oath of the Hard Motherfucker" },
+      "min_count": 4,
+      "consumer": "public/js/editor/rule_engine/ohm-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-ohm.js"
+    },
+    {
+      "collection": "rule_nine_again",
+      "match": { "source": "Oath of the Hard Motherfucker" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/ohm-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-ohm.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Bloodline" },
+      "min_count": 3,
+      "consumer": "public/js/editor/rule_engine/bloodline-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-bloodlines.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "The Mother-Daughter Bond" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/mdb-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-mdb.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Viral Mythology" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pool-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-vm.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Oath of the Safe Word" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/safe-word-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-safe-word.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Oath of the Scapegoat" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/ots-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-ots.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Invested" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pool-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-invested-lorekeeper.js"
+    },
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Lorekeeper" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/pool-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-invested-lorekeeper.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "K-9" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/style-retainer-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-style-retainers.js"
+    },
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Falconry" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/style-retainer-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-style-retainers.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Friends with Benefits", "grant_type": "auto_bonus" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/auto-bonus-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-fwb.js"
+    },
+
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Attaché (Safe Place)", "grant_type": "auto_bonus" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/auto-bonus-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-attache.js"
+    },
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Attaché (Contacts)", "grant_type": "auto_bonus" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/auto-bonus-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-attache.js"
+    },
+    {
+      "collection": "rule_grant",
+      "match": { "source": "Attaché (Resources)", "grant_type": "auto_bonus" },
+      "min_count": 1,
+      "consumer": "public/js/editor/rule_engine/auto-bonus-evaluator.js",
+      "seed_script": "server/scripts/seed-rules-attache.js"
+    },
+
+    {
+      "collection": "rule_disc_attr",
+      "match": { "discipline": "Vigour" },
+      "min_count": 1,
+      "consumer": "public/js/editor/applyDerivedMerits (disc-attr branch)",
+      "seed_script": "server/scripts/seed-rules-disc-attr.js"
+    },
+    {
+      "collection": "rule_disc_attr",
+      "match": { "discipline": "Resilience" },
+      "min_count": 1,
+      "consumer": "public/js/editor/applyDerivedMerits (disc-attr branch)",
+      "seed_script": "server/scripts/seed-rules-disc-attr.js"
+    },
+    {
+      "collection": "rule_disc_attr",
+      "match": { "discipline": "Celerity" },
+      "min_count": 2,
+      "consumer": "public/js/editor/applyDerivedMerits (disc-attr branch)",
+      "seed_script": "server/scripts/seed-rules-disc-attr.js"
+    },
+
+    {
+      "collection": "rule_derived_stat_modifier",
+      "match": { "source": "Giant" },
+      "min_count": 1,
+      "consumer": "public/js/editor/applyDerivedMerits (derived-stat branch)",
+      "seed_script": "server/scripts/seed-rules-derived-stat-modifiers.js"
+    },
+    {
+      "collection": "rule_derived_stat_modifier",
+      "match": { "source": "Fleet of Foot" },
+      "min_count": 1,
+      "consumer": "public/js/editor/applyDerivedMerits (derived-stat branch)",
+      "seed_script": "server/scripts/seed-rules-derived-stat-modifiers.js"
+    },
+    {
+      "collection": "rule_derived_stat_modifier",
+      "match": { "source": "Defensive Combat" },
+      "min_count": 1,
+      "consumer": "public/js/editor/applyDerivedMerits (derived-stat branch)",
+      "seed_script": "server/scripts/seed-rules-derived-stat-modifiers.js"
+    }
+  ]
+}

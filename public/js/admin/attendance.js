@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut, apiDelete } from '../data/api.js';
-import { displayName, sortName, redactPlayer } from '../data/helpers.js';
+import { displayName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -73,7 +73,7 @@ function showAddForm() {
   form.innerHTML = `
     <select id="att-add-sel">
       <option value="">— select character —</option>
-      ${eligible.map(c => `<option value="${esc(c._id)}">${esc(displayName(c))}${c.player ? ' (' + esc(c.player) + ')' : ''}</option>`).join('')}
+      ${eligible.map(c => `<option value="${esc(c._id)}">${esc(dropdownName(c))}${c.player ? ' (' + esc(c.player) + ')' : ''}</option>`).join('')}
     </select>
     <button class="att-btn" id="att-add-confirm">Add</button>
     <button class="att-btn" id="att-add-cancel">Cancel</button>

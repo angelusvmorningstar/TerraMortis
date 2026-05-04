@@ -426,6 +426,7 @@ export const characterSchema = {
         free_pt:        { type: 'integer', minimum: 0 },
         free_mdb:       { type: 'integer', minimum: 0 },
         free_sw:        { type: 'integer', minimum: 0 },
+        free_fwb:       { type: 'integer', minimum: 0 },
         free_bloodline: { type: 'integer', minimum: 0 },
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },

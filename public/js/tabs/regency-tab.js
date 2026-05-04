@@ -9,7 +9,7 @@
  */
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
-import { esc, displayName, findRegentTerritory } from '../data/helpers.js';
+import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
@@ -199,7 +199,7 @@ function render(container) {
       h += '<option value="">— None —</option>';
       for (const c of allCharNames) {
         const sel = savedVal === String(c._id) ? ' selected' : '';
-        h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayName(c))}</option>`;
+        h += `<option value="${esc(String(c._id))}"${sel}>${esc(dropdownName(c))}</option>`;
       }
       h += '</select>';
     }

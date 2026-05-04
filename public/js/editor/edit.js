@@ -12,7 +12,7 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain.js';
+import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -529,6 +529,13 @@ export function shStatusUp(key) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
+  // status.covenant is an object keyed by full covenant name (post-unification),
+  // not an integer like status.city/clan. Writing to status[key] directly would
+  // clobber the whole object → NaN on next read → "wiped + locked" UI.
+  if (key === 'covenant') {
+    if (c.covenant) shCovStandingUp(c.covenant);
+    return;
+  }
   c.status[key] = Math.min(key === 'city' ? 10 : 5, (c.status[key] || 0) + 1);
   _markDirty();
   _renderSheet(c);
@@ -538,6 +545,10 @@ export function shStatusDown(key) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
+  if (key === 'covenant') {
+    if (c.covenant) shCovStandingDown(c.covenant);
+    return;
+  }
   c.status[key] = Math.max(0, (c.status[key] || 0) - 1);
   _markDirty();
   _renderSheet(c);
@@ -1036,10 +1047,10 @@ export function shEditMeritPt(realIdx, field, val) {
     const otherFMCI = getMCIPoolUsed(c) - (m.free_mci || 0);
     val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
   }
-  // Cap free_vm edits by remaining VM pool
+  // Cap free_vm edits by remaining VM pool (shared across Allies + Herd)
   if (field === 'free_vm') {
-    const vmTotal = vmAlliesPool(c);
-    const otherFVM = vmAlliesUsed(c) - (m.free_vm || 0);
+    const vmTotal = vmPool(c);
+    const otherFVM = vmUsed(c) - (m.free_vm || 0);
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
   // Cap free_inv edits by remaining Invested pool
@@ -1048,9 +1059,17 @@ export function shEditMeritPt(realIdx, field, val) {
     const otherFINV = investedUsed(c) - (m.free_inv || 0);
     val = Math.min(val, Math.max(0, invTotal - otherFINV));
   }
+  // Cap free_lk edits by remaining Lorekeeper pool (rule-driven sum across LK rule_grant docs)
+  if (field === 'free_lk') {
+    const lkTotal = lorekeeperPool(c);
+    const otherFLK = lorekeeperUsed(c) - (m.free_lk || 0);
+    val = Math.min(val, Math.max(0, lkTotal - otherFLK));
+  }
   m[field] = val;
-  // Sync stored rating
-  m.rating = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+  // Sync stored rating via shared helper — never hand-roll the sum or new
+  // free_* channels get silently dropped on every edit (was the case for
+  // free_pt / free_mdb / free_sw / free_fwb / free_attache before this).
+  m.rating = syncMeritRating(m);
   _markDirty();
   _renderSheet(c);
 }

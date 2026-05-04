@@ -295,8 +295,8 @@ function _sel(id, options, selected, placeholder = '') {
 
 function _fieldsGrant(r, isNew) {
   const conditions = [['always','always'],['tier','tier'],['choice','choice'],['pact_present','pact_present'],['bloodline','bloodline'],['fighting_style_present','fighting_style_present']];
-  const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality']];
-  const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit']];
+  const grantTypes = [['merit','merit'],['pool','pool'],['speciality','speciality'],['auto_bonus','auto_bonus'],['status_floor','status_floor'],['style_pool','style_pool']];
+  const bases = [['flat','flat'],['rating_of_source','rating_of_source'],['rating_of_partner_merit','rating_of_partner_merit'],['rating_of_status','rating_of_status']];
   const poolTargetsVal = Array.isArray(r?.pool_targets) ? r.pool_targets.join(', ') : (r?.pool_targets || '');
   let h = '';
   h += _ff('Source merit', 'rde-f-source', 'text', r?.source, 'Name of the merit or grant source. Use "Bloodline" for bloodline grants.');
@@ -306,9 +306,11 @@ function _fieldsGrant(r, isNew) {
   h += _ff('Bloodline name', 'rde-f-bloodline-name', 'text', r?.bloodline_name,
     'Required when condition=bloodline. Matched case-insensitively against character.bloodline (e.g. "Gorgons").');
   h += _ff('Grant type', 'rde-f-grant-type', 'select', null,
-    'merit = free dots on a merit; pool = named free-dot pool; speciality = push spec onto a skill.',
+    'merit = free dots on a merit; pool = named free-dot pool; speciality = push spec onto a skill; auto_bonus = derived dots written to target_field on the target merit (no allocation step).',
     _sel('rde-f-grant-type', grantTypes, r?.grant_type || 'merit'));
-  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name (grant_type=merit) or skill name (grant_type=speciality). Leave blank for pool grants.');
+  h += _ff('Target', 'rde-f-target', 'text', r?.target, 'Merit name (grant_type=merit, auto_bonus) or skill name (grant_type=speciality). Leave blank for pool grants.');
+  h += _ff('Target field', 'rde-f-target-field', 'text', r?.target_field,
+    'Field name on the target merit instance to write the bonus value (grant_type=auto_bonus only). Convention: free_<sourcetag>, e.g. free_fwb.');
   h += _ff('Target qualifier', 'rde-f-target-qualifier', 'text', r?.target_qualifier,
     'Merit qualifier/area (grant_type=merit) or spec name (grant_type=speciality).');
   h += _ff('Pool targets', 'rde-f-pool-targets', 'text', poolTargetsVal,
@@ -316,8 +318,16 @@ function _fieldsGrant(r, isNew) {
   h += _ff('Amount', 'rde-f-amount', 'number', r?.amount, 'Flat dot count (amount_basis=flat). Leave blank for pool grants (amount is computed at render time).', 'min="0"');
   h += _ff('Amount basis', 'rde-f-amount-basis', 'select', null, null,
     _sel('rde-f-amount-basis', bases, r?.amount_basis || 'flat'));
-  h += _ff('Partner merit name', 'rde-f-partner-merit-name', 'text', r?.partner_merit_name,
-    'Merit whose rating determines pool size (amount_basis=rating_of_partner_merit). Use "Invictus Status" for covenant status, or a merit name like "Library".');
+  const partnerNamesVal = Array.isArray(r?.partner_merit_names)
+    ? r.partner_merit_names.join(', ')
+    : (r?.partner_merit_names || r?.partner_merit_name || '');
+  h += _ff('Partner merit name(s)', 'rde-f-partner-merit-names', 'text', partnerNamesVal,
+    'Comma-separated. Merit(s) whose rating determines pool size (amount_basis=rating_of_partner_merit). Usually one (e.g. "Library", or the sentinel "Invictus Status"); list multiple to share one pool across sources (e.g. "Library, Esoteric Armoury").');
+  const partnerStatusVal = Array.isArray(r?.partner_status_names)
+    ? r.partner_status_names.join(', ')
+    : (r?.partner_status_names || r?.partner_status_name || '');
+  h += _ff('Partner status name(s)', 'rde-f-partner-status-names', 'text', partnerStatusVal,
+    'Comma-separated. Status(es) whose value contributes to the bonus (amount_basis=rating_of_status). Covenant short names ("invictus", "carthian") or full names; also "city" / "clan".');
   return h;
 }
 
@@ -544,6 +554,12 @@ function _validate(data) {
       if (!data.amount_basis) errs.push({ id: 'rde-f-amount-basis-err', msg: 'Amount basis is required.' });
       if (data.grant_type === 'pool') {
         if (!data.pool_targets?.length) errs.push({ id: 'rde-f-pool-targets-err', msg: 'Pool targets are required for pool grants.' });
+      } else if (data.grant_type === 'auto_bonus') {
+        if (!data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Target merit is required for auto_bonus grants.' });
+        if (data.target && !meritNames.has(data.target.toLowerCase())) {
+          errs.push({ id: 'rde-f-target-err', msg: `"${data.target}" is not in MERITS_DB. Check spelling.` });
+        }
+        if (!data.target_field?.trim()) errs.push({ id: 'rde-f-target-field-err', msg: 'Target field is required for auto_bonus grants (e.g. "free_fwb").' });
       } else {
         if (!data.target?.trim()) errs.push({ id: 'rde-f-target-err', msg: 'Target is required.' });
         if (data.grant_type === 'merit' && data.target && !meritNames.has(data.target.toLowerCase())) {
@@ -644,8 +660,12 @@ function _readFormData() {
       if (tq) d.target_qualifier = tq;
       const ptRaw = v('rde-f-pool-targets');
       if (ptRaw) d.pool_targets = ptRaw.split(',').map(s => s.trim()).filter(Boolean);
-      const pm = v('rde-f-partner-merit-name');
-      if (pm) d.partner_merit_name = pm;
+      const pmRaw = v('rde-f-partner-merit-names');
+      if (pmRaw) d.partner_merit_names = pmRaw.split(',').map(s => s.trim()).filter(Boolean);
+      const psRaw = v('rde-f-partner-status-names');
+      if (psRaw) d.partner_status_names = psRaw.split(',').map(s => s.trim()).filter(Boolean);
+      const tf = v('rde-f-target-field');
+      if (tf) d.target_field = tf;
       return d;
     }
     case 'speciality_grant':
@@ -804,11 +824,18 @@ function _rewireListEvents(main) {
   const search = main.querySelector('#rde-search');
   if (search) {
     search.addEventListener('input', e => {
+      // Capture cursor BEFORE the re-render destroys the input. Restore after
+      // re-binding so typing in the middle of the query doesn't kick the
+      // cursor back to the end on every keystroke.
+      const pos = e.target.selectionStart;
       _searchQuery = e.target.value;
       main.innerHTML = _renderList();
       _rewireListEvents(main);
       const el = main.querySelector('#rde-search');
-      if (el) el.focus();
+      if (el) {
+        el.focus();
+        try { el.setSelectionRange(pos, pos); } catch { /* setSelectionRange unsupported on some input types */ }
+      }
     });
   }
 

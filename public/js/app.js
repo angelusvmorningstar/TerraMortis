@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -46,6 +46,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
+import { devotions, rites } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
@@ -257,7 +258,7 @@ const NAV_ITEMS = [
   { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
-  { id: 'misc',      label: 'Misc',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
+  { id: 'misc',      label: 'Info',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
   { id: 'whos-who',  label: 'World',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', goTab: 'whos-who' },
   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
   { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
@@ -484,8 +485,12 @@ async function loadAllData() {
   // 0. Load rules data (purchasable powers) — must complete before sheet renders
   //    so discipline powers resolve from the rules cache
   await loadRulesFromApi().catch(() => {});
-  // 0b. Load rule-engine docs — PT, MCI etc. evaluators read from this cache
-  preloadRules().catch(() => {});
+  // 0b. Load rule-engine docs — PT, MCI etc. evaluators read from this cache.
+  // MUST await: applyDerivedMerits below calls getRulesBySource synchronously
+  // and a missing cache means free_attache / free_fwb / free_pt etc. all
+  // resolve to 0, then m.rating gets re-synced to (cp + xp), wiping the
+  // bonus the editor had correctly saved.
+  await preloadRules().catch(() => {});
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
@@ -688,7 +693,7 @@ function openPanel(mode) {
       }
 
       // Also show devotions and rites from c.powers (these are character-specific picks)
-      const otherPowers = (c.powers || []).filter(p => p.category === 'devotion' || p.category === 'rite');
+      const otherPowers = [...devotions(c), ...rites(c)];
       if (otherPowers.length) {
         const sec = document.createElement('div');
         sec.className = 'panel-section';
@@ -871,7 +876,7 @@ function _buildCharMenu() {
       let h = '<select id="sidebar-char-select">';
       visible.forEach(({ c, i }) => {
         const sel = String(c._id) === activeId ? ' selected' : '';
-        h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
+        h += `<option value="${i}"${sel}>${esc(dropdownName(c))}</option>`;
       });
       h += '</select>';
       sbSel.innerHTML = h;
@@ -893,7 +898,7 @@ function _renderCharMenuItems() {
     const isActive = String(c._id) === activeId;
     h += `<button class="hdr-char-menu-item${isActive ? ' active' : ''}" data-char-idx="${i}">`;
     h += `<span class="hdr-menu-check">${isActive ? '\u2713' : ''}</span>`;
-    h += `<span>${esc(displayName(c))}</span>`;
+    h += `<span>${esc(dropdownName(c))}</span>`;
     h += `</button>`;
   });
   menu.innerHTML = h;

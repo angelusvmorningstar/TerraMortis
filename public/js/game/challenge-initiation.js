@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPost } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, dropdownName } from '../data/helpers.js';
 
 const ROLL_TYPES = [
   { id: 'territory',  label: 'Territory Bid',      atkNote: 'Presence + Intimidation', defNote: 'Presence + Intimidation' },
@@ -38,7 +38,7 @@ function _render(activeChar) {
 
   const charOptions = _chars
     .filter(c => String(c._id) !== String(activeChar._id))
-    .map(c => `<option value="${esc(String(c._id))}" data-name="${esc(displayName(c))}">${esc(displayName(c))}</option>`)
+    .map(c => `<option value="${esc(String(c._id))}" data-name="${esc(dropdownName(c))}">${esc(dropdownName(c))}</option>`)
     .join('');
 
   const typeOptions = ROLL_TYPES.map(t =>

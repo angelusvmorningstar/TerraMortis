@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
-import { connectDb, closeDb, isConnected } from './db.js';
+import { connectDb, closeDb, isConnected, getDb } from './db.js';
+import { verifyRulesEngine, formatMissingReport, formatPassReport } from './scripts/rules-verify/verify-rules-engine.js';
 import authRouter from './routes/auth.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
 import charactersRouter from './routes/characters.js';
@@ -136,10 +137,32 @@ async function start() {
 
   try {
     await connectDb();
+    await runRulesEngineGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);
     console.error('Health check will report disconnected status');
   }
+}
+
+// Verify the rules-engine seed state matches expected_sources.json. In
+// production a missing tuple silently breaks XP/derived-stat calculations
+// (RDE-3 PT XP refund regression) — fail boot so the deploy goes red instead
+// of shipping silently broken behaviour. In dev/test we warn and continue so
+// a fresh laptop without seed data can still boot.
+async function runRulesEngineGate() {
+  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  const result = await verifyRulesEngine(getDb());
+  if (result.ok) {
+    console.log(formatPassReport(result.counts, dbName));
+    return;
+  }
+  if (config.NODE_ENV === 'production') {
+    console.error('CRITICAL: rules-engine verification failed — refusing to boot.');
+    console.error(formatMissingReport(result.missing, dbName));
+    process.exit(1);
+  }
+  console.warn('WARNING: rules-engine verification failed (non-production — continuing).');
+  console.warn(formatMissingReport(result.missing, dbName));
 }
 
 // Graceful shutdown
