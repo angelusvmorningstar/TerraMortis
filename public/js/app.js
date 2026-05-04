@@ -1202,60 +1202,87 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
-      loginScreen.style.display = 'none';
-      app.style.display = '';
-      applyRoleRestrictions();
-      if (localStorage.getItem('tm_auth_token') === 'local-test-token') {
-        await import('./dev-fixtures.js');
+      // Keep login screen visible during boot so the user never sees a
+      // wrong-mode chrome flash or an empty content area. Reveal #app only
+      // after _initDesktopMode() has set body classes AND goTab() has
+      // painted the first tab.
+      const loginBtn = document.getElementById('login-btn');
+      const originalLoginHTML = loginBtn?.outerHTML;
+      if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Loading…';
       }
-      await loadAllData();
-      renderList();
-      renderImportBanner();
-      renderUserHeader();
-      _buildCharMenu();
-      // Desktop mode must be initialised before rendering so sheet.js
-      // knows whether to render into the full sheet or split tabs.
-      _initDesktopMode();
-      _updateThemeIcon();
 
-      // Auto-open a character so split tabs and dice roller are ready.
-      // Players: always (saved selection or first linked char).
-      // STs: only if they have a previously saved selection (don't randomly
-      // pick someone else's character for them).
-      const isDesktop = DESKTOP_MQ.matches;
-      const isST = getRole() === 'st';
-      if (editorState.chars.length > 0) {
-        const savedCharId = localStorage.getItem('tm_active_char');
-        const savedIdx = savedCharId
-          ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
-          : -1;
-        const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
-        if (charIdx >= 0) {
-          await ensureTrackerLoaded(editorState.chars[charIdx]);
-          openChar(charIdx);
-          pickChar(editorState.chars[charIdx]);
+      try {
+        applyRoleRestrictions();
+        if (localStorage.getItem('tm_auth_token') === 'local-test-token') {
+          await import('./dev-fixtures.js');
         }
-      }
-      // Desktop: STs → character grid, players → sheet.
-      // Phone: players → stats (split tab), STs → dice (works without a character).
-      const hasChar = !!suiteState.sheetChar;
-      goTab(isDesktop
-        ? (!isST && hasChar ? 'sheets' : 'chars')
-        : (hasChar ? 'stats' : 'dice'));
-      renderLifecycleCards(); // non-blocking
-      checkMoreBadge();       // non-blocking
-      if (getRole() !== 'st') startChallengePoller(); // player-only polling
+        await loadAllData();
+        renderList();
+        renderImportBanner();
+        renderUserHeader();
+        _buildCharMenu();
+        // Desktop mode must be initialised before rendering so sheet.js
+        // knows whether to render into the full sheet or split tabs.
+        _initDesktopMode();
+        _updateThemeIcon();
 
-      // Start WebSocket for live tracker sync
-      initWS({
-        onTrackerUpdate: (charId) => {
-          // Patch just the affected tracker card (not full tab rebuild)
-          refreshTrackerCard(charId);
-          // Repaint sheet tracker boxes if this is the current sheet char
-          if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
-        },
-      });
-      return;
+        // Auto-open a character so split tabs and dice roller are ready.
+        // Players: always (saved selection or first linked char).
+        // STs: only if they have a previously saved selection (don't randomly
+        // pick someone else's character for them).
+        const isDesktop = DESKTOP_MQ.matches;
+        const isST = getRole() === 'st';
+        if (editorState.chars.length > 0) {
+          const savedCharId = localStorage.getItem('tm_active_char');
+          const savedIdx = savedCharId
+            ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
+            : -1;
+          const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
+          if (charIdx >= 0) {
+            await ensureTrackerLoaded(editorState.chars[charIdx]);
+            openChar(charIdx);
+            pickChar(editorState.chars[charIdx]);
+          }
+        }
+        // Desktop: STs → character grid, players → sheet.
+        // Phone: players → stats (split tab), STs → dice (works without a character).
+        const hasChar = !!suiteState.sheetChar;
+        goTab(isDesktop
+          ? (!isST && hasChar ? 'sheets' : 'chars')
+          : (hasChar ? 'stats' : 'dice'));
+
+        // Atomic reveal — first paint already committed, body class already set.
+        loginScreen.style.display = 'none';
+        app.style.display = '';
+
+        renderLifecycleCards(); // non-blocking
+        checkMoreBadge();       // non-blocking
+        if (getRole() !== 'st') startChallengePoller(); // player-only polling
+
+        // Start WebSocket for live tracker sync
+        initWS({
+          onTrackerUpdate: (charId) => {
+            // Patch just the affected tracker card (not full tab rebuild)
+            refreshTrackerCard(charId);
+            // Repaint sheet tracker boxes if this is the current sheet char
+            if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
+          },
+        });
+        return;
+      } catch (err) {
+        // Mid-flight failure: leave the user on the login screen with a
+        // working button rather than a permanently-hidden #app.
+        console.error('[boot] post-auth setup failed', err);
+        if (errorEl) errorEl.textContent = 'Could not load app. Please try again.';
+        if (loginBtn && originalLoginHTML) {
+          loginBtn.outerHTML = originalLoginHTML;
+          const restored = document.getElementById('login-btn');
+          if (restored) restored.addEventListener('click', login);
+        }
+        return;
+      }
     }
   }
 
