@@ -281,3 +281,92 @@ This story's ACs are **inherently visual** — the bug is "user sees a flash". H
 1. Static-review the diff against the implementation sketch above; confirm the order of operations and the try/catch.
 2. If browser smoke is feasible from your terminal, do as much of the 7-step plan as possible.
 3. Append your QA Results section as a **new commit on this branch BEFORE the PR is opened** (lesson from #14, applied successfully on #4).
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-04
+**Commit reviewed:** 835b98a
+**Method:** Static review of the diff against the implementation contract; failure-mode walkthrough on paper; HTML/CSS audit of the login-screen visibility model. Browser smoke (Test Plan steps 1–7) NOT executed — this terminal has no browser harness; deferred to user/SM.
+
+### Gate decision: **CONCERNS** (recommend ship with one-line follow-up; primary bug fix is solid)
+
+### Diff structure review (Khepri's checklist)
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Reveal pair AFTER `goTab(...)`, not at start of success branch | PASS | `loginScreen.style.display='none'` + `app.style.display=''` at `app.js:1257-1258`, immediately after `goTab(...)` at `:1252-1254`. Old code's `:1205-1206` reveal pair removed. |
+| Setup calls present in same order | PASS | applyRoleRestrictions (1217) → dev-fixtures (1218-1220) → loadAllData (1221) → renderList (1222) → renderImportBanner (1223) → renderUserHeader (1224) → _buildCharMenu (1225) → _initDesktopMode (1228) → _updateThemeIcon (1229) → openChar/pickChar (1245-1246) → goTab (1252-1254). Identical order to pre-fix. |
+| `_initDesktopMode → openChar/pickChar → goTab` ordering | PASS | 1228 → 1245-1246 → 1252-1254. Constraint preserved. |
+| Try/catch wraps the whole boot, not just one call | PASS | `try` at 1216 spans through `initWS` and `return` at 1273; `catch` at 1274-1285. |
+| Catch: restores login button, re-attaches click, leaves #app hidden, returns | PASS-with-caveat (see Concern A) | 1278: errorEl text. 1280-1282: outerHTML restore + re-attach. 1284: return. #app stays hidden because catch fires before line 1258 in realistic failure window. |
+| Unauthenticated fallback path (line 1289-1292) unchanged | PASS | Diff shows the success-branch is the only edit; `:1289-1292` is byte-identical (`loginScreen.style.display = ''; app.style.display = 'none'; addEventListener('click', login)`). |
+
+### Ptah's deviation (errorEl in catch)
+
+`errorEl` is captured at `app.js:1186` (`document.getElementById('login-error')`), inside the `boot()` function and in scope at the catch at `:1274-1285`. The message string `'Could not load app. Please try again.'` is sensible and user-actionable. Mechanism is correct; visibility is the issue (Concern A).
+
+### Concerns
+
+**Concern A — Catch-path UI is invisible.** *(severity: medium; one-line fix)*
+
+`<div id="login-screen" style="display:none">` is the initial HTML state in both `public/index.html:34` and `public/admin.html:26`. The CSS rule (`public/css/player-layout.css:14`, `public/css/admin-layout.css:215`) sets `#login-screen { display: flex; }` without `!important`, so the inline `display:none` wins. The login screen is invisible until something explicitly sets `loginScreen.style.display = ''`.
+
+The catch path at `app.js:1274-1285` does NOT do that. It restores the login button's HTML and re-attaches the click handler, and sets `errorEl.textContent`, but all of that lives inside `#login-screen` which remains `display:none`. Net user experience on a mid-flight failure (e.g. `loadAllData()` throws):
+
+- Blank page (200-600ms validating)
+- `loadAllData()` rejects → catch fires → `console.error` logged (visible in DevTools, not to user)
+- errorEl set, login button restored — both inside hidden container, **not visible**
+- User sees: blank page with no UI, no error indication, and no obvious recovery action besides Cmd+R reload
+
+This is a regression from the pre-fix behaviour: previously the catch didn't exist and the user saw a partially-painted #app (broken but at least confirms something happened). Now they see nothing.
+
+**Recommended fix (one line):** add `loginScreen.style.display = '';` near the top of the catch block, e.g. before the `if (errorEl)` line. Then errorEl, restored login button, and "Loading…" text replacement (if any) all become visible.
+
+**Concern B — "Loading…" loading indicator is dead code on hard-reload.** *(severity: low; AC #6 not actually satisfied)*
+
+Story AC #6: "the login screen remains visible with a non-jarring loading indicator". Implementation at `:1209-1214` disables `#login-btn` and sets its text to `'Loading…'`. But `#login-screen` starts hidden and is never made visible during the success path until the post-`goTab` reveal at `:1257`, which then immediately hides it. So:
+
+- **Hard reload of authenticated user:** loginScreen stays `display:none` throughout. User sees blank page → app reveal. Loading indicator never visible. Strictly better than the old flash bug (no wrong-mode chrome), but the loading-indicator UX claimed by AC #6 doesn't actually appear.
+- **OAuth callback return:** same flow — loginScreen never unhidden post-callback in the new code path.
+- **Genuine unauthenticated state:** falls to `:1289-1292` which unhides loginScreen for the login-attempt UX. Pre-existing, unaffected.
+
+The story sketch (lines 119-189) implicitly assumed loginScreen was visible by default. It is not. Ptah followed the sketch faithfully; the gap is upstream of his implementation.
+
+If AC #6 is a hard requirement, the success path needs `loginScreen.style.display = ''` after capturing `originalLoginHTML` at `:1210`. If AC #6 is aspirational (UX nice-to-have), ship as-is — the primary flash bug *is* fixed.
+
+### Failure-mode walkthrough
+
+| Scenario | Outcome | Verdict |
+|---|---|---|
+| `loadAllData()` throws | Catch fires; #app hidden (initial state never overridden in success path); login restored but invisible (Concern A). | PASS for "no permanently-hidden #app" criterion *(it stays at its initial hidden state, never gets a stuck `display:''`)*; FAIL for the "user can retry" UX without Concern A fix. |
+| `validateToken()` returns false | Falls through to `:1289-1292`; loginScreen unhidden, #app hidden. | PASS — pre-existing behaviour preserved. |
+| `openChar()` throws (bad character data) | Catch fires; same as Scenario A. | PASS for #app state; FAIL for visible recovery without Concern A fix. |
+| `handleCallback()` throws | Caught by its own `try/catch` at `:1188-1192`, errorEl set. Pre-existing path. | PASS — unchanged. |
+| Post-reveal helper throws synchronously (`renderLifecycleCards`/`initWS`) | Catch fires AFTER atomic reveal; #app already revealed, login restored but `loginScreen` still hidden by `:1257`. User sees revealed app + the (invisible) restored login button. Effectively a no-op visible to user. | PASS-by-coincidence. Worth noting that a post-reveal throw still triggers the full catch-path side effects, including the dead-code login button restoration. |
+
+### AC verdicts (verified statically vs deferred to browser)
+
+| AC | Static verdict | Browser smoke required? |
+|---|---|---|
+| 1. Player desktop hard reload — no transient phone chrome | PASS by static reasoning (atomic reveal AFTER `_initDesktopMode + goTab`, body class committed) | Test 1 — defer to user |
+| 2. ST admin desktop hard reload — same | PASS by static reasoning (admin uses same `boot()` function) | Test 3 — defer to user |
+| 3. Phone hard reload — no transient desktop chrome | PASS by static reasoning (same atomic reveal path; `DESKTOP_MQ` evaluated and `_initDesktopMode` runs before reveal) | Test 2 — defer to user |
+| 4. Auth-invalid → login screen, no permanent-hidden #app | PASS — `:1289-1292` unchanged | — |
+| 5. Mid-flight failure → user lands on usable login screen | **CONCERNS** (Concern A) — catch path leaves login screen hidden | Test 5 — defer to user; expect blank page until Concern A fixed |
+| 6. Slow network → loading indicator visible | **CONCERNS** (Concern B) — loading indicator code is dead on hard-reload because loginScreen stays hidden | Test 4 — defer to user; expect blank page during await rather than visible "Loading…" |
+| 7. Atomic reveal — first tab content already painted | PASS by static reasoning (`goTab` runs BEFORE the reveal pair) | Test 1/2/3/6 — defer to user |
+
+### Lint / parse
+
+`node --input-type=module --check < public/js/app.js` → clean. No syntax errors.
+
+### Recommendation
+
+**Ship if Concern A is treated as a follow-up issue; fix-required if catch-path UX is part of the merge bar for #10.**
+
+The primary flash bug is correctly fixed: atomic reveal after `_initDesktopMode + goTab` eliminates the wrong-layout chrome flash and the empty-content window. ACs 1-4 and 7 are met by construction. Concerns A and B both relate to UX states the user will rarely hit, but Concern A is a one-line addition (`loginScreen.style.display = '';` at the top of the catch) that closes a real gap in the failure UX without revisiting the design.
+
+If the SM prefers a minimal merge, ship as-is and open a follow-up issue for "boot catch path: surface error UI to user". If the SM prefers a clean close on #10, request the one-line addition before merge.
