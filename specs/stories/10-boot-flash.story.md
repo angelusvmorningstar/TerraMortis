@@ -371,3 +371,13 @@ If AC #6 is a hard requirement, the success path needs `loginScreen.style.displa
 The primary flash bug is correctly fixed: atomic reveal after `_initDesktopMode + goTab` eliminates the wrong-layout chrome flash and the empty-content window. ACs 1-4 and 7 are met by construction. Concerns A and B both relate to UX states the user will rarely hit, but Concern A is a one-line addition (`loginScreen.style.display = '';` at the top of the catch) that closes a real gap in the failure UX without revisiting the design.
 
 If the SM prefers a minimal merge, ship as-is and open a follow-up issue for "boot catch path: surface error UI to user". If the SM prefers a clean close on #10, request the one-line addition before merge.
+
+### Re-verify (after d64820f)
+
+Both Concerns addressed in `d64820f` on top of `cbf03d6`:
+- `loginScreen.style.display = ''` at `app.js:1211` (top of success branch, before loginBtn capture) — Loading… indicator now visible during boot. Closes Concern B / AC #6.
+- `loginScreen.style.display = ''` at `app.js:1283` (top of catch, before errorEl text + button restore) — error UI and restored login button now visible on mid-flight failure. Closes Concern A / AC #5.
+
+Atomic reveal at `:1262-1263` (`loginScreen='none' + app=''`) unchanged. Success path now: loginScreen unhidden with Loading… → boot runs → atomic flip to app on completion. Failure path: catch's own unhide ensures error UI is visible regardless of where the throw landed.
+
+**Updated gate: PASS.** No further code change requested. Browser smoke (Test Plan 1-7) still recommended before merge for visual sanity, but all AC concerns are computationally resolved.
