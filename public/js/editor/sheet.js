@@ -12,7 +12,7 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 import { shEnsureTouchstoneData } from './edit.js';
 import { powersForDisc } from '../suite/sheet-helpers.js';
@@ -806,7 +806,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     const nonContacts = inflM.filter(m => m.name !== 'Contacts');
     const _inflHWV = hasHoneyWithVinegar(c);
     nonContacts.forEach(m => {
-      const idx = inflM.indexOf(m), inf = calcMeritInfluence(c, m, _inflHWV), tOpts = buildSubCategoryMeritOptions(c, 'influence', m.name), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_attache || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0);
+      const idx = inflM.indexOf(m), inf = calcMeritInfluence(c, m, _inflHWV), tOpts = buildSubCategoryMeritOptions(c, 'influence', m.name), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name);
       const _iPurch = (m.cp || 0) + (m.xp || 0);
       let _areaHtml;
       if (m.name === 'Attach\u00e9') {
@@ -855,7 +855,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_attache || 0) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
       h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
@@ -918,7 +918,7 @@ export function shRenderDomainMerits(c, editMode) {
         // Strip Herd from this row's options if another row already has Herd
         tOpts = tOpts.replace(/<option value="Herd"[^>]*>Herd<\/option>/g, '');
       }
-      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_attache || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
       // Total display: own dots filled + partner contribution hollow.
       // Cap own at the total so a single character can't double-paint dots
       // beyond the merit's effective rating.
@@ -1156,7 +1156,7 @@ export function shRenderGeneralMerits(c, editMode) {
     const _mdbChosenStyle = _mdbMerit && _mdbMerit.qualifier;
     const _mdbMentorRating = (() => { const mentorM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Mentor'); if (!mentorM) return 0; return (mentorM.cp || 0) + (mentorM.free_mci || 0) + (mentorM.xp || 0); })();
     oM.forEach((m, gi) => {
-      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.xp || 0), isAoE = m.name?.toLowerCase() === 'area of expertise', isIS = m.name?.toLowerCase() === 'interdisciplinary specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
+      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m), isAoE = m.name?.toLowerCase() === 'area of expertise', isIS = m.name?.toLowerCase() === 'interdisciplinary specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
@@ -1185,7 +1185,7 @@ export function shRenderGeneralMerits(c, editMode) {
     oM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
-      const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0);
+      const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m);
       const dotH = shDotsMixed(purch, bon);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;

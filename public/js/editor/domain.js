@@ -83,19 +83,31 @@ export function domMeritTotal(c, name) {
 }
 
 /**
- * Persisted-rating sum: sum of every dot channel that contributes to m.rating.
- * Use this anywhere code writes to m.rating — never hand-roll the sum or you
- * WILL silently drop newly-added free_* channels (that's how free_pt /
- * free_mdb / free_sw / free_fwb / free_attache got dropped on every edit
- * before this helper existed). Excludes auto-bonuses (SSJ/Flock/etc.) and
- * partner contributions — those are computed live by meritEffectiveRating.
+ * Sum of every free_* dot channel on a merit. The "bonus" half of the
+ * purchased + bonus split that all dot-rendering code uses. Single source
+ * of truth so adding a new free_X field updates the editor sheet, suite
+ * sheet, sync, audits, and exports in one go.
+ *
+ * Excludes auto-bonuses computed elsewhere (SSJ/Flock for Herd, partner
+ * contributions for shared domain merits). Those are summed in by
+ * meritEffectiveRating, not by this helper.
+ */
+export function meritFreeSum(m) {
+  return (m.free || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+    + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0)
+    + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0)
+    + (m.free_attache || 0);
+}
+
+/**
+ * Persisted-rating sum: cp + xp + every free_* channel. Use this anywhere
+ * code writes to m.rating — never hand-roll or you WILL silently drop
+ * newly-added free_* channels (that's how free_pt / free_mdb / free_sw /
+ * free_fwb / free_attache got dropped on every edit before this helper).
  */
 export function syncMeritRating(m) {
-  return (m.cp || 0) + (m.xp || 0) + (m.free || 0)
-    + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
-    + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
-    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0)
-    + (m.free_sw || 0) + (m.free_fwb || 0) + (m.free_attache || 0);
+  return (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
 }
 
 /**
