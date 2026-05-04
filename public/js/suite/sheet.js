@@ -17,7 +17,7 @@ import {
 
 import {
   standingMerits, devotions, rites, pacts,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
+  calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';

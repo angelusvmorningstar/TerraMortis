@@ -3,7 +3,7 @@
 import {
   getAttrVal, getAttrBonus, skDots, skBonus, skSpecs,
   meritsByCategory, influenceMerits, domainMerits, standingMerits, generalMerits,
-  influenceTotal, domainRating,
+  domainRating,
   calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   calcCityStatus, BP_TABLE
 } from '../data/accessors.js';

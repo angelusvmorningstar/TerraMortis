@@ -5,7 +5,8 @@
  */
 
 import { esc, displayName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
-import { calcVitaeMax, calcWillpowerMax, influenceTotal } from '../data/accessors.js';
+import { calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 
 // ── State ──
@@ -17,7 +18,7 @@ let activeNames = [];  // names of characters currently shown in tracker
 
 function maxVitae(c) { return calcVitaeMax(c); }
 function maxWP(c) { return calcWillpowerMax(c); }
-function maxInf(c) { return influenceTotal(c); }
+function maxInf(c) { return calcTotalInfluence(c); }
 
 function getTracker(c) {
   try {
