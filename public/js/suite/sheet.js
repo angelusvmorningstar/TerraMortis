@@ -11,12 +11,12 @@ import {
 import {
   dots, dotsWithBonus, getAttrDots, getAttrBonus,
   skillDots, skillSpec,
-  powersForDisc, otherPowers,
+  powersForDisc,
   toggleExp, toggleDisc, expRow
 } from './sheet-helpers.js';
 
 import {
-  standingMerits,
+  standingMerits, devotions, rites, pacts,
   influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
@@ -442,8 +442,7 @@ export function renderSheet() {
     }
 
     // 2. Devotions
-    const others = otherPowers(c);
-    const devotionPowers = others.filter(p => p.category === 'devotion');
+    const devotionPowers = devotions(c);
     if (devotionPowers.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
@@ -470,10 +469,10 @@ export function renderSheet() {
     }
 
     // 4. Rites (Cruac / Theban — stored on c.powers)
-    const rites = others.filter(p => p.category === 'rite');
-    if (rites.length) {
+    const ritesList = rites(c);
+    if (ritesList.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
-      rites.forEach((p, i) => {
+      ritesList.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
         const _riteName = (p.name || '').replace(/'/g, "\\'");
         const _ritePool = p.name ? getPool(c, p.name) : null;
@@ -492,10 +491,10 @@ export function renderSheet() {
     }
 
     // 5. Pacts (Oaths of the Notary, Carthian Law)
-    const pacts = others.filter(p => p.category === 'pact');
-    if (pacts.length) {
+    const pactsList = pacts(c);
+    if (pactsList.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
-      pacts.forEach((p, i) => {
+      pactsList.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
         const _pactName = (p.name || '').replace(/'/g, "\\'");
         const _pactPool = p.name ? getPool(c, p.name) : null;

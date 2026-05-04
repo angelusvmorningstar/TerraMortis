@@ -46,6 +46,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
+import { devotions, rites } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
@@ -692,7 +693,7 @@ function openPanel(mode) {
       }
 
       // Also show devotions and rites from c.powers (these are character-specific picks)
-      const otherPowers = (c.powers || []).filter(p => p.category === 'devotion' || p.category === 'rite');
+      const otherPowers = [...devotions(c), ...rites(c)];
       if (otherPowers.length) {
         const sec = document.createElement('div');
         sec.className = 'panel-section';
