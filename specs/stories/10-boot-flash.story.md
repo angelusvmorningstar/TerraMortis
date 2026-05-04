@@ -270,7 +270,8 @@ Manual verification (project has no test framework). Test on **both** the player
 - The unauthenticated bottom-of-function path (`:1289-1292`) is reached when `isLoggedIn()` is false OR `validateToken()` returns falsy. Neither path touches the new try/catch. The catch only fires on success-path mid-flight failure.
 
 **Change Log:**
-- 2026-05-04 — Implemented per Story #10. Single commit on `issue-10-boot-flash` (app.js + this Dev Agent Record together, per SM standing instruction).
+- 2026-05-04 — Implemented per Story #10. Single commit `835b98a` on `issue-10-boot-flash` (app.js + this Dev Agent Record together, per SM standing instruction).
+- 2026-05-04 — Follow-up commit: fix QA Concerns A & B. The `#login-screen` element ships with inline `display:none` in both `index.html:34` and `admin.html:26`, and the `#login-screen { display: flex }` CSS rule has no `!important`, so the inline style wins. The original sketch implicitly assumed loginScreen was visible by default — it isn't. Without an explicit unhide at boot, the Loading… indicator and the catch-path error message both render against an invisible element. Two-line fix: `loginScreen.style.display = ''` at the top of the success branch (primary), and the same at the top of the catch (belt-and-braces against future refactors). Both Concerns close: Loading… is now visible during slow-network boot, and the catch-path error message is reachable.
 
 ---
 

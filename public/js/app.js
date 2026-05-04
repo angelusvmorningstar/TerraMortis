@@ -1206,6 +1206,11 @@ async function boot() {
       // wrong-mode chrome flash or an empty content area. Reveal #app only
       // after _initDesktopMode() has set body classes AND goTab() has
       // painted the first tab.
+      // The login-screen element ships with inline `display:none` in the HTML
+      // (and the CSS rule has no !important), so we have to explicitly clear
+      // the inline style here — otherwise the Loading… indicator and the
+      // catch-path error message render against an invisible element.
+      loginScreen.style.display = '';
       const loginBtn = document.getElementById('login-btn');
       const originalLoginHTML = loginBtn?.outerHTML;
       if (loginBtn) {
@@ -1275,6 +1280,9 @@ async function boot() {
         // Mid-flight failure: leave the user on the login screen with a
         // working button rather than a permanently-hidden #app.
         console.error('[boot] post-auth setup failed', err);
+        // Belt-and-braces: ensure the login screen is visible even if a
+        // future refactor moves or removes the unhide above.
+        loginScreen.style.display = '';
         if (errorEl) errorEl.textContent = 'Could not load app. Please try again.';
         if (loginBtn && originalLoginHTML) {
           loginBtn.outerHTML = originalLoginHTML;
