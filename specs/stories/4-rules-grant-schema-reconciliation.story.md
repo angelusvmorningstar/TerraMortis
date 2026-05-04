@@ -255,3 +255,69 @@ PASS  NEG pool-no-targets  expect=false  got=false
 
 **Change Log:**
 - 2026-05-04 — Implemented per Story #4. Single commit on `issue-4-rules-grant-ajv` (schema + this Dev Agent Record together, as instructed by SM).
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-04
+**Commit reviewed:** 1e6c6ee
+**Method:** Independent Ajv compile + validate against the schema (same `Ajv({ allErrors: true, coerceTypes: false })` config as the live `validate` middleware, server/middleware/validate.js:15). Static review of the schema diff and route-level interactions.
+
+### Gate decision: **PASS** (recommend ship)
+
+### Independent Ajv smoke — 25/25
+
+Ptah's 5 cases reproduced (got=expected for all):
+- A merit `{source, grant_type:'merit', target, amount, amount_basis}` → valid.
+- B pool `{grant_type:'pool', pool_targets, amount_basis, source}` (no target/amount) → valid.
+- C auto_bonus `{grant_type:'auto_bonus', target, target_field, source, amount_basis}` (no amount) → valid.
+- D status_floor `{grant_type:'status_floor', target, amount, source, amount_basis}` → valid.
+- NEG pool with no `pool_targets` → invalid, error path `#/allOf/0/then/required` reports `missingProperty: pool_targets`. Confirmed.
+
+Maat's 20 edge cases (all pass):
+- E1–E3: missing top-level required (`source`, `grant_type`, `amount_basis`) → each fails with the correct `#/required` error.
+- E4: `grant_type:'foo'` → fails on enum.
+- E5: `amount_basis:'wibble'` → fails on enum.
+- E6: unknown top-level property `{wibble:1}` → fails on `additionalProperties`. Confirms `additionalProperties:false` interacts cleanly with the conditional `allOf` (the `if/then` blocks only declare `required`, no `properties`, so they don't shadow the parent's `additionalProperties:false`).
+- E7: auto_bonus missing `target_field` → fails (`#/allOf/1/then/required`).
+- E8: auto_bonus missing `target` → fails (`#/allOf/1/then/required`).
+- E9: legacy `grant_type:'speciality'` with target+amount → still valid (no regression on previously-supported types).
+- E10/E11: `style_pool` valid with target+amount; missing amount fails.
+- E12: `amount_basis:'rating_of_status'` with `partner_status_names:['city']` on a merit grant → valid.
+- E13: `condition:'fighting_style_present'` accepted.
+- E14: `read_refs:[{kind:'merit', name:'Resources', predicate:'gte', value:2}]` → valid (shape preserved verbatim from previous schema; spot-checked by `git show 1e6c6ee~1`).
+- E15: `read_refs[0].kind:'foo'` → fails on enum (read_refs internal validation intact).
+- E16: pool grant with an extra `target` property → valid (target is a property, only `pool_targets` is conditionally required; pool with target is permitted but ignored by callers).
+- E17/E18: `amount:0` valid; `amount:-1` fails on `minimum:0`.
+- E19/E20: `tier:6` fails; `tier:3` valid.
+
+### AC verdicts
+
+| AC | Verdict | Evidence |
+|---|---|---|
+| Merit grant via form (Library/Resources/2/flat) | PASS | E9-style + Ptah A. |
+| Pool grant (MCI / pool_targets / no target / no amount) | PASS | Ptah B + E16. |
+| Auto_bonus grant (FWB / Allies / free_fwb / rating_of_partner_merit) | PASS | Ptah C; E7/E8 confirm conditional required is enforced. |
+| status_floor / style_pool accepted by enum | PASS | Ptah D + E10. |
+| `amount_basis = 'rating_of_status'` accepted | PASS | E12. |
+| Empty optional fields don't appear in body / no nulls | PASS-by-inspection | Schema rejects unknown keys (E6) and the form's `_readFormData` is verify-only per scope. Server side is sound; client behaviour out of scope per story. |
+| Bad target merit blocked client-side | PASS-by-inspection | Client `_validate` unchanged (no client edits in this commit). |
+| Schema lists every form-emitted field; `required` is conditional on grant_type | PASS | Schema diff shows new properties `target_field`, `pool_targets`, `partner_merit_names`, `partner_status_names`; condition enum gains `fighting_style_present`; grant_type/amount_basis enums broadened; `allOf` of three `if/then` blocks covers all 6 grant_types exhaustively (pool / auto_bonus / merit\|speciality\|status_floor\|style_pool) with no gaps and no overlap. |
+
+### Drafting hazards examined
+
+1. **`allOf` branch coverage** — six `grant_type` enum values; three conditional branches partition them: pool (1), auto_bonus (2), merit/speciality/status_floor/style_pool (3). Exhaustive, mutually exclusive. *Maintenance hazard:* if a future grant_type is added to the enum without a matching `allOf` branch, the new type would fall through to top-level required only. Not a bug today; consider a one-line comment on the `allOf` header on a future touch.
+2. **`if` clause `required: ['grant_type']`** — present on all three branches. A body missing `grant_type` is caught by top-level `required` and the `if` condition resolves false, so `then` doesn't fire spurious "missing target_field" errors. Confirmed by E2.
+3. **`additionalProperties:false` × conditional required** — the `if/then` subschemas only declare `required`, no `properties`/`additionalProperties`. Parent-level `additionalProperties:false` applies cleanly. Confirmed by E6.
+4. **`read_refs` round-trip** — `git show 1e6c6ee~1:server/schemas/rules/rule-grant.schema.js` vs current shows the `read_refs` block is byte-identical. E14 + E15 confirm intact.
+5. **Route-level `postCheck` (rules-engine.js:71-78)** — `body.source && body.target && body.source === body.target` rejects cyclic self-grant. Pool grants without `target` short-circuit safely (`body.target` undefined). No conflict with the schema relaxation.
+
+### Risk assessment
+
+Low. Single-file schema change. No client edits. No data migration. Conditional `required` is the standard Draft-07 pattern; Ajv default config is sufficient. The `additionalProperties:false` belt-and-braces means future-drift scenarios fail loudly, not silently.
+
+### Recommendation
+
+Ship into `dev`. Browser smoke (Test Plan steps 2-6) is recommended once before merge for visual sanity of the admin form's save flow, but the schema gate is computationally sound across all enumerated grant_types.
