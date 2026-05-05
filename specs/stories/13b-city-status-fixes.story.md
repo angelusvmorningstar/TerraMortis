@@ -307,3 +307,134 @@ After this PR's merge, **issue #13 closes** — the audit + fixes loop completes
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #13b on `issue-13b-city-status-fixes`. Single semantic commit (4 fixes + this Dev Agent Record). 7 files, +79/-23 lines, 49/49 server tests passing, all 7 files syntax-clean. Browser smoke DEFERRED to SM/user.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-06
+**Commit reviewed:** 956dc4c
+**Method:** Static review of the diff against story ACs; cache-drop integrity grep; shared-reference invariant walkthrough across all 5 load sites + 3 city-views save handlers; Surface 8 walkthrough against the clamp; calcCityStatus consumer survey; derived-note copy review.
+
+### Gate decision: **PASS** — recommend ship into `dev`.
+
+### Cache-drop integrity — clean
+
+Grep for `_regentTerritory`:
+```
+public/js/data/helpers.js:147       — comment only (historical reference in docstring)
+public/js/editor/sheet.js:1740      — comment only ("drop the c._regentTerritory cache")
+public/js/data/accessors.js:306     — comment only (same)
+```
+
+**Zero writes remaining.** Three references survive as historical commentary. The two functional reads cited in the story (`sheet.js:1739`, `accessors.js:304`) are both wired to fresh recompute via `getRegentTerritoryFor(c)`.
+
+Module-level pattern at `accessors.js:307-317`:
+- `let _currentTerritories = []` (line 307)
+- `setStatusTerritories(territories)` setter with `Array.isArray` guard (lines 311-313)
+- `getRegentTerritoryFor(c)` calls `findRegentTerritory(_currentTerritories, c)` (line 317)
+- `regentAmienceBonus` rewired to use `getRegentTerritoryFor` (line 321)
+- `calcCityStatus` clamps to 10 via `Math.min` (line 332)
+
+Mirrors the `_currentTerritories` cache pattern Ptah introduced in #3d's `downtime-story.js:94`.
+
+### Shared-reference invariant — HOLDS
+
+Walked the 5 load sites:
+| Site | Call | Reference shared? |
+|---|---|---|
+| `app.js:541` | `setStatusTerritories(suiteState.territories)` | yes — passes the suite's territories array |
+| `admin.js:1127` | `setStatusTerritories(terrs)` (init) | yes — passes the local `terrs` const, no copy |
+| `admin.js:1157` | `setStatusTerritories(terrs)` (CSV export path) | yes — passes the local fresh-fetched `terrs` |
+| `player.js:219` | `setStatusTerritories(_territories)` | yes — passes the player module's `_territories` |
+| `city-views.js:53` | `setStatusTerritories(terrDocs)` | yes — passes the city-views module's `terrDocs` |
+
+Walked the 3 city-views save handlers — all are visible to `_currentTerritories` because they mutate the shared array:
+- `saveFeedingRights:599` — `terrDocs[idx] = { ...terrDocs[idx], feeding_rights: rights }` — replaces the element at index N. The array reference is shared; `_currentTerritories[N]` now points at the new object on next `find()` iteration.
+- `saveTerrAmbience:665` — `Object.assign(terrDocs[idx], patch)` — in-place mutation of the existing element.
+- `saveTerritory:693` — `Object.assign(terrDocs[idx], patch)` — in-place mutation.
+
+Both spread-replace and Object.assign work for the cache-drop design because `findRegentTerritory` iterates `territories.find(...)` fresh each call, reading whatever is at each index at that moment.
+
+`terrDocs` rebinding inspection: `let terrDocs = []` (line 31), `terrDocs = await apiGet(...)` (line 52), `terrDocs = []` in catch (line 54). Every rebinding is followed by a `setStatusTerritories(terrDocs)` call (lines 53, 54). The reference is kept in sync. ✓
+
+**Synthetic flow walk:** ST opens admin → `init()` calls `setStatusTerritories(terrs)` → ST clicks City tab → `initCityView()` runs → `terrDocs = await apiGet(...)`, `setStatusTerritories(terrDocs)` → ST clicks regent dropdown for territory X, picks new regent Y, save fires → `apiPost`, then `Object.assign(terrDocs[X], { regent_id: Y })` → ST navigates to character grid (or any other tab that renders a character with regent status) → `getRegentTerritoryFor(charY)` reads `_currentTerritories === terrDocs`, finds the (mutated) territory entry with `regent_id === Y`, returns the new ambience. **Bug class structurally fixed.**
+
+The single edge case: if a different load site re-fires `setStatusTerritories` with a *different* array (e.g. CSV export refetches and overrides the city-views reference), `_currentTerritories` shifts to point at the new fetch. But that new fetch already includes the persisted change (because saveTerrAmbience POSTed before mutating). So display remains correct.
+
+### Clamp consistency — clean
+
+`calcCityStatus` consumers all benefit from the clamp via the function definition. Independent grep:
+- `status-tab.js:43, 131` — clamp applies.
+- `suite/status.js:86, 277` — clamp applies.
+- `export-character.js:88` — clamp applies (CSV export now consistent with display).
+- `csv-format.js:189` — clamp applies.
+- `sheet.js:1751` — additional `Math.min(..., 10)` at sheet level (defensive belt-and-braces; no harm).
+
+The `< 8` floor checks at `status-tab.js:160` and `suite/status.js:112` are unaffected: clamping at 10 doesn't change the boundary at 8.
+
+### Surface 8 walkthrough against the clamp
+
+| Edge case | Pre-fix | Post-fix |
+|---|---|---|
+| `base + bonus > max` (e.g. base=10, bonus=2) | bonus invisible above cap (audit Surface 8 quirk) | resolved: clamp prevents `cityTotal` from exceeding 10; `_statusDots(10, 2, 10)` still renders 10 filled, but the calc value matches what the display shows. The "invisible bonus" is no longer a discrepancy because the calc itself caps at 10. |
+| `bonus only, base=0` | all hollow | unchanged ✓ |
+| `base only, bonus=0` | all filled | unchanged ✓ |
+| `title + ambience both` | single hollow band (no source distinction) | source distinction now visible via the new derived-notes (see Surface 9) |
+
+Surface 7's clamp structurally resolves Surface 8's quirk; Surface 9's derived-notes resolve the breakdown-invisibility variant. Both audit recommendations addressed.
+
+### Surface 9 derived-note copy
+
+```
+Title: +N dot(s) (court_category)
+Regency: +N dot(s) from <Territory Name> (<Ambience>)
+```
+
+Reads naturally. The Title note matches the Attaché template shape exactly (`Source: +N dot(s) (qualifier)`). The Regency note adds "from <X>" before the parens, which makes sense — Regency is a relationship to a territory, while Attaché is a property of self. Both consistent with the parent `derived-note` CSS class.
+
+### Title bonus derived-note — acceptable extension, not scope creep
+
+Story AC #4 mandates only the Regency derived-note; the Title note is a Ptah extension. Evaluation:
+- **Cost:** +5 lines (single `if (titleBonus > 0)` block mirroring the Regency block).
+- **Benefit:** symmetric explanation. Without the Title note, a Primogen with court appointment but no regency would see City Status above their stored `c.status.city` value with no UI cue of why. The Title note closes that gap.
+- **Risk:** none — uses the same derived-note pattern, no new game-rules implication, no schema or contract change.
+- **Scope discipline:** within the cleanup-spirit. Doesn't touch any out-of-scope file, doesn't change any data model, doesn't introduce new code paths.
+
+Concur — acceptable extension, ship it. The natural unification makes the User Surface 9 fix more coherent than the AC's narrower wording.
+
+### Server tests
+
+Khepri's brief notes the count change: story spec said 56/56, current is 49/49 because the `territory_residency` test suite was retired in `fd5dee1`. Independent grep confirms `server/tests/api-players-sessions-residency.test.js` no longer exists (or covers only the `players` and `game_sessions` halves). The story AC #8 specifies "territory-related suites at minimum: 56/56" — strict reading would call this an AC miss, but the 7-test gap is exactly the retired residency tests, not a regression. Acceptable per spirit of the AC.
+
+### Player surfaces — DEFERRED per AC #5 allowance
+
+`suite/status.js` and `tabs/status-tab.js` not updated with derived-notes. Story AC #5 explicitly allows this if implementation requires plumbing changes beyond the small-bundle envelope. Player Status surface uses a different render shape (compact table, not the editor sheet's labelled blocks); fitting derived-notes there cleanly would require either layout changes or a different visual treatment. Defer-to-follow-up is sound.
+
+### Browser smoke
+
+Cannot run from this terminal. The shared-reference invariant walk (above) gives high confidence on the cache-drop bug class. The browser-driven test cases worth running before merge:
+1. ST opens admin → City tab → changes a regent → switches to character grid → confirm character's City Status reflects the new ambience (or zero, if the new regent is for a non-bonus ambience).
+2. ST changes a territory's ambience from Settled to Curated → switches to player suite (or character sheet) → confirm new bonus appears, derived-note reads correctly.
+3. Hard reload → confirm initial render is correct (no stale cache survives reload — should be impossible by construction post-fix).
+
+### Per-AC verdict (9 ACs)
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | Mid-session change reflected (no stale value) | PASS | Cache dropped; pure recompute every call. Shared-reference invariant verified. |
+| 2 | `base+title+amb > 10` → returns 10 | PASS | `Math.min(raw, 10)` at `accessors.js:331`. |
+| 3 | `base+title+amb ≤ 10` → raw sum | PASS | Clamp doesn't trigger below 10. |
+| 4 | ST sheet shows Regency derived-note | PASS | `sheet.js:1755-1759`, copy mirrors Attaché template. |
+| 5 | Player Status tab derived-note | DEFERRED | Per AC's "follow-up issue" allowance; sound rationale. |
+| 6 | `regentAmienceBonus` lieutenant by-design comment | PASS | 3-line comment at `accessors.js:317-319`. |
+| 7 | Cache dropped; comment at `admin.js:548-549` updated | PASS | Zero writes; comment now references issue #13 Surface 2 fix. |
+| 8 | Affected server tests pass | PASS-with-note | 49/49 (story said 56; the 7-test gap is the retired residency suite from `fd5dee1`, not a regression). |
+| 9 | Browser smoke (deferred to user/SM if Ptah can't run) | DEFERRED | Ptah's deferral is explicit; smoke checklist suggested above for SM/user. |
+
+### Recommendation
+
+**Ship into `dev`.** Cache-drop is structurally sound (shared-reference invariant verified across 5 load sites + 3 save handlers). Clamp is consistent across all consumers. Derived-notes mirror the Attaché template cleanly. Title-bonus extension is a sound symmetric improvement. Player surfaces deferral is story-allowed.
+
+Browser smoke gates the ambience-change-then-render visual confirmation; that's SM/user's step before merge.
