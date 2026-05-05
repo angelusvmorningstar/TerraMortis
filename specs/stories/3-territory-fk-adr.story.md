@@ -358,3 +358,15 @@ A developer picking up #3b cold has everything they need: schema fields to chang
 ### Recommendation
 
 **Fix Concern A (Q5 audit basis), then PASS.** Concerns B/C/D are editorial polish; the user could read around them. Concern A changes the factual basis on which the user is being asked to make a Q5 call, so it should be corrected before sign-off.
+
+### Re-verify (after 5c61032 / rev-2)
+
+All four concerns closed:
+- **A (Q5 audit):** rev-2 paragraph at ADR `:313-326` corrects the basis - documents the consumer at `downtime-form.js:1311-1317` populating `residencyByTerritory` (declared `:73`, set `:1313-1316`) with a grep-confirmed zero-read result, then describes both DROP and MIGRATE paths with cost detail. Ptah's recommendation preserved as DROP; user decision recorded as MIGRATE with explicit out-of-scope flag for the dead client block (file as future-work issue per Q7).
+- **B (count):** ADR now states `Total: 31 sites` with reconciliation explaining the headline grep undercount of 19 (defensive coalesce sites in `downtime-story.js`, slug-keyed object reads, dataset attributes). Step 4 also updated to `31 sites` for consistency. No more triple-count confusion.
+- **C (em-dashes):** `grep -c "—"` returns **0**. Concern fully swept (stricter than ADR-001's 6).
+- **D (Step 3 rollback):** wording is now `manual restore by replaying the backup JSON via mongorestore or a small ad-hoc script. No paired rollback script is scoped into #3c`. Honest and operator-driven.
+
+User decisions on all 7 open questions recorded inline (Q1/Q2/Q3/Q4/Q6/Q7 align with Ptah; Q5 diverges to MIGRATE with the dead-client-block carved out). Frontmatter promoted: `status: approved`, `revision: 2`, history table updated. Migration plan and story map content untouched (only em-dash → hyphen sweeps in section headers).
+
+**Updated gate: PASS.** Branch ready for PR into `dev`.
