@@ -530,6 +530,19 @@ function collectResponses() {
       jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
       responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
     }
+
+    // Support Assets sphere/retainer chip selection — read from DOM so the
+    // post-click state survives the responses replacement in re-render.
+    const chipPanel = document.querySelector(`[data-support-assets-wrap="${n}"]`);
+    if (chipPanel) {
+      const selectedChips = chipPanel.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected');
+      const chipKeys = [...selectedChips].map(el => el.dataset.sphereKey).filter(Boolean);
+      responses[`project_${n}_joint_sphere_chips`] = JSON.stringify(chipKeys);
+    } else {
+      // Panel not rendered (Support Assets ticker = Solo) — preserve prior value
+      const prior = responseDoc?.responses?.[`project_${n}_joint_sphere_chips`];
+      if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
+    }
   }
 
   // Collect sorcery slots (dynamic count)
@@ -605,6 +618,18 @@ function collectResponses() {
     const castIds = [];
     castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
+    // If this sphere is committed to a project's Support Assets, force action
+    // to 'support'. The dropdown may still be rendered with an empty value at
+    // first-click time; the chips are the source of truth for support state.
+    const sphereSlotKey = `sphere_${n}`;
+    for (let pn = 1; pn <= projectSlotCount; pn++) {
+      let chips = [];
+      try { chips = JSON.parse(responses[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+      if (Array.isArray(chips) && chips.includes(sphereSlotKey)) {
+        responses[`sphere_${n}_action`] = 'support';
+        break;
+      }
+    }
   }
 
   // Status action fields
@@ -655,8 +680,12 @@ function collectResponses() {
     const typeEl = document.getElementById(`dt-retainer_${n}_type`);
     const taskEl = document.getElementById(`dt-retainer_${n}_task`);
     const meritEl = document.getElementById(`dt-retainer_${n}_merit`);
-    responses[`retainer_${n}_type`] = typeEl ? typeEl.value : '';
-    responses[`retainer_${n}_task`] = taskEl ? taskEl.value : '';
+    // Preserve prior task data when the retainer row is locked into support
+    // mode (its inputs are not rendered, so reading them would wipe the data).
+    const priorType = responseDoc?.responses?.[`retainer_${n}_type`] || '';
+    const priorTask = responseDoc?.responses?.[`retainer_${n}_task`] || '';
+    responses[`retainer_${n}_type`] = typeEl ? typeEl.value : priorType;
+    responses[`retainer_${n}_task`] = taskEl ? taskEl.value : priorTask;
     responses[`retainer_${n}_merit`] = meritEl ? meritEl.value : '';
     // Backwards compat: combined value in old key
     const combined = [responses[`retainer_${n}_type`], responses[`retainer_${n}_task`]].filter(Boolean).join('\n');
@@ -1972,15 +2001,15 @@ function renderForm(container) {
       return;
     }
 
-    // Personal story free-text NPC name — sync to hidden fields and deselect cards
+    // Personal story free-text NPC name — sync to hidden fields and update tick
     if (e.target.id === 'dt-personal_story_npc_name_free') {
       const val    = e.target.value.trim();
       const idEl   = document.getElementById('dt-personal_story_npc_id');
       const nameEl = document.getElementById('dt-personal_story_npc_name');
       if (idEl)   idEl.value   = val ? '__new__' : '';
       if (nameEl) nameEl.value = val;
-      if (val) container.querySelectorAll('[data-npc-pick]').forEach(c => c.classList.remove('dt-npc-card-selected'));
       scheduleSave();
+      updateSectionTicks(container);
       return;
     }
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
@@ -2135,10 +2164,23 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Dice pool dropdown — update total
+    // Dice pool dropdown — update total, then re-render so spec chips appear
+    // (or disappear) for the newly-selected skill. Skill change clears any
+    // stale spec from the prior skill.
     const poolSelect = e.target.closest('[data-pool-prefix]');
     if (poolSelect) {
-      updatePoolTotal(poolSelect.dataset.poolPrefix);
+      const prefix = poolSelect.dataset.poolPrefix;
+      updatePoolTotal(prefix);
+      // If the changed dropdown is the skill picker, clear any stale spec.
+      if (poolSelect.id === `dt-${prefix}_skill`) {
+        const specHidden = document.getElementById(`dt-${prefix}_spec`);
+        if (specHidden) specHidden.value = '';
+      }
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
     }
     // Project dice pool spec chip — toggle selection and re-render
     const poolSpecChip = e.target.closest('[data-pool-spec]');
@@ -3084,7 +3126,7 @@ function renderProjectSlots(saved) {
             .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
             .join(', ');
         } else if (joint.target_type === 'territory') {
-          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
+          targetLbl = TERRITORY_DATA.find(t => t.slug === joint.target_value)?.name || joint.target_value || '';
         } else {
           targetLbl = joint.target_value || '';
         }
@@ -3488,7 +3530,11 @@ function getXpCost(category, item) {
       const rule = getRuleByKey(slug);
       return rule ? (rule.xp_fixed || 2) : 2;
     }
-    case 'rite': return 4;
+    case 'rite': {
+      const rule = (getRulesByCategory('rite') || []).find(r => r.name === item);
+      const rank = rule?.rank || 1;
+      return rank >= 4 ? 2 : 1;
+    }
     default: return 0;
   }
 }
@@ -3692,91 +3738,41 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
-// NPCR.12: Personal Story: Off-Screen Life — relationships-driven picker.
-// Retires the DTOSL.2/.4 three-way choice. The picker shows a single list of
-// the character's active relationships (grouped by kind family); selecting
-// one stores its _id as responses.story_moment_relationship_id. The
-// follow-up textarea is kind-driven via kind-prompts.js (NPCR.13).
+// Issue #24: Personal Story — free-text NPC name + interaction note.
+// Replaces the NPCR.12 relationships picker. Players name any NPC they know
+// and describe the interaction; no registered relationship required.
 
 function renderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
+  const section = DOWNTIME_SECTIONS.find(s => s.key === ‘personal_story’);
+  if (!section) return ‘’;
 
-  // Back-compat read: new submissions use story_moment_relationship_id;
-  // legacy submissions seeded the note into osl_moment / personal_story_note /
-  // correspondence. The direction radio used personal_story_direction.
-  const savedRelId = saved['story_moment_relationship_id'] || '';
-  const savedNote  = saved['story_moment_note']
-                   || saved['osl_moment']
-                   || saved['personal_story_note']
-                   || saved['correspondence']
-                   || '';
-  // NPCR.12 r3: personal_story_direction no longer read — Story direction radios removed.
+  const savedName = saved[‘personal_story_npc_name’] || ‘’;
+  const savedNote = saved[‘personal_story_note’]
+                  || saved[‘story_moment_note’]
+                  || saved[‘osl_moment’]
+                  || saved[‘correspondence’]
+                  || ‘’;
 
-  // Only active edges are pickable. _myRelationships was loaded in
-  // renderDowntimeTab from /api/relationships/for-character/:id.
-  const activeEdges = (_myRelationships || []).filter(e => e.status === 'active');
-
-  // Resolve the selected edge (if still active) to drive the prompt copy.
-  const selectedEdge = activeEdges.find(e => String(e._id) === String(savedRelId)) || null;
-  const prompt = selectedEdge
-    ? promptForKind(selectedEdge.kind, selectedEdge.custom_label)
-    : promptForKind('_default', null);
-
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
+  let h = ‘<div class="qf-section collapsed" data-section-key="personal_story">’;
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
+  h += ‘<div class="qf-section-body">’;
+  h += ‘<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\’re hoping for.</p>’;
 
-  // Picker: grouped by kind family via <optgroup>.
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
-    h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
-  } else {
-    // Group by kind family, sort entries by other-endpoint name within family.
-    const byFamily = Object.fromEntries(FAMILIES.map(f => [f, []]));
-    for (const e of activeEdges) {
-      const k = kindByCode(e.kind);
-      const fam = k?.family || 'Other';
-      byFamily[fam].push(e);
-    }
-    for (const fam of FAMILIES) {
-      byFamily[fam].sort((a, b) => String(a._other_name || '').localeCompare(String(b._other_name || ''), undefined, { sensitivity: 'base' }));
-    }
+  // Hidden sync fields consumed by collectResponses() at submit time.
+  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? ‘__new__’ : ‘’)}">`;
+  h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
 
-    h += '<select id="dt-story_moment_relationship_id" class="qf-select">';
-    h += '<option value="">— None (no story moment this cycle) —</option>';
-    for (const fam of FAMILIES) {
-      const bucket = byFamily[fam];
-      if (bucket.length === 0) continue;
-      h += `<optgroup label="${esc(fam)}">`;
-      for (const e of bucket) {
-        const k = kindByCode(e.kind);
-        const kindLabel = k?.label || e.kind;
-        const custom = e.kind === 'other' && e.custom_label ? ` (${esc(e.custom_label)})` : '';
-        const name = e._other_name || '(unknown)';
-        const sel = String(savedRelId) === String(e._id) ? ' selected' : '';
-        h += `<option value="${esc(String(e._id))}"${sel}>${esc(name)} · ${esc(kindLabel)}${custom}</option>`;
-      }
-      h += '</optgroup>';
-    }
-    h += '</select>';
-  }
-  h += '</div>';
+  h += ‘<div class="qf-field">’;
+  h += ‘<label class="qf-label">Who is this moment about?</label>’;
+  h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
+  h += ‘</div>’;
 
-  // Kind-driven prompt (NPCR.13).
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += `<label class="qf-label" id="dt-story_moment_note_label">${esc(prompt.label)}</label>`;
-  h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
-  h += '</div>';
+  h += ‘<div class="qf-field" style="margin-top:12px;">’;
+  h += ‘<label class="qf-label">How do you want to interact with them?</label>’;
+  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you’re hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += ‘</div>’;
 
-  // NPCR.12 r3: Story direction radios retired — subsumed by the NPCs tab
-  // (players flag NPCs for review via NPCR.11, edit their own edges via
-  // NPCR.9, or propose direction shifts by editing edge state text).
-
-  h += '</div></div>';
+  h += ‘</div></div>’;
   return h;
 }
 
@@ -4521,7 +4517,7 @@ function renderJointAuthoring(n, saved, existingJoint) {
     const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
     valLbl = names.join(', ') || '—';
   } else if (targetType === 'territory') {
-    const t = TERRITORY_DATA.find(x => x.id === targetValue);
+    const t = TERRITORY_DATA.find(x => x.slug === targetValue);
     if (t) valLbl = t.name;
   }
   h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
@@ -5037,8 +5033,8 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
 function renderTerritoryPills(fieldId, savedVal) {
   let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const selected = savedVal === t.id ? ' dt-chip--selected' : '';
-    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+    const selected = savedVal === t.slug ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.slug)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
   h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;
@@ -5581,6 +5577,35 @@ function renderMeritToggles(saved) {
       const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
+
+      // Lock the retainer to "support" if its slot is referenced in any
+      // project's joint_sphere_chips (matches the sphere section pattern).
+      const retainerSlotKey = `retainer_${n}`;
+      let supportingProject = null;
+      for (let pn = 1; pn <= 4; pn++) {
+        let chips = [];
+        try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+        if (Array.isArray(chips) && chips.includes(retainerSlotKey)) { supportingProject = pn; break; }
+      }
+
+      if (supportingProject) {
+        h += `<div class="dt-contact-row dt-contact-used" data-retainer-row="${n}">`;
+        h += `<div class="dt-contact-header">`;
+        h += `<span class="dt-contact-area">${esc(area)}${esc(ghoulTag)}</span>`;
+        h += `<span class="dt-contact-dots">${dots}</span>`;
+        h += `<span class="dt-contact-status">Support</span>`;
+        h += '</div>';
+        h += `<div class="dt-contact-panel">`;
+        h += '<div class="dt-sphere-locked">';
+        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${supportingProject}</span>`;
+        h += `<p class="dt-sphere-locked-help">Un-tick this Retainer's chip in the project's Support Assets panel to free this slot.</p>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-retainer_${n}_merit" value="${esc(meritLabel(m))}">`;
+        h += '</div>'; // panel
+        h += '</div>'; // row
+        continue;
+      }
+
       const isUsed = savedType || savedTask;
       const expanded = isUsed;
 
@@ -5635,7 +5660,7 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // Retainers: tick when any retainer has content
+    // Retainers: tick when any retainer has a task OR is committed to support
     if (key === 'retainers') {
       const maxR = detectedMerits.retainers.length;
       let anyUsed = false;
@@ -5643,6 +5668,15 @@ function updateSectionTicks(container) {
         const t = document.getElementById(`dt-retainer_${n}_type`);
         const d = document.getElementById(`dt-retainer_${n}_task`);
         if ((t && t.value.trim()) || (d && d.value.trim())) { anyUsed = true; break; }
+      }
+      // Also tick if any retainer slot is in a project's joint_sphere_chips
+      if (!anyUsed) {
+        const r = responseDoc?.responses || {};
+        for (let pn = 1; pn <= 4 && !anyUsed; pn++) {
+          let chips = [];
+          try { chips = JSON.parse(r[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
+          if (Array.isArray(chips) && chips.some(k => k.startsWith('retainer_'))) anyUsed = true;
+        }
       }
       tick.classList.toggle('visible', anyUsed);
       return;

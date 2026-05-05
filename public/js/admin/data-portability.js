@@ -515,11 +515,14 @@ async function writeJsonDoc(collection, doc) {
       return apiPost('/api/characters', doc);
 
     case 'territories': {
-      // Territories use a slug `id` field, not MongoDB _id
-      const slugId = doc.id || id;
-      if (!slugId) throw new Error('Territory doc missing id field');
-      try { return await apiPut(`/api/territories/${slugId}`, body); }
-      catch { return apiPost('/api/territories', doc); }
+      // Post-ADR-002: territories use MongoDB _id as canonical FK; slug is a label.
+      // For import, prefer the doc's stored _id when present; fall back to insert.
+      if (id) return apiPut(`/api/territories/${id}`, body);
+      // No _id: insert. Carry slug forward as a label if present in source data.
+      const insertBody = { ...body };
+      if (doc.slug || doc.id) insertBody.slug = doc.slug || doc.id;
+      delete insertBody.id;
+      return apiPost('/api/territories', insertBody);
     }
 
     case 'game_sessions':

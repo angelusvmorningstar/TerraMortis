@@ -51,3 +51,6 @@ data copy/
 # Scratch working directory — ad-hoc inputs/outputs, never tracked
 scratch/
 server/scripts/build-rubric-digests.js
+
+# One-off DB cleanup script backups — local-only audit trail
+server/scripts/_backups/

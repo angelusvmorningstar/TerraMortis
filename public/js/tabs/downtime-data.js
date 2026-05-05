@@ -82,13 +82,16 @@ export const AMBIENCE_MODS = {
   Settled: 0, Tended: 2, Curated: 3, Verdant: 4, 'The Rack': 5,
 };
 
-// Territory definitions with current ambience (mirrors city-views.js)
+// Territory definitions with current ambience (mirrors city-views.js).
+// Field name `slug` aligns with the Mongo territory document's `slug` field
+// (renamed from `id` in ADR-002 / story #3c). TERRITORY_DATA is reference
+// data only — never used as a foreign key.
 export const TERRITORY_DATA = [
-  { id: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
-  { id: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
-  { id: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
-  { id: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
-  { id: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
+  { slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
+  { slug: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
+  { slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
 ];
 
 // Helper: generate select options for a numeric range (inclusive)
