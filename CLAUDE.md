@@ -12,6 +12,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always work on `Morningstar` branch. If the session starts on `main`, switch to `Morningstar` before making any changes.
 - Each Netlify/Render deploy costs money. The user controls deploy cadence.
 
+## !! ARCHITECTURAL RESET FREEZE (since 2026-05-01)
+
+The repository is in an architectural-reset freeze. All proposed feature dev is paused. Before proposing any change, read:
+
+- [`FREEZE.md`](FREEZE.md) — visible-at-the-root summary with the five-item gate
+- [`specs/architectural-reset-charter.md`](specs/architectural-reset-charter.md) — full freeze rules, audit plan, resumption criteria
+
+**Permitted during freeze:** hotfixes (cycle-blockers, strict definition), errata corrections (content-only ref data — `MERITS_DB` / `DEVOTIONS_DB` / `MAN_DB`), audit findings, doc updates.
+
+**Paused:** new features, schema additions, new helper modules, the 34-story DT overhaul backlog, the NPC/edges DT integration.
+
+The freeze lifts when all resumption criteria in the charter Part 3 are met. Not dated.
+
 ## Project Overview
 
 Terra Mortis TM Suite is a browser-based character management system for a Vampire: The Requiem 2nd Edition campaign. Express API backend on Render, static frontend on Netlify, MongoDB Atlas for persistence, Discord OAuth for ST authentication.
