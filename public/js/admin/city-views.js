@@ -8,6 +8,7 @@ import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { setStatusTerritories } from '../data/accessors.js';
 import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
 
@@ -49,7 +50,8 @@ export async function initCityView() {
 
   try {
     terrDocs = await apiGet('/api/territories');
-  } catch { terrDocs = []; }
+    setStatusTerritories(terrDocs); // keep City Status calc in sync (issue #13 Surface 2)
+  } catch { terrDocs = []; setStatusTerritories([]); }
 
   try {
     const cycles = await apiGet('/api/downtime_cycles');

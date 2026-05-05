@@ -1307,6 +1307,10 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
 .city-char-clan { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--txt3); flex-shrink: 0; }
 .city-char-clan svg { width: 12px; height: 12px; }
 .city-char-player { font-size: 10px; color: var(--txt3); font-style: italic; }
+.city-char-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.city-stat-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; }
+.city-stat-img { width: 18px; height: 18px; display: block; }
+.city-stat-glyph { position: absolute; font-size: 9px; color: #fff; font-weight: 700; line-height: 1; pointer-events: none; }
 .city-placeholder { font-size: 12px; margin: 0; }
 @media (max-width: 768px) {
   .city-split { flex-direction: column; align-items: stretch; }

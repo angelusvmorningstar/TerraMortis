@@ -4,6 +4,9 @@
  * Verifies that the personal_story section of the player downtime form renders
  * two free-text fields (name input + note textarea) instead of the former
  * relationship <select> dropdown.
+ *
+ * Uses the Game App (index.html). player.html is a redirect stub → go directly
+ * to index.html. The downtime tab is #t-downtime; nav button is #n-downtime.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -25,7 +28,7 @@ const TEST_CHAR = {
     Strength: { dots: 1, bonus: 0 }, Dexterity: { dots: 3, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 3, bonus: 0 }, Composure: { dots: 3, bonus: 0 },
   },
-  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
+  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
 };
 
 const ACTIVE_CYCLE = {
@@ -42,6 +45,30 @@ async function loginAsPlayer(page) {
   );
   await page.route('**/api/characters/names', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ _id: TEST_CHAR._id, name: TEST_CHAR.name }]) })
+  );
+  await page.route('**/api/characters/public', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/characters/game-xp', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/characters/combat', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/rules/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/rules', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/tracker_state/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+  );
+  await page.route('**/api/tracker_state', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+  );
+  await page.route('**/api/players*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   );
   await page.route('**/api/downtime_cycles*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) })
@@ -72,12 +99,12 @@ async function loginAsPlayer(page) {
 }
 
 async function openStorySection(page) {
-  await page.goto('/player.html');
-  await page.waitForSelector('#app', { state: 'visible', timeout: 10000 });
-  await page.click('.tab-btn[data-tab="downtime"]');
-  await page.waitForSelector('#tab-downtime.active', { timeout: 8000 });
+  await page.goto('/index.html');
+  await page.waitForSelector('#app', { state: 'visible', timeout: 35000 });
+  await page.evaluate(() => goTab('downtime'));
+  await page.waitForSelector('#t-downtime.active', { timeout: 8000 });
 
-  // Expand the Story section
+  // Wait for async initDowntimeTab to render the form
   const storySection = page.locator('.qf-section[data-section-key="personal_story"]');
   await storySection.waitFor({ timeout: 8000 });
   await storySection.locator('.qf-section-title').click();
@@ -116,6 +143,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await openStorySection(page);
 
     await page.fill('#dt-personal_story_npc_name_free', 'Marcus the Shepherd');
+    await page.press('#dt-personal_story_npc_name_free', 'Tab');
     await page.waitForTimeout(200);
 
     const hidden = page.locator('#dt-personal_story_npc_name');
@@ -135,6 +163,11 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
   });
 
   test('saved personal_story_npc_name pre-populates the name input on re-render', async ({ page }) => {
+    // loginAsPlayer first so its downtime_submissions handler is registered before the
+    // test-specific override — Playwright evaluates in LIFO, so the override (registered
+    // last) takes priority and returns the saved submission on GET.
+    await loginAsPlayer(page);
+
     await page.route('**/api/downtime_submissions*', route => {
       if (route.request().method() !== 'GET' && route.request().method() !== 'HEAD') {
         return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-saved', responses: {} }) });
@@ -149,7 +182,6 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
       });
     });
 
-    await loginAsPlayer(page);
     await openStorySection(page);
 
     await expect(page.locator('#dt-personal_story_npc_name_free')).toHaveValue('Elara the Merchant');
