@@ -12,7 +12,7 @@ import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
-import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
+import { vmUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
@@ -256,7 +256,8 @@ function renderSidebarFooter() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const html = [];
 
-  if (path !== '' && path !== '/') html.push(`<a href="/" class="sb-link-btn">Game App</a>`);
+  // Single Player button — formerly two ("Game App" → /, "Player" → /player)
+  // pointing at what is now effectively the same player-side experience.
   if (path !== '/player') html.push(`<a href="/player" class="sb-link-btn">Player</a>`);
   // Storyteller (/admin) is always the current page here; never shown
 
@@ -413,7 +414,7 @@ function charAlerts(c) {
     const total = p.amount;
     let used;
     if (p.category === 'any') used = getMCIPoolUsed(c);
-    else if (p.category === 'vm') used = vmAlliesUsed(c);
+    else if (p.category === 'vm') used = vmUsed(c);
     else if (p.category === 'lk') used = lorekeeperUsed(c);
     else if (p.category === 'ohm') used = ohmUsed(c);
     else if (p.category === 'inv') used = investedUsed(c);
@@ -1102,7 +1103,10 @@ async function init() {
       renderSheet(chars[editorState.editIdx]);
     }
   }).catch(() => {});
-  preloadRules().catch(() => {});
+  // MUST await — applyDerivedMerits below (via charAlerts in renderCharGrid)
+  // calls getRulesBySource synchronously. Cache miss → engine bonuses skipped
+  // → m.rating gets re-synced to (cp + xp), wiping the saved bonus on display.
+  await preloadRules().catch(() => {});
 
   try {
     chars = await apiGet('/api/characters');

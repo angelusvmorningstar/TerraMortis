@@ -4,8 +4,9 @@
  * Uses same localStorage keys as the suite tracker for cross-app compatibility.
  */
 
-import { esc, displayName, displayNameRaw, sortName, redactPlayer } from '../data/helpers.js';
-import { calcVitaeMax, calcWillpowerMax, influenceTotal } from '../data/accessors.js';
+import { esc, displayName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
+import { calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 
 // ── State ──
@@ -17,7 +18,7 @@ let activeNames = [];  // names of characters currently shown in tracker
 
 function maxVitae(c) { return calcVitaeMax(c); }
 function maxWP(c) { return calcWillpowerMax(c); }
-function maxInf(c) { return influenceTotal(c); }
+function maxInf(c) { return calcTotalInfluence(c); }
 
 function getTracker(c) {
   try {
@@ -122,7 +123,7 @@ function render() {
   h += '<option value="">\u2014 Add character \u2014</option>';
   for (const c of [...chars].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
     if (activeNames.includes(c.name)) continue;
-    h += `<option value="${esc(c.name)}">${esc(displayNameRaw(c))}</option>`;
+    h += `<option value="${esc(c.name)}">${esc(dropdownName(c))}</option>`;
   }
   h += '</select>';
   h += '</div>';

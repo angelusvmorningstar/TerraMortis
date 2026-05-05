@@ -4,7 +4,7 @@
  * (attribute + skill + discipline + specialisation).
  */
 
-import { esc, displayName, displayNameRaw } from '../data/helpers.js';
+import { esc, displayName, dropdownName } from '../data/helpers.js';
 import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
@@ -182,7 +182,7 @@ function render() {
   h += '<option value="">Character</option>';
   for (const c of chars) {
     const sel = selectedChar && selectedChar._id === c._id ? ' selected' : '';
-    h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
+    h += `<option value="${esc(c._id)}"${sel}>${esc(dropdownName(c))}</option>`;
   }
   h += '</select>';
 

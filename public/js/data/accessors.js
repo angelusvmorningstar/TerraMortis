@@ -133,11 +133,11 @@ export function standingMerits(c) { return meritsByCategory(c, 'standing'); }
 export function generalMerits(c) { return meritsByCategory(c, 'general'); }
 export function manoeuvres(c) { return meritsByCategory(c, 'manoeuvre'); }
 
-// ── Influence total ──
-
-export function influenceTotal(c) {
-  return influenceMerits(c).filter(m => !m.prereq_failed).reduce((s, m) => s + (m.rating || 0), 0);
-}
+// influenceTotal removed — was a thin sum-of-ratings used by two trackers
+// (admin/session-tracker, suite/tracker) while game/tracker used the proper
+// calcTotalInfluence (full breakdown with status + HWV + Contacts threshold +
+// MCI-at-5). The trackers diverged silently. Both now use calcTotalInfluence
+// from editor/domain.js so all influence-resource maxes match. (May 2026)
 
 // ── Domain shortcuts ──
 

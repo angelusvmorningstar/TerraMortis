@@ -126,5 +126,9 @@ export const purchasablePowerSchema = {
     bloodline: { type: ['string', 'null'] },
     offering:  { type: ['string', 'null'] },
     cult:      { type: ['string', 'null'] },
+
+    // Tracking flags — not consumed by game logic yet
+    selected:    { type: 'boolean' },   // power is actively chosen by at least one character
+    implemented: { type: 'boolean' },   // all rules/prereqs/mechanics verified correct in backend
   },
 };

@@ -8,26 +8,22 @@ import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   RITUAL_DISCS, CORE_DISCS,
 } from './data.js';
-import { getRuleByKey } from '../data/loader.js';
-import { prereqLabel } from '../data/prereq.js';
-
 import {
   dots, dotsWithBonus, getAttrDots, getAttrBonus,
   skillDots, skillSpec,
-  meritBase, meritDotCount, meritLookup,
-  powersForDisc, otherPowers,
+  powersForDisc,
   toggleExp, toggleDisc, expRow
 } from './sheet-helpers.js';
 
 import {
-  influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
+  standingMerits, devotions, rites, pacts,
+  calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
-import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus, attacheBonusDots } from '../editor/domain.js';
-import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
+import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
+import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
 
@@ -446,8 +442,7 @@ export function renderSheet() {
     }
 
     // 2. Devotions
-    const others = otherPowers(c);
-    const devotionPowers = others.filter(p => p.category === 'devotion');
+    const devotionPowers = devotions(c);
     if (devotionPowers.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
@@ -474,10 +469,10 @@ export function renderSheet() {
     }
 
     // 4. Rites (Cruac / Theban — stored on c.powers)
-    const rites = others.filter(p => p.category === 'rite');
-    if (rites.length) {
+    const ritesList = rites(c);
+    if (ritesList.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
-      rites.forEach((p, i) => {
+      ritesList.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
         const _riteName = (p.name || '').replace(/'/g, "\\'");
         const _ritePool = p.name ? getPool(c, p.name) : null;
@@ -496,10 +491,10 @@ export function renderSheet() {
     }
 
     // 5. Pacts (Oaths of the Notary, Carthian Law)
-    const pacts = others.filter(p => p.category === 'pact');
-    if (pacts.length) {
+    const pactsList = pacts(c);
+    if (pactsList.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
-      pacts.forEach((p, i) => {
+      pactsList.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
         const _pactName = (p.name || '').replace(/'/g, "\\'");
         const _pactPool = p.name ? getPool(c, p.name) : null;
@@ -516,94 +511,15 @@ export function renderSheet() {
     }
   }
 
-  // ── Influence Merits ──
-  const inflMerits = influenceMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (inflMerits.length) {
-    const _inflTip = influenceBreakdown(c).join('\n');
-    const _inflTotal = calcTotalInfluence(c);
-    html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--accent);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
-
-    const nonContacts = inflMerits.filter(m => m.name !== 'Contacts');
-    const contactsMerits = inflMerits.filter(m => m.name === 'Contacts');
-
-    nonContacts.forEach((m, i) => {
-      const area = (m.area || '').trim() || null;
-      const ghoul = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '';
-      const tags = m._grant_sources || [];
-      const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
-      const meritKey = area ? m.name + ' (' + area + ')' : m.name;
-      const attBonus = attacheBonusDots(c, meritKey);
-      const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0) + attBonus;
-      const dotH = (purch || bon)
-        ? dotsMixed(purch, bon)
-        : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
-      const label = area ? m.name + ' (' + area + ghoul + ')' : m.name + ghoul;
-      html += renderMeritRow({ name: label, rating: 0 }, 'infl', i, dotH + grantTag);
-    });
-
-    if (contactsMerits.length) {
-      let totalPurch = 0, totalRating = 0;
-      const allSpheres = [];
-      contactsMerits.forEach(m => {
-        totalPurch += (m.cp || 0) + (m.xp || 0);
-        totalRating += (m.rating || 0);
-        if (m.spheres && m.spheres.length) allSpheres.push(...m.spheres);
-        else if (m.area) allSpheres.push(m.area.trim());
-        else if (m.qualifier) allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
-      });
-      const cAttBonus = attacheBonusDots(c, 'Contacts' + (allSpheres.length ? ' (' + [...new Set(allSpheres.filter(Boolean))].join(', ') + ')' : ''));
-      totalRating = Math.min(5, totalRating) + cAttBonus;
-      const cPurch = Math.min(totalPurch, totalRating);
-      const cBon = Math.max(0, totalRating - cPurch);
-      const sp = [...new Set(allSpheres.filter(Boolean))].join(', ');
-      html += renderMeritRow({ name: 'Contacts' + (sp ? ' (' + sp + ')' : ''), rating: 0 }, 'infl', 'contacts', dotsMixed(cPurch, cBon));
-    }
-
-    html += `<div class="infl-total" title="${_inflTip}">Total Influence: <span class="inf-n">${_inflTotal}</span></div>`;
-    html += `</div></div>`;
-  }
-
-  // ── Domain Merits ──
-  const domMerits = domainMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (domMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
-    domMerits.forEach(m => {
-      const domKey = m.area ? m.name + ' (' + m.area + ')' : m.name;
-      const attBonus = attacheBonusDots(c, domKey);
-      const hasPartners = (m.shared_with || []).length > 0;
-      if (hasPartners) {
-        const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
-                  + (m.free_pet || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0) + attBonus;
-        let partnerDots = 0;
-        for (const pName of m.shared_with) {
-          const p = (state.chars || []).find(ch => ch.name === pName);
-          if (p) {
-            const pm = (p.merits || []).find(pm => pm.category === 'domain' && pm.name === m.name);
-            if (pm) partnerDots += (pm.cp || 0) + (pm.free_mci || 0) + (pm.free_bloodline || 0) + (pm.xp || 0);
-          }
-        }
-        if (partnerDots === 0 && m._partner_dots > 0) partnerDots = m._partner_dots;
-        const total = Math.min(5, own + partnerDots);
-        const ownCapped = Math.min(own, total);
-        const hollow = Math.max(0, total - ownCapped);
-        const dotH = dotsMixed(ownCapped, hollow);
-        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotH}<span class="trait-qual" style="font-size:10px">Shared</span></div></div></div></div>`;
-      } else {
-        const purch = (m.cp || 0) + (m.xp || 0);
-        const ssjB = m.name === 'Herd' ? ssjHerdBonus(c) : 0;
-        const flockB = m.name === 'Herd' ? flockHerdBonus(c) : 0;
-        const derived = ssjB + flockB + attBonus;
-        const totalDots = purch + derived + Math.max(0, (m.rating || 0) - purch);
-        const bon = Math.max(0, totalDots - purch);
-        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
-      }
-    });
-    html += `</div></div>`;
-  }
+  // ── Influence + Domain Merits ──
+  // Delegated to the editor's view-mode renderers so the suite app and the
+  // admin/player editor stay byte-identical for these sections. Historically
+  // the suite hand-rolled its own dot math here and silently dropped each
+  // new free_* field (free_attache, free_fwb, free_pt, etc.) on landing.
+  // Keeping a single source of truth means new bonus fields appear in both
+  // places automatically — no parallel update required.
+  html += shRenderInfluenceMerits(c, false);
+  html += shRenderDomainMerits(c, false);
 
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -663,74 +579,12 @@ export function renderSheet() {
     html += `</div></div>`;
   }
 
-  // ── Other Merits + Manoeuvres ──
-  const otherMerits = generalMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const manMerits = manoeuvres(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-  // renderMeritRow — trait-row structure; dotHtml optional override (pass pre-built dotsMixed string)
-  function renderMeritRow(m, idPrefix, i, dotHtml) {
-    const base = meritBase(m);
-    const parenMatch = base.match(/^([^(]+?)\s*\((.+)\)$/);
-    const mainName = parenMatch ? parenMatch[1].trim() : base;
-    const subName = parenMatch ? parenMatch[2].trim() : null;
-    const db = meritLookup(m);
-    if (dotHtml === undefined) {
-      const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
-      const dcnt = meritDotCount(m);
-      dotHtml = (purch || bon) ? dotsMixed(purch, bon) : (dcnt ? `<span class="trait-dots">${dots(dcnt)}</span>` : '');
-    }
-    const hasDesc = db && db.desc;
-    const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${mainName}</span><div class="trait-right">${dotHtml}<span class="exp-arr${hasDesc ? '' : ' trait-arr-hidden'}">\u203A</span></div></div>${subName ? `<div class="trait-sub"><span class="trait-qual">${subName}</span></div>` : ''}</div>`;
-    if (hasDesc) {
-      const id = idPrefix + i;
-      const body = `<div>${db.desc}</div>${db.prereq ? `<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ${db.prereq}</div>` : ''}`;
-      return `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
-    }
-    return `<div class="merit-plain">${inner}</div>`;
-  }
-
-  if (otherMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">`;
-    otherMerits.forEach((m, i) => {
-      const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
-      if (m.granted_by) {
-        const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
-        const purch = (m.cp || 0) + (m.xp || 0);
-        const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-                 + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-                 + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
-        const dotH = (purch || bon)
-          ? dotsMixed(purch, bon)
-          : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
-        html += renderMeritRow({ name: m.name + qual, rating: 0 }, 'gmerit', i, dotH + `<span class="gen-granted-tag-view" title="Granted by ${m.granted_by}">${gb}</span>`);
-      } else {
-        // Let renderMeritRow compute dots from the merit object — handles purch/bon split
-        // with fallback to m.rating when no sources tracked
-        html += renderMeritRow(Object.assign({}, m, { name: m.name + qual }), 'merit', i);
-      }
-    });
-    html += `</div></div>`;
-  }
-
-  if (manMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div><div class="man-list">`;
-    manMerits.forEach((m, i) => {
-      const manName = m.manoeuvre || m.name;
-      const base = meritBase(m);
-      const rank = m.rating || 0;
-      const slug = manName ? manName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null;
-      const rule = slug ? getRuleByKey(slug) : null;
-      const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? prereqLabel(rule.prereq) : null } : null;
-      const id = 'man' + i;
-      const body = db ? `<div class="man-exp-body"><div class="man-style">${db.style} \u2014 Rank ${db.rank}</div><div>${db.effect || ''}</div>${db.prereq ? `<div class="man-prereq">Prerequisite: ${db.prereq}</div>` : ''}</div>` : `<div>${manName || base}</div>`;
-      const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${manName || base}</span><div class="trait-right"><span class="exp-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual">${base} \u2014 Rank ${rank}</span></div></div>`;
-      html += `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
-    });
-    html += `</div></div>`;
-  }
+  // ── General Merits + Manoeuvres ──
+  // Delegated to editor renderers (same rationale as Influence/Domain above):
+  // single source of truth keeps the suite app and editor in lockstep so new
+  // free_* fields show up in both views without parallel updates.
+  html += shRenderGeneralMerits(c, false);
+  html += shRenderManoeuvres(c, false);
 
   // ── Active Conditions (from tracker_state) ──
   const cs2 = trackerRead(String(c._id));
@@ -750,23 +604,8 @@ export function renderSheet() {
   }
 
   // ── Equipment ──
-  const equipment = getEquipment(c);
-  if (equipment.length) {
-    const weapons = equipment.filter(e => e.type === 'weapon');
-    const armour  = equipment.filter(e => e.type === 'armour');
-    const effDef  = effectiveDefence(c);
-    html += `<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">`;
-    weapons.forEach(w => {
-      const poolStr = weaponPoolLabel(c, w);
-      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(w.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${poolStr}</span></div></div></div></div>`;
-    });
-    armour.forEach(a => {
-      const arStr = `AR ${a.general_ar || 0}/${a.ballistic_ar || 0}`;
-      const defStr = a.mobility_penalty ? ` \u00B7 Def ${effDef} (\u2212${a.mobility_penalty})` : '';
-      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(a.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${arStr}${defStr}</span></div></div></div></div>`;
-    });
-    html += `</div></div>`;
-  }
+  // Delegated to editor renderer for parity with admin/player views.
+  html += shRenderEquipment(c, false);
 
   html += `</div>`; // end sh-body
   const powersHtml = html;

@@ -3,11 +3,14 @@
 // Role-aware: stores role, player_id, character_ids from the server response.
 
 const DISCORD_CLIENT_ID = '1488404820917223484';
-// All OAuth callbacks land on /admin (registered in Discord app settings)
-const REDIRECT_URI = location.origin + '/admin';
+// All OAuth callbacks land on /admin (registered in Discord app settings).
+// Guarded so this module imports cleanly under Node (vitest); these
+// constants are only read inside browser-only login/fetch flows.
+const _LOC = typeof location === 'undefined' ? null : location;
+const REDIRECT_URI = _LOC ? _LOC.origin + '/admin' : '';
 const SCOPES = 'identify';
 
-const API_BASE = location.hostname === 'localhost'
+const API_BASE = _LOC && _LOC.hostname === 'localhost'
   ? 'http://localhost:3000'
   : '';
 

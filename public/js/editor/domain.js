@@ -21,7 +21,9 @@ export function domMeritContrib(c, name) {
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
   const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
-  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
+  // Auto-bonus contributions (free_fwb, free_attache, future free_ssj/free_flock
+  // once migrated) sit OUTSIDE purchased so the renderer can show them as hollow dots.
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0) + (m.free_fwb || 0) + (m.free_attache || 0);
 }
 
 /** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked inline). */
@@ -81,6 +83,34 @@ export function domMeritTotal(c, name) {
 }
 
 /**
+ * Sum of every free_* dot channel on a merit. The "bonus" half of the
+ * purchased + bonus split that all dot-rendering code uses. Single source
+ * of truth so adding a new free_X field updates the editor sheet, suite
+ * sheet, sync, audits, and exports in one go.
+ *
+ * Excludes auto-bonuses computed elsewhere (SSJ/Flock for Herd, partner
+ * contributions for shared domain merits). Those are summed in by
+ * meritEffectiveRating, not by this helper.
+ */
+export function meritFreeSum(m) {
+  return (m.free || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+    + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0)
+    + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0)
+    + (m.free_attache || 0);
+}
+
+/**
+ * Persisted-rating sum: cp + xp + every free_* channel. Use this anywhere
+ * code writes to m.rating — never hand-roll or you WILL silently drop
+ * newly-added free_* channels (that's how free_pt / free_mdb / free_sw /
+ * free_fwb / free_attache got dropped on every edit before this helper).
+ */
+export function syncMeritRating(m) {
+  return (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+}
+
+/**
  * Effective merit rating: sum of every dot channel + dynamic bonuses.
  * Use this everywhere a calc references a merit's effective dots.
  * Do NOT read m.rating directly — it is unreliable post-import and post-edit.
@@ -93,7 +123,8 @@ export function meritEffectiveRating(c, m) {
   const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0)
     + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
     + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
-    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0);
+    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0)
+    + (m.free_fwb || 0) + (m.free_attache || 0);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }
@@ -188,41 +219,33 @@ export function hasViralMythology(c) {
 }
 
 /**
- * Count all non-VM Allies dots (CP + XP + Fr + MCI) to determine VM bonus pool size.
- * Only VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
+ * Count purchased dots across non-VM Allies and Herd merits — single shared
+ * VM pool spanning both target merits. Allies includes free_mci because MCI
+ * grants count as real influence resources (preserves prior behaviour).
+ * VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
  */
-export function vmAlliesPool(c) {
+export function vmPool(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.category !== 'influence' || m.name !== 'Allies') return;
-    if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
-    total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
-  });
-  return total;
-}
-
-/**
- * Count VM bonus Allies dots allocated via free_vm on non-VM-granted Allies merits.
- */
-export function vmAlliesUsed(c) {
-  let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.category !== 'influence' || m.name !== 'Allies') return;
+  (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
-    total += (m.free_vm || 0);
+    if (m.category === 'influence' && m.name === 'Allies') {
+      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
+    } else if (m.name === 'Herd') {
+      if (m.derived) return;
+      total += (m.cp || 0) + (m.xp || 0);
+    }
   });
   return total;
 }
 
-/**
- * Count purchased Herd dots (CP + XP). VM doubles these.
- */
-export function vmHerdPool(c) {
+/** Sum of free_vm allocated across Allies + Herd merits. */
+export function vmUsed(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.name !== 'Herd') return;
-    if (m.derived) return;
-    total += (m.cp || 0) + (m.xp || 0);
+  (c.merits || []).forEach((m) => {
+    if (m.granted_by === 'VM') return;
+    if ((m.category === 'influence' && m.name === 'Allies') || m.name === 'Herd') {
+      total += (m.free_vm || 0);
+    }
   });
   return total;
 }
@@ -257,17 +280,20 @@ export function investedPool(c) {
 /** Count Invested bonus dots allocated via free_inv on eligible merits. */
 export function investedUsed(c) {
   let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (!['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)) return;
+  (c.merits || []).forEach((m) => {
+    const isInvictusTarget = ['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)
+      || (m.name && m.name.startsWith('Attach\u00e9 ('));  // variants count as Retainer-equivalent
+    if (!isInvictusTarget) return;
     total += (m.free_inv || 0);
   });
   return total;
 }
 
-/** Effective Invictus covenant status — includes Oath of the Scapegoat floor. */
+/** Effective Invictus covenant status — purchased dots only. OTS no longer
+ *  participates here (it's a notional social-check penalty, not a status floor). */
 export function effectiveInvictusStatus(c) {
   if (c.covenant !== 'Invictus') return 0;
-  return Math.max(c.status?.covenant?.['Invictus'] || 0, c._ots_covenant_bonus || 0);
+  return c.status?.covenant?.['Invictus'] || 0;
 }
 
 /** Dots granted by an Attaché merit linked to the named target merit. */
@@ -282,15 +308,14 @@ export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');
 }
 
-/** Lorekeeper pool: purchased Library dots (CP + XP) = free dots for Herd/Retainer. */
+/** Sum of Lorekeeper pool grants emitted by the rules engine into _grant_pools.
+ *  Used to cap free_lk edits and to display the X/Y counter at the top of
+ *  the merits section. Rule-driven; pool size comes from the LK rule_grant
+ *  doc (currently Library + Esoteric Armoury purchased dots). */
 export function lorekeeperPool(c) {
-  if (!hasLorekeeper(c)) return 0;
-  let total = 0;
-  (c.merits || []).forEach((m, i) => {
-    if (m.name !== 'Library') return;
-    total += (m.cp || 0) + (m.xp || 0);
-  });
-  return total;
+  return (c._grant_pools || [])
+    .filter(p => p.category === 'lk')
+    .reduce((s, p) => s + (p.amount || 0), 0);
 }
 
 /** Count Lorekeeper bonus dots allocated via free_lk on Herd/Retainer entries. */

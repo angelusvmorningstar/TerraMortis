@@ -21,7 +21,11 @@ export function applyMDBRulesFromDb(c, { grants = [] } = {}) {
     const mdbMerit = (c.merits || []).find(m => m.name === rule.source);
     if (!mdbMerit || !mdbMerit.qualifier) continue;
 
-    const partnerM = (c.merits || []).find(m => m.category === 'influence' && m.name === rule.partner_merit_name);
+    // Accept partner_merit_names (array, first match wins) or partner_merit_name (legacy singular).
+    const partnerNames = Array.isArray(rule.partner_merit_names)
+      ? rule.partner_merit_names
+      : (rule.partner_merit_name ? [rule.partner_merit_name] : []);
+    const partnerM = (c.merits || []).find(m => m.category === 'influence' && partnerNames.includes(m.name));
     if (!partnerM) continue;
 
     const amount = _effectivePartnerRating(partnerM);

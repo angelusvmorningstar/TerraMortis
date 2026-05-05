@@ -16,6 +16,7 @@ import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
+import { resolveActiveChar, covenantListFor, covenantRowsFor, clanRowsFor } from '../data/status-data.js';
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -257,40 +258,52 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     h += `<div class="status-group-head">By Covenant</div>`;
     h += `<div class="status-multi-split">`;
     for (const cov of covenants) {
+      // Include any character with standing > 0 in this covenant (regardless
+      // of primary) AND any character whose primary IS this covenant (even
+      // with 0 standing — they're members, just unranked). OTS no longer
+      // adjusts displayed status; the penalty is narrative-only.
       const rows = chars
-        .filter(c => c.covenant === cov)
-        .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
+        .map(c => ({ c, val: c.status?.covenant?.[cov] || 0 }))
+        .filter(r => r.val > 0 || r.c.covenant === cov)
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
     h += `</div>`;
   } else {
-    // Player view: only active character's clan and covenant
-    const clanRows = chars
-      .filter(c => c.clan && c.clan === activeChar.clan)
-      .map(c => ({ c, val: c.status?.clan || 0 }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
-    const covRows = chars
-      .filter(c => c.covenant && c.covenant === activeChar.covenant)
-      .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+    // Player view — data shaping delegated to data/status-data.js so this
+    // file and suite/status.js stay byte-identical on the filter logic.
+    const me = resolveActiveChar(chars, activeChar);
+    const covList = covenantListFor(me);
+    const clanRows = me ? clanRowsFor(chars, me.clan, sortName) : [];
 
     h += `<div class="status-split">`;
     h += renderStatusSection(
-      activeChar.clan || 'No clan',
-      activeChar.clan ? clanIcon(activeChar.clan, 18) : '',
+      me?.clan || 'No clan',
+      me?.clan ? clanIcon(me.clan, 18) : '',
       clanRows,
       activeId,
-      activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
+      me?.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
     );
-    h += renderStatusSection(
-      activeChar.covenant || 'No covenant',
-      activeChar.covenant ? covIcon(activeChar.covenant, 18) : '',
-      covRows,
-      activeId,
-      activeChar.covenant ? 'No other members in your covenant.' : 'Your character has no covenant set.'
-    );
+    if (!covList.length) {
+      h += renderStatusSection(
+        'No covenant',
+        '',
+        [],
+        activeId,
+        'Your character has no covenant set, and holds no standing in any covenant.'
+      );
+    } else {
+      for (const cov of covList) {
+        const covRows = covenantRowsFor(chars, cov, sortName);
+        h += renderStatusSection(
+          cov,
+          covIcon(cov, 18),
+          covRows,
+          activeId,
+          'No members or rank-holders in this covenant.'
+        );
+      }
+    }
     h += `</div>`;
   }
 

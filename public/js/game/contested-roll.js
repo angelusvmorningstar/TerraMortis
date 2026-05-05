@@ -3,7 +3,7 @@
 
 import suiteState from '../suite/data.js';
 import { getAttrEffective, getAttrBonus, skDots, skBonus } from '../data/accessors.js';
-import { displayName, esc } from '../data/helpers.js';
+import { displayName, dropdownName, esc } from '../data/helpers.js';
 import { apiPost } from '../data/api.js';
 import { mkDieEl, mkColsEl } from '../suite/roll.js';
 
@@ -140,7 +140,7 @@ function charOptions(selectedName) {
   const opts = ['<option value="">\u2014 select \u2014</option>'];
   for (const c of (suiteState.chars || [])) {
     const sel = c.name === selectedName ? ' selected' : '';
-    opts.push(`<option value="${esc(c.name)}"${sel}>${esc(displayName(c))}</option>`);
+    opts.push(`<option value="${esc(c.name)}"${sel}>${esc(dropdownName(c))}</option>`);
   }
   return opts.join('');
 }
