@@ -34,6 +34,7 @@ Terra Mortis TM Suite is a browser-based character management system for a Vampi
 - **Local frontend:** `npx http-server public -p 8080`
 - **Local API:** `cd server && npm run dev` (needs `server/.env` with MongoDB URI + Discord credentials)
 - **No test framework.** Verify changes manually in-browser.
+- **Local hooks (recommended):** `git config core.hooksPath .githooks` after cloning. Enables a parse-check on staged `public/js/**/*.js` files; catches smart-quote-as-syntax and other parse-time errors before they reach `dev` / `main`. See `.githooks/README.md`.
 
 ## Deployment
 
