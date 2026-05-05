@@ -353,6 +353,7 @@ The 7-step browser smoke (admin city, admin downtime, regency, feeding, suite tr
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #3d on `issue-3d-client-refactor`. Single semantic commit (7 client files + this Dev Agent Record). Server tests 56/56. Pre/post grep zero on Mongo `t.id ===` lookups. Browser smoke DEFERRED to SM/user.
+- 2026-05-05 — Follow-up commit addressing Maat QA Concern A (gate CONCERNS at bd78e06). One-line fix at `public/js/tabs/feeding-tab.js:457`: `liveTerrDocs.find(d => d.id === t.id)` → `find(d => d.slug === t.id)`. The site was missed by the post-flight grep because it was a Mongo-result lookup keyed off a TERRITORY_DATA slug (predicate compared `d.id` against `t.id` where `d` is Mongo and `t` is reference data — both sides are `.id` so the residual-grep pattern didn't single it out). Same shape as the city-views.js fix already applied. Player-facing impact: ST-adjusted `ambienceMod` values written via `city-views.js saveTerrAmbience` now propagate to the player feeding vitae tally; default TERRITORY_DATA hardcoded values are no longer silently used. Concern A closed.
 
 ---
 
