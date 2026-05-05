@@ -69,10 +69,6 @@ let lastGameAttendees = [];
 // All active characters (for cast picker modal)
 let allCharacters = [];
 
-// Map of territory name → Set of resident character IDs (for feeding grid indicators)
-let residencyByTerritory = {};
-
-
 // Feeding method state (for feeding_method widget)
 let feedMethodId = '';
 let feedDiscName = '';
@@ -1335,15 +1331,6 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
-
-  // Load all territory residency lists (for feeding grid indicators)
-  try {
-    const allRes = await apiGet('/api/territory-residency');
-    residencyByTerritory = {};
-    for (const doc of allRes) {
-      residencyByTerritory[doc.territory] = new Set(doc.residents || []);
-    }
-  } catch { residencyByTerritory = {}; }
 
   // JDT-2: load invitations visible to this character on the current cycle.
   // Used by the joint authoring panel for live status badges (lead view) and
@@ -3126,7 +3113,7 @@ function renderProjectSlots(saved) {
             .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
             .join(', ');
         } else if (joint.target_type === 'territory') {
-          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
+          targetLbl = TERRITORY_DATA.find(t => t.slug === joint.target_value)?.name || joint.target_value || '';
         } else {
           targetLbl = joint.target_value || '';
         }
@@ -3743,36 +3730,36 @@ function getRowCost(row) {
 // and describe the interaction; no registered relationship required.
 
 function renderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === ‘personal_story’);
-  if (!section) return ‘’;
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
+  if (!section) return '';
 
-  const savedName = saved[‘personal_story_npc_name’] || ‘’;
-  const savedNote = saved[‘personal_story_note’]
-                  || saved[‘story_moment_note’]
-                  || saved[‘osl_moment’]
-                  || saved[‘correspondence’]
-                  || ‘’;
+  const savedName = saved['personal_story_npc_name'] || '';
+  const savedNote = saved['personal_story_note']
+                  || saved['story_moment_note']
+                  || saved['osl_moment']
+                  || saved['correspondence']
+                  || '';
 
-  let h = ‘<div class="qf-section collapsed" data-section-key="personal_story">’;
+  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += ‘<div class="qf-section-body">’;
-  h += ‘<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\’re hoping for.</p>’;
+  h += '<div class="qf-section-body">';
+  h += '<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\'re hoping for.</p>';
 
   // Hidden sync fields consumed by collectResponses() at submit time.
-  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? ‘__new__’ : ‘’)}">`;
+  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? '__new__' : '')}">`;
   h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
 
-  h += ‘<div class="qf-field">’;
-  h += ‘<label class="qf-label">Who is this moment about?</label>’;
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Who is this moment about?</label>';
   h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
-  h += ‘</div>’;
+  h += '</div>';
 
-  h += ‘<div class="qf-field" style="margin-top:12px;">’;
-  h += ‘<label class="qf-label">How do you want to interact with them?</label>’;
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you’re hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
-  h += ‘</div>’;
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label">How do you want to interact with them?</label>';
+  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you're hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += '</div>';
 
-  h += ‘</div></div>’;
+  h += '</div></div>';
   return h;
 }
 
@@ -4517,7 +4504,7 @@ function renderJointAuthoring(n, saved, existingJoint) {
     const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
     valLbl = names.join(', ') || '—';
   } else if (targetType === 'territory') {
-    const t = TERRITORY_DATA.find(x => x.id === targetValue);
+    const t = TERRITORY_DATA.find(x => x.slug === targetValue);
     if (t) valLbl = t.name;
   }
   h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
@@ -5033,8 +5020,8 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
 function renderTerritoryPills(fieldId, savedVal) {
   let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const selected = savedVal === t.id ? ' dt-chip--selected' : '';
-    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+    const selected = savedVal === t.slug ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.slug)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
   h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;

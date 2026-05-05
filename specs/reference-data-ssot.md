@@ -26,7 +26,6 @@ Migration to `tracker_state` API is task #10. Until done, tracker state is local
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
 | Territories (stats, ambience, regent) | `territories` | `GET` (auth) / `POST,PUT` (ST only) / `PATCH /:id/feeding-rights` (regent or ST) | admin.html → City tab (ST); game app → Regency tab (regent player) |
-| Territory residency | `territory_residency` | `GET/PUT /api/territory-residency` | admin.html → City tab |
 
 **Feeding-rights write path (RFR.1):** regent's player writes only `feeding_rights` via `PATCH /api/territories/:id/feeding-rights`. Server enforces:
 - Permission: `user.character_ids.includes(territory.regent_id)` OR ST role (via `isRegentOfTerritory` helper in `middleware/auth.js`)

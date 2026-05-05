@@ -1,10 +1,10 @@
 /**
  * API tests — /api/territories
  *
- * Covers:
- *   GET /  — list all (ST only)
- *   POST / — create/upsert by territory id field
- *   PUT /:id — update by MongoDB _id, 404/400
+ * Covers (post-ADR-002 strict cutover):
+ *   GET /                     — list all (ST + player)
+ *   POST /                    — create new (no _id) or update existing (with _id), ST only
+ *   PUT /:id                  — update by MongoDB _id, 404/400, ST only
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -17,8 +17,8 @@ import { getCollection } from '../db.js';
 let app;
 const createdTerritoryIds = [];
 
-const testTerritory = (id = 'test_territory_quinn') => ({
-  id,
+const testTerritory = (slug = 'test_territory_quinn') => ({
+  slug,
   name: 'Quinn Test Territory',
   ambience: 'neutral',
   regent_id: null,
@@ -36,7 +36,8 @@ afterEach(async () => {
   for (const mongoId of createdTerritoryIds) {
     await col.deleteOne({ _id: mongoId });
   }
-  // Also clean up by territory id field (for upserts)
+  await col.deleteMany({ slug: { $regex: /^test_territory_quinn/ } });
+  // Defensive cleanup for any legacy `id` field left behind on prior runs.
   await col.deleteMany({ id: { $regex: /^test_territory_quinn/ } });
   createdTerritoryIds.length = 0;
 });
@@ -73,39 +74,47 @@ describe('GET /api/territories', () => {
 // ── POST / ────────────────────────────────────────────────────────────────────
 
 describe('POST /api/territories', () => {
-  it('ST can create a territory', async () => {
+  it('ST can create a territory (no _id → insert with generated _id)', async () => {
     const res = await request(app)
       .post('/api/territories')
       .set('X-Test-User', stUser())
       .send(testTerritory('test_territory_quinn_create'));
     expect(res.status).toBe(201);
-    expect(res.body.id).toBe('test_territory_quinn_create');
-    expect(res.body.name).toBe('Quinn Test Territory');
     expect(res.body._id).toBeTruthy();
+    expect(res.body.slug).toBe('test_territory_quinn_create');
+    expect(res.body.name).toBe('Quinn Test Territory');
   });
 
-  it('upserts when territory id already exists', async () => {
-    const slug = 'test_territory_quinn_upsert';
-    // First create
-    await request(app)
+  it('ST can update an existing territory by _id', async () => {
+    const create = await request(app)
       .post('/api/territories')
       .set('X-Test-User', stUser())
-      .send(testTerritory(slug));
+      .send(testTerritory('test_territory_quinn_update'));
+    const mongoId = create.body._id;
 
-    // Upsert with updated ambience
+    const update = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({ _id: mongoId, ambience: 'hostile' });
+    expect(update.status).toBe(200);
+    expect(update.body._id).toBe(mongoId);
+    expect(update.body.ambience).toBe('hostile');
+  });
+
+  it('POST with unknown _id returns 404 (no upsert by _id)', async () => {
     const res = await request(app)
       .post('/api/territories')
       .set('X-Test-User', stUser())
-      .send({ ...testTerritory(slug), ambience: 'hostile' });
-    expect(res.status).toBe(201);
-    expect(res.body.ambience).toBe('hostile');
+      .send({ _id: '000000000000000000000000', name: 'Phantom' });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NOT_FOUND');
   });
 
-  it('returns 400 when id field is missing', async () => {
+  it('POST with malformed _id returns 400', async () => {
     const res = await request(app)
       .post('/api/territories')
       .set('X-Test-User', stUser())
-      .send({ name: 'No ID Territory' });
+      .send({ _id: 'not-an-oid', name: 'Bad' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });

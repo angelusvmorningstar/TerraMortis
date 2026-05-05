@@ -10,12 +10,12 @@
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
-import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
+import { AMBIENCE_CAP } from './downtime-data.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
 // Mirrors server/utils/territory-slugs.js — maps submission feeding_territories
-// slug variants to canonical territory.id values.
+// slug variants to canonical territory.slug values.
 const TERRITORY_SLUG_ALIASES = {
   the_academy: 'academy',
   the_harbour: 'harbour',
@@ -42,7 +42,7 @@ function _regInfo() { return findRegentTerritory(_territories, currentChar); }
 
 function _terrDoc() {
   const ri = _regInfo();
-  return ri ? _territories.find(t => t.id === ri.territoryId) : null;
+  return ri ? _territories.find(t => String(t._id) === String(ri.territoryId)) : null;
 }
 
 export async function renderRegencyTab(container, char, territories) {
@@ -82,6 +82,12 @@ async function _computeLocked() {
   const ri = _regInfo();
   if (!ri?.territoryId) return;
 
+  // Submissions still store legacy slug-variant keys in feeding_territories
+  // (Q4: submissions are append-only audit trail of what the player typed).
+  // Match those against the territory's slug, not its _id.
+  const terrSlug = ri.slug;
+  if (!terrSlug) return;
+
   try {
     const subs = await apiGet(`/api/downtime_submissions?cycle_id=${encodeURIComponent(_activeCycle._id)}`);
     for (const sub of (subs || [])) {
@@ -93,7 +99,7 @@ async function _computeLocked() {
       if (!grid || typeof grid !== 'object') continue;
       for (const [slug, state] of Object.entries(grid)) {
         if (state !== 'resident') continue;
-        if (_matchesTerritory(slug, ri.territoryId)) {
+        if (_matchesTerritory(slug, terrSlug)) {
           _lockedCharIds.add(String(sub.character_id));
         }
       }
@@ -104,17 +110,16 @@ async function _computeLocked() {
 }
 
 function getRegentCap() {
-  const ri = _regInfo();
-  const terr = ri ? TERRITORY_DATA.find(t => t.name === ri.territory) : null;
-  return terr ? (AMBIENCE_CAP[terr.ambience] || 5) : 5;
+  const td = _terrDoc();
+  return td ? (AMBIENCE_CAP[td.ambience] || 5) : 5;
 }
 
 function render(container) {
   const cap = getRegentCap();
   const ri = _regInfo();
   const terrName = ri?.territory || '';
-  const terr = TERRITORY_DATA.find(t => t.name === terrName);
-  const ambience = terr ? terr.ambience : 'Unknown';
+  const td = _terrDoc();
+  const ambience = td?.ambience || 'Unknown';
   const regentName = displayName(currentChar);
   const regentId = String(currentChar._id);
   const rawFeedingRights = _terrDoc()?.feeding_rights || [];
@@ -279,7 +284,7 @@ async function saveRegency() {
     });
 
     // Update local territory doc so display reflects saved state
-    const td = _territories.find(t => t.id === ri.territoryId);
+    const td = _territories.find(t => String(t._id) === String(ri.territoryId));
     if (td) td.feeding_rights = feedingRights;
 
     if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
