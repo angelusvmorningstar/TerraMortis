@@ -27,8 +27,11 @@
  *     if someone reused one of these _ids for a real document, no delete fires.
  *
  * Run history:
- *   - <yet to run> — first --apply in production. Update this comment with
- *     the date + commit SHA after SM executes the apply step.
+ *   - 2026-05-05 — first --apply in production from script commit 95a7ad1.
+ *     Deleted: 4. Backup: server/scripts/_backups/rfr-territory-residue-
+ *     2026-05-05T02-46-45-155Z.json. Post-state: territories.count = 5,
+ *     all `id` values unique. Idempotency confirmed (second --apply
+ *     returned `already-clean: true   deleted: 0`).
  */
 import 'dotenv/config';
 import { MongoClient, ObjectId } from 'mongodb';
