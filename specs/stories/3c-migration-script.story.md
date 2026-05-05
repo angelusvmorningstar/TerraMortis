@@ -603,3 +603,37 @@ After `--apply`:
 ### Recommendation
 
 **AUTHORISE-APPLY.** Standing by for SM to capture the user's explicit go-ahead and run `--apply`. Will re-verify the post-state on your reply: (a) `Apply counts` matches the dry-run audit exactly (5 / 5+5 / 4 / 0 / 0 / 5); (b) re-audit prints all three "expected 0" checks at zero; (c) backup file present; (d) server suites still 56/56.
+
+### Post-apply re-verify (after dc85738)
+
+Independent audit from this terminal against the live `tm_suite`:
+
+```
+territories: total=5  with id=0 (expect 0)  with slug=5 (expect 5)
+  _id=69d9e54c00815d471503bea8  slug='secondcity'  name='The Second City'
+  _id=69d9e54b00815d471503bea6  slug='northshore'  name='The North Shore'
+  _id=69d9e54c00815d471503bea9  slug='dockyards'   name='The Dockyards'
+  _id=69d9e54b00815d471503bea7  slug='academy'     name='The Academy'
+  _id=69d5dc6a00815d47150397c6  slug='harbour'     name='The Harbour'
+
+cycles (Downtime 2):
+  confirmed_ambience: 5 keys, ALL OID-shaped ✓
+  discipline_profile: 5 keys, ALL OID-shaped ✓
+  non-OID map keys = 0 (expect 0)
+  non-OID regent_confirmations.territory_id = 0 (expect 0)
+
+residency: total=4  with territory=0 (expect 0)  with valid territory_id=4 (expect 4)
+  Academy   → 69d9e54b00815d471503bea7  residents=3
+  Harbour   → 69d5dc6a00815d47150397c6  residents=7
+  Second C. → 69d9e54c00815d471503bea8  residents=4
+  North Sh. → 69d9e54b00815d471503bea6  residents=6
+  unresolved territory_id = 0 (expect 0)
+```
+
+- **AC #5** (post-state shape) — PASS. All three "expected 0" checks at zero, independently verified. All five territories carry `slug` only; both DT2 object maps are fully OID-keyed; all four residency docs migrated cleanly with cross-resolved `territory_id` values matching the slug→_id map from dry-run; resident counts preserved (3/7/4/6).
+- **AC #4** (idempotency) — PASS. SM's second `--apply` returned `already-migrated: true   nothing to do.`, no backup written.
+- **AC #6** (server tests against new on-disk shape) — PASS. SM reports 56/56 in the four affected suites post-apply.
+- **Docstring update at dc85738** — PASS. Date `2026-05-05`, source commit `2f6ebf1`, all per-mutation counts (5 / 5+5 / 4 / 0 / 0 = 19 total), backup path, post-state, idempotency, and server-suite confirmation all recorded.
+- **Backup file** present locally at `server/scripts/_backups/territory-fk-migration-2026-05-05T05-36-59-765Z.json`.
+
+**Final gate: PASS.** All 7 ACs closed. Branch ready for PR into `dev`.
