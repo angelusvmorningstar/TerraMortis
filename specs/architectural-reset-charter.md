@@ -1,6 +1,42 @@
 # Architectural Reset Charter: Audit & Freeze
 
-**Status:** Working document v0.3 — internal
+> **STATUS — 2026-05-06 (Piatra):** The operational freeze declared by this
+> charter is **lifted**. The diagnostic content (Part 1) and the audit work it
+> catalysed remain useful reference and will continue to inform ongoing
+> remediation; the freeze rules in Part 2 are no longer in effect.
+>
+> Reasons for lifting:
+>
+> 1. The charter (Part 2) committed Angelus to drafting a Phase 2 Diagnosis +
+>    Path Forward report and sending it to Piatra inviting comment. As of
+>    2026-05-06 that report (`specs/architectural-diagnosis-report.md`) had
+>    not been drafted.
+> 2. The charter (Part 2) specified daily-ish async check-in with Piatra via
+>    Discord or commit comments. Piatra was not notified of the freeze
+>    through that channel.
+> 3. Phase 1 audit work that had been shipping (ADR-002 territory FK refactor
+>    and execution, regency-tab live-data fix, territory `id`-dupe cleanup,
+>    territory_residency retirement, Issue #33 schema-tightening follow-up)
+>    has been carried by Piatra without the joint-triage the charter
+>    promised. The freeze was, in practice, blocking the co-developer who
+>    was doing the audit work it called for.
+> 4. The charter (Part 3) specifies that contested architecture decisions
+>    are recorded as ADRs with both positions and not shipped while
+>    contested. The freeze itself was a contested architectural decision
+>    that was shipped without that mechanism.
+>
+> Lifted by Piatra unilaterally, mirroring the manner in which the freeze was
+> initiated. Angelus is invited to comment via ADR per the charter's own
+> contested-architecture mechanism (Part 3).
+>
+> The diagnostic content below is preserved as historical reference. The
+> drift catalogue (derivation drift, duplicate trackers, schema drift, view-
+> data coupling) describes real problems that remediation work continues to
+> address; what is removed is the operational gating, not the diagnosis.
+
+---
+
+**Status:** Working document v0.3 — internal (operational rules superseded 2026-05-06; see status header above)
 **Author:** Angelus (with structured input from BMAD roundtable)
 **Date:** 2026-05-01
 
