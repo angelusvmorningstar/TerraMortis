@@ -245,3 +245,87 @@ Either way, the territory FK refactor's audit trail is now fully closed.
 
 **Change Log:**
 - 2026-05-05 — Investigation complete on `issue-26-territory-residency-writer-audit`. Single semantic commit (audit doc + this Dev Agent Record). **Conclusion A**: no active writer. Issue #26 closes informationally. Territory FK refactor audit trail now fully closed.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 601b655
+**Method:** Editorial review of the audit document; spot-check of two of the cited grep passes against the live tree; verification of `fd5dee1` retirement commit; ADR-002 Q5 divergence handling check; per-AC review.
+
+### Gate decision: **PASS** — recommend ship and close #26 informationally. One nice-to-fix editorial note.
+
+### Conclusion A — confirmed independently
+
+The audit's Conclusion A is sound. Spot-checking 2 of the 5 grep passes:
+
+```
+$ grep -rn "getCollection('territory_residency')" server/   → zero
+$ grep -rn "territory_residency" server/routes/             → zero
+$ grep -rn "territory_residency" server/middleware/         → zero
+$ grep -rln "territory_residency" server/scripts/           → 3 files (migrate-territory-fk, retire-territory-residency, cleanup-territory-id-dupes)
+$ grep -rn "/api/territory-residency" public/js/            → zero
+$ grep -rEn "apiPut.*territory-residency|apiPost...|apiPatch..." public/js/  → zero
+$ ls server/routes/territory-residency.js                   → No such file or directory
+```
+
+All match the audit's claimed results. No active writer; route file gone; client API consumer removed. ✓
+
+### `fd5dee1` retirement verified
+
+```
+commit fd5dee1bf040ace08d1339d601bd312892714e5c
+Author: Peter Kalt <peter.kalt@piatra.com.au>
+Date:   Tue May 5 17:21:59 2026 +1000
+    chore(territory): retire territory_residency collection
+```
+
+Author, date, and timestamp match Khepri's claim. The retirement commit message itself notes "Diverges from ADR-002 Q5 user decision (MIGRATE/parked-but-revivable)" with rationale. Already shipped via PR #36 to main (verified by branch state at `aae91c1` Merge pull request #36 from angelusvmorningstar/dev). ✓
+
+### ADR-002 Q5 divergence handling — nice-to-fix
+
+The audit document mentions the retirement at line 13:
+> A direct second path closed the question even more cleanly between #3c and the audit start: commit `fd5dee1` (2026-05-05 17:21) retired the collection entirely after the same 4-doc surprise prompted a deeper look at the data. The retirement decision and the audit were running in parallel; this document captures the audit findings in their own right.
+
+And cites Q5/MIGRATE at line 9 ("ADR Q5 user decision (MIGRATE / parked-but-revivable) preserved the collection through #3b/#3c").
+
+But the doc does **not explicitly state that `fd5dee1` SUPERSEDES the recorded ADR-002 Q5 user decision.** A reader who arrives at ADR-002 first (and finds the rev-2 `User decision: MIGRATE` line at Q5) would not know from the ADR alone that the decision was changed by an out-of-band retirement same-day. The cross-reference is only resolvable by reading this audit doc — which they may not know to look for.
+
+**Suggested addition (one paragraph, in the audit doc's "Background" or as a new "ADR-002 Q5 divergence" subsection):**
+
+> Note: this retirement supersedes the recorded ADR-002 Q5 user decision. ADR rev-2 (`5c61032`, 2026-05-05) recorded "User decision: MIGRATE — parked-but-revivable". Commit `fd5dee1` (same day, 17:21:59 +1000) retired the collection entirely, on the rationale that the 4 stale docs surfaced by #3c with no character-ID overlap to `territories.feeding_rights` made "revivable" no cheaper than "drop and re-add". Future readers of ADR-002 Q5 should treat the recorded MIGRATE decision as superseded by the retirement on `fd5dee1`. ADR-002 itself is not retroactively rewritten; this audit doc is the canonical record of the change.
+
+Optionally, also add a one-line forward-pointer to ADR-002 Q5 noting the divergence: small editorial change to ADR-002 wouldn't hurt but is out of scope for this PR.
+
+This is editorial, not blocking — the doc as it stands is internally honest and the retirement commit message itself records the divergence. Surfacing per Khepri's standing instruction.
+
+### Detection-and-response section — actionable
+
+Reading lines 103-111 cold, as if investigating a hypothetical regression:
+
+- Step 1 (re-run grep set) — directly executable; greps cited above are the ones I just ran.
+- Step 2 (`git log --since=<last-audit-date> -S "territory_residency"`) — concrete query; retirement date `2026-05-05` is the canonical baseline.
+- Step 3 (timestamp inspection vs `2026-05-05T07:18:05Z` retirement marker) — clear discriminator for "regression vs leftover".
+- Step 4 (check retirement backup) — backup path cited; surfaces the "intentional historical state" interpretation before destructive action.
+- Step 5 (Owner: SM) — clear escalation.
+
+Yes, I would have what I need. ✓
+
+### Per-AC verdict (6/6 PASS)
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | Clear A-or-B conclusion present | PASS | Banner at line 3 + Conclusion section at lines 97-101. Conclusion A. |
+| 2 | Methodology re-runnable | PASS | Five passes, each with explicit greps; spot-check reproduces results. |
+| 3 | Detection-and-response section | PASS | Lines 103-111, 5 actionable steps including Owner. |
+| 4 | Live probe count + `updated_at` cluster | PASS | Probe found 0 docs (collection dropped post-`fd5dee1`); the AC's parenthetical "or whatever has shifted since #3c apply" covers this; the earlier `2026-04-04T05:24:24Z` cluster is recorded at line 9. |
+| 5 | If Conclusion A → PR closes #26 | PASS | Audit reaches A; PR will use `Closes #26` keyword. |
+| 6 | If Conclusion B → keep #26 open + file fix issue | N/A | Conclusion A reached; this branch doesn't apply. |
+
+### Recommendation
+
+**Ship into `dev` and close #26.** The audit is sound, methodology is reproducible, conclusion is clearly A, and the historical writer is identified with file:line + commit SHAs. Optional editorial: add the one-paragraph note explicitly flagging the `fd5dee1` retirement as superseding the recorded ADR-002 Q5 decision so a future reader of the ADR alone knows it was overridden. Not blocking; surfaced for inclusion at SM/user discretion.
+
+Territory FK refactor audit trail is now fully closed.
