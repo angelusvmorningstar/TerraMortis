@@ -27,7 +27,8 @@ afterEach(async () => {
     for (const id of ids) await col.deleteOne({ _id: id });
     cleanupIds[colName] = [];
   }
-  await getCollection('territory_residency').deleteMany({ territory: /^Test / });
+  // Clean up post-ADR-002 territory_id-keyed test docs (synthetic prefix).
+  await getCollection('territory_residency').deleteMany({ territory_id: { $regex: /^test_terr_/ } });
 });
 
 afterAll(async () => {
@@ -206,6 +207,9 @@ describe('GET /api/game_sessions/next', () => {
 //  TERRITORY RESIDENCY
 // ══════════════════════════════════════
 
+// Post-ADR-002 strict cutover: residency keyed on territory_id (the territory's
+// MongoDB _id as a string), not the legacy territory name.
+
 describe('GET /api/territory-residency', () => {
   it('returns all residency docs', async () => {
     const res = await request(app)
@@ -216,56 +220,59 @@ describe('GET /api/territory-residency', () => {
   });
 
   it('returns single territory by query', async () => {
-    // Upsert a test residency first
+    const tid = 'test_terr_' + new ObjectId().toHexString();
     await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Territory', residents: ['char-001'] });
+      .send({ territory_id: tid, residents: ['char-001'] });
 
     const res = await request(app)
-      .get('/api/territory-residency?territory=Test%20Territory')
+      .get(`/api/territory-residency?territory_id=${encodeURIComponent(tid)}`)
       .set('X-Test-User', playerUser([]));
     expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Territory');
+    expect(res.body.territory_id).toBe(tid);
     expect(res.body.residents).toContain('char-001');
   });
 
   it('returns empty residents for unknown territory', async () => {
+    const tid = 'test_terr_' + new ObjectId().toHexString();
     const res = await request(app)
-      .get('/api/territory-residency?territory=Nonexistent')
+      .get(`/api/territory-residency?territory_id=${encodeURIComponent(tid)}`)
       .set('X-Test-User', playerUser([]));
     expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Nonexistent');
+    expect(res.body.territory_id).toBe(tid);
     expect(res.body.residents).toEqual([]);
   });
 });
 
 describe('PUT /api/territory-residency', () => {
   it('upserts residency for a territory', async () => {
+    const tid = 'test_terr_' + new ObjectId().toHexString();
     const res = await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Upsert', residents: ['char-001', 'char-002'] });
+      .send({ territory_id: tid, residents: ['char-001', 'char-002'] });
     expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Upsert');
+    expect(res.body.territory_id).toBe(tid);
     expect(res.body.residents).toHaveLength(2);
   });
 
   it('updates existing residency', async () => {
+    const tid = 'test_terr_' + new ObjectId().toHexString();
     await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001'] });
+      .send({ territory_id: tid, residents: ['char-001'] });
 
     const res = await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001', 'char-002', 'char-003'] });
+      .send({ territory_id: tid, residents: ['char-001', 'char-002', 'char-003'] });
     expect(res.status).toBe(200);
     expect(res.body.residents).toHaveLength(3);
   });
 
-  it('rejects missing territory', async () => {
+  it('rejects missing territory_id', async () => {
     const res = await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
@@ -274,10 +281,11 @@ describe('PUT /api/territory-residency', () => {
   });
 
   it('rejects missing residents array', async () => {
+    const tid = 'test_terr_' + new ObjectId().toHexString();
     const res = await request(app)
       .put('/api/territory-residency')
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Bad' });
+      .send({ territory_id: tid });
     expect(res.status).toBe(400);
   });
 });
