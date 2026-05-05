@@ -287,3 +287,91 @@ After Ma'at gates PASS:
 3. Capture the output (deleted count, backup path, new count) and post it back to the user.
 4. Run the re-audit, post that too.
 5. Open PR to dev. PR body summarises the operational record.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 95a7ad1
+**Method:** Static review of the script against the story sketch + Khepri's destructive-data checklist; cross-check of sentinel regent_id strings against the test fixture file; independent dry-run from this terminal to verify reproducibility against the live MongoDB.
+
+### Gate decision: **PASS** — recommend AUTHORISE-APPLY (subject to user's explicit go-ahead per the standing rule).
+
+### Static review (Khepri's destructive-data checklist)
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| `TARGET_IDS` matches the four ObjectIds in the story | PASS | Lines 39-44: `69e997e6dca10b9a697c6817 / 6819 / 681b / 681d`. Identical to the table at story:34-42 and to my live dry-run output. |
+| Safety guard checks all three fields (id + name + regent_id) | PASS | Lines 76-83: `d.id !== 'secondcity' || d.name !== 'RFR Test' || !ALLOWED_REGENTS.has(d.regent_id)`. All three required to match. |
+| Dry-run is the default (no --apply ⇒ no mutation) | PASS | Line 47: `APPLY = process.argv.includes('--apply')`. Line 94: `if (!APPLY) { ... process.exit(0) }` exits before mkdir/write/deleteMany. Verified by independent dry-run: backup directory was not created. |
+| Backup write happens BEFORE deleteMany (sequential await chain) | PASS | Lines 102-110: `mkdirSync` → `writeFileSync` → `deleteMany`. Synchronous mkdir+write throw uncaught, aborting the process before line 110. No try/catch — adding one would obscure the safety property. |
+| Idempotent: docs.length === 0 ⇒ exit 0, already-clean message, no backup | PASS | Lines 69-73: short-circuits before line 102's mkdir, so re-run on a clean DB writes nothing. |
+| Backup path uses ISO timestamp (collision-safe) | PASS | Lines 105-106: `new Date().toISOString().replace(/[:.]/g, '-')` → e.g. `2026-05-05T12-34-56-789Z`. Even sub-second re-invocations would collide only if run twice in <1ms. |
+| Distinct exit codes (success / config / safety-abort) | PASS | 0 = success / dry-run / already-clean (lines 53, 72, 97, end-of-file). 1 = config (URI missing, line 59). 2 = safety abort (line 81). Matches Ptah's spec. |
+| Bounded blast radius via `_id` list, not field-shape | PASS | Match strategy is `{ _id: { $in: oids } }` (line 67). Field guard is a sanity check, not the primary filter. A future RFR-Test row with a different `_id` is invisible to this script. |
+| `_backups/` dir gitignored | PASS | `.gitignore` adds `server/scripts/_backups/` under "Scratch / one-off". |
+| Exec bit on script | PASS | `test -x server/scripts/cleanup-rfr-territory-residue.js` → true. |
+
+### Sentinel regent_id cross-check
+
+The four `regent_id` values in `ALLOWED_REGENTS` (line 45) match the test fixture file `server/tests/api-territories-regent-write.test.js` exactly:
+
+| Regent | Test fixture line | In ALLOWED_REGENTS? |
+|---|---|---|
+| `regent-lock` | 177 | yes |
+| `regent-override` | 199 | yes |
+| `regent-noscope` | 216 | yes |
+| `regent-clean` | 231 | yes |
+
+The test seeds territories with `id: 'rfr_test_sc'`, but the four residue docs have `id: 'secondcity'`. Root-cause investigation (how the slug got rewritten) is explicitly out-of-scope per the story; the cleanup deletes the residue regardless.
+
+### Independent dry-run from this terminal
+
+`node scripts/cleanup-rfr-territory-residue.js` (no flag) reproduces Ptah's pasted output. All four targeted documents found, all match the safety guard:
+
+- `_id=69e997e6dca10b9a697c6817  regent_id=regent-lock      feeding_rights=['fed-char','safe-char']`
+- `_id=69e997e6dca10b9a697c6819  regent_id=regent-override  feeding_rights=['fed-char','safe-char']`
+- `_id=69e997e6dca10b9a697c681b  regent_id=regent-noscope   feeding_rights=['char-a']`
+- `_id=69e997e7dca10b9a697c681d  regent_id=regent-clean     feeding_rights=['char-a','char-b']`
+
+All four: `id='secondcity'`, `name='RFR Test'`, `ambience='Tended'`, `lieutenant_id=null`. Exit 0. No backup directory created (verified by `ls scripts/_backups/` → `No such file or directory`).
+
+`feeding_rights` arrays contain only sentinel test character names (`fed-char`, `safe-char`, `char-a`, `char-b`) — none are real Mongo ObjectIds, so deleting these docs leaves no dangling cross-collection references. Ptah's observation in the Dev Agent Record is accurate.
+
+### Failure-mode walkthrough (Khepri's six)
+
+| Scenario | Outcome | Verdict |
+|---|---|---|
+| Mongo connection fails | `await client.connect()` (line 63) throws; process exits non-zero before any read/write. | PASS — no mutation. |
+| Backup `mkdir` fails (permission) | Line 104 throws; process aborts. `deleteMany` at line 110 not reached. (Note: `recursive: true` makes mkdir idempotent, won't throw on existing dir.) | PASS — no mutation. |
+| Backup `write` fails (disk full) | Line 107 throws; process aborts. `deleteMany` not reached. | PASS — no mutation. |
+| Targeted `_id` reused for an unrelated doc | Safety guard at lines 76-83 fires on first mismatch, prints `SAFETY ABORT`, closes client, `process.exit(2)`. Apply branch never reached. | PASS — exit 2, no mutation. |
+| Re-run after successful apply | `find($in: oids)` returns `[]`, lines 69-73 short-circuit with `already-clean: true   deleted: 0`, exit 0. No backup written. | PASS by code path; cannot exercise pre-apply. |
+| `--apply` run twice in close succession | First run deletes 4, second run hits the already-clean short-circuit. ISO-timestamp backup paths collision-safe at second-grade resolution. | PASS by code path; cannot exercise pre-apply. |
+
+### AC verdicts
+
+| AC | Verdict | Notes |
+|---|---|---|
+| 1. Dry-run lists 4 IDs and full content, no mutation | PASS | Verified by independent run. |
+| 2. `--apply` writes backup then deleteMany, prints counts | PASS-by-static | Sequential await chain confirmed; cannot exercise pre-authorisation. |
+| 3. Re-run after apply: `already-clean: true, deleted: 0`, exit 0, no backup | PASS-by-static | Code path lines 69-73 verified; deferred to post-apply re-verify. |
+| 4. Safety guard fires on field-shape drift, exit 2 | PASS | Lines 76-83 implement the exact match policy specified (id + name + regent_id). |
+| 5. Post-cleanup audit: `territories.count == 5`, all unique IDs | DEFERRED | Cannot verify pre-apply. SM should re-run audit snippet after apply. |
+| 6. Script committed at `server/scripts/cleanup-rfr-territory-residue.js` with docstring including target IDs and run-history line | PASS | Lines 1-32 of the script. Run-history line is a `<yet to run>` placeholder for SM to update post-apply. |
+
+### Lint / parse
+
+`node --input-type=module --check < server/scripts/cleanup-rfr-territory-residue.js` — clean (file imports run from disk; the live dry-run already exercised parsing).
+
+### Notes for SM
+
+- The script is safe to authorise. Bounded blast radius (`_id` list), defensive guard (id+name+regent_id), backup-before-delete sequencing, idempotent re-run, distinct exit codes.
+- Post-apply, please update the docstring's "Run history" line at `cleanup-rfr-territory-residue.js:30` with the date and apply-commit SHA, and re-run the audit snippet to confirm AC #5 (`territories.count == 5`, all `id` values unique). Both can be a single small follow-up commit.
+- Backup file location after apply: `server/scripts/_backups/rfr-territory-residue-<ISO>.json`. Worth retaining locally until the parent issue #3 (α refactor) lands.
+
+### Recommendation
+
+**AUTHORISE-APPLY.** Standing by for SM to capture the user's explicit go-ahead and run `--apply`. Will re-verify the post-state (count=5, all unique IDs, backup file present) on your reply.
