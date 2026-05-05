@@ -261,7 +261,7 @@ After this PR's merge:
 === territories (n=5) ===
   secondcity (Curated)   regent=René Meyer            base=2 title=0 (-)        amb=1 -> 3 [match]
   northshore (Curated)   regent=Alice Vunder          base=2 title=0 (-)        amb=1 -> 3 [match]
-  dockyards (Untended)   regent=René St. Dominique    base=2 title=3 (Primogen) amb=0 -> 5 [match]
+  dockyards (Untended)   regent=René St. Dominique    base=2 title=2 (Primogen) amb=0 -> 4 [match]
   academy (Verdant)      regent=Jack Fallow           base=3 title=0 (-)        amb=1 -> 4 [match]
   harbour (Settled)      regent=Reed Justice          base=3 title=0 (-)        amb=0 -> 3 [match]
 
@@ -283,7 +283,9 @@ await c.connect();
 const db = c.db('tm_suite');
 
 const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
-const TITLE_STATUS_BONUS = { 'Head of State': 4, 'Primogen': 3, 'Administrator': 2, 'Socialite': 2, 'Enforcer': 2 };
+// IMPORTANT: keep this constant in sync with public/js/data/constants.js TITLE_STATUS_BONUS.
+// Live values per constants.js:47 — { 'Head of State': 3, 'Primogen': 2, 'Socialite': 1, 'Enforcer': 1, 'Administrator': 1 }.
+const TITLE_STATUS_BONUS = { 'Head of State': 3, 'Primogen': 2, 'Socialite': 1, 'Enforcer': 1, 'Administrator': 1 };
 
 const territories = await db.collection('territories').find().toArray();
 const characters = await db.collection('characters').find({ retired: { $ne: true } }).toArray();
@@ -336,6 +338,8 @@ await c.close();
 
 **Change Log:**
 - 2026-05-05 — Investigation complete on `issue-13a-city-status-stocktake`. Single semantic commit (audit doc + this Dev Agent Record). **Headline:** 6 clean / 2 defects / 2 game-rules questions. Recommended fix bundle is small (≈50 lines, 1 PR) — Surface 2 (cache) + Surface 9 (bonus visibility). Plus 2 user calls (Surface 3, 7) before any fix story scopes.
+- 2026-05-05 — Follow-up commit addressing Maat QA Concern A (FIX-REQUIRED). Three single-line edits in the audit doc to correct Primogen title bonus from 3 to 2 (per `public/js/data/constants.js:47`): Surface 7 description (max observed total 5 → 4), test matrix row for René St. Dominique (5 → 4), edge-case row (12 → 11). Also corrected the captured audit-script source in this DAR to use the live TITLE_STATUS_BONUS values (HoS:3, Primogen:2, Socialite/Enforcer/Administrator:1), and corrected the verbatim walkthrough output for René St. Dominique (5 → 4). The 5-regent walkthrough now matches expected end-to-end with no arithmetic errors. **No conclusion changes** — 6/2/2 verdicts stand; Path A (small fix bundle) still recommended.
+- 2026-05-05 — Concern B (Surface 10 scope clarification) applied. One-sentence scope note added at Surface 10: "Display consumers — sites where the value is shown to the user as City Status. Non-display reads of raw `c.status.city` (Eminence/Ascendancy aggregations, edit-state ops, prereq checks) are intentionally base-only by design and are out of scope here." Maat's Concern B was optional editorial polish; addressed for clarity.
 
 ---
 

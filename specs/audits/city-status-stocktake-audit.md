@@ -155,7 +155,7 @@ All four values match the canonical strings exactly. Two values aren't in the bo
 - Display: `_statusDots(base, bonus, 10)` caps via `Math.min(base + bonus, 10)`.
 - Floor checks (`tabs/status-tab.js:160`, `suite/status.js:112`): `cityVal(c) < 8` — read raw uncapped sum.
 
-Live walkthrough: max observed total is 5 (René St. Dominique, Primogen of Dockyards: base 2 + title 3 + amb 0). No live character exceeds 10 today. The question is policy: if a Primogen takes regency of a Verdant/Curated territory and base > 7, the sum exceeds 10. What should display? What should `< 8` checks see?
+Live walkthrough: max observed total is 4 (René St. Dominique, Primogen of Dockyards: base 2 + title 2 + amb 0). No live character exceeds 10 today. The question is policy: if a Primogen takes regency of a Verdant/Curated territory and base reaches 8, the sum exceeds 10. What should display? What should `< 8` checks see?
 
 **Severity.** Display-wrong **only if** the policy says clamp; calculation-wrong **only if** the policy is uncapped and the floor checks are wrong.
 
@@ -222,6 +222,8 @@ Mirrors the Attaché pattern. Cheap and high-readability gain.
 
 **Audit method.** `grep -rn "calcCityStatus\b\|c\.status\.city\b\|c\.status\?.\?.city" public/js/`.
 
+**Scope.** Display consumers — sites where the value is shown to the user as City Status. Non-display reads of raw `c.status.city` (Eminence/Ascendancy aggregations, edit-state ops, prereq checks) are intentionally base-only by design and are out of scope here.
+
 **Finding.** **CLEAN.**
 
 Enumerated consumers:
@@ -270,13 +272,13 @@ Live + walkthrough coverage:
 |---|---|---|---|---|---|---|---|---|---|
 | René Meyer | secondcity | — | Curated | 2 | 0 | 1 | 3 | 3 | ✓ |
 | Alice Vunder | northshore | — | Curated | 2 | 0 | 1 | 3 | 3 | ✓ |
-| René St. Dominique | dockyards | — | Untended | 2 | 3 (Primogen) | 0 | 5 | 5 | ✓ |
+| René St. Dominique | dockyards | — | Untended | 2 | 2 (Primogen) | 0 | 4 | 4 | ✓ |
 | Jack Fallow | academy | — | Verdant | 3 | 0 | 1 | 4 | 4 | ✓ |
 | Reed Justice | harbour | — | Settled | 3 | 0 | 0 | 3 | 3 | ✓ |
 | (any non-regent) | — | — | n/a | varies | varies | 0 | base + title | as observed | ✓ |
 | (any lieutenant) | — | yes | n/a | varies | varies | 0 (Surface 3 q) | base + title (current code) | as observed | game-rules dependent |
 | (regent of 2+) | — | — | n/a | n/a (no live data) | — | — | — | n/a — synthetic only |
-| Edge case: Curated + Primogen + base 8 | — | — | Curated | 8 | 3 | 1 | 12 | (no live data) | Surface 7 dependent |
+| Edge case: Curated + Primogen + base 8 | — | — | Curated | 8 | 2 | 1 | 11 | (no live data) | Surface 7 dependent |
 
 5 live regents, 5 clean walkthroughs. No mismatch between expected and observed.
 
