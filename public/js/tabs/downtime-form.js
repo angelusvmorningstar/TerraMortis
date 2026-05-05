@@ -2001,15 +2001,15 @@ function renderForm(container) {
       return;
     }
 
-    // Personal story free-text NPC name — sync to hidden fields and deselect cards
+    // Personal story free-text NPC name — sync to hidden fields and update tick
     if (e.target.id === 'dt-personal_story_npc_name_free') {
       const val    = e.target.value.trim();
       const idEl   = document.getElementById('dt-personal_story_npc_id');
       const nameEl = document.getElementById('dt-personal_story_npc_name');
       if (idEl)   idEl.value   = val ? '__new__' : '';
       if (nameEl) nameEl.value = val;
-      if (val) container.querySelectorAll('[data-npc-pick]').forEach(c => c.classList.remove('dt-npc-card-selected'));
       scheduleSave();
+      updateSectionTicks(container);
       return;
     }
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
@@ -3738,91 +3738,41 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
-// NPCR.12: Personal Story: Off-Screen Life — relationships-driven picker.
-// Retires the DTOSL.2/.4 three-way choice. The picker shows a single list of
-// the character's active relationships (grouped by kind family); selecting
-// one stores its _id as responses.story_moment_relationship_id. The
-// follow-up textarea is kind-driven via kind-prompts.js (NPCR.13).
+// Issue #24: Personal Story — free-text NPC name + interaction note.
+// Replaces the NPCR.12 relationships picker. Players name any NPC they know
+// and describe the interaction; no registered relationship required.
 
 function renderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
+  const section = DOWNTIME_SECTIONS.find(s => s.key === ‘personal_story’);
+  if (!section) return ‘’;
 
-  // Back-compat read: new submissions use story_moment_relationship_id;
-  // legacy submissions seeded the note into osl_moment / personal_story_note /
-  // correspondence. The direction radio used personal_story_direction.
-  const savedRelId = saved['story_moment_relationship_id'] || '';
-  const savedNote  = saved['story_moment_note']
-                   || saved['osl_moment']
-                   || saved['personal_story_note']
-                   || saved['correspondence']
-                   || '';
-  // NPCR.12 r3: personal_story_direction no longer read — Story direction radios removed.
+  const savedName = saved[‘personal_story_npc_name’] || ‘’;
+  const savedNote = saved[‘personal_story_note’]
+                  || saved[‘story_moment_note’]
+                  || saved[‘osl_moment’]
+                  || saved[‘correspondence’]
+                  || ‘’;
 
-  // Only active edges are pickable. _myRelationships was loaded in
-  // renderDowntimeTab from /api/relationships/for-character/:id.
-  const activeEdges = (_myRelationships || []).filter(e => e.status === 'active');
-
-  // Resolve the selected edge (if still active) to drive the prompt copy.
-  const selectedEdge = activeEdges.find(e => String(e._id) === String(savedRelId)) || null;
-  const prompt = selectedEdge
-    ? promptForKind(selectedEdge.kind, selectedEdge.custom_label)
-    : promptForKind('_default', null);
-
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
+  let h = ‘<div class="qf-section collapsed" data-section-key="personal_story">’;
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
+  h += ‘<div class="qf-section-body">’;
+  h += ‘<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\’re hoping for.</p>’;
 
-  // Picker: grouped by kind family via <optgroup>.
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
-    h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
-  } else {
-    // Group by kind family, sort entries by other-endpoint name within family.
-    const byFamily = Object.fromEntries(FAMILIES.map(f => [f, []]));
-    for (const e of activeEdges) {
-      const k = kindByCode(e.kind);
-      const fam = k?.family || 'Other';
-      byFamily[fam].push(e);
-    }
-    for (const fam of FAMILIES) {
-      byFamily[fam].sort((a, b) => String(a._other_name || '').localeCompare(String(b._other_name || ''), undefined, { sensitivity: 'base' }));
-    }
+  // Hidden sync fields consumed by collectResponses() at submit time.
+  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? ‘__new__’ : ‘’)}">`;
+  h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
 
-    h += '<select id="dt-story_moment_relationship_id" class="qf-select">';
-    h += '<option value="">— None (no story moment this cycle) —</option>';
-    for (const fam of FAMILIES) {
-      const bucket = byFamily[fam];
-      if (bucket.length === 0) continue;
-      h += `<optgroup label="${esc(fam)}">`;
-      for (const e of bucket) {
-        const k = kindByCode(e.kind);
-        const kindLabel = k?.label || e.kind;
-        const custom = e.kind === 'other' && e.custom_label ? ` (${esc(e.custom_label)})` : '';
-        const name = e._other_name || '(unknown)';
-        const sel = String(savedRelId) === String(e._id) ? ' selected' : '';
-        h += `<option value="${esc(String(e._id))}"${sel}>${esc(name)} · ${esc(kindLabel)}${custom}</option>`;
-      }
-      h += '</optgroup>';
-    }
-    h += '</select>';
-  }
-  h += '</div>';
+  h += ‘<div class="qf-field">’;
+  h += ‘<label class="qf-label">Who is this moment about?</label>’;
+  h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
+  h += ‘</div>’;
 
-  // Kind-driven prompt (NPCR.13).
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += `<label class="qf-label" id="dt-story_moment_note_label">${esc(prompt.label)}</label>`;
-  h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
-  h += '</div>';
+  h += ‘<div class="qf-field" style="margin-top:12px;">’;
+  h += ‘<label class="qf-label">How do you want to interact with them?</label>’;
+  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you’re hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += ‘</div>’;
 
-  // NPCR.12 r3: Story direction radios retired — subsumed by the NPCs tab
-  // (players flag NPCs for review via NPCR.11, edit their own edges via
-  // NPCR.9, or propose direction shifts by editing edge state text).
-
-  h += '</div></div>';
+  h += ‘</div></div>’;
   return h;
 }
 
