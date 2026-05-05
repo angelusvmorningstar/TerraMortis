@@ -494,3 +494,112 @@ DRY-RUN — re-run with --apply to execute.
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #3c on `issue-3c-migration-script`. Single commit (script + this Dev Agent Record together). Dry-run executed; `--apply` deferred to SM after user authorisation.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 2f6ebf1
+**Method:** Static review of the script line-by-line; independent dry-run from this terminal; live-data probe to validate the residency surprise; six-mode failure walkthrough.
+
+### Gate decision: **PASS** — recommend AUTHORISE-APPLY (subject to user explicit go-ahead per the standing rule).
+
+### Static review (Khepri's checklist) — all PASS
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Map building reads `id ?? slug` for partial-state tolerance | PASS | `script:82`. Handles a re-run after a partial $rename. |
+| Safety abort on unresolved slug (exit 2, not silent skip) | PASS | `script:117-120` (regent_confirmations), `:128-131` (object map keys), `:148-151` (residency name). All print before `await client.close()` + `process.exit(2)` and are reached during the audit pass — before any apply branch. |
+| Backup BEFORE mutate (sequential await chain) | PASS | `:172-184` mkdirSync → writeFileSync are synchronous; throws abort the chain before line 186 mutations. `recursive: true` makes mkdir idempotent. |
+| Idempotency three-pronged | PASS | All three required to flip `plan.alreadyMigrated` to false: `:101-102` (territory `id` field absent), `:136-138` (any cycle map keys not OID-shaped), `:153-155` (residency `territory` field present). Default true; only flipped if any pre-state is detected. |
+| Order of operations safe | PASS | `slugToOid` map captured at `:77-84` before any write at `:235`. Territory $rename at `:240` comes after cycle rewrites; cycle rewrites use the in-memory map (not a live read), so the rename order is irrelevant. Residency rewrite at `:249-265` uses the in-memory `territories` array (`t.name === doc.territory` at `:252`) which is unchanged by the on-disk rename, so name resolution still works. |
+| Distinct exit codes 0/1/2 | PASS | 0 = success/dry-run/already-migrated (`:60, 163, 169` and end-of-file). 1 = config (`:66`). 2 = safety abort (`:120, 131, 151, 258`). |
+| `id ?? slug` map tolerance | PASS | A failed-mid-apply state where some territories have `slug` and some still have `id` is recoverable on re-run: `:82` reads either; map is built correctly; cycle audit treats already-OID keys as skip; residency audit treats already-migrated docs as skip. |
+
+### Independent dry-run — reproducible **YES**
+
+```
+slug → _id map:
+  'secondcity' → 69d9e54c00815d471503bea8
+  'northshore' → 69d9e54b00815d471503bea6
+  'dockyards' → 69d9e54c00815d471503bea9
+  'academy' → 69d9e54b00815d471503bea7
+  'harbour' → 69d5dc6a00815d47150397c6
+
+--- Audit ---
+{
+  "territories": { "rename": 5 },
+  "cycles": [{
+    "_id": "69d0a3c5052b57f6be774e69",
+    "label": "Downtime 2",
+    "confirmations": 0, "ambience": 5, "profile": 5, "pulse": 0
+  }],
+  "residency": { "rename": 4, "total": 4 },
+  "alreadyMigrated": false
+}
+DRY-RUN — re-run with --apply to execute.
+```
+
+Reproduces Ptah's output verbatim: 5 territory renames, 1 cycle (Downtime 2) with 5 ambience + 5 profile rekeys, 4 residency renames, 0 confirmations / 0 pulse.
+
+### Surprise validation — residency count
+
+**Confirmed: residency.count = 4, not 0** as ADR-002 §Live-data baseline reported.
+
+Independent probe of the live `tm_suite.territory_residency`:
+
+| Doc `_id` | `territory` (legacy field) | `territory_id` | residents | `updated_at` |
+|---|---|---|---|---|
+| `69d0a08800815d4715035832` | The Academy | (missing) | 3 | 2026-04-04T05:24:24.023Z |
+| `69d1dacd00815d4715035fcb` | The Harbour | (missing) | 7 | (similar) |
+| `69d37ee400815d4715037e56` | The Second City | (missing) | 4 | (similar) |
+| `69cd7fbd78fd76a2d6ba60c4` | The North Shore | (missing) | 6 | (similar) |
+
+All four resolve cleanly via `name` match against the territories collection. `Field presence` shows: every doc has `territory`, none has `territory_id` — consistent legacy shape, no half-migrated state.
+
+The 2026-04-04 `updated_at` timestamps tell us the docs predate the ADR audit on 2026-05-05, not "something is writing post-ADR". So the ADR's "0 documents" reading was simply wrong on the day — likely a connection-string misread or a stale local probe — rather than evidence of a recent writer. The Q5 user decision (MIGRATE) absorbs the discrepancy at zero cost: the script handles all 4 correctly via name → `_id` resolution.
+
+**Writer-investigation (Q7 follow-up) timing — file post-migration.** Reasoning:
+- `#3b` already changed the route contract; no NEW writes can land in `territory`-name shape via the API.
+- The 4 existing docs are pre-existing data, last touched 2026-04-04 — likely a one-shot import or manual write at that date, not an ongoing writer.
+- After `#3c` migrates the 4 docs to `territory_id`, the data is in the new shape. Any post-migration appearance of a `territory`-name-shape doc would be unambiguous evidence of a residual writer.
+- That post-migration view is the cheapest detection surface — investigating now would have to disprove a writer; investigating after migration only has to detect one if it exists.
+
+### Failure-mode walkthrough — all six PASS
+
+| Scenario | Outcome | Verdict |
+|---|---|---|
+| Mongo connect fails | `await client.connect()` line 73 throws; process exits before any read or write. | PASS |
+| Backup `mkdir` / `writeFile` fails | Synchronous throw at `:175` or `:178` aborts before the apply loop at `:186`. `recursive: true` handles existing dir idempotently. | PASS |
+| Cycle has unresolved slug | Audit-pass safety abort at `:117-120` (confirmations) or `:128-131` (object keys) — `slugToOid.has(k)` false AND `!isOidShaped(k)` true → exit 2. Apply branch never reached. | PASS |
+| Residency doc has unresolvable name | `territories.find(t => t.name === doc.territory)` returns `undefined` at `:147`; safety abort at `:148-151` exits 2. | PASS |
+| Re-run after apply | Three-pronged idempotency check (territories sans `id`, all keys OID-shaped, residency on `territory_id`) flips `alreadyMigrated` true; lines `:160-164` print `already-migrated: true`, exit 0, no backup file. | PASS by code path; cannot exercise pre-apply. |
+| Map-building on partial state | `:82` reads `id ?? slug` → both legacy and renamed docs feed the map. Cycle audit treats already-OID keys as skip. Residency audit treats already-migrated docs as skip. Re-run completes the remainder. | PASS |
+
+### Per-AC verdict
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | Dry-run prints map + audit, no mutation | PASS | Verified independently. Exit 0. |
+| 2 | `--apply` writes backup, applies, prints counts, re-audits | PASS-by-static | Cannot exercise pre-authorisation. Apply path at `:172-290` matches spec. |
+| 3 | Safety abort on unresolved slug | PASS | Exit 2 at `:120, 131, 151`. Apply branch never reached on abort. |
+| 4 | Idempotent re-run: `already-migrated: true`, exit 0, no backup | PASS-by-static | Three-pronged check verified. Cannot exercise pre-apply. |
+| 5 | Post-apply state: territories have `slug`; confirm/ambience/profile/pulse keys OID-shaped; residency has `territory_id` | PASS-by-static | Re-audit at `:271-290` prints exactly these three checks with `(expected 0)` annotations. |
+| 6 | Server tests pass with new on-disk shape | DEFERRED | Post-apply verification. Strict cutover already validated against `_id`-shaped data in #3b suite. |
+| 7 | Script committed with docstring covering scope + Q1/Q2/Q5 decisions + run-history placeholder | PASS | `script:1-47` covers all three. Run-history line is `<yet to run>` placeholder for SM to update post-apply. |
+
+### Notes for SM (post-apply checklist)
+
+After `--apply`:
+1. Update the `Run history` line at `migrate-territory-fk.js:45` with date + apply-commit SHA + per-mutation counts (`Apply counts` JSON from script output).
+2. Backup file lands at `server/scripts/_backups/territory-fk-migration-<ISO>.json`. Retain locally until #3d/#3e land.
+3. Re-run the script in apply mode immediately to verify idempotency (`already-migrated: true`).
+4. Run the affected server suites (`api-territories*`, `api-downtime-regent-gate`, `api-players-sessions-residency`) — should remain 56/56.
+5. File a Q7 follow-up issue: "audit territory_residency writer (4 pre-existing docs from 2026-04-04)". Low priority — purely diagnostic.
+6. Future-clean note: tag removal of `territory.slug || territory.id` at `routes/territories.js:122` — once this script applies, the `|| territory.id` clause becomes dead code. Per ADR Step 6, removed in #3e.
+
+### Recommendation
+
+**AUTHORISE-APPLY.** Standing by for SM to capture the user's explicit go-ahead and run `--apply`. Will re-verify the post-state on your reply: (a) `Apply counts` matches the dry-run audit exactly (5 / 5+5 / 4 / 0 / 0 / 5); (b) re-audit prints all three "expected 0" checks at zero; (c) backup file present; (d) server suites still 56/56.
