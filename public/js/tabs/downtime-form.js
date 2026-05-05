@@ -3743,36 +3743,36 @@ function getRowCost(row) {
 // and describe the interaction; no registered relationship required.
 
 function renderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === ‘personal_story’);
-  if (!section) return ‘’;
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
+  if (!section) return '';
 
-  const savedName = saved[‘personal_story_npc_name’] || ‘’;
-  const savedNote = saved[‘personal_story_note’]
-                  || saved[‘story_moment_note’]
-                  || saved[‘osl_moment’]
-                  || saved[‘correspondence’]
-                  || ‘’;
+  const savedName = saved['personal_story_npc_name'] || '';
+  const savedNote = saved['personal_story_note']
+                  || saved['story_moment_note']
+                  || saved['osl_moment']
+                  || saved['correspondence']
+                  || '';
 
-  let h = ‘<div class="qf-section collapsed" data-section-key="personal_story">’;
+  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += ‘<div class="qf-section-body">’;
-  h += ‘<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\’re hoping for.</p>’;
+  h += '<div class="qf-section-body">';
+  h += '<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\'re hoping for.</p>';
 
   // Hidden sync fields consumed by collectResponses() at submit time.
-  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? ‘__new__’ : ‘’)}">`;
+  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? '__new__' : '')}">`;
   h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
 
-  h += ‘<div class="qf-field">’;
-  h += ‘<label class="qf-label">Who is this moment about?</label>’;
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Who is this moment about?</label>';
   h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
-  h += ‘</div>’;
+  h += '</div>';
 
-  h += ‘<div class="qf-field" style="margin-top:12px;">’;
-  h += ‘<label class="qf-label">How do you want to interact with them?</label>’;
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you’re hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
-  h += ‘</div>’;
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label">How do you want to interact with them?</label>';
+  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you're hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += '</div>';
 
-  h += ‘</div></div>’;
+  h += '</div></div>';
   return h;
 }
 
