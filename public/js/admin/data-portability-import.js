@@ -74,8 +74,10 @@ export async function writeRow(collection, row) {
 }
 
 async function writeTerritoryRow(r) {
+  // Post-ADR-002: insert (no _id) creates a new doc with a generated _id;
+  // slug carries the legacy id value as a label.
   await apiPost('/api/territories', {
-    id: r.id,
+    slug: r.id || undefined,
     name: r.name || undefined,
     regent_id: r.regent_id || undefined,
     regent_name: r.regent_name || undefined,

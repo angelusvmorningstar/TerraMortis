@@ -159,9 +159,18 @@ export function findRegentTerritory(territories, c) {
   const cid = String(c._id);
   const t = territories.find(t => t.regent_id === cid);
   if (!t) { c._regentTerritory = null; return null; }
-  // Prefer stored name; fall back to the canonical id→name map for legacy docs without a name field.
-  const territory = (t.name && t.name !== t.id) ? t.name : (_TERR_ID_NAME[t.id] || t.id);
-  const result = { territory, territoryId: t.id, lieutenantId: t.lieutenant_id || null, ambience: t.ambience || null };
+  // Prefer stored name; fall back to the canonical slug→name map for legacy docs without a name field.
+  const territory = t.name || _TERR_ID_NAME[t.slug] || t.slug;
+  // territoryId is the canonical FK (Mongo _id, stringified) per ADR-002.
+  // slug is exposed alongside for callers that need to match against legacy
+  // slug-variant strings (e.g. submissions feeding_territories keys, Q4).
+  const result = {
+    territory,
+    territoryId: String(t._id),
+    slug: t.slug || null,
+    lieutenantId: t.lieutenant_id || null,
+    ambience: t.ambience || null,
+  };
   c._regentTerritory = result;
   return result;
 }

@@ -452,9 +452,10 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
   ).length;
 
-  // Merge live territory docs over hardcoded defaults — live values take precedence
+  // Merge live territory docs over hardcoded defaults — live values take precedence.
+  // Mongo territory docs key the legacy `id` value as `slug` post-ADR-002.
   const effectiveTerrs = TERRITORY_DATA.map(t => {
-    const live = liveTerrDocs.find(d => d.id === t.id);
+    const live = liveTerrDocs.find(d => d.slug === t.id);
     return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
   });
 

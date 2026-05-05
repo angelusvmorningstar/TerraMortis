@@ -91,6 +91,7 @@ function resolveTerrId(raw) {
 let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
 let _allCharacters  = [];   // GET /api/characters
 let _currentCycle   = null; // GET /api/downtime_cycles/:id — for DTIL-4 territory pulse injection
+let _currentTerritories = []; // GET /api/territories — for slug→_id resolution at compile time (ADR-002)
 let _currentCharId  = null;
 let _currentSub     = null;
 const _pushErrors   = new Map(); // charId → error message for failed pushes
@@ -127,10 +128,11 @@ export async function initDtStory(cycleId) {
   }
 
   try {
-    const [subs, chars, cycles] = await Promise.all([
+    const [subs, chars, cycles, terrs] = await Promise.all([
       apiGet('/api/downtime_submissions?cycle_id=' + resolvedCycleId),
       apiGet('/api/characters'),
       apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/territories').catch(() => []),
     ]);
     _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
@@ -138,6 +140,7 @@ export async function initDtStory(cycleId) {
     }));
     _allCharacters  = Array.isArray(chars) ? chars : [];
     _currentCycle   = (Array.isArray(cycles) ? cycles : []).find(c => String(c._id) === String(resolvedCycleId)) || null;
+    _currentTerritories = Array.isArray(terrs) ? terrs : [];
   } catch (err) {
     panel.innerHTML = `<div class="dt-story-empty">Failed to load data: ${err.message}</div>`;
     return;
@@ -499,13 +502,15 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     }
   }
 
-  // Territory context (when territory assigned and data available)
+  // Territory context (when territory assigned and data available).
+  // terrId is a TERRITORY_DATA-style slug; Mongo docs key the same value as `slug` (ADR-002).
   const terrId = resolveTerrId(terrRaw);
   if (terrRaw || terrId) {
     const terrName = (terrId && TERRITORY_DISPLAY[terrId]) || terrRaw || 'Unknown';
-    const terrObj  = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+    const terrObj  = (territories || []).find(t => t.slug === terrId) || null;
+    const terrOidStr = terrObj ? String(terrObj._id) : null;
     const currentAmb   = terrObj?.ambience || null;
-    const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
+    const confirmedAmb = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.ambience) || null;
     const ambienceLine = confirmedAmb
       ? (currentAmb && confirmedAmb !== currentAmb ? `${confirmedAmb} (was ${currentAmb})` : confirmedAmb)
       : currentAmb;
@@ -673,14 +678,16 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
 
   // Territory context
+  // terrId is a TERRITORY_DATA-style slug; Mongo docs key the same value as `slug` (ADR-002).
   const terrId   = resolveTerrId(terrRaw);
   const terrName = (terrId && TERRITORY_DISPLAY[terrId]) || terrRaw || 'Unknown';
-  const terrObj  = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+  const terrObj  = (territories || []).find(t => t.slug === terrId) || null;
+  const terrOidStr = terrObj ? String(terrObj._id) : null;
   const regent   = terrObj?.regent || terrObj?.regentName || null;
 
   const currentAmb   = terrObj?.ambience || null;
-  const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
-  const netChange    = cycleData?.confirmed_ambience?.[terrId]?.net_change ?? null;
+  const confirmedAmb = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.ambience) || null;
+  const netChange    = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.net_change) ?? null;
 
   // Residents and poachers
   const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
@@ -2341,15 +2348,17 @@ function getNotableEvents(terrId, thisSub, allSubmissions) {
 function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycleData, territories) {
   const terrName = terrId === 'barrens' ? 'The Barrens' : (TERRITORY_DISPLAY[terrId] || terrId || 'The Barrens');
 
-  // Territory object (from live API data if available)
-  const terrObj    = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+  // Territory object (from live API data if available).
+  // terrId is a TERRITORY_DATA-style slug; Mongo docs match by `slug` (ADR-002).
+  const terrObj    = (territories || []).find(t => t.slug === terrId) || null;
+  const terrOidStr = terrObj ? String(terrObj._id) : null;
   const regentChar = terrObj?.regent_id
     ? allChars.find(c => String(c._id) === String(terrObj.regent_id)) || null
     : null;
   const regentName = regentChar ? displayName(regentChar) : null;
 
-  // Ambience state
-  const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
+  // Ambience state — confirmed_ambience is _id-keyed post-ADR-002.
+  const confirmedAmb = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.ambience) || null;
   const currentAmb   = terrObj?.ambience || null;
   let ambienceLine = null;
   if (confirmedAmb || currentAmb) {
@@ -3002,12 +3011,15 @@ export function compilePushOutcome(sub, char, cycle) {
 
       // DTIL-4: append per-territory pulses for territories the player fed in.
       // Skipped for no_feed submissions and when no cycle.territory_pulse map exists.
+      // territory_pulse is _id-keyed post-ADR-002; resolve slug→_id via _currentTerritories.
       const pulseChunks = [];
       const noFeed = sub.feeding_review?.pool_status === 'no_feed';
       if (!noFeed && cyc?.territory_pulse) {
         for (const terr of _feedTerrEntries(sub)) {
           if (terr.id === 'barrens') continue; // Barrens fallback has no broadcast pulse
-          const pulse = cyc.territory_pulse[terr.id]?.draft;
+          const tDoc = _currentTerritories.find(t => t.slug === terr.id);
+          const tOid = tDoc ? String(tDoc._id) : null;
+          const pulse = tOid && cyc.territory_pulse[tOid]?.draft;
           if (pulse?.trim()) {
             pulseChunks.push(`### Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
           }
