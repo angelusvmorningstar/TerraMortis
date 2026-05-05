@@ -354,3 +354,93 @@ Two extra cases beyond the listed smoke: confirm-feeding with slug `territory_id
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #3b on `issue-3b-server-schema-routes`. Single commit (server code + test fixtures + this Dev Agent Record together).
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 5fbeb8b
+**Method:** Static review of the diff against the ADR-002 strict-cutover contract; scope-discipline file audit; independent test run from this terminal; failure-mode reasoning on the transitional `territory.slug || territory.id` read.
+
+### Gate decision: **PASS** — recommend ship into `dev`.
+
+### Strict-cutover scope discipline (Khepri's checklist)
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| No client file touched | PASS | `git show 5fbeb8b --name-only \| grep -E "^public/"` returns nothing. |
+| No migration script added | PASS | No path under `server/scripts/` in the diff. |
+| `server/utils/territory-slugs.js` untouched | PASS | `git show 5fbeb8b -- server/utils/territory-slugs.js \| wc -l` = 0. `TERRITORY_SLUG_MAP` unchanged. |
+| Dead client block at `downtime-form.js:73, 1311-1317` untouched | PASS | No `public/` files in diff. |
+| Strict cutover honoured in URL paths | PASS | `parseId()` rejects non-ObjectId at `territories.js:86, 53` and `downtime.js:70` with 400. |
+| Strict cutover honoured in bodies | PASS | POST `/api/territories` checks `_id` format at `:35`; `confirm-feeding` checks `territory_id` ObjectId format at `downtime.js:70`; no `$or` slug fallback anywhere. |
+
+### Transitional read pattern — `territory.slug || territory.id` at `territories.js:122`
+
+**Verdict: legitimate cross-PR coupling, correctly annotated.** Not a Q2 violation (Q2 covers API I/O, not internal field reads on a doc fetched by `_id`).
+
+Three sub-questions Khepri raised:
+
+1. **Without the fallback, would the lock check silently fail on production data?** Yes. The 5 live territory docs all carry `id` (legacy field), not `slug` (rename happens on disk in #3c). `territory.slug` is `undefined` until #3c, so `normaliseTerritorySlug(slug) === undefined` is always false → no character ever locked → silent feeding-rights regression.
+
+2. **Cleaner alternative?** Two were considered, both worse:
+   - *Defer the entire PATCH change to #3c.* Splits #3b's PATCH route into a half-state (drops `$or` fallback, keeps slug-as-FK lookup) until #3c. Inconsistent across the four routes shipping in this PR.
+   - *Read only `territory.id` until #3c.* Brittle — if #3c is delayed, the route is reading a field the schema says shouldn't be there.
+
+   The `slug || id` coalesce works against today's data and tomorrow's data; self-healing during the migration window.
+
+3. **Lifetime annotation correct?** Yes. The inline comment at `territories.js:103-107` explicitly identifies the cleanup target ("Until #3c renames the field on disk"). After #3c's `$rename: { id: 'slug' }`, every territory has `slug` populated and `territory.slug || territory.id` simplifies to `territory.slug`. Ptah's Dev Agent Record note ("can be removed in #3e or #3c") matches; recommended target is the same commit that runs the on-disk rename in #3c.
+
+**Action recommendation:** none for this PR. Track removal as part of #3c's spec.
+
+### Independent test run
+
+`cd server && npx vitest run tests/api-territories.test.js tests/api-territories-regent-write.test.js tests/api-players-sessions-residency.test.js tests/api-downtime-regent-gate.test.js`:
+```
+Test Files  4 passed (4)
+Tests       56 passed (56)
+```
+
+Full server suite: **638 passed / 2 failed**. Both failures are pre-existing on `dev` and confirmed unrelated:
+- `tests/rule_engine_grep.test.js` — ADR-001 contract grep violation in `auto-bonus-evaluator.js:84` and `pool-evaluator.js:75`. Verified pre-existing earlier in this session (during the safe-word evaluator fix on `piatra` branch — same failure signature reproduced on stash-clean dev).
+- `tests/api-relationships-player-create.test.js > GET /api/npcs/directory` — same.
+
+### Test fixture quality
+
+- `seedTerritory` helper at `api-territories-regent-write.test.js:50` cleanly switches to `{ slug, regent_id, feeding_rights }` and returns `{ ..., _id, _idStr }`. Downstream calls use `terr._idStr` in URL paths consistently.
+- New tests cover the strict-cutover assertions:
+  - `400 for slug-style territory ID (strict cutover)` (PATCH endpoint)
+  - `404 for non-existent ObjectId` — splits the previous "unknown territory" case so a 400 (bad shape) and a 404 (well-formed but missing) are tested separately.
+  - Equivalent strict-cutover slug-rejection assertion at `confirm-feeding`.
+  - Residency PUT with empty `territory_id` → 400.
+- Net +5 tests aligns with what the Dev Agent Record claims (4 strict-cutover + 1 split).
+
+### Per-AC verdict
+
+| # | AC | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Schema validates `{ name, ambience, slug }`, no `id` required | PASS | `territorySchema.required` dropped; `slug` is optional. |
+| 2 | Legacy `{ name, id }` still validates via `additionalProperties: true` | PASS | `additionalProperties: true` retained at schema:14. |
+| 3 | POST without `_id` inserts with generated `_id` | PASS | `territories.js:46-48`; covered by test "ST can create a territory (no _id → insert)". |
+| 4 | POST with `_id` updates or 404 on unknown | PASS | `territories.js:35-44`; covered by tests for both branches. |
+| 5 | PATCH `/:id/feeding-rights` with ObjectId works; slug → 400 | PASS | `parseId` at `:86`; new test `400 for slug-style territory ID (strict cutover)`. |
+| 6 | GET `/api/territory-residency?territory_id=<oid>` returns doc or empty default | PASS | `territory-residency.js:17-21`; covered. |
+| 7 | PUT `/api/territory-residency { territory_id, residents }` upserts by `territory_id` | PASS | `territory-residency.js:30-37`; covered. |
+| 8 | confirm-feeding looks up by `_id`, gate compares `String(t._id)` | PASS | `downtime.js:69-71` + `:107`; new test for slug rejection at confirm-feeding. |
+| 9 | All four affected test suites green | PASS | 56/56 verified independently. |
+| 10 | No client touched, no migration script, no `TERRITORY_SLUG_MAP` altered | PASS | Scope-discipline file audit confirms. |
+| 11 | Server smoke covered | PASS-by-test-coverage | Each of the 8 smoke steps maps to a specific passing test per Ptah's table; lock-check + slug-rejection cases also covered. |
+
+### Notes / observations (non-blocking)
+
+1. **Existing `regent_confirmations` data window.** Strict cutover means after #3b deploys, any `regent_confirmations[].territory_id` value compared by gate-recompute is expected to be an ObjectId-string. Per ADR audit, `regent_confirmations` is empty across all live cycles — so zero pre-existing slug-form entries to mismatch. If a regent calls `confirm-feeding` between #3b deploy and #3c migration, the new entry uses ObjectId-string and the gate evaluates correctly. Theoretical-only risk; no live exposure.
+
+2. **`slug || id` cleanup target.** Recommend tagging in #3c's story spec so the cleanup ships with the on-disk rename rather than getting forgotten until #3e.
+
+3. **Pre-existing test failures.** The two pre-existing failures are independent of this PR and shouldn't gate it. If the team wants them fixed, they're separate issues — the rule_engine_grep one was already flagged in my earlier QA on the safe-word fix; an `// inherent-intentional:` annotation on `auto-bonus-evaluator.js:84` and `pool-evaluator.js:75` would clear the grep contract.
+
+### Recommendation
+
+**Ship into `dev`.** All 11 ACs PASS. Strict cutover honoured. Scope discipline clean. Transitional `slug || id` is a legitimate cross-PR coupling with correct lifetime; track its removal in #3c. The two pre-existing test failures are unrelated and shouldn't gate.
