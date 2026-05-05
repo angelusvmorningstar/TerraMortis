@@ -1,11 +1,9 @@
 /**
- * JSON Schema (Draft-07) for TM Territory and Territory Residency.
- * Collections: territories, territory_residency
+ * JSON Schema (Draft-07) for TM Territory.
+ * Collection: territories
  *
  * ADR-002 contract: _id is the canonical FK. The legacy `id` field is renamed
  * to `slug` and demoted to a non-required, non-unique human-readable label.
- * territory_residency upsert key is `territory_id` (ObjectId-string), not the
- * territory name.
  */
 
 export const territorySchema = {
@@ -25,19 +23,5 @@ export const territorySchema = {
     lieutenant_id:   { type: ['string', 'null'] },
     feeding_rights:  { type: 'array', items: { type: 'string' } },
     updated_at:      { type: 'string' },
-  },
-};
-
-export const territoryResidencySchema = {
-  $schema: 'http://json-schema.org/draft-07/schema#',
-  title: 'TM Territory Residency',
-  type: 'object',
-  required: ['territory_id', 'residents'],
-  additionalProperties: true,
-
-  properties: {
-    territory_id: { type: 'string', minLength: 1 },
-    residents:    { type: 'array', items: { type: 'string' } },
-    updated_at:   { type: 'string' },
   },
 };

@@ -44,7 +44,6 @@ MongoDB Atlas                        → tm_suite database      All persistent d
 | `questionnaire` | `/api/questionnaire` | requireAuth | |
 | `history` | `/api/history` | requireAuth | |
 | `session_logs` | `/api/session_logs` | requireAuth + ST | |
-| `territory_residency` | `/api/territory-residency` | requireAuth | |
 | `attendance` | `GET /api/attendance` | requireAuth | READ ONLY — no write endpoint |
 | `archive_documents` | `/api/archive_documents` | requireAuth | |
 | `tickets` | `/api/tickets` | requireAuth | |

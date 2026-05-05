@@ -69,10 +69,6 @@ let lastGameAttendees = [];
 // All active characters (for cast picker modal)
 let allCharacters = [];
 
-// Map of territory name → Set of resident character IDs (for feeding grid indicators)
-let residencyByTerritory = {};
-
-
 // Feeding method state (for feeding_method widget)
 let feedMethodId = '';
 let feedDiscName = '';
@@ -1335,15 +1331,6 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
-
-  // Load all territory residency lists (for feeding grid indicators)
-  try {
-    const allRes = await apiGet('/api/territory-residency');
-    residencyByTerritory = {};
-    for (const doc of allRes) {
-      residencyByTerritory[doc.territory] = new Set(doc.residents || []);
-    }
-  } catch { residencyByTerritory = {}; }
 
   // JDT-2: load invitations visible to this character on the current cycle.
   // Used by the joint authoring panel for live status badges (lead view) and
