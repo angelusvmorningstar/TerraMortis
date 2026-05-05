@@ -287,7 +287,8 @@ function renderPrestige() {
 
 function getFeedingRights(terrId) {
   if (_feedingEdits[terrId] !== undefined) return _feedingEdits[terrId];
-  const doc = terrDocs.find(d => d.id === terrId);
+  // terrId is a slug from the local TERRITORIES iteration; Mongo docs carry it as `slug`.
+  const doc = terrDocs.find(d => d.slug === terrId);
   return doc?.feeding_rights || [];
 }
 
@@ -314,7 +315,10 @@ function renderFeedingDropdown(terrId) {
   </select>`;
 }
 
-function _terrDoc(terrId) { return terrDocs.find(d => d.id === terrId); }
+function _terrDoc(terrId) {
+  // terrId is a slug from the local TERRITORIES iteration; Mongo docs carry it as `slug`.
+  return terrDocs.find(d => d.slug === terrId);
+}
 
 function renderTerritories() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
@@ -338,9 +342,10 @@ function renderTerritories() {
     h += `<div class="terr-ambience">${esc(dispAmbience)} (${modSign}${dispMod})</div>`;
     h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`;
     if (ltDisplay) h += `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>`;
-    // Regent confirmation chip for active cycle
+    // Regent confirmation chip for active cycle.
+    // Cycle confirmations carry territory_id as the territory's _id-string per ADR-002.
     if (_activeCycle && td?.regent_id) {
-      const conf = (_activeCycle.regent_confirmations || []).find(c => c.territory_id === t.id);
+      const conf = (_activeCycle.regent_confirmations || []).find(c => c.territory_id === String(td._id));
       if (conf) {
         const dateStr = new Date(conf.confirmed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
         h += `<div class="terr-confirm-chip terr-confirm-chip--confirmed">Confirmed ${dateStr}</div>`;
@@ -490,7 +495,7 @@ function wireEvents(container) {
         _terrExpanded.add(terrId);
         // Initialise edit state from stored doc if not already editing
         if (_feedingEdits[terrId] === undefined) {
-          const doc = terrDocs.find(d => d.id === terrId);
+          const doc = terrDocs.find(d => d.slug === terrId);
           _feedingEdits[terrId] = [...(doc?.feeding_rights || [])];
         }
       }
@@ -583,12 +588,13 @@ async function saveFeedingRights(terrId) {
   const status = document.getElementById('terr-feed-status-' + terrId);
   const rights = _feedingEdits[terrId] || [];
   try {
+    const doc = terrDocs.find(d => d.slug === terrId);
+    if (!doc?._id) throw new Error('Territory not loaded yet');
     const terrNameF = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
-    await apiPost('/api/territories', { id: terrId, name: terrNameF, feeding_rights: rights });
+    await apiPost('/api/territories', { _id: String(doc._id), name: terrNameF, feeding_rights: rights });
     // Update local cache
-    const idx = terrDocs.findIndex(d => d.id === terrId);
+    const idx = terrDocs.findIndex(d => d.slug === terrId);
     if (idx >= 0) terrDocs[idx] = { ...terrDocs[idx], feeding_rights: rights };
-    else terrDocs.push({ id: terrId, feeding_rights: rights });
     if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
@@ -647,13 +653,14 @@ async function saveTerrAmbience(terrId) {
   const ambienceMod = ambience ? (AMBIENCE_MODS[ambience] ?? 0) : 0;
 
   try {
+    const doc = terrDocs.find(d => d.slug === terrId);
+    if (!doc?._id) throw new Error('Territory not loaded yet');
     const terrNameA = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
-    await apiPost('/api/territories', { id: terrId, name: terrNameA, ambience, ambienceMod });
+    await apiPost('/api/territories', { _id: String(doc._id), name: terrNameA, ambience, ambienceMod });
     // Update local cache
-    const idx = terrDocs.findIndex(d => d.id === terrId);
+    const idx = terrDocs.findIndex(d => d.slug === terrId);
     const patch = { ambience, ambienceMod };
     if (idx >= 0) Object.assign(terrDocs[idx], patch);
-    else terrDocs.push({ id: terrId, ...patch });
 
     // Invalidate processing mode's territory cache so it refetches on next render
     invalidateCachedTerritories();
@@ -673,14 +680,15 @@ async function saveTerritory(terrId) {
   const lieutenantId = ltSel?.value || null;
 
   try {
+    const doc = terrDocs.find(d => d.slug === terrId);
+    if (!doc?._id) throw new Error('Territory not loaded yet');
     const terrName = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
-    await apiPost('/api/territories', { id: terrId, name: terrName, regent_id: regentId, lieutenant_id: lieutenantId });
+    await apiPost('/api/territories', { _id: String(doc._id), name: terrName, regent_id: regentId, lieutenant_id: lieutenantId });
 
     // Update local cache
-    const idx = terrDocs.findIndex(d => d.id === terrId);
-    const patch = { id: terrId, regent_id: regentId, lieutenant_id: lieutenantId };
+    const idx = terrDocs.findIndex(d => d.slug === terrId);
+    const patch = { regent_id: regentId, lieutenant_id: lieutenantId };
     if (idx >= 0) Object.assign(terrDocs[idx], patch);
-    else terrDocs.push(patch);
 
     if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
     // Refresh card header to show updated name
