@@ -461,3 +461,12 @@ Cannot run from this terminal. The 7-step plan in story Test Plan §4 should be 
 **FIX-REQUIRED** — one-line change at `feeding-tab.js:457`: `d.id` → `d.slug`. Then PASS.
 
 The rest of the refactor is solid: post-flight greps clean, server tests green, scope discipline intact, judgement calls sound. Concern A is a single oversight in a site that grepped on a pre-`#3c` field name pattern and slipped through. Once corrected, AC #4 and AC #7 both close.
+
+### Re-verify (after 6c51524)
+
+Concern A closed. `feeding-tab.js:458` predicate now reads `liveTerrDocs.find(d => d.slug === t.id)` — Mongo `slug` against TERRITORY_DATA `id` (both being the same slug string), apples-to-apples. Diff is exactly one line at exactly the cited site, plus a one-line comment update. Final post-flight grep `\.find(t => t\.id ===|territories\.find` against Mongo-territory files returns zero (only the out-of-scope `suite/territory.js` local-state matches remain).
+
+- **AC #4** (feeding-tab Mongo join via `t.slug`) — PASS.
+- **AC #7** (zero `.id` matches on Mongo-territory files) — PASS.
+
+**Updated gate: PASS.** All 9 ACs closed. Branch ready for PR into `dev`.
