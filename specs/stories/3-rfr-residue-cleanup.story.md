@@ -375,3 +375,28 @@ All four: `id='secondcity'`, `name='RFR Test'`, `ambience='Tended'`, `lieutenant
 ### Recommendation
 
 **AUTHORISE-APPLY.** Standing by for SM to capture the user's explicit go-ahead and run `--apply`. Will re-verify the post-state (count=5, all unique IDs, backup file present) on your reply.
+
+### Post-apply re-verify (after 229d717)
+
+Independent audit run from this terminal against the live DB:
+
+```
+territories.count = 5
+id cardinality:
+  academy x 1
+  dockyards x 1
+  harbour x 1
+  northshore x 1
+  secondcity x 1
+all unique: true
+residue _ids still present: 0
+secondcity records: 1 [ 'The Second City' ]
+```
+
+- **AC #5** (post-cleanup audit: count=5, all unique IDs) — PASS. Independently verified.
+- **AC #3** (idempotent re-run) — PASS. SM's second `--apply` returned `already-clean: true   deleted: 0`.
+- **AC #2** (apply writes backup then deleteMany) — PASS. Backup present locally at `server/scripts/_backups/rfr-territory-residue-2026-05-05T02-46-45-155Z.json`.
+- **Docstring update at 229d717** — PASS. Date `2026-05-05`, source commit `95a7ad1`, deleted count, backup path, post-state, idempotency all recorded.
+- The remaining `secondcity` record is the legitimate `'The Second City'` — bug surface (`territories.find(t => t.id === 'secondcity')` ambiguity) eliminated.
+
+**Final gate: PASS.** All ACs closed. Branch ready for PR.
