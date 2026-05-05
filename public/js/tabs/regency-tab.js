@@ -10,7 +10,7 @@
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
-import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
+import { AMBIENCE_CAP } from './downtime-data.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
@@ -110,17 +110,16 @@ async function _computeLocked() {
 }
 
 function getRegentCap() {
-  const ri = _regInfo();
-  const terr = ri ? TERRITORY_DATA.find(t => t.name === ri.territory) : null;
-  return terr ? (AMBIENCE_CAP[terr.ambience] || 5) : 5;
+  const td = _terrDoc();
+  return td ? (AMBIENCE_CAP[td.ambience] || 5) : 5;
 }
 
 function render(container) {
   const cap = getRegentCap();
   const ri = _regInfo();
   const terrName = ri?.territory || '';
-  const terr = TERRITORY_DATA.find(t => t.name === terrName);
-  const ambience = terr ? terr.ambience : 'Unknown';
+  const td = _terrDoc();
+  const ambience = td?.ambience || 'Unknown';
   const regentName = displayName(currentChar);
   const regentId = String(currentChar._id);
   const rawFeedingRights = _terrDoc()?.feeding_rights || [];
