@@ -353,3 +353,110 @@ The 7-step browser smoke (admin city, admin downtime, regency, feeding, suite tr
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #3d on `issue-3d-client-refactor`. Single semantic commit (7 client files + this Dev Agent Record). Server tests 56/56. Pre/post grep zero on Mongo `t.id ===` lookups. Browser smoke DEFERRED to SM/user.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** e0879b0
+**Method:** Static review of all 7 changed files; grep cross-checks; spot-check of Patterns A/E/F/H against the diff; independent server test run; validation of the no-change claims for `feeding-tab.js`, `suite/tracker-feed.js`, `suite/territory.js`.
+
+### Gate decision: **CONCERNS** — fix one regression in `feeding-tab.js:457`, then PASS.
+
+The bulk of the refactor is solid: 7 of 9 ACs PASS, post-flight greps clean, server tests green, scope discipline intact. One real regression slipped through in a site that wasn't on the pre-flight grep radar but IS a Mongo→TERRITORY_DATA join.
+
+### Grep cross-check — confirmed zero on Mongo lookups
+
+```
+$ grep -rn "territor.*\.find.*t\.id ===\|territor.*\.find.*\.id ==" public/js/
+public/js/suite/territory.js:207  (local TERRS, not Mongo — out of scope)
+public/js/suite/territory.js:362  (local TERRS, not Mongo — out of scope)
+
+$ grep -rn "apiPost.*territories.*\bid:" public/js/
+(zero)
+
+$ grep -rn "String(t\.id || t\._id)\|String(t\._id || t\.id)" public/js/
+(zero — defensive coalesces collapsed)
+```
+
+`suite/territory.js:207, :362` confirmed out of scope: the file declares a hardcoded local `TERRS` array at `:12-18` with hand-coded slugs as `id`; `state.territories.find(t => t.id === m.tid)` matches `m.tid` (a UI-passed handle) against that local-state array, never against Mongo. ✓ Out of scope per ADR-002.
+
+### Pattern spot-check — all clean
+
+| Pattern | Site | Verdict | Evidence |
+|---|---|---|---|
+| A — `String(t._id) === String(x)` | `regency-tab.js:45, 291` | PASS | Both literal `_territories.find(t => String(t._id) === String(ri.territoryId))`. |
+| E — insert (no `id`) vs update (pass `_id`) | `data-portability.js:520-525`, `data-portability-import.js:75-83`, `city-views.js:594/659/686`, `downtime-views.js:10052/10068/10071` | PASS | Update path passes `_id` in body or URL; insert path strips `id`, carries `slug` as label. |
+| F — 24-char hex in URLs | `regency-tab.js:283`, `downtime-views.js:10068`, `data-portability.js:520` | PASS | All URL `:id` slots receive `String(t._id)` or `id` (already `_id`-string). Slug strings would 400 at the route. |
+| H — `findRegentTerritory.territoryId` is `_id`-string | `helpers.js:166` | PASS | Was `t.id` (slug); now `String(t._id)`. New `slug` field added for slug-variant matching needs (Q4 territory). |
+
+### Validation of the no-change claims
+
+- **`feeding-tab.js:330`** — `TERRITORY_DATA.find(td => td.id === k || k.includes(td.id))`. `k` is a submission `feeding_territories` key (slug-variant). TERRITORY_DATA-only lookup. **No Mongo touch.** ✓
+- **`feeding-tab.js:357`** — `TERRITORY_DATA.find(td => td.id === projTerr)`. `projTerr` is a form-stored slug. TERRITORY_DATA-only. ✓
+- **`feeding-tab.js:469`** — `effectiveTerrs.find(t => t.id === tid || tid.startsWith(t.id))`. `effectiveTerrs` is derived from `TERRITORY_DATA.map(...)` — same shape. TERRITORY_DATA-only. ✓
+- **`feeding-tab.js:457`** — `liveTerrDocs.find(d => d.id === t.id)` where `liveTerrDocs = await apiGet('/api/territories')`. **This IS a Mongo lookup.** See Concern A below.
+- **`tracker-feed.js:38, 95`** — `TERRITORY_DATA.forEach` populates a select; `TERRITORY_DATA.find(t => t.id === terrId)` reads back from the select value. TERRITORY_DATA → form → TERRITORY_DATA round-trip. No Mongo touch. ✓
+- **`downtime-views.js:6721, 9560, 9653`** — three hybrid `t.slug === tid || t.id === tid` sites. Each has an inline comment explaining cross-source matching: "Mongo docs key on `slug`; TERRITORY_DATA still keys on `id` — match either." Correct deferral; the `t.id === tid` half collapses once `#3e` restructures TERRITORY_DATA.
+- **`downtime-views.js:5908, 9787-9920`** — TAAG matrix and proc-feed pills operate on slug-keyed internal accumulators (mResidents, _PROC_FEED_PILL_STATE, etc.); no Mongo FK comparison. ✓
+
+### Concern A — `feeding-tab.js:457` regression (FIX-REQUIRED, one line)
+
+```js
+// public/js/tabs/feeding-tab.js:455-458
+const effectiveTerrs = TERRITORY_DATA.map(t => {
+  const live = liveTerrDocs.find(d => d.id === t.id);
+  return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
+});
+```
+
+`liveTerrDocs` is the response of `apiGet('/api/territories')` (`:82`). Post-`#3c` those Mongo docs have `slug` (not `id`). The `d.id === t.id` predicate never matches; `live` is always falsy; the live-overrides-hardcoded merge is silently dead.
+
+**Player-facing impact:** the vitae tally (`computeVitateTally`, `:440`) reads `effectiveTerrs[i].ambienceMod`. ST-adjusted ambienceMod values written via `city-views.js saveTerrAmbience` now never propagate to the player's feeding tab. Default TERRITORY_DATA hardcoded ambienceMod is always used.
+
+**Fix (one line):** `const live = liveTerrDocs.find(d => d.slug === t.id);` (Mongo `slug` matches TERRITORY_DATA `id`, both being the same slug string).
+
+If preferred for symmetry with the three hybrids in `downtime-views.js`: `(d.slug || d.id) === t.id` — but post-`#3c` no Mongo doc has `id` so the hybrid is unnecessary. Plain `d.slug === t.id` is the cleaner choice.
+
+This is the same shape as the other Mongo-side rewrites Ptah did (e.g. `city-views.js:295` was `terrDocs.find(d => d.id === terrId)` → `terrDocs.find(d => d.slug === terrId)`); this site was missed.
+
+### Independent server test run
+
+`cd server && npx vitest run tests/api-territories.test.js tests/api-territories-regent-write.test.js tests/api-players-sessions-residency.test.js tests/api-downtime-regent-gate.test.js`:
+
+```
+Test Files  4 passed (4)
+Tests       56 passed (56)
+```
+
+### View on Ptah's two judgement calls
+
+1. **`findRegentTerritory` adding a `slug` field to its return shape.** Sound. The regency-tab lock check needs slug-variant matching against submission keys (Q4 territory); deriving slug locally from `_territories` find would force every consumer to re-query. Adding the field at the source keeps the API surface coherent. Spec didn't require it; cost is one optional field, no breakage. Good call.
+
+2. **`city-views.js` keeps `data-terr-id` as slug.** Sound. The local `TERRITORIES` array is hardcoded slug-keyed display data (5 entries). `terrId` flows around as a slug throughout the file's UI logic. All save handlers translate at the API boundary via `terrDocs.find(d => d.slug === terrId)` and POST with `_id`. The alternative — refactor every internal handle to `_id` — would touch dozens more sites without semantic improvement. Internally consistent and minimal. Good call.
+
+### Per-AC verdict
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | City Territories tab renders + save regent works | PASS-by-static | Pattern A + save handlers verified; browser smoke deferred. |
+| 2 | Territory pulse rows render correctly via `_id`-keyed cycle map | PASS-by-static | `_terrOidForSlug` at `:2066` resolves; `pulseMap[oid]` reads at `:2130`. |
+| 3 | Regency tab renders + feeding rights save | PASS-by-static | Pattern A verified at `:45, :291`; lock check uses `ri.slug`; save URL uses `ri.territoryId` (now `_id`). |
+| 4 | Feeding-tab `TERRITORY_DATA ↔ Mongo` joins resolve via `t.slug` | **CONCERNS** | `feeding-tab.js:457` not transformed (Concern A). Three other sites in the file are TERRITORY_DATA-only and unaffected. |
+| 5 | tracker-feed ambience computed correctly | PASS | tracker-feed.js does TERRITORY_DATA → form → TERRITORY_DATA only; no Mongo touch needed. |
+| 6 | `findRegentTerritory` cache value is 24-char hex | PASS | `helpers.js:166` returns `String(t._id)`. |
+| 7 | Zero `.id` matches on Mongo-territory files | **CONCERNS** | One match remains at `feeding-tab.js:457` (Concern A). Otherwise zero. |
+| 8 | Four affected server suites pass (56/56) | PASS | Verified independently. |
+| 9 | Out-of-scope discipline holds | PASS | `suite/territory.js`, `_TERR_ID_NAME`, route fallback, `TERRITORY_SLUG_MAP`, dead-client-block, `TERRITORY_DATA` shape — all unchanged. |
+
+### Browser smoke: DEFERRED
+
+Cannot run from this terminal. The 7-step plan in story Test Plan §4 should be executed by SM/user before merge. Concern A would surface specifically on Test Plan step 4 (feeding-tab vitae numbers) if an ST has set a non-default ambienceMod on any territory.
+
+### Recommendation
+
+**FIX-REQUIRED** — one-line change at `feeding-tab.js:457`: `d.id` → `d.slug`. Then PASS.
+
+The rest of the refactor is solid: post-flight greps clean, server tests green, scope discipline intact, judgement calls sound. Concern A is a single oversight in a site that grepped on a pre-`#3c` field name pattern and slipped through. Once corrected, AC #4 and AC #7 both close.
