@@ -142,26 +142,29 @@ export function dropdownName(c) {
 /**
  * Find a character's regent territory from the territories array.
  * Returns { territory, territoryId, slug, lieutenantId, ambience } or null.
- * Caches result on c._regentTerritory (ephemeral, not persisted).
+ *
+ * Pure function — recomputes on every call. Per issue #13 Surface 2 (audit
+ * 2026-05-05), the previous c._regentTerritory cache could go stale when a
+ * regent or ambience changed mid-session because no bust-on-write hook
+ * existed. Recomputing on every call is O(N) over a 5-element territories
+ * array; the caching layer was an unnecessary optimisation that introduced
+ * a class of display-stale bugs.
  */
 export function findRegentTerritory(territories, c) {
   if (!territories || !c) return null;
-  if (c._regentTerritory !== undefined) return c._regentTerritory;
   const cid = String(c._id);
   const t = territories.find(t => t.regent_id === cid);
-  if (!t) { c._regentTerritory = null; return null; }
+  if (!t) return null;
   // territoryId is the canonical FK (Mongo _id, stringified) per ADR-002.
   // slug is exposed alongside for callers that need to match against legacy
   // slug-variant strings (e.g. submissions feeding_territories keys, Q4).
-  const result = {
+  return {
     territory: t.name || t.slug,
     territoryId: String(t._id),
     slug: t.slug || null,
     lieutenantId: t.lieutenant_id || null,
     ambience: t.ambience || null,
   };
-  c._regentTerritory = result;
-  return result;
 }
 
 export function esc(s) {
