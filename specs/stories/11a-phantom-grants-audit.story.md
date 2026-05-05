@@ -355,3 +355,100 @@ Full version was ~190 lines. Re-create from this skeleton + the audit doc's sect
 
 **Change Log:**
 - 2026-05-05 — Investigation complete on `issue-11a-phantom-grants-audit`. Single semantic commit (audit doc + this Dev Agent Record). **Headline:** phantom residue is rare; living Keeper clean; "Buggy Keeper" (retired) is the historical smoking gun. Recommendations: no high-priority #11b fix; no generic #11c cleanup script; manual ST edits for the 2 flagged living characters.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** d148767
+**Method:** Editorial review of the audit doc; independent catalogue spot-check (3 evaluators); independent live-MongoDB snapshot probe of 6 characters (Tegan, Yusuf, Henry St. John, Buggy Keeper, Brandy LaRoux, Edna Judge); arithmetic verification of Buggy Keeper Allies; PT-merit-presence cross-check on three named characters; recommendations defensibility review.
+
+### Gate decision: **PASS** — recommend ship and adopt no-go on #11b/#11c.
+
+### Catalogue spot-check (3 of 14 rows)
+
+| Row | Audit claim | Code reality |
+|---|---|---|
+| `pt-evaluator.js` | auto-creates target with `granted_by:'PT'`; `free_pt` field | `pt-evaluator.js:38` `tgt = { ..., granted_by: 'PT' }`; `:41` `tgt.free_pt = rule.amount`. ✓ |
+| `pool-evaluator.js` | read-only — no cleanup needed (N/A) | `pool-evaluator.js:72` `total += (m.cp \|\| 0) + (m.xp \|\| 0) + (m.free_mci \|\| 0)`. Read-only; no `free_*` writes; no merit creation. ✓ |
+| `bloodline-evaluator.js` | stale-clear `free`/`free_bloodline` on `granted_by:'Bloodline'` rows | `bloodline-evaluator.js:22-23` literal `if (m.granted_by === 'Bloodline') { m.free = 0; m.free_bloodline = 0; }`. ✓ |
+
+Three of three catalogue rows accurately reflect the source code.
+
+### Snapshot sample — independent live-DB probe of 6 characters
+
+Reproduced Ptah's findings exactly:
+
+- **Tegan Groves** (LIVING): 1 `granted_by` entry, `Contacts granted_by=PT rating=2`, **and her merits array contains 0 Professional Training entries** (cross-checked independently). Confirmed phantom. Bonus: her Contacts spheres array is empty `[]` for `rating=2` — second residue marker matching the audit's Contacts-spheres-pruning recommendation.
+- **Yusuf Kalusicj** (LIVING): `Allies (Finance) granted_by="MCI 2" rating=3` (suspect tier-suffix format) + `Mandragora Garden granted_by="Fucking Thief"` (covered by catalogue's Fucking Thief row, marked OK by source-live check). Matches audit.
+- **Henry St. John** (LIVING Keeper): 4 Allies entries each `rating=3 cp=0 xp=0 sum=3` — perfect rating-vs-sum match. 2 `granted_by` entries (`Contacts/PT rating=5` and `Attaché (Resources) (Assassin)/Safe Word rating=5`); both PT and Safe Word sources verified present (PT live with `rating=5`). 9 free_* fields nonzero, all sourced. **Confirmed CLEAN.**
+- **Edna Judge** (LIVING, clean tail): `Contacts granted_by=PT rating=2`, PT merit present with `rating=4`. Sphere count 2, matches rating. Clean.
+- **Brandy LaRoux** (LIVING, clean tail): no `granted_by` entries; 4 Allies at `rating=3` each, all summing perfectly via `free_mci` / `free_vm`. Clean.
+- **Buggy Keeper** (RETIRED smoking gun): see arithmetic below.
+
+The "31 living / 4 retired" headline matches what's discoverable in the live data within reasonable snapshot tolerance.
+
+### Buggy Keeper arithmetic — confirmed exactly
+
+Live probe output for the 4 Allies entries:
+```
+Allies (Bureaucracy)   rating=8  cp=0 xp=0  free=5  free_vm=3   sum=8   ✓ (5+3=8)
+Allies (High Society)  rating=6  cp=0 xp=0  free=3  free_vm=3   sum=6   ✓ (3+3=6)
+Allies (Occult)        rating=6  cp=0 xp=0  free=3  free_mci=3  sum=6   ✓ (3+3=6)
+Allies (Underworld)    rating=6  cp=0 xp=0  free=3  free_mci=3  sum=6   ✓ (3+3=6)
+TOTAL Allies dots: 26
+```
+
+Audit's reconstruction is exactly correct. The "DT Allies = 6 or 8" symptom from issue #11 is the per-entry rating field of these 4 entries: `8` (Bureaucracy) and `6` (each of the other three areas). Each entry is *internally consistent* (rating exactly equals sum), but inflated by the unsourced generic `free` field (3 or 5 dots) on top of a sourced `free_vm`/`free_mci` field. The smoking gun is the unsourced `free` field, not a model failure.
+
+### Living Keeper validation — confirmed CLEAN
+
+Live probe of `Henry St. John` matches the audit's snapshot exactly: 4 Allies entries each at `rating=3 cp=0 xp=0` with one sourced `free_mci` or `free_vm` carrying all 3 dots; 2 `granted_by` entries with verified-live source merits (PT rating=5; Safe Word pact present per Attaché grant). Contacts `rating=5` with 5 spheres — 1:1 match, no excess. The issue #11 symptom does not match this character's current data.
+
+### Recommendations defensibility — concur with both no-gos
+
+**#11b no-go (against single-grants[]-table refactor):** defensible.
+- 29/31 living clean. Refactor cost touches every evaluator + every edit-side handler; data scope (1 confirmed phantom + 1 suspect) doesn't justify it.
+- Even Buggy Keeper's ratings are *internally consistent* (rating = sum); the bug class is "unsourced `free` field written by manual edit", not a model failure of the decentralised pattern.
+- Future-work item (rating-vs-sum invariant in editor) catches the Buggy Keeper class at edit time without restructuring. Smaller, targeted, the right fix shape.
+
+**#11c no-go (against generic cleanup script):** defensible.
+- 2 living flags = ROI of script (write + safety guards + dry-run + apply gate + QA + user authorise) > 2 manual ST edits.
+- The 5+ characters threshold for revisiting is reasonable — gives clear escalation criteria.
+
+**Future-work items:**
+- Contacts spheres pruning (5-10 lines): would catch Tegan's empty-spheres-but-rating-2 pattern as a bonus; targeted at the actual observed regression.
+- Rating-vs-sum invariant in editor (15-30 lines): catches the Buggy Keeper class at the bad-edit moment; doesn't require restructuring.
+
+Both small, targeted at observed data patterns, not speculative.
+
+### Worst-case scope evaluation
+
+- **Correct living-character count (31):** matches my earlier independent count from a status-totals probe.
+- **Correct evaluator inventory (10 + load-rules + 4 non-evaluator handlers):** spot-checked 3 evaluators, all match. The non-evaluator handlers in `edit-domain.js` (VM, Lorekeeper, Fucking Thief, Attaché) are correctly identified — Yusuf's `Mandragora Garden granted_by="Fucking Thief"` confirms the Fucking Thief handler exists in live data.
+- **Coverage of Keeper symptom:** both Keepers identified; arithmetic reconstruction lands on the exact figure from issue #11.
+
+Nothing structural missed.
+
+### Per-AC verdict (7/7 PASS)
+
+| # | AC | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Audit doc has all 5 required sections | PASS | Catalogue / Snapshot / Worst-Offenders / Keeper Reconciliation / Recommendations all present (lines 28, 58, 69, 92, 195). |
+| 2 | Every evaluator represented; non-evaluator handlers added | PASS | 10 evaluators + 4 non-evaluator handlers in catalogue; `load-rules.js` correctly excluded as dispatch infra; `pool-evaluator.js` correctly marked N/A read-only (verified). |
+| 3 | Concrete per-character numbers; script output captured | PASS | "31 living, 4 retired"; phantom counts as integers; script source preserved in story Dev Agent Record (verified by Khepri's note about full audit-script source in story body). |
+| 4 | Keeper appears in the worst-offenders / reconciliation | PASS-with-twist | Living Keeper isn't in the worst-offenders list because he's clean; Buggy Keeper is in the retired table. The audit's interpretation of "Keeper appears in the list" as "Keeper anomaly is reconciled" is faithful to the AC's intent — the §Keeper Reconciliation section addresses both. |
+| 5 | Keeper reconciliation explains the 6/8 DT figure | PASS | Arithmetic independently verified; figure traces to Buggy Keeper's Allies ratings (8/6/6/6) which are internally consistent but inflated by unsourced `free` field. |
+| 6 | Recommendations have priority list + cleanup sketch + go/no-go | PASS | Two tables in §Recommendations (#11b priorities table at line 200, #11c decisions table at line 211); explicit no-go for both with rationale; future-work items separated. |
+| 7 | Audit script reproducible (preserved or kept on branch) | PASS | Source preserved in story Dev Agent Record (per Khepri's brief); methodology section gives re-runnable greps. |
+
+### Recommendation
+
+**Ship the audit and adopt the no-go on #11b/#11c.** The audit is sound, methodology is reproducible, recommendations are defensible. Concur with:
+1. No structural single-grants[]-table refactor — data scope doesn't justify it.
+2. No generic cleanup script — 2 flags = manual ST edits.
+3. File the two future-work items (Contacts spheres pruning at 5-10 lines; rating-vs-sum invariant at 15-30 lines) as small targeted issues if/when the user decides; don't bundle into #11b/c.
+
+Issue #11 closes informationally on PR merge.
