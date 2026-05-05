@@ -256,6 +256,14 @@ Two things to watch:
 
 **Change Log:**
 - 2026-05-05 — Initial draft committed on `issue-3-territory-fk-adr` (single commit per SM standing instruction). ADR rev 1, status `draft`. Awaiting Maat editorial review and user sign-off on Q1–Q7.
+- 2026-05-05 — Rev-2 commit. Addresses Maat editorial QA (gate CONCERNS at 4b9c359):
+  - **Concern A** (FIX-REQUIRED): rewrote Q5 paragraph. Corrected the false claim that no `/api/territory-residency` consumer exists; documented the actual consumer at `public/js/tabs/downtime-form.js:1312` and the dead-code nature of `residencyByTerritory` (set, never read). Both retain/migrate and drop paths now documented cleanly.
+  - **Concern B**: reconciled client-lookup site count to **31** (was inconsistent: text said 29, table summed to 31, narrow grep returned 19). Added explanation of why the headline grep undercounts (defensive `String(t.id || t._id)` form at 3 sites + slug-keyed object reads + dataset attributes).
+  - **Concern C**: em-dash sweep. Count went from 74 to **0** (under ADR-001's 6, well within CLAUDE.md style guide). Bulk replace ` — ` → ` - ` (hyphen-minus, per CLAUDE.md "Use an en-dash (-) or rephrase").
+  - **Concern D**: softened Step 3 rollback wording to manual `mongorestore` from the backup file. No paired rollback script is scoped into #3c.
+  - Recorded user resolutions on **Q1-Q7**. Q1, Q2, Q3, Q4, Q6, Q7 align with Ptah recommendations. **Q5 diverges** - user called MIGRATE (parked-but-revivable) where Ptah recommended DROP. Migration script in #3c renames `territory_residency.territory` to `territory_id`; collection itself stays. Dead client block at `downtime-form.js:73, 1311-1317` flagged as needing attention but **out of scope for #3c** - belongs to a separate follow-on cleanup story.
+  - **Status promoted** from `draft` to `approved`. Revision bumped to 2 in the revision-history table.
+  - This is the final-form ADR; pending Maat re-verification, the next step is PR to `dev`.
 
 ## Note for Ma'at
 
