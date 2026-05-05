@@ -7,8 +7,41 @@ import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { clanIcon, covIcon } from '../data/helpers.js';
 
+// ── Module-local helpers ───────────────────────────────────────────────────────
+
+function bpIcon(c) {
+  const bp = c.blood_potency ?? 0;
+  const glyph = bp >= 2 ? '<span class="city-stat-glyph">✕</span>' : '';
+  return `<span class="city-stat-icon"><img src="/assets/pdf/icons/bp-icon.png" alt="" class="city-stat-img">${glyph}</span>`;
+}
+
+function humanityIcon(c) {
+  const hum = c.humanity ?? 5;
+  let glyph = '';
+  if (hum >= 8) glyph = '<span class="city-stat-glyph">^</span>';
+  else if (hum < 4) glyph = '<span class="city-stat-glyph">v</span>';
+  return `<span class="city-stat-icon"><img src="/assets/pdf/icons/humanity-icon.png" alt="" class="city-stat-img">${glyph}</span>`;
+}
+
+function charRow(c, badge) {
+  const b = badge !== undefined ? badge : c.court_category;
+  let h = '<div class="city-char-row">';
+  h += '<div class="city-char-top">';
+  h += `<span class="city-char-name">${esc(displayName(c))}`;
+  if (b) h += ` <span class="city-char-badge">${esc(b)}</span>`;
+  h += '</span>';
+  h += '<div class="city-char-right">';
+  if (c.clan) h += `<span class="city-char-clan">${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span></span>`;
+  h += bpIcon(c) + humanityIcon(c);
+  h += '</div>';
+  h += '</div>';
+  if (c.player) h += `<div class="city-char-player">${esc(redactPlayer(c.player))}</div>`;
+  h += '</div>';
+  return h;
+}
+
 export async function renderCityTab(el, territories = []) {
-  el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+  el.innerHTML = '<p class="placeholder-msg">Loading…</p>';
 
   let chars = [];
   try {
@@ -35,7 +68,7 @@ export async function renderCityTab(el, territories = []) {
   }
   const sortedCovs = [...covGroups.keys()].sort((a, b) => a.localeCompare(b));
 
-  const regentTerrs = (territories || []).filter(t => t.regent_id)
+  const allTerrs = (territories || [])
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
 
   let h = '<div class="city-col">';
@@ -51,18 +84,35 @@ export async function renderCityTab(el, territories = []) {
   h += `<summary class="city-section-hd">Court <span class="city-section-count">${courtHolders.length}</span></summary>`;
   h += `<div class="city-section-body">`;
   if (courtHolders.length) {
-    h += '<div class="city-office-list">';
-    for (const c of courtHolders) {
-      h += '<div class="city-office-row">';
-      h += `<span class="city-office-name">${esc(displayName(c))}</span>`;
-      h += `<span class="city-office-position">${esc(c.court_category)}</span>`;
-      h += '</div>';
-    }
+    h += '<div class="city-char-list">';
+    for (const c of courtHolders) h += charRow(c);
     h += '</div>';
   } else {
     h += '<p class="placeholder-msg city-placeholder">No court positions recorded yet.</p>';
   }
   h += '</div></details>';
+
+  // ── Regencies (collapsible) ────────────────────────────────────────────────
+  if (allTerrs.length) {
+    h += `<details class="city-section">`;
+    h += `<summary class="city-section-hd">Regencies <span class="city-section-count">${allTerrs.length}</span></summary>`;
+    h += `<div class="city-section-body">`;
+    h += '<div class="city-char-list">';
+    for (const tr of allTerrs) {
+      const rc = chars.find(ch => String(ch._id) === tr.regent_id);
+      if (rc) {
+        h += charRow(rc, tr.name || tr.id);
+      } else {
+        h += '<div class="city-char-row">';
+        h += '<div class="city-char-top">';
+        h += `<span class="city-char-name">(vacant) <span class="city-char-badge">${esc(tr.name || tr.id)}</span></span>`;
+        h += '</div>';
+        h += '</div>';
+      }
+    }
+    h += '</div>';
+    h += '</div></details>';
+  }
 
   // ── Who's Who (collapsible) ────────────────────────────────────────────────
   h += `<details class="city-section">`;
@@ -76,37 +126,12 @@ export async function renderCityTab(el, territories = []) {
     h += '<div class="city-cov-group">';
     h += `<div class="city-cov-heading">${covIcon(cov, 14)} <span>${esc(cov)}</span></div>`;
     h += '<div class="city-char-list">';
-    for (const c of sorted) {
-      h += '<div class="city-char-row">';
-      h += '<div class="city-char-top">';
-      h += `<span class="city-char-name">${esc(displayName(c))}`;
-      if (c.court_category) h += ` <span class="city-char-badge">${esc(c.court_category)}</span>`;
-      h += '</span>';
-      if (c.clan) h += `<span class="city-char-clan">${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span></span>`;
-      h += '</div>';
-      if (c.player) h += `<div class="city-char-player">${esc(redactPlayer(c.player))}</div>`;
-      h += '</div>';
-    }
+    for (const c of sorted) h += charRow(c);
     h += '</div>';
     h += '</div>';
   }
 
   h += '</div></details>';
-
-  // ── Regents (collapsible) ──────────────────────────────────────────────────
-  if (regentTerrs.length) {
-    h += `<details class="city-section">`;
-    h += `<summary class="city-section-hd">Regents <span class="city-section-count">${regentTerrs.length}</span></summary>`;
-    h += `<div class="city-section-body">`;
-    h += '<div class="city-regent-list">';
-    for (const tr of regentTerrs) {
-      const rc = chars.find(ch => String(ch._id) === tr.regent_id);
-      const name = rc ? displayName(rc) : '(vacant)';
-      h += `<div class="city-regent-row"><span class="city-regent-terr">${esc(tr.name || tr.id)}</span><span class="city-regent-name">${esc(name)}</span></div>`;
-    }
-    h += '</div>';
-    h += '</div></details>';
-  }
 
   h += '</div>'; // city-col
   el.innerHTML = h;
