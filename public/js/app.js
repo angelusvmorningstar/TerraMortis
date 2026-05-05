@@ -46,7 +46,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
-import { devotions, rites } from './data/accessors.js';
+import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
@@ -532,10 +532,14 @@ async function loadAllData() {
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
 
-  // 3. Load territories (used by regency condition + renderRegencyTab)
+  // 3. Load territories (used by regency condition + renderRegencyTab).
+  // setStatusTerritories keeps the City Status calc's recompute path in sync
+  // (issue #13 Surface 2 — no per-character cache; territories store is
+  // module-level in accessors.js).
   try {
     suiteState.territories = await apiGet('/api/territories');
-  } catch { suiteState.territories = []; }
+    setStatusTerritories(suiteState.territories);
+  } catch { suiteState.territories = []; setStatusTerritories([]); }
 
   // 4. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);

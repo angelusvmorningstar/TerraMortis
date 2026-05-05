@@ -6,7 +6,7 @@ import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, isInClanDisc, riteCost } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
@@ -1735,17 +1735,29 @@ export function renderSheet(c, target = null) {
   // Right panel
   h += '<div class="sh-hdr-right">';
   const tOpts = COURT_TITLES.map(t => '<option value="' + esc(t) + '"' + (c.court_category === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
-  // Regent territory is derived from territories collection, not stored on character
-  const _regTerrName = c._regentTerritory?.territory || null;
+  // Regent territory is derived from territories collection, not stored on character.
+  // Resolved fresh per-render via the accessors module-level store
+  // (issue #13 Surface 2 — drop the c._regentTerritory cache).
+  const _regTerr = getRegentTerritoryFor(c);
+  const _regTerrName = _regTerr?.territory || null;
   const _courtLabel = c.court_category ? (c.court_title ? c.court_category + ' \u2014 ' + c.court_title : c.court_category) : '\u2014';
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
   if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_category\',this.value||null)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   else { h += '<div class="sh-faction-label">' + esc(_courtLabel) + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
-  const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), regentBonus = regentAmienceBonus(c), cityTotal = cityBase + titleBonus + regentBonus;
+  const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), regentBonus = regentAmienceBonus(c), cityTotal = Math.min(cityBase + titleBonus + regentBonus, 10);
   h += '<div class="sh-faction-sub">Title</div>'
     + _statusDots(cityBase, titleBonus + regentBonus, 10)
-    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '')
-    + '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
+    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '');
+  // Derived notes mirror the Attaché pattern at sheet.js:830 — surface the
+  // bonus origin so the user can see *why* their City Status is what it is.
+  if (titleBonus > 0) {
+    h += '<div class="derived-note">Title: +' + titleBonus + ' dot' + (titleBonus !== 1 ? 's' : '') + ' (' + esc(c.court_category || '') + ')</div>';
+  }
+  if (regentBonus > 0) {
+    const _regAmb = _regTerr?.ambience || '';
+    h += '<div class="derived-note">Regency: +' + regentBonus + ' dot' + (regentBonus !== 1 ? 's' : '') + ' from ' + esc(_regTerrName || '') + ' (' + esc(_regAmb) + ')</div>';
+  }
+  h += '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
   // covRow: dots + arrows live in the text column; pip is just diamond + number + label
   const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus) => {
     h += '<div class="sh-hdr-row">'

@@ -3,6 +3,7 @@
 import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
+import { setStatusTerritories } from './data/accessors.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
@@ -214,6 +215,8 @@ async function loadCharacters() {
   }
 
   try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+  // Sync City Status calc recompute path (issue #13 Surface 2).
+  setStatusTerritories(_territories);
   renderCityTab(document.getElementById('tab-city'));
 
   // Primer and Tickets tabs — render once, independent of active character

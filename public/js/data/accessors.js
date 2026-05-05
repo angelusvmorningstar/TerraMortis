@@ -2,7 +2,7 @@
 
 import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
 import { getRulesCache } from '../editor/rule_engine/load-rules.js';
-import { hasAoE } from './helpers.js';
+import { hasAoE, findRegentTerritory } from './helpers.js';
 export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
@@ -300,10 +300,34 @@ export function titleStatusBonus(c) {
 
 const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
 
-export function regentAmienceBonus(c) {
-  return REGENT_AMBIENCE_BONUS[c._regentTerritory?.ambience] || 0;
+// Module-level territories store, set by load sites via setStatusTerritories
+// (or implicitly kept in sync with the apps' own caches). Used by the City
+// Status calc path to recompute the regent ambience bonus from fresh data
+// every call (per issue #13 Surface 2: drop the c._regentTerritory cache).
+let _currentTerritories = [];
+
+/** Update the module-level territories store. Call this whenever the app's
+ *  own territories cache is loaded or mutated (load, save, ambience confirm). */
+export function setStatusTerritories(territories) {
+  _currentTerritories = Array.isArray(territories) ? territories : [];
 }
 
+/** Resolve a character's regent territory from the module-level store. */
+export function getRegentTerritoryFor(c) {
+  return findRegentTerritory(_currentTerritories, c);
+}
+
+// Lieutenants intentionally receive no ambience bonus (issue #13 Q-A, 2026-05-05).
+// Bonus is regent-only by design; do not extend to lieutenant_id without an
+// explicit game-rules decision.
+export function regentAmienceBonus(c) {
+  return REGENT_AMBIENCE_BONUS[getRegentTerritoryFor(c)?.ambience] || 0;
+}
+
+// Clamped to 10 per issue #13 Q-B (2026-05-05) — system cap on City Status.
+// Display dot tracks already cap at 10; this matches the calc to the display
+// so prereq checks and downstream consumers see the same value.
 export function calcCityStatus(c) {
-  return (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
+  const raw = (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
+  return Math.min(raw, 10);
 }
