@@ -102,9 +102,7 @@ router.patch('/:id/feeding-rights', async (req, res) => {
   // Lock check — only applies to non-ST callers.
   // Note: feeding_territories keys in submissions remain slug-variant strings
   // (per ADR-002 Q4); the legacy reader resolves them against the territory's
-  // `slug` field (renamed from `id` in #3c). Until #3c renames the field on
-  // disk, the territory document still carries the legacy `id` field — so the
-  // lock check reads either name to resolve the per-cycle resident set.
+  // `slug` field.
   if (!isStRole(req.user)) {
     const activeCycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
 
@@ -119,7 +117,7 @@ router.patch('/:id/feeding-rights', async (req, res) => {
         }).toArray();
 
         const fedCharIds = new Set();
-        const terrSlug = territory.slug || territory.id;
+        const terrSlug = territory.slug;
         for (const sub of subs) {
           const raw = sub?.responses?.feeding_territories;
           if (!raw) continue;

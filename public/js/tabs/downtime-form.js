@@ -3126,7 +3126,7 @@ function renderProjectSlots(saved) {
             .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
             .join(', ');
         } else if (joint.target_type === 'territory') {
-          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
+          targetLbl = TERRITORY_DATA.find(t => t.slug === joint.target_value)?.name || joint.target_value || '';
         } else {
           targetLbl = joint.target_value || '';
         }
@@ -4517,7 +4517,7 @@ function renderJointAuthoring(n, saved, existingJoint) {
     const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
     valLbl = names.join(', ') || '—';
   } else if (targetType === 'territory') {
-    const t = TERRITORY_DATA.find(x => x.id === targetValue);
+    const t = TERRITORY_DATA.find(x => x.slug === targetValue);
     if (t) valLbl = t.name;
   }
   h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
@@ -5033,8 +5033,8 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
 function renderTerritoryPills(fieldId, savedVal) {
   let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const selected = savedVal === t.id ? ' dt-chip--selected' : '';
-    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+    const selected = savedVal === t.slug ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.slug)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
   h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;

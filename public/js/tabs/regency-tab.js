@@ -15,7 +15,7 @@ import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
 // Mirrors server/utils/territory-slugs.js — maps submission feeding_territories
-// slug variants to canonical territory.id values.
+// slug variants to canonical territory.slug values.
 const TERRITORY_SLUG_ALIASES = {
   the_academy: 'academy',
   the_harbour: 'harbour',

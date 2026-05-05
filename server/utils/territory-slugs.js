@@ -1,12 +1,18 @@
 /**
  * Territory slug mapping (server-side mirror of public/js/admin/downtime-constants.js).
  *
- * Downtime submissions store feeding_territories as a JSON object whose keys
- * use a mix of slug variants (the_second_city, the_harbour, etc.) rather than
- * the canonical TERRITORY_DATA ids (secondcity, harbour, ...).
+ * **LEGACY READER ONLY** (per ADR-002 Q4 / story #3e).
  *
- * Used by the feeding-rights lock check to resolve which territory slug
- * corresponds to a given territory document id.
+ * Used to translate slug-variant keys found in
+ * `downtime_submissions.responses.feeding_territories` (the_second_city,
+ * 'The Harbour', etc. — user-typed via the legacy form) to the canonical
+ * `TERRITORY_DATA[i].slug` value.
+ *
+ * No write path may use this map. New submissions and any future form
+ * rebuild must write canonical slugs (or `_id` strings) directly.
+ *
+ * The map can be retired entirely once all submissions in production are
+ * known to use canonical keys.
  */
 
 export const TERRITORY_SLUG_MAP = {
