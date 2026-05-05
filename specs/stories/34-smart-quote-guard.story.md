@@ -287,3 +287,105 @@ CI would be all-green on this branch (PR #32 hotfixed the only known parse error
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #34 on `issue-34-smart-quote-guard`. Single semantic commit (3 new files + CLAUDE.md update + this Dev Agent Record). Reproduction test caught smart-quote regression in 0.47s with exit 1 + clear error. Three negative tests passed. Latency 0.24s for 5 staged files. CI smoke against entire public/js tree: all-green.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 8987b3c
+**Method:** Static review of hook + CI workflow + CLAUDE update + README; independent reproduction of the smart-quote regression after enabling the hook locally; three independent negative tests; latency timing.
+
+### Gate decision: **PASS** — recommend ship into `dev`.
+
+### Static review of `.githooks/pre-commit`
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Empty staged set → exit 0 | PASS | `if [ -z "$staged" ]; then exit 0; fi` at lines 22-24. |
+| `--diff-filter=ACM` excludes deletes | PASS | Line 21. |
+| Tempfile cleanup via trap | PASS | `trap 'rm -f "$errfile"' EXIT` at line 28. |
+| Exit codes 0/1 | PASS | 0 at lines 23, 49; 1 at line 46. |
+| NUL-safe staged enumeration | PASS | `--name-only -z \| tr '\0' '\n' \| grep` at line 21 — handles filenames with spaces. |
+| stdin pipe avoids `.mjs` / `package.json type:module` requirement | PASS | `node --input-type=module --check < "$f"` at line 34. Same shape used in CI workflow at `:30`. |
+| `set -e` + `\|\| true` interaction | PASS | The `\|\| true` only silences grep's exit 1 on no matches (handled by the empty-staged check next); other failures still abort. |
+
+### Independent reproduction — confirmed YES, latency 0.07s
+
+```
+$ git config core.hooksPath .githooks
+$ cat public/js/_qa_smartquote_test.js
+const x = 'hello world';   # U+2018 / U+2019 smart quotes as string delimiters
+console.log(x);
+$ git add public/js/_qa_smartquote_test.js
+$ time git commit -m 'qa-test: deliberate smart-quote regression'
+✗ Parse error in public/js/_qa_smartquote_test.js:
+[stdin]:1
+const x = 'hello world';
+          
+SyntaxError: Invalid or unexpected token
+    ...
+
+Pre-commit aborted: staged JS files do not parse as ES modules.
+Often caused by smart quotes (U+2018 / U+2019) used as string delimiters.
+See .githooks/README.md for context. Bypass with --no-verify only when intentional.
+
+real  0.071s   exit=1
+```
+
+Faster than Ptah's 0.47s (single-file staged set vs his 5). Comfortably under the <2s AC threshold. Test artefact removed cleanly post-test.
+
+### Independent negative tests — all PASS
+
+| # | Scenario | Expected | Got |
+|---|---|---|---|
+| 1 | `public/js/_qa_neg1.js` with smart quotes inside a normal-quoted string (`const greeting = "'hello' said the cat";`) | commit succeeds | exit 0, commit landed |
+| 2 | `public/js/_qa_neg2.md` (non-JS file inside `public/js`) | commit succeeds (filtered by `^public/js/.*\.js$` grep) | exit 0, commit landed |
+| 3 | `server/_qa_neg3.js` with smart-quote regression (out of hook scope) | commit succeeds (server/ not in hook's grep) | exit 0, commit landed despite the broken syntax |
+
+Test 3 confirms the deliberate carve-out: server JS is covered by `vitest` parse-on-import already; the hook only watches `public/js/`. Each test commit was reset (`git reset --soft HEAD~1`) and the artefact removed; final state matches `8987b3c` exactly.
+
+### CI workflow YAML (`.github/workflows/check-js-parse.yml`)
+
+- Triggers: `push: ['**']` (all branches) and `pull_request: [main, dev]`. Status check will appear on PRs against `main` or `dev`. ✓
+- Node 24 via `actions/setup-node@v4`. ✓
+- Same `node --input-type=module --check < "$f"` parse-check shape as the local hook (mirror principle holds). ✓
+- Uses `::error file=$f::...` GitHub annotations for machine-readable failure surfacing.
+- Scans the full `public/js` tree (not just diff) — appropriate for CI as belt-and-braces against developers who haven't enabled the local hook.
+
+### CLAUDE.md update
+
+One sentence added at the end of the **Running & Testing** section:
+
+> **Local hooks (recommended):** `git config core.hooksPath .githooks` after cloning. Enables a parse-check on staged `public/js/**/*.js` files; catches smart-quote-as-syntax and other parse-time errors before they reach `dev` / `main`. See `.githooks/README.md`.
+
+Sensible location, points at the README, no auto-application (per AC #5 explicit non-requirement). ✓
+
+### `.githooks/README.md`
+
+Short and complete. Covers:
+- Purpose (parse-check; class of incident from PR #28 / hotfix PR #32).
+- Scope (in: `public/js/**/*.js`; out: server, data, specs).
+- Smart-quotes-in-string-content explicitly called out as passing.
+- Enable instruction (one command, per-clone).
+- Bypass guidance (`--no-verify` reserved for genuine WIP).
+- CI mirror reference.
+
+References issue #34 / PR #32 / PR #28 for incident context. ✓
+
+### Per-AC verdict (7/7 PASS)
+
+| # | AC | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Smart-quote-as-delimiter aborts with clear error | PASS | Independent reproduction. |
+| 2 | Smart quotes in string content commit cleanly | PASS | Negative test 1. |
+| 3 | Non-JS / non-public/js files unaffected | PASS | Negative tests 2 and 3. |
+| 4 | CI workflow runs on push and PR to main/dev | PASS-by-static | Triggers and parse-check shape verified. |
+| 5 | CLAUDE.md has one-line setup instruction | PASS | Verified in diff + section placement. |
+| 6 | Hook completes in <2s | PASS | 0.07s in my run; 0.24s/0.47s in Ptah's. Comfortably under threshold. |
+| 7 | PR #32 specific symptom recreation caught | PASS | Reproduction is exactly this scenario; parse error references the offending line. |
+
+### Recommendation
+
+**Ship into `dev`.** The hook is narrow, fast, mirror-equivalent to CI, well-documented, opt-in (not auto-applied), and structurally prevents the class of regression from PR #28. Negative tests confirm no false positives on legitimate smart-quote-in-prose code paths. Latency is not friction-cost.
