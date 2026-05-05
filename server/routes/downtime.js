@@ -65,9 +65,11 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
     return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not active' });
   }
 
-  // 2. Load territory; verify regent identity (ST may bypass)
+  // 2. Load territory by _id (ADR-002 strict cutover Q2 — slug rejected).
   const terrCollection = () => getCollection('territories');
-  const terrDoc = await terrCollection().findOne({ id: territory_id });
+  const terrOid = parseId(territory_id);
+  if (!terrOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory_id format' });
+  const terrDoc = await terrCollection().findOne({ _id: terrOid });
   if (!terrDoc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Territory not found' });
 
   if (req.user.role !== 'st') {
@@ -100,10 +102,12 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
     newEntry,
   ];
 
-  // 5. Recompute gate: all territories with regent_id must have a confirmation
+  // 5. Recompute gate: all territories with regent_id must have a confirmation.
+  // Per ADR-002 strict cutover, confirmation territory_id values are now
+  // territory _id ObjectId-strings; compare against String(t._id).
   const allTerrs = await terrCollection().find({ regent_id: { $exists: true, $ne: null } }).toArray();
   const confirmedTerritoryIds = new Set(updatedConfirmations.map(c => c.territory_id));
-  const allConfirmed = allTerrs.length === 0 || allTerrs.every(t => confirmedTerritoryIds.has(t.id));
+  const allConfirmed = allTerrs.length === 0 || allTerrs.every(t => confirmedTerritoryIds.has(String(t._id)));
 
   const updateFields = {
     regent_confirmations: updatedConfirmations,

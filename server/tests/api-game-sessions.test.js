@@ -1,8 +1,6 @@
 /**
- * API tests — /api/game_sessions, /api/territory-residency.
+ * API tests — /api/game_sessions.
  * Tests role gating, CRUD, validation.
- *
- * /api/players tests live in api-players.test.js (removed from here — was duplicate).
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -14,7 +12,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanupIds = { game_sessions: [], territory_residency: [] };
+const cleanupIds = { game_sessions: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -27,7 +25,6 @@ afterEach(async () => {
     for (const id of ids) await col.deleteOne({ _id: id });
     cleanupIds[colName] = [];
   }
-  await getCollection('territory_residency').deleteMany({ territory: /^Test / });
 });
 
 afterAll(async () => {
@@ -199,85 +196,5 @@ describe('GET /api/game_sessions/next', () => {
   it('unauthenticated request is rejected', async () => {
     const res = await request(app).get('/api/game_sessions/next');
     expect(res.status).toBe(401);
-  });
-});
-
-// ══════════════════════════════════════
-//  TERRITORY RESIDENCY
-// ══════════════════════════════════════
-
-describe('GET /api/territory-residency', () => {
-  it('returns all residency docs', async () => {
-    const res = await request(app)
-      .get('/api/territory-residency')
-      .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-  });
-
-  it('returns single territory by query', async () => {
-    // Upsert a test residency first
-    await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Territory', residents: ['char-001'] });
-
-    const res = await request(app)
-      .get('/api/territory-residency?territory=Test%20Territory')
-      .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Territory');
-    expect(res.body.residents).toContain('char-001');
-  });
-
-  it('returns empty residents for unknown territory', async () => {
-    const res = await request(app)
-      .get('/api/territory-residency?territory=Nonexistent')
-      .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Nonexistent');
-    expect(res.body.residents).toEqual([]);
-  });
-});
-
-describe('PUT /api/territory-residency', () => {
-  it('upserts residency for a territory', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Upsert', residents: ['char-001', 'char-002'] });
-    expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Upsert');
-    expect(res.body.residents).toHaveLength(2);
-  });
-
-  it('updates existing residency', async () => {
-    await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001'] });
-
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001', 'char-002', 'char-003'] });
-    expect(res.status).toBe(200);
-    expect(res.body.residents).toHaveLength(3);
-  });
-
-  it('rejects missing territory', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ residents: ['char-001'] });
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects missing residents array', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Bad' });
-    expect(res.status).toBe(400);
   });
 });
