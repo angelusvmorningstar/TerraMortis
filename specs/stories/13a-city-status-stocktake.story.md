@@ -336,3 +336,104 @@ await c.close();
 
 **Change Log:**
 - 2026-05-05 — Investigation complete on `issue-13a-city-status-stocktake`. Single semantic commit (audit doc + this Dev Agent Record). **Headline:** 6 clean / 2 defects / 2 game-rules questions. Recommended fix bundle is small (≈50 lines, 1 PR) — Surface 2 (cache) + Surface 9 (bonus visibility). Plus 2 user calls (Surface 3, 7) before any fix story scopes.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 32a6be8
+**Method:** Editorial review of all 10 surfaces; spot-check of Surface 2 admin.js comment, Surface 9 sheet.js Attaché template, Surface 8 `_statusDots` edge cases, Surface 10 grep coverage; independent live-MongoDB walkthrough of all 5 regents + 5 sample non-regents; confirmation of TITLE_STATUS_BONUS values vs the doc's claims.
+
+### Gate decision: **CONCERNS** — fix one factual arithmetic error before PR; then PASS.
+
+The audit is broadly sound — the 6/2/2/2 verdict structure holds, methodology is reproducible, recommendations are defensible. One factual error (Primogen bonus value) recurs in three locations and should be corrected. One nice-to-fix on the Surface 10 enumeration completeness.
+
+### Surface coverage — PASS
+
+All 10 surfaces have the required structure (Description / Audit method / Finding / Severity / Recommended action). Each has a clear verdict.
+
+### Spot-checks
+
+- **Surface 2 (cache invalidation):** Confirmed at `admin.js:548-549`. Comment reads verbatim: *"Merge server data over cached object; _-prefixed ephemeral props (e.g. _gameXP, _regentTerritory) are not on `fresh` so they survive."* The audit's reading is fair — the comment explicitly acknowledges the cache survives `Object.assign`. The intent is "preserve ephemeral data through refresh"; the bug is staleness when underlying territory data changes mid-session. Recommendation (drop the cache) is the cleaner option.
+- **Surface 9 (bonus visibility):** Confirmed at `sheet.js:830`. The Attaché derived-note pattern (`'Attaché: +' + N + ' dot(s) (Invictus Status N)'`) is the right template for the City Status mirror. ~10-20 lines as the audit estimates.
+- **Surface 8 (hollow-dot edge cases):** Confirmed `_statusDots` at `sheet.js:178-194`. Walked all four cases against the source:
+  - `base+bonus > max`: `total = Math.min(base+bonus, maxDots)`, `cappedBase = Math.min(base, maxDots)`. Bonus invisible above the cap. ✓ Tied to Surface 7 cap policy.
+  - `bonus only, base=0`: `cappedBase=0` → all hollow. ✓
+  - `base only, bonus=0`: `total=cappedBase=base` → all filled, no trailing hollow. ✓
+  - `title + ambience both`: passed as one `bonus` arg → single hollow band, no source distinction. ✓ Display-correct count; breakdown invisible (covered by Surface 9).
+  All four classifications match audit's verdicts.
+- **Live regent walkthrough:** see Concern A below.
+- **Non-regent walkthrough:** verified 5 living non-regents (Yusuf 3, Livia 2, Magda 1, Etsy 0, Carver 2) — each computes as base + 0 + 0 with no ambience component. Confirms the regent-only path of `regentAmienceBonus`.
+
+### Concern A — Primogen bonus value error (FIX-REQUIRED, three line edits)
+
+Independent live probe + `public/js/data/constants.js:47` confirm:
+```js
+TITLE_STATUS_BONUS = {'Head of State':3, 'Primogen':2, 'Socialite':1, 'Enforcer':1, 'Administrator':1};
+```
+
+`'Primogen' = 2`, not 3. The audit treats Primogen as 3 in three locations:
+
+1. **Line 158 (Surface 7 description):** "max observed total is 5 (René St. Dominique, Primogen of Dockyards: base 2 + title 3 + amb 0)" — should be `base 2 + title 2 + amb 0 = 4`.
+2. **Line 273 (Test matrix table, René St. Dominique row):** "title 3 (Primogen)" → "5" — should be `title 2 (Primogen)` → `4`.
+3. **Line 279 (Test matrix edge-case row):** "Curated + Primogen + base 8" → "title 3" → sum 12 — should be `title 2` → sum 11.
+
+Independent live probe of René St. Dominique confirms `court_category='Primogen'` and `base 2 + 2 + 0 = 4`. My non-regent walkthrough probe ran `cd server && node scripts/_qa_city_walk.mjs` against the live DB and produced `total=4` for him.
+
+**No conclusion is invalidated** by this fix:
+- "No live character exceeds 10": still true (max is 4).
+- Surface 7 cap-policy decision: unaffected (still a user decision).
+- Path A (small fix bundle): unchanged.
+
+But the audit publishes a wrong number. Recommend three single-line edits to correct Primogen=2 throughout, plus updating the "max observed total is 5" to "max observed total is 4". Doesn't otherwise touch the verdict structure.
+
+### Concern B — Surface 10 enumeration scope (NICE-TO-FIX)
+
+Audit's Surface 10 table at line 229 lists **5 consumer sites** (status-tab.js / suite/status.js / sheet.js / csv-format.js / export-character.js) and concludes "no consumer short-circuits to `c.status.city` alone".
+
+Independent grep `grep -rn "c\.status\.city\b\|c\.status?\.city" public/js/` finds **14 raw `c.status?.city` reads across 11 files**. Most are *deliberate base-only* reads:
+- `city-views.js:159, 208, 209` and `downtime-views.js:891, 901` — Eminence/Ascendancy aggregation totals; the game rule sums *base* city status across characters per clan/covenant, not effective.
+- `suite/status.js:172, 197, 233, 239, 245` — edit-state operations on the underlying base value.
+- `editor/identity.js:152` — base-value form input.
+- `editor/merits.js:194` — prereq check (likely base by rule).
+- `editor/rule_engine/auto-bonus-evaluator.js:102` — rule predicate `q === 'city'` (base by rule).
+- `game/signin-tab.js:38` — sign-in card display (worth a sanity check; may be a missing `calcCityStatus` site or may be deliberately raw).
+
+The audit's verdict **CLEAN holds** for the rule "every *effective-City-Status display* consumer goes through `calcCityStatus`". But the enumeration is not exhaustive across all `c.status?.city` raw reads, and the audit's "no consumer short-circuits" framing could mislead a future reader into thinking every raw read is a bug.
+
+**Recommendation (optional):** clarify Surface 10's scope as "effective-status display consumers"; add a note that Eminence/Ascendancy aggregations + edit-state ops + prereq checks read raw base by design; spot-check `game/signin-tab.js:38` to confirm it's deliberate (or quietly add it as a finding if not).
+
+Not blocking — the 6/2/2/2 verdict structure is unaffected.
+
+### Recommendations actionability — concur with Path A
+
+Reading Path A as if SM is about to scope the fix story:
+- **Surface 2 (cache invalidation):** clear recommendation (drop the cache; primary fix). Cheap, removes a class of bug. Specific enough to scope.
+- **Surface 9 (bonus visibility):** clear template (mirror `attacheBonusDots` derived-note at `sheet.js:830`). Specific, ~10-20 lines.
+- **Surface 6 ambience normalization** (optional): cheap defensive future-proofing.
+- **Game-rules questions framed clearly:**
+  - Surface 3: "lieutenant entitlement — currently zero; user decides if rules say lieutenants are entitled at full / fraction / not at all".
+  - Surface 7: "cap policy — currently uncapped sum, display caps at 10, floor checks read raw; user decides clamp vs uncapped".
+- Path A sized correctly: ~50 lines for Surfaces 2 + 9 in one PR. Awaits user calls on Surfaces 3 and 7 before adding those.
+
+Concur with Path A as the recommended fix-bundle shape.
+
+### Per-AC verdict (6 PASS / 1 CONCERNS)
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | All 10 surfaces have description/method/finding/severity/action | PASS | Verified across §32-244. |
+| 2 | Surface 8 covers 4 edge cases with verdicts | PASS | Edge case table at `:184-189`; all four classifications match independent code-walk. |
+| 3 | Surface 10 enumerates consumers; each calls `calcCityStatus` | PASS-with-Concern-B | Verdict CLEAN holds for display consumers; enumeration could be more complete. |
+| 4 | Live-data probe ambience hygiene + cross-check | PASS | Surface 6 enumerates all 4 live ambience values + cross-check. |
+| 5 | Live regent walkthrough — calc vs displayed | **CONCERNS** | René St. Dominique row uses Primogen=3 (actual 2). 4/5 regents correct; 1 has +1 arithmetic error. |
+| 6 | Test matrix records expected vs actual | **CONCERNS** | Inherits Concern A: René St. Dominique row "5", edge-case row "12" both wrong by 1 each. |
+| 7 | Recommendations have defects + game-rules questions + go/no-go | PASS | Path A bundle clearly scoped; user-call questions framed with current behaviour + decision needed. |
+
+### Recommendation
+
+**FIX-REQUIRED on Concern A** (three single-line edits to correct Primogen=2 throughout: lines 158, 273, 279). Then PASS. Concern B is editorial polish; address at SM/user discretion. After fix, audit ships and Path A is the recommended fix story.
+
+Standing by for Ptah's correction and re-verify.
