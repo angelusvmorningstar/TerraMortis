@@ -1,0 +1,38 @@
+name: Check JS Parse (public/js)
+
+# Mirror of the .githooks/pre-commit parse-check. Runs `node --input-type=module
+# --check` on every public/js/**/*.js file. Belt-and-braces against developers
+# who have not enabled the local hook (issue #34 / PR #32 post-mortem).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  parse-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Parse-check public/js JS modules
+        run: |
+          set -e
+          failed=0
+          while IFS= read -r f; do
+            if ! node --input-type=module --check < "$f"; then
+              echo "::error file=$f::Parse error in $f"
+              failed=1
+            fi
+          done < <(find public/js -name '*.js' -type f)
+          if [ $failed -ne 0 ]; then
+            echo "::error::One or more public/js JS files failed to parse as ES modules."
+            exit 1
+          fi
