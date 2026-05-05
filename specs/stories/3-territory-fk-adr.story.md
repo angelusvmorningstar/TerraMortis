@@ -264,3 +264,89 @@ Your QA value here is editorial review of a design document, not test verificati
 ## Note for the User (when Ptah delivers)
 
 The ADR will end with an open-questions list. Each has Ptah's recommendation. You'll need to read the section, make calls on each, and either approve the ADR (which greenlights #3b-e) or send it back with comments. This is the design gate; there's no rush.
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** 3368cfb
+**Method:** Editorial review against story §3 coverage list; grep cross-check; spot-check of cited file:line references; sanity-check of Q2 and Q5; British/em-dash audit; three-month test.
+
+### Editorial verdict: **CONCERNS** (one fix-required on Q5; three nice-to-fix)
+
+The ADR's design decisions are sound and the document is buildable from in three months. One factual audit miss on Q5 should be corrected before the user signs off; three editorial gaps are nice-to-fix.
+
+### Audit-table coverage vs story §3 — PASS (all 8 categories present)
+
+Server collections (13 rows) · Server routes (7 rows) · Server schemas (2 rows) · Server middleware (1 row) · Server scripts (4 rows) · Client lookup sites (~31 rows in per-dir breakdown) · Client write sites (3 rows) · Reference data (2 rows). Spot-checks of cited file:line references (`territories.js:26-29/32-42/65`, `downtime.js:52-120`, `helpers.js:148-154`, `downtime-views.js:2064/2066/6700/6713/...`) all resolve to the claimed code.
+
+### Concern A — Q5 audit basis is factually wrong (FIX-REQUIRED before user signs off)
+
+Q5 (drop `territory_residency` collection) is recommended on the grounds: *"Searching client code: I find no `apiGet('/api/territory-residency')` or `apiPut`/`apiPost`."* This is incorrect.
+
+Live audit:
+- `public/js/tabs/downtime-form.js:1312` does `await apiGet('/api/territory-residency')` and populates `residencyByTerritory` from the result (`:1313-1316`).
+- `server/index.js:84` mounts the route under `requireAuth`.
+- `server/tests/api-players-sessions-residency.test.js` exercises GET and PUT.
+
+The recommendation outcome is *still* defensible — and arguably stronger than Ptah claimed — because `residencyByTerritory` is set at `downtime-form.js:1313-1316` and **never read** anywhere else in the codebase. The client touches the API but the result is dead. Drop scope expands to:
+
+- Collection (0 docs): drop.
+- Schema (`server/schemas/territory.schema.js:24-36`): drop.
+- Routes (`server/routes/territory-residency.js`): drop. Mount in `server/index.js:24,84` removed.
+- Test suite (territory-residency portion of `server/tests/api-players-sessions-residency.test.js`): drop.
+- Client dead code: remove `residencyByTerritory` declaration at `public/js/tabs/downtime-form.js:73` and the apiGet block at `:1311-1317`.
+
+**Action requested:** correct the Q5 paragraph in the ADR to acknowledge the client call exists but its result is unused dead code, list the four delete sites above, then re-state the recommendation. The user's call doesn't change but they should make it on the correct premise.
+
+### Concern B — Client lookup count is inconsistent (NICE-TO-FIX)
+
+ADR §Audit/Client lookup sites states "**29 sites** (audit count, 2026-05-05)". The per-directory breakdown table in the same section sums to **31** (12+4+4+3+1+1+1+3+1+1). The ADR's cited grep (`\.find(t => t\.id ==\|territories\.find`) actually returns **19** when run live — it doesn't catch the defensive coalesce form `String(t.id || t._id) === ...` at `downtime-story.js:506,678,2345` and similar. Those rows are correctly cited *in the table* but invisible to the cited grep.
+
+Three numbers in the same section (29 / 31 / 19) is confusing for the future reader. Replace the headline with the table sum (31), and either widen the cited grep or note explicitly that the cited grep is a lower bound that misses the defensive form.
+
+### Concern C — Em-dash usage contradicts the story style guide (NICE-TO-FIX)
+
+Story line 167: *"No em-dashes in body text."* ADR-001 (the structural template) uses 6 em-dashes total. ADR-002 uses **74**. This is project-internal style, not a CLAUDE.md hard rule, but it's a clear miss against the story brief and against the tone-match precedent set by ADR-001.
+
+### Concern D — Step 3 rollback names a paired script that doesn't exist (NICE-TO-FIX)
+
+Migration plan Step 3 says *"Rollback: restore from the backup file via a paired rollback script (or manual `mongorestore`)."* No paired rollback script is scoped into #3c. Either commit to writing one in #3c's spec, or soften the rollback wording to *"manual `mongorestore` of the backup file (or a paired script written as part of #3c)."*
+
+### Decision soundness — PASS
+
+All four decisions (canonical FK = `_id`; slug retain-as-label rename; strict cutover API; client `String(t._id) ===` contract) are clearly stated, with alternatives genuinely considered and rationale grounded. *Risk note for the user* on Q2 (strict cutover): this puts pressure on Step 4 browser smoke as the safety net. Transitional dual-acceptance would soften the deploy-window pressure at the cost of removal-debt. Both defensible — Ptah's call is the cleaner long-run choice.
+
+### Migration plan rigor — PASS (with Concern D)
+
+Each of the 6 steps has a concrete success criterion and correct depends-on chain. Rollbacks are real reverts with no data state corruption (Steps 1, 2, 5, 6) or acknowledged risk (Step 4 honestly notes partial-rollback is dangerous and recommends close deploy timing). Step 3's rollback wording is the weakest (Concern D).
+
+### Open questions sanity check
+
+| Q | Verdict | Notes |
+|---|---|---|
+| Q1 (retain vs retire `id`) | sound | cost-equivalent options; readable-URL benefit cited. |
+| Q2 (strict cutover) | sound, with risk note above | both options weighed; pressures Step 4 smoke. |
+| Q3 (retire `_TERR_ID_NAME`) | sound | live data confirms premise. |
+| Q4 (leave submissions keys) | sound | append-only audit-trail framing is right. |
+| Q5 (drop residency) | outcome sound, **basis wrong** | see Concern A. |
+| Q6 (decouple from #13) | sound | cross-cut explicitly acknowledged. |
+| Q7 (future-work catalogue) | sound | four items filed. |
+
+Nothing missing from Q1–Q7.
+
+### Editorial — British English & ADR-001 tone match
+
+- British English: PASS. `behaviour` used; no Americanisms detected.
+- ADR-001 structural template: PASS. Frontmatter, revision history table, sectioned body, Out-of-scope, References — all present.
+- Tone: matches ADR-001 in voice. Em-dash density does NOT match (Concern C).
+
+### Three-month test — PASS (Concern A nuance)
+
+A developer picking up #3b cold has everything they need: schema fields to change, route file:line references, migration-script template precedent, per-directory site counts. Q5's audit miss matters less for #3b's developer (schema + routes work) and more for the user's decision gate now. Once Q5 is corrected, the document is unambiguous for downstream work.
+
+### Recommendation
+
+**Fix Concern A (Q5 audit basis), then PASS.** Concerns B/C/D are editorial polish; the user could read around them. Concern A changes the factual basis on which the user is being asked to make a Q5 call, so it should be corrected before sign-off.
