@@ -262,3 +262,104 @@ All five "should return zero" patterns: zero. The TERRITORY_DATA shape is `{ slu
 
 **Change Log:**
 - 2026-05-05 — Implemented per Story #3e on `issue-3e-legacy-cleanup`. Single semantic commit (9 files + this Dev Agent Record). Server tests 56/56. Five "should return zero" post-flight grep patterns: all zero. Browser smoke DEFERRED (same UX surfaces as #3d).
+
+---
+
+## QA Results
+
+**Reviewer:** Quinn (Ma'at / QA), claude-opus-4-7
+**Date:** 2026-05-05
+**Commit reviewed:** ad689f9
+**Method:** Independent post-flight grep cross-check; sample static review of 4-6 transformation sites; validation of the inline 9686 fix shape against #3d's 9528 sibling; out-of-scope discipline file audit; independent server test run.
+
+### Gate decision: **PASS** — recommend ship into `dev`. Refactor is feature-complete on dev; issue #3 closes on merge.
+
+### Independent grep cross-check — all five at zero
+
+```
+$ grep -rn "TERRITORY_DATA\.find.*\.id\b" public/js/
+(zero)
+
+$ grep -rn "_TERR_ID_NAME\b" public/js/
+(zero — constant deleted)
+
+$ grep -rn "territory\.slug || territory\.id\|t\.slug || t\.id" public/js/ server/routes server/utils
+(zero)
+
+$ grep -rEn "t\.slug === [^|]+\|\| t\.id ===" public/js/
+(zero)
+
+$ grep -nE "id:\s*'(academy|dockyards|harbour|northshore|secondcity)'" public/js/tabs/downtime-data.js
+(zero — TERRITORY_DATA now keyed by slug:)
+
+$ grep -rn "territor.*\.find.*t\.id ===" public/js/ | grep -v "suite/territory.js"
+(zero — bonus check, only out-of-scope local-state hits remain)
+```
+
+### Sample transformations verified
+
+- **TERRITORY_DATA shape** (`downtime-data.js:89-95`): all 5 entries restructured to `{ slug, name, ambience, ambienceMod }`. Header comment cites the rename to ADR-002 / story #3c.
+- **Three hybrid collapses** at `downtime-views.js:6716, 9558, 9651`: `t.slug === tid || t.id === tid` → `t.slug === tid` (single-clause). Inline "Mongo docs match slug; TERRITORY_DATA still matches id" comments removed (no longer applicable).
+- **`findRegentTerritory` simplification** (`helpers.js:147-167`): `_TERR_ID_NAME` constant deleted entirely; territory label becomes `t.name || t.slug`. Function returns the same shape (`{ territory, territoryId, slug, lieutenantId, ambience }`).
+- **Server route fallback** (`territories.js:120`): `territory.slug || territory.id` → `territory.slug`. Lock check unchanged otherwise.
+- **`territory-slugs.js` header**: now carries a prominent "LEGACY READER ONLY (per ADR-002 Q4 / story #3e)" docstring with explicit "No write path may use this map" prohibition. Lines 1-16 fully repurposed as legacy banner.
+- **TERRITORY_DATA consumers** (`downtime-form.js`, `feeding-tab.js`, `tracker-feed.js`, `regency-tab.js`): mechanical `t.id` → `t.slug` rewrites following the array shape change. All consistent.
+
+### Inline 9686 fix — validated, sound
+
+```
+- const confirmed = currentCycle?.confirmed_ambience?.[r.id];
++ // r.id is a slug; cycle.confirmed_ambience is _id-keyed post-ADR-002.
++ const rOid = (cachedTerritories || []).find(t => t.slug === r.id)?._id;
++ const confirmed = rOid ? currentCycle?.confirmed_ambience?.[String(rOid)] : null;
+```
+
+This is identical in shape to `#3d`'s confirmed-correct fix at `:9528` (Pattern C: cycle slug-keyed object reads → `_id`-keyed reads). Should it have been in `#3d`? Strictly yes — it's a Pattern C transformation that the post-flight grep didn't single out (the grep scanned `\.find(t => t\.id ===|territories\.find` which catches Pattern A lookups, not object-key reads against `r.id`).
+
+**Verdict on folding into #3e:** acceptable. The fix is atomic, same-shape as a confirmed-correct sibling, no new design decision involved, signposted prominently in the commit message and Dev Agent Record. The alternative (separate one-line PR) adds review overhead for a one-line residual cleanup. Mild scope creep but minimal risk and clearly documented.
+
+### Regency-tab comment fix — trivially acceptable
+
+`regency-tab.js:18` comment changed `territory.id values` → `territory.slug values`. No code change; pure documentation accuracy. The previous wording would mislead a future reader since territory documents no longer carry `id`. Same atomic-fix-in-spirit-of-cleanup justification.
+
+### Out-of-scope discipline — PASS
+
+Confirmed untouched:
+- `territory_residency` collection / route / schema — Q5 user decision (collection stays parked-but-revivable). No diff.
+- Dead client block in `downtime-form.js:73, 1311-1317` — `let residencyByTerritory = {}` and the apiGet block still present and unchanged. Q5 carve-out honoured.
+- `MATRIX_TERRS` / `TERR_PILLS` / `FEED_TERRS` (slug-keyed local-state in `downtime-views.js`) — no diff.
+- `suite/territory.js` (Territory Bids local TERRS) — no diff.
+- Any schema or migration script — no diff.
+
+Note: `downtime-form.js` IS in the diff, but only as a TERRITORY_DATA consumer (`t.id` → `t.slug` rewrites at 3 sites following the array shape change). The dead client block at `:73, 1311-1317` is verifiably untouched.
+
+### Independent server test run
+
+```
+Test Files  4 passed (4)
+Tests       56 passed (56)
+```
+
+### Per-AC verdict (9/9 PASS)
+
+| # | AC | Verdict | Notes |
+|---|---|---|---|
+| 1 | TERRITORY_DATA shape `{ slug, name, ambience, ambienceMod }` | PASS | All 5 entries restructured. |
+| 2 | Consumers use `t.slug`; zero `TERRITORY_DATA[…].id` | PASS | Independent grep zero. |
+| 3 | Three hybrid sites collapsed; comments removed | PASS | Verified at `:6716, :9558, :9651`. |
+| 4 | `findRegentTerritory` no `_TERR_ID_NAME`; territory derived from `t.name || t.slug` | PASS | Constant deleted; fallback chain simplified. |
+| 5 | `routes/territories.js:122` reads `territory.slug` only | PASS | `|| territory.id` clause removed. |
+| 6 | `territory-slugs.js` header marks `TERRITORY_SLUG_MAP` as legacy reader only | PASS | Prominent "LEGACY READER ONLY" banner added. |
+| 7 | Four affected server suites pass (56/56) | PASS | Verified independently. |
+| 8 | Out-of-scope discipline holds | PASS | All carve-outs untouched. |
+| 9 | Final post-PR grep returns zero on all listed legacy patterns | PASS | All 5+1 grep patterns return zero. |
+
+### Recommendation
+
+**Ship into `dev`.** This is the loop-closer for the territory FK refactor. Post-merge:
+- `dev` is feature-complete on the new contract end-to-end.
+- Issue #3 closes.
+- Q7 follow-up (audit `territory_residency` writer) stays open as a separate diagnostic issue.
+- After user authorisation, `dev` → `main` deploy ships the entire ADR-002 refactor (PRs #21 ADR + #22 #3b + #25 #3c + #29 #3d + #30 #3e).
+
+Browser smoke (Test Plan §4 in #3d, plus a feeding-tab pass with non-default ST-set ambience) recommended before the dev → main deploy as the final visual gate, but the code path is computationally clean.
