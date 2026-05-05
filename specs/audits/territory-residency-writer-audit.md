@@ -12,6 +12,10 @@ That left an unresolved question: **who wrote those four documents?** This audit
 
 A direct second path closed the question even more cleanly between #3c and the audit start: commit `fd5dee1` (2026-05-05 17:21) retired the collection entirely after the same 4-doc surprise prompted a deeper look at the data. The retirement decision and the audit were running in parallel; this document captures the audit findings in their own right.
 
+### ADR-002 Q5 divergence
+
+This retirement supersedes the recorded ADR-002 Q5 user decision. ADR rev-2 (commit `5c61032`, 2026-05-05) recorded **User decision: MIGRATE** — parked-but-revivable. Commit `fd5dee1` (same day, 17:21:59 +1000) retired the collection entirely on the rationale that the 4 stale docs surfaced by #3c, with zero character-ID overlap against `territories.feeding_rights`, made "revivable" no cheaper than drop-and-re-add. **Future readers of ADR-002 Q5 should treat MIGRATE as superseded by `fd5dee1`.** ADR-002 itself stays as-is by user direction; the divergence is recorded at the git-history layer (in the `fd5dee1` commit message) and here.
+
 ## Methodology
 
 Five passes, each verifiable by re-running the cited query.

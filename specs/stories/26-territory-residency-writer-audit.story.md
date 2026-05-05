@@ -245,6 +245,7 @@ Either way, the territory FK refactor's audit trail is now fully closed.
 
 **Change Log:**
 - 2026-05-05 — Investigation complete on `issue-26-territory-residency-writer-audit`. Single semantic commit (audit doc + this Dev Agent Record). **Conclusion A**: no active writer. Issue #26 closes informationally. Territory FK refactor audit trail now fully closed.
+- 2026-05-05 — Follow-up commit addressing Maat QA nice-to-fix (user said do it / Option B). Added "ADR-002 Q5 divergence" subsection under Background in the audit doc, explicitly flagging that `fd5dee1` supersedes the ADR rev-2 MIGRATE decision and instructing future ADR-002 Q5 readers to treat MIGRATE as superseded. ADR-002 itself stays as-is per user direction; the divergence is recorded at both the git-history layer (`fd5dee1` commit message) and the audit-doc layer (this addition).
 
 ---
 
