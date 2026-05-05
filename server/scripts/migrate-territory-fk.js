@@ -42,8 +42,15 @@
  *   2  safety abort (data shape divergence from audit)
  *
  * Run history:
- *   - <yet to run> — first --apply in production. Update with date + commit
- *     SHA + per-mutation counts after SM executes the apply step.
+ *   - 2026-05-05 — first --apply in production from script commit 2f6ebf1.
+ *     Backup: server/scripts/_backups/territory-fk-migration-
+ *     2026-05-05T05-36-59-765Z.json. Mutations: 5 territory $rename id→slug,
+ *     5 confirmed_ambience rekeys + 5 discipline_profile rekeys on Downtime 2,
+ *     4 territory_residency $rename territory→territory_id with name resolution,
+ *     0 regent_confirmations (empty across all live cycles), 0 territory_pulse.
+ *     Total 19 in-place mutations. Post-state: all three "expected 0" checks
+ *     at 0. Idempotency confirmed (second --apply returned already-migrated:
+ *     true). Affected server suites 56/56 PASS post-apply.
  */
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
