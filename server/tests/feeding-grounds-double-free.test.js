@@ -27,12 +27,6 @@ function isDoubleEntry(m) {
   return (m.free || 0) > 0 && (m.free_fwb || 0) > 0 && m.free === m.free_fwb;
 }
 
-// meritFreeSum after applying fix (free zeroed).
-function meritFreeSumFixed(m) {
-  const fixed = { ...m, free: 0 };
-  return meritEffectiveRating(fixed);
-}
-
 describe('Issue #43 — Feeding Grounds free_fwb double-entry', () => {
 
   it('pre-fix shape returns double the correct value (demonstrates the bug)', () => {
