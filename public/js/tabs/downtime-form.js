@@ -24,7 +24,9 @@ import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
-import { promptForKind } from '../data/kind-prompts.js';
+// dt-form.33: removed `promptForKind` import — last consumer was the
+// dt-story_moment_relationship_id change handler, deleted with the
+// other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
@@ -106,8 +108,11 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
-let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+// dt-form.33: removed `_linkedNpcs` and `_myRelationships` module vars
+// + their data loads. Both fed DB-relational NPC pickers (the legacy
+// _legacyRenderPersonalStorySection NPC card grid and the story-moment
+// relationship picker) that this story prunes under the NPC-interaction
+// suppression policy. No live consumer remained after dt-form.18.
 let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
@@ -1436,24 +1441,11 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
-  // don't break when viewing old cycles. The new flow (NPCR.12) does not
-  // use this list.
-  _linkedNpcs = [];
-  if (currentChar?._id) {
-    try {
-      _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _linkedNpcs = []; }
-  }
-
-  // NPCR.12: load this character's relationships (active + pending) for
-  // the Personal Story picker. Fails silently — picker shows empty state.
-  _myRelationships = [];
-  if (currentChar?._id) {
-    try {
-      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _myRelationships = []; }
-  }
+  // dt-form.33: removed two NPC-DB data loads. The legacy
+  // `/api/npcs/for-character/...` fetch fed `_linkedNpcs` for the legacy
+  // renderer (deleted), and `/api/relationships/for-character/...` fed
+  // `_myRelationships` for the story-moment relationship picker (deleted).
+  // Saves two API round-trips per form load.
 
   // Load existing submission for this character + cycle
   priorPublishedLabel = null;
@@ -2557,33 +2549,16 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
-    // NPCR.12/13: relationship picker change — swap the kind-driven label
-    // and placeholder in place, preserving whatever the player has typed.
-    if (e.target.id === 'dt-story_moment_relationship_id') {
-      const relId = e.target.value;
-      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
-      const prompt = edge
-        ? promptForKind(edge.kind, edge.custom_label)
-        : promptForKind('_default', null);
-      const label = document.getElementById('dt-story_moment_note_label');
-      const note  = document.getElementById('dt-story_moment_note');
-      if (label) label.textContent = prompt.label;
-      if (note)  note.setAttribute('placeholder', prompt.placeholder);
-      scheduleSave();
-      return;
-    }
+    // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
+    // The story-moment relationship picker (a DB-relational element) was
+    // suppressed under the broader NPC-interaction policy alongside the
+    // legacy renderer deletion. No DOM element with id
+    // `dt-story_moment_relationship_id` is rendered anywhere now.
 
-    // Personal story free-text NPC name — sync to hidden fields and update tick
-    if (e.target.id === 'dt-personal_story_npc_name_free') {
-      const val    = e.target.value.trim();
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = val ? '__new__' : '';
-      if (nameEl) nameEl.value = val;
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: legacy free-text NPC name `_free` change handler removed.
+    // The legacy renderer that emitted `dt-personal_story_npc_name_free` is
+    // gone; dt-form.18's option Y uses `dt-personal_story_npc_name` directly
+    // as a typed-string input, no `_free` mirror needed.
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -2889,25 +2864,9 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // NPC card selection
-    const npcCard = e.target.closest('[data-npc-pick]');
-    if (npcCard) {
-      const id   = npcCard.dataset.npcPick;
-      const name = npcCard.dataset.npcName || '';
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = id;
-      if (nameEl) nameEl.value = name;
-      container.querySelectorAll('[data-npc-pick]').forEach(c =>
-        c.classList.toggle('dt-npc-card-selected', c.dataset.npcPick === id)
-      );
-      // Clear free-text field when a card is picked
-      const freeEl = document.getElementById('dt-personal_story_npc_name_free');
-      if (freeEl) freeEl.value = '';
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: NPC card click handler removed alongside the
+    // _legacyRenderPersonalStorySection deletion. No DOM element with
+    // [data-npc-pick] is rendered anywhere now.
     // dt-form.16: target character chip handler removed — universal charPicker
     // mounted in renderTargetCharOrOther handles its own selection lifecycle.
     // Maintenance merit chip — single-select, writes to hidden target_value input
@@ -4479,85 +4438,13 @@ function renderPersonalStorySection(saved) {
   return h;
 }
 
-// ── Legacy renderer (kept for diff isolation — unused after DTOSL.2) ──
-function _legacyRenderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
-
-  const availableNpcs = (currentChar?.npcs || []).filter(n => n.available !== false);
-  const savedNpcId    = saved['personal_story_npc_id']    || '';
-  const savedNpcName  = saved['personal_story_npc_name']  || '';
-  const savedNote     = saved['personal_story_note']       || '';
-  const savedDir      = saved['personal_story_direction']  || 'continue';
-
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Who does your character spend time with this month? Choose someone from your life, or introduce someone new.</p>';
-
-  if (availableNpcs.length) {
-    // NPC card picker
-    h += '<div class="dt-npc-cards">';
-    for (const npc of availableNpcs) {
-      const isSelected = savedNpcId === npc.id;
-      h += `<div class="dt-npc-card${isSelected ? ' dt-npc-card-selected' : ''}" data-npc-pick="${esc(npc.id)}" data-npc-name="${esc(npc.name)}">`;
-      h += `<div class="dt-npc-card-name">${esc(npc.name)}</div>`;
-      if (npc.relationship_type) h += `<div class="dt-npc-card-rel">${esc(npc.relationship_type)}</div>`;
-      if (npc.location_context)  h += `<div class="dt-npc-card-loc">${esc(npc.location_context)}</div>`;
-      h += '</div>';
-    }
-    h += '</div>';
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedNpcId)}">`;
-    h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}">`;
-    h += '<div class="dt-npc-propose">';
-    h += '<label class="qf-label">Or introduce someone new:</label>';
-    h += `<input type="text" class="qf-input dt-npc-freetext" id="dt-personal_story_npc_name_free" value="${esc(savedNpcId === '__new__' ? savedNpcName : '')}" placeholder="Name and brief description\u2026">`;
-    h += '</div>';
-  } else {
-    // Free-text fallback — no NPCs registered yet
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="__new__">`;
-    h += '<div class="qf-field">';
-    h += '<label class="qf-label">Who do you want your character to spend time with?</label>';
-    h += '<p class="qf-desc">Describe them briefly — name, relationship, context. Your ST will use this to seed their character register.</p>';
-    h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}" placeholder="e.g. Marcus, my character\u2019s younger brother\u2026">`;
-    h += '</div>';
-  }
-
-  // Interaction note
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">What kind of moment do you want?</label>';
-  h += '<p class="qf-desc">What are you hoping for from this interaction — a quiet scene, a difficult conversation, a letter, something unexpected? The more you share, the better the story.</p>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="3" placeholder="Optional\u2014 any direction, tone, or story beats you\u2019d like\u2026">${esc(savedNote)}</textarea>`;
-  h += '</div>';
-
-  // Story direction
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I\'d like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
-  }
-  h += '</div></div>';
-
-  // DTR.2: correspondence moved here from Court. Rendered from the first
-  // question in section.questions (type 'textarea') so collectResponses
-  // can still find it via `dt-<key>`.
-  const correspondenceQ = (section.questions || []).find(q => q.key === 'correspondence');
-  if (correspondenceQ) {
-    h += renderQuestion(correspondenceQ, saved['correspondence'] || '');
-  }
-
-  h += '</div></div>';
-  return h;
-}
+// dt-form.33: legacy `_legacyRenderPersonalStorySection` deleted. The
+// function rendered the DB-relational `dt-npc-cards` picker driven by
+// `currentChar.npcs`; suppressed under the broader NPC-interaction
+// release-cycle policy. dt-form.18 already replaced the live render
+// with the Touchstone-or-Correspondence binary; this story prunes the
+// orphan plus its associated click handler and the now-unused
+// `_linkedNpcs` / `_myRelationships` data loads.
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
