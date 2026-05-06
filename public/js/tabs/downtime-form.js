@@ -13,7 +13,8 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
+import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -814,6 +815,11 @@ function collectResponses() {
   return responses;
 }
 
+function _saveTimestamp() {
+  const now = new Date();
+  return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+}
+
 async function saveDraft() {
   const statusEl = document.getElementById('dt-save-status');
   if (!currentCycle) {
@@ -824,6 +830,7 @@ async function saveDraft() {
     if (statusEl) statusEl.textContent = '[Dev] Save skipped';
     return;
   }
+  if (statusEl) statusEl.textContent = 'Saving…';
   const responses = collectResponses();
 
   // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
@@ -853,8 +860,7 @@ async function saveDraft() {
       responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
-    if (statusEl) statusEl.textContent = 'Saved';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    if (statusEl) statusEl.textContent = 'Saved ' + _saveTimestamp();
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
@@ -1261,7 +1267,11 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  if (char) applyDerivedMerits(char);
+  try {
+    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+    currentChar = fresh;
+  } catch { /* silent — stale char is better than a broken form */ }
+  if (currentChar) applyDerivedMerits(currentChar);
   _territories = territories || [];
   responseDoc = null;
   currentCycle = null;
@@ -1720,6 +1730,131 @@ function _isRegencyConfirmedThisCycle() {
   );
 }
 
+// dt-form.31 (ADR-003 §Q5): Submit Final modal. ADVANCED-only affordance
+// that lets a player declare "I am done editing" via responses._final_submitted_at.
+// Mirrors the existing .npcr-modal pattern (admin-layout.css) but lives in
+// components.css under .dt-modal-* so the player surface picks it up.
+function openSubmitFinalModal(container) {
+  // Render fresh markup each time so the action-spent counts reflect the
+  // current responses (per §Q9, ADVANCED + MINIMAL-filled shows zeros).
+  closeSubmitFinalModal();
+  const saved = responseDoc?.responses || {};
+  const totals = {
+    projectSlots:     DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4,
+    sphereSlots:      Math.min((detectedMerits.spheres || []).length, 5),
+    statusSlots:      Math.min((detectedMerits.status || []).length, 5),
+    contactSlots:     Math.min((detectedMerits.contacts || []).length, 5),
+    retainerSlots:    (detectedMerits.retainers || []).length,
+    acquisitionSlots: parseInt(saved.acq_slot_count || '1', 10) || 1,
+    sorcerySlots:     parseInt(saved.sorcery_slot_count || '0', 10) || 0,
+    equipmentSlots:   parseInt(saved.equipment_slot_count || '0', 10) || 0,
+  };
+  const summary = actionSpentSummary(saved, totals);
+  const lines = formatActionSpentSummary(summary);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'dt-modal-overlay';
+  overlay.id = 'dt-submit-final-overlay';
+  overlay.setAttribute('role', 'presentation');
+
+  const titleId = 'dt-submit-final-title';
+  let h = '';
+  h += `<div class="dt-modal" role="dialog" aria-modal="true" aria-labelledby="${titleId}">`;
+  h += `<h3 class="dt-modal-title" id="${titleId}">Submit Final</h3>`;
+  h += '<div class="dt-modal-body">';
+  h += '<p class="qf-section-intro">Use this when you are done editing. Your downtime will continue auto-saving until the cycle deadline; this just records the moment you stopped.</p>';
+
+  // Action-spent summary
+  h += '<h4 class="dt-modal-subhead">This cycle so far</h4>';
+  if (lines.length) {
+    h += '<ul class="dt-modal-summary-list">';
+    for (const line of lines) {
+      h += `<li>${esc(line)}</li>`;
+    }
+    h += '</ul>';
+  } else {
+    h += '<p class="qf-desc">No actions filled in yet.</p>';
+  }
+
+  // Optional rate-the-form widget — lifted from the removed Admin section
+  // (SUBMIT_FINAL_MODAL_QUESTIONS in downtime-data.js) so the existing
+  // star_rating + textarea widgets render via renderQuestion(), unchanged.
+  h += '<h4 class="dt-modal-subhead">Rate the form (optional)</h4>';
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    h += renderQuestion(q, saved[q.key] || '');
+  }
+  h += '</div>'; // dt-modal-body
+
+  // Actions
+  h += '<div class="dt-modal-actions">';
+  h += '<button type="button" class="qf-btn qf-btn-save" data-dt-final-cancel>Cancel</button>';
+  h += '<button type="button" class="qf-btn qf-btn-submit-final" data-dt-final-confirm>Submit Final</button>';
+  h += '</div>';
+
+  h += '</div>'; // dt-modal
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+
+  // Focus management: send focus to the dialog so screen readers announce it.
+  overlay.querySelector('.dt-modal')?.focus({ preventScroll: true });
+
+  // Escape closes the modal.
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSubmitFinalModal(); }
+  });
+
+  // Click delegation MUST live on the overlay, not on the form container,
+  // because document.body.appendChild(overlay) above puts the modal outside
+  // the container's DOM subtree. Clicks here would not bubble to a
+  // container-scoped listener (caused issue #89).
+  overlay.addEventListener('click', (e) => {
+    if (e.target.closest('[data-dt-final-cancel]')) {
+      e.preventDefault();
+      closeSubmitFinalModal();
+      return;
+    }
+    if (e.target.closest('[data-dt-final-confirm]')) {
+      e.preventDefault();
+      handleSubmitFinalConfirm(container);
+      return;
+    }
+    // Click on the overlay backdrop itself (not on a modal child) dismisses.
+    if (e.target === overlay) {
+      closeSubmitFinalModal();
+    }
+  });
+}
+
+function closeSubmitFinalModal() {
+  const el = document.getElementById('dt-submit-final-overlay');
+  if (el) el.remove();
+}
+
+async function handleSubmitFinalConfirm(container) {
+  // Collect the rating widget values from the modal so they round-trip on
+  // the next save. Star rating writes to a hidden input; textarea writes
+  // straight to its DOM node. We seed them onto responseDoc so collectResponses
+  // (which iterates over rendered form fields, not the modal) keeps the values.
+  if (!responseDoc) responseDoc = { responses: {} };
+  if (!responseDoc.responses) responseDoc.responses = {};
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    const el = document.getElementById('dt-' + q.key);
+    if (el) responseDoc.responses[q.key] = el.value;
+  }
+  responseDoc.responses._final_submitted_at = new Date().toISOString();
+  closeSubmitFinalModal();
+  // Re-render the form so the button label flips to "Update Final Submission",
+  // then save so the new field reaches the server. Save handles the toast
+  // status banner via the auto-mirror lifecycle.
+  renderForm(container);
+  scheduleSave();
+  const statusEl = document.getElementById('dt-save-status');
+  if (statusEl) {
+    statusEl.textContent = 'Final submission recorded; keep editing until the deadline.';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
@@ -1785,6 +1920,13 @@ function renderForm(container) {
       h += '</ul>';
     }
     h += '</div>';
+  } else if (mode === 'minimal') {
+    // dt-form.31 (ADR-003 §Q5): MINIMAL auto-submit confirmation toast.
+    // Locked copy. Persistent — stays as long as the form is above minimum
+    // in MINIMAL mode. ADVANCED uses the Submit Final modal instead.
+    h += '<div class="dt-min-toast" role="status" aria-live="polite">';
+    h += '<p class="dt-min-toast__lead"><strong>Submitted</strong> — keep editing until the deadline.</p>';
+    h += '</div>';
   }
 
   // Header
@@ -1809,7 +1951,6 @@ function renderForm(container) {
   }
   h += '<span id="dt-save-status" class="qf-save-status"></span>';
   h += '</div>';
-  h += '<p class="qf-intro">Your responses auto-save as you type.</p>';
 
   // Status badges
   h += '<div class="dt-status-badges">';
@@ -1842,6 +1983,8 @@ function renderForm(container) {
     if (section.key === 'blood_sorcery') continue;
     if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
+    // dt-form.31: admin section removed from DOWNTIME_SECTIONS. Defensive skip
+    // kept in case legacy data or imports re-introduce the key.
     if (section.key === 'admin') continue;
     if (section.key === 'territory') continue;
     if (section.key === 'feeding') continue;
@@ -1908,7 +2051,9 @@ function renderForm(container) {
     h += renderEquipmentSection(saved);
   }
 
-  for (const key of ['vamping', 'admin']) {
+  // dt-form.31: 'admin' removed from DOWNTIME_SECTIONS — find() returns
+  // undefined for it and the body is skipped. Loop kept for vamping.
+  for (const key of ['vamping']) {
     if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
@@ -1936,16 +2081,23 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // Hide feedback textarea until a rating is provided
-  if (!saved['form_rating']) {
-    h = h.replace('dt-feedback-field', 'dt-feedback-field dt-feedback-hidden');
-  }
+  // dt-form.31: form-rating hide hack removed — the rating widget now lives
+  // in the Submit Final modal (ADVANCED only); not in the form body.
 
   // Actions
   const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
   h += '<div class="qf-actions">';
-  h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
   h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
+  // dt-form.31 (ADR-003 §Q5): ADVANCED-only Submit Final affordance. Opens
+  // the modal; the modal sets responses._final_submitted_at on confirm.
+  // Per §Q9 the button is mode-conditional, not state-conditional — an
+  // ADVANCED player who only filled MINIMAL still sees it (the modal
+  // shows zeros in that case).
+  if (mode === 'advanced') {
+    const finalAt = saved._final_submitted_at;
+    const finalLabel = finalAt ? 'Update Final Submission' : 'Submit Final';
+    h += `<button type="button" class="qf-btn qf-btn-submit-final" id="dt-btn-submit-final">${esc(finalLabel)}</button>`;
+  }
   h += '</div>';
 
   // Capture expanded sections before re-render
@@ -1997,6 +2149,16 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
+    if (e.target.closest('#dt-btn-submit-final')) {
+      e.preventDefault();
+      openSubmitFinalModal(container);
+      return;
+    }
+    // dt-form.31 modal click delegations moved to the overlay element in
+    // openSubmitFinalModal() — see issue #89. The overlay is appended to
+    // document.body, not to container, so its clicks never reach this
+    // listener.
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
@@ -3021,7 +3183,6 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
   document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
 }
 
@@ -5050,9 +5211,25 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
+/** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
+function getAuditMaintained(cycle, char) {
+  if (!cycle || !char) return new Set();
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const set = new Set();
+  for (const m of (char.merits || [])) {
+    if (m.name === 'Professional Training' && audit.pt === true) {
+      set.add(`Professional Training_${meritEffectiveRating(char, m)}`);
+    }
+    if (m.name === 'Mystery Cult Initiation' && audit.mci === true && m.active !== false) {
+      set.add(`Mystery Cult Initiation_${meritEffectiveRating(char, m)}`);
+    }
+  }
+  return set;
+}
+
 /** Chip grid of the character's own maintenance-eligible merits (dtui-11).
  *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project', auditMaintained = new Set()) {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
@@ -5070,9 +5247,13 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
-    const isDisabled = alreadyMaintained.has(id);
+    const isDisabled = alreadyMaintained.has(id) || auditMaintained.has(id);
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
+    const titleAttr = auditMaintained.has(id)
+      ? ' title="Maintained this chapter — no action needed."'
+      : isDisabled
+        ? ' title="Already chosen as a target in another project slot."'
+        : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
          `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
@@ -5164,8 +5345,9 @@ function renderTargetZone(n, actionVal, saved, chars) {
   } else if (['investigate', 'misc'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
-    const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
-    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
+    const formDedup = getAlreadyMaintainedTargets(n, saved, 5);
+    const auditMaint = getAuditMaintained(currentCycle, currentChar);
+    h += renderMaintenanceChips(n, saved, currentChar, formDedup, 'project', auditMaint);
   }
 
   h += '</div>';
@@ -5338,7 +5520,8 @@ function getAlliesAmbienceEligible(m) {
 function renderAlliesGrowXp(n, prefix, m, saved) {
   const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
-  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+  const baseName = m.name || 'Merit';
+  const meritName = m.area ? `${baseName} (${m.area})` : (m.qualifier ? `${baseName} (${m.qualifier})` : baseName);
 
   let h = '<div class="qf-field">';
   h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
@@ -5558,6 +5741,12 @@ function renderMeritToggles(saved) {
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
+  // Status-scoped list: only Status influence merits and standing merits (MCI etc.)
+  // Used in renderSphereFields for Status tabs to prevent Allies/Contacts bleeding into
+  // the hide_protect "What are you protecting?" dropdown.
+  const statusMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'standing' || (m.category === 'influence' && m.name === 'Status')
+  );
 
   if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
 
@@ -5690,15 +5879,17 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
-      // Legacy actionVals map to 'ambience_change' for the dropdown
-      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
-      for (const opt of SPHERE_ACTIONS) {
+      // ambience_change is an Allies/sphere-only action; exclude from Status dropdown.
+      // Legacy ambience_increase/decrease values in saved data are cleared gracefully
+      // (no matching option → falls back to blank/"No Action").
+      const stDropdownVal = actionVal;
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'ambience_change')) {
         const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
 
-      h += renderSphereFields(n, 'status', fields, saved, charMerits);
+      h += renderSphereFields(n, 'status', fields, saved, statusMerits, m);
 
       h += '</div>';
     }
