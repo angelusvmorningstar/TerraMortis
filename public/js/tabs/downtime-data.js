@@ -361,42 +361,31 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 13. Admin — always shown
+  // dt-form.31 (ADR-003 §Q5): the Admin section is removed. The form-rating +
+  // form-feedback widgets move to the ADVANCED Submit Final modal; XP Spend
+  // moves to a project-action variant under #26. Existing legacy submissions
+  // keep `xp_spend` / `lore_request` / `form_rating` / `form_feedback` keys
+  // on `responses` — ST views read them directly.
+];
+
+// dt-form.31: Submit Final modal questions. Lifted from the removed Admin
+// section's `form_rating` + `form_feedback`. The modal renders these via the
+// existing renderQuestion() switch (star_rating + textarea types) so the
+// widgets are not re-implemented.
+export const SUBMIT_FINAL_MODAL_QUESTIONS = [
   {
-    key: 'admin',
-    title: 'Admin: Crunching Numbers and Asking Questions',
-    gate: null,
-    intro: null,
-    questions: [
-      {
-        key: 'xp_spend',
-        label: 'XP Spend',
-        type: 'xp_grid',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'lore_request',
-        label: 'What game rules, elements, or Lore would you like more information about?',
-        type: 'textarea',
-        required: false,
-        desc: 'Ask anything — rules clarifications, in-character history, covenant doctrine, NPC backgrounds, or setting details.',
-      },
-      {
-        key: 'form_rating',
-        label: 'How would you rate this Downtime form for clarity and ease of use?',
-        type: 'star_rating',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'form_feedback',
-        label: 'Any comments or recommendations on the Downtime form?',
-        type: 'textarea',
-        required: false,
-        desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
-      },
-    ],
+    key: 'form_rating',
+    label: 'How would you rate this Downtime form for clarity and ease of use?',
+    type: 'star_rating',
+    required: false,
+    desc: null,
+  },
+  {
+    key: 'form_feedback',
+    label: 'Any comments or recommendations on the Downtime form?',
+    type: 'textarea',
+    required: false,
+    desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
   },
 ];
 
