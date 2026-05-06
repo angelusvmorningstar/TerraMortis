@@ -35,7 +35,7 @@ This is ADVANCED-only per ADR §Q2 (blood_sorcery is not in the MINIMAL set). Pl
 
 **Given** a player owns ritual sorcery
 **When** the Blood Sorcery section renders in ADVANCED mode
-**Then** the rituals are presented in a logical order. The chosen order is documented in DAR (e.g. "Crúac first, alphabetical within; Theban second, alphabetical within"). Implementer proposes; surface to Piatra during pickup if uncertain.
+**Then** the rituals are presented in this order: **Crúac first, then Theban** (per Piatra clarification 2026-05-06). Within each style, alphabetical-by-name unless the implementer surfaces a better-justified alternative during pickup.
 
 **Given** a player does not own any ritual sorcery
 **When** the Blood Sorcery section is evaluated
@@ -47,7 +47,7 @@ This is ADVANCED-only per ADR §Q2 (blood_sorcery is not in the MINIMAL set). Pl
 
 ## Implementation Notes
 
-Survey the current order; document; pick a target order; surface to Piatra for sign-off if non-obvious. Recommend: Crúac before Theban (alphabetical within each), since that's the order Disciplines are usually inventoried. Or: by tier-level (lowest first) within each style.
+Target order locked by Piatra 2026-05-06: **Crúac first, Theban second.** Within each style, alphabetical-by-name is the implementer's default; if pickup-time analysis suggests a better order (e.g. tier-level grouping, frequency-of-use), surface for Piatra's sign-off rather than diverging silently.
 
 ## Test Plan
 

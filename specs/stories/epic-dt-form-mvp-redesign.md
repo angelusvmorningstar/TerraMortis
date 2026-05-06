@@ -95,6 +95,20 @@ Two epic stories carry hotfix dependencies that change their landing order:
 
 Both are flagged in the affected stories' Dependencies blocks and again in the Cross-references section of each.
 
+## Story-pair sequencing notes (intra-epic, confirmed by Piatra)
+
+- **#26 ↔ #31 (Admin section removal).** Both touch the Admin section. Confirmed sequencing 2026-05-06: **#31 lands first** (removes the Admin section structure and replaces it with the Submit Final modal), **#26 follows** (puts XP Spend functionality in a project slot). Documented in #26's Dependencies block.
+
+## Open-questions resolutions (Piatra 2026-05-06 follow-up)
+
+Three open questions surfaced during decomposition were resolved by Piatra in the same review pass that confirmed merge-readiness:
+
+| Story | Question | Resolution |
+|---|---|---|
+| #22 ROTE hunt | Does ROTE-only count toward MINIMAL completeness? | **Yes.** ROTE feeding is available in MINIMAL and auto-populates the downtime feeding action. Story #22 carries this in its ACs. |
+| #25 Ambience action | Mutual exclusivity per row? | **No — relaxed to independently toggleable.** Both UP and DOWN may be selected simultaneously on the same row. Story #25 ACs updated. |
+| #27 Blood Sorcery order | Crúac vs Theban order? | **Crúac first, Theban second.** Within each, alphabetical-by-name unless pickup-time analysis surfaces a better order. Story #27 AC updated. |
+
 ## Cross-cutting hotfix references (NOT in scope of this epic)
 
 The 9 hotfix bugs labelled `cycle-blocker` and `audit-finding` ship via the `tm-gh-issue-pickup` lane, not as stories under this epic. They are listed here only so the context the epic operates in is captured. Order is by issue number, not priority.

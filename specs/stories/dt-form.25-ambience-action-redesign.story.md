@@ -11,17 +11,17 @@ adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
 # Story dt-form.25 — Ambience Increase/Decrease action redesign (territory-row table)
 
 As a player declaring an Ambience Increase or Decrease action,
-I should see a territory-row table where each row has a RED DOWN arrow and a GREEN UP arrow (mutually exclusive per row, with toggle-off to reveal both again),
+I should see a territory-row table where each row has a RED DOWN arrow and a GREEN UP arrow, each independently toggleable,
 So that the choice surface is direct (territory + direction) rather than a generic target/Increase/Decrease form.
 
 ## Context
 
-The current `ambience_increase` and `ambience_decrease` action types within Personal Actions slots use generic target/direction inputs. Per Piatra (2026-05-06), redesign as a table:
+The current `ambience_increase` and `ambience_decrease` action types within Personal Actions slots use generic target/direction inputs. Per Piatra (2026-05-06, clarified 2026-05-06 follow-up):
 - One row per territory
-- RED DOWN arrow (selectable) — encodes "Decrease ambience here"
-- GREEN UP arrow (mutually exclusive per row) — encodes "Increase ambience here"
-- Selecting one collapses the other for that row
-- Clicking the selection toggles it off and reveals both arrows again
+- Each row has both a RED DOWN arrow and a GREEN UP arrow as toggleable selectors
+- Each direction is **independently toggleable**: click to select that direction; click again to deselect
+- Both selectors stay visible at all times (do not collapse on selection)
+- The original brief's "mutually exclusive per row" language was relaxed to "independently toggleable" in the follow-up clarification
 
 Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exceptional success."*
 
@@ -40,19 +40,23 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 
 **Given** a player selects `ambience_increase` or `ambience_decrease` action type
 **When** the action slot renders
-**Then** a territory-row table renders. Each row has the territory name, a RED DOWN arrow chip, and a GREEN UP arrow chip.
+**Then** a territory-row table renders. Each row has the territory name, a RED DOWN arrow chip, and a GREEN UP arrow chip. Both chips are visible at all times.
 
 **Given** the player clicks the GREEN UP arrow on a row
 **When** the chip toggles
-**Then** the GREEN UP is selected for that row; the RED DOWN for that row is hidden / collapsed; other rows are unaffected.
+**Then** the GREEN UP is selected (highlighted) for that row. The RED DOWN remains visible. Other rows are unaffected.
 
 **Given** the GREEN UP arrow is selected for a row
 **When** the player clicks the GREEN UP arrow again on the same row
-**Then** the selection toggles off; both arrows reappear for that row.
+**Then** the selection toggles off. The arrow returns to its unselected state.
 
-**Given** a player has selected one direction on one row
+**Given** the player clicks the RED DOWN arrow on the same row that already has GREEN UP selected
+**When** the chip toggles
+**Then** RED DOWN becomes selected. **GREEN UP and RED DOWN are independently toggleable per Piatra's 2026-05-06 follow-up clarification** — both directions may be selected simultaneously on the same row if the player chooses. The form does not enforce mutual exclusivity at the UI level.
+
+**Given** a player has selected directions on multiple rows
 **When** they click an arrow on a different row
-**Then** both rows can hold selections — the table allows multi-row selection (one direction per row). (If per-action rules limit this to one row total, surface to Piatra during pickup; default assumption is multi-row allowed.)
+**Then** all rows can hold independent selections — the table allows multi-row selection.
 
 **Given** the form persists
 **When** the slot is saved

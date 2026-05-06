@@ -37,9 +37,13 @@ ROTE hunt is the "this is where you usually feed" lighter option that contrasts 
 **When** the ROTE option is selected
 **Then** the form shows a secondary-feeding UI clearly distinguished from primary feeding (separate sub-block, label, optional collapse/expand affordance).
 
-**Given** ROTE-only is a valid feeding choice for the cycle
-**When** `isMinimalComplete()` is evaluated against a submission that has filled ROTE but not primary feeding
-**Then** the rule passes (ROTE counts as feeding for MINIMAL completeness — confirm with rules; if ROTE does NOT count, story decides MINIMAL requires primary feeding and ROTE is ADVANCED-only).
+**Given** ROTE feeding is selected on a MINIMAL submission
+**When** `isMinimalComplete()` is evaluated
+**Then** the rule passes — **ROTE counts as feeding for MINIMAL completeness** (confirmed by Piatra 2026-05-06). ROTE is a valid path through the MINIMAL gate.
+
+**Given** ROTE is selected on a MINIMAL submission
+**When** the form auto-saves
+**Then** the corresponding downtime action is auto-populated with the ROTE feeding action — the player does not need to declare a Personal Action separately to record their ROTE hunt; the form derives it from the ROTE selection. (Per Piatra: "ROTE feeding is available in MINIMAL and would auto-populate the DOWNTIME action with the feeding action.")
 
 **Given** ROTE is selected
 **When** the player provides whatever ROTE-specific fields are needed (territory, RP description, etc.)
