@@ -3632,7 +3632,15 @@ function renderXpReviewStep() {
           if (legacy) rows.push({ category: 'xp_spend', item: legacy, cost: null, _proj: n });
         }
       }
-      // Also include admin xp_grid rows (free merits)
+      // dt-form.26: top-level `responses.xp_spend` is now a mirror built
+      // from the per-slot `project_N_xp_rows` (DAR-A1). The duplicate concat
+      // here is harmless because the per-slot rows above were derived from
+      // `project_N_xp_category`/`_xp_item` (legacy single-row keys), while
+      // the top-level mirror carries the FULL multi-row breakdown across
+      // all xp_spend slots. Reading both paths gives the ST every row even
+      // for legacy-shaped or transitional submissions; rows from the
+      // per-slot loop above are picked up here as duplicates only when a
+      // slot still has both shapes (transition window).
       try {
         const adminRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
         rows = rows.concat(adminRows);
