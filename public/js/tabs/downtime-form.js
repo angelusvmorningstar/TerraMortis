@@ -236,8 +236,10 @@ function detectMerits() {
       }
     }
   }
-  detectedMerits.retainers = deduplicateMerits(merits.filter(m =>
-    m.category === 'influence' && m.name === 'Retainer'
+  // Attaché (*) merits are functionally Retainers (per sheet.js:900); also walk
+  // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
+  detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && (m.name === 'Retainer' || m.name?.startsWith('Attaché ('))
   ));
 
   gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
