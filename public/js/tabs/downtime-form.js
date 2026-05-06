@@ -856,7 +856,7 @@ async function saveDraft() {
   const nextStatus = hasMinimum ? 'submitted' : 'draft';
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -1201,7 +1201,7 @@ async function submitForm() {
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
