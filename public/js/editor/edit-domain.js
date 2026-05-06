@@ -36,18 +36,8 @@ export function shEditInflMerit(idx, field, val) {
   else if (field === 'area') m.area = val;
   else if (field === 'rating') m.rating = Math.max(0, Math.min(5, parseInt(val) || 0));
   else if (field === 'ghoul') m.ghoul = val === true || val === 'true' || val === 1;
+  else if (field === 'narrow') m.narrow = val;
   else if (field === 'attached_to') { if (val) m.attached_to = val; else delete m.attached_to; }
-  _markDirty();
-  _renderSheet(c);
-}
-
-export function shEditStatusMode(idx) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const { merit: m } = meritByCategory(c, 'influence', idx);
-  if (!m) return;
-  m.narrow = !m.narrow;
-  m.area = '';
   _markDirty();
   _renderSheet(c);
 }

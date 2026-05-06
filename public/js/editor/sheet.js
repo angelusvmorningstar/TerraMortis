@@ -861,9 +861,11 @@ export function shRenderInfluenceMerits(c, editMode) {
   } else {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
+      const narrow = m.name === 'Status' && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
+      const displayArea = area && narrow ? area + ' — ' + narrow : area;
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
-      h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name);
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
@@ -899,7 +901,10 @@ function _inflArea(m, idx, isC) {
   // functionally Retainers (description text + Ghoul flag) per game-rule.
   if (m.name === 'Retainer' || m.name?.startsWith('Attaché (')) return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Description" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><label class="infl-ghoul-lbl"><input type="checkbox"' + (m.ghoul ? ' checked' : '') + ' onchange="shEditInflMerit(' + idx + ',\'ghoul\',this.checked)"> Ghoul</label>';
   if (m.name === 'Staff') return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Area of expertise" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">';
-  if (m.name === 'Status') { const isNarrow = m.narrow || (m.area && !INFLUENCE_SPHERES.includes(m.area)); return '<button class="infl-mode-btn" onclick="shEditStatusMode(' + idx + ')" title="' + (isNarrow ? 'Switch to sphere' : 'Switch to narrow') + '">' + (isNarrow ? 'Sphere \u2195' : 'Narrow \u2195') + '</button>' + (isNarrow ? '<input type="text" class="infl-area infl-area-narrow" value="' + esc(m.area || '') + '" placeholder="Narrow status" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">' : '<select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(m.area) + '</select>'); }
+  if (m.name === 'Status') {
+    return '<select class="infl-area infl-area-sphere" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(m.area) + '</select>' +
+           '<input type="text" class="infl-area infl-area-narrow" value="' + esc(typeof m.narrow === 'string' ? m.narrow : '') + '" placeholder="Narrow descriptor" onchange="shEditInflMerit(' + idx + ',\'narrow\',this.value)">';
+  }
   return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Sphere / scope" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">';
 }
 
