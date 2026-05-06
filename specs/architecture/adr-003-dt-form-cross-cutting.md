@@ -1,10 +1,10 @@
 ---
 id: ADR-003
 title: 'DT submission form - Minimal/Advanced mode, soft-submit lifecycle, universal character picker'
-status: draft
+status: approved
 date: 2026-05-06
 author: Winston (Architect)
-revision: 2
+revision: 3
 supersedes: null
 related:
   - specs/architecture/adr-001-rules-engine-schema.md
@@ -26,6 +26,7 @@ related:
 |---|---|---|---|
 | 1 | 2026-05-06 | Initial draft. Three intertwined cross-cutting concerns scoped together because the per-section redesign stories cannot be properly written until these answers are recorded. Audit, decisions, story-mapping, open questions. | Winston (Architect) |
 | 2 | 2026-05-06 | Q3 recommendation flipped from Option A (ratchet) to Option B (hard mirror) per Piatra resolution. Reasoning: hard mirror is the cleaner mental model, surfaces vandalism/incomplete-state visibly via existing negative-`xpLeft()` UI, drops the `downtime_awarded_xp_at_cycle` schema field, and matches the verbatim model Piatra articulated in chat ("submitted:true flips as required back and forth to match a 'has_minimum_input_in_form' bool"). Three UI affordances added as story #17 acceptance criteria to make hard mirror honest rather than abrupt: banner-when-incomplete, XP-Available delta annotation, negative-XP-Left treatment. Q4 amended to match. Resolutions table populated for Q3, Q4. | Winston (Architect) |
+| 3 | 2026-05-06 | All remaining open questions resolved by Piatra in chat. Q1 mode-switch preserves entered data. Q2 MINIMAL set confirmed as recommended (court + reduced personal_story + simplified feeding + 1 project + regency-if-regent). Q5 form-rating widget is optional, not required. Q6 picker carries `excludeIds` parameter from day one. Q7 no server-side enforcement now. Q8 `isMinimalComplete()` lives in its own module (Piatra noted "separate module seems excessive but I'm fine with it"). Q9-Q12 confirmed as recommended. Status promoted from `draft` to `approved`. Story #14 (sign-off) closes; story #15 (epic decomposition) is unblocked. | Winston (Architect) |
 
 ## Context
 
@@ -352,19 +353,19 @@ This ADR scopes the cross-cutting decisions for the DT submission form only. Out
 
 ## Resolutions
 
-To be filled by Piatra after review. Angelus's comments (if any) appended below as a separate revision.
+All twelve questions resolved by Piatra 2026-05-06. ADR status promoted from `draft` to `approved`. Angelus is invited to comment via response ADR per the contested-architecture mechanism in `specs/architectural-reset-charter.md` Part 3; rev 4 of this ADR will append any such response.
 
 | Question | Recommendation | Resolution | Notes |
 |---|---|---|---|
-| Q1 mode persistence | per-submission, default MINIMAL | _pending_ | |
-| Q2 MINIMAL set | court + personal_story (reduced) + feeding + 1 project + regency-if-regent | _pending_ | |
+| Q1 mode persistence | per-submission, default MINIMAL; mode-switch preserves entered data | **resolved** | Switching MINIMAL → ADVANCED → MINIMAL keeps previously-filled fields rather than clearing. Cost of stray data in unrendered sections is zero; cost of losing player typing is real. |
+| Q2 MINIMAL set | court + personal_story (reduced) + feeding + 1 project + regency-if-regent | **resolved** | Acquisitions, Equipment, Vamping, Sphere actions, Sorcery, Admin all stay ADVANCED-only. MINIMAL is for players who want truly minimal actions. |
 | Q3 derived-bool lifecycle | hard mirror (rev 2 — was Option A ratchet) | **resolved** | Hard mirror chosen 2026-05-06. Banner + XP-Available annotation + negative-`xpLeft()` treatment are story #17 ACs. |
 | Q4 auto-XP timing | mirrors the bool both ways; flip-back drops XP-Available with banner UI (rev 2) | **resolved** | Same chat 2026-05-06. Cycle close is the only true seal. |
-| Q5 submit modal | ADVANCED only; replaces Admin form-rating | _pending_ | |
-| Q6 character picker | one component, two scopes, single render shape | _pending_ | |
-| Q7 server enforcement | defer | _pending_ | |
-| Q8 location of `isMinimalComplete` | `public/js/data/dt-completeness.js` | _pending_ | |
-| Q9 ADVANCED+MINIMAL-filled modal | yes, show with zeroes | _pending_ | |
-| Q10 picker keyboard model | WAI-ARIA combobox in story AC | _pending_ | |
-| Q11 cycle-close server gate | yes, server-side 423 | _pending_ | |
-| Q12 remove Save Draft button | yes, repurpose `#dt-save-status` | _pending_ | |
+| Q5 submit modal | ADVANCED only; replaces Admin form-rating; rating widget is **optional** | **resolved** | Players who want to skip-and-go are not blocked by the rating widget. MINIMAL submissions get a toast confirmation only, no modal. |
+| Q6 character picker | one component, two scopes, single render shape; `excludeIds` parameter from day one | **resolved** | `excludeIds` lands in the v1 component signature so ALLY-attach pickers can exclude self without revisiting consumers later. |
+| Q7 server enforcement | defer | **resolved** | Client-side derivation only for now. Server trusts the PATCH. Upgrade path stays clean if/when needed. |
+| Q8 location of `isMinimalComplete` | `public/js/data/dt-completeness.js` (separate module) | **resolved** | Piatra noted "separate module seems excessive but I'm fine with it." Keeps server-port path clean if Q7 promotes later. |
+| Q9 ADVANCED+MINIMAL-filled modal | yes, show with zeroes | **resolved** | Mode-conditional, not state-conditional. ADVANCED player sees ADVANCED submission UX. |
+| Q10 picker keyboard model | WAI-ARIA combobox in story AC | **resolved** | `role="combobox"`, `aria-expanded`, `aria-activedescendant`, standard tab/arrow/enter/escape semantics. Story #16 carries this in its ACs. |
+| Q11 cycle-close server gate | yes, server-side 423 | **resolved** | Load-bearing for hard-mirror Q3. `PATCH /api/downtime_submissions/:id` returns 423 Locked when `cycle.status === 'closed'`. One short middleware in `server/routes/downtime.js`. |
+| Q12 remove Save Draft button | yes, repurpose `#dt-save-status` | **resolved** | Issue [#45](https://github.com/angelusvmorningstar/terramortis/issues/45) carries the implementation. |
