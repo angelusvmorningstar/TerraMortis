@@ -224,4 +224,22 @@ test.describe('dt-form.36: feeding_method required:false no longer blocks submis
     await expect(toast).toContainText('Feeding Territory');
   });
 
+  test('DOWNTIME_SECTIONS feeding_method question has required:false (data contract)', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char, null);
+    await openDowntimeForm(page, char);
+
+    // Import the module and check the data directly — pins the one-line fix so
+    // a future edit that accidentally re-enables required:true will be caught here.
+    const feedingMethodRequired = await page.evaluate(async () => {
+      const mod = await import('/js/tabs/downtime-data.js');
+      const feedingSection = mod.DOWNTIME_SECTIONS.find(s => s.key === 'feeding');
+      if (!feedingSection) return null;
+      const q = feedingSection.questions.find(q => q.key === 'feeding_method');
+      return q ? q.required : null;
+    });
+
+    expect(feedingMethodRequired).toBe(false);
+  });
+
 });
