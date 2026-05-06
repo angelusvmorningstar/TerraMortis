@@ -815,6 +815,11 @@ function collectResponses() {
   return responses;
 }
 
+function _saveTimestamp() {
+  const now = new Date();
+  return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+}
+
 async function saveDraft() {
   const statusEl = document.getElementById('dt-save-status');
   if (!currentCycle) {
@@ -825,6 +830,7 @@ async function saveDraft() {
     if (statusEl) statusEl.textContent = '[Dev] Save skipped';
     return;
   }
+  if (statusEl) statusEl.textContent = 'Saving…';
   const responses = collectResponses();
 
   // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
@@ -854,8 +860,7 @@ async function saveDraft() {
       responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
-    if (statusEl) statusEl.textContent = 'Saved';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    if (statusEl) statusEl.textContent = 'Saved ' + _saveTimestamp();
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
@@ -1921,7 +1926,6 @@ function renderForm(container) {
   }
   h += '<span id="dt-save-status" class="qf-save-status"></span>';
   h += '</div>';
-  h += '<p class="qf-intro">Your responses auto-save as you type.</p>';
 
   // Status badges
   h += '<div class="dt-status-badges">';
@@ -2058,7 +2062,6 @@ function renderForm(container) {
   // Actions
   const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
   h += '<div class="qf-actions">';
-  h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
   h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
   // dt-form.31 (ADR-003 §Q5): ADVANCED-only Submit Final affordance. Opens
   // the modal; the modal sets responses._final_submitted_at on confirm.
@@ -3169,7 +3172,6 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
   document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
 }
 
