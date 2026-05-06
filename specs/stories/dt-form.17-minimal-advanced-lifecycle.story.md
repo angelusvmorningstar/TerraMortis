@@ -2,7 +2,7 @@
 id: dt-form.17
 task: 17
 epic: epic-dt-form-mvp-redesign
-status: Ready for Review
+status: Done
 priority: high
 depends_on: ['dt-form.16']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q1, §Q2, §Q3, §Q4, §Q8, §Q11)
