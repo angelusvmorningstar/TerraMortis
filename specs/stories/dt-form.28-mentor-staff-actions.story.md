@@ -1,11 +1,13 @@
 ---
 id: dt-form.28
 task: 28
+issue: 86
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/86
 epic: epic-dt-form-mvp-redesign
 status: Draft
 priority: medium
 depends_on: ['dt-form.16', 'dt-form.17']
-hotfix_predecessor: 'GitHub issue #46'
+hotfix_predecessor: 'GitHub issue #45'
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
 ---
 
@@ -15,7 +17,7 @@ As a player who holds Mentor or Staff merits,
 I should see one Mentor action per Mentor merit owned (like Retainer's existing pattern) and one Staff action per dot of Staff (like Contacts' existing pattern),
 So that these merits surface their downtime actions cleanly alongside Retainer / Contacts.
 
-This story's merit detection follows the **established walk pattern from hotfix #46** (Charlie Ballsack Retainer-via-Attaché missing-action fix).
+This story's merit detection follows the **established walk pattern from hotfix #45** (Charlie Ballsack Retainer-via-Attaché missing-action fix).
 
 ## Context
 
@@ -25,18 +27,18 @@ Per Piatra (2026-05-06):
 - Both surface alongside Retainer / Contacts in the form
 - Use the universal character picker (#16) for any character selection within these actions
 
-Cross-cutting note from Piatra: hotfix issue #46 (granted-merit detection walk) lands BEFORE this story. **Story #28's merit detection follows the same walk pattern from #46.**
+Cross-cutting note from Piatra: hotfix issue #45 (granted-merit detection walk) lands BEFORE this story. **Story #28's merit detection follows the same walk pattern from #45.**
 
 ### Files in scope
 
 - `public/js/tabs/downtime-form.js` — wherever Retainer / Contacts merit-action detection currently happens; add Mentor + Staff to the same surface
-- Per Piatra: detection should walk `benefit_grants` / `granted_by` per the pattern issue #46 establishes
+- Per Piatra: detection should walk `benefit_grants` / `granted_by` per the pattern issue #45 establishes
 
 ### Files NOT in scope
 
 - `MERITS_DB` (Mentor and Staff are already in the data; this story consumes them)
 - Other merit-driven actions (Retainer, Contacts — preserved unchanged; they're the template)
-- The granted-merit detection logic itself (locked by #46 hotfix)
+- The granted-merit detection logic itself (locked by #45 hotfix)
 
 ## Acceptance Criteria
 
@@ -54,7 +56,7 @@ Cross-cutting note from Piatra: hotfix issue #46 (granted-merit detection walk) 
 
 **Given** a character holds Mentor or Staff via a granted source (e.g. via Attaché)
 **When** the merit-detection walk fires
-**Then** the granted Mentor/Staff is detected per the walk pattern from hotfix #46. Story #28's detection logic must use the same walk (no duplicating, no diverging).
+**Then** the granted Mentor/Staff is detected per the walk pattern from hotfix #45. Story #28's detection logic must use the same walk (no duplicating, no diverging).
 
 **Given** Mentor or Staff merit-action surfacing exists
 **When** persistence fires
@@ -64,11 +66,11 @@ Cross-cutting note from Piatra: hotfix issue #46 (granted-merit detection walk) 
 
 Survey: where do Retainer and Contacts actions currently surface? That's the template. Read the surrounding render code — likely a "for each [merit]" loop over the character's merit set, gated on merit name. Add Mentor (per-merit) and Staff (per-dot) to the same loop.
 
-Detection walk: hotfix #46 establishes that granted merits should be detected by walking `c.merits[i].benefit_grants` and `c.merits[i].granted_by`. Ensure this story's Mentor/Staff detection uses the same walk so a granted Mentor (e.g. via Patron) is surfaced too.
+Detection walk: hotfix #45 establishes that granted merits should be detected by walking `c.merits[i].benefit_grants` and `c.merits[i].granted_by`. Ensure this story's Mentor/Staff detection uses the same walk so a granted Mentor (e.g. via Patron) is surfaced too.
 
 ## Test Plan
 
-- Static review: Mentor surfaces N actions per N merits; Staff surfaces M actions per M dots; #16 picker used; #46 walk pattern applied
+- Static review: Mentor surfaces N actions per N merits; Staff surfaces M actions per M dots; #16 picker used; #45 walk pattern applied
 - Browser smoke (DEFERRED): a character with Mentor + Staff sees both action sets; selections persist
 
 ## Definition of Done
@@ -76,11 +78,11 @@ Detection walk: hotfix #46 establishes that granted merits should be detected by
 - [ ] Mentor action: one per Mentor merit (like Retainer)
 - [ ] Staff action: one per dot of Staff (like Contacts)
 - [ ] Character pickers use `charPicker` (#16)
-- [ ] Merit detection follows hotfix #46 walk
+- [ ] Merit detection follows hotfix #45 walk
 - [ ] PR opened into `dev`
 
 ## Dependencies
 
-- **Upstream**: #16 (picker); #17 (lifecycle); **hotfix #46** (granted-merit detection walk — must land first via hotfix lane)
+- **Upstream**: #16 (picker); #17 (lifecycle); **hotfix #45** (granted-merit detection walk — must land first via hotfix lane)
 - **Downstream**: none
-- **Cross-reference**: GitHub issue #46 establishes the merit-detection walk; #28's detection follows that pattern.
+- **Cross-reference**: GitHub issue #45 establishes the merit-detection walk; #28's detection follows that pattern.

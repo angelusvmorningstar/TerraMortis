@@ -81,6 +81,7 @@ function _ratingOfPartner(c, partnerMeritName) {
   let total = 0;
   (c.merits || []).forEach(m => {
     if (m.name !== partnerMeritName) return;
+    // inherent-intentional: partner-rating sum must use purchased dots only (cp+xp); engine-derived bonuses (m.bonus) are excluded by design.
     total += (m.cp || 0) + (m.xp || 0);
   });
   return total;

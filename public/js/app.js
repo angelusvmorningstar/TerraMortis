@@ -89,6 +89,7 @@ import {
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
 import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
+import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -506,6 +507,8 @@ async function loadAllData() {
 
   // 1b. Load game session XP (attendance-based) — same as admin/player portal
   await loadGameXP(editorState.chars, getRole() === 'st').catch(() => {});
+  // dt-form.17: cache downtime-credit-on-hold flag so XP-Available renders the annotation.
+  await loadDowntimeHoldFlag(editorState.chars, { isST: getRole() === 'st' }).catch(() => {});
 
   // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));

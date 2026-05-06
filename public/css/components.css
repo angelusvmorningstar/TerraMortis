@@ -4999,3 +4999,220 @@ html:not([data-theme="dark"]) .story-cycle-label,
 html:not([data-theme="dark"]) .feeding-title,
 html:not([data-theme="dark"]) .regency-title,
 html:not([data-theme="dark"]) .influence-title,
+html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-mode-selector — Minimal/Advanced toggle (ADR-003 §Q1, story dt-form.17)
+   ════════════════════════════════════════════════════════════════════ */
+.dt-mode-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+}
+
+.dt-mode-pill {
+  appearance: none;
+  border: 1px solid var(--bdr2);
+  background: var(--surf);
+  color: var(--txt);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: var(--fl);
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dt-mode-pill:hover {
+  border-color: var(--gold);
+}
+
+.dt-mode-pill--active {
+  background: var(--gold-a15);
+  border-color: var(--gold);
+  color: var(--gold2);
+}
+
+.dt-mode-desc {
+  flex: 1 1 200px;
+  font-family: var(--fl);
+  font-size: 0.85em;
+  color: var(--txt3);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-min-banner — below-minimum-complete banner (ADR-003 §Q3, dt-form.17)
+   ════════════════════════════════════════════════════════════════════ */
+.dt-min-banner {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: var(--crim-a15, var(--gold-a15));
+  border: 1px solid var(--crim2, var(--gold));
+  border-left: 4px solid var(--crim, var(--gold));
+  border-radius: 4px;
+  color: var(--txt);
+}
+
+.dt-min-banner__lead {
+  margin: 0 0 6px;
+  font-family: var(--fl);
+  font-size: 0.95em;
+}
+
+.dt-min-banner__list {
+  margin: 0;
+  padding-left: 20px;
+  font-family: var(--fl);
+  font-size: 0.9em;
+  color: var(--txt2);
+}
+
+.dt-min-banner__list li {
+  margin: 2px 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-xp-on-hold — XP-Available annotation (ADR-003 §Q3, dt-form.17)
+   ════════════════════════════════════════════════════════════════════ */
+.dt-xp-on-hold {
+  margin-left: 6px;
+  font-family: var(--fl);
+  font-size: 0.78em;
+  font-style: italic;
+  color: var(--crim, var(--txt3));
+  white-space: nowrap;
+}
+
+/* dt-form.17: negative xpLeft treatment in player-facing XP panels. */
+.dt-xp-deficit {
+  color: var(--crim, #b00020);
+  font-weight: 700;
+}
+
+.dt-xp-deficit[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--crim, #b00020);
+  text-underline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .char-picker — universal character picker (ADR-003 §Q6, story dt-form.16)
+   Form-local consumption: downtime-form.js + regency-tab.js
+   ════════════════════════════════════════════════════════════════════ */
+.char-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.char-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+}
+
+.char-picker__chip,
+.char-picker__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--bdr2);
+  border-radius: 12px;
+  background: var(--surf2);
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 0.9em;
+  line-height: 1.2;
+}
+
+.char-picker__pill {
+  background: var(--gold-a10);
+  border-color: var(--gold-a30);
+}
+
+.char-picker__chip-remove,
+.char-picker__pill-clear {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--txt2);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+.char-picker__chip-remove:hover,
+.char-picker__pill-clear:hover {
+  color: var(--gold);
+}
+
+.char-picker__combo {
+  position: relative;
+}
+
+.char-picker__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  background: var(--surf);
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 0.95em;
+}
+
+.char-picker__input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-a20);
+}
+
+.char-picker__listbox {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px var(--gold-a15);
+}
+
+.char-picker__option {
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 0.95em;
+}
+
+.char-picker__option:hover,
+.char-picker__option--active {
+  background: var(--gold-a12);
+  color: var(--txt);
+}
+
+.char-picker__empty {
+  padding: 8px 10px;
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 0.9em;
+  font-style: italic;
+}

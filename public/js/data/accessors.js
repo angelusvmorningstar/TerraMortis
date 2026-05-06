@@ -176,22 +176,16 @@ export function riteCost(rite) {
 }
 
 /** Build a human-readable pool expression for a skill acquisition.
+ *  Per VtR 2e rules the pool is SKILL only (no attribute addend).
  *  Used by the player form's legacy blob and the ST queue construction. */
-export function skillAcqPoolStr(c, { attr = '', skill = '', spec = '' } = {}) {
-  if (!attr && !skill) return '';
+export function skillAcqPoolStr(c, { skill = '', spec = '' } = {}) {
+  if (!skill) return '';
   const parts = [];
   let total = 0;
-  if (attr) {
-    const v = getAttrEffective(c, attr);
-    parts.push(`${attr} ${v}`);
-    total += v;
-  }
-  if (skill) {
-    const v = skTotal(c, skill);
-    parts.push(`${skill} ${v}`);
-    total += v;
-  }
-  if (spec && skill) {
+  const v = skTotal(c, skill);
+  parts.push(`${skill} ${v}`);
+  total += v;
+  if (spec) {
     const skillSpecs = c.skills?.[skill]?.specs || [];
     if (skillSpecs.includes(spec)) {
       const bonus = (skNineAgain(c, skill) || hasAoE(c, spec)) ? 2 : 1;

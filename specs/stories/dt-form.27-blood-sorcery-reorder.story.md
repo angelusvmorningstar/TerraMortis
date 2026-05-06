@@ -1,6 +1,8 @@
 ---
 id: dt-form.27
 task: 27
+issue: 80
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/80
 epic: epic-dt-form-mvp-redesign
 status: Draft
 priority: medium

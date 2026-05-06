@@ -29,6 +29,37 @@ function parseId(id) {
   }
 }
 
+// dt-form.17 (ADR-003 §Q11): hard server gate on submission edits when the
+// cycle is closed. Hard mirror's contract is that cycle-close seals the state
+// in both directions; players and ST alike cannot mutate a submission whose
+// cycle is closed. Returns 423 Locked with a stable error code so the client
+// can surface a clear message and stop retrying.
+async function requireOpenCycle(req, res, next) {
+  const oid = parseId(req.params.id);
+  if (!oid) return next(); // existing handler returns 400 for the format error
+  const sub = await getCollection('downtime_submissions').findOne(
+    { _id: oid },
+    { projection: { cycle_id: 1 } }
+  );
+  if (!sub) return next(); // existing handler returns 404
+  if (!sub.cycle_id) return next();
+  const cycleOid = sub.cycle_id instanceof ObjectId
+    ? sub.cycle_id
+    : parseId(String(sub.cycle_id));
+  if (!cycleOid) return next();
+  const cycle = await getCollection('downtime_cycles').findOne(
+    { _id: cycleOid },
+    { projection: { status: 1 } }
+  );
+  if (cycle?.status === 'closed') {
+    return res.status(423).json({
+      error: 'CYCLE_CLOSED',
+      message: 'Cycle is closed; submissions are locked',
+    });
+  }
+  return next();
+}
+
 // --- Cycles: /api/downtime_cycles ---
 
 export const cyclesRouter = Router();
@@ -569,7 +600,8 @@ submissionsRouter.get('/', async (req, res) => {
 });
 
 // PUT /api/downtime_submissions/:id — ST can update any, player can update own (before deadline)
-submissionsRouter.put('/:id', async (req, res) => {
+// dt-form.17: cycle-close gate (ADR-003 §Q11) returns 423 before the handler runs.
+submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID format' });
 
