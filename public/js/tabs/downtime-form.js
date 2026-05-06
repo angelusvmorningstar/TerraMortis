@@ -2161,6 +2161,12 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // dt-form.34: delegated submit — survives re-renders; direct listener below was lost
+    // after any inline renderForm() call (sorcery rite change, feed pool, mode toggle).
+    if (e.target.closest('#dt-btn-submit')) {
+      submitForm();
+      return;
+    }
     // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
     if (e.target.closest('#dt-btn-submit-final')) {
       e.preventDefault();
@@ -3195,7 +3201,7 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
+  // dt-form.34: submit handled via delegated click listener above (survives re-renders).
 }
 
 // ── Cast picker modal ──
