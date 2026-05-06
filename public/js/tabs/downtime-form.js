@@ -412,13 +412,16 @@ function collectResponses() {
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // dt-form.22 fix-up (Ma'at PR #98 review, bug 2): the rote-territory
-        // collect was gated on the legacy `feedRoteAction` module flag, which
-        // never flips since Container 2 was removed. Derive the gate from the
-        // new shape — any project slot whose action is `rote` counts.
-        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(
-          n => responses[`project_${n}_action`] === 'rote'
-        );
+        // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
+        // read the action selectors from the DOM, not from `responses`.
+        // The feeding_method branch runs BEFORE the project-slot collect
+        // loop at :532, so `responses[project_N_action]` here is still the
+        // spread base from the prior responseDoc — it doesn't yet reflect
+        // the user's current slot selection. The DOM does.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(n => {
+          const el = document.getElementById(`dt-project_${n}_action`);
+          return el && el.value === 'rote';
+        });
         if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
