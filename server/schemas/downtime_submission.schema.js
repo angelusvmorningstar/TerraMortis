@@ -26,7 +26,11 @@
 
 const projectActionEnum = [
   '', 'ambience_increase', 'ambience_decrease', 'attack', 'feed',
-  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc'
+  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc',
+  // dt-form.22: ROTE moved out of the feeding section into its own per-slot
+  // action variant. Pool inherits from primary feeding; territory writes to
+  // the existing document-level `feeding_territories_rote` map.
+  'rote'
 ];
 
 const sphereActionEnum = [

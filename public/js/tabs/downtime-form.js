@@ -15,6 +15,7 @@ import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, h
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
+import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -48,6 +49,52 @@ function _promotePublishedOutcome(sub) {
   if (!sub.published_outcome && sub.st_review?.outcome_visibility === 'published') {
     sub.published_outcome = sub.st_review.outcome_text;
   }
+}
+
+// dt-form.22: one-shot migration of legacy ROTE state into the new
+// project-action shape. Reads `_feed_rote` / `_feed_rote_slot` (plus the
+// pool-builder `_rote_*` companions) and translates to:
+//   responses.project_N_action      = 'rote'
+//   responses.project_N_feed_method2 = <primary method, if known>
+// Drops the legacy keys. `feeding_territories_rote` is left in place — it's
+// the canonical doc-level territory map per the 2026-05-06 HALT-DAR.
+//
+// Idempotent: the function returns early if there are no legacy fields to
+// migrate. Called from renderDowntimeTab after responseDoc loads, and as
+// a defensive prelude inside collectResponses so a stray legacy save can't
+// re-introduce the old shape.
+function _migrateLegacyRoteState(responses) {
+  if (!responses || typeof responses !== 'object') return;
+  const isLegacy = responses._feed_rote === 'yes' || responses._feed_rote_slot
+    || responses._rote_disc || responses._rote_spec
+    || responses._rote_custom_attr || responses._rote_custom_skill;
+  if (!isLegacy) return;
+
+  const rawSlot = parseInt(responses._feed_rote_slot, 10);
+  const slot = Number.isInteger(rawSlot) && rawSlot >= 1 && rawSlot <= 4 ? rawSlot : 1;
+  const wasOn = responses._feed_rote === 'yes';
+  if (wasOn) {
+    // The slot may have been auto-locked to action='feed' by the legacy
+    // applyRoteToProjectSlot path. Flip it to the new 'rote' action type.
+    if (responses[`project_${slot}_action`] === 'feed' || !responses[`project_${slot}_action`]) {
+      responses[`project_${slot}_action`] = 'rote';
+    }
+    // Persist the primary method into the per-slot `_method2` field if
+    // available. The pool itself is no longer separately stored — derived
+    // at render time from the primary feeding inputs.
+    const primaryMethod = responses._feed_method;
+    if (primaryMethod && !responses[`project_${slot}_feed_method2`]) {
+      responses[`project_${slot}_feed_method2`] = primaryMethod;
+    }
+  }
+
+  // Drop legacy keys so subsequent saves don't re-introduce them.
+  delete responses._feed_rote;
+  delete responses._feed_rote_slot;
+  delete responses._rote_disc;
+  delete responses._rote_spec;
+  delete responses._rote_custom_attr;
+  delete responses._rote_custom_skill;
 }
 
 let responseDoc = null;
@@ -111,12 +158,14 @@ const ACTION_ICONS = {
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
   'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
+  'rote': '\u2666', // dt-form.22: same diamond as feed; ROTE is a feed variant
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
   'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
+  'rote': 'Rote Hunt', // dt-form.22
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
@@ -130,6 +179,11 @@ const ACTION_FIELDS = {
   'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
   'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
   'maintenance':       ['target', 'description'],
+  // dt-form.22: ROTE renders only the territory + description; pool is
+  // inherited from primary feeding (read-only annotation). The handler
+  // below renders rote-specific UI, so this list is intentionally just
+  // 'description' — the territory + pool annotation are emitted inline.
+  'rote':              ['description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -281,6 +335,10 @@ function collectResponses() {
   // for sections hidden by the current mode. Spread the prior responses as a
   // base, then specific section blocks below either overwrite (when their UI
   // is rendered) or are skipped (when hidden by MINIMAL).
+  // dt-form.22: defensive prelude — translate any stragglers from the legacy
+  // ROTE state into the new project-action shape before the spread, so a
+  // load → save round-trip can never re-introduce the old keys.
+  if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
   const _prior = responseDoc?.responses || {};
   const responses = { ..._prior };
   // Carry the existing mode flag forward; the toggle handler updates it
@@ -326,10 +384,14 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        // DTFP-4: _feed_method is no longer persisted on new submissions.
-        // The method-card pick is UX-only scaffolding for the chip suggestions;
-        // the saved pool is whatever the player built via attr/skill/disc/spec.
-        // Legacy submissions keep their stored _feed_method for back-compat reads.
+        // dt-form.20 fix-up (Ma'at PR #98 review, bug 1): persist `_feed_method`
+        // again. DTFP-4 dropped it because the manual pool builder was the
+        // canonical method-set signal in ADVANCED, but MINIMAL has no pool
+        // builder — without this the simplified form's method choice is
+        // invisible to isMinimalComplete and the hard-mirror lifecycle never
+        // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
+        // so this is additive, not a regression of the original DTFP-4 case.
+        responses['_feed_method'] = feedMethodId || '';
         // DTFP-5: feed_violence persists only after the player clicks the toggle.
         // Pre-selection is visual only; preserve any explicit choice through saves.
         if (responseDoc?.responses?.feed_violence) {
@@ -340,26 +402,27 @@ function collectResponses() {
         responses['_feed_custom_attr'] = feedCustomAttr;
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
-        responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
-        responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
-        const roteDiscEl = document.getElementById('dt-rote-disc');
-        feedRoteDisc = roteDiscEl ? roteDiscEl.value : feedRoteDisc;
-        const roteAttrEl = document.getElementById('dt-rote-custom-attr');
-        const roteSkillEl = document.getElementById('dt-rote-custom-skill');
-        if (roteAttrEl) feedRoteCustomAttr = roteAttrEl.value;
-        if (roteSkillEl) feedRoteCustomSkill = roteSkillEl.value;
-        responses['_rote_disc'] = feedRoteAction ? feedRoteDisc : '';
-        responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
-        responses['_rote_custom_attr'] = feedRoteAction ? feedRoteCustomAttr : '';
-        responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
+        // dt-form.22: legacy `_feed_rote*` and `_rote_*` writes removed.
+        // ROTE is now a per-slot project action; method persists per-slot
+        // as `project_N_feed_method2`, territory persists at the document
+        // level as `feeding_territories_rote` (existing field, kept).
         // Blood type
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // Rote territory picker
-        if (feedRoteAction) {
+        // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
+        // read the action selectors from the DOM, not from `responses`.
+        // The feeding_method branch runs BEFORE the project-slot collect
+        // loop at :532, so `responses[project_N_action]` here is still the
+        // spread base from the prior responseDoc — it doesn't yet reflect
+        // the user's current slot selection. The DOM does.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(n => {
+          const el = document.getElementById(`dt-project_${n}_action`);
+          return el && el.value === 'rote';
+        });
+        if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -507,6 +570,14 @@ function collectResponses() {
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
     if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
+    // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
+    // helper handles legacy submissions; this covers fresh ROTE saves so ST
+    // consumers (feeding-tab.js:350, admin/downtime-views.js:2569) read the
+    // method directly rather than seeing undefined.
+    if (responses[`project_${n}_action`] === 'rote' && feedMethodId) {
+      responses[`project_${n}_feed_method2`] = feedMethodId;
+    }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
@@ -1340,6 +1411,9 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
       if (responseDoc) _promotePublishedOutcome(responseDoc);
+      // dt-form.22: translate legacy ROTE state on first read. Once any
+      // save fires, the document persists in the new shape.
+      if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
     } catch { /* no submission */ }
   }
 
@@ -3703,6 +3777,58 @@ function renderProjectSlots(saved, mode = 'advanced') {
         type: 'textarea', required: false, rows: 2,
         placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
+    }
+
+    // ── dt-form.22: ROTE territory + read-only inherited pool ──
+    if (actionVal === 'rote') {
+      h += '<div class="qf-field dt-proj-rote-territory">';
+      h += '<label class="qf-label">Where does this second hunt happen?</label>';
+      const roteTerrSaved = saved.feeding_territories_rote || '';
+      let roteTerrGridVals = {};
+      try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+      const mainTerrSaved = saved.feeding_territories || '';
+      let mainTerrGridVals = {};
+      try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
+      h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+      h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
+      h += '</div>';
+
+      // Read-only inherited pool. Derive from the same primary-feed inputs
+      // the simplified MINIMAL form uses, plus the chosen rote territory's
+      // ambience modifier.
+      const slugFromGrid = (gridStr) => {
+        let grid = {};
+        try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+        const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+        if (!key) return '';
+        const niceName = FEEDING_TERRITORIES.find(
+          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        );
+        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+        return td?.slug || '';
+      };
+      const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
+      const inheritedPool = computeBestFeedingPool({
+        char: currentChar,
+        methodId: feedMethodId,
+        territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
+      });
+      h += '<div class="qf-field dt-proj-rote-pool">';
+      if (!feedMethodId) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else if (!inheritedPool) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else {
+        const parts = [];
+        if (inheritedPool.attr.name) parts.push(`${inheritedPool.attr.val} ${esc(inheritedPool.attr.name)}`);
+        if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
+        else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
+        if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
+        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
+        h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
+        h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+      }
+      h += '</div>';
     }
 
     // ── Approach ──
@@ -6298,8 +6424,43 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
-      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      // dt-form.20 (ADR-003 §Q2): MINIMAL renders a read-only auto-derived
+      // pool annotation in place of the manual pool selectors. ADVANCED keeps
+      // the existing chrome (DTFP-4: always visible, method optional).
+      if (_formMode(responseDoc?.responses) === 'minimal') {
+        const slugFromGrid = (gridStr) => {
+          let grid = {};
+          try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+          const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+          if (!key) return '';
+          const niceName = FEEDING_TERRITORIES.find(
+            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+          );
+          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+          return td?.slug || '';
+        };
+        const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
+        const pool = computeBestFeedingPool({ char: c, methodId: feedMethodId, territorySlug });
+        h += '<div class="qf-field dt-feed-min-pool">';
+        if (!feedMethodId) {
+          h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
+        } else if (!pool) {
+          h += '<p class="qf-desc">Pool unavailable for this method.</p>';
+        } else {
+          const parts = [];
+          if (pool.attr.name) parts.push(`${pool.attr.val} ${esc(pool.attr.name)}`);
+          if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
+          else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
+          if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
+          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
+          h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+        }
+        h += '</div>';
+      } else {
+        // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      }
 
       // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -6336,52 +6497,12 @@ function renderQuestion(q, value) {
       h += '</div>';
       h += '</div>'; // dt-feed-card-wrap
 
-      // ── Container 2: Feeding quality (Standard / Rote) ──
-      {
-        const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
-        if (savedRote && !feedRoteAction) feedRoteAction = true;
-        feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
-        feedRoteSpec = responseDoc?.responses?.['_rote_spec'] || feedRoteSpec;
-        feedRoteCustomAttr = responseDoc?.responses?.['_rote_custom_attr'] || feedRoteCustomAttr;
-        feedRoteCustomSkill = responseDoc?.responses?.['_rote_custom_skill'] || feedRoteCustomSkill;
-
-        const saved = responseDoc?.responses || {};
-
-        const firstAvail = [1,2,3,4].find(n => {
-          const act = saved[`project_${n}_action`];
-          return !act || act === 'feed';
-        }) || 1;
-        if (feedRoteAction && feedRoteSlot !== firstAvail) feedRoteSlot = firstAvail;
-
-        const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
-
-        h += '<div class="dt-feed-rote-section">';
-        h += '<label class="qf-label">Commit a project to hunting this downtime?</label>';
-        h += '<div class="dt-feed-violence-toggle">';
-        h += `<button type="button" class="dt-feed-vi-btn${!feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="off">Standard Hunt</button>`;
-        h += `<button type="button" class="dt-feed-vi-btn${feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="on">Rote Hunt</button>`;
-        h += '</div>';
-        if (feedRoteAction) {
-          h += '<div class="dt-rote-slot-picker">';
-          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt. IF this roll is successful, it will apply the Rote quality to your feeding roll (roll twice, take the best result).</p>`;
-          {
-            const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
-            let roteTerrGridVals = {};
-            try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
-            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
-            let mainTerrGridVals = {};
-            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
-            h += '<div class="qf-field">';
-            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
-            h += '</div>';
-          }
-          h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
-          h += `<div class="qf-field"><textarea id="dt-rote-description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(roteDesc)}</textarea></div>`;
-          h += '</div>';
-        }
-        h += '</div>';
-      }
+      // dt-form.22: ROTE block removed from the feeding section. ROTE is now
+      // a personal-project-action variant (see PROJECT_ACTIONS in
+      // downtime-data.js). The legacy `_feed_rote_*` state is migrated on
+      // the next save in collectResponses; territory continues to write to
+      // the document-level `feeding_territories_rote` map for ambience
+      // resolution by the Vitae Projection container below.
 
       // ── Container 3: Vitae Projection ──
       {
@@ -6452,8 +6573,12 @@ function renderQuestion(q, value) {
           return { mod: td.ambienceMod || 0, label: `${td.ambience} (${name})` };
         };
 
+        // dt-form.22: rote-active is derived from the new project-action
+        // shape — any slot whose action is 'rote' counts. Replaces the
+        // legacy module-scoped `feedRoteAction` flag.
+        const _hasRoteSlot = [1, 2, 3, 4].some(n => allResp[`project_${n}_action`] === 'rote');
         const mainAmb = resolveTerrAmbience(allResp['feeding_territories']);
-        const roteAmb = feedRoteAction ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
+        const roteAmb = _hasRoteSlot ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
 
         // Best of the two territories (highest mod wins)
         let bestAmb = null;
@@ -6473,7 +6598,7 @@ function renderQuestion(q, value) {
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
         // Average vitae: base = floor(2N/3); rote = floor(5N/6) (max of two rolls)
-        const avgGathered = feedRoteAction
+        const avgGathered = _hasRoteSlot
           ? Math.floor((mainPool * 5) / 6)
           : Math.floor((mainPool * 2) / 3);
 
@@ -6507,7 +6632,7 @@ function renderQuestion(q, value) {
         const netSign = netStarting >= 0 ? '+' : '−';
         h += `<div class="dt-vitae-row dt-vitae-subtotal"><span>Net starting Vitae</span><span>${netSign}${Math.abs(netStarting)}</span></div>`;
         if (mainPool > 0) {
-          const yieldLabel = feedRoteAction ? 'Projected average gathered (rote)' : 'Projected average gathered';
+          const yieldLabel = _hasRoteSlot ? 'Projected average gathered (rote)' : 'Projected average gathered';
           h += `<div class="dt-vitae-row dt-vitae-pos"><span>${yieldLabel}</span><span>+${avgGathered}</span></div>`;
         } else {
           h += '<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Build your hunt pool above to see expected yield.</span><span></span></div>';

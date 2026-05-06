@@ -16,7 +16,12 @@
  * banner's missing-pieces list (story #17 UI affordance #1).
  */
 
-const FEEDING_POOL_KEYS = ['_feed_disc', '_feed_custom_attr', '_feed_custom_skill', '_feed_custom_disc'];
+// dt-form.20 fix-up (Ma'at PR #98 review, bug 1): MINIMAL has no pool builder,
+// so `_feed_disc` / `_feed_custom_*` stay empty when a player only fills the
+// 5-field simplified form. The method-card pick still persists `_feed_method`,
+// so include it as a method-set signal. Without this, hard-mirror per #17
+// never unlocks for MINIMAL users — banner sticks even with all 5 fields set.
+const FEEDING_POOL_KEYS = ['_feed_method', '_feed_disc', '_feed_custom_attr', '_feed_custom_skill', '_feed_custom_disc'];
 
 function isNonEmptyString(v) {
   return typeof v === 'string' && v.trim().length > 0;
@@ -68,6 +73,10 @@ function _hasFeedingViolence(responses) {
 }
 
 function _hasFeedingComplete(responses) {
+  // dt-form.22: ROTE in a project slot does NOT satisfy the feeding rule.
+  // Primary feeding (territory + method + blood type + violence) must be
+  // filled independently. ROTE is captured under the `1 project slot`
+  // MINIMAL rule (any non-empty `project_1_action`, including 'rote').
   return _hasFeedingTerritory(responses)
       && _hasFeedingMethod(responses)
       && _hasFeedingBloodType(responses)

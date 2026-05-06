@@ -14,6 +14,7 @@ const PROJECT_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
+  { value: 'rote', label: 'Rote Hunt: Spend a project to feed a second time this cycle' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
@@ -28,6 +29,7 @@ export const ACTION_APPROACH_PROMPTS = {
   'patrol_scout': 'How does your character observe or patrol this territory in narrative terms.',
   'misc': 'Describe your approach to this action in narrative terms.',
   'maintenance': 'Describe how your character maintains this relationship or organisation in narrative terms.',
+  'rote': 'Describe how your character pursues this second hunt — same method as your primary feed, in a (potentially different) territory.',
 };
 
 export const ACTION_DESCRIPTIONS = {
@@ -40,6 +42,7 @@ export const ACTION_DESCRIPTIONS = {
   'xp_spend': 'You are spending experience to grow your character. Select the trait below.',
   'misc': 'This is for downtime actions that don\'t neatly fit into any other category. Describe what you\'re attempting to achieve and how your character goes about it.',
   'maintenance': 'You are maintaining your professional or cult relationships. Select the asset you are maintaining below.',
+  'rote': 'A second hunt this cycle. The method (and dice pool) is inherited from your primary feed in the Feeding section; you only pick the territory here. If the roll succeeds, the rote quality applies — roll twice, take the best.',
 };
 
 // Action type options for sphere (social merit) slots
