@@ -103,8 +103,8 @@ These three affordances are **non-negotiable acceptance criteria for this story*
 **Then** it exports a single `isMinimalComplete(responses)` function returning a boolean. The function encodes the MINIMAL-completeness rules from §Q2:
 - Court section has been touched (recount text non-empty)
 - Personal Story has the binary Touchstone-or-Correspondence + text input filled
-- Feeding has territory + method + blood type + violence-mode set
-- Project slot 1 has at least an action selected (further per-action validation TBD per §future-work)
+- Feeding (PRIMARY hunt) has territory + method + blood type + violence-mode set. **ROTE in a project slot does NOT satisfy this rule** (per Piatra clarification 2026-05-06: ROTE is a personal-project-action variant, not a feeding-section action; primary feeding must be filled independently).
+- Project slot 1 has at least an action selected (any action type, including ROTE if the player chooses; further per-action validation TBD per §future-work)
 - For regents: regency confirmation is positive
 
 **Given** the same function
