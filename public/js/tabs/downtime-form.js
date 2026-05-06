@@ -1261,7 +1261,11 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  if (char) applyDerivedMerits(char);
+  try {
+    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+    currentChar = fresh;
+  } catch { /* silent — stale char is better than a broken form */ }
+  if (currentChar) applyDerivedMerits(currentChar);
   _territories = territories || [];
   responseDoc = null;
   currentCycle = null;
