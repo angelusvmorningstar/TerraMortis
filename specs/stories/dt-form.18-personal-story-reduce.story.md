@@ -102,12 +102,12 @@ Same decision shape as dt-form.26's A1: silent-leave. The legacy `_npc_*` + `_no
 
 ## Definition of Done
 
-- [ ] `renderPersonalStorySection` renders Touchstone-or-Correspondence radio + optional free-text NPC name input + description textarea in BOTH modes
-- [ ] NPC card picker (DB-driven) removed; story-direction radios removed; legacy `_note` textarea removed
-- [ ] Collect path writes `personal_story_kind` + `personal_story_text` + `personal_story_npc_name` (typed string, optional); no longer writes `_npc_id` / `_note` / `_direction`
-- [ ] `isMinimalComplete()` lenient gate per HALT-DAR-A option 2 (`_npc_name` is OPTIONAL — its presence does not affect satisfaction; gate passes on `_kind` + `_text` alone)
-- [ ] Banner-list missing-piece labels updated to reflect new shape
-- [ ] PR opened into `dev` with `Closes #74`
+- [x] `renderPersonalStorySection` renders Touchstone-or-Correspondence radio + optional free-text NPC name input + description textarea in BOTH modes
+- [x] NPC card picker (DB-driven) removed; story-direction radios removed; legacy `_note` textarea removed
+- [x] Collect path writes `personal_story_kind` + `personal_story_text` + `personal_story_npc_name` (typed string, optional); no longer writes `_npc_id` / `_note` / `_direction`
+- [x] `isMinimalComplete()` lenient gate per HALT-DAR-A option 2 (`_npc_name` is OPTIONAL — its presence does not affect satisfaction; gate passes on `_kind` + `_text` alone)
+- [x] Banner-list missing-piece labels updated to reflect new shape
+- [x] PR opened into `dev` with `Closes #74`
 
 ## Dependencies
 

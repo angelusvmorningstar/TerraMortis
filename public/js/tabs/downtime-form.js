@@ -473,15 +473,19 @@ function collectResponses() {
   }
 
   // Personal story fields (legacy keys kept for back-compat with ST admin views)
-  // dt-form.18: Personal Story collapsed to Touchstone-or-Correspondence
-  // binary in both MINIMAL and ADVANCED. Collect path writes only the new
-  // `_kind` + `_text` fields. Legacy `_npc_id` / `_npc_name` / `_note` are
-  // no longer written — pre-redesign drafts retain the old keys via the
-  // collectResponses spread base, so isMinimalComplete's lenient gate
-  // (dt-completeness.js _hasPersonalStory) keeps recognising them.
+  // dt-form.18 (option Y locked 2026-05-06): Personal Story collapsed to
+  // Touchstone-or-Correspondence binary plus an optional free-text NPC
+  // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
+  // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
+  // (the new `_text` replaces the note; the rich-UI direction radios are
+  // gone). Pre-redesign drafts retain the old keys via the spread base, so
+  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
+  // keeps recognising them.
   const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
+  const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
   const psTextEl = document.getElementById('dt-personal_story_text');
   if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
+  if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
   if (psTextEl) responses['personal_story_text'] = psTextEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
@@ -4418,17 +4422,21 @@ function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  // dt-form.18 (ADR-003 §Q2): single binary render in BOTH modes — pick
-  // Touchstone or Correspondence, then describe the beat in one textarea.
-  // The legacy free-text NPC dropdown + interaction note (issue #24) is
-  // removed; players who want to relate to a specific NPC now do so via
-  // the Relationships tab. Legacy `personal_story_npc_*` / `_note` fields
-  // remain in `responses` on existing drafts (silent-leave per the no-real-
+  // dt-form.18 (ADR-003 §Q2, option Y locked 2026-05-06): single binary
+  // render in BOTH modes — pick Touchstone or Correspondence, optionally
+  // name a person involved (free-text only, NOT a DB-backed picker), then
+  // describe the beat in one textarea. The legacy NPC card picker (DB-
+  // relational, suppressed under the broader NPC-interaction policy) is
+  // removed; the free-text NPC name input is RETAINED because a typed
+  // string is categorically different from an "NPC interaction." Legacy
+  // `personal_story_note` / `_npc_id` / `_direction` fields remain in
+  // `responses` on existing drafts (silent-leave per the no-real-
   // submissions migration window) but no UI emits them anymore.
   const savedKind = saved['personal_story_kind'] === 'correspondence'
     ? 'correspondence'
     : (saved['personal_story_kind'] === 'touchstone' ? 'touchstone' : '');
   const savedText = saved['personal_story_text'] || '';
+  const savedNpcName = saved['personal_story_npc_name'] || '';
   const placeholder = savedKind === 'correspondence'
     ? 'Describe the correspondence — to whom, about what, what tone you want it to strike.'
     : savedKind === 'touchstone'
@@ -4451,6 +4459,13 @@ function renderPersonalStorySection(saved) {
   h += '<span>Correspondence</span>';
   h += '</label>';
   h += '</div>';
+  h += '</div>';
+
+  // Optional free-text NPC name. Typed string only — no picker, no DB
+  // lookup. Does not affect isMinimalComplete's gate; metadata only.
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-personal_story_npc_name">Person involved (optional)</label>';
+  h += `<input type="text" id="dt-personal_story_npc_name" class="qf-input" value="${esc(savedNpcName)}" placeholder="Optional — name a person you want involved">`;
   h += '</div>';
 
   h += '<div class="qf-field" style="margin-top:12px;">';
