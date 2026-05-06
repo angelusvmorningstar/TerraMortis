@@ -5482,9 +5482,8 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const statusVal = isBarrens ? 'barrens' : (hasFeedingRights ? 'feeding_rights' : 'poaching');
     const statusLabel = isBarrens ? 'The Barrens' : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
 
-    const activeClass = isActive
-      ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
-      : '';
+    const tintClass = (isBarrens || !hasFeedingRights) ? ' dt-terr-pill-barrens' : ' dt-terr-pill-rights';
+    const selectedClass = isActive ? ' dt-terr-pill--selected' : '';
 
     // Rote-feed Barrens lock: if main is Barrens, only Barrens-rote is allowed;
     // if main is non-Barrens, Barrens-rote is disallowed. Also disable Barrens
@@ -5500,7 +5499,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const disabledAttrs = disabled ? ' disabled aria-disabled="true" title="Rote territory must match main feed territory"' : '';
     const disabledClass = disabled ? ' dt-terr-pill-disabled' : '';
 
-    h += `<button type="button" class="dt-terr-pill${activeClass}${disabledClass}"${disabledAttrs}`;
+    h += `<button type="button" class="dt-terr-pill${tintClass}${selectedClass}${disabledClass}"${disabledAttrs}`;
     h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
