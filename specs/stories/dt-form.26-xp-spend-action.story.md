@@ -4,7 +4,7 @@ task: 26
 issue: 82
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/82
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Dev
 priority: high
 depends_on: ['dt-form.17', 'dt-form.24', 'dt-form.31']
 hotfix_predecessor: 'GitHub issue #44'
