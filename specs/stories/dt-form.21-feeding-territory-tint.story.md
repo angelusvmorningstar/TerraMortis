@@ -5,7 +5,7 @@ issue: 75
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/75
 branch: morningstar-issue-75-feeding-territory-tinting
 epic: epic-dt-form-mvp-redesign
-status: review
+status: done
 priority: medium
 depends_on: ['dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)

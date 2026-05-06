@@ -5,7 +5,7 @@ issue: 80
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/80
 branch: morningstar-issue-80-blood-sorcery-reorder
 epic: epic-dt-form-mvp-redesign
-status: review
+status: done
 priority: medium
 depends_on: ['dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Audit-baseline)
