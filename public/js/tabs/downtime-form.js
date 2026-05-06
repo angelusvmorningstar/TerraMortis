@@ -384,10 +384,14 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        // DTFP-4: _feed_method is no longer persisted on new submissions.
-        // The method-card pick is UX-only scaffolding for the chip suggestions;
-        // the saved pool is whatever the player built via attr/skill/disc/spec.
-        // Legacy submissions keep their stored _feed_method for back-compat reads.
+        // dt-form.20 fix-up (Ma'at PR #98 review, bug 1): persist `_feed_method`
+        // again. DTFP-4 dropped it because the manual pool builder was the
+        // canonical method-set signal in ADVANCED, but MINIMAL has no pool
+        // builder — without this the simplified form's method choice is
+        // invisible to isMinimalComplete and the hard-mirror lifecycle never
+        // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
+        // so this is additive, not a regression of the original DTFP-4 case.
+        responses['_feed_method'] = feedMethodId || '';
         // DTFP-5: feed_violence persists only after the player clicks the toggle.
         // Pre-selection is visual only; preserve any explicit choice through saves.
         if (responseDoc?.responses?.feed_violence) {
@@ -408,8 +412,14 @@ function collectResponses() {
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // Rote territory picker
-        if (feedRoteAction) {
+        // dt-form.22 fix-up (Ma'at PR #98 review, bug 2): the rote-territory
+        // collect was gated on the legacy `feedRoteAction` module flag, which
+        // never flips since Container 2 was removed. Derive the gate from the
+        // new shape — any project slot whose action is `rote` counts.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(
+          n => responses[`project_${n}_action`] === 'rote'
+        );
+        if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -557,6 +567,14 @@ function collectResponses() {
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
     if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
+    // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
+    // helper handles legacy submissions; this covers fresh ROTE saves so ST
+    // consumers (feeding-tab.js:350, admin/downtime-views.js:2569) read the
+    // method directly rather than seeing undefined.
+    if (responses[`project_${n}_action`] === 'rote' && feedMethodId) {
+      responses[`project_${n}_feed_method2`] = feedMethodId;
+    }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
