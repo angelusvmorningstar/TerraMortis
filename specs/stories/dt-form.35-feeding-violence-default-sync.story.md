@@ -4,7 +4,7 @@ issue: 113
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/113
 branch: morningstar-issue-113-feeding-method-highlight-sync
 epic: epic-dt-form-mvp-redesign
-status: review
+status: done
 priority: high
 depends_on: ['dt-form.17', 'dt-form.20']
 ---

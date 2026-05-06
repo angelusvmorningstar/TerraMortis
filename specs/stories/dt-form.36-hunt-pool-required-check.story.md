@@ -4,7 +4,7 @@ issue: 115
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/115
 branch: morningstar-issue-115-hunt-pool-required-check
 epic: epic-dt-form-mvp-redesign
-status: review
+status: done
 priority: high
 depends_on: ['dt-form.20', 'dt-form.34', 'dt-form.35']
 ---
