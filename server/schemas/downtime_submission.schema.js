@@ -180,7 +180,11 @@ export const downtimeSubmissionSchema = {
         // _final_submitted_at: ADVANCED-mode "I'm done editing" hint set by the
         // Submit Final modal (story #31). Not a status flip — submission.status
         // already mirrors _has_minimum from the soft-submit lifecycle.
-        _final_submitted_at: { type: 'string' },  // ISO timestamp
+        // dt-form.31: spec called for `format: 'date-time'`; the codebase's AJV
+        // is configured without ajv-formats so the format keyword would throw
+        // at compile time. Following the existing convention used for
+        // `submitted_at` (line 155) — type: 'string' with an ISO comment.
+        _final_submitted_at: { type: 'string' },  // ISO timestamp (RFC 3339 / ISO 8601)
 
         // ── Merit toggle states (legacy, preserved for contacts/retainers) ──
         // Dynamic keys: _merit_<merit_key> = "yes" | "no"

@@ -1785,6 +1785,13 @@ function renderForm(container) {
       h += '</ul>';
     }
     h += '</div>';
+  } else if (mode === 'minimal') {
+    // dt-form.31 (ADR-003 §Q5): MINIMAL auto-submit confirmation toast.
+    // Locked copy. Persistent — stays as long as the form is above minimum
+    // in MINIMAL mode. ADVANCED uses the Submit Final modal instead.
+    h += '<div class="dt-min-toast" role="status" aria-live="polite">';
+    h += '<p class="dt-min-toast__lead"><strong>Submitted</strong> — keep editing until the deadline.</p>';
+    h += '</div>';
   }
 
   // Header
@@ -1842,6 +1849,8 @@ function renderForm(container) {
     if (section.key === 'blood_sorcery') continue;
     if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
+    // dt-form.31: admin section removed from DOWNTIME_SECTIONS. Defensive skip
+    // kept in case legacy data or imports re-introduce the key.
     if (section.key === 'admin') continue;
     if (section.key === 'territory') continue;
     if (section.key === 'feeding') continue;
@@ -1908,7 +1917,9 @@ function renderForm(container) {
     h += renderEquipmentSection(saved);
   }
 
-  for (const key of ['vamping', 'admin']) {
+  // dt-form.31: 'admin' removed from DOWNTIME_SECTIONS — find() returns
+  // undefined for it and the body is skipped. Loop kept for vamping.
+  for (const key of ['vamping']) {
     if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
@@ -1936,10 +1947,8 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // Hide feedback textarea until a rating is provided
-  if (!saved['form_rating']) {
-    h = h.replace('dt-feedback-field', 'dt-feedback-field dt-feedback-hidden');
-  }
+  // dt-form.31: form-rating hide hack removed — the rating widget now lives
+  // in the Submit Final modal (ADVANCED only); not in the form body.
 
   // Actions
   const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
