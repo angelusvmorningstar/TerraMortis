@@ -397,11 +397,12 @@ function collectResponses() {
         // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
         // so this is additive, not a regression of the original DTFP-4 case.
         responses['_feed_method'] = feedMethodId || '';
-        // DTFP-5: feed_violence persists only after the player clicks the toggle.
-        // Pre-selection is visual only; preserve any explicit choice through saves.
-        if (responseDoc?.responses?.feed_violence) {
-          responses.feed_violence = responseDoc.responses.feed_violence;
-        }
+        // dt-form.35: include method-default violence so visual highlight matches
+        // what collectResponses writes. Explicit player click overrides the default.
+        const _explicitViolence = responseDoc?.responses?.feed_violence;
+        const _defaultViolence = feedMethodId ? (FEED_VIOLENCE_DEFAULTS[feedMethodId] || null) : null;
+        const _violence = _explicitViolence || _defaultViolence;
+        if (_violence) responses.feed_violence = _violence;
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
