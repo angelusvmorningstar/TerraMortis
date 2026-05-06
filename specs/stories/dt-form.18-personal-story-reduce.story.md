@@ -4,7 +4,7 @@ task: 18
 issue: 74
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/74
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: high
 depends_on: ['dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q2)
@@ -90,12 +90,12 @@ Same decision shape as dt-form.26's A1: silent-leave. The legacy `_npc_*` + `_no
 
 ## Definition of Done
 
-- [ ] `renderPersonalStorySection` renders the Touchstone-or-Correspondence binary in BOTH modes
-- [ ] Existing rich UI (NPC dropdown + interaction note) removed from the form
-- [ ] Collect path writes only `personal_story_kind` + `personal_story_text`; no longer writes legacy `_npc_*` / `_note`
-- [ ] `isMinimalComplete()` lenient gate per HALT-DAR-A option 2
-- [ ] Banner-list missing-piece labels updated to reflect new shape
-- [ ] PR opened into `dev` with `Closes #74`
+- [x] `renderPersonalStorySection` renders the Touchstone-or-Correspondence binary in BOTH modes
+- [x] Existing rich UI (NPC dropdown + interaction note) removed from the form
+- [x] Collect path writes only `personal_story_kind` + `personal_story_text`; no longer writes legacy `_npc_*` / `_note`
+- [x] `isMinimalComplete()` lenient gate per HALT-DAR-A option 2
+- [x] Banner-list missing-piece labels updated to reflect new shape
+- [x] PR opened into `dev` with `Closes #74`
 
 ## Dependencies
 
