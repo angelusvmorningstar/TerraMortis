@@ -713,7 +713,7 @@ function collectResponses() {
         const value = valEl ? (valEl.value || '').trim() : '';
         if (type) arr.push({ type, value });
       });
-      responses[`sorcery_${n}_targets`] = arr;
+      responses[`sorcery_${n}_targets`] = JSON.stringify(arr);
     } else {
       // No DOM block (slot not currently rendered) — preserve any previously-saved value
       const prior = responseDoc?.responses?.[`sorcery_${n}_targets`];
@@ -4576,9 +4576,16 @@ function renderSorcerySection(saved) {
       // {type, value} objects on responses[`sorcery_N_targets`]. Legacy string
       // values render as a single 'other' row; the next save converts to array.
       const rawTargets = saved[`sorcery_${n}_targets`];
-      const targets = Array.isArray(rawTargets)
-        ? rawTargets
-        : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
+      let targets;
+      if (Array.isArray(rawTargets)) {
+        targets = rawTargets;
+      } else if (rawTargets && rawTargets.startsWith('[')) {
+        try { targets = JSON.parse(rawTargets); } catch { targets = [{ type: '', value: '' }]; }
+      } else if (rawTargets) {
+        targets = [{ type: 'other', value: String(rawTargets) }];
+      } else {
+        targets = [{ type: '', value: '' }];
+      }
       h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
       h += `<label class="qf-label">Target/s</label>`;
       h += `<p class="qf-desc" style="margin:0 0 8px;font-size:.85em;opacity:.8">Not all target types are valid for every rite — check the rite's description for valid targets. The ST will reject any mismatched targeting at processing.</p>`;
