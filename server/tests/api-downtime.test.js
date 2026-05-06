@@ -268,4 +268,48 @@ describe('PUT /api/downtime_submissions/:id', () => {
       .send({ status: 'submitted' });
     expect(res.status).toBe(400);
   });
+
+  // dt-form.17 (ADR-003 §Q11): cycle-close gate
+  it('returns 423 CYCLE_CLOSED when the submission’s cycle is closed', async () => {
+    const cycleCol = getCollection('downtime_cycles');
+    const cycleRes = await cycleCol.insertOne({
+      game_number: 9001,
+      label: 'Closed Test Cycle',
+      status: 'closed',
+      created_at: new Date().toISOString(),
+    });
+    try {
+      const sub = await insertSub(testChars[0].id, { cycle_id: cycleRes.insertedId });
+      const res = await request(app)
+        .put(`/api/downtime_submissions/${sub._id}`)
+        .set('X-Test-User', playerUser([testChars[0].id]))
+        .send({ responses: { travel: 'Trying to edit a closed cycle' } });
+      expect(res.status).toBe(423);
+      expect(res.body.error).toBe('CYCLE_CLOSED');
+      expect(res.body.message).toMatch(/locked/i);
+    } finally {
+      await cycleCol.deleteOne({ _id: cycleRes.insertedId });
+    }
+  });
+
+  it('allows edits when the cycle is active (gate passes)', async () => {
+    const cycleCol = getCollection('downtime_cycles');
+    const cycleRes = await cycleCol.insertOne({
+      game_number: 9002,
+      label: 'Active Test Cycle',
+      status: 'active',
+      created_at: new Date().toISOString(),
+    });
+    try {
+      const sub = await insertSub(testChars[0].id, { cycle_id: cycleRes.insertedId });
+      const res = await request(app)
+        .put(`/api/downtime_submissions/${sub._id}`)
+        .set('X-Test-User', playerUser([testChars[0].id]))
+        .send({ responses: { travel: 'Edit on active cycle' } });
+      expect(res.status).toBe(200);
+      expect(res.body.responses.travel).toBe('Edit on active cycle');
+    } finally {
+      await cycleCol.deleteOne({ _id: cycleRes.insertedId });
+    }
+  });
 });

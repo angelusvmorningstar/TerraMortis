@@ -2,6 +2,7 @@
 
 import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
+import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { setStatusTerritories } from './data/accessors.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
@@ -170,6 +171,8 @@ async function loadCharacters() {
     // Sanitise: strip zero-dot disciplines (treated as absent)
     chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if ((v?.dots ?? v) === 0) delete c.disciplines[k]; } });
     await loadGameXP(chars, isSTRole());
+    // dt-form.17: cache "downtime credit on hold" flag for XP-Available annotation
+    await loadDowntimeHoldFlag(chars, { isST: isSTRole() }).catch(() => {});
   } catch (err) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;

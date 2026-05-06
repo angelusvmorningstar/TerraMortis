@@ -24,6 +24,7 @@ import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 import { promptForKind } from '../data/kind-prompts.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
+import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -67,6 +68,9 @@ let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
 
 // Characters who attended last game (for shoutout picks)
 let lastGameAttendees = [];
+// dt-form.17: game_session id matching the active cycle, for the soft-submit
+// lifecycle PATCH on attendance.downtime.
+let _activeGameSessionId = null;
 // All active characters (for cast picker modal)
 let allCharacters = [];
 
@@ -258,7 +262,19 @@ function effectiveDomainDots(c, name) {
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
 function collectResponses() {
-  const responses = {};
+  // dt-form.17 (ADR-003 §Q1 Resolutions): preserve previously-entered fields
+  // for sections hidden by the current mode. Spread the prior responses as a
+  // base, then specific section blocks below either overwrite (when their UI
+  // is rendered) or are skipped (when hidden by MINIMAL).
+  const _prior = responseDoc?.responses || {};
+  const responses = { ..._prior };
+  // Carry the existing mode flag forward; the toggle handler updates it
+  // explicitly before triggering a save/render.
+  if (_prior._mode === 'minimal' || _prior._mode === 'advanced') {
+    responses._mode = _prior._mode;
+  }
+  const _mode = _formMode(_prior);
+  const _isMinimal = _mode === 'minimal';
 
   // Persist auto-detected gates
   responses['_gate_attended'] = gateValues.attended || '';
@@ -277,6 +293,9 @@ function collectResponses() {
   // Collect static section responses
   for (const section of DOWNTIME_SECTIONS) {
     if (section.gate && gateValues[section.gate] !== 'yes') continue;
+    // dt-form.17: skip hidden sections in MINIMAL so we don't clobber prior
+    // values with empty strings when the DOM isn't rendered.
+    if (_isMinimal && !MINIMAL_SECTIONS.has(section.key)) continue;
 
     for (const q of section.questions) {
       if (q.type === 'shoutout_picks') {
@@ -402,12 +421,14 @@ function collectResponses() {
   responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
   responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
 
-  // Aspiration structured slots
-  for (let n = 1; n <= 3; n++) {
-    const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
-    const textEl = document.getElementById(`dt-aspiration_${n}_text`);
-    responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
-    responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+  // Aspiration structured slots — admin section, ADVANCED only.
+  if (!_isMinimal) {
+    for (let n = 1; n <= 3; n++) {
+      const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
+      const textEl = document.getElementById(`dt-aspiration_${n}_text`);
+      responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
+      responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+    }
   }
 
   // DTR.1: Game recount structured highlight slots (game_recount_1…5).
@@ -429,8 +450,10 @@ function collectResponses() {
   }
 
   // Collect project slots
+  // dt-form.17: in MINIMAL only the first slot is rendered; iterate just slot
+  // 1 so slots 2-4 retain their prior values from the spread base.
   const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const projectSlotCount = projectSection?.projectSlots || 4;
+  const projectSlotCount = _isMinimal ? 1 : (projectSection?.projectSlots || 4);
   for (let n = 1; n <= projectSlotCount; n++) {
     const actionEl = document.getElementById(`dt-project_${n}_action`);
     responses[`project_${n}_action`] = actionEl ? actionEl.value : '';
@@ -549,6 +572,11 @@ function collectResponses() {
       if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
     }
   }
+
+  // dt-form.17: collection of ADVANCED-only sections (sorcery, spheres,
+  // status, contacts, retainers, acquisitions, equipment, skill acq) is
+  // skipped in MINIMAL mode. Their prior values stay intact via the spread.
+  if (!_isMinimal) {
 
   // Collect sorcery slots (dynamic count)
   const sorceryCountEl = document.getElementById('dt-sorcery-slot-count');
@@ -780,6 +808,8 @@ function collectResponses() {
     responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
   }
 
+  } // end if (!_isMinimal) — ADVANCED-only collection
+
   return responses;
 }
 
@@ -795,17 +825,31 @@ async function saveDraft() {
   }
   const responses = collectResponses();
 
+  // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
+  // derived bool, persist on responses, and on transition mirror to
+  // submission.status + attendance.downtime.
+  const completenessCtx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(responses, completenessCtx);
+  responses._has_minimum = hasMinimum;
+  const priorHasMinimum = !!responseDoc?.responses?._has_minimum;
+  const flipped = priorHasMinimum !== hasMinimum;
+  const nextStatus = hasMinimum ? 'submitted' : 'draft';
+
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
         cycle_id: currentCycle._id,
-        status: 'draft',
+        status: nextStatus,
         responses,
       });
     } else {
-      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, { responses });
+      // Include status in the body so a status flip and the responses write
+      // land in the same PUT — saves a round-trip and keeps the two fields
+      // consistent on retry.
+      const body = flipped ? { responses, status: nextStatus } : { responses };
+      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
     if (statusEl) statusEl.textContent = 'Saved';
@@ -813,11 +857,36 @@ async function saveDraft() {
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
+    // dt-form.17: mirror to attendance.downtime on transition. Idempotent —
+    // we still send the PATCH on flip, even if the bool is the same as last
+    // time (e.g. on a fresh form load with no prior state).
+    if (flipped && _activeGameSessionId && currentChar?._id) {
+      try {
+        await apiPatch(
+          `/api/attendance/${encodeURIComponent(_activeGameSessionId)}/${encodeURIComponent(String(currentChar._id))}`,
+          { downtime: hasMinimum }
+        );
+        // Local cache for XP-Available annotation; also flips the player
+        // sheet's _gameXP on the next loadGameXP call.
+        currentChar._dtHoldFlag = !hasMinimum;
+      } catch {
+        // Non-fatal — the bool can be reconciled at cycle-close. The 423
+        // gate handler logs to status if cycle is closed.
+      }
+    } else if (currentChar) {
+      currentChar._dtHoldFlag = !hasMinimum;
+    }
+
     // JDT-2: After the submission save lands, fan out joint creations for any
     // slot that authored a joint and doesn't yet have a backing joint document.
     await createPendingJoints(responses);
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+    // dt-form.17 §Q11: surface the cycle-close 423 with a stable message.
+    if (err && /CYCLE_CLOSED|423|Cycle is closed/i.test(err.message || '')) {
+      if (statusEl) statusEl.textContent = 'Cycle closed; submission locked';
+    } else if (statusEl) {
+      statusEl.textContent = 'Save failed: ' + err.message;
+    }
   }
 }
 
@@ -1314,12 +1383,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect attendance from the game session matching this downtime cycle
   lastGameAttendees = [];
+  _activeGameSessionId = null;
   try {
     let attUrl = '/api/attendance?character_id=' + encodeURIComponent(String(currentChar._id));
     if (currentCycle?.game_number) attUrl += '&game_number=' + currentCycle.game_number;
     const att = await apiGet(attUrl);
     gateValues.attended = att.attended ? 'yes' : 'no';
     lastGameAttendees = att.attendees || [];
+    _activeGameSessionId = att.session_id || null;
   } catch { /* fall back — leave gateValues.attended unset */ }
 
   // Load all character names for cast picker
@@ -1618,11 +1689,49 @@ function _remountShoutoutPicker(trimmed) {
   cur.replaceWith(fresh);
 }
 
+// dt-form.17 (ADR-003 §Q1, §Q2): MINIMAL vs ADVANCED mode gate.
+// Sections in MINIMAL_SECTIONS render in both modes; everything else is
+// hidden in MINIMAL (per ADR §Q2 lock — "not rendered, not just display:none").
+const MINIMAL_SECTIONS = new Set(['court', 'personal_story', 'feeding', 'projects', 'regency']);
+
+function _formMode(saved) {
+  return saved?._mode === 'advanced' ? 'advanced' : 'minimal';
+}
+
+function _isSectionVisibleInMode(sectionKey, mode) {
+  if (mode === 'advanced') return true;
+  return MINIMAL_SECTIONS.has(sectionKey);
+}
+
+function _completenessCtx() {
+  return {
+    isRegent: gateValues.is_regent === 'yes',
+    regencyConfirmed: _isRegencyConfirmedThisCycle(),
+  };
+}
+
+function _isRegencyConfirmedThisCycle() {
+  if (!currentCycle?.regent_confirmations) return false;
+  const ri = findRegentTerritory(_territories, currentChar);
+  if (!ri?.territoryId) return false;
+  return (currentCycle.regent_confirmations || []).some(
+    c => String(c.territory_id) === String(ri.territoryId)
+  );
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
   const isST = isSTRole();
   const isSubmitted = status === 'submitted';
+
+  // dt-form.17: derive _mode + _has_minimum on every render so the gate and
+  // banner reflect the latest state. The persistent fields are written by
+  // the lifecycle hook in scheduleSave; this is read-only here.
+  const mode = _formMode(saved);
+  const ctx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(saved, ctx);
+  const missing = hasMinimum ? [] : missingMinimumPieces(saved, ctx);
 
   // Re-publish picker sources every render — guards against another module
   // (regency-tab) overwriting them between navigations.
@@ -1649,6 +1758,32 @@ function renderForm(container) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+  }
+
+  // dt-form.17 (ADR-003 §Q1): mode selector at top of form.
+  h += '<div class="dt-mode-selector" role="group" aria-label="Form mode">';
+  h += `<button type="button" class="dt-mode-pill${mode === 'minimal' ? ' dt-mode-pill--active' : ''}" data-dt-mode="minimal" aria-pressed="${mode === 'minimal'}">Minimal</button>`;
+  h += `<button type="button" class="dt-mode-pill${mode === 'advanced' ? ' dt-mode-pill--active' : ''}" data-dt-mode="advanced" aria-pressed="${mode === 'advanced'}">Advanced</button>`;
+  h += '<span class="dt-mode-desc">';
+  h += mode === 'minimal'
+    ? 'Just the essentials. Switch to Advanced for the full form — your data is preserved either way.'
+    : 'All sections shown. Switch back to Minimal at any time without losing what you have entered.';
+  h += '</span>';
+  h += '</div>';
+
+  // dt-form.17 (ADR-003 §Q3): persistent below-minimum banner with the
+  // missing-pieces list. Locked copy per story §Banner copy.
+  if (!hasMinimum) {
+    h += '<div class="dt-min-banner" role="status" aria-live="polite">';
+    h += '<p class="dt-min-banner__lead"><strong>Your form is below minimum-complete.</strong> Your downtime XP credit is on hold. Add the missing pieces to restore it:</p>';
+    if (missing.length) {
+      h += '<ul class="dt-min-banner__list">';
+      for (const item of missing) {
+        h += `<li>${esc(item.label)}</li>`;
+      }
+      h += '</ul>';
+    }
+    h += '</div>';
   }
 
   // Header
@@ -1711,6 +1846,9 @@ function renderForm(container) {
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
+    // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
+    // MINIMAL so it falls through; trust/harm/aspirations live in admin).
+    if (!_isSectionVisibleInMode(section.key, mode)) continue;
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
@@ -1732,12 +1870,13 @@ function renderForm(container) {
   h += renderPersonalStorySection(saved);
 
   // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
-  if (gateValues.has_sorcery === 'yes') {
+  if (gateValues.has_sorcery === 'yes' && _isSectionVisibleInMode('blood_sorcery', mode)) {
     h += renderSorcerySection(saved);
   }
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     h += `<div class="qf-section collapsed" data-gate-section="" data-section-key="${key}">`;
@@ -1753,18 +1892,23 @@ function renderForm(container) {
   }
 
   // ── Projects section with dynamic slots ──
-  h += renderProjectSlots(saved);
+  // dt-form.17: in MINIMAL only the first project slot renders.
+  h += renderProjectSlots(saved, mode);
 
-  // ── Dynamic merit sections ──
-  h += renderMeritToggles(saved);
+  // dt-form.17: ADVANCED-only sections below the projects.
+  if (mode === 'advanced') {
+    // ── Dynamic merit sections ──
+    h += renderMeritToggles(saved);
 
-  // ── Acquisitions (custom render) ──
-  h += renderAcquisitionsSection(saved);
+    // ── Acquisitions (custom render) ──
+    h += renderAcquisitionsSection(saved);
 
-  // ── Equipment (dynamic rows) ──
-  h += renderEquipmentSection(saved);
+    // ── Equipment (dynamic rows) ──
+    h += renderEquipmentSection(saved);
+  }
 
   for (const key of ['vamping', 'admin']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
@@ -1838,6 +1982,20 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // dt-form.17: Mode pill toggle. Persist on responses._mode and re-render.
+    // Switching preserves entered data (per ADR §Q1 Resolutions): non-MINIMAL
+    // fields stay in responses; only their UI is hidden.
+    const modePill = e.target.closest('[data-dt-mode]');
+    if (modePill) {
+      const next = modePill.dataset.dtMode === 'advanced' ? 'advanced' : 'minimal';
+      const cur = collectResponses();
+      cur._mode = next;
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
@@ -3027,9 +3185,10 @@ function renderMaintenanceWarnings(char, cycle) {
   return out.join('');
 }
 
-function renderProjectSlots(saved) {
+function renderProjectSlots(saved, mode = 'advanced') {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const slotCount = section?.projectSlots || 4;
+  // dt-form.17 (ADR-003 §Q2): MINIMAL renders one project slot only.
+  const slotCount = mode === 'minimal' ? 1 : (section?.projectSlots || 4);
 
   // Build attribute/skill/discipline option lists from character data
   const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);

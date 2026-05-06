@@ -168,6 +168,20 @@ export const downtimeSubmissionSchema = {
         _gate_has_acquisitions: yesNoGate,  // Legacy — acquisitions always shown now
         regent_territory:       { type: 'string' },
 
+        // ── dt-form.17 (ADR-003 §Q1, §Q3, §Q5) lifecycle metadata ────
+        // _mode: rendering tier the form is in. Default 'minimal'; switching
+        // ADVANCED preserves any previously-entered fields rather than clearing.
+        _mode: { type: 'string', enum: ['minimal', 'advanced', ''] },
+        // _has_minimum: derived bool from isMinimalComplete(responses, ctx).
+        // Hard-mirrored both ways onto submission.status + attendance.downtime
+        // until cycle close. Written on every save; not authoritative — the
+        // function in public/js/data/dt-completeness.js is.
+        _has_minimum: { type: 'boolean' },
+        // _final_submitted_at: ADVANCED-mode "I'm done editing" hint set by the
+        // Submit Final modal (story #31). Not a status flip — submission.status
+        // already mirrors _has_minimum from the soft-submit lifecycle.
+        _final_submitted_at: { type: 'string' },  // ISO timestamp
+
         // ── Merit toggle states (legacy, preserved for contacts/retainers) ──
         // Dynamic keys: _merit_<merit_key> = "yes" | "no"
         // merit_key format: "name_rating_area".toLowerCase().replace(/[^a-z0-9]+/g, '_')
