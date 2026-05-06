@@ -224,11 +224,11 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 3. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
-  //    so players know which rites affect their hunt pool before committing to a method
+  // 3. Blood Sorcery — auto-gated by disciplines; rendered in ADVANCED between Personal Actions
+  //    and Sphere Actions (dt-form.27). Section entry kept here for gate definition + title.
   {
     key: 'blood_sorcery',
-    title: 'Blood Sorcery: Theban and Cruac',
+    title: 'Blood Sorcery: Crúac and Theban',
     gate: 'has_sorcery',
     intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
     questions: [], // rendered dynamically by downtime-form.js

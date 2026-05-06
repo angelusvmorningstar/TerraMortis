@@ -2146,11 +2146,6 @@ function renderForm(container) {
   // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
 
-  // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
-  if (gateValues.has_sorcery === 'yes' && _isSectionVisibleInMode('blood_sorcery', mode)) {
-    h += renderSorcerySection(saved);
-  }
-
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
     if (!_isSectionVisibleInMode(key, mode)) continue;
@@ -2174,6 +2169,9 @@ function renderForm(container) {
 
   // dt-form.17: ADVANCED-only sections below the projects.
   if (mode === 'advanced') {
+    // ── Blood Sorcery — between Personal Actions and Sphere Actions (dt-form.27) ──
+    if (gateValues.has_sorcery === 'yes') h += renderSorcerySection(saved);
+
     // ── Dynamic merit sections ──
     h += renderMeritToggles(saved);
 
