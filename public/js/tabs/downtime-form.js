@@ -201,12 +201,24 @@ function detectMerits() {
   const merits = (currentChar.merits || []).filter(m => m.category);
   const discs = currentChar.disciplines || {};
 
-  // Expand benefit_grants from standing merits (MCI) into the influence pool
+  // Expand benefit_grants from standing merits (MCI) into the influence pool.
+  // Skip grants whose name is already represented by a direct influence merit
+  // — by convention the MCI's contribution has been absorbed into the player's
+  // direct merit's rating/spheres, so re-adding the grant here would double-
+  // count (issue #90, Yusuf's MCI Contacts already in his direct Contacts
+  // spheres). Charlie Ballsack's Retainer-via-Attaché pattern (hotfix #45)
+  // is preserved because Charlie has no direct Retainer merit — the grant
+  // still surfaces.
+  const directInfluenceNames = new Set(
+    merits.filter(m => m.category === 'influence').map(m => m.name)
+  );
   const expandedInfluence = [...merits];
   for (const m of merits) {
     if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
       for (const g of m.benefit_grants) {
-        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
+        if (g.category !== 'influence') continue;
+        if (directInfluenceNames.has(g.name)) continue;
+        expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
       }
     }
   }
