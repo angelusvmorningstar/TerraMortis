@@ -26,7 +26,11 @@
 
 const projectActionEnum = [
   '', 'ambience_increase', 'ambience_decrease', 'attack', 'feed',
-  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc'
+  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc',
+  // dt-form.22: ROTE moved out of the feeding section into its own per-slot
+  // action variant. Pool inherits from primary feeding; territory writes to
+  // the existing document-level `feeding_territories_rote` map.
+  'rote'
 ];
 
 const sphereActionEnum = [
@@ -69,8 +73,21 @@ function projectSlotProps(n) {
     [`project_${n}_cast`]:         { type: 'string' },
     // Applicable merits (JSON array of "Name|qualifier" keys)
     [`project_${n}_merits`]:       { type: 'string' },
-    // XP expenditure note (for xp_spend action)
+    // XP expenditure note (for xp_spend action) — legacy free-text justification
     [`project_${n}_xp`]:           { type: 'string' },
+    // dt-form.26: per-slot XP-spend rows. JSON-stringified array of
+    // { category, item, dotsBuying } objects (same row shape as the legacy
+    // top-level `responses.xp_spend`). Canonical post-redesign storage; the
+    // top-level field is mirror-built from these on every save (DAR-A1).
+    [`project_${n}_xp_rows`]:      { type: 'string' },
+    // Legacy single-row placeholders kept transitional: read as the FIRST
+    // row of `_xp_rows` if `_xp_rows` is empty/missing. Newly-saved
+    // submissions populate `_xp_rows` directly; these stay as compatibility
+    // surface for ST consumers that still read them in older code paths.
+    [`project_${n}_xp_category`]:  { type: 'string' },
+    [`project_${n}_xp_item`]:      { type: 'string' },
+    [`project_${n}_xp_dots`]:      { type: 'string' },
+    [`project_${n}_xp_trait`]:     { type: 'string' },
     // Secondary hunt method (for feed/rote action)
     [`project_${n}_feed_method2`]: { type: 'string', enum: feedMethodEnum },
     // JDT-2: Joint project authoring scratch fields. Persisted on the

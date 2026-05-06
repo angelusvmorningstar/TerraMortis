@@ -15,6 +15,7 @@ import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, h
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
+import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -23,7 +24,9 @@ import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
-import { promptForKind } from '../data/kind-prompts.js';
+// dt-form.33: removed `promptForKind` import — last consumer was the
+// dt-story_moment_relationship_id change handler, deleted with the
+// other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
@@ -50,6 +53,52 @@ function _promotePublishedOutcome(sub) {
   }
 }
 
+// dt-form.22: one-shot migration of legacy ROTE state into the new
+// project-action shape. Reads `_feed_rote` / `_feed_rote_slot` (plus the
+// pool-builder `_rote_*` companions) and translates to:
+//   responses.project_N_action      = 'rote'
+//   responses.project_N_feed_method2 = <primary method, if known>
+// Drops the legacy keys. `feeding_territories_rote` is left in place — it's
+// the canonical doc-level territory map per the 2026-05-06 HALT-DAR.
+//
+// Idempotent: the function returns early if there are no legacy fields to
+// migrate. Called from renderDowntimeTab after responseDoc loads, and as
+// a defensive prelude inside collectResponses so a stray legacy save can't
+// re-introduce the old shape.
+function _migrateLegacyRoteState(responses) {
+  if (!responses || typeof responses !== 'object') return;
+  const isLegacy = responses._feed_rote === 'yes' || responses._feed_rote_slot
+    || responses._rote_disc || responses._rote_spec
+    || responses._rote_custom_attr || responses._rote_custom_skill;
+  if (!isLegacy) return;
+
+  const rawSlot = parseInt(responses._feed_rote_slot, 10);
+  const slot = Number.isInteger(rawSlot) && rawSlot >= 1 && rawSlot <= 4 ? rawSlot : 1;
+  const wasOn = responses._feed_rote === 'yes';
+  if (wasOn) {
+    // The slot may have been auto-locked to action='feed' by the legacy
+    // applyRoteToProjectSlot path. Flip it to the new 'rote' action type.
+    if (responses[`project_${slot}_action`] === 'feed' || !responses[`project_${slot}_action`]) {
+      responses[`project_${slot}_action`] = 'rote';
+    }
+    // Persist the primary method into the per-slot `_method2` field if
+    // available. The pool itself is no longer separately stored — derived
+    // at render time from the primary feeding inputs.
+    const primaryMethod = responses._feed_method;
+    if (primaryMethod && !responses[`project_${slot}_feed_method2`]) {
+      responses[`project_${slot}_feed_method2`] = primaryMethod;
+    }
+  }
+
+  // Drop legacy keys so subsequent saves don't re-introduce them.
+  delete responses._feed_rote;
+  delete responses._feed_rote_slot;
+  delete responses._rote_disc;
+  delete responses._rote_spec;
+  delete responses._rote_custom_attr;
+  delete responses._rote_custom_skill;
+}
+
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
@@ -59,8 +108,11 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
-let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+// dt-form.33: removed `_linkedNpcs` and `_myRelationships` module vars
+// + their data loads. Both fed DB-relational NPC pickers (the legacy
+// _legacyRenderPersonalStorySection NPC card grid and the story-moment
+// relationship picker) that this story prunes under the NPC-interaction
+// suppression policy. No live consumer remained after dt-form.18.
 let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
@@ -111,12 +163,14 @@ const ACTION_ICONS = {
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
   'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
+  'rote': '\u2666', // dt-form.22: same diamond as feed; ROTE is a feed variant
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
   'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
+  'rote': 'Rote Hunt', // dt-form.22
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
@@ -130,6 +184,11 @@ const ACTION_FIELDS = {
   'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
   'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
   'maintenance':       ['target', 'description'],
+  // dt-form.22: ROTE renders only the territory + description; pool is
+  // inherited from primary feeding (read-only annotation). The handler
+  // below renders rote-specific UI, so this list is intentionally just
+  // 'description' — the territory + pool annotation are emitted inline.
+  'rote':              ['description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -281,6 +340,10 @@ function collectResponses() {
   // for sections hidden by the current mode. Spread the prior responses as a
   // base, then specific section blocks below either overwrite (when their UI
   // is rendered) or are skipped (when hidden by MINIMAL).
+  // dt-form.22: defensive prelude — translate any stragglers from the legacy
+  // ROTE state into the new project-action shape before the spread, so a
+  // load → save round-trip can never re-introduce the old keys.
+  if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
   const _prior = responseDoc?.responses || {};
   const responses = { ..._prior };
   // Carry the existing mode flag forward; the toggle handler updates it
@@ -326,10 +389,14 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        // DTFP-4: _feed_method is no longer persisted on new submissions.
-        // The method-card pick is UX-only scaffolding for the chip suggestions;
-        // the saved pool is whatever the player built via attr/skill/disc/spec.
-        // Legacy submissions keep their stored _feed_method for back-compat reads.
+        // dt-form.20 fix-up (Ma'at PR #98 review, bug 1): persist `_feed_method`
+        // again. DTFP-4 dropped it because the manual pool builder was the
+        // canonical method-set signal in ADVANCED, but MINIMAL has no pool
+        // builder — without this the simplified form's method choice is
+        // invisible to isMinimalComplete and the hard-mirror lifecycle never
+        // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
+        // so this is additive, not a regression of the original DTFP-4 case.
+        responses['_feed_method'] = feedMethodId || '';
         // DTFP-5: feed_violence persists only after the player clicks the toggle.
         // Pre-selection is visual only; preserve any explicit choice through saves.
         if (responseDoc?.responses?.feed_violence) {
@@ -340,26 +407,27 @@ function collectResponses() {
         responses['_feed_custom_attr'] = feedCustomAttr;
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
-        responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
-        responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
-        const roteDiscEl = document.getElementById('dt-rote-disc');
-        feedRoteDisc = roteDiscEl ? roteDiscEl.value : feedRoteDisc;
-        const roteAttrEl = document.getElementById('dt-rote-custom-attr');
-        const roteSkillEl = document.getElementById('dt-rote-custom-skill');
-        if (roteAttrEl) feedRoteCustomAttr = roteAttrEl.value;
-        if (roteSkillEl) feedRoteCustomSkill = roteSkillEl.value;
-        responses['_rote_disc'] = feedRoteAction ? feedRoteDisc : '';
-        responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
-        responses['_rote_custom_attr'] = feedRoteAction ? feedRoteCustomAttr : '';
-        responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
+        // dt-form.22: legacy `_feed_rote*` and `_rote_*` writes removed.
+        // ROTE is now a per-slot project action; method persists per-slot
+        // as `project_N_feed_method2`, territory persists at the document
+        // level as `feeding_territories_rote` (existing field, kept).
         // Blood type
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // Rote territory picker
-        if (feedRoteAction) {
+        // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
+        // read the action selectors from the DOM, not from `responses`.
+        // The feeding_method branch runs BEFORE the project-slot collect
+        // loop at :532, so `responses[project_N_action]` here is still the
+        // spread base from the prior responseDoc — it doesn't yet reflect
+        // the user's current slot selection. The DOM does.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(n => {
+          const el = document.getElementById(`dt-project_${n}_action`);
+          return el && el.value === 'rote';
+        });
+        if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -371,20 +439,11 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'xp_grid') {
-        const gridEl = document.getElementById('dt-xp_spend');
-        const rows = [];
-        if (gridEl) {
-          gridEl.querySelectorAll('[data-xp-row]').forEach(rowEl => {
-            const catEl = rowEl.querySelector('[data-xp-cat]');
-            const itemEl = rowEl.querySelector('[data-xp-item]');
-            const dotsEl = rowEl.querySelector('[data-xp-dots]');
-            const category = catEl ? catEl.value : '';
-            const item = itemEl ? itemEl.value : '';
-            const dotsBuying = dotsEl ? parseInt(dotsEl.value, 10) || 0 : 0;
-            if (category) rows.push({ category, item, dotsBuying });
-          });
-        }
-        responses[q.key] = JSON.stringify(rows);
+        // dt-form.26: legacy Admin-section xp_grid collector pruned. The
+        // Admin section was removed in #31, so no DOWNTIME_SECTIONS question
+        // has type='xp_grid' anymore — the iteration that lands here is dead.
+        // Keeping a defensive `continue` so a re-introduced legacy question
+        // wouldn't accidentally clobber the new top-level mirror.
         continue;
       }
       if (q.type === 'influence_grid') {
@@ -419,14 +478,20 @@ function collectResponses() {
   }
 
   // Personal story fields (legacy keys kept for back-compat with ST admin views)
-  const psNpcId   = document.getElementById('dt-personal_story_npc_id');
-  const psNpcName = document.getElementById('dt-personal_story_npc_name');
-  const psNote    = document.getElementById('dt-personal_story_note');
-  // NPCR.12 r3: personal_story_direction retired (Story direction radios
-  // removed). Existing legacy submissions still carry the field.
-  responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
-  responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
-  responses['personal_story_note']     = psNote    ? psNote.value    : '';
+  // dt-form.18 (option Y locked 2026-05-06): Personal Story collapsed to
+  // Touchstone-or-Correspondence binary plus an optional free-text NPC
+  // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
+  // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
+  // (the new `_text` replaces the note; the rich-UI direction radios are
+  // gone). Pre-redesign drafts retain the old keys via the spread base, so
+  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
+  // keeps recognising them.
+  const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
+  const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
+  const psTextEl = document.getElementById('dt-personal_story_text');
+  if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
+  if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
+  if (psTextEl) responses['personal_story_text'] = psTextEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -506,7 +571,43 @@ function collectResponses() {
     const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
-    if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // dt-form.26: collect this slot's multi-row XP-Spend grid. Read row
+    // values directly from the slot-scoped grid container; legacy single-row
+    // placeholder fields (`_xp_dots`, `_xp_category`, `_xp_item`) are no
+    // longer written here. Backward-compat fallback: if the slot has no
+    // grid mounted (action just flipped to xp_spend, render hasn't fired
+    // yet) preserve any prior `_xp_rows` from the spread base.
+    if (responses[`project_${n}_action`] === 'xp_spend') {
+      const slotGrid = document.querySelector(`[data-proj-xp-grid="${n}"]`);
+      if (slotGrid) {
+        const rows = [];
+        slotGrid.querySelectorAll('[data-xp-row]').forEach(rowEl => {
+          const catEl  = rowEl.querySelector('[data-xp-cat]');
+          const itemEl = rowEl.querySelector('[data-xp-item]');
+          const dotsEl = rowEl.querySelector('[data-xp-dots]');
+          const category = catEl ? catEl.value : '';
+          const item     = itemEl ? itemEl.value : '';
+          const dotsBuying = dotsEl ? (parseInt(dotsEl.value, 10) || 0) : 0;
+          if (category) rows.push({ category, item, dotsBuying });
+        });
+        responses[`project_${n}_xp_rows`] = JSON.stringify(rows);
+      }
+      // Drop the legacy `_xp_dots` placeholder; persist '0' so legacy ST
+      // readers see "no dots" rather than the stale "1" sentinel.
+      responses[`project_${n}_xp_dots`] = '0';
+    } else {
+      // Slot is no longer xp_spend; clear the rows JSON so stale data doesn't
+      // contaminate the top-level mirror.
+      if (responses[`project_${n}_xp_rows`]) responses[`project_${n}_xp_rows`] = '';
+    }
+    // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
+    // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
+    // helper handles legacy submissions; this covers fresh ROTE saves so ST
+    // consumers (feeding-tab.js:350, admin/downtime-views.js:2569) read the
+    // method directly rather than seeing undefined.
+    if (responses[`project_${n}_action`] === 'rote' && feedMethodId) {
+      responses[`project_${n}_feed_method2`] = feedMethodId;
+    }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
@@ -823,6 +924,35 @@ function collectResponses() {
   }
 
   } // end if (!_isMinimal) — ADVANCED-only collection
+
+  // dt-form.26 (DAR-A1): mirror per-slot XP-spend rows into the legacy
+  // top-level `responses.xp_spend` JSON array so existing readers
+  // (player-side budget validator at submitForm:1263, ST review at
+  // admin/downtime-views.js:3637) keep working unchanged. The per-slot
+  // shape is canonical post-redesign; this rebuilds top-level on every
+  // save. If no slot has xp_spend rows, the legacy top-level value (from
+  // the spread base) passes through untouched — preserves any in-flight
+  // legacy data until the player engages the redesigned UI.
+  let _hasAnyXpRows = false;
+  const _topLevelMirror = [];
+  for (let s = 1; s <= 4; s++) {
+    if (responses[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = responses[`project_${s}_xp_rows`] || '';
+    if (rj) {
+      try { slotRows = JSON.parse(rj); } catch { slotRows = []; }
+    }
+    if (slotRows.length) {
+      _hasAnyXpRows = true;
+      for (const r of slotRows) {
+        if (!r || !r.category) continue;
+        _topLevelMirror.push(r);
+      }
+    }
+  }
+  if (_hasAnyXpRows) {
+    responses['xp_spend'] = JSON.stringify(_topLevelMirror);
+  }
 
   return responses;
 }
@@ -1311,24 +1441,11 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
-  // don't break when viewing old cycles. The new flow (NPCR.12) does not
-  // use this list.
-  _linkedNpcs = [];
-  if (currentChar?._id) {
-    try {
-      _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _linkedNpcs = []; }
-  }
-
-  // NPCR.12: load this character's relationships (active + pending) for
-  // the Personal Story picker. Fails silently — picker shows empty state.
-  _myRelationships = [];
-  if (currentChar?._id) {
-    try {
-      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _myRelationships = []; }
-  }
+  // dt-form.33: removed two NPC-DB data loads. The legacy
+  // `/api/npcs/for-character/...` fetch fed `_linkedNpcs` for the legacy
+  // renderer (deleted), and `/api/relationships/for-character/...` fed
+  // `_myRelationships` for the story-moment relationship picker (deleted).
+  // Saves two API round-trips per form load.
 
   // Load existing submission for this character + cycle
   priorPublishedLabel = null;
@@ -1340,6 +1457,9 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
       if (responseDoc) _promotePublishedOutcome(responseDoc);
+      // dt-form.22: translate legacy ROTE state on first read. Once any
+      // save fires, the document persists in the new shape.
+      if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
     } catch { /* no submission */ }
   }
 
@@ -2022,7 +2142,7 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // ── Personal Story — NPC interaction ──
+  // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
 
   // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
@@ -2165,6 +2285,18 @@ function renderForm(container) {
     // after any inline renderForm() call (sorcery rite change, feed pool, mode toggle).
     if (e.target.closest('#dt-btn-submit')) {
       submitForm();
+      return;
+    }
+    // dt-form.18: Personal Story kind radio — re-render so the textarea
+    // label and placeholder reflect the chosen kind (touchstone vs
+    // correspondence). The radio's `value` is set by the browser before
+    // this handler fires, so collectResponses captures it.
+    if (e.target.matches('[data-personal-story-kind]')) {
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
@@ -2423,33 +2555,16 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
-    // NPCR.12/13: relationship picker change — swap the kind-driven label
-    // and placeholder in place, preserving whatever the player has typed.
-    if (e.target.id === 'dt-story_moment_relationship_id') {
-      const relId = e.target.value;
-      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
-      const prompt = edge
-        ? promptForKind(edge.kind, edge.custom_label)
-        : promptForKind('_default', null);
-      const label = document.getElementById('dt-story_moment_note_label');
-      const note  = document.getElementById('dt-story_moment_note');
-      if (label) label.textContent = prompt.label;
-      if (note)  note.setAttribute('placeholder', prompt.placeholder);
-      scheduleSave();
-      return;
-    }
+    // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
+    // The story-moment relationship picker (a DB-relational element) was
+    // suppressed under the broader NPC-interaction policy alongside the
+    // legacy renderer deletion. No DOM element with id
+    // `dt-story_moment_relationship_id` is rendered anywhere now.
 
-    // Personal story free-text NPC name — sync to hidden fields and update tick
-    if (e.target.id === 'dt-personal_story_npc_name_free') {
-      const val    = e.target.value.trim();
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = val ? '__new__' : '';
-      if (nameEl) nameEl.value = val;
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: legacy free-text NPC name `_free` change handler removed.
+    // The legacy renderer that emitted `dt-personal_story_npc_name_free` is
+    // gone; dt-form.18's option Y uses `dt-personal_story_npc_name` directly
+    // as a typed-string input, no `_free` mirror needed.
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -2755,25 +2870,9 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // NPC card selection
-    const npcCard = e.target.closest('[data-npc-pick]');
-    if (npcCard) {
-      const id   = npcCard.dataset.npcPick;
-      const name = npcCard.dataset.npcName || '';
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = id;
-      if (nameEl) nameEl.value = name;
-      container.querySelectorAll('[data-npc-pick]').forEach(c =>
-        c.classList.toggle('dt-npc-card-selected', c.dataset.npcPick === id)
-      );
-      // Clear free-text field when a card is picked
-      const freeEl = document.getElementById('dt-personal_story_npc_name_free');
-      if (freeEl) freeEl.value = '';
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: NPC card click handler removed alongside the
+    // _legacyRenderPersonalStorySection deletion. No DOM element with
+    // [data-npc-pick] is rendered anywhere now.
     // dt-form.16: target character chip handler removed — universal charPicker
     // mounted in renderTargetCharOrOther handles its own selection lifecycle.
     // Maintenance merit chip — single-select, writes to hidden target_value input
@@ -3604,9 +3703,19 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
-      const savedCat  = saved[`project_${n}_xp_category`] || '';
-      const savedItem = saved[`project_${n}_xp_item`] || '';
-      const budget = xpLeft(currentChar);
+      // dt-form.26: in-slot multi-row XP-Spend grid. Reuses renderXpRow which
+      // already encodes hotfix #44's merit-eligibility logic
+      // (getItemsForCategory('merit') -> getRulesByCategory + meetsPrereq).
+      // Per-slot rows persist as `responses.project_N_xp_rows` (JSON);
+      // top-level `responses.xp_spend` mirror-built in collectResponses (DAR-A1).
+      h += _renderProjectXpRows(n, saved);
+      // legacy single-row block follows but is dead — kept under a constant-false
+      // branch so the diff is bounded and the dead code documents the historical
+      // shape. Removed in a follow-up cleanup commit if Ma'at prefers.
+      if (false) {
+        const savedCat  = saved[`project_${n}_xp_category`] || '';
+        const savedItem = saved[`project_${n}_xp_item`] || '';
+        const budget = xpLeft(currentChar);
 
       // Deduct already-committed project XP from other slots
       let committed = 0;
@@ -3658,6 +3767,7 @@ function renderProjectSlots(saved, mode = 'advanced') {
       }, saved[`project_${n}_xp_trait`] || '');
 
       h += '</div>';
+      } // end if (false) — dt-form.26 dead-code wrap on legacy single-row block
     }
 
     if (fields.includes('title')) {
@@ -3709,6 +3819,58 @@ function renderProjectSlots(saved, mode = 'advanced') {
         type: 'textarea', required: false, rows: 2,
         placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
+    }
+
+    // ── dt-form.22: ROTE territory + read-only inherited pool ──
+    if (actionVal === 'rote') {
+      h += '<div class="qf-field dt-proj-rote-territory">';
+      h += '<label class="qf-label">Where does this second hunt happen?</label>';
+      const roteTerrSaved = saved.feeding_territories_rote || '';
+      let roteTerrGridVals = {};
+      try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+      const mainTerrSaved = saved.feeding_territories || '';
+      let mainTerrGridVals = {};
+      try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
+      h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+      h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
+      h += '</div>';
+
+      // Read-only inherited pool. Derive from the same primary-feed inputs
+      // the simplified MINIMAL form uses, plus the chosen rote territory's
+      // ambience modifier.
+      const slugFromGrid = (gridStr) => {
+        let grid = {};
+        try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+        const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+        if (!key) return '';
+        const niceName = FEEDING_TERRITORIES.find(
+          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        );
+        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+        return td?.slug || '';
+      };
+      const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
+      const inheritedPool = computeBestFeedingPool({
+        char: currentChar,
+        methodId: feedMethodId,
+        territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
+      });
+      h += '<div class="qf-field dt-proj-rote-pool">';
+      if (!feedMethodId) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else if (!inheritedPool) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else {
+        const parts = [];
+        if (inheritedPool.attr.name) parts.push(`${inheritedPool.attr.val} ${esc(inheritedPool.attr.name)}`);
+        if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
+        else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
+        if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
+        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
+        h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
+        h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+      }
+      h += '</div>';
     }
 
     // ── Approach ──
@@ -4111,6 +4273,99 @@ function renderXpRow(idx, row, xpActions, dotsRemaining) {
   return h;
 }
 
+/**
+ * dt-form.26: per-slot multi-row XP-Spend grid. Replaces the legacy single-row
+ * placeholder when a project slot's action is `xp_spend`. Reuses renderXpRow
+ * for each row (which carries hotfix #44's merit-eligibility logic). Read from
+ * `responses.project_${n}_xp_rows` (JSON-stringified array); backward-compat
+ * seeds rows[0] from the legacy `project_${n}_xp_category` / `_xp_item` /
+ * `_xp_dots` triple when no `_xp_rows` is present yet.
+ *
+ * Per CLAUDE.md XP rules: 1 dot of non-merit growth per xp_spend slot, plus
+ * unlimited free 1-3 dot merits. The dotsRemaining tracker spans all xp_spend
+ * slots' rows so the player sees a single global budget.
+ */
+function _renderProjectXpRows(n, saved) {
+  // Read this slot's rows (JSON), or seed from legacy single-row fields.
+  let xpRows = [];
+  const savedRowsJson = saved[`project_${n}_xp_rows`] || '';
+  if (savedRowsJson) {
+    try { xpRows = JSON.parse(savedRowsJson); } catch { xpRows = []; }
+  }
+  if (!xpRows.length) {
+    const legacyCat  = saved[`project_${n}_xp_category`] || '';
+    const legacyItem = saved[`project_${n}_xp_item`] || '';
+    const legacyDots = parseInt(saved[`project_${n}_xp_dots`] || '0', 10) || 0;
+    if (legacyCat && legacyItem) {
+      xpRows.push({ category: legacyCat, item: legacyItem, dotsBuying: legacyDots || 1 });
+    }
+  }
+  // Always render a trailing empty row so the player can add another purchase
+  // without an extra click. Mirrors the legacy admin xp_grid behaviour.
+  if (!xpRows.length || xpRows[xpRows.length - 1].category) {
+    xpRows.push({ category: '', item: '', dotsBuying: 0 });
+  }
+
+  // Cross-slot accounting. xp_spend slot count drives the non-merit dot budget;
+  // merits 1-3 are free per CLAUDE.md.
+  let xpActions = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] === 'xp_spend') xpActions++;
+  }
+  // Sum non-merit dots across ALL xp_spend slots' rows so the dotsRemaining
+  // displayed on this slot reflects the true cross-slot budget.
+  let dotsUsed = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = saved[`project_${s}_xp_rows`] || '';
+    if (rj) { try { slotRows = JSON.parse(rj); } catch { slotRows = []; } }
+    if (!slotRows.length) {
+      const lc = saved[`project_${s}_xp_category`] || '';
+      const li = saved[`project_${s}_xp_item`]     || '';
+      if (lc && li) slotRows = [{ category: lc, item: li, dotsBuying: 1 }];
+    }
+    for (const r of slotRows) {
+      if (!r.category || !r.item) continue;
+      if (r.category === 'merit') continue; // free 1-3 dot merits
+      if (r.category === 'devotion') dotsUsed++; // 1 action per devotion
+      else dotsUsed += (r.dotsBuying || 1);
+    }
+  }
+  const dotsRemaining = xpActions - dotsUsed;
+
+  // Slot total + global budget
+  const slotCost = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const budget = xpLeft(currentChar);
+
+  let h = `<div class="dt-xp-picker dt-xp-grid" data-proj-xp-grid="${n}">`;
+  h += `<p class="qf-desc">XP-spend declarations for this action. Add as many traits as your XP budget allows; merits at 1-3 dots are free, other categories require an XP-Spend action per dot.</p>`;
+  h += `<div class="dt-xp-budget" id="dt-proj_${n}_xp_budget">`;
+  h += `<span>Slot total: <strong>${slotCost}</strong> XP</span>`;
+  h += `<span style="margin-left:14px">Cycle budget: <strong>${budget}</strong> XP available</span>`;
+  if (xpActions > 0) {
+    h += `<span style="margin-left:14px">${xpActions} XP-Spend action${xpActions > 1 ? 's' : ''} — <span class="${dotsRemaining < 0 ? 'dt-influence-over' : ''}">${dotsRemaining} dot${dotsRemaining !== 1 ? 's' : ''} remaining</span></span>`;
+  }
+  h += '</div>';
+
+  for (let i = 0; i < xpRows.length; i++) {
+    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining);
+  }
+  h += '</div>'; // dt-xp-grid
+
+  // In-character justification stays per-slot, single textarea. Carries the
+  // narrative for the entire xp-spend action regardless of row count.
+  h += renderQuestion({
+    key: `project_${n}_xp_trait`,
+    label: 'In-character justification',
+    type: 'textarea',
+    required: false,
+    placeholder: 'Describe the activity or events that justify this growth.',
+  }, saved[`project_${n}_xp_trait`] || '');
+
+  return h;
+}
+
 function getRowCost(row) {
   if (!row.item || !row.category) return 0;
   if (row.category === 'merit') {
@@ -4132,115 +4387,70 @@ function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  const savedName = saved['personal_story_npc_name'] || '';
-  const savedNote = saved['personal_story_note']
-                  || saved['story_moment_note']
-                  || saved['osl_moment']
-                  || saved['correspondence']
-                  || '';
+  // dt-form.18 (ADR-003 §Q2, option Y locked 2026-05-06): single binary
+  // render in BOTH modes — pick Touchstone or Correspondence, optionally
+  // name a person involved (free-text only, NOT a DB-backed picker), then
+  // describe the beat in one textarea. The legacy NPC card picker (DB-
+  // relational, suppressed under the broader NPC-interaction policy) is
+  // removed; the free-text NPC name input is RETAINED because a typed
+  // string is categorically different from an "NPC interaction." Legacy
+  // `personal_story_note` / `_npc_id` / `_direction` fields remain in
+  // `responses` on existing drafts (silent-leave per the no-real-
+  // submissions migration window) but no UI emits them anymore.
+  const savedKind = saved['personal_story_kind'] === 'correspondence'
+    ? 'correspondence'
+    : (saved['personal_story_kind'] === 'touchstone' ? 'touchstone' : '');
+  const savedText = saved['personal_story_text'] || '';
+  const savedNpcName = saved['personal_story_npc_name'] || '';
+  const placeholder = savedKind === 'correspondence'
+    ? 'Describe the correspondence — to whom, about what, what tone you want it to strike.'
+    : savedKind === 'touchstone'
+      ? 'Describe the touchstone moment — a scene with someone or something that anchors your humanity this cycle.'
+      : 'Pick Touchstone or Correspondence above to focus your description.';
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\'re hoping for.</p>';
-
-  // Hidden sync fields consumed by collectResponses() at submit time.
-  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? '__new__' : '')}">`;
-  h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
+  h += '<p class="qf-section-intro">Pick one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen.</p>';
 
   h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
+  h += '<div class="qf-radio-group" role="radiogroup" aria-label="Personal Story kind">';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="touchstone"${savedKind === 'touchstone' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Touchstone moment</span>';
+  h += '</label>';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="correspondence"${savedKind === 'correspondence' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Correspondence</span>';
+  h += '</label>';
+  h += '</div>';
+  h += '</div>';
+
+  // Optional free-text NPC name. Typed string only — no picker, no DB
+  // lookup. Does not affect isMinimalComplete's gate; metadata only.
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-personal_story_npc_name">Person involved (optional)</label>';
+  h += `<input type="text" id="dt-personal_story_npc_name" class="qf-input" value="${esc(savedNpcName)}" placeholder="Optional — name a person you want involved">`;
   h += '</div>';
 
   h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">How do you want to interact with them?</label>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you're hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += '<label class="qf-label" for="dt-personal_story_text">';
+  h += savedKind === 'correspondence' ? 'Describe the correspondence' : 'Describe the touchstone moment';
+  h += '</label>';
+  h += `<textarea id="dt-personal_story_text" class="qf-textarea" rows="4" placeholder="${esc(placeholder)}">${esc(savedText)}</textarea>`;
   h += '</div>';
 
   h += '</div></div>';
   return h;
 }
 
-// ── Legacy renderer (kept for diff isolation — unused after DTOSL.2) ──
-function _legacyRenderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
-
-  const availableNpcs = (currentChar?.npcs || []).filter(n => n.available !== false);
-  const savedNpcId    = saved['personal_story_npc_id']    || '';
-  const savedNpcName  = saved['personal_story_npc_name']  || '';
-  const savedNote     = saved['personal_story_note']       || '';
-  const savedDir      = saved['personal_story_direction']  || 'continue';
-
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Who does your character spend time with this month? Choose someone from your life, or introduce someone new.</p>';
-
-  if (availableNpcs.length) {
-    // NPC card picker
-    h += '<div class="dt-npc-cards">';
-    for (const npc of availableNpcs) {
-      const isSelected = savedNpcId === npc.id;
-      h += `<div class="dt-npc-card${isSelected ? ' dt-npc-card-selected' : ''}" data-npc-pick="${esc(npc.id)}" data-npc-name="${esc(npc.name)}">`;
-      h += `<div class="dt-npc-card-name">${esc(npc.name)}</div>`;
-      if (npc.relationship_type) h += `<div class="dt-npc-card-rel">${esc(npc.relationship_type)}</div>`;
-      if (npc.location_context)  h += `<div class="dt-npc-card-loc">${esc(npc.location_context)}</div>`;
-      h += '</div>';
-    }
-    h += '</div>';
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedNpcId)}">`;
-    h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}">`;
-    h += '<div class="dt-npc-propose">';
-    h += '<label class="qf-label">Or introduce someone new:</label>';
-    h += `<input type="text" class="qf-input dt-npc-freetext" id="dt-personal_story_npc_name_free" value="${esc(savedNpcId === '__new__' ? savedNpcName : '')}" placeholder="Name and brief description\u2026">`;
-    h += '</div>';
-  } else {
-    // Free-text fallback — no NPCs registered yet
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="__new__">`;
-    h += '<div class="qf-field">';
-    h += '<label class="qf-label">Who do you want your character to spend time with?</label>';
-    h += '<p class="qf-desc">Describe them briefly — name, relationship, context. Your ST will use this to seed their character register.</p>';
-    h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}" placeholder="e.g. Marcus, my character\u2019s younger brother\u2026">`;
-    h += '</div>';
-  }
-
-  // Interaction note
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">What kind of moment do you want?</label>';
-  h += '<p class="qf-desc">What are you hoping for from this interaction — a quiet scene, a difficult conversation, a letter, something unexpected? The more you share, the better the story.</p>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="3" placeholder="Optional\u2014 any direction, tone, or story beats you\u2019d like\u2026">${esc(savedNote)}</textarea>`;
-  h += '</div>';
-
-  // Story direction
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I\'d like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
-  }
-  h += '</div></div>';
-
-  // DTR.2: correspondence moved here from Court. Rendered from the first
-  // question in section.questions (type 'textarea') so collectResponses
-  // can still find it via `dt-<key>`.
-  const correspondenceQ = (section.questions || []).find(q => q.key === 'correspondence');
-  if (correspondenceQ) {
-    h += renderQuestion(correspondenceQ, saved['correspondence'] || '');
-  }
-
-  h += '</div></div>';
-  return h;
-}
+// dt-form.33: legacy `_legacyRenderPersonalStorySection` deleted. The
+// function rendered the DB-relational `dt-npc-cards` picker driven by
+// `currentChar.npcs`; suppressed under the broader NPC-interaction
+// release-cycle policy. dt-form.18 already replaced the live render
+// with the Touchstone-or-Correspondence binary; this story prunes the
+// orphan plus its associated click handler and the now-unused
+// `_linkedNpcs` / `_myRelationships` data loads.
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
@@ -6304,8 +6514,43 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
-      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      // dt-form.20 (ADR-003 §Q2): MINIMAL renders a read-only auto-derived
+      // pool annotation in place of the manual pool selectors. ADVANCED keeps
+      // the existing chrome (DTFP-4: always visible, method optional).
+      if (_formMode(responseDoc?.responses) === 'minimal') {
+        const slugFromGrid = (gridStr) => {
+          let grid = {};
+          try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+          const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+          if (!key) return '';
+          const niceName = FEEDING_TERRITORIES.find(
+            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+          );
+          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+          return td?.slug || '';
+        };
+        const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
+        const pool = computeBestFeedingPool({ char: c, methodId: feedMethodId, territorySlug });
+        h += '<div class="qf-field dt-feed-min-pool">';
+        if (!feedMethodId) {
+          h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
+        } else if (!pool) {
+          h += '<p class="qf-desc">Pool unavailable for this method.</p>';
+        } else {
+          const parts = [];
+          if (pool.attr.name) parts.push(`${pool.attr.val} ${esc(pool.attr.name)}`);
+          if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
+          else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
+          if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
+          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
+          h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+        }
+        h += '</div>';
+      } else {
+        // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      }
 
       // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -6342,52 +6587,12 @@ function renderQuestion(q, value) {
       h += '</div>';
       h += '</div>'; // dt-feed-card-wrap
 
-      // ── Container 2: Feeding quality (Standard / Rote) ──
-      {
-        const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
-        if (savedRote && !feedRoteAction) feedRoteAction = true;
-        feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
-        feedRoteSpec = responseDoc?.responses?.['_rote_spec'] || feedRoteSpec;
-        feedRoteCustomAttr = responseDoc?.responses?.['_rote_custom_attr'] || feedRoteCustomAttr;
-        feedRoteCustomSkill = responseDoc?.responses?.['_rote_custom_skill'] || feedRoteCustomSkill;
-
-        const saved = responseDoc?.responses || {};
-
-        const firstAvail = [1,2,3,4].find(n => {
-          const act = saved[`project_${n}_action`];
-          return !act || act === 'feed';
-        }) || 1;
-        if (feedRoteAction && feedRoteSlot !== firstAvail) feedRoteSlot = firstAvail;
-
-        const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
-
-        h += '<div class="dt-feed-rote-section">';
-        h += '<label class="qf-label">Commit a project to hunting this downtime?</label>';
-        h += '<div class="dt-feed-violence-toggle">';
-        h += `<button type="button" class="dt-feed-vi-btn${!feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="off">Standard Hunt</button>`;
-        h += `<button type="button" class="dt-feed-vi-btn${feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="on">Rote Hunt</button>`;
-        h += '</div>';
-        if (feedRoteAction) {
-          h += '<div class="dt-rote-slot-picker">';
-          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt. IF this roll is successful, it will apply the Rote quality to your feeding roll (roll twice, take the best result).</p>`;
-          {
-            const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
-            let roteTerrGridVals = {};
-            try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
-            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
-            let mainTerrGridVals = {};
-            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
-            h += '<div class="qf-field">';
-            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
-            h += '</div>';
-          }
-          h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
-          h += `<div class="qf-field"><textarea id="dt-rote-description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(roteDesc)}</textarea></div>`;
-          h += '</div>';
-        }
-        h += '</div>';
-      }
+      // dt-form.22: ROTE block removed from the feeding section. ROTE is now
+      // a personal-project-action variant (see PROJECT_ACTIONS in
+      // downtime-data.js). The legacy `_feed_rote_*` state is migrated on
+      // the next save in collectResponses; territory continues to write to
+      // the document-level `feeding_territories_rote` map for ambience
+      // resolution by the Vitae Projection container below.
 
       // ── Container 3: Vitae Projection ──
       {
@@ -6458,8 +6663,12 @@ function renderQuestion(q, value) {
           return { mod: td.ambienceMod || 0, label: `${td.ambience} (${name})` };
         };
 
+        // dt-form.22: rote-active is derived from the new project-action
+        // shape — any slot whose action is 'rote' counts. Replaces the
+        // legacy module-scoped `feedRoteAction` flag.
+        const _hasRoteSlot = [1, 2, 3, 4].some(n => allResp[`project_${n}_action`] === 'rote');
         const mainAmb = resolveTerrAmbience(allResp['feeding_territories']);
-        const roteAmb = feedRoteAction ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
+        const roteAmb = _hasRoteSlot ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
 
         // Best of the two territories (highest mod wins)
         let bestAmb = null;
@@ -6479,7 +6688,7 @@ function renderQuestion(q, value) {
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
         // Average vitae: base = floor(2N/3); rote = floor(5N/6) (max of two rolls)
-        const avgGathered = feedRoteAction
+        const avgGathered = _hasRoteSlot
           ? Math.floor((mainPool * 5) / 6)
           : Math.floor((mainPool * 2) / 3);
 
@@ -6513,7 +6722,7 @@ function renderQuestion(q, value) {
         const netSign = netStarting >= 0 ? '+' : '−';
         h += `<div class="dt-vitae-row dt-vitae-subtotal"><span>Net starting Vitae</span><span>${netSign}${Math.abs(netStarting)}</span></div>`;
         if (mainPool > 0) {
-          const yieldLabel = feedRoteAction ? 'Projected average gathered (rote)' : 'Projected average gathered';
+          const yieldLabel = _hasRoteSlot ? 'Projected average gathered (rote)' : 'Projected average gathered';
           h += `<div class="dt-vitae-row dt-vitae-pos"><span>${yieldLabel}</span><span>+${avgGathered}</span></div>`;
         } else {
           h += '<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Build your hunt pool above to see expected yield.</span><span></span></div>';

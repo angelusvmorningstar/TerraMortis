@@ -4,7 +4,7 @@ task: 26
 issue: 82
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/82
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Done
 priority: high
 depends_on: ['dt-form.17', 'dt-form.24', 'dt-form.31']
 hotfix_predecessor: 'GitHub issue #44'
@@ -78,11 +78,11 @@ Survey current Admin xp_spend UI before move — its persistence keys, its compu
 
 ## Definition of Done
 
-- [ ] In-slot `xp_spend` action has full XP-spend UI (amount, target type, target selector, cost)
-- [ ] Merit selector category-filter logic (#44 hotfix) preserved as source of truth
-- [ ] Admin section's xp_spend sub-section removed from `DOWNTIME_SECTIONS`
-- [ ] Coordination with #31 documented
-- [ ] PR opened into `dev`
+- [x] In-slot `xp_spend` action has full XP-spend UI (amount, target type, target selector, cost) — multi-row grid via new `_renderProjectXpRows(n, saved)`
+- [x] Merit selector category-filter logic (#44 hotfix) preserved as source of truth — `getItemsForCategory('merit')` calls `getRulesByCategory('merit')` + `meetsPrereq` unchanged; `renderXpRow` reused as the row component
+- [x] Admin section's xp_spend sub-section removed from `DOWNTIME_SECTIONS` — already gone via #31; orphan collect block at downtime-form.js:436 neutered
+- [x] Coordination with #31 documented — PR body covers it
+- [x] PR opened into `dev` (with `Closes #82`)
 
 ## Dependencies
 
