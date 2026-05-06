@@ -23,6 +23,8 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 import { promptForKind } from '../data/kind-prompts.js';
+import { charPicker, setCharPickerSources } from '../components/character-picker.js';
+import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -66,6 +68,9 @@ let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
 
 // Characters who attended last game (for shoutout picks)
 let lastGameAttendees = [];
+// dt-form.17: game_session id matching the active cycle, for the soft-submit
+// lifecycle PATCH on attendance.downtime.
+let _activeGameSessionId = null;
 // All active characters (for cast picker modal)
 let allCharacters = [];
 
@@ -236,8 +241,10 @@ function detectMerits() {
       }
     }
   }
-  detectedMerits.retainers = deduplicateMerits(merits.filter(m =>
-    m.category === 'influence' && m.name === 'Retainer'
+  // Attaché (*) merits are functionally Retainers (per sheet.js:900); also walk
+  // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
+  detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && (m.name === 'Retainer' || m.name?.startsWith('Attaché ('))
   ));
 
   gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
@@ -257,7 +264,19 @@ function effectiveDomainDots(c, name) {
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
 function collectResponses() {
-  const responses = {};
+  // dt-form.17 (ADR-003 §Q1 Resolutions): preserve previously-entered fields
+  // for sections hidden by the current mode. Spread the prior responses as a
+  // base, then specific section blocks below either overwrite (when their UI
+  // is rendered) or are skipped (when hidden by MINIMAL).
+  const _prior = responseDoc?.responses || {};
+  const responses = { ..._prior };
+  // Carry the existing mode flag forward; the toggle handler updates it
+  // explicitly before triggering a save/render.
+  if (_prior._mode === 'minimal' || _prior._mode === 'advanced') {
+    responses._mode = _prior._mode;
+  }
+  const _mode = _formMode(_prior);
+  const _isMinimal = _mode === 'minimal';
 
   // Persist auto-detected gates
   responses['_gate_attended'] = gateValues.attended || '';
@@ -276,11 +295,20 @@ function collectResponses() {
   // Collect static section responses
   for (const section of DOWNTIME_SECTIONS) {
     if (section.gate && gateValues[section.gate] !== 'yes') continue;
+    // dt-form.17: skip hidden sections in MINIMAL so we don't clobber prior
+    // values with empty strings when the DOM isn't rendered.
+    if (_isMinimal && !MINIMAL_SECTIONS.has(section.key)) continue;
 
     for (const q of section.questions) {
       if (q.type === 'shoutout_picks') {
-        const picks = [];
-        document.querySelectorAll('[data-shoutout-pick].dt-chip--selected').forEach(btn => picks.push(btn.dataset.shoutoutPick));
+        // dt-form.16: charPicker writes JSON array directly to the hidden input.
+        const hiddenEl = document.getElementById(`dt-${q.key}`);
+        const raw = hiddenEl ? hiddenEl.value : '';
+        let picks = [];
+        try {
+          const parsed = JSON.parse(raw || '[]');
+          if (Array.isArray(parsed)) picks = parsed.map(String).filter(Boolean);
+        } catch { picks = []; }
         responses[q.key] = JSON.stringify(picks);
         continue;
       }
@@ -395,12 +423,14 @@ function collectResponses() {
   responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
   responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
 
-  // Aspiration structured slots
-  for (let n = 1; n <= 3; n++) {
-    const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
-    const textEl = document.getElementById(`dt-aspiration_${n}_text`);
-    responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
-    responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+  // Aspiration structured slots — admin section, ADVANCED only.
+  if (!_isMinimal) {
+    for (let n = 1; n <= 3; n++) {
+      const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
+      const textEl = document.getElementById(`dt-aspiration_${n}_text`);
+      responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
+      responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+    }
   }
 
   // DTR.1: Game recount structured highlight slots (game_recount_1…5).
@@ -422,8 +452,10 @@ function collectResponses() {
   }
 
   // Collect project slots
+  // dt-form.17: in MINIMAL only the first slot is rendered; iterate just slot
+  // 1 so slots 2-4 retain their prior values from the spread base.
   const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const projectSlotCount = projectSection?.projectSlots || 4;
+  const projectSlotCount = _isMinimal ? 1 : (projectSection?.projectSlots || 4);
   for (let n = 1; n <= projectSlotCount; n++) {
     const actionEl = document.getElementById(`dt-project_${n}_action`);
     responses[`project_${n}_action`] = actionEl ? actionEl.value : '';
@@ -505,12 +537,14 @@ function collectResponses() {
     const jointTargetType = jointTargetTypeEl ? jointTargetTypeEl.value : '';
     responses[`project_${n}_joint_target_type`] = jointTargetType;
     if (jointTargetType === 'character') {
-      // Multi-select character target — collect from the checkbox grid and
-      // serialise as a JSON array of character IDs.
-      const charCbs = document.querySelectorAll(
-        `.dt-flex-multi-char-cb[data-flex-multi-prefix="project_${n}_joint_target"]:checked`
-      );
-      const ids = Array.from(charCbs).map(cb => cb.value).filter(Boolean);
+      // dt-form.16: charPicker writes JSON array directly to the hidden input.
+      const hiddenEl = document.getElementById(`dt-project_${n}_joint_target_value`);
+      const raw = hiddenEl ? hiddenEl.value : '';
+      let ids = [];
+      try {
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed)) ids = parsed.map(String).filter(Boolean);
+      } catch { ids = []; }
       responses[`project_${n}_joint_target_value`] = JSON.stringify(ids);
     } else {
       const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
@@ -540,6 +574,11 @@ function collectResponses() {
       if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
     }
   }
+
+  // dt-form.17: collection of ADVANCED-only sections (sorcery, spheres,
+  // status, contacts, retainers, acquisitions, equipment, skill acq) is
+  // skipped in MINIMAL mode. Their prior values stay intact via the spread.
+  if (!_isMinimal) {
 
   // Collect sorcery slots (dynamic count)
   const sorceryCountEl = document.getElementById('dt-sorcery-slot-count');
@@ -770,6 +809,8 @@ function collectResponses() {
     responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
   }
 
+  } // end if (!_isMinimal) — ADVANCED-only collection
+
   return responses;
 }
 
@@ -785,17 +826,31 @@ async function saveDraft() {
   }
   const responses = collectResponses();
 
+  // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
+  // derived bool, persist on responses, and on transition mirror to
+  // submission.status + attendance.downtime.
+  const completenessCtx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(responses, completenessCtx);
+  responses._has_minimum = hasMinimum;
+  const priorHasMinimum = !!responseDoc?.responses?._has_minimum;
+  const flipped = priorHasMinimum !== hasMinimum;
+  const nextStatus = hasMinimum ? 'submitted' : 'draft';
+
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
         cycle_id: currentCycle._id,
-        status: 'draft',
+        status: nextStatus,
         responses,
       });
     } else {
-      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, { responses });
+      // Include status in the body so a status flip and the responses write
+      // land in the same PUT — saves a round-trip and keeps the two fields
+      // consistent on retry.
+      const body = flipped ? { responses, status: nextStatus } : { responses };
+      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
     if (statusEl) statusEl.textContent = 'Saved';
@@ -803,11 +858,36 @@ async function saveDraft() {
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
+    // dt-form.17: mirror to attendance.downtime on transition. Idempotent —
+    // we still send the PATCH on flip, even if the bool is the same as last
+    // time (e.g. on a fresh form load with no prior state).
+    if (flipped && _activeGameSessionId && currentChar?._id) {
+      try {
+        await apiPatch(
+          `/api/attendance/${encodeURIComponent(_activeGameSessionId)}/${encodeURIComponent(String(currentChar._id))}`,
+          { downtime: hasMinimum }
+        );
+        // Local cache for XP-Available annotation; also flips the player
+        // sheet's _gameXP on the next loadGameXP call.
+        currentChar._dtHoldFlag = !hasMinimum;
+      } catch {
+        // Non-fatal — the bool can be reconciled at cycle-close. The 423
+        // gate handler logs to status if cycle is closed.
+      }
+    } else if (currentChar) {
+      currentChar._dtHoldFlag = !hasMinimum;
+    }
+
     // JDT-2: After the submission save lands, fan out joint creations for any
     // slot that authored a joint and doesn't yet have a backing joint document.
     await createPendingJoints(responses);
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+    // dt-form.17 §Q11: surface the cycle-close 423 with a stable message.
+    if (err && /CYCLE_CLOSED|423|Cycle is closed/i.test(err.message || '')) {
+      if (statusEl) statusEl.textContent = 'Cycle closed; submission locked';
+    } else if (statusEl) {
+      statusEl.textContent = 'Save failed: ' + err.message;
+    }
   }
 }
 
@@ -1304,12 +1384,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect attendance from the game session matching this downtime cycle
   lastGameAttendees = [];
+  _activeGameSessionId = null;
   try {
     let attUrl = '/api/attendance?character_id=' + encodeURIComponent(String(currentChar._id));
     if (currentCycle?.game_number) attUrl += '&game_number=' + currentCycle.game_number;
     const att = await apiGet(attUrl);
     gateValues.attended = att.attended ? 'yes' : 'no';
     lastGameAttendees = att.attendees || [];
+    _activeGameSessionId = att.session_id || null;
   } catch { /* fall back — leave gateValues.attended unset */ }
 
   // Load all character names for cast picker
@@ -1327,6 +1409,12 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       lastGameAttendees = others.map(c => ({ id: c._id, name: c.moniker || c.name }));
     }
   } catch { /* ignore */ }
+
+  // Publish character data to the universal picker (ADR-003 §Q6).
+  setCharPickerSources({
+    all: allCharacters.map(c => ({ id: String(c.id), name: c.name })),
+    attendees: lastGameAttendees.map(a => ({ id: String(a.id), name: a.name })),
+  });
 
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
@@ -1516,11 +1604,142 @@ function renderCycleGatePage() {
   return h;
 }
 
+// ── Universal character picker plumbing (ADR-003 §Q6) ────────────────────
+// Picker render sites emit a placeholder element marked with [data-cp-mount];
+// after innerHTML assignment, mountCharPickers() replaces each placeholder
+// with a live charPicker instance whose onChange writes back to a hidden
+// input (so existing collection paths keep working) and triggers scheduleSave.
+
+function mountCharPickers(container) {
+  const placeholders = container.querySelectorAll('[data-cp-mount]');
+  placeholders.forEach(ph => {
+    const site = ph.dataset.cpSite || '';
+    const scope = ph.dataset.cpScope === 'attendees' ? 'attendees' : 'all';
+    const cardinality = ph.dataset.cpCardinality === 'multi' ? 'multi' : 'single';
+    const placeholderText = ph.dataset.cpPlaceholder || '';
+    let initial;
+    try { initial = JSON.parse(ph.dataset.cpInitial || (cardinality === 'multi' ? '[]' : '""')); }
+    catch { initial = (cardinality === 'multi' ? [] : ''); }
+    let excludeIds = [];
+    try { excludeIds = JSON.parse(ph.dataset.cpExclude || '[]'); } catch { excludeIds = []; }
+
+    const hiddenId = ph.dataset.cpHidden || '';
+    const onChange = _makeCharPickerOnChange(site, hiddenId, cardinality);
+    const el = charPicker({ scope, cardinality, initial, onChange, placeholder: placeholderText, excludeIds });
+    el.dataset.cpMountedSite = site;
+    if (hiddenId) el.dataset.cpMountedHidden = hiddenId;
+    if (placeholderText) el.dataset.cpMountedPlaceholder = placeholderText;
+    if (ph.className) el.classList.add(...ph.className.split(/\s+/).filter(Boolean));
+    ph.replaceWith(el);
+  });
+}
+
+function _writeHidden(hiddenId, value) {
+  if (!hiddenId) return;
+  const el = document.getElementById(hiddenId);
+  if (el) el.value = value;
+}
+
+function _makeCharPickerOnChange(site, hiddenId, cardinality) {
+  if (site === 'shoutout') {
+    // 3-pick cap preserved from prior behaviour. Locked picker signature has
+    // no max-N parameter, so over-cap selections are reverted by remounting
+    // the picker with the trimmed list.
+    return (next) => {
+      const arr = Array.isArray(next) ? next : [];
+      if (arr.length > 3) {
+        const trimmed = arr.slice(0, 3);
+        _writeHidden(hiddenId, JSON.stringify(trimmed));
+        scheduleSave();
+        _remountShoutoutPicker(trimmed);
+        return;
+      }
+      _writeHidden(hiddenId, JSON.stringify(arr));
+      scheduleSave();
+    };
+  }
+  if (cardinality === 'multi') {
+    return (next) => {
+      const arr = Array.isArray(next) ? next : [];
+      _writeHidden(hiddenId, JSON.stringify(arr));
+      scheduleSave();
+    };
+  }
+  return (next) => {
+    _writeHidden(hiddenId, typeof next === 'string' ? next : '');
+    scheduleSave();
+  };
+}
+
+function _remountShoutoutPicker(trimmed) {
+  const cur = document.querySelector('[data-cp-mounted-site="shoutout"]');
+  if (!cur) return;
+  const hiddenId = cur.dataset.cpMountedHidden || '';
+  const placeholderText = cur.dataset.cpMountedPlaceholder || '';
+  const fresh = charPicker({
+    scope: 'attendees',
+    cardinality: 'multi',
+    initial: trimmed,
+    onChange: _makeCharPickerOnChange('shoutout', hiddenId, 'multi'),
+    placeholder: placeholderText,
+    excludeIds: [],
+  });
+  fresh.dataset.cpMountedSite = 'shoutout';
+  if (hiddenId) fresh.dataset.cpMountedHidden = hiddenId;
+  if (placeholderText) fresh.dataset.cpMountedPlaceholder = placeholderText;
+  cur.replaceWith(fresh);
+}
+
+// dt-form.17 (ADR-003 §Q1, §Q2): MINIMAL vs ADVANCED mode gate.
+// Sections in MINIMAL_SECTIONS render in both modes; everything else is
+// hidden in MINIMAL (per ADR §Q2 lock — "not rendered, not just display:none").
+const MINIMAL_SECTIONS = new Set(['court', 'personal_story', 'feeding', 'projects', 'regency']);
+
+function _formMode(saved) {
+  return saved?._mode === 'advanced' ? 'advanced' : 'minimal';
+}
+
+function _isSectionVisibleInMode(sectionKey, mode) {
+  if (mode === 'advanced') return true;
+  return MINIMAL_SECTIONS.has(sectionKey);
+}
+
+function _completenessCtx() {
+  return {
+    isRegent: gateValues.is_regent === 'yes',
+    regencyConfirmed: _isRegencyConfirmedThisCycle(),
+  };
+}
+
+function _isRegencyConfirmedThisCycle() {
+  if (!currentCycle?.regent_confirmations) return false;
+  const ri = findRegentTerritory(_territories, currentChar);
+  if (!ri?.territoryId) return false;
+  return (currentCycle.regent_confirmations || []).some(
+    c => String(c.territory_id) === String(ri.territoryId)
+  );
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
   const isST = isSTRole();
   const isSubmitted = status === 'submitted';
+
+  // dt-form.17: derive _mode + _has_minimum on every render so the gate and
+  // banner reflect the latest state. The persistent fields are written by
+  // the lifecycle hook in scheduleSave; this is read-only here.
+  const mode = _formMode(saved);
+  const ctx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(saved, ctx);
+  const missing = hasMinimum ? [] : missingMinimumPieces(saved, ctx);
+
+  // Re-publish picker sources every render — guards against another module
+  // (regency-tab) overwriting them between navigations.
+  setCharPickerSources({
+    all: allCharacters.map(c => ({ id: String(c.id), name: c.name })),
+    attendees: lastGameAttendees.map(a => ({ id: String(a.id), name: a.name })),
+  });
 
   let h = '';
 
@@ -1540,6 +1759,32 @@ function renderForm(container) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+  }
+
+  // dt-form.17 (ADR-003 §Q1): mode selector at top of form.
+  h += '<div class="dt-mode-selector" role="group" aria-label="Form mode">';
+  h += `<button type="button" class="dt-mode-pill${mode === 'minimal' ? ' dt-mode-pill--active' : ''}" data-dt-mode="minimal" aria-pressed="${mode === 'minimal'}">Minimal</button>`;
+  h += `<button type="button" class="dt-mode-pill${mode === 'advanced' ? ' dt-mode-pill--active' : ''}" data-dt-mode="advanced" aria-pressed="${mode === 'advanced'}">Advanced</button>`;
+  h += '<span class="dt-mode-desc">';
+  h += mode === 'minimal'
+    ? 'Just the essentials. Switch to Advanced for the full form — your data is preserved either way.'
+    : 'All sections shown. Switch back to Minimal at any time without losing what you have entered.';
+  h += '</span>';
+  h += '</div>';
+
+  // dt-form.17 (ADR-003 §Q3): persistent below-minimum banner with the
+  // missing-pieces list. Locked copy per story §Banner copy.
+  if (!hasMinimum) {
+    h += '<div class="dt-min-banner" role="status" aria-live="polite">';
+    h += '<p class="dt-min-banner__lead"><strong>Your form is below minimum-complete.</strong> Your downtime XP credit is on hold. Add the missing pieces to restore it:</p>';
+    if (missing.length) {
+      h += '<ul class="dt-min-banner__list">';
+      for (const item of missing) {
+        h += `<li>${esc(item.label)}</li>`;
+      }
+      h += '</ul>';
+    }
+    h += '</div>';
   }
 
   // Header
@@ -1602,6 +1847,9 @@ function renderForm(container) {
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
+    // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
+    // MINIMAL so it falls through; trust/harm/aspirations live in admin).
+    if (!_isSectionVisibleInMode(section.key, mode)) continue;
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
@@ -1623,12 +1871,13 @@ function renderForm(container) {
   h += renderPersonalStorySection(saved);
 
   // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
-  if (gateValues.has_sorcery === 'yes') {
+  if (gateValues.has_sorcery === 'yes' && _isSectionVisibleInMode('blood_sorcery', mode)) {
     h += renderSorcerySection(saved);
   }
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     h += `<div class="qf-section collapsed" data-gate-section="" data-section-key="${key}">`;
@@ -1644,18 +1893,23 @@ function renderForm(container) {
   }
 
   // ── Projects section with dynamic slots ──
-  h += renderProjectSlots(saved);
+  // dt-form.17: in MINIMAL only the first project slot renders.
+  h += renderProjectSlots(saved, mode);
 
-  // ── Dynamic merit sections ──
-  h += renderMeritToggles(saved);
+  // dt-form.17: ADVANCED-only sections below the projects.
+  if (mode === 'advanced') {
+    // ── Dynamic merit sections ──
+    h += renderMeritToggles(saved);
 
-  // ── Acquisitions (custom render) ──
-  h += renderAcquisitionsSection(saved);
+    // ── Acquisitions (custom render) ──
+    h += renderAcquisitionsSection(saved);
 
-  // ── Equipment (dynamic rows) ──
-  h += renderEquipmentSection(saved);
+    // ── Equipment (dynamic rows) ──
+    h += renderEquipmentSection(saved);
+  }
 
   for (const key of ['vamping', 'admin']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
@@ -1708,6 +1962,10 @@ function renderForm(container) {
     if (el) el.classList.remove('collapsed');
   });
 
+  // Mount universal character pickers in place of their placeholders.
+  // Re-runs on every renderForm because innerHTML wipes prior mounts.
+  mountCharPickers(container);
+
   // Update section completion ticks on initial render
   updateSectionTicks(container);
 
@@ -1725,6 +1983,20 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // dt-form.17: Mode pill toggle. Persist on responses._mode and re-render.
+    // Switching preserves entered data (per ADR §Q1 Resolutions): non-MINIMAL
+    // fields stay in responses; only their UI is hidden.
+    const modePill = e.target.closest('[data-dt-mode]');
+    if (modePill) {
+      const next = modePill.dataset.dtMode === 'advanced' ? 'advanced' : 'minimal';
+      const cur = collectResponses();
+      cur._mode = next;
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
@@ -2322,23 +2594,8 @@ function renderForm(container) {
       updateSectionTicks(container);
       return;
     }
-    // Target character chip (single-select, dtui-8)
-    const targetCharChip = e.target.closest('[data-project-target-char]');
-    if (targetCharChip) {
-      const slotNum = targetCharChip.dataset.projectTargetChar;
-      const charId  = targetCharChip.dataset.charId;
-      const hidden  = document.getElementById(`dt-project_${slotNum}_target_value`);
-      const wasSelected = targetCharChip.classList.contains('dt-chip--selected');
-      container.querySelectorAll(`[data-project-target-char="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
-      if (!wasSelected) {
-        targetCharChip.classList.add('dt-chip--selected');
-        if (hidden) hidden.value = charId;
-      } else {
-        if (hidden) hidden.value = '';
-      }
-      scheduleSave();
-      return;
-    }
+    // dt-form.16: target character chip handler removed — universal charPicker
+    // mounted in renderTargetCharOrOther handles its own selection lifecycle.
     // Maintenance merit chip — single-select, writes to hidden target_value input
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
@@ -2357,47 +2614,11 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // DTUI-13: joint invitee chip — multi-select, writes to hidden input
-    const inviteeChip = e.target.closest('[data-joint-invitee-slot]');
-    if (inviteeChip && !inviteeChip.disabled) {
-      const n = inviteeChip.dataset.jointInviteeSlot;
-      inviteeChip.classList.toggle('dt-chip--selected');
-      const selected = container.querySelectorAll(`[data-joint-invitee-slot="${n}"].dt-chip--selected`);
-      const ids = [...selected].map(el => el.dataset.charId).filter(Boolean);
-      const hidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
-      if (hidden) hidden.value = JSON.stringify(ids);
-      scheduleSave();
-      return;
-    }
-    // DTUI-16: sphere character target chip — single-select
-    // Shoutout picks chip — multi-select up to 3, non-attendees disabled
-    const shoutoutChip = e.target.closest('[data-shoutout-pick]');
-    if (shoutoutChip && !shoutoutChip.disabled) {
-      const grid = container.querySelector('[data-shoutout-grid]');
-      const selected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
-      const wasSelected = shoutoutChip.classList.contains('dt-chip--selected');
-      if (wasSelected) {
-        shoutoutChip.classList.remove('dt-chip--selected');
-      } else if (selected.length < 3) {
-        shoutoutChip.classList.add('dt-chip--selected');
-      }
-      const newSelected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
-      const atLimit = newSelected.length >= 3;
-      grid?.querySelectorAll('[data-shoutout-pick]:not(.dt-chip--selected)').forEach(btn => {
-        btn.disabled = atLimit;
-      });
-      const limitMsg = container.querySelector('.dt-shoutout-limit');
-      if (atLimit && !limitMsg) {
-        const msg = document.createElement('p');
-        msg.className = 'dt-shoutout-limit';
-        msg.textContent = '3 selections made — unselect one to change.';
-        grid?.insertAdjacentElement('afterend', msg);
-      } else if (!atLimit && limitMsg) {
-        limitMsg.remove();
-      }
-      scheduleSave();
-      return;
-    }
+    // dt-form.16: joint invitee chip handler removed — universal charPicker
+    // mounted in renderJointInviteeChips handles its own selection lifecycle.
+    // dt-form.16: shoutout chip handler removed — universal charPicker mounted
+    // in the shoutout_picks case handles selection and 3-pick cap via remount.
+
     const sphereCharChip = e.target.closest('[data-sphere-char-target]');
     if (sphereCharChip && !sphereCharChip.disabled) {
       const prefixN = sphereCharChip.dataset.sphereCharTarget; // e.g. 'sphere_2'
@@ -2965,9 +3186,10 @@ function renderMaintenanceWarnings(char, cycle) {
   return out.join('');
 }
 
-function renderProjectSlots(saved) {
+function renderProjectSlots(saved, mode = 'advanced') {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const slotCount = section?.projectSlots || 4;
+  // dt-form.17 (ADR-003 §Q2): MINIMAL renders one project slot only.
+  const slotCount = mode === 'minimal' ? 1 : (section?.projectSlots || 4);
 
   // Build attribute/skill/discipline option lists from character data
   const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);
@@ -4547,34 +4769,35 @@ function getCharFreeSlotCount(charId) {
   return maxSlots - used;
 }
 
-// DTUI-13: player invitee chip grid — replaces renderJointInviteeGrid for new-joint path
+// dt-form.16: joint invitee picker — universal charPicker (ADR-003 §Q6, site #3b).
+// Characters with no free project slots this cycle are excluded from the dropdown
+// (they cannot be invited). Self is excluded by source filter (allCharacters
+// already drops the current character at load time).
 function renderJointInviteeChips(n, saved) {
-  const myId = String(currentChar?._id || '');
-  const candidates = allCharacters.filter(c => String(c.id) !== myId);
-
   let invitedIds = [];
   try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); } catch { invitedIds = []; }
-  const invitedSet = new Set(invitedIds.map(String));
   const savedJson = JSON.stringify(invitedIds);
 
-  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
-  if (!candidates.length) {
-    return h + '<p class="qf-desc">No other characters available to invite.</p>';
+  if (!allCharacters.length) {
+    return `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`
+         + '<p class="qf-desc">No other characters available to invite.</p>';
   }
 
-  const sorted = [...candidates].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  for (const c of sorted) {
-    const id = String(c.id);
-    const freeSlots = getCharFreeSlotCount(id);
-    const isSelected = invitedSet.has(id);
-    const isDisabled = freeSlots <= 0;
-    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="This player has no free projects this cycle."' : '';
-    const selectedClass = isSelected ? ' dt-chip--selected' : '';
-    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
-    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
-    h += ` data-joint-invitee-slot="${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
-  }
+  // Exclude characters with no free slots — invited ones stay (already accepted)
+  // because excludeIds is applied to dropdown options, not selected chips.
+  const noFreeSlots = allCharacters
+    .map(c => String(c.id))
+    .filter(id => getCharFreeSlotCount(id) <= 0 && !invitedIds.includes(id));
+  const excludeJson = esc(JSON.stringify(noFreeSlots));
+  const initialJson = esc(JSON.stringify(invitedIds.map(String)));
+
+  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
+  h += `<div data-cp-mount data-cp-site="joint-invitee"`
+     + ` data-cp-scope="all" data-cp-cardinality="multi"`
+     + ` data-cp-hidden="dt-project_${n}_joint_invited_ids"`
+     + ` data-cp-initial="${initialJson}"`
+     + ` data-cp-exclude="${excludeJson}"`
+     + ` data-cp-placeholder="Invite players"></div>`;
   return h;
 }
 
@@ -4780,34 +5003,31 @@ function renderTargetPicker(prefix, opts) {
 
   if (savedType === 'character') {
     if (multiCharacter) {
-      // Multi-select character target — checkbox grid; value persisted as
-      // JSON array of character IDs. Used by joint authoring (a joint can
-      // target multiple characters).
-      let selected = new Set();
+      // Universal char picker (ADR-003 §Q6) — site #3a (joint target multi)
+      let initialIds = [];
       try {
         const parsed = JSON.parse(savedValue || '[]');
-        if (Array.isArray(parsed)) selected = new Set(parsed.map(String));
-        else if (savedValue) selected = new Set([String(savedValue)]);
+        if (Array.isArray(parsed)) initialIds = parsed.map(String).filter(Boolean);
+        else if (savedValue) initialIds = [String(savedValue)];
       } catch {
-        if (savedValue) selected = new Set([String(savedValue)]);
+        if (savedValue) initialIds = [String(savedValue)];
       }
-      h += `<div class="dt-flex-multi-char-grid" data-flex-multi-prefix="${esc(prefix)}">`;
-      for (const c of allCharacters) {
-        const chk = selected.has(String(c.id)) ? ' checked' : '';
-        h += `<label class="dt-flex-multi-char-item">`;
-        h += `<input type="checkbox" class="dt-flex-multi-char-cb" data-flex-multi-prefix="${esc(prefix)}" value="${esc(String(c.id))}"${chk}>`;
-        h += `<span>${esc(c.name)}</span>`;
-        h += `</label>`;
-      }
-      h += `</div>`;
+      const initialJson = esc(JSON.stringify(initialIds));
+      h += `<input type="hidden" id="dt-${esc(prefix)}_value" value="${esc(JSON.stringify(initialIds))}">`;
+      h += `<div data-cp-mount data-cp-site="target-flex-multi"`
+         + ` data-cp-scope="all" data-cp-cardinality="multi"`
+         + ` data-cp-hidden="dt-${esc(prefix)}_value"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick characters"></div>`;
     } else {
-      h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
-      h += '<option value="">— Select Character —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedValue) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-      }
-      h += '</select>';
+      // Universal char picker (ADR-003 §Q6) — site #1
+      const initialJson = esc(JSON.stringify(savedValue ? String(savedValue) : ''));
+      h += `<input type="hidden" id="dt-${esc(prefix)}_value" value="${esc(savedValue || '')}">`;
+      h += `<div data-cp-mount data-cp-site="target-flex-single"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-cp-hidden="dt-${esc(prefix)}_value"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick a character"></div>`;
     }
   } else if (savedType === 'territory') {
     h += renderTerritoryPills(`dt-${prefix}_value`, savedValue);
@@ -4981,13 +5201,14 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
     }
     h += '</select>';
   } else if (effectiveType === 'character') {
-    h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
-    for (const c of chars) {
-      const isSelected = String(c.id) === String(savedCharId);
-      h += `<button type="button" class="dt-chip${isSelected ? ' dt-chip--selected' : ''}" data-project-target-char="${n}" data-char-id="${esc(String(c.id))}">${esc(c.name)}</button>`;
-    }
-    h += '</div>';
+    // Universal char picker (ADR-003 §Q6) — site #2
+    const initialJson = esc(JSON.stringify(savedCharId ? String(savedCharId) : ''));
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedCharId)}">`;
+    h += `<div data-cp-mount data-cp-site="project-target-char"`
+       + ` data-cp-scope="all" data-cp-cardinality="single"`
+       + ` data-cp-hidden="dt-project_${n}_target_value"`
+       + ` data-cp-initial="${initialJson}"`
+       + ` data-cp-placeholder="Pick a target character"></div>`;
   } else if (effectiveType === 'territory') {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
@@ -5828,27 +6049,20 @@ function renderQuestion(q, value) {
       break;
 
     case 'shoutout_picks': {
+      // Universal char picker (ADR-003 §Q6) — site #4 (attendees scope, multi).
+      // Max-3 cap preserved via consumer-side onChange (see _makeCharPickerOnChange).
       let picks = [];
       if (value) { try { picks = JSON.parse(value); } catch { /* ignore */ } }
-      const pickSet = new Set(picks.map(String));
-      const atLimit = pickSet.size >= 3;
-
-      h += '<div class="dt-chip-grid" data-shoutout-grid>';
-      for (const char of allCharacters) {
-        const id = String(char.id);
-        const isSelected = pickSet.has(id);
-        const isAtt = lastGameAttendees.some(a => String(a.id) === id);
-        const disabledAttr = (!isAtt || (!isSelected && atLimit)) ? ' disabled' : '';
-        const selectedClass = isSelected ? ' dt-chip--selected' : '';
-        const disabledClass = !isAtt ? ' dt-chip--disabled' : '';
-        const title = !isAtt ? ` title="Did not attend court"` : '';
-        h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"`;
-        h += ` data-shoutout-pick="${esc(id)}"${disabledAttr}${title}>${esc(char.name)}</button>`;
-      }
-      h += '</div>';
-      if (atLimit) {
-        h += '<p class="dt-shoutout-limit">3 selections made — uncheck one to change.</p>';
-      }
+      const initialIds = picks.map(String).filter(Boolean);
+      const initialJson = esc(JSON.stringify(initialIds));
+      const savedJson = esc(JSON.stringify(initialIds));
+      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${savedJson}">`;
+      h += `<div data-cp-mount data-cp-site="shoutout"`
+         + ` data-cp-scope="attendees" data-cp-cardinality="multi"`
+         + ` data-cp-hidden="dt-${esc(q.key)}"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick up to 3 attendees"></div>`;
+      h += '<p class="qf-desc dt-shoutout-limit-hint">Up to 3 picks. A 4th will be ignored.</p>';
       break;
     }
 
