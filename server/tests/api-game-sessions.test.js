@@ -198,3 +198,101 @@ describe('GET /api/game_sessions/next', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// dt-form.17 (ADR-003 §Q3): PATCH attendance.downtime per-character.
+// Mounted under /api/attendance (player-accessible) — see attendance.js.
+describe('PATCH /api/attendance/:session_id/:character_id', () => {
+  it('flips downtime true for a matching attendance entry (ST)', async () => {
+    const charId = '69d73ea49162ece35897a47e'; // sample valid 24-char hex
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      title: 'PATCH-Attendance Test',
+      attendance: [{
+        character_id: charId,
+        character_name: 'Test PC',
+        attended: true,
+        costuming: false,
+        downtime: false,
+        extra: 0,
+        paid: false,
+      }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+
+    const res = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${charId}`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: true });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.entry.downtime).toBe(true);
+  });
+
+  it('flips downtime back to false (idempotent both ways)', async () => {
+    const charId = '69d73ea49162ece35897a48d';
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      title: 'PATCH-Attendance Flipback',
+      attendance: [{ character_id: charId, character_name: 'Test PC', downtime: true }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+
+    const res = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${charId}`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: false });
+    expect(res.status).toBe(200);
+    expect(res.body.entry.downtime).toBe(false);
+  });
+
+  it('returns 404 when no attendance entry matches', async () => {
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+    const res = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/000000000000000000000000`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: true });
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects non-boolean downtime body', async () => {
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [{ character_id: '69d73ea49162ece35897a47f', downtime: false }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+    const res = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/69d73ea49162ece35897a47f`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: 'yes' });
+    expect(res.status).toBe(400);
+  });
+
+  it('player can flip their own character but not someone else’s', async () => {
+    const myCharId = '69d73ea49162ece35897a481';
+    const otherCharId = '69d73ea49162ece35897a482';
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [
+        { character_id: myCharId, downtime: false },
+        { character_id: otherCharId, downtime: false },
+      ],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+
+    const okRes = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${myCharId}`)
+      .set('X-Test-User', playerUser([myCharId]))
+      .send({ downtime: true });
+    expect(okRes.status).toBe(200);
+
+    const blockRes = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${otherCharId}`)
+      .set('X-Test-User', playerUser([myCharId]))
+      .send({ downtime: true });
+    expect(blockRes.status).toBe(403);
+  });
+});

@@ -2,7 +2,7 @@
 id: dt-form.17
 task: 17
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: high
 depends_on: ['dt-form.16']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q1, §Q2, §Q3, §Q4, §Q8, §Q11)
@@ -210,16 +210,68 @@ If this endpoint doesn't exist yet, surface in DAR — may need a new route. Mos
 
 ## Definition of Done
 
-- [ ] `public/js/data/dt-completeness.js` ships with `isMinimalComplete(responses)` exported
-- [ ] Mode selector renders at top of form; persistence in `responses._mode` works; default MINIMAL; switch preserves data
-- [ ] Lifecycle wiring in `scheduleSave()`/`saveDraft()` PATCHes both submission status + attendance.downtime on transition
-- [ ] All three UI affordances ship: banner, XP-Available annotation, negative-XP-Left red treatment
-- [ ] Cycle-close server gate returns 423 Locked
-- [ ] Schema documents new fields (`_mode`, `_has_minimum`, `_final_submitted_at`) under `downtime_submission.schema.js properties`
-- [ ] No `game_session.schema.js` delta (per ADR rev 2)
-- [ ] Server tests green; new 423 test added
-- [ ] Browser smoke completes the 7-step plan in §Test Plan §3
-- [ ] PR opened by `tm-gh-pr-for-branch` into `dev`, body links ADR-003 §Q1/Q2/Q3/Q4/Q8/Q11
+- [x] `public/js/data/dt-completeness.js` ships with `isMinimalComplete(responses)` exported
+- [x] Mode selector renders at top of form; persistence in `responses._mode` works; default MINIMAL; switch preserves data
+- [x] Lifecycle wiring in `scheduleSave()`/`saveDraft()` PATCHes both submission status + attendance.downtime on transition
+- [x] All three UI affordances ship: banner, XP-Available annotation, negative-XP-Left red treatment
+- [x] Cycle-close server gate returns 423 Locked
+- [x] Schema documents new fields (`_mode`, `_has_minimum`, `_final_submitted_at`) under `downtime_submission.schema.js properties`
+- [x] No `game_session.schema.js` delta (per ADR rev 2)
+- [x] Server tests green; new 423 test added (plus 5 new tests for the attendance.downtime PATCH route)
+- [ ] Browser smoke completes the 7-step plan in §Test Plan §3 *(deferred to user/SM per Test Plan)*
+- [x] PR opened by `tm-gh-pr-for-branch` into `dev`, body links ADR-003 §Q1/Q2/Q3/Q4/Q8/Q11
+
+---
+
+## Dev Agent Record
+
+**Agent Model Used:** James (BMAD `dev`) — Claude Opus 4.7
+
+### Tasks
+- [x] Build `public/js/data/dt-completeness.js` — pure ESM, no DOM. Exports `isMinimalComplete(responses, ctx)` and `missingMinimumPieces(responses, ctx)`.
+- [x] Top-of-form Minimal/Advanced mode selector + section rendering gate. Mode-switch preserves entered data via spread-base in `collectResponses` and per-block mode gating.
+- [x] Soft-submit lifecycle hook in `saveDraft()`: writes `_has_minimum` to responses; on transition pushes `submission.status` (in the PUT body) and `attendance[i].downtime` (PATCH `/api/attendance/:session_id/:character_id`).
+- [x] UI affordance #1 — persistent below-minimum banner with locked copy + missing-pieces list at top of form.
+- [x] UI affordance #2 — `(downtime credit on hold)` annotation in player XP panel + suite sheet badge. Cached on `c._dtHoldFlag` via new `loadDowntimeHoldFlag()` (browser-only loader).
+- [x] UI affordance #3 — `xpLeft()` rendered red with hover tooltip when negative.
+- [x] Server middleware `requireOpenCycle` on `PUT /api/downtime_submissions/:id` returns 423 `CYCLE_CLOSED`.
+- [x] New PATCH route `/api/attendance/:session_id/:character_id { downtime }` for the lifecycle mirror (player-accessible; ST may flip any).
+- [x] Schema additions on `downtime_submission` (`_mode`, `_has_minimum`, `_final_submitted_at`). No `game_session.schema` delta.
+- [x] 7 new server tests (2 cycle-close + 5 attendance PATCH) — all green; 641/643 total pass (2 pre-existing dev failures unrelated).
+- [x] Story status → Ready for Review; PR opened.
+
+### File List
+
+**New**
+- `public/js/data/dt-completeness.js`
+- `public/js/data/dt-hold-flag.js`
+
+**Modified**
+- `public/js/tabs/downtime-form.js`
+- `public/js/tabs/xp-log-tab.js`
+- `public/js/suite/sheet.js`
+- `public/js/player.js`
+- `public/js/app.js`
+- `public/css/components.css`
+- `server/routes/downtime.js`
+- `server/routes/attendance.js`
+- `server/schemas/downtime_submission.schema.js`
+- `server/tests/api-downtime.test.js`
+- `server/tests/api-game-sessions.test.js`
+- `specs/stories/dt-form.17-minimal-advanced-lifecycle.story.md` (Dev Agent Record only)
+
+### Completion Notes
+
+- DAR raised early (chat → Khepri) on the missing `attendance[i].downtime` PATCH route. Implemented option 1 from the DAR — added `PATCH /api/attendance/:session_id/:character_id { downtime: bool }` under the player-accessible `/api/attendance` mount (the `/api/game_sessions` route is `requireRole('coordinator')` in prod, so the new route had to live elsewhere). Also extended `GET /api/attendance` to surface `session_id` so the client can address the PATCH without reaching the ST-only `/api/game_sessions` listing.
+- Cycle-close gate: ADR §Q11 wording is `PATCH /api/downtime_submissions/:id`, but the live mutation path is `PUT /api/downtime_submissions/:id` (the route is named PUT but accepts partial-body patch-semantic updates via `$set`). Gate applied to PUT with the AC's contract (423 + `CYCLE_CLOSED` body) preserved verbatim. If a literal HTTP-PATCH alias is wanted later, it's a one-line addition.
+- Mode-switch data preservation: `collectResponses()` now starts from `..._prior` spread and skips iteration over ADVANCED-only blocks (sorcery, spheres, status, contacts, retainers, acquisitions, equipment, skill acq) when the form is in MINIMAL mode. Project slot collection caps at slot 1 in MINIMAL; slots 2-4 retain their prior values from the spread. ADVANCED-only sections are not rendered in MINIMAL (per ADR §Q2 lock — "not rendered, not just display:none").
+- The XP-Available annotation needs the active cycle's submission status to be known on every char render. Added `loadDowntimeHoldFlag(chars)` (browser-only, in `dt-hold-flag.js` to keep `dt-completeness.js` pure ESM importable server-side). Called from both `player.js` and `app.js` after `loadGameXP`. Trusts persisted `_has_minimum` when present; falls back to the submission's coarse `status` when not.
+- Two pre-existing server test failures on `dev` are unrelated to this branch (`api-relationships-player-create.test.js > GET /api/npcs/directory`; `rule_engine_grep.test.js` flagging `m.cp || 0` and `m.xp || 0` in `auto-bonus-evaluator.js` and `pool-evaluator.js`). Same as the dt-form.16 PR.
+
+### Change Log
+| Date | Author | Change |
+|---|---|---|
+| 2026-05-06 | James (dev) | Implemented all six ADR-locked decisions (§Q1, §Q2, §Q3, §Q4, §Q8, §Q11) plus the three non-negotiable UI affordances. Added the player-accessible attendance PATCH route per DAR. Status → Ready for Review. |
 
 ---
 
