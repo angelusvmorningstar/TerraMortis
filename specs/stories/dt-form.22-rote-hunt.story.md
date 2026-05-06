@@ -4,7 +4,7 @@ task: 22
 issue: 73
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/73
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.20', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q2)
@@ -108,11 +108,11 @@ The primary feeding pool is auto-derived per #20. ROTE reads the same value at r
 
 ## Definition of Done
 
-- [ ] ROTE renders as a project-action variant (territory picker + read-only inherited pool)
-- [ ] No ROTE block in the feeding section
-- [ ] `project_N_feed_method2` (existing, per-slot) + `feeding_territories_rote` (existing, doc-level) used as the canonical fields per HALT-DAR resolution; legacy `_feed_rote_*` state migrated
-- [ ] `isMinimalComplete()` does NOT count ROTE-only as feeding-complete
-- [ ] PR opened into `dev`
+- [x] ROTE renders as a project-action variant (territory picker + read-only inherited pool)
+- [x] No ROTE block in the feeding section
+- [x] `project_N_feed_method2` (existing, per-slot) + `feeding_territories_rote` (existing, doc-level) used as the canonical fields per HALT-DAR resolution; legacy `_feed_rote_*` state migrated
+- [x] `isMinimalComplete()` does NOT count ROTE-only as feeding-complete
+- [x] PR opened into `dev`
 
 ## Dependencies
 

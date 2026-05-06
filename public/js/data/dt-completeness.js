@@ -68,6 +68,10 @@ function _hasFeedingViolence(responses) {
 }
 
 function _hasFeedingComplete(responses) {
+  // dt-form.22: ROTE in a project slot does NOT satisfy the feeding rule.
+  // Primary feeding (territory + method + blood type + violence) must be
+  // filled independently. ROTE is captured under the `1 project slot`
+  // MINIMAL rule (any non-empty `project_1_action`, including 'rote').
   return _hasFeedingTerritory(responses)
       && _hasFeedingMethod(responses)
       && _hasFeedingBloodType(responses)
