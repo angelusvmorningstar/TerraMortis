@@ -4,7 +4,7 @@ task: 33
 issue: 84
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/84
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: low
 depends_on: []
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Out-of-scope)
@@ -61,11 +61,11 @@ If the survey reveals an NPC selector that has rules-bound behaviour (e.g. an NP
 
 ## Definition of Done
 
-- [ ] NPC selector UI surfaces removed from `downtime-form.js`
-- [ ] Free-text NPC fields (issue #24) preserved
-- [ ] Survey + removal sites documented in DAR
-- [ ] Legacy data preserved on save
-- [ ] PR opened into `dev`
+- [x] NPC selector UI surfaces removed from `downtime-form.js`
+- [x] Free-text NPC fields (issue #24 + dt-form.18's `personal_story_npc_name`) preserved
+- [x] Survey + removal sites documented in PR body
+- [x] Legacy data preserved on save (silent-leave; collectResponses spread base untouched)
+- [x] PR opened into `dev` with `Closes #84`
 
 ## Dependencies
 
