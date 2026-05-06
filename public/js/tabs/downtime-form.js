@@ -986,7 +986,7 @@ async function saveDraft() {
   const nextStatus = hasMinimum ? 'submitted' : 'draft';
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -1331,7 +1331,7 @@ async function submitForm() {
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -2279,6 +2279,12 @@ function renderForm(container) {
       else responseDoc = { responses: cur };
       renderForm(container);
       scheduleSave();
+      return;
+    }
+    // dt-form.34: delegated submit — survives re-renders; direct listener below was lost
+    // after any inline renderForm() call (sorcery rite change, feed pool, mode toggle).
+    if (e.target.closest('#dt-btn-submit')) {
+      submitForm();
       return;
     }
     // dt-form.18: Personal Story kind radio — re-render so the textarea
@@ -3294,7 +3300,7 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
+  // dt-form.34: submit handled via delegated click listener above (survives re-renders).
 }
 
 // ── Cast picker modal ──
