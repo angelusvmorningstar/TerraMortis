@@ -746,7 +746,6 @@ function collectResponses() {
   responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
   // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
   const _skPoolStr = skillAcqPoolStr(currentChar, {
-    attr: responses['skill_acq_pool_attr'],
     skill: responses['skill_acq_pool_skill'],
     spec: responses['skill_acq_pool_spec'],
   });
@@ -2194,9 +2193,9 @@ function renderForm(container) {
       return;
     }
     // Skill acquisition pool change — re-render for spec chips
-    if (e.target.id === 'dt-skill_acq_pool_skill' || e.target.id === 'dt-skill_acq_pool_attr') {
-      // Clear spec if skill changed
-      if (e.target.id === 'dt-skill_acq_pool_skill') {
+    if (e.target.id === 'dt-skill_acq_pool_skill') {
+      // Clear spec when skill changes
+      {
         const specInput = document.getElementById('dt-skill_acq_pool_spec');
         if (specInput) specInput.value = '';
       }
@@ -4041,7 +4040,6 @@ function renderAcquisitionsSection(saved) {
   h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
 
   // ── Skill-based acquisition ──
-  const skAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
   const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
 
   h += '<div class="dt-acq-card" style="margin-top:16px;">';
@@ -4054,21 +4052,12 @@ function renderAcquisitionsSection(saved) {
     desc: 'What are you attempting to obtain, and how?',
   }, saved['skill_acq_description'] || '');
 
-  // Dice pool: Attribute + Skill + relevant Merit
+  // Dice pool: Skill only (VtR 2e — no attribute addend for skill acquisition)
   h += '<div class="qf-field">';
   h += '<div class="dt-pool-label">Acquisition Pool</div>';
   h += '<div class="dt-dice-pool-row">';
 
-  const skSavedAttr = saved['skill_acq_pool_attr'] || '';
   const skSavedSkill = saved['skill_acq_pool_skill'] || '';
-
-  h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
-  h += '<option value="">Attribute</option>';
-  for (const a of skAttrs) {
-    const dots = getAttrEffective(c, a);
-    h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
-  }
-  h += '</select>';
 
   h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
   h += '<option value="">Skill</option>';
@@ -4088,9 +4077,8 @@ function renderAcquisitionsSection(saved) {
     specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
   }
 
-  // Pool total
+  // Pool total: skill dots only
   let skPoolTotal = 0;
-  if (skSavedAttr) skPoolTotal += getAttrEffective(c, skSavedAttr);
   if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
   skPoolTotal += specBonus;
   h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;

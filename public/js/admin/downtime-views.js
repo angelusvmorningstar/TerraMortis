@@ -2786,7 +2786,6 @@ function buildProcessingQueue(subs) {
     if (skillAcq) {
       const _skAcqChar = findCharacter(sub.character_name, sub.player_name);
       const _skPoolPlayer = _skAcqChar ? skillAcqPoolStr(_skAcqChar, {
-        attr: resp.skill_acq_pool_attr || '',
         skill: resp.skill_acq_pool_skill || '',
         spec: resp.skill_acq_pool_spec || '',
       }) : '';
