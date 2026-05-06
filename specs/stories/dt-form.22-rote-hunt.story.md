@@ -4,7 +4,7 @@ task: 22
 issue: 73
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/73
 epic: epic-dt-form-mvp-redesign
-status: Ready for Review
+status: Done
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.20', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q2)
