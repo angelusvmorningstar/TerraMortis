@@ -99,15 +99,23 @@ Both are flagged in the affected stories' Dependencies blocks and again in the C
 
 - **#26 ↔ #31 (Admin section removal).** Both touch the Admin section. Confirmed sequencing 2026-05-06: **#31 lands first** (removes the Admin section structure and replaces it with the Submit Final modal), **#26 follows** (puts XP Spend functionality in a project slot). Documented in #26's Dependencies block.
 
-## Open-questions resolutions (Piatra 2026-05-06 follow-up)
+## Open-questions resolutions (Piatra 2026-05-06, two passes)
 
-Three open questions surfaced during decomposition were resolved by Piatra in the same review pass that confirmed merge-readiness:
+Two waves of resolutions during decomposition. The first wave was applied 2026-05-06 morning; the second wave (Q1, Q2 architectural corrections) was applied 2026-05-06 afternoon following Piatra's review. The second wave **inverts/constrains** the first wave on Q1 and Q2 — current state is the second-wave resolutions in the table below.
 
-| Story | Question | Resolution |
+| Story | Question | Final resolution (Piatra 2026-05-06 afternoon) |
 |---|---|---|
-| #22 ROTE hunt | Does ROTE-only count toward MINIMAL completeness? | **Yes.** ROTE feeding is available in MINIMAL and auto-populates the downtime feeding action. Story #22 carries this in its ACs. |
-| #25 Ambience action | Mutual exclusivity per row? | **No — relaxed to independently toggleable.** Both UP and DOWN may be selected simultaneously on the same row. Story #25 ACs updated. |
-| #27 Blood Sorcery order | Crúac vs Theban order? | **Crúac first, Theban second.** Within each, alphabetical-by-name unless pickup-time analysis surfaces a better order. Story #27 AC updated. |
+| #22 ROTE hunt | Where does ROTE live; does ROTE-only count toward MINIMAL? | **ROTE is a personal-project-action variant, NOT a feeding-section block.** Reuses primary feeding's pool; only territory selectable. Existing schema field `project_N_feed_method2` already supports this. **ROTE-only does NOT satisfy MINIMAL completeness; primary feeding is independently required.** A player can put ROTE in their MINIMAL "1 project slot" allocation but must also fill primary feeding in the feeding section. |
+| #25 Ambience action | UP/DOWN exclusivity? Multi-row? | **Single target per action.** One row's UP or DOWN selectable at a time per action slot. Switching to a different row clears the previous selection. Two changes = two project slots. The earlier "independently toggleable, multi-row" interpretation is superseded. |
+| #27 Blood Sorcery order | Crúac vs Theban order? | **Crúac first, Theban second.** Within each, alphabetical-by-name unless pickup-time analysis surfaces a better order. (No change from morning resolution.) |
+| #26 ↔ #31 sequencing | Admin section removal order? | **#31 first (Admin section structure removed); #26 follows (XP Spend relocated to project slot).** Confirmed. |
+
+### Earlier (morning, 2026-05-06) resolutions superseded by the afternoon pass
+
+For audit trail. The first-pass resolutions are recorded in commit `8279207d` and are corrected by this commit:
+
+- *(superseded)* #22 ROTE-only counts toward MINIMAL completeness
+- *(superseded)* #25 Ambience UP/DOWN are independently toggleable; both may be selected simultaneously per row; multi-row allowed
 
 ## Cross-cutting hotfix references (NOT in scope of this epic)
 

@@ -8,20 +8,21 @@ depends_on: ['dt-form.17', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
 ---
 
-# Story dt-form.25 — Ambience Increase/Decrease action redesign (territory-row table)
+# Story dt-form.25 — Ambience Increase/Decrease action redesign (territory-row table, single selection)
 
 As a player declaring an Ambience Increase or Decrease action,
-I should see a territory-row table where each row has a RED DOWN arrow and a GREEN UP arrow, each independently toggleable,
-So that the choice surface is direct (territory + direction) rather than a generic target/Increase/Decrease form.
+I should see a territory-row table where each row has a RED DOWN arrow and a GREEN UP arrow, with **one direction on one row** selectable per action slot,
+So that the choice surface is direct (territory + direction) and one Ambience action targets exactly one territory in exactly one direction.
 
 ## Context
 
-The current `ambience_increase` and `ambience_decrease` action types within Personal Actions slots use generic target/direction inputs. Per Piatra (2026-05-06, clarified 2026-05-06 follow-up):
-- One row per territory
-- Each row has both a RED DOWN arrow and a GREEN UP arrow as toggleable selectors
-- Each direction is **independently toggleable**: click to select that direction; click again to deselect
-- Both selectors stay visible at all times (do not collapse on selection)
-- The original brief's "mutually exclusive per row" language was relaxed to "independently toggleable" in the follow-up clarification
+The current `ambience_increase` and `ambience_decrease` action types within Personal Actions slots use generic target/direction inputs. Per Piatra (2026-05-06, FINAL clarification via Q2 follow-up 2026-05-06):
+
+- **One territory affected per single Ambience action.**
+- Multi-row table UX is fine for display (player sees all territories), but **only one row's UP/DOWN can be selected at a time per action slot**.
+- If the player wants two ambience changes, they spend two project slots.
+
+This supersedes the earlier "independently toggleable, multi-row allowed" interpretation. The action is single-target; the table is a display affordance, not a multi-selection surface.
 
 Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exceptional success."*
 
@@ -42,21 +43,29 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 **When** the action slot renders
 **Then** a territory-row table renders. Each row has the territory name, a RED DOWN arrow chip, and a GREEN UP arrow chip. Both chips are visible at all times.
 
-**Given** the player clicks the GREEN UP arrow on a row
-**When** the chip toggles
-**Then** the GREEN UP is selected (highlighted) for that row. The RED DOWN remains visible. Other rows are unaffected.
+**Given** no row currently has a selection
+**When** the player clicks any direction arrow on any row
+**Then** that arrow becomes selected (highlighted) for that row. The clicked direction (UP or DOWN) is the action's chosen direction; the row's territory is the action's chosen target.
 
-**Given** the GREEN UP arrow is selected for a row
-**When** the player clicks the GREEN UP arrow again on the same row
-**Then** the selection toggles off. The arrow returns to its unselected state.
+**Given** a row already has a direction selected
+**When** the player clicks the same arrow again on the same row
+**Then** the selection toggles off. The action slot is back to no-selection state.
 
-**Given** the player clicks the RED DOWN arrow on the same row that already has GREEN UP selected
-**When** the chip toggles
-**Then** RED DOWN becomes selected. **GREEN UP and RED DOWN are independently toggleable per Piatra's 2026-05-06 follow-up clarification** — both directions may be selected simultaneously on the same row if the player chooses. The form does not enforce mutual exclusivity at the UI level.
+**Given** a row already has a direction selected
+**When** the player clicks the OPPOSITE direction on the same row
+**Then** the selection switches to the new direction on the same row (UP becomes DOWN, or vice versa). The action retains the same territory; only direction changes.
 
-**Given** a player has selected directions on multiple rows
-**When** they click an arrow on a different row
-**Then** all rows can hold independent selections — the table allows multi-row selection.
+**Given** a row already has a direction selected
+**When** the player clicks any direction on a DIFFERENT row
+**Then** the previous row's selection is cleared and the new row's clicked direction becomes the active selection. **At most one row can hold a selection at any time.**
+
+**Given** the player wants to record two ambience changes
+**When** they need a second target
+**Then** they fill a separate project slot with another `ambience_*` action. Two ambience changes consume two project slots — the action is single-target by design.
+
+**Given** the persistence
+**When** the slot is saved
+**Then** the selection is stored as a single (territory, direction) pair (e.g. `responses.project_N_ambience_target` and `responses.project_N_ambience_direction`).
 
 **Given** the form persists
 **When** the slot is saved
@@ -68,9 +77,13 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 
 ## Implementation Notes
 
-Both action types (`ambience_increase` and `ambience_decrease`) collapse to the same UI shape. The action-type field is retained in `responses` for historical reasons but the UI doesn't ask the player to pick "increase or decrease" before the table — they just pick directions per row.
+Both action types (`ambience_increase` and `ambience_decrease`) collapse to the same UI shape. The action-type field is retained in `responses` for historical reasons but the UI doesn't ask the player to pick "increase or decrease" before the table — they just pick the direction on the row whose territory they want to target.
 
-If the per-action-type distinction (increase vs decrease) is no longer meaningful post-redesign, surface to Piatra during pickup as a simplification candidate (collapse to one action type called `ambience` with directions per territory).
+If the per-action-type distinction (increase vs decrease) is no longer meaningful post-redesign, surface to Piatra during pickup as a simplification candidate (collapse to one action type called `ambience` with a single direction-per-target).
+
+**Persistence shape (lock):** single (territory, direction) pair per action slot. Suggested fields:
+- `responses.project_N_ambience_target` — territory `_id` string
+- `responses.project_N_ambience_direction` — `'up' | 'down'`
 
 ## Test Plan
 
@@ -80,9 +93,12 @@ If the per-action-type distinction (increase vs decrease) is no longer meaningfu
 ## Definition of Done
 
 - [ ] Territory-row table renders for ambience actions
-- [ ] RED DOWN / GREEN UP arrows mutually exclusive per row, toggle-off reveals both
+- [ ] At most one row holds a selection at any time per action slot (single-target design)
+- [ ] Clicking a different row clears the previous selection
+- [ ] Clicking the opposite direction on the same row switches direction (does NOT add a second selection)
+- [ ] Clicking the same arrow again toggles off
 - [ ] Rules summary text present
-- [ ] Persistence shape documented in DAR
+- [ ] Persistence shape: single (territory, direction) pair per slot
 - [ ] PR opened into `dev`
 
 ## Dependencies
