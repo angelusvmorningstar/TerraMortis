@@ -7897,47 +7897,6 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   font-style: italic;
 }
 
-/* Themed modal for resolve-note entry (replaces prompt()). */
-.npcr-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.npcr-modal {
-  background: var(--surf2, #1a1814);
-  border: 1px solid var(--accent, #E0C47A);
-  border-radius: 4px;
-  min-width: 360px;
-  max-width: 520px;
-  width: 90%;
-  padding: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.npcr-modal-title {
-  font-family: 'Cinzel', serif;
-  font-size: 18px;
-  color: var(--accent, #E0C47A);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
-}
-
-.npcr-modal-body {
-  margin-bottom: 12px;
-}
-
-.npcr-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .npcr-card-desc {
   font-size: 13px;
   color: var(--txt2, var(--txt));
