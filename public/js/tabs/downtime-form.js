@@ -3805,7 +3805,6 @@ function getItemsForCategory(category) {
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
-          if (rule.parent && (rule.parent === 'Invictus Oath' || rule.parent === 'Carthian Law')) continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
