@@ -27,7 +27,7 @@ ADR-003 §Q2 lists the MINIMAL feeding state: "Simplified Feeding Form variant; 
 
 ### Files NOT in scope
 
-- ROTE hunt logic itself — that's #22
+- ROTE hunt logic itself — that's #22, **and per Piatra clarification 2026-05-06 ROTE is a personal-project-action variant, NOT a feeding-section sub-block.** ROTE never renders inside this story's feeding section.
 - Feeding territory tinting — that's #21 (separate visual change)
 - Feeding rights data model (`territories.feeding_rights[]` is canonical post-fix.39)
 - The full ADVANCED feeding form (unchanged in this story)
@@ -54,7 +54,9 @@ ADR-003 §Q2 lists the MINIMAL feeding state: "Simplified Feeding Form variant; 
 
 Auto-pick best dice pool: derive from existing helpers (search for `feedDicePool`, `bestFeedingPool`, or similar) or compute inline against the character's feeding-rights territories crossed with method/blood-type/violence affinities. Surface the resulting pool number near the description input as read-only ("Pool: 7" or similar).
 
-`isMinimalComplete()` rule for Feeding (per ADR §Q2 + this story): all five fields present.
+**Pool helper export**: the auto-pick computation should be exported from this section so #22 (ROTE) can import and reuse it for the inherited-pool display. Suggest a small named export from the section module (or inline helper in `dt-completeness.js` if more natural).
+
+`isMinimalComplete()` rule for Feeding (per ADR §Q2 + this story): all five PRIMARY feeding fields present. ROTE in a project slot does NOT satisfy this rule — that's the project-slot rule, separately gated.
 
 ## Test Plan
 
