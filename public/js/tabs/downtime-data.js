@@ -270,7 +270,7 @@ export const DOWNTIME_SECTIONS = [
         key: 'feeding_method',
         label: 'How does your character hunt?',
         type: 'feeding_method',
-        required: true,
+        required: false,   // DTFP-4: pool components (_feed_method/_feed_custom_*) are the gate
         desc: null,
       },
     ],
