@@ -103,7 +103,7 @@ export async function handleCallback() {
     res = await fetch(`${API_BASE}/api/auth/discord/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
     });
   } catch {
     return false;
