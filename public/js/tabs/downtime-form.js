@@ -434,20 +434,11 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'xp_grid') {
-        const gridEl = document.getElementById('dt-xp_spend');
-        const rows = [];
-        if (gridEl) {
-          gridEl.querySelectorAll('[data-xp-row]').forEach(rowEl => {
-            const catEl = rowEl.querySelector('[data-xp-cat]');
-            const itemEl = rowEl.querySelector('[data-xp-item]');
-            const dotsEl = rowEl.querySelector('[data-xp-dots]');
-            const category = catEl ? catEl.value : '';
-            const item = itemEl ? itemEl.value : '';
-            const dotsBuying = dotsEl ? parseInt(dotsEl.value, 10) || 0 : 0;
-            if (category) rows.push({ category, item, dotsBuying });
-          });
-        }
-        responses[q.key] = JSON.stringify(rows);
+        // dt-form.26: legacy Admin-section xp_grid collector pruned. The
+        // Admin section was removed in #31, so no DOWNTIME_SECTIONS question
+        // has type='xp_grid' anymore — the iteration that lands here is dead.
+        // Keeping a defensive `continue` so a re-introduced legacy question
+        // wouldn't accidentally clobber the new top-level mirror.
         continue;
       }
       if (q.type === 'influence_grid') {
@@ -569,7 +560,35 @@ function collectResponses() {
     const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
-    if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // dt-form.26: collect this slot's multi-row XP-Spend grid. Read row
+    // values directly from the slot-scoped grid container; legacy single-row
+    // placeholder fields (`_xp_dots`, `_xp_category`, `_xp_item`) are no
+    // longer written here. Backward-compat fallback: if the slot has no
+    // grid mounted (action just flipped to xp_spend, render hasn't fired
+    // yet) preserve any prior `_xp_rows` from the spread base.
+    if (responses[`project_${n}_action`] === 'xp_spend') {
+      const slotGrid = document.querySelector(`[data-proj-xp-grid="${n}"]`);
+      if (slotGrid) {
+        const rows = [];
+        slotGrid.querySelectorAll('[data-xp-row]').forEach(rowEl => {
+          const catEl  = rowEl.querySelector('[data-xp-cat]');
+          const itemEl = rowEl.querySelector('[data-xp-item]');
+          const dotsEl = rowEl.querySelector('[data-xp-dots]');
+          const category = catEl ? catEl.value : '';
+          const item     = itemEl ? itemEl.value : '';
+          const dotsBuying = dotsEl ? (parseInt(dotsEl.value, 10) || 0) : 0;
+          if (category) rows.push({ category, item, dotsBuying });
+        });
+        responses[`project_${n}_xp_rows`] = JSON.stringify(rows);
+      }
+      // Drop the legacy `_xp_dots` placeholder; persist '0' so legacy ST
+      // readers see "no dots" rather than the stale "1" sentinel.
+      responses[`project_${n}_xp_dots`] = '0';
+    } else {
+      // Slot is no longer xp_spend; clear the rows JSON so stale data doesn't
+      // contaminate the top-level mirror.
+      if (responses[`project_${n}_xp_rows`]) responses[`project_${n}_xp_rows`] = '';
+    }
     // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
     // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
     // helper handles legacy submissions; this covers fresh ROTE saves so ST
@@ -894,6 +913,35 @@ function collectResponses() {
   }
 
   } // end if (!_isMinimal) — ADVANCED-only collection
+
+  // dt-form.26 (DAR-A1): mirror per-slot XP-spend rows into the legacy
+  // top-level `responses.xp_spend` JSON array so existing readers
+  // (player-side budget validator at submitForm:1263, ST review at
+  // admin/downtime-views.js:3637) keep working unchanged. The per-slot
+  // shape is canonical post-redesign; this rebuilds top-level on every
+  // save. If no slot has xp_spend rows, the legacy top-level value (from
+  // the spread base) passes through untouched — preserves any in-flight
+  // legacy data until the player engages the redesigned UI.
+  let _hasAnyXpRows = false;
+  const _topLevelMirror = [];
+  for (let s = 1; s <= 4; s++) {
+    if (responses[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = responses[`project_${s}_xp_rows`] || '';
+    if (rj) {
+      try { slotRows = JSON.parse(rj); } catch { slotRows = []; }
+    }
+    if (slotRows.length) {
+      _hasAnyXpRows = true;
+      for (const r of slotRows) {
+        if (!r || !r.category) continue;
+        _topLevelMirror.push(r);
+      }
+    }
+  }
+  if (_hasAnyXpRows) {
+    responses['xp_spend'] = JSON.stringify(_topLevelMirror);
+  }
 
   return responses;
 }
@@ -3672,9 +3720,19 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
-      const savedCat  = saved[`project_${n}_xp_category`] || '';
-      const savedItem = saved[`project_${n}_xp_item`] || '';
-      const budget = xpLeft(currentChar);
+      // dt-form.26: in-slot multi-row XP-Spend grid. Reuses renderXpRow which
+      // already encodes hotfix #44's merit-eligibility logic
+      // (getItemsForCategory('merit') -> getRulesByCategory + meetsPrereq).
+      // Per-slot rows persist as `responses.project_N_xp_rows` (JSON);
+      // top-level `responses.xp_spend` mirror-built in collectResponses (DAR-A1).
+      h += _renderProjectXpRows(n, saved);
+      // legacy single-row block follows but is dead — kept under a constant-false
+      // branch so the diff is bounded and the dead code documents the historical
+      // shape. Removed in a follow-up cleanup commit if Ma'at prefers.
+      if (false) {
+        const savedCat  = saved[`project_${n}_xp_category`] || '';
+        const savedItem = saved[`project_${n}_xp_item`] || '';
+        const budget = xpLeft(currentChar);
 
       // Deduct already-committed project XP from other slots
       let committed = 0;
@@ -3726,6 +3784,7 @@ function renderProjectSlots(saved, mode = 'advanced') {
       }, saved[`project_${n}_xp_trait`] || '');
 
       h += '</div>';
+      } // end if (false) — dt-form.26 dead-code wrap on legacy single-row block
     }
 
     if (fields.includes('title')) {
@@ -4228,6 +4287,99 @@ function renderXpRow(idx, row, xpActions, dotsRemaining) {
   }
 
   h += '</div>';
+  return h;
+}
+
+/**
+ * dt-form.26: per-slot multi-row XP-Spend grid. Replaces the legacy single-row
+ * placeholder when a project slot's action is `xp_spend`. Reuses renderXpRow
+ * for each row (which carries hotfix #44's merit-eligibility logic). Read from
+ * `responses.project_${n}_xp_rows` (JSON-stringified array); backward-compat
+ * seeds rows[0] from the legacy `project_${n}_xp_category` / `_xp_item` /
+ * `_xp_dots` triple when no `_xp_rows` is present yet.
+ *
+ * Per CLAUDE.md XP rules: 1 dot of non-merit growth per xp_spend slot, plus
+ * unlimited free 1-3 dot merits. The dotsRemaining tracker spans all xp_spend
+ * slots' rows so the player sees a single global budget.
+ */
+function _renderProjectXpRows(n, saved) {
+  // Read this slot's rows (JSON), or seed from legacy single-row fields.
+  let xpRows = [];
+  const savedRowsJson = saved[`project_${n}_xp_rows`] || '';
+  if (savedRowsJson) {
+    try { xpRows = JSON.parse(savedRowsJson); } catch { xpRows = []; }
+  }
+  if (!xpRows.length) {
+    const legacyCat  = saved[`project_${n}_xp_category`] || '';
+    const legacyItem = saved[`project_${n}_xp_item`] || '';
+    const legacyDots = parseInt(saved[`project_${n}_xp_dots`] || '0', 10) || 0;
+    if (legacyCat && legacyItem) {
+      xpRows.push({ category: legacyCat, item: legacyItem, dotsBuying: legacyDots || 1 });
+    }
+  }
+  // Always render a trailing empty row so the player can add another purchase
+  // without an extra click. Mirrors the legacy admin xp_grid behaviour.
+  if (!xpRows.length || xpRows[xpRows.length - 1].category) {
+    xpRows.push({ category: '', item: '', dotsBuying: 0 });
+  }
+
+  // Cross-slot accounting. xp_spend slot count drives the non-merit dot budget;
+  // merits 1-3 are free per CLAUDE.md.
+  let xpActions = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] === 'xp_spend') xpActions++;
+  }
+  // Sum non-merit dots across ALL xp_spend slots' rows so the dotsRemaining
+  // displayed on this slot reflects the true cross-slot budget.
+  let dotsUsed = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = saved[`project_${s}_xp_rows`] || '';
+    if (rj) { try { slotRows = JSON.parse(rj); } catch { slotRows = []; } }
+    if (!slotRows.length) {
+      const lc = saved[`project_${s}_xp_category`] || '';
+      const li = saved[`project_${s}_xp_item`]     || '';
+      if (lc && li) slotRows = [{ category: lc, item: li, dotsBuying: 1 }];
+    }
+    for (const r of slotRows) {
+      if (!r.category || !r.item) continue;
+      if (r.category === 'merit') continue; // free 1-3 dot merits
+      if (r.category === 'devotion') dotsUsed++; // 1 action per devotion
+      else dotsUsed += (r.dotsBuying || 1);
+    }
+  }
+  const dotsRemaining = xpActions - dotsUsed;
+
+  // Slot total + global budget
+  const slotCost = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const budget = xpLeft(currentChar);
+
+  let h = `<div class="dt-xp-picker dt-xp-grid" data-proj-xp-grid="${n}">`;
+  h += `<p class="qf-desc">XP-spend declarations for this action. Add as many traits as your XP budget allows; merits at 1-3 dots are free, other categories require an XP-Spend action per dot.</p>`;
+  h += `<div class="dt-xp-budget" id="dt-proj_${n}_xp_budget">`;
+  h += `<span>Slot total: <strong>${slotCost}</strong> XP</span>`;
+  h += `<span style="margin-left:14px">Cycle budget: <strong>${budget}</strong> XP available</span>`;
+  if (xpActions > 0) {
+    h += `<span style="margin-left:14px">${xpActions} XP-Spend action${xpActions > 1 ? 's' : ''} — <span class="${dotsRemaining < 0 ? 'dt-influence-over' : ''}">${dotsRemaining} dot${dotsRemaining !== 1 ? 's' : ''} remaining</span></span>`;
+  }
+  h += '</div>';
+
+  for (let i = 0; i < xpRows.length; i++) {
+    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining);
+  }
+  h += '</div>'; // dt-xp-grid
+
+  // In-character justification stays per-slot, single textarea. Carries the
+  // narrative for the entire xp-spend action regardless of row count.
+  h += renderQuestion({
+    key: `project_${n}_xp_trait`,
+    label: 'In-character justification',
+    type: 'textarea',
+    required: false,
+    placeholder: 'Describe the activity or events that justify this growth.',
+  }, saved[`project_${n}_xp_trait`] || '');
+
   return h;
 }
 
