@@ -1802,6 +1802,27 @@ function openSubmitFinalModal(container) {
   overlay.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.preventDefault(); closeSubmitFinalModal(); }
   });
+
+  // Click delegation MUST live on the overlay, not on the form container,
+  // because document.body.appendChild(overlay) above puts the modal outside
+  // the container's DOM subtree. Clicks here would not bubble to a
+  // container-scoped listener (caused issue #89).
+  overlay.addEventListener('click', (e) => {
+    if (e.target.closest('[data-dt-final-cancel]')) {
+      e.preventDefault();
+      closeSubmitFinalModal();
+      return;
+    }
+    if (e.target.closest('[data-dt-final-confirm]')) {
+      e.preventDefault();
+      handleSubmitFinalConfirm(container);
+      return;
+    }
+    // Click on the overlay backdrop itself (not on a modal child) dismisses.
+    if (e.target === overlay) {
+      closeSubmitFinalModal();
+    }
+  });
 }
 
 function closeSubmitFinalModal() {
@@ -2134,24 +2155,10 @@ function renderForm(container) {
       openSubmitFinalModal(container);
       return;
     }
-    // dt-form.31: Submit Final modal action delegations.
-    const modalConfirm = e.target.closest('[data-dt-final-confirm]');
-    if (modalConfirm) {
-      e.preventDefault();
-      handleSubmitFinalConfirm(container);
-      return;
-    }
-    const modalCancel = e.target.closest('[data-dt-final-cancel]');
-    if (modalCancel) {
-      e.preventDefault();
-      closeSubmitFinalModal();
-      return;
-    }
-    // Click on the overlay (outside the modal box) dismisses the modal.
-    if (e.target.classList?.contains('dt-modal-overlay')) {
-      closeSubmitFinalModal();
-      return;
-    }
+    // dt-form.31 modal click delegations moved to the overlay element in
+    // openSubmitFinalModal() — see issue #89. The overlay is appended to
+    // document.body, not to container, so its clicks never reach this
+    // listener.
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
