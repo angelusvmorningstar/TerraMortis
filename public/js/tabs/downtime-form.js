@@ -4830,9 +4830,25 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
+/** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
+function getAuditMaintained(cycle, char) {
+  if (!cycle || !char) return new Set();
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const set = new Set();
+  for (const m of (char.merits || [])) {
+    if (m.name === 'Professional Training' && audit.pt === true) {
+      set.add(`Professional Training_${meritEffectiveRating(char, m)}`);
+    }
+    if (m.name === 'Mystery Cult Initiation' && audit.mci === true && m.active !== false) {
+      set.add(`Mystery Cult Initiation_${meritEffectiveRating(char, m)}`);
+    }
+  }
+  return set;
+}
+
 /** Chip grid of the character's own maintenance-eligible merits (dtui-11).
  *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project', auditMaintained = new Set()) {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
@@ -4850,9 +4866,13 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
-    const isDisabled = alreadyMaintained.has(id);
+    const isDisabled = alreadyMaintained.has(id) || auditMaintained.has(id);
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
+    const titleAttr = auditMaintained.has(id)
+      ? ' title="Maintained this chapter — no action needed."'
+      : isDisabled
+        ? ' title="Already chosen as a target in another project slot."'
+        : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
          `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
@@ -4944,8 +4964,9 @@ function renderTargetZone(n, actionVal, saved, chars) {
   } else if (['investigate', 'misc'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
-    const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
-    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
+    const formDedup = getAlreadyMaintainedTargets(n, saved, 5);
+    const auditMaint = getAuditMaintained(currentCycle, currentChar);
+    h += renderMaintenanceChips(n, saved, currentChar, formDedup, 'project', auditMaint);
   }
 
   h += '</div>';
