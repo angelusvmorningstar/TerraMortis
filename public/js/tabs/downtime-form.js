@@ -15,6 +15,7 @@ import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, h
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
+import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -6298,8 +6299,43 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
-      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      // dt-form.20 (ADR-003 §Q2): MINIMAL renders a read-only auto-derived
+      // pool annotation in place of the manual pool selectors. ADVANCED keeps
+      // the existing chrome (DTFP-4: always visible, method optional).
+      if (_formMode(responseDoc?.responses) === 'minimal') {
+        const slugFromGrid = (gridStr) => {
+          let grid = {};
+          try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+          const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+          if (!key) return '';
+          const niceName = FEEDING_TERRITORIES.find(
+            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+          );
+          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+          return td?.slug || '';
+        };
+        const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
+        const pool = computeBestFeedingPool({ char: c, methodId: feedMethodId, territorySlug });
+        h += '<div class="qf-field dt-feed-min-pool">';
+        if (!feedMethodId) {
+          h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
+        } else if (!pool) {
+          h += '<p class="qf-desc">Pool unavailable for this method.</p>';
+        } else {
+          const parts = [];
+          if (pool.attr.name) parts.push(`${pool.attr.val} ${esc(pool.attr.name)}`);
+          if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
+          else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
+          if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
+          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
+          h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+        }
+        h += '</div>';
+      } else {
+        // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      }
 
       // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -6337,7 +6373,10 @@ function renderQuestion(q, value) {
       h += '</div>'; // dt-feed-card-wrap
 
       // ── Container 2: Feeding quality (Standard / Rote) ──
-      {
+      // dt-form.20: ROTE block is hidden in MINIMAL mode (the simplified
+      // form is the 5 primary fields only). ADVANCED keeps it until #22
+      // moves ROTE out into a personal-project-action variant.
+      if (_formMode(responseDoc?.responses) !== 'minimal') {
         const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
         if (savedRote && !feedRoteAction) feedRoteAction = true;
         feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
@@ -6381,7 +6420,7 @@ function renderQuestion(q, value) {
           h += '</div>';
         }
         h += '</div>';
-      }
+      } // dt-form.20: end MINIMAL-skip wrap on ROTE container
 
       // ── Container 3: Vitae Projection ──
       {

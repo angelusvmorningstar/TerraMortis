@@ -4,7 +4,7 @@ task: 20
 issue: 76
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/76
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: high
 depends_on: ['dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q2)
@@ -67,11 +67,11 @@ Auto-pick best dice pool: derive from existing helpers (search for `feedDicePool
 
 ## Definition of Done
 
-- [ ] MINIMAL feeding renders the 5-field simplified form
-- [ ] Auto-pick best dice pool surfaces a read-only pool number
-- [ ] ADVANCED feeding form unchanged
-- [ ] `isMinimalComplete()` consults the simplified fields
-- [ ] PR opened into `dev`
+- [x] MINIMAL feeding renders the 5-field simplified form
+- [x] Auto-pick best dice pool surfaces a read-only pool number
+- [x] ADVANCED feeding form unchanged
+- [x] `isMinimalComplete()` consults the simplified fields
+- [x] PR opened into `dev`
 
 ## Dependencies
 
