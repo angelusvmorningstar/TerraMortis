@@ -2,10 +2,12 @@
 id: dt-form.16
 task: 16
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Review
 priority: high
 depends_on: []
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q6, §Q10)
+issue: 55
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/55
 ---
 
 # Story dt-form.16 — Universal character picker component
@@ -133,13 +135,51 @@ If any site reveals a missing capability (e.g. needs `disabled` per-option, need
 
 ## Definition of Done
 
-- [ ] `public/js/components/character-picker.js` exists with the locked signature
-- [ ] All 5 audit-baseline picker sites migrated to `charPicker(...)`
-- [ ] Component is form-local (only `downtime-form.js` and optionally `regency-tab.js` import it)
-- [ ] WAI-ARIA combobox semantics present and verified
-- [ ] `excludeIds` parameter wired and used by at least one consumer (likely ALLY-attach in personal actions, post-#24)
-- [ ] Browser smoke confirms each migrated site behaves equivalently or better than before
+- [x] `public/js/components/character-picker.js` exists with the locked signature
+- [x] All 5 audit-baseline picker sites migrated to `charPicker(...)`
+- [x] Component is form-local (only `downtime-form.js` and `regency-tab.js` import it)
+- [x] WAI-ARIA combobox semantics present and verified
+- [x] `excludeIds` parameter wired and used by at least one consumer (regency-tab cross-slot exclusion + joint-invitee no-free-slot exclusion)
+- [ ] Browser smoke confirms each migrated site behaves equivalently or better than before  *(deferred to user/SM per story Test Plan)*
 - [ ] PR opened by `tm-gh-pr-for-branch` into `dev`, body links to ADR-003 §Q6 + §Q10
+
+---
+
+## Dev Agent Record
+
+**Agent Model Used:** James (BMAD `dev`) — Claude Opus 4.7
+
+### Tasks
+- [x] Build `public/js/components/character-picker.js` with locked signature, source registry, WAI-ARIA combobox semantics, fuzzy match, single/multi cardinality.
+- [x] Migrate site #1 — `dt-flex-char-sel` single-select in `renderTargetPicker`.
+- [x] Migrate site #2 — `data-project-target-char` chip single-select in `renderTargetCharOrOther`.
+- [x] Migrate site #3a — joint-target multi-checkbox grid in `renderTargetPicker`.
+- [x] Migrate site #3b — joint-invitee multi-chip grid in `renderJointInviteeChips`.
+- [x] Migrate site #4 — `shoutout_picks` (attendees-scope multi, 3-pick cap preserved via consumer-side remount-on-overflow).
+- [x] Migrate site #5 — regency `<select id="reg-slot-N">` slots; cross-slot exclusion via dynamic excludeIds.
+- [x] Add `.char-picker__*` design-token-driven CSS in `public/css/components.css`.
+- [x] Parse-check changed JS modules; run server `npm test`.
+- [x] Update Tasks/File List/Completion Notes; set status `Ready for Review`.
+
+### File List
+- `public/js/components/character-picker.js` (new)
+- `public/js/tabs/downtime-form.js` (modified)
+- `public/js/tabs/regency-tab.js` (modified)
+- `public/css/components.css` (modified)
+- `specs/stories/dt-form.16-character-picker.story.md` (this file — Dev Agent Record only)
+
+### Completion Notes
+- Locked signature `charPicker({ scope, cardinality, initial, onChange, placeholder, excludeIds })` honoured exactly. Returns an `HTMLElement` rooted at `.char-picker`. Source data is published via the auxiliary `setCharPickerSources({ all, attendees })` exported from the same module so the picker's option list is form-local but the locked construction call carries no items array.
+- Re-render survival: each picker render site emits a placeholder `<div data-cp-mount …>`; after `container.innerHTML = h`, `mountCharPickers(container)` (downtime-form) / `_mountRegSlotPickers(container)` (regency-tab) replace placeholders with live components. Existing collection paths are preserved by writing the picker's value to a hidden input mirrored on each `onChange`.
+- WAI-ARIA combobox: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`, `aria-haspopup="listbox"`, `aria-activedescendant`. Listbox uses `role="listbox"` with `role="option"` children. Keyboard model: ArrowUp/Down navigate, Enter commits, Escape closes/clears, Backspace on empty input removes the last chip in multi mode.
+- `excludeIds` is honoured on construction; "survives mid-render changes" is achieved by remounting (regency cross-slot, shoutout 3-cap overflow). The locked signature has no max-cardinality parameter, so the shoutout 3-pick cap is enforced consumer-side by trimming and remounting the picker with the prior 3 — surfacing as a notable but in-scope decision (no DAR raised; alternative would be a `maxSelections` field on the signature, which `Out of scope`).
+- Server tests: 2 failures observed (`api-relationships-player-create.test.js > GET /api/npcs/directory > returns active + pending NPCs`; `rule_engine_grep.test.js > Rule engine effective-rating grep contract` flagging `m.cp || 0` and `m.xp || 0` in `auto-bonus-evaluator.js` and `pool-evaluator.js`). Both pre-existing on `dev`; neither file is touched by this branch. 634/636 tests pass.
+- Browser smoke is deferred to the user/SM per the story Test Plan.
+
+### Change Log
+| Date | Author | Change |
+|---|---|---|
+| 2026-05-06 | James (dev) | Implemented charPicker component and migrated all 5 audit-baseline picker sites; wired CSS; story status → Ready for Review. |
 
 ---
 

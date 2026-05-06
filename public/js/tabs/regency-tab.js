@@ -11,6 +11,7 @@
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
 import { AMBIENCE_CAP } from './downtime-data.js';
+import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
@@ -37,6 +38,10 @@ let _territories = [];
 let allCharNames = [];
 let _activeCycle = null;
 let _lockedCharIds = new Set();  // character IDs that cannot be removed this cycle
+// dt-form.16: per-slot selected character id, keyed by slot index. The
+// charPicker components are uncontrolled DOM, so we mirror their state here
+// for cross-slot exclusion + save collection.
+const _slotValues = new Map();
 
 function _regInfo() { return findRegentTerritory(_territories, currentChar); }
 
@@ -139,6 +144,19 @@ function render(container) {
   // Render slots from loopStart; show any existing over-cap entries too
   const loopEnd = Math.max(cap, loopStart + additionalRights.length - 1);
 
+  // dt-form.16: publish source list to the universal char picker (ADR-003 §Q6).
+  setCharPickerSources({
+    all: allCharNames.map(c => ({ id: String(c._id), name: dropdownName(c) })),
+  });
+
+  // Seed _slotValues from saved state on every render so the live mirror
+  // matches the DOM after re-render.
+  _slotValues.clear();
+  for (let i = loopStart; i <= loopEnd; i++) {
+    const v = additionalRights[i - loopStart] || '';
+    if (v) _slotValues.set(i, String(v));
+  }
+
   // Confirmation state for active cycle
   const cycleConfirmed = _activeCycle?.feeding_rights_confirmed === true;
   const myConfirmation = _activeCycle
@@ -183,30 +201,27 @@ function render(container) {
     const isConfirmedSlot = confirmedRights.includes(savedVal) && savedVal;
     const isLocked = savedVal && _lockedCharIds.has(String(savedVal));
 
-    h += `<div class="${rowClass}">`;
+    h += `<div class="${rowClass}" data-reg-slot-row="${i}">`;
     h += `<span class="dt-residency-label">Feeding Right ${i}</span>`;
     if (isConfirmedSlot) {
       const confirmedChar = allCharNames.find(c => String(c._id) === savedVal);
       const confirmedName = confirmedChar ? displayName(confirmedChar) : savedVal;
-      h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}" disabled>`;
-      h += `<option value="${esc(savedVal)}" selected>${esc(confirmedName)}</option>`;
-      h += '</select>';
+      // dt-form.16: locked display — no editor needed once a slot is confirmed.
+      h += `<span class="dt-residency-locked dt-residency-locked--confirmed" data-reg-slot-locked="${i}" data-char-id="${esc(savedVal)}">${esc(confirmedName)}</span>`;
       h += '<span class="reg-confirmed-chip">Confirmed</span>';
     } else if (isLocked) {
       const lockedChar = allCharNames.find(c => String(c._id) === savedVal);
       const lockedName = lockedChar ? displayName(lockedChar) : savedVal;
-      h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}" disabled>`;
-      h += `<option value="${esc(savedVal)}" selected>${esc(lockedName)}</option>`;
-      h += '</select>';
+      h += `<span class="dt-residency-locked dt-residency-locked--fed" data-reg-slot-locked="${i}" data-char-id="${esc(savedVal)}">${esc(lockedName)}</span>`;
       h += '<span class="reg-locked-chip" title="This character has fed here this cycle and cannot be removed until the cycle closes.">Fed this cycle</span>';
     } else {
-      h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
-      h += '<option value="">— None —</option>';
-      for (const c of allCharNames) {
-        const sel = savedVal === String(c._id) ? ' selected' : '';
-        h += `<option value="${esc(String(c._id))}"${sel}>${esc(dropdownName(c))}</option>`;
-      }
-      h += '</select>';
+      // Universal char picker (ADR-003 §Q6) — site #5 (regency feeding-rights slot).
+      const initialJson = esc(JSON.stringify(savedVal ? String(savedVal) : ''));
+      h += `<div data-cp-mount data-cp-site="reg-slot"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-reg-slot="${i}"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick a feeding right"></div>`;
     }
     if (overCap) h += '<span class="dt-over-cap-warn">Over capacity</span>';
     h += '</div>';
@@ -231,25 +246,76 @@ function render(container) {
 }
 
 function wireEvents(container) {
-  container.querySelectorAll('[data-residency-slot]').forEach(sel => {
-    sel.addEventListener('change', () => updateResidencyOptions(container));
-  });
-  updateResidencyOptions(container);
+  _mountRegSlotPickers(container);
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
   container.querySelector('#reg-confirm')?.addEventListener('click', () => confirmFeeding(container));
 }
 
-function updateResidencyOptions(container) {
-  const selects = container.querySelectorAll('[data-residency-slot]');
-  const selected = new Set([String(currentChar._id)]);
-  selects.forEach(sel => { if (sel.value) selected.add(sel.value); });
+function _mountRegSlotPickers(container) {
+  const placeholders = container.querySelectorAll('[data-cp-mount][data-cp-site="reg-slot"]');
+  placeholders.forEach(ph => _mountOneRegSlotPicker(ph, container));
+}
 
-  selects.forEach(sel => {
-    const myVal = sel.value;
-    for (const opt of sel.options) {
-      if (!opt.value) continue;
-      opt.disabled = opt.value !== myVal && selected.has(opt.value);
-    }
+function _mountOneRegSlotPicker(ph, container) {
+  const slotIdx = parseInt(ph.dataset.regSlot, 10);
+  if (!slotIdx) return;
+  const placeholder = ph.dataset.cpPlaceholder || '';
+  let initial = '';
+  try { initial = JSON.parse(ph.dataset.cpInitial || '""'); } catch { initial = ''; }
+
+  const onChange = (next) => {
+    const val = typeof next === 'string' ? next : '';
+    if (val) _slotValues.set(slotIdx, val);
+    else _slotValues.delete(slotIdx);
+    _remountOtherRegSlotPickers(container, slotIdx);
+  };
+
+  const el = charPicker({
+    scope: 'all',
+    cardinality: 'single',
+    initial,
+    onChange,
+    placeholder,
+    excludeIds: _excludeIdsForSlot(slotIdx),
+  });
+  el.dataset.regSlot = String(slotIdx);
+  el.dataset.cpMountedSite = 'reg-slot';
+  el.dataset.cpMountedPlaceholder = placeholder;
+  ph.replaceWith(el);
+}
+
+function _excludeIdsForSlot(slotIdx) {
+  const out = [String(currentChar._id)];
+  for (const [k, v] of _slotValues.entries()) {
+    if (k !== slotIdx && v) out.push(String(v));
+  }
+  return out;
+}
+
+function _remountOtherRegSlotPickers(container, changedSlotIdx) {
+  const els = container.querySelectorAll('.char-picker[data-reg-slot]');
+  els.forEach(el => {
+    const sIdx = parseInt(el.dataset.regSlot, 10);
+    if (!sIdx || sIdx === changedSlotIdx) return;
+    const placeholderText = el.dataset.cpMountedPlaceholder || '';
+    const cur = _slotValues.get(sIdx) || '';
+    const fresh = charPicker({
+      scope: 'all',
+      cardinality: 'single',
+      initial: cur,
+      onChange: (next) => {
+        const val = typeof next === 'string' ? next : '';
+        if (val) _slotValues.set(sIdx, val);
+        else _slotValues.delete(sIdx);
+        _remountOtherRegSlotPickers(container, sIdx);
+      },
+      placeholder: placeholderText,
+      excludeIds: _excludeIdsForSlot(sIdx),
+    });
+    fresh.dataset.regSlot = String(sIdx);
+    fresh.dataset.cpMountedSite = 'reg-slot';
+    fresh.dataset.cpMountedPlaceholder = placeholderText;
+    el.replaceWith(fresh);
   });
 }
 
@@ -264,16 +330,25 @@ async function saveRegency() {
   const ltId = ri?.lieutenantId || '';
   const loopStart = ltId ? 3 : 2;
 
-  // Collect only the additional feeding right slots (regent + lieutenant are implicit)
+  // dt-form.16: read selected slot values from _slotValues (mirrored by charPicker
+  // onChange). Locked/confirmed slots are not in _slotValues, so include their
+  // ids by reading data-char-id from the DOM. Order matters — preserve slot index.
   const feedingRights = [];
+  const container = document.querySelector('.regency-wrap')?.parentElement || document;
   for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
-    const el = document.getElementById(`reg-slot-${i}`);
-    if (!el) break; // stop when we reach slots that weren't rendered
-    if (el.value) feedingRights.push(el.value);
+    if (_slotValues.has(i)) {
+      const v = _slotValues.get(i);
+      if (v) feedingRights.push(v);
+      continue;
+    }
+    const lockedEl = container.querySelector(`[data-reg-slot-locked="${i}"]`);
+    if (lockedEl) {
+      const v = lockedEl.dataset.charId || '';
+      if (v) feedingRights.push(v);
+    }
   }
 
-  // Include any locked entries that the disabled select omitted from the
-  // DOM collection — they must remain in the saved array.
+  // Belt-and-braces: include any locked-cycle ids that didn't render this pass.
   for (const lockedId of _lockedCharIds) {
     if (!feedingRights.includes(lockedId)) feedingRights.push(lockedId);
   }
@@ -316,12 +391,20 @@ async function confirmFeeding(container) {
   const ltId = ri?.lieutenantId || '';
   const loopStart = ltId ? 3 : 2;
 
-  // Collect current additional feeding right slots only
+  // dt-form.16: collect from _slotValues + locked/confirmed display nodes.
   const rights = [];
+  const wrap = container.querySelector('.regency-wrap') || container;
   for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
-    const el = document.getElementById(`reg-slot-${i}`);
-    if (!el) break;
-    if (el.value) rights.push(el.value);
+    if (_slotValues.has(i)) {
+      const v = _slotValues.get(i);
+      if (v) rights.push(v);
+      continue;
+    }
+    const lockedEl = wrap.querySelector(`[data-reg-slot-locked="${i}"]`);
+    if (lockedEl) {
+      const v = lockedEl.dataset.charId || '';
+      if (v) rights.push(v);
+    }
   }
 
   const btn = container.querySelector('#reg-confirm');
@@ -347,10 +430,22 @@ export function getResidencyList() {
   const ltId = ri?.lieutenantId || '';
   const loopStart = ltId ? 3 : 2;
   const list = [];
+  // dt-form.16: read from _slotValues mirror; fall back to locked display
+  // nodes for confirmed/fed-this-cycle slots that have no editor.
+  const wrap = document.querySelector('.regency-wrap');
   for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
-    const el = document.getElementById(`reg-slot-${i}`);
-    if (!el) break;
-    list.push(el.value || '');
+    if (_slotValues.has(i)) {
+      list.push(_slotValues.get(i) || '');
+      continue;
+    }
+    const lockedEl = wrap?.querySelector(`[data-reg-slot-locked="${i}"]`);
+    if (lockedEl) {
+      list.push(lockedEl.dataset.charId || '');
+      continue;
+    }
+    // No editor and no locked element rendered — slot beyond what the page
+    // built. Stop walking; matches prior `break` behaviour.
+    break;
   }
   return list;
 }

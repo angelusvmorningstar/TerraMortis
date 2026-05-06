@@ -2,10 +2,12 @@
 id: dt-form.17
 task: 17
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Dev
 priority: high
 depends_on: ['dt-form.16']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q1, §Q2, §Q3, §Q4, §Q8, §Q11)
+issue: 56
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/56
 ---
 
 # Story dt-form.17 — Minimal/Advanced mode + soft-submit lifecycle + auto-XP mirror
