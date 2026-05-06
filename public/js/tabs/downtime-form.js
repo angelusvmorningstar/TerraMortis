@@ -13,7 +13,8 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
+import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -1720,6 +1721,110 @@ function _isRegencyConfirmedThisCycle() {
   );
 }
 
+// dt-form.31 (ADR-003 §Q5): Submit Final modal. ADVANCED-only affordance
+// that lets a player declare "I am done editing" via responses._final_submitted_at.
+// Mirrors the existing .npcr-modal pattern (admin-layout.css) but lives in
+// components.css under .dt-modal-* so the player surface picks it up.
+function openSubmitFinalModal(container) {
+  // Render fresh markup each time so the action-spent counts reflect the
+  // current responses (per §Q9, ADVANCED + MINIMAL-filled shows zeros).
+  closeSubmitFinalModal();
+  const saved = responseDoc?.responses || {};
+  const totals = {
+    projectSlots:     DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4,
+    sphereSlots:      Math.min((detectedMerits.spheres || []).length, 5),
+    statusSlots:      Math.min((detectedMerits.status || []).length, 5),
+    contactSlots:     Math.min((detectedMerits.contacts || []).length, 5),
+    retainerSlots:    (detectedMerits.retainers || []).length,
+    acquisitionSlots: parseInt(saved.acq_slot_count || '1', 10) || 1,
+    sorcerySlots:     parseInt(saved.sorcery_slot_count || '0', 10) || 0,
+    equipmentSlots:   parseInt(saved.equipment_slot_count || '0', 10) || 0,
+  };
+  const summary = actionSpentSummary(saved, totals);
+  const lines = formatActionSpentSummary(summary);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'dt-modal-overlay';
+  overlay.id = 'dt-submit-final-overlay';
+  overlay.setAttribute('role', 'presentation');
+
+  const titleId = 'dt-submit-final-title';
+  let h = '';
+  h += `<div class="dt-modal" role="dialog" aria-modal="true" aria-labelledby="${titleId}">`;
+  h += `<h3 class="dt-modal-title" id="${titleId}">Submit Final</h3>`;
+  h += '<div class="dt-modal-body">';
+  h += '<p class="qf-section-intro">Use this when you are done editing. Your downtime will continue auto-saving until the cycle deadline; this just records the moment you stopped.</p>';
+
+  // Action-spent summary
+  h += '<h4 class="dt-modal-subhead">This cycle so far</h4>';
+  if (lines.length) {
+    h += '<ul class="dt-modal-summary-list">';
+    for (const line of lines) {
+      h += `<li>${esc(line)}</li>`;
+    }
+    h += '</ul>';
+  } else {
+    h += '<p class="qf-desc">No actions filled in yet.</p>';
+  }
+
+  // Optional rate-the-form widget — lifted from the removed Admin section
+  // (SUBMIT_FINAL_MODAL_QUESTIONS in downtime-data.js) so the existing
+  // star_rating + textarea widgets render via renderQuestion(), unchanged.
+  h += '<h4 class="dt-modal-subhead">Rate the form (optional)</h4>';
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    h += renderQuestion(q, saved[q.key] || '');
+  }
+  h += '</div>'; // dt-modal-body
+
+  // Actions
+  h += '<div class="dt-modal-actions">';
+  h += '<button type="button" class="qf-btn qf-btn-save" data-dt-final-cancel>Cancel</button>';
+  h += '<button type="button" class="qf-btn qf-btn-submit-final" data-dt-final-confirm>Submit Final</button>';
+  h += '</div>';
+
+  h += '</div>'; // dt-modal
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+
+  // Focus management: send focus to the dialog so screen readers announce it.
+  overlay.querySelector('.dt-modal')?.focus({ preventScroll: true });
+
+  // Escape closes the modal.
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSubmitFinalModal(); }
+  });
+}
+
+function closeSubmitFinalModal() {
+  const el = document.getElementById('dt-submit-final-overlay');
+  if (el) el.remove();
+}
+
+async function handleSubmitFinalConfirm(container) {
+  // Collect the rating widget values from the modal so they round-trip on
+  // the next save. Star rating writes to a hidden input; textarea writes
+  // straight to its DOM node. We seed them onto responseDoc so collectResponses
+  // (which iterates over rendered form fields, not the modal) keeps the values.
+  if (!responseDoc) responseDoc = { responses: {} };
+  if (!responseDoc.responses) responseDoc.responses = {};
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    const el = document.getElementById('dt-' + q.key);
+    if (el) responseDoc.responses[q.key] = el.value;
+  }
+  responseDoc.responses._final_submitted_at = new Date().toISOString();
+  closeSubmitFinalModal();
+  // Re-render the form so the button label flips to "Update Final Submission",
+  // then save so the new field reaches the server. Save handles the toast
+  // status banner via the auto-mirror lifecycle.
+  renderForm(container);
+  scheduleSave();
+  const statusEl = document.getElementById('dt-save-status');
+  if (statusEl) {
+    statusEl.textContent = 'Final submission recorded; keep editing until the deadline.';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
@@ -1955,6 +2060,16 @@ function renderForm(container) {
   h += '<div class="qf-actions">';
   h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
   h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
+  // dt-form.31 (ADR-003 §Q5): ADVANCED-only Submit Final affordance. Opens
+  // the modal; the modal sets responses._final_submitted_at on confirm.
+  // Per §Q9 the button is mode-conditional, not state-conditional — an
+  // ADVANCED player who only filled MINIMAL still sees it (the modal
+  // shows zeros in that case).
+  if (mode === 'advanced') {
+    const finalAt = saved._final_submitted_at;
+    const finalLabel = finalAt ? 'Update Final Submission' : 'Submit Final';
+    h += `<button type="button" class="qf-btn qf-btn-submit-final" id="dt-btn-submit-final">${esc(finalLabel)}</button>`;
+  }
   h += '</div>';
 
   // Capture expanded sections before re-render
@@ -2004,6 +2119,30 @@ function renderForm(container) {
       else responseDoc = { responses: cur };
       renderForm(container);
       scheduleSave();
+      return;
+    }
+    // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
+    if (e.target.closest('#dt-btn-submit-final')) {
+      e.preventDefault();
+      openSubmitFinalModal(container);
+      return;
+    }
+    // dt-form.31: Submit Final modal action delegations.
+    const modalConfirm = e.target.closest('[data-dt-final-confirm]');
+    if (modalConfirm) {
+      e.preventDefault();
+      handleSubmitFinalConfirm(container);
+      return;
+    }
+    const modalCancel = e.target.closest('[data-dt-final-cancel]');
+    if (modalCancel) {
+      e.preventDefault();
+      closeSubmitFinalModal();
+      return;
+    }
+    // Click on the overlay (outside the modal box) dismisses the modal.
+    if (e.target.classList?.contains('dt-modal-overlay')) {
+      closeSubmitFinalModal();
       return;
     }
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
