@@ -5,7 +5,7 @@ issue: 117
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/117
 branch: morningstar-issue-117-sorcery-targets-stringify
 epic: epic-dt-form-mvp-redesign
-status: review
+status: done
 priority: high
 depends_on: ['dt-form.34']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md
@@ -157,7 +157,7 @@ if (Array.isArray(rawTargets)) {
 - [x] Smoke test 1: save with sorcery target succeeds (no schema validation error)
 - [x] Smoke test 2: target picker repopulates correctly after hard refresh
 - [x] Smoke test 3: non-sorcery character form save unaffected (regression check)
-- [ ] PR opened into `dev`
+- [x] PR opened into `dev`
 
 ## Dev Agent Record
 
@@ -187,3 +187,4 @@ All 5 E2E tests pass. Collect-side tests confirm the POST body contains a JSON s
 |---|---|---|
 | 2026-05-07 | James (story) | Story created from GH #117. Root cause identified: DTFP-6 structured target array never JSON.stringify'd; render path also mishandles round-tripped JSON string. Status → ready. |
 | 2026-05-07 | James (dev) | Implemented both fixes; wrote 5 E2E tests; all pass. Status → review. |
+| 2026-05-07 | Angelus (smoke) | Smoke tested on terramortis-dev.netlify.app. Cyrus submission succeeded with sorcery target filled in — no schema validation error. Rite repopulated correctly after hard refresh. Status → done. |
