@@ -36,17 +36,22 @@ function _hasAnyGameRecount(responses) {
 }
 
 function _hasPersonalStory(responses) {
-  // Per ADR §Q2 / story #18 simplification: a target ("who") + a note ("what
-  // moment"). The current renderer (renderPersonalStorySection) persists
-  // personal_story_npc_name + personal_story_note. Legacy fallbacks accept
-  // `correspondence` as the moment text.
-  const hasWho = isNonEmptyString(responses.personal_story_npc_name)
-              || isNonEmptyString(responses.personal_story_npc_id);
-  const hasWhat = isNonEmptyString(responses.personal_story_note)
-               || isNonEmptyString(responses.story_moment_note)
-               || isNonEmptyString(responses.osl_moment)
-               || isNonEmptyString(responses.correspondence);
-  return hasWho && hasWhat;
+  // dt-form.18 (HALT-DAR-A option 2 — lenient): both shapes pass.
+  //   - New canonical (post-#18): `personal_story_kind` (touchstone |
+  //     correspondence) + `personal_story_text`.
+  //   - Legacy ADVANCED: free-text NPC name/id + interaction note. Pre-
+  //     redesign drafts pass without re-engaging the new binary UI.
+  // ADR §Q1 makes ADVANCED a superset of MINIMAL. Either shape is a valid
+  // signal that the player has filled in their Personal Story for the cycle.
+  const hasMinimalKind = isNonEmptyString(responses.personal_story_kind);
+  const hasMinimalText = isNonEmptyString(responses.personal_story_text);
+  const hasLegacyWho   = isNonEmptyString(responses.personal_story_npc_name)
+                      || isNonEmptyString(responses.personal_story_npc_id);
+  const hasLegacyWhat  = isNonEmptyString(responses.personal_story_note)
+                      || isNonEmptyString(responses.story_moment_note)
+                      || isNonEmptyString(responses.osl_moment)
+                      || isNonEmptyString(responses.correspondence);
+  return (hasMinimalKind && hasMinimalText) || (hasLegacyWho && hasLegacyWhat);
 }
 
 function _hasFeedingTerritory(responses) {
@@ -117,7 +122,7 @@ export function missingMinimumPieces(responses, ctx = {}) {
   const out = [];
   if (!responses || typeof responses !== 'object') {
     out.push({ section: 'court', label: 'Fill in your game recount' });
-    out.push({ section: 'personal_story', label: 'Name a Personal Story moment' });
+    out.push({ section: 'personal_story', label: 'Personal Story: pick Touchstone or Correspondence and describe it' });
     out.push({ section: 'feeding', label: 'Pick a feeding territory, method, blood type, and Kiss/Violent toggle' });
     out.push({ section: 'projects', label: 'Pick an action for Project 1' });
     return out;
@@ -128,7 +133,7 @@ export function missingMinimumPieces(responses, ctx = {}) {
     out.push({ section: 'court', label: 'Game Recount: add at least one highlight from last session' });
   }
   if (!_hasPersonalStory(responses)) {
-    out.push({ section: 'personal_story', label: 'Personal Story: name an NPC and describe the moment you want' });
+    out.push({ section: 'personal_story', label: 'Personal Story: pick Touchstone or Correspondence and describe it' });
   }
   if (!_hasFeedingTerritory(responses)) {
     out.push({ section: 'feeding', label: 'Feeding: pick a territory to hunt in' });

@@ -473,14 +473,20 @@ function collectResponses() {
   }
 
   // Personal story fields (legacy keys kept for back-compat with ST admin views)
-  const psNpcId   = document.getElementById('dt-personal_story_npc_id');
-  const psNpcName = document.getElementById('dt-personal_story_npc_name');
-  const psNote    = document.getElementById('dt-personal_story_note');
-  // NPCR.12 r3: personal_story_direction retired (Story direction radios
-  // removed). Existing legacy submissions still carry the field.
-  responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
-  responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
-  responses['personal_story_note']     = psNote    ? psNote.value    : '';
+  // dt-form.18 (option Y locked 2026-05-06): Personal Story collapsed to
+  // Touchstone-or-Correspondence binary plus an optional free-text NPC
+  // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
+  // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
+  // (the new `_text` replaces the note; the rich-UI direction radios are
+  // gone). Pre-redesign drafts retain the old keys via the spread base, so
+  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
+  // keeps recognising them.
+  const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
+  const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
+  const psTextEl = document.getElementById('dt-personal_story_text');
+  if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
+  if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
+  if (psTextEl) responses['personal_story_text'] = psTextEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -2144,7 +2150,7 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // ── Personal Story — NPC interaction ──
+  // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
 
   // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
@@ -2277,6 +2283,18 @@ function renderForm(container) {
       const next = modePill.dataset.dtMode === 'advanced' ? 'advanced' : 'minimal';
       const cur = collectResponses();
       cur._mode = next;
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.18: Personal Story kind radio — re-render so the textarea
+    // label and placeholder reflect the chosen kind (touchstone vs
+    // correspondence). The radio's `value` is set by the browser before
+    // this handler fires, so collectResponses captures it.
+    if (e.target.matches('[data-personal-story-kind]')) {
+      const cur = collectResponses();
       if (responseDoc) responseDoc.responses = cur;
       else responseDoc = { responses: cur };
       renderForm(container);
@@ -4404,30 +4422,57 @@ function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  const savedName = saved['personal_story_npc_name'] || '';
-  const savedNote = saved['personal_story_note']
-                  || saved['story_moment_note']
-                  || saved['osl_moment']
-                  || saved['correspondence']
-                  || '';
+  // dt-form.18 (ADR-003 §Q2, option Y locked 2026-05-06): single binary
+  // render in BOTH modes — pick Touchstone or Correspondence, optionally
+  // name a person involved (free-text only, NOT a DB-backed picker), then
+  // describe the beat in one textarea. The legacy NPC card picker (DB-
+  // relational, suppressed under the broader NPC-interaction policy) is
+  // removed; the free-text NPC name input is RETAINED because a typed
+  // string is categorically different from an "NPC interaction." Legacy
+  // `personal_story_note` / `_npc_id` / `_direction` fields remain in
+  // `responses` on existing drafts (silent-leave per the no-real-
+  // submissions migration window) but no UI emits them anymore.
+  const savedKind = saved['personal_story_kind'] === 'correspondence'
+    ? 'correspondence'
+    : (saved['personal_story_kind'] === 'touchstone' ? 'touchstone' : '');
+  const savedText = saved['personal_story_text'] || '';
+  const savedNpcName = saved['personal_story_npc_name'] || '';
+  const placeholder = savedKind === 'correspondence'
+    ? 'Describe the correspondence — to whom, about what, what tone you want it to strike.'
+    : savedKind === 'touchstone'
+      ? 'Describe the touchstone moment — a scene with someone or something that anchors your humanity this cycle.'
+      : 'Pick Touchstone or Correspondence above to focus your description.';
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\'re hoping for.</p>';
-
-  // Hidden sync fields consumed by collectResponses() at submit time.
-  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? '__new__' : '')}">`;
-  h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
+  h += '<p class="qf-section-intro">Pick one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen.</p>';
 
   h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
+  h += '<div class="qf-radio-group" role="radiogroup" aria-label="Personal Story kind">';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="touchstone"${savedKind === 'touchstone' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Touchstone moment</span>';
+  h += '</label>';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="correspondence"${savedKind === 'correspondence' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Correspondence</span>';
+  h += '</label>';
+  h += '</div>';
+  h += '</div>';
+
+  // Optional free-text NPC name. Typed string only — no picker, no DB
+  // lookup. Does not affect isMinimalComplete's gate; metadata only.
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-personal_story_npc_name">Person involved (optional)</label>';
+  h += `<input type="text" id="dt-personal_story_npc_name" class="qf-input" value="${esc(savedNpcName)}" placeholder="Optional — name a person you want involved">`;
   h += '</div>';
 
   h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">How do you want to interact with them?</label>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you're hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += '<label class="qf-label" for="dt-personal_story_text">';
+  h += savedKind === 'correspondence' ? 'Describe the correspondence' : 'Describe the touchstone moment';
+  h += '</label>';
+  h += `<textarea id="dt-personal_story_text" class="qf-textarea" rows="4" placeholder="${esc(placeholder)}">${esc(savedText)}</textarea>`;
   h += '</div>';
 
   h += '</div></div>';
