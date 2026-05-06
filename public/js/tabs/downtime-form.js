@@ -5488,7 +5488,8 @@ function getAlliesAmbienceEligible(m) {
 function renderAlliesGrowXp(n, prefix, m, saved) {
   const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
-  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+  const baseName = m.name || 'Merit';
+  const meritName = m.area ? `${baseName} (${m.area})` : (m.qualifier ? `${baseName} (${m.qualifier})` : baseName);
 
   let h = '<div class="qf-field">';
   h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
@@ -5708,6 +5709,12 @@ function renderMeritToggles(saved) {
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
+  // Status-scoped list: only Status influence merits and standing merits (MCI etc.)
+  // Used in renderSphereFields for Status tabs to prevent Allies/Contacts bleeding into
+  // the hide_protect "What are you protecting?" dropdown.
+  const statusMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'standing' || (m.category === 'influence' && m.name === 'Status')
+  );
 
   if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
 
@@ -5840,15 +5847,17 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
-      // Legacy actionVals map to 'ambience_change' for the dropdown
-      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
-      for (const opt of SPHERE_ACTIONS) {
+      // ambience_change is an Allies/sphere-only action; exclude from Status dropdown.
+      // Legacy ambience_increase/decrease values in saved data are cleared gracefully
+      // (no matching option → falls back to blank/"No Action").
+      const stDropdownVal = actionVal;
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'ambience_change')) {
         const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
 
-      h += renderSphereFields(n, 'status', fields, saved, charMerits);
+      h += renderSphereFields(n, 'status', fields, saved, statusMerits, m);
 
       h += '</div>';
     }
