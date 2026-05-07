@@ -7,23 +7,101 @@ import { INFLUENCE_SPHERES } from '../data/constants.js';
 import state from '../data/state.js';
 
 /* ══════════════════════════════════════════════════════
+   Multi-instance domain type sets
+   ══════════════════════════════════════════════════════ */
+
+/** Safe Place and Feeding Grounds can have multiple instances per character (distinguished by qualifier). */
+const MULTI_INSTANCE_DOMAIN = new Set(['Safe Place', 'Feeding Grounds']);
+
+/** Haven and Mandragora Garden are capped at their attached Safe Place's effective rating. */
+const CAP_DOMAIN = new Set(['Haven', 'Mandragora Garden']);
+
+/**
+ * Canonical domain merit key: "Name" or "Name (qualifier)".
+ * Used for attached_to lookup and partner-sharing keyed by (name, qualifier).
+ */
+export function domKey(m) {
+  return m.name + (m.qualifier ? ' (' + m.qualifier + ')' : '');
+}
+
+/* ══════════════════════════════════════════════════════
    Domain merit contribution helpers
    ══════════════════════════════════════════════════════ */
 
 /**
+ * Contribution of a single merit instance (all sources: CP + free_* + XP).
+ * Operates on the merit object directly — no name lookup.
+ * Exported so export-character.js can use it per-instance.
+ */
+export function domMeritContribSingle(c, m) {
+  if (!m) return 0;
+  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  return purchased
+    + (m.name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0)
+    + (m.free_fwb || 0) + (m.free_attache || 0);
+}
+
+/** Partner-shareable dots for a specific merit instance (cp + free + xp, no auto-bonuses). */
+function domMeritShareableSingle(m) {
+  if (!m) return 0;
+  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+}
+
+/**
+ * Effective total for one specific domain merit instance (own + partner dots for that instance).
+ * Internal helper for cap calculation and per-instance rendering.
+ * Capped at 5 (no Flock exception — Flock only applies to Herd via domMeritTotal).
+ */
+function domMeritTotalSingle(c, m) {
+  const own = domMeritContribSingle(c, m);
+  const partners = m.shared_with || [];
+  const key = domKey(m);
+  let partnerTotal = 0;
+  for (const pName of partners) {
+    const p = (state.chars || []).find(ch => ch.name === pName);
+    if (p) {
+      const pm = (p.merits || []).find(pm2 =>
+        pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
+      );
+      if (pm) partnerTotal += domMeritShareableSingle(pm);
+    }
+  }
+  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+    partnerTotal = m._partner_dots;
+  }
+  return Math.min(5, own + partnerTotal);
+}
+
+/**
+ * Cap for Haven / Mandragora Garden: effective rating of the attached Safe Place instance.
+ * Returns 0 if no attached_to set or Safe Place not found.
+ */
+function _havenCap(c, m) {
+  if (!m.attached_to) return 0;
+  const sp = (c.merits || []).find(sp2 =>
+    sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === m.attached_to
+  );
+  if (!sp) return 0;
+  return domMeritTotalSingle(c, sp);
+}
+
+/**
  * This character's own contribution to a named domain merit (all sources: CP + free + XP).
+ * For multi-instance types (Safe Place, Feeding Grounds), sums all instances.
+ * For singleton types (Herd, Haven, Mandragora Garden), returns the single instance.
  * @param {object} c - character object
  * @param {string} name - merit name (e.g. "Safe Place")
  * @returns {number}
  */
 export function domMeritContrib(c, name) {
+  if (MULTI_INSTANCE_DOMAIN.has(name)) {
+    return (c.merits || [])
+      .filter(m => m.category === 'domain' && m.name === name)
+      .reduce((s, m) => s + domMeritContribSingle(c, m), 0);
+  }
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
-  const realIdx = (c.merits || []).indexOf(m);
-  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
-  // Auto-bonus contributions (free_fwb, free_attache, future free_ssj/free_flock
-  // once migrated) sit OUTSIDE purchased so the renderer can show them as hollow dots.
-  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0) + (m.free_fwb || 0) + (m.free_attache || 0);
+  return domMeritContribSingle(c, m);
 }
 
 /** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked inline). */
@@ -42,28 +120,40 @@ export function flockHerdBonus(c) {
 /**
  * Full dots contributed by a partner to a shared pool (CP + free + XP).
  * Free dots (e.g. MCI grants) represent real physical resources, so partners share them too.
+ * For multi-instance types, sums all instances this character contributes.
  * @param {object} c - character object
  * @param {string} name - merit name
  * @returns {number}
  */
 export function domMeritShareable(c, name) {
+  if (MULTI_INSTANCE_DOMAIN.has(name)) {
+    return (c.merits || [])
+      .filter(m => m.category === 'domain' && m.name === name)
+      .reduce((s, m) => s + domMeritShareableSingle(m), 0);
+  }
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
-  const realIdx = (c.merits || []).indexOf(m);
-  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  return domMeritShareableSingle(m);
 }
 
 /**
  * Effective total = this char's full dots + partners' CP+XP only, capped at 5.
+ * For multi-instance types (Safe Place, Feeding Grounds), sums all instances.
+ * For singleton types (Herd), applies Flock cap override.
  * Looks up partner characters from the shared chars array via loader.
  * @param {object} c - character object
  * @param {string} name - merit name
  * @returns {number}
  */
 export function domMeritTotal(c, name) {
+  if (MULTI_INSTANCE_DOMAIN.has(name)) {
+    return (c.merits || [])
+      .filter(m => m.category === 'domain' && m.name === name)
+      .reduce((s, m) => s + domMeritTotalSingle(c, m), 0);
+  }
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
-  const own = domMeritContrib(c, name);
+  const own = domMeritContribSingle(c, m);
   const partners = m.shared_with || [];
   let partnerTotal = 0;
   for (const pName of partners) {
@@ -132,11 +222,24 @@ export function pruneContactsSpheres(m) {
  * Effective merit rating: sum of every dot channel + dynamic bonuses.
  * Use this everywhere a calc references a merit's effective dots.
  * Do NOT read m.rating directly — it is unreliable post-import and post-edit.
+ *
+ * For Haven / Mandragora Garden: capped at attached Safe Place's effective rating.
+ * For Safe Place / Feeding Grounds: per-instance total (own + partner for this instance).
+ * For Herd: includes SSJ + Flock bonuses.
  */
 export function meritEffectiveRating(c, m) {
   if (!c || !m) return 0;
-  if (m.category === 'domain' && (m.shared_with || []).length > 0) {
-    return domMeritTotal(c, m.name);
+  if (m.category === 'domain') {
+    if (CAP_DOMAIN.has(m.name)) {
+      const stored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+      return Math.min(stored, _havenCap(c, m));
+    }
+    if (MULTI_INSTANCE_DOMAIN.has(m.name)) {
+      return domMeritTotalSingle(c, m);
+    }
+    if ((m.shared_with || []).length > 0) {
+      return domMeritTotal(c, m.name);
+    }
   }
   const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0)
     + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)

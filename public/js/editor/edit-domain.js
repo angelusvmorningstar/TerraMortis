@@ -5,7 +5,7 @@ import { meritByCategory, addMerit, removeMerit } from './merits.js';
 import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
-import { pruneContactsSpheres } from './domain.js';
+import { pruneContactsSpheres, domKey } from './domain.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -294,11 +294,29 @@ export function shEditMCITierQual(standIdx, tier, qualifier) {
 export function shEditDomMerit(idx, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  const { merit: m } = meritByCategory(c, 'domain', idx);
+  const { merit: m, realIdx } = meritByCategory(c, 'domain', idx);
   if (!m) return;
-  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); }
+  // Clear any prior qualifier error on each edit
+  delete c._domQualError;
+  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); delete m.qualifier; delete m.attached_to; }
   else if (field === 'rating') m.rating = Math.max(1, Math.min(5, parseInt(val) || 1));
-  else if (field === 'qualifier') { if (val) m.qualifier = val; else delete m.qualifier; }
+  else if (field === 'qualifier') {
+    if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
+      const dupExists = (c.merits || []).some((other, i2) =>
+        i2 !== realIdx &&
+        other.category === 'domain' &&
+        other.name === m.name &&
+        (other.qualifier || '').toLowerCase() === (val || '').toLowerCase()
+      );
+      if (dupExists) {
+        c._domQualError = 'A ' + m.name + ' with this descriptor already exists.';
+        _renderSheet(c);
+        return;
+      }
+    }
+    if (val) m.qualifier = val; else delete m.qualifier;
+  }
+  else if (field === 'attached_to') { if (val) m.attached_to = val; else delete m.attached_to; }
   _markDirty();
   _renderSheet(c);
 }
@@ -306,16 +324,27 @@ export function shEditDomMerit(idx, field, val) {
 export function shRemoveDomMerit(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  const { realIdx } = meritByCategory(c, 'domain', idx);
-  if (realIdx >= 0) removeMerit(c, realIdx);
+  const { realIdx, merit: removed } = meritByCategory(c, 'domain', idx);
+  if (realIdx >= 0) {
+    // Auto-detach any Haven / Mandragora Garden that reference this Safe Place.
+    if (removed && removed.name === 'Safe Place') {
+      const key = domKey(removed);
+      (c.merits || []).forEach(m2 => {
+        if (['Haven', 'Mandragora Garden'].includes(m2.name) && m2.attached_to === key) {
+          delete m2.attached_to;
+        }
+      });
+    }
+    removeMerit(c, realIdx);
+  }
   _markDirty();
   _renderSheet(c);
 }
 
-export function shAddDomMerit() {
+export function shAddDomMerit(name = 'Safe Place') {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  addMerit(c, { category: 'domain', name: 'Safe Place', rating: 0 });
+  addMerit(c, { category: 'domain', name, rating: 0 });
   _markDirty();
   _renderSheet(c);
 }
@@ -331,30 +360,37 @@ export function shAddDomainPartner(domIdx, partnerName) {
   const { merit: m } = meritByCategory(c, 'domain', domIdx);
   if (!m) return;
   const meritName = m.name;
+  const meritQualifier = m.qualifier || undefined;
+  const meritKey = domKey(m);
   if (!m.shared_with) m.shared_with = [];
   if (m.shared_with.includes(partnerName)) return; // already linked
 
   // The full new group = current char + existing partners + new partner
   const fullGroup = [c.name, ...(m.shared_with || []), partnerName];
 
-  // Update all existing group members to include new partner
+  // Update all existing group members to include new partner (keyed by name + qualifier)
   for (const memberName of [c.name, ...(m.shared_with || [])]) {
     const member = state.chars.find(ch => ch.name === memberName);
     if (!member) continue;
-    const mm = (member.merits || []).find(x => x.category === 'domain' && x.name === meritName);
+    const mm = (member.merits || []).find(x =>
+      x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
+    );
     if (mm) {
       mm.shared_with = fullGroup.filter(n => n !== memberName);
       if (memberName !== c.name) _markPartnerDirty(member);
     }
   }
 
-  // Ensure the new partner has this domain merit (add at 0 if missing)
+  // Ensure the new partner has this domain merit (add at 0 if missing, with same qualifier)
   const partner = state.chars.find(ch => ch.name === partnerName);
   if (partner) {
-    let pm = (partner.merits || []).find(x => x.category === 'domain' && x.name === meritName);
+    let pm = (partner.merits || []).find(x =>
+      x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
+    );
     if (!pm) {
-      pm = { category: 'domain', name: meritName, rating: 0, shared_with: fullGroup.filter(n => n !== partnerName) };
-      addMerit(partner, pm);
+      const newEntry = { category: 'domain', name: meritName, rating: 0, shared_with: fullGroup.filter(n => n !== partnerName) };
+      if (meritQualifier) newEntry.qualifier = meritQualifier;
+      addMerit(partner, newEntry);
     } else {
       pm.shared_with = fullGroup.filter(n => n !== partnerName);
     }
@@ -371,13 +407,16 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
   const { merit: m } = meritByCategory(c, 'domain', domIdx);
   if (!m) return;
   const meritName = m.name;
+  const meritQualifier = m.qualifier || undefined;
 
-  // Remove partnerName from all remaining group members' shared_with
+  // Remove partnerName from all remaining group members' shared_with (keyed by name + qualifier)
   const remainingGroup = [c.name, ...(m.shared_with || [])].filter(n => n !== partnerName);
   for (const memberName of remainingGroup) {
     const member = state.chars.find(ch => ch.name === memberName);
     if (!member) continue;
-    const mm = (member.merits || []).find(x => x.category === 'domain' && x.name === meritName);
+    const mm = (member.merits || []).find(x =>
+      x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
+    );
     if (mm) {
       mm.shared_with = remainingGroup.filter(n => n !== memberName);
       if (memberName !== c.name) _markPartnerDirty(member);
@@ -387,7 +426,9 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
   // On the partner: remove this char from their shared_with
   const partner = state.chars.find(ch => ch.name === partnerName);
   if (partner) {
-    const pm = (partner.merits || []).find(x => x.category === 'domain' && x.name === meritName);
+    const pm = (partner.merits || []).find(x =>
+      x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
+    );
     if (pm) {
       pm.shared_with = (pm.shared_with || []).filter(n => n !== c.name && n !== partnerName);
       // If partner has 0 contribution and no remaining partners, remove the merit

@@ -328,8 +328,16 @@ function getInfluenceBudget() {
 }
 
 /**
-/** Convenience: effective rating for a domain merit by name (looks up the instance). */
+/** Convenience: effective rating for a domain merit by name.
+ *  SP/FG are multi-instance — sums all instances.
+ *  Haven/MG delegate to meritEffectiveRating which applies the SP cap.
+ */
 function effectiveDomainDots(c, name) {
+  if (name === 'Safe Place' || name === 'Feeding Grounds') {
+    return (c.merits || [])
+      .filter(merit => merit.category === 'domain' && merit.name === name)
+      .reduce((s, m) => s + meritEffectiveRating(c, m), 0);
+  }
   const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
   return meritEffectiveRating(c, m);
 }

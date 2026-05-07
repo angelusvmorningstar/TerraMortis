@@ -414,6 +414,18 @@ html:not([data-theme="dark"]) .edit-icon {
 .dom-shared-lbl{}
 .dom-total-view{font-family:var(--ft);font-size:13px;color:var(--accent);font-weight:600;}
 .dom-own-view{font-family:var(--ft);font-size:9px;color:var(--txt3);}
+.dom-qual-row{display:flex;align-items:center;gap:6px;padding:2px 8px 0;}
+.dom-qual-lbl{font-size:10px;font-family:var(--ft);color:var(--txt3);white-space:nowrap;}
+.dom-qual-input{flex:1;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:3px 5px;outline:none;}
+.dom-qual-input:focus{border-color:var(--gold);}
+.dom-qual-hint{font-size:9px;color:var(--txt3);font-style:italic;}
+.dom-qual-error{font-size:10px;color:var(--err);padding:1px 8px 2px;font-family:var(--ft);}
+.dom-attach-row{display:flex;align-items:center;gap:6px;padding:2px 8px 0;}
+.dom-attach-lbl{font-size:10px;font-family:var(--ft);color:var(--txt3);white-space:nowrap;}
+.dom-attach-sel{flex:1;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:2px 4px;outline:none;}
+.dom-attach-sel:focus{border-color:var(--gold);}
+.dom-cap-warn{font-size:10px;color:var(--warn-dk);font-family:var(--ft);padding:1px 8px 2px;}
+.dom-cap-info{font-size:9px;color:var(--txt3);padding:0 8px 2px;}
 
 /* ── Devotion add/remove ── */
 .dev-add-row{display:flex;gap:6px;align-items:center;margin-top:6px;}

@@ -12,7 +12,7 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 import { shEnsureTouchstoneData } from './edit.js';
 import { powersForDisc } from '../suite/sheet-helpers.js';
@@ -959,31 +959,79 @@ export function shRenderDomainMerits(c, editMode) {
       const _totalSolid = Math.min(eT, _dPurch);
       const _totalHollow = Math.max(0, eT - _totalSolid);
       const _totalDots = shDotsMixed(_totalSolid, _totalHollow);
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // Cap-aware dot display for Haven / Mandragora Garden
+      const _isCapped = ['Haven', 'Mandragora Garden'].includes(m.name);
+      const _capEff = _isCapped ? meritEffectiveRating(c, m) : null;
+      const _capStored = _isCapped ? ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) : null;
+      const _capTotalDots = _isCapped ? shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))) : _totalDots;
+      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // Qualifier input for Safe Place / Feeding Grounds
+      if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
+        const _qErr = c._domQualError && !m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : (c._domQualError && m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : '');
+        h += '<div class="dom-qual-row"><input type="text" class="dom-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Descriptor (e.g. Penthouse, Brothels)" onchange="shEditDomMerit(' + di + ',\'qualifier\',this.value.trim())">' + _qErr + '</div>';
+        if (!m.qualifier) h += '<div class="dom-qual-hint">Add a descriptor to support multiple instances of this merit</div>';
+      }
+      // Attached-to selector for Haven / Mandragora Garden
+      if (_isCapped) {
+        const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
+        const _spOpts = ['<option value="">(select Safe Place)</option>']
+          .concat(_spInstances.map(sp => { const k = domKey(sp); return '<option value="' + esc(k) + '"' + (m.attached_to === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
+          .join('');
+        h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
+        if (!m.attached_to || _spInstances.length === 0) {
+          h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
+        } else if (_capStored > _capEff) {
+          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
+        }
+      }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
-      if (!['Herd', 'Feeding Grounds'].includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (!['Herd', 'Feeding Grounds'].includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Haven and Mandragora Garden excluded from partner sharing (sharing is at the Safe Place level)
+      const _noShare = ['Herd', 'Feeding Grounds', 'Haven', 'Mandragora Garden'];
+      if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0, dPurch = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? _dRaw : Math.min(5, _dRaw);
-      const dotHtml = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
+      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null;
+      // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
+      const de = meritEffectiveRating(c, m);
+      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
+      const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+      const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
+      // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
+      let dotHtml;
+      if (_isCappedView) {
+        const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
+        dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
+      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) {
+        const dPurch = _dRaw;
+        dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch));
+      } else {
+        dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
+      }
       // Shared display: own dots filled + partner contribution hollow.
-      // Solid = purchased only (cp + xp); hollow = bonuses (free_attache,
-      // free_mci, free_fwb, etc.) + partner contributions. Using
-      // domMeritContrib (dO) marked free_* bonus dots as solid because they
-      // belong to "own" by source, but visually they should be hollow.
       const _shPurch = (m.cp || 0) + (m.xp || 0);
       const _shOwn = Math.min(de, _shPurch);
       const _shPart = Math.max(0, de - _shOwn);
       const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
-      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div></div>';
+      // Display name includes qualifier when present
+      const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
+      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      if (_isCappedView) {
+        if (!m.attached_to) {
+          h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
+        } else {
+          if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
+          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(m.attached_to) + '</span></div>';
+        }
+      }
+      h += '</div>';
     });
   }
   h += '</div></div>'; return h;
