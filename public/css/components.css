@@ -3516,6 +3516,29 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   padding: 6px 10px;
   white-space: nowrap;
 }
+.dt-xp-row-remove {
+  background: none;
+  border: 1px solid var(--crim);
+  color: var(--crim);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dt-xp-row-remove:hover { background: rgba(139,0,0,.08); }
+.dt-xp-row-add {
+  background: none;
+  border: none;
+  color: var(--txt2);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 2px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dt-xp-row-add:hover { color: var(--gold2); }
 
 /* ── Blood Sorcery slots ── */
 .dt-sorcery-slot {
