@@ -5661,6 +5661,7 @@ function renderQuestion(q, value) {
           h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
         }
         h += '</div>';
+        h += '<p class="qf-desc dt-feed-min-pool__advanced-hint">Want to customise your pool? Switch to <strong>Advanced</strong> mode at the top of the form.</p>';
       } else {
         // ── Unified pool builder (DTFP-4: always visible, method optional) ──
         h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
