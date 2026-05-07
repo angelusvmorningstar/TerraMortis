@@ -17,7 +17,7 @@ import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEED
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
@@ -6896,10 +6896,12 @@ function renderQuestion(q, value) {
       }
       const remaining = budget - totalSpent;
 
+      const infBreakdown = influenceBreakdown(currentChar);
+      const infTitle = infBreakdown.length ? infBreakdown.join('\n') : 'No influence sources';
       h += `<div class="dt-influence-grid" id="dt-${q.key}">`;
       h += `<div class="dt-influence-budget" id="dt-influence-budget">`;
       h += `<span class="dt-influence-remaining${remaining < 0 ? ' dt-influence-over' : ''}">${remaining}</span>`;
-      h += ` / ${budget} Influence remaining`;
+      h += ` / <span class="dt-influence-budget-label" title="${esc(infTitle)}">${budget} Influence remaining</span>`;
       h += '</div>';
 
       for (const terr of INFLUENCE_TERRITORIES) {
