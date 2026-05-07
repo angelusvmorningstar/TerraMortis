@@ -870,17 +870,19 @@ function collectResponses() {
       : '',
   ].filter(Boolean).join('\n');
 
-  // Collect equipment slots
-  const equipCountEl = document.getElementById('dt-equipment-slot-count');
-  const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
-  responses['equipment_slot_count'] = String(equipSlotCount);
-  for (let n = 1; n <= equipSlotCount; n++) {
-    const nameEl = document.getElementById(`dt-equipment_${n}_name`);
-    const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
-    const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
-    responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
-    responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
-    responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+  // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread)
+  if (!DOWNTIME_SECTIONS.find(s => s.key === 'equipment')?.hidden) {
+    const equipCountEl = document.getElementById('dt-equipment-slot-count');
+    const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
+    responses['equipment_slot_count'] = String(equipSlotCount);
+    for (let n = 1; n <= equipSlotCount; n++) {
+      const nameEl = document.getElementById(`dt-equipment_${n}_name`);
+      const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
+      const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
+      responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
+      responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
+      responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+    }
   }
 
   } // end if (!_isMinimal) — ADVANCED-only collection
@@ -4334,7 +4336,7 @@ function renderAcquisitionsSection(saved) {
 
 function renderEquipmentSection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'equipment');
-  if (!section) return '';
+  if (!section || section.hidden) return '';  // dt-form.30: hidden for this cycle
 
   const savedCount = parseInt(saved['equipment_slot_count'] || '1', 10);
   const slotCount = Math.max(1, savedCount);
