@@ -1296,6 +1296,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     feedCustomAttr = responseDoc.responses['_feed_custom_attr'] || '';
     feedCustomSkill = responseDoc.responses['_feed_custom_skill'] || '';
     feedCustomDisc = responseDoc.responses['_feed_custom_disc'] || '';
+    // fix.48: sync violence default so the render-path completeness check
+    // (isMinimalComplete(saved, ctx) line 1719) agrees with the visual pre-select.
+    // Only backfills when feed_violence is absent and the method has a default;
+    // stalking/other have null defaults and are intentionally left for explicit pick.
+    if (!responseDoc.responses.feed_violence && feedMethodId && FEED_VIOLENCE_DEFAULTS[feedMethodId]) {
+      responseDoc.responses.feed_violence = FEED_VIOLENCE_DEFAULTS[feedMethodId];
+    }
   } else {
     feedMethodId = ''; feedDiscName = ''; feedSpecName = ''; feedCustomAttr = ''; feedCustomSkill = ''; feedCustomDisc = '';
   }
