@@ -40,12 +40,12 @@ The current regency tab UI may have its own affordances; this story scopes the D
 **Then** the regency section appears with a confirmation UI: "I am acting as regent of [Territory] for this cycle" with a positive affirmation control (button or checkbox).
 
 **Given** the regent confirms
-**When** the form auto-saves
-**Then** `responses.regency_confirmed === true` (or equivalent persisted value); `isMinimalComplete()` for regents passes its regency rule.
+**When** the button is clicked
+**Then** the DT-form POSTs to the existing `cycle.regent_confirmations` append-only endpoint with `{territory_id, regent_char_id, rights: territory.feeding_rights}`. `_isRegencyConfirmedThisCycle()` returns true (via the existing predicate); `isMinimalComplete()` for regents passes its regency rule.
 
-**Given** the regent declines
-**When** the form auto-saves
-**Then** `responses.regency_confirmed === false`; `isMinimalComplete()` for regents fails its regency rule until they affirm or stop being a regent.
+**Given** the regent has not confirmed (no entry in `cycle.regent_confirmations`)
+**When** the form renders / auto-saves
+**Then** the gate fails (predicate returns false on absence). `isMinimalComplete()` for regents fails its regency rule until they confirm. Per HALT-DAR resolution: explicit "decline" is reinterpreted as "absence of entry" — append-only API has no decline affordance and that's acceptable for MVP.
 
 **Given** a non-regent character
 **When** the form renders
@@ -57,7 +57,15 @@ The current regency tab UI may have its own affordances; this story scopes the D
 
 ## Implementation Notes
 
-`is_regent` detection at `:1337` is already in place. The new UI is the confirmation interaction layered on that detection. Persistence under `responses.regency_*` keys.
+**Persistence shape (locked 2026-05-07 by Piatra HALT-DAR):** the brief's original `responses.regency_confirmed` shape is SUPERSEDED. Canonical store is `cycle.regent_confirmations[]` — the existing append-only system that the regency-tab and admin already consume. DT-form's confirmation button POSTs to the same endpoint as regency-tab (`server/routes/downtime.js:90-155`), with `rights[]` populated from the regent's territory's current `feeding_rights[]` (snapshot at confirmation time).
+
+Predicate: `_isRegencyConfirmedThisCycle()` (already wired by foundation #17 in `_completenessCtx()`) reads `cycle.regent_confirmations[]` for the regent — UNCHANGED. No predicate edit needed for this story; the UI is the new piece.
+
+**AC #3 reinterpretation:** "decline" = "absence of confirmation entry" = gate fails. The existing predicate already maps absence→false correctly. No new "false" state needed. If a regent un-confirms (rare; the API is append-only), that's a future API-extension issue.
+
+**Multi-territory regents:** structural assumption is one regent → one territory (`findRegentTerritory()` at `helpers.js:153-168` is singular). Single-block UI is correct. Document the structural assumption in PR body.
+
+`is_regent` detection at `:1337` is already in place. The new UI is the confirmation interaction layered on that detection.
 
 Visual treatment: keep light. A regent section that's a wall of legalese will feel heavy in MINIMAL. The confirmation is a single sentence + button.
 
