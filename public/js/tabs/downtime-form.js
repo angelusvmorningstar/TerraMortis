@@ -842,66 +842,101 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (multi-slot, per-slot keys)
-  const acqCountEl = document.getElementById('dt-acq-slot-count');
-  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
-  responses['acq_slot_count'] = String(acqSlotCount);
-  const acqSlots = [];
-  for (let n = 1; n <= acqSlotCount; n++) {
-    const descEl = document.getElementById(`dt-acq_${n}_description`);
-    const availEl = document.getElementById(`dt-acq_${n}_availability`);
-    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
-    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
-    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
-    const keys = [];
-    cbs.forEach(cb => keys.push(cb.value));
-    responses[`acq_${n}_merits`] = JSON.stringify(keys);
-    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  // dt-form.29: structured-row collect for the redesigned Acquisitions
+  // section. Reads `data-acq-row="resource_${i}"` / `="skill_${i}"` row
+  // containers and extracts the canonical row arrays. Then the mirror
+  // builder rebuilds every legacy key in the consumer→key map (see PR
+  // body for the inventory) so existing admin/parser/db readers keep
+  // working unchanged. Idempotent both ways: re-running on the same DOM
+  // produces the same output.
+  const _collectAcqRows = (rowKey) => {
+    const out = [];
+    document.querySelectorAll(`[data-acq-row-key="${rowKey}"][data-acq-row]`).forEach(rowEl => {
+      const idx = rowEl.dataset.acqRowIdx;
+      const descEl = rowEl.querySelector(`[data-acq-desc="${rowKey}_${idx}"]`);
+      const availEl = rowEl.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      const merits = [];
+      rowEl.querySelectorAll(`[data-acq-merit-cb][data-acq-row-key="${rowKey}"][data-acq-row-idx="${idx}"]:checked`)
+        .forEach(cb => { if (cb.value) merits.push(cb.value); });
+      const description = descEl ? descEl.value : '';
+      const availability = availEl ? availEl.value : '';
+      const row = { description, availability, merits };
+      if (rowKey === 'skill') {
+        const skillEl = rowEl.querySelector(`[data-acq-skill="${idx}"]`);
+        const specEl  = rowEl.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+        row.skill = skillEl ? skillEl.value : '';
+        row.spec  = specEl  ? specEl.value  : '';
+      }
+      out.push(row);
+    });
+    return out;
+  };
+
+  const resourceRows = _collectAcqRows('resource');
+  const skillRows = _collectAcqRows('skill');
+
+  // Persist canonical rows. If the DOM didn't render any rows (section
+  // collapsed off-screen or load timing edge), preserve prior arrays via
+  // the spread base — don't clobber with empty.
+  if (resourceRows.length) responses['acq_resource_rows'] = JSON.stringify(resourceRows);
+  if (skillRows.length)    responses['acq_skill_rows']    = JSON.stringify(skillRows);
+
+  // ── Mirror builder: rebuild legacy keys for back-compat consumers ──
+  // Consumer→key map (see PR body for the inventory):
+  //   acq_slot_count, acq_${N}_description, acq_${N}_availability, acq_${N}_merits
+  //   acq_description, acq_availability, acq_merits      (legacy single = row 0)
+  //   resources_acquisitions                             (blob, downtime-views/story-tab)
+  //   skill_acq_description, skill_acq_pool_skill, skill_acq_pool_spec,
+  //   skill_acq_availability, skill_acq_merits           (legacy single skill = row 0)
+  //   skill_acquisitions                                 (blob, downtime-views/parser)
+  // skill_acq_pool_attr is intentionally NOT mirrored — post-#42 dropped.
+  const _rrows = resourceRows.length ? resourceRows : [];
+  responses['acq_slot_count'] = String(Math.max(1, _rrows.length));
+  // Per-slot keys (1-indexed). Always write at least slot 1.
+  const _maxSlot = Math.max(1, _rrows.length);
+  for (let n = 1; n <= _maxSlot; n++) {
+    const r = _rrows[n - 1] || { description: '', availability: '', merits: [] };
+    responses[`acq_${n}_description`]  = r.description || '';
+    responses[`acq_${n}_availability`] = r.availability || '';
+    responses[`acq_${n}_merits`]       = JSON.stringify(r.merits || []);
   }
-  // Legacy keys: slot 1 mirror
-  responses['acq_description']  = responses['acq_1_description']  || '';
-  responses['acq_availability'] = responses['acq_1_availability'] || '';
-  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
-  // Composite blob: all slots
-  const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
-  const blobLines = [];
-  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
-  if (acqSlotCount === 1) {
-    const s = acqSlots[0];
-    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-    if (s.description)   blobLines.push(s.description);
-    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
-  } else {
-    acqSlots.forEach((s, i) => {
-      blobLines.push('');
-      blobLines.push(`--- Item ${i + 1} ---`);
-      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-      if (s.description)   blobLines.push(s.description);
-      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  // Legacy single-row mirror = row 0.
+  const _r0 = _rrows[0] || { description: '', availability: '', merits: [] };
+  responses['acq_description']  = _r0.description || '';
+  responses['acq_availability'] = _r0.availability || '';
+  responses['acq_merits']       = JSON.stringify(_r0.merits || []);
+  // Composite blob (resources_acquisitions). Same format as the legacy builder.
+  const _resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
+  const _resourcesRating = meritEffectiveRating(currentChar, _resourcesM);
+  const _blobLines = [];
+  if (_resourcesRating) _blobLines.push(`Resources ${_resourcesRating}`);
+  if (_rrows.length === 1) {
+    const s = _rrows[0];
+    if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   _blobLines.push(s.description);
+    if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else if (_rrows.length > 1) {
+    _rrows.forEach((s, i) => {
+      _blobLines.push('');
+      _blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   _blobLines.push(s.description);
+      if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
     });
   }
-  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
+  responses['resources_acquisitions'] = _blobLines.join('\n').replace(/^\n/, '').trim();
 
-  // Skill acquisition fields
-  const skDescEl = document.getElementById('dt-skill_acq_description');
-  responses['skill_acq_description'] = skDescEl ? skDescEl.value : '';
-  const skAttrEl = document.getElementById('dt-skill_acq_pool_attr');
-  const skSkillEl = document.getElementById('dt-skill_acq_pool_skill');
-  responses['skill_acq_pool_attr'] = skAttrEl ? skAttrEl.value : '';
-  responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
-  const skSpecEl = document.getElementById('dt-skill_acq_pool_spec');
-  responses['skill_acq_pool_spec'] = skSpecEl ? skSpecEl.value : '';
-  const skAvailEl = document.getElementById('dt-skill_acq_availability');
-  responses['skill_acq_availability'] = skAvailEl ? skAvailEl.value : '';
-  const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
-  const skAcqMeritKeys = [];
-  skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
-  responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  // Skill mirror = row 0 of acq_skill_rows.
+  const _s0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
+  responses['skill_acq_description']  = _s0.description || '';
+  responses['skill_acq_pool_skill']   = _s0.skill || '';
+  responses['skill_acq_pool_spec']    = _s0.spec || '';
+  responses['skill_acq_availability'] = _s0.availability || '';
+  responses['skill_acq_merits']       = JSON.stringify(_s0.merits || []);
+  // skill_acquisitions blob — same composition as the legacy builder.
   const _skPoolStr = skillAcqPoolStr(currentChar, {
     skill: responses['skill_acq_pool_skill'],
-    spec: responses['skill_acq_pool_spec'],
+    spec:  responses['skill_acq_pool_spec'],
   });
   responses['skill_acquisitions'] = [
     responses['skill_acq_description'],
@@ -2354,62 +2389,87 @@ function renderForm(container) {
       return;
     }
 
-    // Skill acquisition spec chip toggle
-    const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
-    if (skAcqSpec) {
-      const sp = skAcqSpec.dataset.skillAcqSpec;
-      const input = document.getElementById('dt-skill_acq_pool_spec');
-      // Toggle: click same spec to deselect
-      if (input) input.value = input.value === sp ? '' : sp;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
+    // dt-form.29: Acquisitions row handlers (Add / Remove / Avail dots /
+    // Avail unknown / Skill spec chip). Row state is canonical in
+    // `responses.acq_resource_rows` / `acq_skill_rows`; click handlers
+    // mutate the spread base then re-render. Saves the cycle of
+    // legacy-input mutation + DOM dot-class toggles by going straight
+    // through collectResponses → mutate → renderForm.
+    const acqAddBtn = e.target.closest('[data-acq-add-row]');
+    if (acqAddBtn) {
+      const rowKey = acqAddBtn.dataset.acqAddRow;
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (!Array.isArray(arr)) arr = [];
+      const empty = rowKey === 'skill'
+        ? { skill: '', spec: '', description: '', availability: '', merits: [] }
+        : { description: '', availability: '', merits: [] };
+      arr.push(empty);
+      cur[arrKey] = JSON.stringify(arr);
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
       renderForm(container);
       scheduleSave();
       return;
     }
-    // Availability dot selectors (resources + skill acquisition)
-    const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
-    if (acqUnknown) {
-      const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = 'unknown';
-      const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => d.classList.remove('dt-acq-dot-filled'));
-        acqUnknown.classList.add('dt-acq-dot-filled');
-        const lbl = row.querySelector('.dt-acq-avail-label');
-        if (lbl) lbl.textContent = '';
+    const acqRemoveBtn = e.target.closest('[data-acq-row-remove]');
+    if (acqRemoveBtn) {
+      const rowKey = acqRemoveBtn.dataset.acqRowRemove;
+      const idx = parseInt(acqRemoveBtn.dataset.acqRowIdx, 10);
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (Array.isArray(arr) && idx >= 0 && idx < arr.length) {
+        arr.splice(idx, 1);
+        cur[arrKey] = JSON.stringify(arr);
+        if (responseDoc) responseDoc.responses = cur;
+        else responseDoc = { responses: cur };
+        renderForm(container);
+        scheduleSave();
       }
-      scheduleSave();
-      updateSectionTicks(container);
       return;
     }
-    const acqDot = e.target.closest('[data-acq-dot]') || e.target.closest('[data-skill-acq-dot]');
-    if (acqDot) {
-      const isSkill = !!acqDot.dataset.skillAcqDot;
-      const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = val;
-      const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => {
-          d.classList.toggle('dt-acq-dot-filled', parseInt(d.getAttribute(dotAttr), 10) <= val);
-        });
-        row.querySelectorAll('[data-acq-unknown],[data-skill-acq-unknown]').forEach(u => u.classList.remove('dt-acq-dot-filled'));
-        const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-        let lbl = row.querySelector('.dt-acq-avail-label');
-        if (!lbl) { lbl = document.createElement('span'); lbl.className = 'dt-acq-avail-label'; row.appendChild(lbl); }
-        lbl.textContent = labels[val] || '';
-      }
+    const acqUnknown = e.target.closest('[data-acq-unknown]');
+    if (acqUnknown) {
+      const rowKey = acqUnknown.dataset.acqRowKey;
+      const idx = acqUnknown.dataset.acqRowIdx;
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = hidden.value === 'unknown' ? '' : 'unknown';
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
       scheduleSave();
-      updateSectionTicks(container);
+      return;
+    }
+    const acqDot = e.target.closest('[data-acq-dot]');
+    if (acqDot) {
+      const rowKey = acqDot.dataset.acqRowKey;
+      const idx = acqDot.dataset.acqRowIdx;
+      const val = String(parseInt(acqDot.dataset.acqDot, 10) || 0);
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = val;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    const acqSkillSpec = e.target.closest('[data-acq-skill-spec]');
+    if (acqSkillSpec) {
+      const idx = acqSkillSpec.dataset.acqRowIdx;
+      const sp = acqSkillSpec.dataset.acqSkillSpec;
+      const hidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (hidden) hidden.value = hidden.value === sp ? '' : sp;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // Contact row toggle
@@ -2758,13 +2818,14 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Skill acquisition pool change — re-render for spec chips
-    if (e.target.id === 'dt-skill_acq_pool_skill') {
-      // Clear spec when skill changes
-      {
-        const specInput = document.getElementById('dt-skill_acq_pool_spec');
-        if (specInput) specInput.value = '';
-      }
+    // dt-form.29: Skill row select change — re-render so the spec-chip
+    // strip rebuilds for the new skill and the read-only pool annotation
+    // updates. Spec is cleared on skill change to avoid carrying a spec
+    // that doesn't apply to the newly-selected skill.
+    if (e.target.matches('[data-acq-skill]')) {
+      const idx = e.target.dataset.acqSkill;
+      const specHidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (specHidden) specHidden.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -3126,38 +3187,11 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Add Acquisition button
-    if (e.target.closest('#dt-add-acquisition')) {
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      responses['acq_slot_count'] = String(current + 1);
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // Remove Acquisition button
-    const removeAcqBtn = e.target.closest('[data-remove-acq]');
-    if (removeAcqBtn) {
-      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      for (let n = removeN; n < current; n++) {
-        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
-        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
-        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
-      }
-      delete responses[`acq_${current}_description`];
-      delete responses[`acq_${current}_availability`];
-      delete responses[`acq_${current}_merits`];
-      responses['acq_slot_count'] = String(Math.max(1, current - 1));
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
+    // dt-form.29: legacy `#dt-add-acquisition` and `[data-remove-acq]`
+    // handlers removed. Add/Remove now goes through the structured-row
+    // path at `[data-acq-add-row]` / `[data-acq-row-remove]` which mutates
+    // `responses.acq_resource_rows` / `acq_skill_rows` directly. Mirror
+    // builder rebuilds the legacy `acq_slot_count` + per-slot keys on save.
     // Add Equipment button
     if (e.target.closest('#dt-add-equipment')) {
       const responses = collectResponses();
@@ -4622,205 +4656,268 @@ function renderSorcerySection(saved) {
 
 // ── Acquisitions (custom render) ──
 
-function renderAcquisitionsSection(saved) {
-  const c = currentChar;
-  // Find Resources merit rating
-  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+// dt-form.29 (story #87, ADR-003 §Audit-baseline). Two distinct sub-tables —
+// Resources rows + Skill rows — both using the locked 3-col condensed shape
+// (Description / Availability dots / Merit multi-select). Skill rows carry
+// extra inline sub-fields (skill + spec) above the row + a read-only pool
+// annotation derived via `skillAcqPoolStr` (the post-#42 source of truth).
+//
+// Persistence: `responses.acq_resource_rows` + `responses.acq_skill_rows`
+// (JSON-stringified arrays). Mirror builder in collectResponses rebuilds the
+// full legacy surface (acq_slot_count + acq_${N}_* + acq_* + resources_acquisitions
+// blob + skill_acq_* + skill_acquisitions blob) on every save so existing
+// admin/parser/db consumers keep working unchanged.
+//
+// Backward-compat seed: when `_rows` is empty, _readResourceRows /
+// _readSkillRows seed rows[0] from the legacy single-row + multi-slot keys
+// so pre-redesign drafts surface in the new UI on first render. Silent-leave
+// for legacy keys per dt-form.26 A1 precedent — no migration script.
 
-  // All character merits for the picker
-  const charMerits = (c.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
-  );
-
-  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
-  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
-  h += '<div class="qf-section-body">';
-
-  // ── Resources acquisition ──
-    // -- Resources acquisition (multi-slot) --
-  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
-  const slotCount = Math.max(1, savedCount);
-  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
-
-  // Resources Level header (section-level, shared across all slots)
-  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
-  h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
-  h += '</div>';
-
-  for (let n = 1; n <= slotCount; n++) {
-    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
-  }
-
-  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
-
-  // ── Skill-based acquisition ──
-  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
-
-  h += '<div class="dt-acq-card" style="margin-top:16px;">';
-  h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
-  h += '<p class="qf-desc">Limited to ONE skill-based acquisition per Downtime.</p>';
-
-  h += renderQuestion({
-    key: 'skill_acq_description', label: 'Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to obtain, and how?',
-  }, saved['skill_acq_description'] || '');
-
-  // Dice pool: Skill only (VtR 2e — no attribute addend for skill acquisition)
-  h += '<div class="qf-field">';
-  h += '<div class="dt-pool-label">Acquisition Pool</div>';
-  h += '<div class="dt-dice-pool-row">';
-
-  const skSavedSkill = saved['skill_acq_pool_skill'] || '';
-
-  h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
-  h += '<option value="">Skill</option>';
-  for (const s of skSkills) {
-    const dots = skTotal(c, s);
-    h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
-  }
-  h += '</select>';
-
-  // Specialisation chips (if selected skill has specs, or IS grants cross-skill specs)
-  const skSavedSpec = saved['skill_acq_pool_spec'] || '';
-  let specBonus = 0;
-  const skNativeSpecs = skSavedSkill ? (c.skills?.[skSavedSkill]?.specs || []) : [];
-  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
-  const skAllSpecs = [...skNativeSpecs, ...skIsSpecs.map(({ spec }) => spec)];
-  if (skSavedSpec && skAllSpecs.includes(skSavedSpec)) {
-    specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
-  }
-
-  // Pool total: skill dots only
-  let skPoolTotal = 0;
-  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
-  skPoolTotal += specBonus;
-  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
-  h += '</div>';
-
-  // Spec chips row + hidden input
-  h += `<input type="hidden" id="dt-skill_acq_pool_spec" value="${esc(skSavedSpec)}">`;
-  if (skNativeSpecs.length || skIsSpecs.length) {
-    h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
-    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    const allSkSpecs = [
-      ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
-      ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
-    ];
-    for (const { sp, fromSkill, native } of sortChips(allSkSpecs, item => item.sp)) {
-      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+function _readResourceRows(saved) {
+  let rows = [];
+  const json = saved.acq_resource_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy multi-slot keys.
+  const slotCount = parseInt(saved.acq_slot_count || '0', 10);
+  if (slotCount > 0) {
+    for (let n = 1; n <= slotCount; n++) {
+      const desc = saved[`acq_${n}_description`] || '';
+      const avail = saved[`acq_${n}_availability`] || '';
+      let merits = [];
+      try { merits = JSON.parse(saved[`acq_${n}_merits`] || '[]'); } catch { merits = []; }
+      if (desc || avail || merits.length) {
+        rows.push({ description: desc, availability: avail, merits });
+      }
     }
-    h += '</div>';
   }
-  h += '</div>';
-
-  // Relevant merits for this acquisition
-  let skMeritPicks = [];
-  try { skMeritPicks = JSON.parse(saved['skill_acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<div class="dt-proj-merits" data-skill-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-skill-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  // Seed from legacy single-row if multi-slot was empty.
+  if (!rows.length) {
+    const desc = saved.acq_description || '';
+    const avail = saved.acq_availability || '';
+    let merits = [];
+    try { merits = JSON.parse(saved.acq_merits || '[]'); } catch { merits = []; }
+    if (desc || avail || merits.length) {
+      rows.push({ description: desc, availability: avail, merits });
+    }
   }
-  h += '</div></div>';
+  if (!rows.length) rows.push({ description: '', availability: '', merits: [] });
+  return rows;
+}
 
-  // Availability (dot selector 1-5 + Unknown)
-  const skSavedAvailRaw = saved['skill_acq_availability'];
-  const skSavedAvail = skSavedAvailRaw === 'unknown' ? 'unknown' : (parseInt(skSavedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-skill-acq-avail>';
+function _readSkillRows(saved) {
+  let rows = [];
+  const json = saved.acq_skill_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy single-row keys (skills was 1-per-cycle pre-redesign).
+  const skill = saved.skill_acq_pool_skill || '';
+  const spec  = saved.skill_acq_pool_spec  || '';
+  const desc  = saved.skill_acq_description || '';
+  const avail = saved.skill_acq_availability || '';
+  let merits = [];
+  try { merits = JSON.parse(saved.skill_acq_merits || '[]'); } catch { merits = []; }
+  if (skill || spec || desc || avail || merits.length) {
+    rows.push({ skill, spec, description: desc, availability: avail, merits });
+  }
+  if (!rows.length) rows.push({ skill: '', spec: '', description: '', availability: '', merits: [] });
+  return rows;
+}
+
+function _renderAcqAvailabilityDots(rowKey, idx, savedAvail) {
+  const isUnknown = savedAvail === 'unknown';
+  const numAvail = isUnknown ? 0 : (parseInt(savedAvail, 10) || 0);
+  let h = `<div class="dt-acq-avail-row" data-acq-avail="${rowKey}_${idx}">`;
   for (let d = 1; d <= 5; d++) {
-    const filled = typeof skSavedAvail === 'number' && d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-skill-acq-dot="${d}">\u25CF</span>`;
+    const filled = !isUnknown && d <= numAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">●</span>`;
   }
-  h += `<span class="dt-acq-unknown${skSavedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-skill-acq-unknown>Unknown</span>`;
-  if (skSavedAvail) {
+  h += `<span class="dt-acq-unknown${isUnknown ? ' dt-acq-dot-filled' : ''}" data-acq-unknown data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">Unknown</span>`;
+  if (numAvail) {
     const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = skSavedAvail === 'unknown' ? '' : (labels[skSavedAvail] || '');
+    const lbl = labels[numAvail] || '';
     if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
   }
-  h += `<input type="hidden" id="dt-skill_acq_availability" value="${esc(String(skSavedAvail || ''))}">`;
-  h += '</div></div>';
-
+  h += `<input type="hidden" data-acq-avail-hidden="${rowKey}_${idx}" value="${esc(String(savedAvail || ''))}">`;
   h += '</div>';
-
-  h += '</div></div>'; // section-body, section
   return h;
 }
 
-function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
-  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
-  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
-  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
-  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
-
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
-
-  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
-  h += '<div class="dt-acq-card-hd">';
-  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
-  if (slotCount > 1) {
-    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+function _renderAcqMeritsCheckboxes(rowKey, idx, charMerits, savedMerits) {
+  let h = `<div class="dt-proj-merits" data-acq-merits="${rowKey}_${idx}">`;
+  if (!charMerits.length) {
+    h += '<p class="qf-desc">No applicable merits.</p>';
+  } else {
+    for (const m of charMerits) {
+      const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const checked = (savedMerits || []).includes(mKey) ? ' checked' : '';
+      h += `<label class="dt-proj-merit-label">`;
+      h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}"${checked}>`;
+      h += `<span>${esc(mName)} ${dots}</span>`;
+      h += `</label>`;
+    }
   }
+  h += '</div>';
+  return h;
+}
+
+function _renderResourceRow(idx, row, charMerits, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="resource_${idx}" data-acq-row-key="resource" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="resource" data-acq-row-idx="${idx}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="resource_${idx}" placeholder="What are you attempting to acquire? Include context and purpose.">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('resource', idx, row.availability);
   h += '</div>';
 
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Relevant Merits</label>';
   h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
-  }
-  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
-  h += '</div></div>';
-
-  h += renderQuestion({
-    key: `acq_${n}_description`, label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, description);
-
-  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
+  h += _renderAcqMeritsCheckboxes('resource', idx, charMerits, row.merits);
+  h += '</div>';
 
   h += '</div>';
+  return h;
+}
+
+function _renderSkillRow(idx, row, charMerits, c, skSkills, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="skill_${idx}" data-acq-row-key="skill" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Skill ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="skill" data-acq-row-idx="${idx}" title="Remove this skill">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  const savedSkill = row.skill || '';
+  const savedSpec  = row.spec  || '';
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Skill</label>';
+  h += `<select class="qf-select" data-acq-skill="${idx}">`;
+  h += '<option value="">— Select skill —</option>';
+  for (const s of skSkills) {
+    const dots = skTotal(c, s);
+    const sel = savedSkill === s ? ' selected' : '';
+    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+
+  const skNativeSpecs = savedSkill ? (c.skills?.[savedSkill]?.specs || []) : [];
+  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
+  const allSpecs = [
+    ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+    ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+  ];
+  if (allSpecs.length) {
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Specialisation</label>';
+    h += '<div class="dt-feed-spec-row">';
+    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-acq-skill-spec="${esc(sp)}" data-acq-row-idx="${idx}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+    }
+    h += '</div>';
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+    h += '</div>';
+  } else {
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+  }
+
+  // Read-only pool annotation. Post-#42: SKILL only via skillAcqPoolStr.
+  // This is the only pool-rendering site after dt-form.29 (the inline
+  // duplicate at the legacy renderer is gone).
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Acquisition Pool</label>';
+  if (savedSkill) {
+    const poolStr = skillAcqPoolStr(c, { skill: savedSkill, spec: savedSpec });
+    if (poolStr) {
+      h += `<p class="qf-desc dt-acq-pool-readout">${esc(poolStr)}</p>`;
+    } else {
+      h += '<p class="qf-desc">Pool unavailable for this skill.</p>';
+    }
+  } else {
+    h += '<p class="qf-desc">Pick a skill above to see the auto-derived pool.</p>';
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="skill_${idx}" placeholder="What are you attempting to obtain, and how?">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this skill source? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('skill', idx, row.availability);
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += _renderAcqMeritsCheckboxes('skill', idx, charMerits, row.merits);
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderAcquisitionsSection(saved) {
+  const c = currentChar;
+  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+
+  const charMerits = (c.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
+  );
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
+
+  const resourceRows = _readResourceRows(saved);
+  const skillRows = _readSkillRows(saved);
+
+  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
+  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<div class="qf-section-body">';
+
+  // ── Resources sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
+  h += '<h5 class="dt-acq-subtitle">Resources Acquisitions</h5>';
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
+  h += `<span class="dt-acq-label">Resources Level:</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
+  h += '</div>';
+  for (let i = 0; i < resourceRows.length; i++) {
+    h += _renderResourceRow(i, resourceRows[i], charMerits, resourceRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="resource">+ Add Resource Item</button>';
+  h += '</div>';
+
+  // ── Skills sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
+  h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
+  for (let i = 0; i < skillRows.length; i++) {
+    h += _renderSkillRow(i, skillRows[i], charMerits, c, skSkills, skillRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="skill">+ Add Skill Item</button>';
+  h += '</div>';
+
+  h += '</div></div>'; // section-body, section
   return h;
 }
 

@@ -303,9 +303,22 @@ export const downtimeSubmissionSchema = {
         ...sorcerySlotProps(3),
 
         // ══════════════════════════════════════════════════════
-        //  ACQUISITIONS (always shown)
+        //  ACQUISITIONS (always shown — ADVANCED-only post-dt-form.17)
         // ══════════════════════════════════════════════════════
-        // Resources acquisition (structured)
+        // dt-form.29 (story #87, ADR-003 §Audit-baseline): structured-row
+        // canonical persistence for both sub-tables. Mirror builder
+        // rebuilds the legacy single-row + blob keys below on every save
+        // so existing admin/parser/db consumers keep working unchanged.
+        // Per-row shapes:
+        //   acq_resource_rows: [{ description, availability, merits[] }]
+        //   acq_skill_rows:    [{ skill, spec, description, availability, merits[] }]
+        // Both stored as JSON-stringified strings.
+        acq_resource_rows:     { type: 'string' },
+        acq_skill_rows:        { type: 'string' },
+
+        // ── Legacy single-row + blob keys (mirror-rebuilt on every save) ──
+        // Resources acquisition (structured): single-row legacy + dynamic
+        // multi-slot keys (`acq_${N}_*`) preserved via additionalProperties: true.
         acq_description:       { type: 'string' },  // What to acquire and why
         acq_availability:      { type: 'string' },  // "1"–"5" dot rating (Common to Unique)
         acq_merits:            { type: 'string' },  // JSON array of "Name|qualifier" merit keys
@@ -313,7 +326,10 @@ export const downtimeSubmissionSchema = {
 
         // Skill-based acquisition (structured)
         skill_acq_description:  { type: 'string' },  // What to acquire and how
-        skill_acq_pool_attr:    { type: 'string' },  // Pool attribute name
+        // skill_acq_pool_attr is dropped post-hotfix #42 (pool is SKILL only).
+        // Field retained in schema for back-compat reads of pre-#42 submissions
+        // but no longer written by the form.
+        skill_acq_pool_attr:    { type: 'string' },  // [legacy] no longer written; #42 dropped ATTR contribution
         skill_acq_pool_skill:   { type: 'string' },  // Pool skill name
         skill_acq_pool_spec:    { type: 'string' },  // Pool skill specialisation
         skill_acq_availability: { type: 'string' },  // "1"–"5" dot rating
