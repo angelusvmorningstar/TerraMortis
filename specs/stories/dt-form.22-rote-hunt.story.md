@@ -1,8 +1,10 @@
 ---
 id: dt-form.22
 task: 22
+issue: 73
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/73
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Done
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.20', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Q2)
@@ -52,7 +54,7 @@ A player who wants to use ROTE for their MINIMAL "1 project slot" allocation can
 
 **Given** the player selects a ROTE territory
 **When** the form persists
-**Then** the territory is saved to `responses.project_N_feed_territory2` (or the existing schema field; confirm during pickup survey). The pool is NOT separately persisted; it is derived from primary feeding at render and execute time.
+**Then** the method is saved per-slot to `responses.project_N_feed_method2` (existing schema field at `downtime_submission.schema.js:75`); the territory is saved to the document-level `responses.feeding_territories_rote` (existing JSON map). Per Piatra 2026-05-06 (HALT-DAR resolution): only one ROTE feeding action exists per downtime cycle, so per-slot territory would be over-engineering. The method-per-slot / territory-doc-level asymmetry is intentional. The pool is NOT separately persisted; it is derived from primary feeding at render and execute time.
 
 **Given** a MINIMAL-mode submission has ROTE in the project slot but no primary feeding filled
 **When** `isMinimalComplete()` is evaluated
@@ -63,19 +65,28 @@ A player who wants to use ROTE for their MINIMAL "1 project slot" allocation can
 **Then** the rule **passes** (primary feeding satisfies feeding; the project-slot rule is satisfied because ROTE is a valid project action; mode set is complete).
 
 **Given** the implementer's current-state survey
-**When** they grep for `_feed_method2`, `_feed_territory2`, `rote`, `ROTE`
-**Then** they confirm the existing schema field set and document survey findings in DAR. If a field is missing, surface to Piatra rather than inventing a new shape.
+**When** they grep for `_feed_method2`, `feeding_territories_rote`, `_feed_rote`, `rote`, `ROTE`
+**Then** they confirm the existing schema field set. The 2026-05-06 HALT-DAR resolution locked: method per-slot (`project_N_feed_method2`, exists), territory document-level (`feeding_territories_rote`, exists). No new schema field added.
 
 ## Implementation Notes
 
-### Survey first
+### Field shape (locked 2026-05-06 via HALT-DAR)
 
-`project_N_feed_method2` is the existing schema field per Piatra's note. Confirm via:
-```bash
-grep -n "feed_method2\|feed_territory2\|_rote" public/js/tabs/downtime-form.js server/schemas/downtime_submission.schema.js
-```
+Method per-slot, territory document-level. ROTE-as-action writes:
+- `responses.project_N_feed_method2` — existing per-slot field (`downtime_submission.schema.js:75`, enum-typed)
+- `responses.feeding_territories_rote` — existing doc-level JSON map (single ROTE per cycle so per-slot territory was rejected as over-engineering)
 
-The expected pattern: a project slot of type `feed` already has a method/territory pair; ROTE adds a second method/territory pair (`_method2`/`_territory2`) for the ROTE variant. If that's the existing shape, ROTE is a UI surface over an already-supported data shape.
+Existing consumers to be aware of:
+- `public/js/tabs/feeding-tab.js:350` reads `_method2`
+- `public/js/admin/downtime-views.js:2569` reads `_method2` (ST view)
+- `public/js/tabs/downtime-form.js:6368` + `:6456` read `feeding_territories_rote` for ambience resolution
+
+Migration of existing `_feed_rote_*` state (six fields plus the territory map):
+- `_feed_rote` (boolean) + `_feed_rote_slot` (slot index) → translate to `responses.project_N_feed_method2 = <chosen method>` at the matching slot N. Drop the boolean flag and slot-index fields.
+- `_rote_disc` / `_rote_spec` / `_rote_custom_attr` / `_rote_custom_skill` → no longer relevant (pool inherits from primary feeding per #22 design). Drop on read.
+- `feeding_territories_rote` → kept as-is; ambience resolution path stays.
+
+Migration discipline: read both legacy AND new shape during a transition window (one cycle), or ship a one-shot migration script. Implementer's call; flag in PR body.
 
 ### Pool inheritance
 
@@ -97,11 +108,11 @@ The primary feeding pool is auto-derived per #20. ROTE reads the same value at r
 
 ## Definition of Done
 
-- [ ] ROTE renders as a project-action variant (territory picker + read-only inherited pool)
-- [ ] No ROTE block in the feeding section
-- [ ] `project_N_feed_method2` / `project_N_feed_territory2` schema fields confirmed (or surfaced for clarification)
-- [ ] `isMinimalComplete()` does NOT count ROTE-only as feeding-complete
-- [ ] PR opened into `dev`
+- [x] ROTE renders as a project-action variant (territory picker + read-only inherited pool)
+- [x] No ROTE block in the feeding section
+- [x] `project_N_feed_method2` (existing, per-slot) + `feeding_territories_rote` (existing, doc-level) used as the canonical fields per HALT-DAR resolution; legacy `_feed_rote_*` state migrated
+- [x] `isMinimalComplete()` does NOT count ROTE-only as feeding-complete
+- [x] PR opened into `dev`
 
 ## Dependencies
 

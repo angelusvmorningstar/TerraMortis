@@ -72,6 +72,7 @@ function _vmPool(c) {
       total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: free_mci counts because MCI Allies are real influence resources
     } else if (m.name === 'Herd') {
       if (m.derived) return;
+      // inherent-intentional: Herd dice-pool contribution counts purchased dots only (cp+xp); derived/granted Herd is filtered above.
       total += (m.cp || 0) + (m.xp || 0);
     }
   });

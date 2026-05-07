@@ -26,7 +26,11 @@
 
 const projectActionEnum = [
   '', 'ambience_increase', 'ambience_decrease', 'attack', 'feed',
-  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc'
+  'hide_protect', 'investigate', 'patrol_scout', 'support', 'xp_spend', 'misc',
+  // dt-form.22: ROTE moved out of the feeding section into its own per-slot
+  // action variant. Pool inherits from primary feeding; territory writes to
+  // the existing document-level `feeding_territories_rote` map.
+  'rote'
 ];
 
 const sphereActionEnum = [
@@ -69,8 +73,21 @@ function projectSlotProps(n) {
     [`project_${n}_cast`]:         { type: 'string' },
     // Applicable merits (JSON array of "Name|qualifier" keys)
     [`project_${n}_merits`]:       { type: 'string' },
-    // XP expenditure note (for xp_spend action)
+    // XP expenditure note (for xp_spend action) — legacy free-text justification
     [`project_${n}_xp`]:           { type: 'string' },
+    // dt-form.26: per-slot XP-spend rows. JSON-stringified array of
+    // { category, item, dotsBuying } objects (same row shape as the legacy
+    // top-level `responses.xp_spend`). Canonical post-redesign storage; the
+    // top-level field is mirror-built from these on every save (DAR-A1).
+    [`project_${n}_xp_rows`]:      { type: 'string' },
+    // Legacy single-row placeholders kept transitional: read as the FIRST
+    // row of `_xp_rows` if `_xp_rows` is empty/missing. Newly-saved
+    // submissions populate `_xp_rows` directly; these stay as compatibility
+    // surface for ST consumers that still read them in older code paths.
+    [`project_${n}_xp_category`]:  { type: 'string' },
+    [`project_${n}_xp_item`]:      { type: 'string' },
+    [`project_${n}_xp_dots`]:      { type: 'string' },
+    [`project_${n}_xp_trait`]:     { type: 'string' },
     // Secondary hunt method (for feed/rote action)
     [`project_${n}_feed_method2`]: { type: 'string', enum: feedMethodEnum },
     // JDT-2: Joint project authoring scratch fields. Persisted on the
@@ -180,7 +197,11 @@ export const downtimeSubmissionSchema = {
         // _final_submitted_at: ADVANCED-mode "I'm done editing" hint set by the
         // Submit Final modal (story #31). Not a status flip — submission.status
         // already mirrors _has_minimum from the soft-submit lifecycle.
-        _final_submitted_at: { type: 'string' },  // ISO timestamp
+        // dt-form.31: spec called for `format: 'date-time'`; the codebase's AJV
+        // is configured without ajv-formats so the format keyword would throw
+        // at compile time. Following the existing convention used for
+        // `submitted_at` (line 155) — type: 'string' with an ISO comment.
+        _final_submitted_at: { type: 'string' },  // ISO timestamp (RFC 3339 / ISO 8601)
 
         // ── Merit toggle states (legacy, preserved for contacts/retainers) ──
         // Dynamic keys: _merit_<merit_key> = "yes" | "no"
@@ -282,9 +303,22 @@ export const downtimeSubmissionSchema = {
         ...sorcerySlotProps(3),
 
         // ══════════════════════════════════════════════════════
-        //  ACQUISITIONS (always shown)
+        //  ACQUISITIONS (always shown — ADVANCED-only post-dt-form.17)
         // ══════════════════════════════════════════════════════
-        // Resources acquisition (structured)
+        // dt-form.29 (story #87, ADR-003 §Audit-baseline): structured-row
+        // canonical persistence for both sub-tables. Mirror builder
+        // rebuilds the legacy single-row + blob keys below on every save
+        // so existing admin/parser/db consumers keep working unchanged.
+        // Per-row shapes:
+        //   acq_resource_rows: [{ description, availability, merits[] }]
+        //   acq_skill_rows:    [{ skill, spec, description, availability, merits[] }]
+        // Both stored as JSON-stringified strings.
+        acq_resource_rows:     { type: 'string' },
+        acq_skill_rows:        { type: 'string' },
+
+        // ── Legacy single-row + blob keys (mirror-rebuilt on every save) ──
+        // Resources acquisition (structured): single-row legacy + dynamic
+        // multi-slot keys (`acq_${N}_*`) preserved via additionalProperties: true.
         acq_description:       { type: 'string' },  // What to acquire and why
         acq_availability:      { type: 'string' },  // "1"–"5" dot rating (Common to Unique)
         acq_merits:            { type: 'string' },  // JSON array of "Name|qualifier" merit keys
@@ -292,7 +326,10 @@ export const downtimeSubmissionSchema = {
 
         // Skill-based acquisition (structured)
         skill_acq_description:  { type: 'string' },  // What to acquire and how
-        skill_acq_pool_attr:    { type: 'string' },  // Pool attribute name
+        // skill_acq_pool_attr is dropped post-hotfix #42 (pool is SKILL only).
+        // Field retained in schema for back-compat reads of pre-#42 submissions
+        // but no longer written by the form.
+        skill_acq_pool_attr:    { type: 'string' },  // [legacy] no longer written; #42 dropped ATTR contribution
         skill_acq_pool_skill:   { type: 'string' },  // Pool skill name
         skill_acq_pool_spec:    { type: 'string' },  // Pool skill specialisation
         skill_acq_availability: { type: 'string' },  // "1"–"5" dot rating

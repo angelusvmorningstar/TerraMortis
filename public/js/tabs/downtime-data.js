@@ -14,6 +14,7 @@ const PROJECT_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
+  { value: 'rote', label: 'Rote Hunt: Spend a project to feed a second time this cycle' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
@@ -28,6 +29,7 @@ export const ACTION_APPROACH_PROMPTS = {
   'patrol_scout': 'How does your character observe or patrol this territory in narrative terms.',
   'misc': 'Describe your approach to this action in narrative terms.',
   'maintenance': 'Describe how your character maintains this relationship or organisation in narrative terms.',
+  'rote': 'Describe how your character pursues this second hunt — same method as your primary feed, in a (potentially different) territory.',
 };
 
 export const ACTION_DESCRIPTIONS = {
@@ -40,6 +42,7 @@ export const ACTION_DESCRIPTIONS = {
   'xp_spend': 'You are spending experience to grow your character. Select the trait below.',
   'misc': 'This is for downtime actions that don\'t neatly fit into any other category. Describe what you\'re attempting to achieve and how your character goes about it.',
   'maintenance': 'You are maintaining your professional or cult relationships. Select the asset you are maintaining below.',
+  'rote': 'A second hunt this cycle. The method (and dice pool) is inherited from your primary feed in the Feeding section; you only pick the territory here. If the roll succeeds, the rote quality applies — roll twice, take the best.',
 };
 
 // Action type options for sphere (social merit) slots
@@ -208,11 +211,11 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 3. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
-  //    so players know which rites affect their hunt pool before committing to a method
+  // 3. Blood Sorcery — auto-gated by disciplines; rendered in ADVANCED between Personal Actions
+  //    and Sphere Actions (dt-form.27). Section entry kept here for gate definition + title.
   {
     key: 'blood_sorcery',
-    title: 'Blood Sorcery: Theban and Cruac',
+    title: 'Blood Sorcery: Crúac and Theban',
     gate: 'has_sorcery',
     intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
     questions: [], // rendered dynamically by downtime-form.js
@@ -254,7 +257,7 @@ export const DOWNTIME_SECTIONS = [
         key: 'feeding_method',
         label: 'How does your character hunt?',
         type: 'feeding_method',
-        required: true,
+        required: false,   // DTFP-4: pool components (_feed_method/_feed_custom_*) are the gate
         desc: null,
       },
     ],
@@ -348,42 +351,31 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 13. Admin — always shown
+  // dt-form.31 (ADR-003 §Q5): the Admin section is removed. The form-rating +
+  // form-feedback widgets move to the ADVANCED Submit Final modal; XP Spend
+  // moves to a project-action variant under #26. Existing legacy submissions
+  // keep `xp_spend` / `lore_request` / `form_rating` / `form_feedback` keys
+  // on `responses` — ST views read them directly.
+];
+
+// dt-form.31: Submit Final modal questions. Lifted from the removed Admin
+// section's `form_rating` + `form_feedback`. The modal renders these via the
+// existing renderQuestion() switch (star_rating + textarea types) so the
+// widgets are not re-implemented.
+export const SUBMIT_FINAL_MODAL_QUESTIONS = [
   {
-    key: 'admin',
-    title: 'Admin: Crunching Numbers and Asking Questions',
-    gate: null,
-    intro: null,
-    questions: [
-      {
-        key: 'xp_spend',
-        label: 'XP Spend',
-        type: 'xp_grid',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'lore_request',
-        label: 'What game rules, elements, or Lore would you like more information about?',
-        type: 'textarea',
-        required: false,
-        desc: 'Ask anything — rules clarifications, in-character history, covenant doctrine, NPC backgrounds, or setting details.',
-      },
-      {
-        key: 'form_rating',
-        label: 'How would you rate this Downtime form for clarity and ease of use?',
-        type: 'star_rating',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'form_feedback',
-        label: 'Any comments or recommendations on the Downtime form?',
-        type: 'textarea',
-        required: false,
-        desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
-      },
-    ],
+    key: 'form_rating',
+    label: 'How would you rate this Downtime form for clarity and ease of use?',
+    type: 'star_rating',
+    required: false,
+    desc: null,
+  },
+  {
+    key: 'form_feedback',
+    label: 'Any comments or recommendations on the Downtime form?',
+    type: 'textarea',
+    required: false,
+    desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
   },
 ];
 

@@ -1,8 +1,10 @@
 ---
 id: dt-form.29
 task: 29
+issue: 87
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/87
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Done
 priority: medium
 depends_on: ['dt-form.17']
 hotfix_predecessor: 'GitHub issue #42'
@@ -65,10 +67,10 @@ If the redesign is large, surface to Piatra during pickup; consider scoping down
 
 ## Definition of Done
 
-- [ ] Acquisitions section redesigned (Resources + Skills clearly distinguished)
-- [ ] #42 skill-pool fix preserved as source of truth
-- [ ] Legacy data loads cleanly
-- [ ] PR opened into `dev`
+- [x] Acquisitions section redesigned (Resources + Skills as distinct sub-tables per HALT-DAR-A2 + B-readout)
+- [x] #42 skill-pool fix preserved as source of truth (`skillAcqPoolStr` is the only computation site; inline duplicate at form.js:4684-4688 deleted as adjacent-scope cleanup)
+- [x] Legacy data loads cleanly (backward-compat row[0] seed + mirror builder roll-forward)
+- [x] PR opened into `dev` with `Closes #87`
 
 ## Dependencies
 

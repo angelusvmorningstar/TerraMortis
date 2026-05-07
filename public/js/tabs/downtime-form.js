@@ -13,16 +13,20 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
+import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
+import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
-import { promptForKind } from '../data/kind-prompts.js';
+// dt-form.33: removed `promptForKind` import — last consumer was the
+// dt-story_moment_relationship_id change handler, deleted with the
+// other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
@@ -49,6 +53,52 @@ function _promotePublishedOutcome(sub) {
   }
 }
 
+// dt-form.22: one-shot migration of legacy ROTE state into the new
+// project-action shape. Reads `_feed_rote` / `_feed_rote_slot` (plus the
+// pool-builder `_rote_*` companions) and translates to:
+//   responses.project_N_action      = 'rote'
+//   responses.project_N_feed_method2 = <primary method, if known>
+// Drops the legacy keys. `feeding_territories_rote` is left in place — it's
+// the canonical doc-level territory map per the 2026-05-06 HALT-DAR.
+//
+// Idempotent: the function returns early if there are no legacy fields to
+// migrate. Called from renderDowntimeTab after responseDoc loads, and as
+// a defensive prelude inside collectResponses so a stray legacy save can't
+// re-introduce the old shape.
+function _migrateLegacyRoteState(responses) {
+  if (!responses || typeof responses !== 'object') return;
+  const isLegacy = responses._feed_rote === 'yes' || responses._feed_rote_slot
+    || responses._rote_disc || responses._rote_spec
+    || responses._rote_custom_attr || responses._rote_custom_skill;
+  if (!isLegacy) return;
+
+  const rawSlot = parseInt(responses._feed_rote_slot, 10);
+  const slot = Number.isInteger(rawSlot) && rawSlot >= 1 && rawSlot <= 4 ? rawSlot : 1;
+  const wasOn = responses._feed_rote === 'yes';
+  if (wasOn) {
+    // The slot may have been auto-locked to action='feed' by the legacy
+    // applyRoteToProjectSlot path. Flip it to the new 'rote' action type.
+    if (responses[`project_${slot}_action`] === 'feed' || !responses[`project_${slot}_action`]) {
+      responses[`project_${slot}_action`] = 'rote';
+    }
+    // Persist the primary method into the per-slot `_method2` field if
+    // available. The pool itself is no longer separately stored — derived
+    // at render time from the primary feeding inputs.
+    const primaryMethod = responses._feed_method;
+    if (primaryMethod && !responses[`project_${slot}_feed_method2`]) {
+      responses[`project_${slot}_feed_method2`] = primaryMethod;
+    }
+  }
+
+  // Drop legacy keys so subsequent saves don't re-introduce them.
+  delete responses._feed_rote;
+  delete responses._feed_rote_slot;
+  delete responses._rote_disc;
+  delete responses._rote_spec;
+  delete responses._rote_custom_attr;
+  delete responses._rote_custom_skill;
+}
+
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
@@ -58,8 +108,11 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
-let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+// dt-form.33: removed `_linkedNpcs` and `_myRelationships` module vars
+// + their data loads. Both fed DB-relational NPC pickers (the legacy
+// _legacyRenderPersonalStorySection NPC card grid and the story-moment
+// relationship picker) that this story prunes under the NPC-interaction
+// suppression policy. No live consumer remained after dt-form.18.
 let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
@@ -99,12 +152,14 @@ const ACTION_ICONS = {
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
   'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
+  'rote': '\u2666', // dt-form.22: same diamond as feed; ROTE is a feed variant
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
   'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
+  'rote': 'Rote Hunt', // dt-form.22
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
@@ -118,6 +173,11 @@ const ACTION_FIELDS = {
   'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
   'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
   'maintenance':       ['target', 'description'],
+  // dt-form.22: ROTE renders only the territory + description; pool is
+  // inherited from primary feeding (read-only annotation). The handler
+  // below renders rote-specific UI, so this list is intentionally just
+  // 'description' — the territory + pool annotation are emitted inline.
+  'rote':              ['description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -189,12 +249,24 @@ function detectMerits() {
   const merits = (currentChar.merits || []).filter(m => m.category);
   const discs = currentChar.disciplines || {};
 
-  // Expand benefit_grants from standing merits (MCI) into the influence pool
+  // Expand benefit_grants from standing merits (MCI) into the influence pool.
+  // Skip grants whose name is already represented by a direct influence merit
+  // — by convention the MCI's contribution has been absorbed into the player's
+  // direct merit's rating/spheres, so re-adding the grant here would double-
+  // count (issue #90, Yusuf's MCI Contacts already in his direct Contacts
+  // spheres). Charlie Ballsack's Retainer-via-Attaché pattern (hotfix #45)
+  // is preserved because Charlie has no direct Retainer merit — the grant
+  // still surfaces.
+  const directInfluenceNames = new Set(
+    merits.filter(m => m.category === 'influence').map(m => m.name)
+  );
   const expandedInfluence = [...merits];
   for (const m of merits) {
     if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
       for (const g of m.benefit_grants) {
-        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
+        if (g.category !== 'influence') continue;
+        if (directInfluenceNames.has(g.name)) continue;
+        expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
       }
     }
   }
@@ -257,6 +329,10 @@ function collectResponses() {
   // for sections hidden by the current mode. Spread the prior responses as a
   // base, then specific section blocks below either overwrite (when their UI
   // is rendered) or are skipped (when hidden by MINIMAL).
+  // dt-form.22: defensive prelude — translate any stragglers from the legacy
+  // ROTE state into the new project-action shape before the spread, so a
+  // load → save round-trip can never re-introduce the old keys.
+  if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
   const _prior = responseDoc?.responses || {};
   const responses = { ..._prior };
   // Carry the existing mode flag forward; the toggle handler updates it
@@ -302,40 +378,46 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'feeding_method') {
-        // DTFP-4: _feed_method is no longer persisted on new submissions.
-        // The method-card pick is UX-only scaffolding for the chip suggestions;
-        // the saved pool is whatever the player built via attr/skill/disc/spec.
-        // Legacy submissions keep their stored _feed_method for back-compat reads.
-        // DTFP-5: feed_violence persists only after the player clicks the toggle.
-        // Pre-selection is visual only; preserve any explicit choice through saves.
-        if (responseDoc?.responses?.feed_violence) {
-          responses.feed_violence = responseDoc.responses.feed_violence;
-        }
+        // dt-form.20 fix-up (Ma'at PR #98 review, bug 1): persist `_feed_method`
+        // again. DTFP-4 dropped it because the manual pool builder was the
+        // canonical method-set signal in ADVANCED, but MINIMAL has no pool
+        // builder — without this the simplified form's method choice is
+        // invisible to isMinimalComplete and the hard-mirror lifecycle never
+        // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
+        // so this is additive, not a regression of the original DTFP-4 case.
+        responses['_feed_method'] = feedMethodId || '';
+        // dt-form.35: include method-default violence so visual highlight matches
+        // what collectResponses writes. Explicit player click overrides the default.
+        const _explicitViolence = responseDoc?.responses?.feed_violence;
+        const _defaultViolence = feedMethodId ? (FEED_VIOLENCE_DEFAULTS[feedMethodId] || null) : null;
+        const _violence = _explicitViolence || _defaultViolence;
+        if (_violence) responses.feed_violence = _violence;
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
-        responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
-        responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
-        const roteDiscEl = document.getElementById('dt-rote-disc');
-        feedRoteDisc = roteDiscEl ? roteDiscEl.value : feedRoteDisc;
-        const roteAttrEl = document.getElementById('dt-rote-custom-attr');
-        const roteSkillEl = document.getElementById('dt-rote-custom-skill');
-        if (roteAttrEl) feedRoteCustomAttr = roteAttrEl.value;
-        if (roteSkillEl) feedRoteCustomSkill = roteSkillEl.value;
-        responses['_rote_disc'] = feedRoteAction ? feedRoteDisc : '';
-        responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
-        responses['_rote_custom_attr'] = feedRoteAction ? feedRoteCustomAttr : '';
-        responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
+        // dt-form.22: legacy `_feed_rote*` and `_rote_*` writes removed.
+        // ROTE is now a per-slot project action; method persists per-slot
+        // as `project_N_feed_method2`, territory persists at the document
+        // level as `feeding_territories_rote` (existing field, kept).
         // Blood type
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // Rote territory picker
-        if (feedRoteAction) {
+        // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
+        // read the action selectors from the DOM, not from `responses`.
+        // The feeding_method branch runs BEFORE the project-slot collect
+        // loop at :532, so `responses[project_N_action]` here is still the
+        // spread base from the prior responseDoc — it doesn't yet reflect
+        // the user's current slot selection. The DOM does.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(n => {
+          const el = document.getElementById(`dt-project_${n}_action`);
+          return el && el.value === 'rote';
+        });
+        if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -347,20 +429,11 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'xp_grid') {
-        const gridEl = document.getElementById('dt-xp_spend');
-        const rows = [];
-        if (gridEl) {
-          gridEl.querySelectorAll('[data-xp-row]').forEach(rowEl => {
-            const catEl = rowEl.querySelector('[data-xp-cat]');
-            const itemEl = rowEl.querySelector('[data-xp-item]');
-            const dotsEl = rowEl.querySelector('[data-xp-dots]');
-            const category = catEl ? catEl.value : '';
-            const item = itemEl ? itemEl.value : '';
-            const dotsBuying = dotsEl ? parseInt(dotsEl.value, 10) || 0 : 0;
-            if (category) rows.push({ category, item, dotsBuying });
-          });
-        }
-        responses[q.key] = JSON.stringify(rows);
+        // dt-form.26: legacy Admin-section xp_grid collector pruned. The
+        // Admin section was removed in #31, so no DOWNTIME_SECTIONS question
+        // has type='xp_grid' anymore — the iteration that lands here is dead.
+        // Keeping a defensive `continue` so a re-introduced legacy question
+        // wouldn't accidentally clobber the new top-level mirror.
         continue;
       }
       if (q.type === 'influence_grid') {
@@ -395,14 +468,20 @@ function collectResponses() {
   }
 
   // Personal story fields (legacy keys kept for back-compat with ST admin views)
-  const psNpcId   = document.getElementById('dt-personal_story_npc_id');
-  const psNpcName = document.getElementById('dt-personal_story_npc_name');
-  const psNote    = document.getElementById('dt-personal_story_note');
-  // NPCR.12 r3: personal_story_direction retired (Story direction radios
-  // removed). Existing legacy submissions still carry the field.
-  responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
-  responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
-  responses['personal_story_note']     = psNote    ? psNote.value    : '';
+  // dt-form.18 (option Y locked 2026-05-06): Personal Story collapsed to
+  // Touchstone-or-Correspondence binary plus an optional free-text NPC
+  // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
+  // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
+  // (the new `_text` replaces the note; the rich-UI direction radios are
+  // gone). Pre-redesign drafts retain the old keys via the spread base, so
+  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
+  // keeps recognising them.
+  const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
+  const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
+  const psTextEl = document.getElementById('dt-personal_story_text');
+  if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
+  if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
+  if (psTextEl) responses['personal_story_text'] = psTextEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -482,7 +561,43 @@ function collectResponses() {
     const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
     responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
     responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
-    if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // dt-form.26: collect this slot's multi-row XP-Spend grid. Read row
+    // values directly from the slot-scoped grid container; legacy single-row
+    // placeholder fields (`_xp_dots`, `_xp_category`, `_xp_item`) are no
+    // longer written here. Backward-compat fallback: if the slot has no
+    // grid mounted (action just flipped to xp_spend, render hasn't fired
+    // yet) preserve any prior `_xp_rows` from the spread base.
+    if (responses[`project_${n}_action`] === 'xp_spend') {
+      const slotGrid = document.querySelector(`[data-proj-xp-grid="${n}"]`);
+      if (slotGrid) {
+        const rows = [];
+        slotGrid.querySelectorAll('[data-xp-row]').forEach(rowEl => {
+          const catEl  = rowEl.querySelector('[data-xp-cat]');
+          const itemEl = rowEl.querySelector('[data-xp-item]');
+          const dotsEl = rowEl.querySelector('[data-xp-dots]');
+          const category = catEl ? catEl.value : '';
+          const item     = itemEl ? itemEl.value : '';
+          const dotsBuying = dotsEl ? (parseInt(dotsEl.value, 10) || 0) : 0;
+          if (category) rows.push({ category, item, dotsBuying });
+        });
+        responses[`project_${n}_xp_rows`] = JSON.stringify(rows);
+      }
+      // Drop the legacy `_xp_dots` placeholder; persist '0' so legacy ST
+      // readers see "no dots" rather than the stale "1" sentinel.
+      responses[`project_${n}_xp_dots`] = '0';
+    } else {
+      // Slot is no longer xp_spend; clear the rows JSON so stale data doesn't
+      // contaminate the top-level mirror.
+      if (responses[`project_${n}_xp_rows`]) responses[`project_${n}_xp_rows`] = '';
+    }
+    // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
+    // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
+    // helper handles legacy submissions; this covers fresh ROTE saves so ST
+    // consumers (feeding-tab.js:350, admin/downtime-views.js:2569) read the
+    // method directly rather than seeing undefined.
+    if (responses[`project_${n}_action`] === 'rote' && feedMethodId) {
+      responses[`project_${n}_feed_method2`] = feedMethodId;
+    }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
@@ -535,7 +650,7 @@ function collectResponses() {
         const value = valEl ? (valEl.value || '').trim() : '';
         if (type) arr.push({ type, value });
       });
-      responses[`sorcery_${n}_targets`] = arr;
+      responses[`sorcery_${n}_targets`] = JSON.stringify(arr);
     } else {
       // No DOM block (slot not currently rendered) — preserve any previously-saved value
       const prior = responseDoc?.responses?.[`sorcery_${n}_targets`];
@@ -651,66 +766,101 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (multi-slot, per-slot keys)
-  const acqCountEl = document.getElementById('dt-acq-slot-count');
-  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
-  responses['acq_slot_count'] = String(acqSlotCount);
-  const acqSlots = [];
-  for (let n = 1; n <= acqSlotCount; n++) {
-    const descEl = document.getElementById(`dt-acq_${n}_description`);
-    const availEl = document.getElementById(`dt-acq_${n}_availability`);
-    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
-    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
-    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
-    const keys = [];
-    cbs.forEach(cb => keys.push(cb.value));
-    responses[`acq_${n}_merits`] = JSON.stringify(keys);
-    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  // dt-form.29: structured-row collect for the redesigned Acquisitions
+  // section. Reads `data-acq-row="resource_${i}"` / `="skill_${i}"` row
+  // containers and extracts the canonical row arrays. Then the mirror
+  // builder rebuilds every legacy key in the consumer→key map (see PR
+  // body for the inventory) so existing admin/parser/db readers keep
+  // working unchanged. Idempotent both ways: re-running on the same DOM
+  // produces the same output.
+  const _collectAcqRows = (rowKey) => {
+    const out = [];
+    document.querySelectorAll(`[data-acq-row-key="${rowKey}"][data-acq-row]`).forEach(rowEl => {
+      const idx = rowEl.dataset.acqRowIdx;
+      const descEl = rowEl.querySelector(`[data-acq-desc="${rowKey}_${idx}"]`);
+      const availEl = rowEl.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      const merits = [];
+      rowEl.querySelectorAll(`[data-acq-merit-cb][data-acq-row-key="${rowKey}"][data-acq-row-idx="${idx}"]:checked`)
+        .forEach(cb => { if (cb.value) merits.push(cb.value); });
+      const description = descEl ? descEl.value : '';
+      const availability = availEl ? availEl.value : '';
+      const row = { description, availability, merits };
+      if (rowKey === 'skill') {
+        const skillEl = rowEl.querySelector(`[data-acq-skill="${idx}"]`);
+        const specEl  = rowEl.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+        row.skill = skillEl ? skillEl.value : '';
+        row.spec  = specEl  ? specEl.value  : '';
+      }
+      out.push(row);
+    });
+    return out;
+  };
+
+  const resourceRows = _collectAcqRows('resource');
+  const skillRows = _collectAcqRows('skill');
+
+  // Persist canonical rows. If the DOM didn't render any rows (section
+  // collapsed off-screen or load timing edge), preserve prior arrays via
+  // the spread base — don't clobber with empty.
+  if (resourceRows.length) responses['acq_resource_rows'] = JSON.stringify(resourceRows);
+  if (skillRows.length)    responses['acq_skill_rows']    = JSON.stringify(skillRows);
+
+  // ── Mirror builder: rebuild legacy keys for back-compat consumers ──
+  // Consumer→key map (see PR body for the inventory):
+  //   acq_slot_count, acq_${N}_description, acq_${N}_availability, acq_${N}_merits
+  //   acq_description, acq_availability, acq_merits      (legacy single = row 0)
+  //   resources_acquisitions                             (blob, downtime-views/story-tab)
+  //   skill_acq_description, skill_acq_pool_skill, skill_acq_pool_spec,
+  //   skill_acq_availability, skill_acq_merits           (legacy single skill = row 0)
+  //   skill_acquisitions                                 (blob, downtime-views/parser)
+  // skill_acq_pool_attr is intentionally NOT mirrored — post-#42 dropped.
+  const _rrows = resourceRows.length ? resourceRows : [];
+  responses['acq_slot_count'] = String(Math.max(1, _rrows.length));
+  // Per-slot keys (1-indexed). Always write at least slot 1.
+  const _maxSlot = Math.max(1, _rrows.length);
+  for (let n = 1; n <= _maxSlot; n++) {
+    const r = _rrows[n - 1] || { description: '', availability: '', merits: [] };
+    responses[`acq_${n}_description`]  = r.description || '';
+    responses[`acq_${n}_availability`] = r.availability || '';
+    responses[`acq_${n}_merits`]       = JSON.stringify(r.merits || []);
   }
-  // Legacy keys: slot 1 mirror
-  responses['acq_description']  = responses['acq_1_description']  || '';
-  responses['acq_availability'] = responses['acq_1_availability'] || '';
-  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
-  // Composite blob: all slots
-  const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
-  const blobLines = [];
-  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
-  if (acqSlotCount === 1) {
-    const s = acqSlots[0];
-    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-    if (s.description)   blobLines.push(s.description);
-    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
-  } else {
-    acqSlots.forEach((s, i) => {
-      blobLines.push('');
-      blobLines.push(`--- Item ${i + 1} ---`);
-      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-      if (s.description)   blobLines.push(s.description);
-      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  // Legacy single-row mirror = row 0.
+  const _r0 = _rrows[0] || { description: '', availability: '', merits: [] };
+  responses['acq_description']  = _r0.description || '';
+  responses['acq_availability'] = _r0.availability || '';
+  responses['acq_merits']       = JSON.stringify(_r0.merits || []);
+  // Composite blob (resources_acquisitions). Same format as the legacy builder.
+  const _resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
+  const _resourcesRating = meritEffectiveRating(currentChar, _resourcesM);
+  const _blobLines = [];
+  if (_resourcesRating) _blobLines.push(`Resources ${_resourcesRating}`);
+  if (_rrows.length === 1) {
+    const s = _rrows[0];
+    if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   _blobLines.push(s.description);
+    if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else if (_rrows.length > 1) {
+    _rrows.forEach((s, i) => {
+      _blobLines.push('');
+      _blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   _blobLines.push(s.description);
+      if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
     });
   }
-  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
+  responses['resources_acquisitions'] = _blobLines.join('\n').replace(/^\n/, '').trim();
 
-  // Skill acquisition fields
-  const skDescEl = document.getElementById('dt-skill_acq_description');
-  responses['skill_acq_description'] = skDescEl ? skDescEl.value : '';
-  const skAttrEl = document.getElementById('dt-skill_acq_pool_attr');
-  const skSkillEl = document.getElementById('dt-skill_acq_pool_skill');
-  responses['skill_acq_pool_attr'] = skAttrEl ? skAttrEl.value : '';
-  responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
-  const skSpecEl = document.getElementById('dt-skill_acq_pool_spec');
-  responses['skill_acq_pool_spec'] = skSpecEl ? skSpecEl.value : '';
-  const skAvailEl = document.getElementById('dt-skill_acq_availability');
-  responses['skill_acq_availability'] = skAvailEl ? skAvailEl.value : '';
-  const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
-  const skAcqMeritKeys = [];
-  skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
-  responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  // Skill mirror = row 0 of acq_skill_rows.
+  const _s0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
+  responses['skill_acq_description']  = _s0.description || '';
+  responses['skill_acq_pool_skill']   = _s0.skill || '';
+  responses['skill_acq_pool_spec']    = _s0.spec || '';
+  responses['skill_acq_availability'] = _s0.availability || '';
+  responses['skill_acq_merits']       = JSON.stringify(_s0.merits || []);
+  // skill_acquisitions blob — same composition as the legacy builder.
   const _skPoolStr = skillAcqPoolStr(currentChar, {
     skill: responses['skill_acq_pool_skill'],
-    spec: responses['skill_acq_pool_spec'],
+    spec:  responses['skill_acq_pool_spec'],
   });
   responses['skill_acquisitions'] = [
     responses['skill_acq_description'],
@@ -735,7 +885,41 @@ function collectResponses() {
 
   } // end if (!_isMinimal) — ADVANCED-only collection
 
+  // dt-form.26 (DAR-A1): mirror per-slot XP-spend rows into the legacy
+  // top-level `responses.xp_spend` JSON array so existing readers
+  // (player-side budget validator at submitForm:1263, ST review at
+  // admin/downtime-views.js:3637) keep working unchanged. The per-slot
+  // shape is canonical post-redesign; this rebuilds top-level on every
+  // save. If no slot has xp_spend rows, the legacy top-level value (from
+  // the spread base) passes through untouched — preserves any in-flight
+  // legacy data until the player engages the redesigned UI.
+  let _hasAnyXpRows = false;
+  const _topLevelMirror = [];
+  for (let s = 1; s <= 4; s++) {
+    if (responses[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = responses[`project_${s}_xp_rows`] || '';
+    if (rj) {
+      try { slotRows = JSON.parse(rj); } catch { slotRows = []; }
+    }
+    if (slotRows.length) {
+      _hasAnyXpRows = true;
+      for (const r of slotRows) {
+        if (!r || !r.category) continue;
+        _topLevelMirror.push(r);
+      }
+    }
+  }
+  if (_hasAnyXpRows) {
+    responses['xp_spend'] = JSON.stringify(_topLevelMirror);
+  }
+
   return responses;
+}
+
+function _saveTimestamp() {
+  const now = new Date();
+  return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 }
 
 async function saveDraft() {
@@ -748,6 +932,7 @@ async function saveDraft() {
     if (statusEl) statusEl.textContent = '[Dev] Save skipped';
     return;
   }
+  if (statusEl) statusEl.textContent = 'Saving…';
   const responses = collectResponses();
 
   // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
@@ -761,7 +946,7 @@ async function saveDraft() {
   const nextStatus = hasMinimum ? 'submitted' : 'draft';
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -777,8 +962,7 @@ async function saveDraft() {
       responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
-    if (statusEl) statusEl.textContent = 'Saved';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    if (statusEl) statusEl.textContent = 'Saved ' + _saveTimestamp();
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
@@ -858,7 +1042,7 @@ async function submitForm() {
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -936,7 +1120,11 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  if (char) applyDerivedMerits(char);
+  try {
+    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+    currentChar = fresh;
+  } catch { /* silent — stale char is better than a broken form */ }
+  if (currentChar) applyDerivedMerits(currentChar);
   _territories = territories || [];
   responseDoc = null;
   currentCycle = null;
@@ -964,24 +1152,11 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
-  // don't break when viewing old cycles. The new flow (NPCR.12) does not
-  // use this list.
-  _linkedNpcs = [];
-  if (currentChar?._id) {
-    try {
-      _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _linkedNpcs = []; }
-  }
-
-  // NPCR.12: load this character's relationships (active + pending) for
-  // the Personal Story picker. Fails silently — picker shows empty state.
-  _myRelationships = [];
-  if (currentChar?._id) {
-    try {
-      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _myRelationships = []; }
-  }
+  // dt-form.33: removed two NPC-DB data loads. The legacy
+  // `/api/npcs/for-character/...` fetch fed `_linkedNpcs` for the legacy
+  // renderer (deleted), and `/api/relationships/for-character/...` fed
+  // `_myRelationships` for the story-moment relationship picker (deleted).
+  // Saves two API round-trips per form load.
 
   // Load existing submission for this character + cycle
   priorPublishedLabel = null;
@@ -993,6 +1168,9 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
       if (responseDoc) _promotePublishedOutcome(responseDoc);
+      // dt-form.22: translate legacy ROTE state on first read. Once any
+      // save fires, the document persists in the new shape.
+      if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
     } catch { /* no submission */ }
   }
 
@@ -1385,6 +1563,131 @@ function _isRegencyConfirmedThisCycle() {
   );
 }
 
+// dt-form.31 (ADR-003 §Q5): Submit Final modal. ADVANCED-only affordance
+// that lets a player declare "I am done editing" via responses._final_submitted_at.
+// Mirrors the existing .npcr-modal pattern (admin-layout.css) but lives in
+// components.css under .dt-modal-* so the player surface picks it up.
+function openSubmitFinalModal(container) {
+  // Render fresh markup each time so the action-spent counts reflect the
+  // current responses (per §Q9, ADVANCED + MINIMAL-filled shows zeros).
+  closeSubmitFinalModal();
+  const saved = responseDoc?.responses || {};
+  const totals = {
+    projectSlots:     DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4,
+    sphereSlots:      Math.min((detectedMerits.spheres || []).length, 5),
+    statusSlots:      Math.min((detectedMerits.status || []).length, 5),
+    contactSlots:     Math.min((detectedMerits.contacts || []).length, 5),
+    retainerSlots:    (detectedMerits.retainers || []).length,
+    acquisitionSlots: parseInt(saved.acq_slot_count || '1', 10) || 1,
+    sorcerySlots:     parseInt(saved.sorcery_slot_count || '0', 10) || 0,
+    equipmentSlots:   parseInt(saved.equipment_slot_count || '0', 10) || 0,
+  };
+  const summary = actionSpentSummary(saved, totals);
+  const lines = formatActionSpentSummary(summary);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'dt-modal-overlay';
+  overlay.id = 'dt-submit-final-overlay';
+  overlay.setAttribute('role', 'presentation');
+
+  const titleId = 'dt-submit-final-title';
+  let h = '';
+  h += `<div class="dt-modal" role="dialog" aria-modal="true" aria-labelledby="${titleId}">`;
+  h += `<h3 class="dt-modal-title" id="${titleId}">Submit Final</h3>`;
+  h += '<div class="dt-modal-body">';
+  h += '<p class="qf-section-intro">Use this when you are done editing. Your downtime will continue auto-saving until the cycle deadline; this just records the moment you stopped.</p>';
+
+  // Action-spent summary
+  h += '<h4 class="dt-modal-subhead">This cycle so far</h4>';
+  if (lines.length) {
+    h += '<ul class="dt-modal-summary-list">';
+    for (const line of lines) {
+      h += `<li>${esc(line)}</li>`;
+    }
+    h += '</ul>';
+  } else {
+    h += '<p class="qf-desc">No actions filled in yet.</p>';
+  }
+
+  // Optional rate-the-form widget — lifted from the removed Admin section
+  // (SUBMIT_FINAL_MODAL_QUESTIONS in downtime-data.js) so the existing
+  // star_rating + textarea widgets render via renderQuestion(), unchanged.
+  h += '<h4 class="dt-modal-subhead">Rate the form (optional)</h4>';
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    h += renderQuestion(q, saved[q.key] || '');
+  }
+  h += '</div>'; // dt-modal-body
+
+  // Actions
+  h += '<div class="dt-modal-actions">';
+  h += '<button type="button" class="qf-btn qf-btn-save" data-dt-final-cancel>Cancel</button>';
+  h += '<button type="button" class="qf-btn qf-btn-submit-final" data-dt-final-confirm>Submit Final</button>';
+  h += '</div>';
+
+  h += '</div>'; // dt-modal
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+
+  // Focus management: send focus to the dialog so screen readers announce it.
+  overlay.querySelector('.dt-modal')?.focus({ preventScroll: true });
+
+  // Escape closes the modal.
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSubmitFinalModal(); }
+  });
+
+  // Click delegation MUST live on the overlay, not on the form container,
+  // because document.body.appendChild(overlay) above puts the modal outside
+  // the container's DOM subtree. Clicks here would not bubble to a
+  // container-scoped listener (caused issue #89).
+  overlay.addEventListener('click', (e) => {
+    if (e.target.closest('[data-dt-final-cancel]')) {
+      e.preventDefault();
+      closeSubmitFinalModal();
+      return;
+    }
+    if (e.target.closest('[data-dt-final-confirm]')) {
+      e.preventDefault();
+      handleSubmitFinalConfirm(container);
+      return;
+    }
+    // Click on the overlay backdrop itself (not on a modal child) dismisses.
+    if (e.target === overlay) {
+      closeSubmitFinalModal();
+    }
+  });
+}
+
+function closeSubmitFinalModal() {
+  const el = document.getElementById('dt-submit-final-overlay');
+  if (el) el.remove();
+}
+
+async function handleSubmitFinalConfirm(container) {
+  // Collect the rating widget values from the modal so they round-trip on
+  // the next save. Star rating writes to a hidden input; textarea writes
+  // straight to its DOM node. We seed them onto responseDoc so collectResponses
+  // (which iterates over rendered form fields, not the modal) keeps the values.
+  if (!responseDoc) responseDoc = { responses: {} };
+  if (!responseDoc.responses) responseDoc.responses = {};
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    const el = document.getElementById('dt-' + q.key);
+    if (el) responseDoc.responses[q.key] = el.value;
+  }
+  responseDoc.responses._final_submitted_at = new Date().toISOString();
+  closeSubmitFinalModal();
+  // Re-render the form so the button label flips to "Update Final Submission",
+  // then save so the new field reaches the server. Save handles the toast
+  // status banner via the auto-mirror lifecycle.
+  renderForm(container);
+  scheduleSave();
+  const statusEl = document.getElementById('dt-save-status');
+  if (statusEl) {
+    statusEl.textContent = 'Final submission recorded; keep editing until the deadline.';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
@@ -1450,6 +1753,13 @@ function renderForm(container) {
       h += '</ul>';
     }
     h += '</div>';
+  } else if (mode === 'minimal') {
+    // dt-form.31 (ADR-003 §Q5): MINIMAL auto-submit confirmation toast.
+    // Locked copy. Persistent — stays as long as the form is above minimum
+    // in MINIMAL mode. ADVANCED uses the Submit Final modal instead.
+    h += '<div class="dt-min-toast" role="status" aria-live="polite">';
+    h += '<p class="dt-min-toast__lead"><strong>Submitted</strong> — keep editing until the deadline.</p>';
+    h += '</div>';
   }
 
   // Header
@@ -1474,7 +1784,6 @@ function renderForm(container) {
   }
   h += '<span id="dt-save-status" class="qf-save-status"></span>';
   h += '</div>';
-  h += '<p class="qf-intro">Your responses auto-save as you type.</p>';
 
   // Status badges
   h += '<div class="dt-status-badges">';
@@ -1507,6 +1816,8 @@ function renderForm(container) {
     if (section.key === 'blood_sorcery') continue;
     if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
+    // dt-form.31: admin section removed from DOWNTIME_SECTIONS. Defensive skip
+    // kept in case legacy data or imports re-introduce the key.
     if (section.key === 'admin') continue;
     if (section.key === 'territory') continue;
     if (section.key === 'feeding') continue;
@@ -1532,13 +1843,8 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // ── Personal Story — NPC interaction ──
+  // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
-
-  // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
-  if (gateValues.has_sorcery === 'yes' && _isSectionVisibleInMode('blood_sorcery', mode)) {
-    h += renderSorcerySection(saved);
-  }
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
@@ -1563,6 +1869,9 @@ function renderForm(container) {
 
   // dt-form.17: ADVANCED-only sections below the projects.
   if (mode === 'advanced') {
+    // ── Blood Sorcery — between Personal Actions and Sphere Actions (dt-form.27) ──
+    if (gateValues.has_sorcery === 'yes') h += renderSorcerySection(saved);
+
     // ── Dynamic merit sections ──
     h += renderMeritToggles(saved);
 
@@ -1573,7 +1882,9 @@ function renderForm(container) {
     h += renderEquipmentSection(saved);
   }
 
-  for (const key of ['vamping', 'admin']) {
+  // dt-form.31: 'admin' removed from DOWNTIME_SECTIONS — find() returns
+  // undefined for it and the body is skipped. Loop kept for vamping.
+  for (const key of ['vamping']) {
     if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
@@ -1601,16 +1912,23 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // Hide feedback textarea until a rating is provided
-  if (!saved['form_rating']) {
-    h = h.replace('dt-feedback-field', 'dt-feedback-field dt-feedback-hidden');
-  }
+  // dt-form.31: form-rating hide hack removed — the rating widget now lives
+  // in the Submit Final modal (ADVANCED only); not in the form body.
 
   // Actions
   const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
   h += '<div class="qf-actions">';
-  h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
   h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
+  // dt-form.31 (ADR-003 §Q5): ADVANCED-only Submit Final affordance. Opens
+  // the modal; the modal sets responses._final_submitted_at on confirm.
+  // Per §Q9 the button is mode-conditional, not state-conditional — an
+  // ADVANCED player who only filled MINIMAL still sees it (the modal
+  // shows zeros in that case).
+  if (mode === 'advanced') {
+    const finalAt = saved._final_submitted_at;
+    const finalLabel = finalAt ? 'Update Final Submission' : 'Submit Final';
+    h += `<button type="button" class="qf-btn qf-btn-submit-final" id="dt-btn-submit-final">${esc(finalLabel)}</button>`;
+  }
   h += '</div>';
 
   // Capture expanded sections before re-render
@@ -1662,6 +1980,34 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // dt-form.34: delegated submit — survives re-renders; direct listener below was lost
+    // after any inline renderForm() call (sorcery rite change, feed pool, mode toggle).
+    if (e.target.closest('#dt-btn-submit')) {
+      submitForm();
+      return;
+    }
+    // dt-form.18: Personal Story kind radio — re-render so the textarea
+    // label and placeholder reflect the chosen kind (touchstone vs
+    // correspondence). The radio's `value` is set by the browser before
+    // this handler fires, so collectResponses captures it.
+    if (e.target.matches('[data-personal-story-kind]')) {
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
+    if (e.target.closest('#dt-btn-submit-final')) {
+      e.preventDefault();
+      openSubmitFinalModal(container);
+      return;
+    }
+    // dt-form.31 modal click delegations moved to the overlay element in
+    // openSubmitFinalModal() — see issue #89. The overlay is appended to
+    // document.body, not to container, so its clicks never reach this
+    // listener.
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
@@ -1679,48 +2025,88 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Availability dot selectors (resources + skill acquisition)
-    const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
-    if (acqUnknown) {
-      const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = 'unknown';
-      const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => d.classList.remove('dt-acq-dot-filled'));
-        acqUnknown.classList.add('dt-acq-dot-filled');
-        const lbl = row.querySelector('.dt-acq-avail-label');
-        if (lbl) lbl.textContent = '';
-      }
+
+    // dt-form.29: Acquisitions row handlers (Add / Remove / Avail dots /
+    // Avail unknown / Skill spec chip). Row state is canonical in
+    // `responses.acq_resource_rows` / `acq_skill_rows`; click handlers
+    // mutate the spread base then re-render. Saves the cycle of
+    // legacy-input mutation + DOM dot-class toggles by going straight
+    // through collectResponses → mutate → renderForm.
+    const acqAddBtn = e.target.closest('[data-acq-add-row]');
+    if (acqAddBtn) {
+      const rowKey = acqAddBtn.dataset.acqAddRow;
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (!Array.isArray(arr)) arr = [];
+      const empty = rowKey === 'skill'
+        ? { skill: '', spec: '', description: '', availability: '', merits: [] }
+        : { description: '', availability: '', merits: [] };
+      arr.push(empty);
+      cur[arrKey] = JSON.stringify(arr);
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
       scheduleSave();
-      updateSectionTicks(container);
       return;
     }
-    const acqDot = e.target.closest('[data-acq-dot]') || e.target.closest('[data-skill-acq-dot]');
-    if (acqDot) {
-      const isSkill = !!acqDot.dataset.skillAcqDot;
-      const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = val;
-      const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => {
-          d.classList.toggle('dt-acq-dot-filled', parseInt(d.getAttribute(dotAttr), 10) <= val);
-        });
-        row.querySelectorAll('[data-acq-unknown],[data-skill-acq-unknown]').forEach(u => u.classList.remove('dt-acq-dot-filled'));
-        const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-        let lbl = row.querySelector('.dt-acq-avail-label');
-        if (!lbl) { lbl = document.createElement('span'); lbl.className = 'dt-acq-avail-label'; row.appendChild(lbl); }
-        lbl.textContent = labels[val] || '';
+    const acqRemoveBtn = e.target.closest('[data-acq-row-remove]');
+    if (acqRemoveBtn) {
+      const rowKey = acqRemoveBtn.dataset.acqRowRemove;
+      const idx = parseInt(acqRemoveBtn.dataset.acqRowIdx, 10);
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (Array.isArray(arr) && idx >= 0 && idx < arr.length) {
+        arr.splice(idx, 1);
+        cur[arrKey] = JSON.stringify(arr);
+        if (responseDoc) responseDoc.responses = cur;
+        else responseDoc = { responses: cur };
+        renderForm(container);
+        scheduleSave();
       }
+      return;
+    }
+    const acqUnknown = e.target.closest('[data-acq-unknown]');
+    if (acqUnknown) {
+      const rowKey = acqUnknown.dataset.acqRowKey;
+      const idx = acqUnknown.dataset.acqRowIdx;
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = hidden.value === 'unknown' ? '' : 'unknown';
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
       scheduleSave();
-      updateSectionTicks(container);
+      return;
+    }
+    const acqDot = e.target.closest('[data-acq-dot]');
+    if (acqDot) {
+      const rowKey = acqDot.dataset.acqRowKey;
+      const idx = acqDot.dataset.acqRowIdx;
+      const val = String(parseInt(acqDot.dataset.acqDot, 10) || 0);
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = val;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    const acqSkillSpec = e.target.closest('[data-acq-skill-spec]');
+    if (acqSkillSpec) {
+      const idx = acqSkillSpec.dataset.acqRowIdx;
+      const sp = acqSkillSpec.dataset.acqSkillSpec;
+      const hidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (hidden) hidden.value = hidden.value === sp ? '' : sp;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // Contact row toggle
@@ -1865,33 +2251,16 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
-    // NPCR.12/13: relationship picker change — swap the kind-driven label
-    // and placeholder in place, preserving whatever the player has typed.
-    if (e.target.id === 'dt-story_moment_relationship_id') {
-      const relId = e.target.value;
-      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
-      const prompt = edge
-        ? promptForKind(edge.kind, edge.custom_label)
-        : promptForKind('_default', null);
-      const label = document.getElementById('dt-story_moment_note_label');
-      const note  = document.getElementById('dt-story_moment_note');
-      if (label) label.textContent = prompt.label;
-      if (note)  note.setAttribute('placeholder', prompt.placeholder);
-      scheduleSave();
-      return;
-    }
+    // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
+    // The story-moment relationship picker (a DB-relational element) was
+    // suppressed under the broader NPC-interaction policy alongside the
+    // legacy renderer deletion. No DOM element with id
+    // `dt-story_moment_relationship_id` is rendered anywhere now.
 
-    // Personal story free-text NPC name — sync to hidden fields and update tick
-    if (e.target.id === 'dt-personal_story_npc_name_free') {
-      const val    = e.target.value.trim();
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = val ? '__new__' : '';
-      if (nameEl) nameEl.value = val;
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: legacy free-text NPC name `_free` change handler removed.
+    // The legacy renderer that emitted `dt-personal_story_npc_name_free` is
+    // gone; dt-form.18's option Y uses `dt-personal_story_npc_name` directly
+    // as a typed-string input, no `_free` mirror needed.
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -2058,13 +2427,14 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Skill acquisition pool change — re-render for spec chips
-    if (e.target.id === 'dt-skill_acq_pool_skill') {
-      // Clear spec when skill changes
-      {
-        const specInput = document.getElementById('dt-skill_acq_pool_spec');
-        if (specInput) specInput.value = '';
-      }
+    // dt-form.29: Skill row select change — re-render so the spec-chip
+    // strip rebuilds for the new skill and the read-only pool annotation
+    // updates. Spec is cleared on skill change to avoid carrying a spec
+    // that doesn't apply to the newly-selected skill.
+    if (e.target.matches('[data-acq-skill]')) {
+      const idx = e.target.dataset.acqSkill;
+      const specHidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (specHidden) specHidden.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2169,25 +2539,9 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // NPC card selection
-    const npcCard = e.target.closest('[data-npc-pick]');
-    if (npcCard) {
-      const id   = npcCard.dataset.npcPick;
-      const name = npcCard.dataset.npcName || '';
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = id;
-      if (nameEl) nameEl.value = name;
-      container.querySelectorAll('[data-npc-pick]').forEach(c =>
-        c.classList.toggle('dt-npc-card-selected', c.dataset.npcPick === id)
-      );
-      // Clear free-text field when a card is picked
-      const freeEl = document.getElementById('dt-personal_story_npc_name_free');
-      if (freeEl) freeEl.value = '';
-      scheduleSave();
-      updateSectionTicks(container);
-      return;
-    }
+    // dt-form.33: NPC card click handler removed alongside the
+    // _legacyRenderPersonalStorySection deletion. No DOM element with
+    // [data-npc-pick] is rendered anywhere now.
     // dt-form.16: target character chip handler removed — universal charPicker
     // mounted in renderTargetCharOrOther handles its own selection lifecycle.
     // Maintenance merit chip — single-select, writes to hidden target_value input
@@ -2417,38 +2771,11 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Add Acquisition button
-    if (e.target.closest('#dt-add-acquisition')) {
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      responses['acq_slot_count'] = String(current + 1);
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // Remove Acquisition button
-    const removeAcqBtn = e.target.closest('[data-remove-acq]');
-    if (removeAcqBtn) {
-      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      for (let n = removeN; n < current; n++) {
-        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
-        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
-        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
-      }
-      delete responses[`acq_${current}_description`];
-      delete responses[`acq_${current}_availability`];
-      delete responses[`acq_${current}_merits`];
-      responses['acq_slot_count'] = String(Math.max(1, current - 1));
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
+    // dt-form.29: legacy `#dt-add-acquisition` and `[data-remove-acq]`
+    // handlers removed. Add/Remove now goes through the structured-row
+    // path at `[data-acq-add-row]` / `[data-acq-row-remove]` which mutates
+    // `responses.acq_resource_rows` / `acq_skill_rows` directly. Mirror
+    // builder rebuilds the legacy `acq_slot_count` + per-slot keys on save.
     // Add Equipment button
     if (e.target.closest('#dt-add-equipment')) {
       const responses = collectResponses();
@@ -2590,8 +2917,7 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
-  document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
+  // dt-form.34: submit handled via delegated click listener above (survives re-renders).
 }
 
 // ── Cast picker modal ──
@@ -2859,9 +3185,19 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
-      const savedCat  = saved[`project_${n}_xp_category`] || '';
-      const savedItem = saved[`project_${n}_xp_item`] || '';
-      const budget = xpLeft(currentChar);
+      // dt-form.26: in-slot multi-row XP-Spend grid. Reuses renderXpRow which
+      // already encodes hotfix #44's merit-eligibility logic
+      // (getItemsForCategory('merit') -> getRulesByCategory + meetsPrereq).
+      // Per-slot rows persist as `responses.project_N_xp_rows` (JSON);
+      // top-level `responses.xp_spend` mirror-built in collectResponses (DAR-A1).
+      h += _renderProjectXpRows(n, saved);
+      // legacy single-row block follows but is dead — kept under a constant-false
+      // branch so the diff is bounded and the dead code documents the historical
+      // shape. Removed in a follow-up cleanup commit if Ma'at prefers.
+      if (false) {
+        const savedCat  = saved[`project_${n}_xp_category`] || '';
+        const savedItem = saved[`project_${n}_xp_item`] || '';
+        const budget = xpLeft(currentChar);
 
       // Deduct already-committed project XP from other slots
       let committed = 0;
@@ -2913,6 +3249,7 @@ function renderProjectSlots(saved, mode = 'advanced') {
       }, saved[`project_${n}_xp_trait`] || '');
 
       h += '</div>';
+      } // end if (false) — dt-form.26 dead-code wrap on legacy single-row block
     }
 
     if (fields.includes('title')) {
@@ -2964,6 +3301,58 @@ function renderProjectSlots(saved, mode = 'advanced') {
         type: 'textarea', required: false, rows: 2,
         placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
+    }
+
+    // ── dt-form.22: ROTE territory + read-only inherited pool ──
+    if (actionVal === 'rote') {
+      h += '<div class="qf-field dt-proj-rote-territory">';
+      h += '<label class="qf-label">Where does this second hunt happen?</label>';
+      const roteTerrSaved = saved.feeding_territories_rote || '';
+      let roteTerrGridVals = {};
+      try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+      const mainTerrSaved = saved.feeding_territories || '';
+      let mainTerrGridVals = {};
+      try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
+      h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+      h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
+      h += '</div>';
+
+      // Read-only inherited pool. Derive from the same primary-feed inputs
+      // the simplified MINIMAL form uses, plus the chosen rote territory's
+      // ambience modifier.
+      const slugFromGrid = (gridStr) => {
+        let grid = {};
+        try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+        const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+        if (!key) return '';
+        const niceName = FEEDING_TERRITORIES.find(
+          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        );
+        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+        return td?.slug || '';
+      };
+      const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
+      const inheritedPool = computeBestFeedingPool({
+        char: currentChar,
+        methodId: feedMethodId,
+        territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
+      });
+      h += '<div class="qf-field dt-proj-rote-pool">';
+      if (!feedMethodId) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else if (!inheritedPool) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else {
+        const parts = [];
+        if (inheritedPool.attr.name) parts.push(`${inheritedPool.attr.val} ${esc(inheritedPool.attr.name)}`);
+        if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
+        else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
+        if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
+        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
+        h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
+        h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+      }
+      h += '</div>';
     }
 
     // ── Approach ──
@@ -3190,7 +3579,6 @@ function getItemsForCategory(category) {
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
-          if (rule.parent && (rule.parent === 'Invictus Oath' || rule.parent === 'Carthian Law')) continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
@@ -3327,6 +3715,99 @@ function renderXpRow(idx, row, xpActions, dotsRemaining) {
   return h;
 }
 
+/**
+ * dt-form.26: per-slot multi-row XP-Spend grid. Replaces the legacy single-row
+ * placeholder when a project slot's action is `xp_spend`. Reuses renderXpRow
+ * for each row (which carries hotfix #44's merit-eligibility logic). Read from
+ * `responses.project_${n}_xp_rows` (JSON-stringified array); backward-compat
+ * seeds rows[0] from the legacy `project_${n}_xp_category` / `_xp_item` /
+ * `_xp_dots` triple when no `_xp_rows` is present yet.
+ *
+ * Per CLAUDE.md XP rules: 1 dot of non-merit growth per xp_spend slot, plus
+ * unlimited free 1-3 dot merits. The dotsRemaining tracker spans all xp_spend
+ * slots' rows so the player sees a single global budget.
+ */
+function _renderProjectXpRows(n, saved) {
+  // Read this slot's rows (JSON), or seed from legacy single-row fields.
+  let xpRows = [];
+  const savedRowsJson = saved[`project_${n}_xp_rows`] || '';
+  if (savedRowsJson) {
+    try { xpRows = JSON.parse(savedRowsJson); } catch { xpRows = []; }
+  }
+  if (!xpRows.length) {
+    const legacyCat  = saved[`project_${n}_xp_category`] || '';
+    const legacyItem = saved[`project_${n}_xp_item`] || '';
+    const legacyDots = parseInt(saved[`project_${n}_xp_dots`] || '0', 10) || 0;
+    if (legacyCat && legacyItem) {
+      xpRows.push({ category: legacyCat, item: legacyItem, dotsBuying: legacyDots || 1 });
+    }
+  }
+  // Always render a trailing empty row so the player can add another purchase
+  // without an extra click. Mirrors the legacy admin xp_grid behaviour.
+  if (!xpRows.length || xpRows[xpRows.length - 1].category) {
+    xpRows.push({ category: '', item: '', dotsBuying: 0 });
+  }
+
+  // Cross-slot accounting. xp_spend slot count drives the non-merit dot budget;
+  // merits 1-3 are free per CLAUDE.md.
+  let xpActions = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] === 'xp_spend') xpActions++;
+  }
+  // Sum non-merit dots across ALL xp_spend slots' rows so the dotsRemaining
+  // displayed on this slot reflects the true cross-slot budget.
+  let dotsUsed = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = saved[`project_${s}_xp_rows`] || '';
+    if (rj) { try { slotRows = JSON.parse(rj); } catch { slotRows = []; } }
+    if (!slotRows.length) {
+      const lc = saved[`project_${s}_xp_category`] || '';
+      const li = saved[`project_${s}_xp_item`]     || '';
+      if (lc && li) slotRows = [{ category: lc, item: li, dotsBuying: 1 }];
+    }
+    for (const r of slotRows) {
+      if (!r.category || !r.item) continue;
+      if (r.category === 'merit') continue; // free 1-3 dot merits
+      if (r.category === 'devotion') dotsUsed++; // 1 action per devotion
+      else dotsUsed += (r.dotsBuying || 1);
+    }
+  }
+  const dotsRemaining = xpActions - dotsUsed;
+
+  // Slot total + global budget
+  const slotCost = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const budget = xpLeft(currentChar);
+
+  let h = `<div class="dt-xp-picker dt-xp-grid" data-proj-xp-grid="${n}">`;
+  h += `<p class="qf-desc">XP-spend declarations for this action. Add as many traits as your XP budget allows; merits at 1-3 dots are free, other categories require an XP-Spend action per dot.</p>`;
+  h += `<div class="dt-xp-budget" id="dt-proj_${n}_xp_budget">`;
+  h += `<span>Slot total: <strong>${slotCost}</strong> XP</span>`;
+  h += `<span style="margin-left:14px">Cycle budget: <strong>${budget}</strong> XP available</span>`;
+  if (xpActions > 0) {
+    h += `<span style="margin-left:14px">${xpActions} XP-Spend action${xpActions > 1 ? 's' : ''} — <span class="${dotsRemaining < 0 ? 'dt-influence-over' : ''}">${dotsRemaining} dot${dotsRemaining !== 1 ? 's' : ''} remaining</span></span>`;
+  }
+  h += '</div>';
+
+  for (let i = 0; i < xpRows.length; i++) {
+    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining);
+  }
+  h += '</div>'; // dt-xp-grid
+
+  // In-character justification stays per-slot, single textarea. Carries the
+  // narrative for the entire xp-spend action regardless of row count.
+  h += renderQuestion({
+    key: `project_${n}_xp_trait`,
+    label: 'In-character justification',
+    type: 'textarea',
+    required: false,
+    placeholder: 'Describe the activity or events that justify this growth.',
+  }, saved[`project_${n}_xp_trait`] || '');
+
+  return h;
+}
+
 function getRowCost(row) {
   if (!row.item || !row.category) return 0;
   if (row.category === 'merit') {
@@ -3348,115 +3829,70 @@ function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  const savedName = saved['personal_story_npc_name'] || '';
-  const savedNote = saved['personal_story_note']
-                  || saved['story_moment_note']
-                  || saved['osl_moment']
-                  || saved['correspondence']
-                  || '';
+  // dt-form.18 (ADR-003 §Q2, option Y locked 2026-05-06): single binary
+  // render in BOTH modes — pick Touchstone or Correspondence, optionally
+  // name a person involved (free-text only, NOT a DB-backed picker), then
+  // describe the beat in one textarea. The legacy NPC card picker (DB-
+  // relational, suppressed under the broader NPC-interaction policy) is
+  // removed; the free-text NPC name input is RETAINED because a typed
+  // string is categorically different from an "NPC interaction." Legacy
+  // `personal_story_note` / `_npc_id` / `_direction` fields remain in
+  // `responses` on existing drafts (silent-leave per the no-real-
+  // submissions migration window) but no UI emits them anymore.
+  const savedKind = saved['personal_story_kind'] === 'correspondence'
+    ? 'correspondence'
+    : (saved['personal_story_kind'] === 'touchstone' ? 'touchstone' : '');
+  const savedText = saved['personal_story_text'] || '';
+  const savedNpcName = saved['personal_story_npc_name'] || '';
+  const placeholder = savedKind === 'correspondence'
+    ? 'Describe the correspondence — to whom, about what, what tone you want it to strike.'
+    : savedKind === 'touchstone'
+      ? 'Describe the touchstone moment — a scene with someone or something that anchors your humanity this cycle.'
+      : 'Pick Touchstone or Correspondence above to focus your description.';
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Name someone your character spends time with this cycle, and describe the kind of moment you\'re hoping for.</p>';
-
-  // Hidden sync fields consumed by collectResponses() at submit time.
-  h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedName ? '__new__' : '')}">`;
-  h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedName)}">`;
+  h += '<p class="qf-section-intro">Pick one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen.</p>';
 
   h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name_free" value="${esc(savedName)}" placeholder="Name an NPC — anyone your character knows or has heard of…">`;
+  h += '<div class="qf-radio-group" role="radiogroup" aria-label="Personal Story kind">';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="touchstone"${savedKind === 'touchstone' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Touchstone moment</span>';
+  h += '</label>';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="correspondence"${savedKind === 'correspondence' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Correspondence</span>';
+  h += '</label>';
+  h += '</div>';
+  h += '</div>';
+
+  // Optional free-text NPC name. Typed string only — no picker, no DB
+  // lookup. Does not affect isMinimalComplete's gate; metadata only.
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-personal_story_npc_name">Person involved (optional)</label>';
+  h += `<input type="text" id="dt-personal_story_npc_name" class="qf-input" value="${esc(savedNpcName)}" placeholder="Optional — name a person you want involved">`;
   h += '</div>';
 
   h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">How do you want to interact with them?</label>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="4" placeholder="Describe the kind of moment you're hoping for — a conversation, a letter, an unexpected encounter…">${esc(savedNote)}</textarea>`;
+  h += '<label class="qf-label" for="dt-personal_story_text">';
+  h += savedKind === 'correspondence' ? 'Describe the correspondence' : 'Describe the touchstone moment';
+  h += '</label>';
+  h += `<textarea id="dt-personal_story_text" class="qf-textarea" rows="4" placeholder="${esc(placeholder)}">${esc(savedText)}</textarea>`;
   h += '</div>';
 
   h += '</div></div>';
   return h;
 }
 
-// ── Legacy renderer (kept for diff isolation — unused after DTOSL.2) ──
-function _legacyRenderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
-
-  const availableNpcs = (currentChar?.npcs || []).filter(n => n.available !== false);
-  const savedNpcId    = saved['personal_story_npc_id']    || '';
-  const savedNpcName  = saved['personal_story_npc_name']  || '';
-  const savedNote     = saved['personal_story_note']       || '';
-  const savedDir      = saved['personal_story_direction']  || 'continue';
-
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Who does your character spend time with this month? Choose someone from your life, or introduce someone new.</p>';
-
-  if (availableNpcs.length) {
-    // NPC card picker
-    h += '<div class="dt-npc-cards">';
-    for (const npc of availableNpcs) {
-      const isSelected = savedNpcId === npc.id;
-      h += `<div class="dt-npc-card${isSelected ? ' dt-npc-card-selected' : ''}" data-npc-pick="${esc(npc.id)}" data-npc-name="${esc(npc.name)}">`;
-      h += `<div class="dt-npc-card-name">${esc(npc.name)}</div>`;
-      if (npc.relationship_type) h += `<div class="dt-npc-card-rel">${esc(npc.relationship_type)}</div>`;
-      if (npc.location_context)  h += `<div class="dt-npc-card-loc">${esc(npc.location_context)}</div>`;
-      h += '</div>';
-    }
-    h += '</div>';
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedNpcId)}">`;
-    h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}">`;
-    h += '<div class="dt-npc-propose">';
-    h += '<label class="qf-label">Or introduce someone new:</label>';
-    h += `<input type="text" class="qf-input dt-npc-freetext" id="dt-personal_story_npc_name_free" value="${esc(savedNpcId === '__new__' ? savedNpcName : '')}" placeholder="Name and brief description\u2026">`;
-    h += '</div>';
-  } else {
-    // Free-text fallback — no NPCs registered yet
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="__new__">`;
-    h += '<div class="qf-field">';
-    h += '<label class="qf-label">Who do you want your character to spend time with?</label>';
-    h += '<p class="qf-desc">Describe them briefly — name, relationship, context. Your ST will use this to seed their character register.</p>';
-    h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}" placeholder="e.g. Marcus, my character\u2019s younger brother\u2026">`;
-    h += '</div>';
-  }
-
-  // Interaction note
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">What kind of moment do you want?</label>';
-  h += '<p class="qf-desc">What are you hoping for from this interaction — a quiet scene, a difficult conversation, a letter, something unexpected? The more you share, the better the story.</p>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="3" placeholder="Optional\u2014 any direction, tone, or story beats you\u2019d like\u2026">${esc(savedNote)}</textarea>`;
-  h += '</div>';
-
-  // Story direction
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I\'d like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
-  }
-  h += '</div></div>';
-
-  // DTR.2: correspondence moved here from Court. Rendered from the first
-  // question in section.questions (type 'textarea') so collectResponses
-  // can still find it via `dt-<key>`.
-  const correspondenceQ = (section.questions || []).find(q => q.key === 'correspondence');
-  if (correspondenceQ) {
-    h += renderQuestion(correspondenceQ, saved['correspondence'] || '');
-  }
-
-  h += '</div></div>';
-  return h;
-}
+// dt-form.33: legacy `_legacyRenderPersonalStorySection` deleted. The
+// function rendered the DB-relational `dt-npc-cards` picker driven by
+// `currentChar.npcs`; suppressed under the broader NPC-interaction
+// release-cycle policy. dt-form.18 already replaced the live render
+// with the Touchstone-or-Correspondence binary; this story prunes the
+// orphan plus its associated click handler and the now-unused
+// `_linkedNpcs` / `_myRelationships` data loads.
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
@@ -3582,9 +4018,16 @@ function renderSorcerySection(saved) {
       // {type, value} objects on responses[`sorcery_N_targets`]. Legacy string
       // values render as a single 'other' row; the next save converts to array.
       const rawTargets = saved[`sorcery_${n}_targets`];
-      const targets = Array.isArray(rawTargets)
-        ? rawTargets
-        : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
+      let targets;
+      if (Array.isArray(rawTargets)) {
+        targets = rawTargets;
+      } else if (rawTargets && rawTargets.startsWith('[')) {
+        try { targets = JSON.parse(rawTargets); } catch { targets = [{ type: '', value: '' }]; }
+      } else if (rawTargets) {
+        targets = [{ type: 'other', value: String(rawTargets) }];
+      } else {
+        targets = [{ type: '', value: '' }];
+      }
       h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
       h += `<label class="qf-label">Target/s</label>`;
       h += `<p class="qf-desc" style="margin:0 0 8px;font-size:.85em;opacity:.8">Not all target types are valid for every rite — check the rite's description for valid targets. The ST will reject any mismatched targeting at processing.</p>`;
@@ -3622,205 +4065,268 @@ function renderSorcerySection(saved) {
 
 // ── Acquisitions (custom render) ──
 
-function renderAcquisitionsSection(saved) {
-  const c = currentChar;
-  // Find Resources merit rating
-  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+// dt-form.29 (story #87, ADR-003 §Audit-baseline). Two distinct sub-tables —
+// Resources rows + Skill rows — both using the locked 3-col condensed shape
+// (Description / Availability dots / Merit multi-select). Skill rows carry
+// extra inline sub-fields (skill + spec) above the row + a read-only pool
+// annotation derived via `skillAcqPoolStr` (the post-#42 source of truth).
+//
+// Persistence: `responses.acq_resource_rows` + `responses.acq_skill_rows`
+// (JSON-stringified arrays). Mirror builder in collectResponses rebuilds the
+// full legacy surface (acq_slot_count + acq_${N}_* + acq_* + resources_acquisitions
+// blob + skill_acq_* + skill_acquisitions blob) on every save so existing
+// admin/parser/db consumers keep working unchanged.
+//
+// Backward-compat seed: when `_rows` is empty, _readResourceRows /
+// _readSkillRows seed rows[0] from the legacy single-row + multi-slot keys
+// so pre-redesign drafts surface in the new UI on first render. Silent-leave
+// for legacy keys per dt-form.26 A1 precedent — no migration script.
 
-  // All character merits for the picker
-  const charMerits = (c.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
-  );
-
-  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
-  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
-  h += '<div class="qf-section-body">';
-
-  // ── Resources acquisition ──
-    // -- Resources acquisition (multi-slot) --
-  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
-  const slotCount = Math.max(1, savedCount);
-  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
-
-  // Resources Level header (section-level, shared across all slots)
-  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
-  h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
-  h += '</div>';
-
-  for (let n = 1; n <= slotCount; n++) {
-    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
-  }
-
-  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
-
-  // ── Skill-based acquisition ──
-  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
-
-  h += '<div class="dt-acq-card" style="margin-top:16px;">';
-  h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
-  h += '<p class="qf-desc">Limited to ONE skill-based acquisition per Downtime.</p>';
-
-  h += renderQuestion({
-    key: 'skill_acq_description', label: 'Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to obtain, and how?',
-  }, saved['skill_acq_description'] || '');
-
-  // Dice pool: Skill only (VtR 2e — no attribute addend for skill acquisition)
-  h += '<div class="qf-field">';
-  h += '<div class="dt-pool-label">Acquisition Pool</div>';
-  h += '<div class="dt-dice-pool-row">';
-
-  const skSavedSkill = saved['skill_acq_pool_skill'] || '';
-
-  h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
-  h += '<option value="">Skill</option>';
-  for (const s of skSkills) {
-    const dots = skTotal(c, s);
-    h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
-  }
-  h += '</select>';
-
-  // Specialisation chips (if selected skill has specs, or IS grants cross-skill specs)
-  const skSavedSpec = saved['skill_acq_pool_spec'] || '';
-  let specBonus = 0;
-  const skNativeSpecs = skSavedSkill ? (c.skills?.[skSavedSkill]?.specs || []) : [];
-  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
-  const skAllSpecs = [...skNativeSpecs, ...skIsSpecs.map(({ spec }) => spec)];
-  if (skSavedSpec && skAllSpecs.includes(skSavedSpec)) {
-    specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
-  }
-
-  // Pool total: skill dots only
-  let skPoolTotal = 0;
-  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
-  skPoolTotal += specBonus;
-  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
-  h += '</div>';
-
-  // Spec chips row + hidden input
-  h += `<input type="hidden" id="dt-skill_acq_pool_spec" value="${esc(skSavedSpec)}">`;
-  if (skNativeSpecs.length || skIsSpecs.length) {
-    h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
-    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    const allSkSpecs = [
-      ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
-      ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
-    ];
-    for (const { sp, fromSkill, native } of sortChips(allSkSpecs, item => item.sp)) {
-      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+function _readResourceRows(saved) {
+  let rows = [];
+  const json = saved.acq_resource_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy multi-slot keys.
+  const slotCount = parseInt(saved.acq_slot_count || '0', 10);
+  if (slotCount > 0) {
+    for (let n = 1; n <= slotCount; n++) {
+      const desc = saved[`acq_${n}_description`] || '';
+      const avail = saved[`acq_${n}_availability`] || '';
+      let merits = [];
+      try { merits = JSON.parse(saved[`acq_${n}_merits`] || '[]'); } catch { merits = []; }
+      if (desc || avail || merits.length) {
+        rows.push({ description: desc, availability: avail, merits });
+      }
     }
-    h += '</div>';
   }
-  h += '</div>';
-
-  // Relevant merits for this acquisition
-  let skMeritPicks = [];
-  try { skMeritPicks = JSON.parse(saved['skill_acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<div class="dt-proj-merits" data-skill-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-skill-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  // Seed from legacy single-row if multi-slot was empty.
+  if (!rows.length) {
+    const desc = saved.acq_description || '';
+    const avail = saved.acq_availability || '';
+    let merits = [];
+    try { merits = JSON.parse(saved.acq_merits || '[]'); } catch { merits = []; }
+    if (desc || avail || merits.length) {
+      rows.push({ description: desc, availability: avail, merits });
+    }
   }
-  h += '</div></div>';
+  if (!rows.length) rows.push({ description: '', availability: '', merits: [] });
+  return rows;
+}
 
-  // Availability (dot selector 1-5 + Unknown)
-  const skSavedAvailRaw = saved['skill_acq_availability'];
-  const skSavedAvail = skSavedAvailRaw === 'unknown' ? 'unknown' : (parseInt(skSavedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-skill-acq-avail>';
+function _readSkillRows(saved) {
+  let rows = [];
+  const json = saved.acq_skill_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy single-row keys (skills was 1-per-cycle pre-redesign).
+  const skill = saved.skill_acq_pool_skill || '';
+  const spec  = saved.skill_acq_pool_spec  || '';
+  const desc  = saved.skill_acq_description || '';
+  const avail = saved.skill_acq_availability || '';
+  let merits = [];
+  try { merits = JSON.parse(saved.skill_acq_merits || '[]'); } catch { merits = []; }
+  if (skill || spec || desc || avail || merits.length) {
+    rows.push({ skill, spec, description: desc, availability: avail, merits });
+  }
+  if (!rows.length) rows.push({ skill: '', spec: '', description: '', availability: '', merits: [] });
+  return rows;
+}
+
+function _renderAcqAvailabilityDots(rowKey, idx, savedAvail) {
+  const isUnknown = savedAvail === 'unknown';
+  const numAvail = isUnknown ? 0 : (parseInt(savedAvail, 10) || 0);
+  let h = `<div class="dt-acq-avail-row" data-acq-avail="${rowKey}_${idx}">`;
   for (let d = 1; d <= 5; d++) {
-    const filled = typeof skSavedAvail === 'number' && d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-skill-acq-dot="${d}">\u25CF</span>`;
+    const filled = !isUnknown && d <= numAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">●</span>`;
   }
-  h += `<span class="dt-acq-unknown${skSavedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-skill-acq-unknown>Unknown</span>`;
-  if (skSavedAvail) {
+  h += `<span class="dt-acq-unknown${isUnknown ? ' dt-acq-dot-filled' : ''}" data-acq-unknown data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">Unknown</span>`;
+  if (numAvail) {
     const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = skSavedAvail === 'unknown' ? '' : (labels[skSavedAvail] || '');
+    const lbl = labels[numAvail] || '';
     if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
   }
-  h += `<input type="hidden" id="dt-skill_acq_availability" value="${esc(String(skSavedAvail || ''))}">`;
-  h += '</div></div>';
-
+  h += `<input type="hidden" data-acq-avail-hidden="${rowKey}_${idx}" value="${esc(String(savedAvail || ''))}">`;
   h += '</div>';
-
-  h += '</div></div>'; // section-body, section
   return h;
 }
 
-function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
-  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
-  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
-  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
-  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
-
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
-
-  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
-  h += '<div class="dt-acq-card-hd">';
-  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
-  if (slotCount > 1) {
-    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+function _renderAcqMeritsCheckboxes(rowKey, idx, charMerits, savedMerits) {
+  let h = `<div class="dt-proj-merits" data-acq-merits="${rowKey}_${idx}">`;
+  if (!charMerits.length) {
+    h += '<p class="qf-desc">No applicable merits.</p>';
+  } else {
+    for (const m of charMerits) {
+      const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const checked = (savedMerits || []).includes(mKey) ? ' checked' : '';
+      h += `<label class="dt-proj-merit-label">`;
+      h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}"${checked}>`;
+      h += `<span>${esc(mName)} ${dots}</span>`;
+      h += `</label>`;
+    }
   }
+  h += '</div>';
+  return h;
+}
+
+function _renderResourceRow(idx, row, charMerits, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="resource_${idx}" data-acq-row-key="resource" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="resource" data-acq-row-idx="${idx}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="resource_${idx}" placeholder="What are you attempting to acquire? Include context and purpose.">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('resource', idx, row.availability);
   h += '</div>';
 
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Relevant Merits</label>';
   h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
-  }
-  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
-  h += '</div></div>';
-
-  h += renderQuestion({
-    key: `acq_${n}_description`, label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, description);
-
-  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
+  h += _renderAcqMeritsCheckboxes('resource', idx, charMerits, row.merits);
+  h += '</div>';
 
   h += '</div>';
+  return h;
+}
+
+function _renderSkillRow(idx, row, charMerits, c, skSkills, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="skill_${idx}" data-acq-row-key="skill" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Skill ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="skill" data-acq-row-idx="${idx}" title="Remove this skill">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  const savedSkill = row.skill || '';
+  const savedSpec  = row.spec  || '';
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Skill</label>';
+  h += `<select class="qf-select" data-acq-skill="${idx}">`;
+  h += '<option value="">— Select skill —</option>';
+  for (const s of skSkills) {
+    const dots = skTotal(c, s);
+    const sel = savedSkill === s ? ' selected' : '';
+    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+
+  const skNativeSpecs = savedSkill ? (c.skills?.[savedSkill]?.specs || []) : [];
+  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
+  const allSpecs = [
+    ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+    ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+  ];
+  if (allSpecs.length) {
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Specialisation</label>';
+    h += '<div class="dt-feed-spec-row">';
+    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-acq-skill-spec="${esc(sp)}" data-acq-row-idx="${idx}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+    }
+    h += '</div>';
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+    h += '</div>';
+  } else {
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+  }
+
+  // Read-only pool annotation. Post-#42: SKILL only via skillAcqPoolStr.
+  // This is the only pool-rendering site after dt-form.29 (the inline
+  // duplicate at the legacy renderer is gone).
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Acquisition Pool</label>';
+  if (savedSkill) {
+    const poolStr = skillAcqPoolStr(c, { skill: savedSkill, spec: savedSpec });
+    if (poolStr) {
+      h += `<p class="qf-desc dt-acq-pool-readout">${esc(poolStr)}</p>`;
+    } else {
+      h += '<p class="qf-desc">Pool unavailable for this skill.</p>';
+    }
+  } else {
+    h += '<p class="qf-desc">Pick a skill above to see the auto-derived pool.</p>';
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="skill_${idx}" placeholder="What are you attempting to obtain, and how?">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this skill source? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('skill', idx, row.availability);
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += _renderAcqMeritsCheckboxes('skill', idx, charMerits, row.merits);
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderAcquisitionsSection(saved) {
+  const c = currentChar;
+  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+
+  const charMerits = (c.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
+  );
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
+
+  const resourceRows = _readResourceRows(saved);
+  const skillRows = _readSkillRows(saved);
+
+  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
+  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<div class="qf-section-body">';
+
+  // ── Resources sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
+  h += '<h5 class="dt-acq-subtitle">Resources Acquisitions</h5>';
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
+  h += `<span class="dt-acq-label">Resources Level:</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
+  h += '</div>';
+  for (let i = 0; i < resourceRows.length; i++) {
+    h += _renderResourceRow(i, resourceRows[i], charMerits, resourceRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="resource">+ Add Resource Item</button>';
+  h += '</div>';
+
+  // ── Skills sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
+  h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
+  for (let i = 0; i < skillRows.length; i++) {
+    h += _renderSkillRow(i, skillRows[i], charMerits, c, skSkills, skillRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="skill">+ Add Skill Item</button>';
+  h += '</div>';
+
+  h += '</div></div>'; // section-body, section
   return h;
 }
 
@@ -4101,9 +4607,25 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
+/** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
+function getAuditMaintained(cycle, char) {
+  if (!cycle || !char) return new Set();
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const set = new Set();
+  for (const m of (char.merits || [])) {
+    if (m.name === 'Professional Training' && audit.pt === true) {
+      set.add(`Professional Training_${meritEffectiveRating(char, m)}`);
+    }
+    if (m.name === 'Mystery Cult Initiation' && audit.mci === true && m.active !== false) {
+      set.add(`Mystery Cult Initiation_${meritEffectiveRating(char, m)}`);
+    }
+  }
+  return set;
+}
+
 /** Chip grid of the character's own maintenance-eligible merits (dtui-11).
  *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project', auditMaintained = new Set()) {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
@@ -4121,9 +4643,13 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
-    const isDisabled = alreadyMaintained.has(id);
+    const isDisabled = alreadyMaintained.has(id) || auditMaintained.has(id);
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
+    const titleAttr = auditMaintained.has(id)
+      ? ' title="Maintained this chapter — no action needed."'
+      : isDisabled
+        ? ' title="Already chosen as a target in another project slot."'
+        : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
          `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
@@ -4215,8 +4741,9 @@ function renderTargetZone(n, actionVal, saved, chars) {
   } else if (['investigate', 'misc'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
-    const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
-    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
+    const formDedup = getAlreadyMaintainedTargets(n, saved, 5);
+    const auditMaint = getAuditMaintained(currentCycle, currentChar);
+    h += renderMaintenanceChips(n, saved, currentChar, formDedup, 'project', auditMaint);
   }
 
   h += '</div>';
@@ -4339,9 +4866,8 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const statusVal = isBarrens ? 'barrens' : (hasFeedingRights ? 'feeding_rights' : 'poaching');
     const statusLabel = isBarrens ? 'The Barrens' : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
 
-    const activeClass = isActive
-      ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
-      : '';
+    const tintClass = (isBarrens || !hasFeedingRights) ? ' dt-terr-pill-barrens' : ' dt-terr-pill-rights';
+    const selectedClass = isActive ? ' dt-terr-pill--selected' : '';
 
     // Rote-feed Barrens lock: if main is Barrens, only Barrens-rote is allowed;
     // if main is non-Barrens, Barrens-rote is disallowed. Also disable Barrens
@@ -4357,7 +4883,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const disabledAttrs = disabled ? ' disabled aria-disabled="true" title="Rote territory must match main feed territory"' : '';
     const disabledClass = disabled ? ' dt-terr-pill-disabled' : '';
 
-    h += `<button type="button" class="dt-terr-pill${activeClass}${disabledClass}"${disabledAttrs}`;
+    h += `<button type="button" class="dt-terr-pill${tintClass}${selectedClass}${disabledClass}"${disabledAttrs}`;
     h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
@@ -4389,7 +4915,8 @@ function getAlliesAmbienceEligible(m) {
 function renderAlliesGrowXp(n, prefix, m, saved) {
   const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
-  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+  const baseName = m.name || 'Merit';
+  const meritName = m.area ? `${baseName} (${m.area})` : (m.qualifier ? `${baseName} (${m.qualifier})` : baseName);
 
   let h = '<div class="qf-field">';
   h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
@@ -4609,6 +5136,12 @@ function renderMeritToggles(saved) {
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
+  // Status-scoped list: only Status influence merits and standing merits (MCI etc.)
+  // Used in renderSphereFields for Status tabs to prevent Allies/Contacts bleeding into
+  // the hide_protect "What are you protecting?" dropdown.
+  const statusMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'standing' || (m.category === 'influence' && m.name === 'Status')
+  );
 
   if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
 
@@ -4722,15 +5255,17 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
-      // Legacy actionVals map to 'ambience_change' for the dropdown
-      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
-      for (const opt of SPHERE_ACTIONS) {
+      // ambience_change is an Allies/sphere-only action; exclude from Status dropdown.
+      // Legacy ambience_increase/decrease values in saved data are cleared gracefully
+      // (no matching option → falls back to blank/"No Action").
+      const stDropdownVal = actionVal;
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'ambience_change')) {
         const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
 
-      h += renderSphereFields(n, 'status', fields, saved, charMerits);
+      h += renderSphereFields(n, 'status', fields, saved, statusMerits, m);
 
       h += '</div>';
     }
@@ -5091,8 +5626,43 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
-      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      // dt-form.20 (ADR-003 §Q2): MINIMAL renders a read-only auto-derived
+      // pool annotation in place of the manual pool selectors. ADVANCED keeps
+      // the existing chrome (DTFP-4: always visible, method optional).
+      if (_formMode(responseDoc?.responses) === 'minimal') {
+        const slugFromGrid = (gridStr) => {
+          let grid = {};
+          try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+          const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+          if (!key) return '';
+          const niceName = FEEDING_TERRITORIES.find(
+            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+          );
+          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+          return td?.slug || '';
+        };
+        const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
+        const pool = computeBestFeedingPool({ char: c, methodId: feedMethodId, territorySlug });
+        h += '<div class="qf-field dt-feed-min-pool">';
+        if (!feedMethodId) {
+          h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
+        } else if (!pool) {
+          h += '<p class="qf-desc">Pool unavailable for this method.</p>';
+        } else {
+          const parts = [];
+          if (pool.attr.name) parts.push(`${pool.attr.val} ${esc(pool.attr.name)}`);
+          if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
+          else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
+          if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
+          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
+          h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+        }
+        h += '</div>';
+      } else {
+        // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      }
 
       // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -5129,52 +5699,12 @@ function renderQuestion(q, value) {
       h += '</div>';
       h += '</div>'; // dt-feed-card-wrap
 
-      // ── Container 2: Feeding quality (Standard / Rote) ──
-      {
-        const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
-        if (savedRote && !feedRoteAction) feedRoteAction = true;
-        feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
-        feedRoteSpec = responseDoc?.responses?.['_rote_spec'] || feedRoteSpec;
-        feedRoteCustomAttr = responseDoc?.responses?.['_rote_custom_attr'] || feedRoteCustomAttr;
-        feedRoteCustomSkill = responseDoc?.responses?.['_rote_custom_skill'] || feedRoteCustomSkill;
-
-        const saved = responseDoc?.responses || {};
-
-        const firstAvail = [1,2,3,4].find(n => {
-          const act = saved[`project_${n}_action`];
-          return !act || act === 'feed';
-        }) || 1;
-        if (feedRoteAction && feedRoteSlot !== firstAvail) feedRoteSlot = firstAvail;
-
-        const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
-
-        h += '<div class="dt-feed-rote-section">';
-        h += '<label class="qf-label">Commit a project to hunting this downtime?</label>';
-        h += '<div class="dt-feed-violence-toggle">';
-        h += `<button type="button" class="dt-feed-vi-btn${!feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="off">Standard Hunt</button>`;
-        h += `<button type="button" class="dt-feed-vi-btn${feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="on">Rote Hunt</button>`;
-        h += '</div>';
-        if (feedRoteAction) {
-          h += '<div class="dt-rote-slot-picker">';
-          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt. IF this roll is successful, it will apply the Rote quality to your feeding roll (roll twice, take the best result).</p>`;
-          {
-            const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
-            let roteTerrGridVals = {};
-            try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
-            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
-            let mainTerrGridVals = {};
-            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
-            h += '<div class="qf-field">';
-            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
-            h += '</div>';
-          }
-          h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
-          h += `<div class="qf-field"><textarea id="dt-rote-description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(roteDesc)}</textarea></div>`;
-          h += '</div>';
-        }
-        h += '</div>';
-      }
+      // dt-form.22: ROTE block removed from the feeding section. ROTE is now
+      // a personal-project-action variant (see PROJECT_ACTIONS in
+      // downtime-data.js). The legacy `_feed_rote_*` state is migrated on
+      // the next save in collectResponses; territory continues to write to
+      // the document-level `feeding_territories_rote` map for ambience
+      // resolution by the Vitae Projection container below.
 
       // ── Container 3: Vitae Projection ──
       {
@@ -5245,8 +5775,12 @@ function renderQuestion(q, value) {
           return { mod: td.ambienceMod || 0, label: `${td.ambience} (${name})` };
         };
 
+        // dt-form.22: rote-active is derived from the new project-action
+        // shape — any slot whose action is 'rote' counts. Replaces the
+        // legacy module-scoped `feedRoteAction` flag.
+        const _hasRoteSlot = [1, 2, 3, 4].some(n => allResp[`project_${n}_action`] === 'rote');
         const mainAmb = resolveTerrAmbience(allResp['feeding_territories']);
-        const roteAmb = feedRoteAction ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
+        const roteAmb = _hasRoteSlot ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
 
         // Best of the two territories (highest mod wins)
         let bestAmb = null;
@@ -5266,7 +5800,7 @@ function renderQuestion(q, value) {
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
         // Average vitae: base = floor(2N/3); rote = floor(5N/6) (max of two rolls)
-        const avgGathered = feedRoteAction
+        const avgGathered = _hasRoteSlot
           ? Math.floor((mainPool * 5) / 6)
           : Math.floor((mainPool * 2) / 3);
 
@@ -5300,7 +5834,7 @@ function renderQuestion(q, value) {
         const netSign = netStarting >= 0 ? '+' : '−';
         h += `<div class="dt-vitae-row dt-vitae-subtotal"><span>Net starting Vitae</span><span>${netSign}${Math.abs(netStarting)}</span></div>`;
         if (mainPool > 0) {
-          const yieldLabel = feedRoteAction ? 'Projected average gathered (rote)' : 'Projected average gathered';
+          const yieldLabel = _hasRoteSlot ? 'Projected average gathered (rote)' : 'Projected average gathered';
           h += `<div class="dt-vitae-row dt-vitae-pos"><span>${yieldLabel}</span><span>+${avgGathered}</span></div>`;
         } else {
           h += '<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Build your hunt pool above to see expected yield.</span><span></span></div>';
@@ -5468,10 +6002,12 @@ function renderQuestion(q, value) {
       }
       const remaining = budget - totalSpent;
 
+      const infBreakdown = influenceBreakdown(currentChar);
+      const infTitle = infBreakdown.length ? infBreakdown.join('\n') : 'No influence sources';
       h += `<div class="dt-influence-grid" id="dt-${q.key}">`;
       h += `<div class="dt-influence-budget" id="dt-influence-budget">`;
       h += `<span class="dt-influence-remaining${remaining < 0 ? ' dt-influence-over' : ''}">${remaining}</span>`;
-      h += ` / ${budget} Influence remaining`;
+      h += ` / <span class="dt-influence-budget-label" title="${esc(infTitle)}">${budget} Influence remaining</span>`;
       h += '</div>';
 
       for (const terr of INFLUENCE_TERRITORIES) {

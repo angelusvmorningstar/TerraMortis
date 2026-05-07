@@ -3781,6 +3781,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-terr-pill-poach .dt-terr-pill-status { color: var(--terr-poach-fg); }
 .dt-terr-pill-barrens { background: rgba(139,0,0,.1); color: var(--crim); border-color: rgba(139,0,0,.3); font-weight: 600; }
 .dt-terr-pill-disabled, .dt-terr-pill[disabled] { opacity: .35; cursor: not-allowed; pointer-events: none; }
+/* dt-form.21: selection ring layered over always-on rights tint */
+.dt-terr-pill--selected { outline: 2px solid var(--gold2); outline-offset: 2px; }
+.dt-terr-pill-rights:hover { background: rgba(34,120,60,.22); color: var(--terr-rights-fg); }
+.dt-terr-pill-barrens:hover { background: rgba(139,0,0,.17); color: var(--crim); }
+.dt-terr-pill-rights.dt-terr-pill--selected { background: rgba(34,120,60,.28); border-color: rgba(34,120,60,.7); }
+.dt-terr-pill-barrens.dt-terr-pill--selected { background: rgba(139,0,0,.22); border-color: rgba(139,0,0,.55); }
 
 /* ── Feed pool suggestion chips ── */
 .dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -5099,6 +5105,113 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   cursor: help;
   text-decoration: underline dotted var(--crim, #b00020);
   text-underline-offset: 2px;
+}
+
+/* dt-form.19: influence budget label tooltip — informational, gold accent */
+.dt-influence-budget-label[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--gold2, #E0C47A);
+  text-underline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-min-toast — MINIMAL auto-submit confirmation (ADR-003 §Q5, dt-form.31)
+   ════════════════════════════════════════════════════════════════════ */
+.dt-min-toast {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: var(--gold-a10);
+  border: 1px solid var(--gold-a30);
+  border-left: 4px solid var(--gold);
+  border-radius: 4px;
+  color: var(--txt);
+}
+
+.dt-min-toast__lead {
+  margin: 0;
+  font-family: var(--fl);
+  font-size: 0.95em;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   .dt-modal — Submit Final modal (ADR-003 §Q5, story dt-form.31)
+   Mirrors the existing .npcr-modal pattern (admin-layout.css) but lives in
+   components.css so the player surface (player.html) picks it up.
+   ════════════════════════════════════════════════════════════════════ */
+.dt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.dt-modal {
+  background: var(--surf2);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  min-width: 320px;
+  max-width: 560px;
+  width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 18px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  outline: none;
+}
+
+.dt-modal-title {
+  font-family: var(--fh);
+  font-size: 1.2em;
+  color: var(--gold2);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.dt-modal-subhead {
+  font-family: var(--fh);
+  font-size: 1em;
+  color: var(--gold);
+  margin: 14px 0 6px;
+}
+
+.dt-modal-body {
+  margin-bottom: 14px;
+  font-family: var(--fl);
+  color: var(--txt);
+}
+
+.dt-modal-summary-list {
+  margin: 4px 0 0;
+  padding-left: 22px;
+  font-family: var(--fl);
+  font-size: 0.95em;
+  color: var(--txt2);
+}
+
+.dt-modal-summary-list li {
+  margin: 2px 0;
+}
+
+.dt-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.qf-btn-submit-final {
+  background: var(--gold);
+  color: var(--txt-on-gold, var(--bg));
+  border: 1px solid var(--gold);
+}
+
+.qf-btn-submit-final:hover {
+  background: var(--gold2);
+  border-color: var(--gold2);
 }
 
 /* ════════════════════════════════════════════════════════════════════
