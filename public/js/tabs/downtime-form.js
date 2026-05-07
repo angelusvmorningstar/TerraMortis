@@ -505,10 +505,15 @@ function collectResponses() {
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
   // the DB are read by downstream renderers via fallback lookups.
+  // Issue #105 (2026-05-08): gate writes on element presence so any
+  // pre-existing legacy `story_moment_*` data on the spread base survives a
+  // save when the legacy DOM elements are absent (the redesigned Personal
+  // Story renderer no longer emits them). Drop-the-iteration / silent-leave
+  // correctness — matches Lesson #105 discipline.
   const relIdEl = document.getElementById('dt-story_moment_relationship_id');
   const noteEl  = document.getElementById('dt-story_moment_note');
-  responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
-  responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
+  if (relIdEl) responses['story_moment_relationship_id'] = relIdEl.value;
+  if (noteEl)  responses['story_moment_note']            = noteEl.value;
 
   // Aspiration structured slots — admin section, ADVANCED only.
   if (!_isMinimal) {
@@ -581,10 +586,10 @@ function collectResponses() {
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
     const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
     responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
-    const xpCatEl = document.getElementById(`dt-project_${n}_xp_category`);
-    const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
-    responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
-    responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
+    // Issue #102 (2026-05-08): the legacy `_xp_category` / `_xp_item`
+    // collect path was deleted alongside the dead-code-wrapped renderer.
+    // Pre-existing legacy values on the spread base survive untouched
+    // (silent-leave); the redesigned grid persists via `_xp_rows`.
     // dt-form.26: collect this slot's multi-row XP-Spend grid. Read row
     // values directly from the slot-scoped grid container; legacy single-row
     // placeholder fields (`_xp_dots`, `_xp_category`, `_xp_item`) are no
@@ -872,6 +877,12 @@ function collectResponses() {
   //   skill_acq_availability, skill_acq_merits           (legacy single skill = row 0)
   //   skill_acquisitions                                 (blob, downtime-views/parser)
   // skill_acq_pool_attr is intentionally NOT mirrored — post-#42 dropped.
+  // Issue #120 (2026-05-08): defensive symmetry with the canonical writes
+  // above — when the DOM has no rows (section never rendered, or a future
+  // pure-API caller bypasses the form), don't overwrite legacy keys with
+  // empty values. Any existing legacy data on the spread base passes
+  // through unchanged.
+  if (resourceRows.length || skillRows.length) {
   const _rrows = resourceRows.length ? resourceRows : [];
   responses['acq_slot_count'] = String(Math.max(1, _rrows.length));
   // Per-slot keys (1-indexed). Always write at least slot 1.
@@ -927,6 +938,7 @@ function collectResponses() {
       ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
       : '',
   ].filter(Boolean).join('\n');
+  } // end if (resourceRows.length || skillRows.length) — issue #120
 
   // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread)
   if (!DOWNTIME_SECTIONS.find(s => s.key === 'equipment')?.hidden) {
@@ -2472,16 +2484,10 @@ function renderForm(container) {
       gateValues[`merit_${mk}`] = meritToggle.value;
       updateMeritSections(container);
     }
-    // XP category picker — re-render to show item dropdown
-    if (e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]')) {
-      const slotEl = e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]');
-      activeProjectTab = parseInt(slotEl.dataset.xpPickCat || slotEl.dataset.xpPickItem, 10);
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
+    // Issue #102 (2026-05-08): legacy XP category/item picker click handler
+    // deleted — the data-xp-pick-cat / data-xp-pick-item attributes were
+    // emitted only by the dead-code-wrapped legacy block. The redesigned
+    // multi-row grid uses [data-xp-row] / [data-xp-cat] / [data-xp-item].
     // Project action change — re-render to show correct fields for action type
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
@@ -3434,65 +3440,6 @@ function renderProjectSlots(saved, mode = 'advanced') {
       // Per-slot rows persist as `responses.project_N_xp_rows` (JSON);
       // top-level `responses.xp_spend` mirror-built in collectResponses (DAR-A1).
       h += _renderProjectXpRows(n, saved);
-      // legacy single-row block follows but is dead — kept under a constant-false
-      // branch so the diff is bounded and the dead code documents the historical
-      // shape. Removed in a follow-up cleanup commit if Ma'at prefers.
-      if (false) {
-        const savedCat  = saved[`project_${n}_xp_category`] || '';
-        const savedItem = saved[`project_${n}_xp_item`] || '';
-        const budget = xpLeft(currentChar);
-
-      // Deduct already-committed project XP from other slots
-      let committed = 0;
-      for (let s = 1; s <= 4; s++) {
-        if (s === n) continue;
-        if (saved[`project_${s}_action`] === 'xp_spend') {
-          const cat = saved[`project_${s}_xp_category`];
-          const item = saved[`project_${s}_xp_item`];
-          if (cat && item) committed += getRowCost({ category: cat, item, dotsBuying: 1 });
-        }
-      }
-      const remaining = budget - committed;
-
-      h += '<div class="dt-xp-picker">';
-      h += '<p class="qf-desc">Select one trait to purchase. 1 dot per project action committed.</p>';
-      h += `<div class="dt-xp-picker-budget ${remaining < 0 ? 'dt-influence-over' : ''}">`;
-      h += `${remaining} / ${budget} XP available</div>`;
-
-      // Category dropdown (merits excluded — use Admin section for free merits)
-      h += `<div class="dt-xp-picker-row">`;
-      h += `<select id="dt-project_${n}_xp_category" class="qf-select dt-xp-pick-cat" data-xp-pick-cat="${n}">`;
-      h += '<option value="">\u2014 Category \u2014</option>';
-      for (const opt of XP_CATEGORIES.filter(o => o.value && o.value !== 'merit')) {
-        h += `<option value="${esc(opt.value)}"${savedCat === opt.value ? ' selected' : ''}>${esc(opt.label)}</option>`;
-      }
-      h += '</select>';
-
-      if (savedCat) {
-        const items = getItemsForCategory(savedCat);
-        h += `<select id="dt-project_${n}_xp_item" class="qf-select dt-xp-pick-item" data-xp-pick-item="${n}">`;
-        h += '<option value="">\u2014 Item \u2014</option>';
-        for (const item of items) {
-          h += `<option value="${esc(item.value)}"${savedItem === item.value ? ' selected' : ''}>${esc(item.label)}</option>`;
-        }
-        h += '</select>';
-      }
-
-      if (savedCat && savedItem) {
-        const cost = getRowCost({ category: savedCat, item: savedItem, dotsBuying: 1 });
-        const insufficient = cost > remaining;
-        h += `<span class="dt-xp-cost${insufficient ? ' dt-vitae-over' : ''}">${cost} XP${insufficient ? ' \u2014 Insufficient XP' : ''}</span>`;
-      }
-      h += '</div>';
-
-      h += renderQuestion({
-        key: `project_${n}_xp_trait`, label: 'In-character justification',
-        type: 'textarea', required: false,
-        placeholder: 'Describe the activity or events that justify this growth.',
-      }, saved[`project_${n}_xp_trait`] || '');
-
-      h += '</div>';
-      } // end if (false) — dt-form.26 dead-code wrap on legacy single-row block
     }
 
     if (fields.includes('title')) {
@@ -5027,17 +4974,13 @@ function renderTargetZone(n, actionVal, saved, chars) {
   let h = '<div class="qf-field dt-target-zone">';
   h += '<label class="qf-label">Target</label>';
 
-  if (['ambience_change', 'patrol_scout'].includes(actionVal)) {
+  // Issue #132 (2026-05-08): dropped 'ambience_change' from this includes-list
+  // and the orphan ambience_dir radio block that followed. After dt-form.25
+  // (PR #130), 'target' is no longer in ACTION_FIELDS['ambience_change'], so
+  // renderTargetZone is never called for ambience actions — the inner radio
+  // render was unreachable dead code superseded by the row-table from #79.
+  if (actionVal === 'patrol_scout') {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
-    if (actionVal === 'ambience_change') {
-      const savedAmbienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
-      h += `<fieldset class="dt-ticker" aria-label="Direction" style="margin-top:8px">`;
-      for (const d of ['improve', 'degrade']) {
-        const dLabel = d[0].toUpperCase() + d.slice(1);
-        h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_ambience_dir" value="${d}"${savedAmbienceDir === d ? ' checked' : ''} data-proj-ambience-dir="${n}"> ${dLabel}</label>`;
-      }
-      h += '</fieldset>';
-    }
   } else if (actionVal === 'attack') {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false });
   } else if (actionVal === 'hide_protect') {
