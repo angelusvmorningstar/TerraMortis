@@ -76,12 +76,36 @@ Visual treatment: keep light. A regent section that's a wall of legalese will fe
 
 ## Definition of Done
 
-- [ ] Regency confirmation UI lives in the `regency` section
-- [ ] `isMinimalComplete()` consults regency confirmation for regents
-- [ ] Non-regents see no section (existing gate preserved)
+- [x] Regency confirmation UI lives in the `regency` section
+- [x] `isMinimalComplete()` consults regency confirmation for regents
+- [x] Non-regents see no section (existing gate preserved)
 - [ ] PR opened into `dev`
 
 ## Dependencies
 
 - **Upstream**: #17 (lifecycle + `_mode`)
 - **Downstream**: none
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-opus-4-7 (Ptah / James persona, BMAD dev)
+
+### Completion Notes
+- Locked design (Khepri SM dispatch 2026-05-07): canonical store `cycle.regent_confirmations[]`; DT-form button POSTs to `/api/downtime_cycles/:id/confirm-feeding` (the same endpoint regency-tab.js uses); `rights[]` payload is a snapshot of the regent's territory `feeding_rights[]`.
+- Predicate `_isRegencyConfirmedThisCycle()` (downtime-form.js:1574) untouched — already wired into `_completenessCtx()` by foundation #17. No second source of truth introduced; `responses.regency_confirmed` (per the original story brief) was superseded and not written.
+- Section render replaces the explicit `continue` skip pattern (downtime-form.js:1841) with a dedicated `renderRegencySection()` invocation, mirroring how personal-story / projects sections are rendered.
+- Multi-territory regents not modelled — `findRegentTerritory()` returns a single territory by design (helpers.js:153); single-block UI matches the structural assumption already baked into every consumer.
+- Decline = absence-of-entry per AC #3 reinterpretation: append-only API has no un-confirm affordance.
+- Dev-stub cycle (`location.hostname === 'localhost'` fallback at downtime-form.js:1167) handled with a friendly "Dev preview — confirmation requires a live cycle." status message.
+- Tick rule in `updateSectionTicks` reads the predicate (not a form field) — matches the source of truth.
+- Lesson #105 / drop-the-iteration: no legacy `regency_*` keys in collect path required removal. `regency_action` (vamping section) and `regent_territory` (gate metadata) are out of scope and not superseded by this story.
+- Server tests baseline preserved: 678/678 passing on full suite with changes applied.
+
+### File List
+- Modified: `public/js/tabs/downtime-form.js` (added `renderRegencySection()` helper, render call after projects, delegated click handler, regency tick rule)
+
+### Change Log
+| Date | Change | Notes |
+|---|---|---|
+| 2026-05-07 | Implemented regency confirmation section in DT form (Option A: cycle.regent_confirmations canonical) | downtime-form.js: +82/-0 |

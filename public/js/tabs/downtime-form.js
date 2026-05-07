@@ -1884,6 +1884,12 @@ function renderForm(container) {
   // dt-form.17: in MINIMAL only the first project slot renders.
   h += renderProjectSlots(saved, mode);
 
+  // ── Regency confirmation (regent-only, both modes) ──
+  // dt-form.23 (ADR-003 §Q2): confirmation UI for regents; writes to
+  // cycle.regent_confirmations via the existing /confirm-feeding endpoint.
+  // Non-regents see nothing (renderRegencySection returns '' on is_regent !== 'yes').
+  if (_isSectionVisibleInMode('regency', mode)) h += renderRegencySection();
+
   // dt-form.17: ADVANCED-only sections below the projects.
   if (mode === 'advanced') {
     // ── Blood Sorcery — between Personal Actions and Sphere Actions (dt-form.27) ──
@@ -2019,6 +2025,39 @@ function renderForm(container) {
     if (e.target.closest('#dt-btn-submit-final')) {
       e.preventDefault();
       openSubmitFinalModal(container);
+      return;
+    }
+    // dt-form.23 (ADR-003 §Q2): regent confirmation. POSTs to the same
+    // /confirm-feeding endpoint regency-tab uses; rights[] is a snapshot
+    // of the territory's current feeding_rights. After success, replace
+    // currentCycle with the server response so the predicate sees the new
+    // entry on re-render.
+    const regencyConfirmBtn = e.target.closest('#dt-btn-confirm-regency');
+    if (regencyConfirmBtn) {
+      e.preventDefault();
+      const ri = findRegentTerritory(_territories, currentChar);
+      const statusEl = container.querySelector('#dt-regency-confirm-status');
+      if (!ri?.territoryId || !currentCycle?._id) return;
+      if (currentCycle._id === 'dev-stub') {
+        if (statusEl) statusEl.textContent = 'Dev preview — confirmation requires a live cycle.';
+        return;
+      }
+      const terr = (_territories || []).find(t => String(t._id) === String(ri.territoryId));
+      const rights = Array.isArray(terr?.feeding_rights) ? terr.feeding_rights : [];
+      regencyConfirmBtn.disabled = true;
+      regencyConfirmBtn.textContent = 'Confirming…';
+      if (statusEl) statusEl.textContent = '';
+      apiPost(`/api/downtime_cycles/${currentCycle._id}/confirm-feeding`, {
+        territory_id: ri.territoryId,
+        rights,
+      }).then(updated => {
+        currentCycle = updated;
+        renderForm(container);
+      }).catch(err => {
+        regencyConfirmBtn.disabled = false;
+        regencyConfirmBtn.textContent = 'Confirm regency this cycle';
+        if (statusEl) statusEl.textContent = 'Confirm failed: ' + (err?.message || 'unknown error');
+      });
       return;
     }
     // dt-form.31 modal click delegations moved to the overlay element in
@@ -3958,6 +3997,42 @@ function renderPersonalStorySection(saved) {
 // orphan plus its associated click handler and the now-unused
 // `_linkedNpcs` / `_myRelationships` data loads.
 
+// dt-form.23 (ADR-003 §Q2): regent-only confirmation section. Canonical
+// store is `cycle.regent_confirmations[]` (same as the regency tab);
+// this surface POSTs to /api/downtime_cycles/:id/confirm-feeding with
+// the territory's current `feeding_rights[]` as the rights snapshot,
+// and the predicate `_isRegencyConfirmedThisCycle()` reads it back.
+// Multi-territory regents are not modelled — `findRegentTerritory()`
+// returns a single territory by design (helpers.js:153).
+function renderRegencySection() {
+  if (gateValues.is_regent !== 'yes') return '';
+  const ri = findRegentTerritory(_territories, currentChar);
+  if (!ri?.territoryId) return '';
+  const terrName = ri.territory || 'your territory';
+
+  const myConfirmation = (currentCycle?.regent_confirmations || [])
+    .find(c => String(c.territory_id) === String(ri.territoryId));
+
+  let h = '<div class="qf-section" data-section-key="regency">';
+  h += '<h4 class="qf-section-title">Regency<span class="qf-section-tick">✔</span></h4>';
+  h += '<div class="qf-section-body">';
+
+  if (myConfirmation) {
+    const at = myConfirmation.confirmed_at ? new Date(myConfirmation.confirmed_at) : null;
+    const atStr = at && !isNaN(at) ? at.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    h += `<p class="qf-section-intro">Confirmed as Regent of <strong>${esc(terrName)}</strong> for this cycle${atStr ? ` — ${esc(atStr)}` : ''}.</p>`;
+  } else {
+    h += `<p class="qf-section-intro">I am acting as Regent of <strong>${esc(terrName)}</strong> for this cycle.</p>`;
+    h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
+    h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
+    h += '</div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
   const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
@@ -5493,6 +5568,13 @@ function updateSectionTicks(container) {
         if (el && el.value) { anyAction = true; break; }
       }
       tick.classList.toggle('visible', anyAction);
+      return;
+    }
+
+    // dt-form.23: Regency tick reflects the cycle.regent_confirmations entry,
+    // not a form field — predicate is the source of truth.
+    if (key === 'regency') {
+      tick.classList.toggle('visible', _isRegencyConfirmedThisCycle());
       return;
     }
 
