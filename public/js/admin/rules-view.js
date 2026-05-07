@@ -4,13 +4,14 @@
  */
 
 import { apiGet, apiPut, apiPost, apiDelete } from '../data/api.js';
-import { esc } from '../data/helpers.js';
+import { esc, displayName, sortName } from '../data/helpers.js';
 import { invalidateRulesCache } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
 
 // ── State ──
 
 let _container = null;
+let _chars = [];
 let activeCategory = '';
 let searchQuery = '';
 let currentPage = 1;
@@ -28,9 +29,10 @@ const CATEGORY_ENUM = ['attribute', 'skill', 'discipline', 'merit', 'devotion', 
 
 // ── Init ──
 
-export async function initRulesView(container) {
+export async function initRulesView(container, chars) {
   if (!container) return;
   _container = container;
+  _chars = Array.isArray(chars) ? chars : [];
   container.innerHTML = '<p class="placeholder-msg">Loading rules\u2026</p>';
   await fetchAndRender();
   wireEvents();
@@ -70,6 +72,46 @@ function truncate(str, max) {
   return str.slice(0, max) + '\u2026';
 }
 
+// Issue #5: holder detection per category. Living-only filter (`!c.retired`)
+// is applied by the caller. Match key is the rule's canonical `name`; storage
+// shape per category is documented inline.
+function _isPowerHeld(c, rule) {
+  switch (rule.category) {
+    case 'merit':
+      // c.merits[].name; require some non-zero contribution so a hollow entry
+      // (e.g. dropdown picked but no rating set) is not counted.
+      return (c.merits || []).some(m =>
+        m.name === rule.name && ((m.rating || 0) > 0 || (m.cp || 0) > 0 || (m.xp || 0) > 0)
+      );
+    case 'discipline':
+      // c.disciplines is keyed by name; sanitiseChar already strips 0-dot entries.
+      return ((c.disciplines || {})[rule.name]?.dots || 0) > 0;
+    case 'devotion':
+      return (c.powers || []).some(p => p.category === 'devotion' && p.name === rule.name);
+    case 'rite':
+      return (c.powers || []).some(p => p.category === 'rite' && p.name === rule.name);
+    case 'manoeuvre':
+      return (c.fighting_picks || []).some(pk =>
+        (typeof pk === 'string' ? pk : pk?.manoeuvre) === rule.name
+      );
+    default:
+      // attribute / skill: universal traits, not "held" semantically.
+      return false;
+  }
+}
+
+// Issue #5: count + sorted display-name list of living characters who hold a
+// rule. Computed at render time from `_chars`; the stored `selected` boolean
+// on `purchasable_power` documents is retired (no longer read or written).
+function holdersForRule(rule) {
+  const matches = (_chars || []).filter(c => !c.retired && _isPowerHeld(c, rule));
+  matches.sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  return {
+    count: matches.length,
+    names: matches.map(displayName),
+  };
+}
+
 function render(data) {
   let h = '';
 
@@ -102,10 +144,15 @@ function render(data) {
     const arrow = active ? (sortOrder === 'asc' ? ' \u25B2' : ' \u25BC') : '';
     h += `<th class="rules-th-sort${active ? ' rules-th-active' : ''}" data-sort="${col.key}">${col.label}${arrow}</th>`;
   }
-  h += '<th>Prereqs</th><th></th>';
+  h += '<th>Prereqs</th><th class="rules-th-held" title="Living characters who currently hold this power">Held by</th><th></th>';
   h += '</tr></thead><tbody>';
   for (const rule of data) {
     const pq = rule.prereq ? truncate(prereqLabel(rule.prereq), 40) : '';
+    const holders = holdersForRule(rule);
+    const heldTitle = holders.count
+      ? 'Held by: ' + holders.names.join(', ')
+      : 'Not currently held by any living character';
+    const heldCell = holders.count ? String(holders.count) : '';
     h += '<tr>';
     h += `<td class="rules-td-name">${esc(rule.name)}</td>`;
     h += `<td><span class="rules-cat-tag">${esc(rule.category)}</span></td>`;
@@ -114,11 +161,12 @@ function render(data) {
     h += `<td class="rules-td-dim">${rule.rating_range ? rule.rating_range[0] + '\u2013' + rule.rating_range[1] : ''}</td>`;
     h += `<td class="rules-td-dim">${rule.xp_fixed != null ? rule.xp_fixed : ''}</td>`;
     h += `<td class="rules-td-prereq" title="${esc(rule.prereq ? prereqLabel(rule.prereq) : '')}">${esc(pq)}</td>`;
+    h += `<td class="rules-td-held" title="${esc(heldTitle)}">${esc(heldCell)}</td>`;
     h += `<td><button class="rules-edit-btn" data-edit-key="${esc(rule.key)}" title="Edit">&#9998;</button><button class="rules-del-btn" data-del-key="${esc(rule.key)}" data-del-name="${esc(rule.name)}" title="Delete">&#128465;</button></td>`;
     h += '</tr>';
   }
   if (!data.length) {
-    h += '<tr><td colspan="8" class="rules-td-empty">No rules match your filters.</td></tr>';
+    h += '<tr><td colspan="9" class="rules-td-empty">No rules match your filters.</td></tr>';
   }
   h += '</tbody></table></div>';
 

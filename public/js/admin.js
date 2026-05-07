@@ -205,7 +205,7 @@ function switchDomain(domain) {
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
-  if (domain === 'rules') initRulesView(document.getElementById('rules-content'));
+  if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
 }
 

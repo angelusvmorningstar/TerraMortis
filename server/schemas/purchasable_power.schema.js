@@ -127,8 +127,12 @@ export const purchasablePowerSchema = {
     offering:  { type: ['string', 'null'] },
     cult:      { type: ['string', 'null'] },
 
-    // Tracking flags — not consumed by game logic yet
-    selected:    { type: 'boolean' },   // power is actively chosen by at least one character
+    // Tracking flag — not consumed by game logic yet.
+    // Issue #5 (2026-05-07): the legacy `selected` boolean was retired. Holder
+    // count is now computed at render time from the live character set
+    // (admin Rule Data table 'Held by' column). The migration script at
+    // server/scripts/strip-selected-from-purchasable-powers.js $unsets the
+    // field across existing documents.
     implemented: { type: 'boolean' },   // all rules/prereqs/mechanics verified correct in backend
   },
 };
