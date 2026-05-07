@@ -4,10 +4,18 @@ import state from '../data/state.js';
 import { meritByCategory, addMerit, removeMerit } from './merits.js';
 import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
+import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return getRuleByKey(slug)?.key || null;
+}
+
+function stolenMeritCategory(name) {
+  const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule?.sub_category === 'domain') return 'domain';
+  return DOMAIN_MERIT_TYPES.includes(name) ? 'domain' : 'general';
 }
 
 /* ── Callback registration (same pattern as edit.js) ── */
@@ -106,17 +114,16 @@ export function shEditGenMerit(idx, field, val) {
     const prevQualifier = m.qualifier;
     if (val) m.qualifier = val; else delete m.qualifier;
     if (m.name === 'Fucking Thief') {
-      // Remove previously stolen merit (identified by granted_by)
       if (prevQualifier && prevQualifier !== val) {
-        const oldIdx = (c.merits || []).findIndex(x => x.name === prevQualifier && x.category === 'general' && x.granted_by === 'Fucking Thief');
+        // Category-agnostic removal — handles legacy 'general' and new 'domain' entries
+        const oldIdx = (c.merits || []).findIndex(x => x.name === prevQualifier && x.granted_by === 'Fucking Thief');
         if (oldIdx >= 0) removeMerit(c, oldIdx);
       }
-      // Add newly stolen merit with granted_by marker
       if (val) {
-        let newIdx = (c.merits || []).findIndex(x => x.name === val && x.category === 'general' && x.granted_by === 'Fucking Thief');
-        if (newIdx < 0) {
-          addMerit(c, { category: 'general', name: val, rating: 0, granted_by: 'Fucking Thief' });
-          newIdx = c.merits.length - 1;
+        const newCat = stolenMeritCategory(val);
+        const alreadyExists = (c.merits || []).some(x => x.name === val && x.granted_by === 'Fucking Thief');
+        if (!alreadyExists) {
+          addMerit(c, { category: newCat, name: val, rating: 0, granted_by: 'Fucking Thief' });
         }
       }
     }
