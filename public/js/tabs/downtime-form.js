@@ -1186,6 +1186,10 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   } catch { /* silent — stale char is better than a broken form */ }
   if (currentChar) applyDerivedMerits(currentChar);
   _territories = territories || [];
+  try {
+    const freshTerrs = await apiGet('/api/territories');
+    if (freshTerrs?.length) _territories = freshTerrs;
+  } catch { /* silent — stale territories better than broken form */ }
   responseDoc = null;
   currentCycle = null;
   gateValues = {};
