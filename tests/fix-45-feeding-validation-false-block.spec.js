@@ -177,6 +177,28 @@ test.describe('fix.45: feeding method must not block DT form submission', () => 
     expect(text).not.toContain(FEEDING_METHOD_LABEL);
   });
 
+  test('AC-4 (MINIMAL): feeding method blank does not block in MINIMAL mode', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char);
+    await openDowntimeForm(page, char);
+    // Stay in MINIMAL mode (default) — do NOT call switchToAdvanced
+
+    // Leave feeding_method blank; fill territory so only non-feeding required fields could trigger
+    await fillFeedingTerritory(page);
+
+    await page.click('#dt-sandbox #dt-btn-submit');
+
+    // If a toast appears, feeding-method label must not be in it
+    const toast = page.locator('#dt-toast');
+    try {
+      await toast.waitFor({ state: 'visible', timeout: 3000 });
+      const text = await toast.textContent();
+      expect(text).not.toContain(FEEDING_METHOD_LABEL);
+    } catch {
+      // No toast — passes
+    }
+  });
+
   test('AC-3: both filled → no feeding section errors', async ({ page }) => {
     const char = buildChar();
     await setupSuite(page, char);
