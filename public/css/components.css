@@ -377,6 +377,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .grant-pool-row{font-size:10px;font-family:var(--fl);letter-spacing:.03em;padding:2px 0;color:var(--txt2);display:flex;align-items:center;}
 .grant-pool-tag{color:var(--label-secondary);flex-shrink:0;font-weight:700;}
 .derived-note{font-size:10px;font-family:var(--fl);letter-spacing:.03em;color:var(--label-secondary);padding:2px 8px;}
+.merit-rating-warn{color:var(--crim);font-weight:600;cursor:help;}
 .grant-pool-rank{font-size:10px;color:var(--txt3);margin-left:6px;}
 .gen-granted-tag{font-size:9px;font-family:var(--ft);color:var(--accent);background:var(--accent-a8);border:1px solid var(--accent-a25);padding:1px 5px;border-radius:2px;white-space:nowrap;}
 .gen-granted-tag-view{font-size:9px;font-family:var(--fl);font-weight:600;text-transform:uppercase;color:var(--accent);background:var(--accent-a8);border:1px solid var(--accent-a40);padding:1px 5px;border-radius:3px;white-space:nowrap;margin-left:auto;}

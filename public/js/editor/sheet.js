@@ -12,7 +12,7 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 import { shEnsureTouchstoneData } from './edit.js';
 import { powersForDisc } from '../suite/sheet-helpers.js';
@@ -138,7 +138,7 @@ function shDotsMixed(purchased, bonus) {
 /** Derived dot source notes on a merit. Only emits lines where the field > 0. */
 function _derivedNotes(m) {
   const _n = (v, lbl, why) => v ? '<div class="derived-note">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
-  return _n(m.free_mci,       'MCI',        'removed if MCI drops')
+  let h = _n(m.free_mci,       'MCI',        'removed if MCI drops')
        + _n(m.free_vm,        'VM',         'removed if VM removed')
        + _n(m.free_ohm,       'OHM',        'removed if oath is removed')
        + _n(m.free_lk,        'Lorekeeper', 'removed if Lorekeeper removed')
@@ -150,6 +150,22 @@ function _derivedNotes(m) {
        + _n(m.free_sw,        'Safe Word',  'removed if oath is removed')
        + _n(m.free_fwb,       'FwB Bonus',  'equals MCI + Status dots, removed if FwB removed')
        + _n(m.free_attache,   'Attaché',    'equals Invictus status, removed if Attaché variant removed');
+  // Issue #39 Task 1: rating-vs-sum invariant guard. syncMeritRating(m) is the
+  // canonical persisted-rating formula (cp + xp + sum of free_* channels).
+  // If m.rating diverges, render a visible warning and log so the next editor
+  // pass can correct the drift. Defensive guard at the bad-edit moment rather
+  // than at audit time.
+  if (m && m.rating != null) {
+    const expected = syncMeritRating(m);
+    if (m.rating !== expected) {
+      const tt = 'Rating ' + m.rating + ' ≠ cp(' + (m.cp || 0) + ') + xp(' + (m.xp || 0) + ') + free-sum(' + meritFreeSum(m) + ') = ' + expected;
+      h += '<div class="derived-note merit-rating-warn" title="' + esc(tt) + '">⚠ Rating mismatch — stored ' + m.rating + ', expected ' + expected + '</div>';
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[merit-rating-mismatch]', m.name, m.area || m.qualifier || '', { stored: m.rating, expected });
+      }
+    }
+  }
+  return h;
 }
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   const dot = i => {
