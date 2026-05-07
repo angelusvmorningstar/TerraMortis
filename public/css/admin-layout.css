@@ -727,6 +727,14 @@ body {
 
 .city-section-title:first-child { margin-top: 0; }
 .city-game-tag { font-size: 13px; color: var(--txt3); font-weight: 400; letter-spacing: .08em; }
+.city-map-edit-launch {
+  display: block; width: 100%; margin: 0 0 12px;
+  padding: 10px 14px;
+  background: var(--surf2); border: 1px solid var(--bdr);
+  color: var(--accent); font-family: var(--fl); font-size: 13px;
+  letter-spacing: .04em; cursor: pointer; border-radius: 6px;
+}
+.city-map-edit-launch:hover { background: var(--surf3); border-color: var(--accent); }
 
 .asc-columns { display: flex; gap: 24px; }
 .asc-block { flex: 1; }
