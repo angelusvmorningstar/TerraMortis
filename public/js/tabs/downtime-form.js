@@ -527,7 +527,12 @@ function collectResponses() {
   for (let n = 1; n <= projectSlotCount; n++) {
     const actionEl = document.getElementById(`dt-project_${n}_action`);
     responses[`project_${n}_action`] = actionEl ? actionEl.value : '';
-    for (const poolKey of ['pool', 'pool2']) {
+    // dt-form.24: secondary pool ('pool2') stripped per ADR §Audit-baseline.
+    // Single-vs-dual roll selector removed; only the primary pool collects.
+    // Legacy `_pool2_*` keys persist in `responses` via the spread base if a
+    // pre-redesign draft had them — we don't unconditionally overwrite them
+    // with empty strings (lesson from #105).
+    for (const poolKey of ['pool']) {
       const prefix = `project_${n}_${poolKey}`;
       const attrEl = document.getElementById(`dt-${prefix}_attr`);
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
@@ -1553,6 +1558,7 @@ function _completenessCtx() {
   return {
     isRegent: gateValues.is_regent === 'yes',
     regencyConfirmed: _isRegencyConfirmedThisCycle(),
+    attended: gateValues.attended === 'yes',
   };
 }
 
@@ -2310,22 +2316,10 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Single/Dual roll toggle — show or hide the secondary dice pool
-    const poolCountRadio = e.target.closest('[data-project-pool-count]');
-    if (poolCountRadio) {
-      const slot = poolCountRadio.dataset.projectPoolCount;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) {
-        if (poolCountRadio.value === 'dual') {
-          wrap.removeAttribute('hidden');
-        } else {
-          wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-          wrap.setAttribute('hidden', '');
-          scheduleSave();
-        }
-      }
-      return;
-    }
+    // dt-form.24: Single/Dual roll toggle handler removed alongside
+    // renderSecondaryDicePool. No DOM emits `[data-project-pool-count]`
+    // anymore; defensive delegation harmless if a stale element somehow
+    // survives.
     // Sphere action change — re-render for action-specific fields
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
@@ -3290,10 +3284,11 @@ function renderProjectSlots(saved, mode = 'advanced') {
       }, saved[`project_${n}_investigate_lead`] || '');
     }
 
-    // ── Dice pools ──
+    // ── Dice pool (single, primary) ──
+    // dt-form.24: secondary pool + Single/Dual roll selector stripped per
+    // ADR §Audit-baseline. Personal Action slots emit one dice pool only.
     if (fields.includes('pools')) {
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
+      h += renderDicePool(n, 'pool', 'Dice Pool', attrs, skills, discs, saved);
     }
 
     // ── XP note ──
@@ -3470,29 +3465,6 @@ function isClanDisc(discName) {
   if (bl && BLOODLINE_DISCS[bl]) return BLOODLINE_DISCS[bl].includes(discName);
   if (clan && CLAN_DISCS[clan]) return CLAN_DISCS[clan].includes(discName);
   return false;
-}
-
-/**
- * Renders the optional Secondary Dice Pool behind a Single Roll / Dual Roll
- * pill toggle (mirrors the Solo/Joint pattern). Defaults to Single. If the
- * slot has any saved pool2 values, the toggle starts on Dual.
- */
-function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
-  const isDual = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
-  let h = '';
-  h += `<fieldset class="dt-ticker" data-proj-pool-count-ticker="${n}">`;
-  h += `<legend class="dt-ticker__legend">Roll</legend>`;
-  h += `<label class="dt-ticker__pill">`;
-  h += `<input type="radio" name="dt-project_${n}_pool_count" value="single"${!isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
-  h += `Single Roll</label>`;
-  h += `<label class="dt-ticker__pill">`;
-  h += `<input type="radio" name="dt-project_${n}_pool_count" value="dual"${isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
-  h += `Dual Roll</label>`;
-  h += `</fieldset>`;
-  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${isDual ? '' : ' hidden'}>`;
-  h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-  h += '</div>';
-  return h;
 }
 
 /** Parse merit rating string: "2" → { flat: true, min: 2, max: 2 }, "1–5" → { flat: false, min: 1, max: 5 } */

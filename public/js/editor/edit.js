@@ -14,7 +14,7 @@ import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merit
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating } from './domain.js';
 import {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
+  shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
@@ -26,7 +26,7 @@ import {
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
 export {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
+  shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,

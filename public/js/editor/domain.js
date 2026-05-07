@@ -168,11 +168,11 @@ export function calcMeritInfluence(c, m, hwv = false) {
   if (m.name === 'Contacts') return 0;
   const r = meritEffectiveRating(c, m);
   if (m.name === 'Status') {
-    const area = (m.area || '').trim();
-    const isNarrow = area && !INFLUENCE_SPHERES.some(s => area.toLowerCase().includes(s.toLowerCase()));
-    if (isNarrow) return r >= 5 ? 1 : 0;
-    // Wide Status: Honey with Vinegar lowers threshold
+    const hasNarrow = (m.narrow && typeof m.narrow === 'string' && m.narrow.trim()) ||
+                      (m.area && !INFLUENCE_SPHERES.some(s => s.toLowerCase() === (m.area || '').trim().toLowerCase()));
+    if (hasNarrow) return r >= 5 ? 1 : 0;
     if (hwv) return r >= 4 ? 2 : r >= 2 ? 1 : 0;
+    return r >= 5 ? 2 : r >= 3 ? 1 : 0;
   }
   // Allies: Honey with Vinegar lowers threshold
   if (hwv && m.name === 'Allies') return r >= 4 ? 2 : r >= 2 ? 1 : 0;

@@ -1,82 +1,115 @@
 ---
 id: fix.46
-task: 46
 issue: 111
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/111
 branch: morningstar-issue-111-game-recount-non-attendee
-epic: epic-dt-form-mvp-redesign
-status: done
-priority: high
+status: review
 ---
 
-# Story fix.46 — DT form: Game Recount must not block non-attendees from minimum-complete submission
+# fix.46 — DT Form: Game Recount must not block non-attendees from minimum-complete
 
-As a player who did not attend last session,
-I should be able to reach the MINIMAL-complete bar and submit my downtime,
-So that my absence at game does not make the DT form permanently incomplete.
+## Story
 
-## Context
+As a player who did not attend last game, I want to be able to submit my downtime form without a Game Recount highlight, because there is nothing for me to recount.
 
-The Court section has `gate: 'attended'` in `downtime-data.js`, which hides the entire
-Court section (including Game Recount) for non-attendees. Despite the field being
-hidden, `isMinimalComplete()` in `dt-completeness.js` always required `_hasAnyGameRecount()`
-to pass — meaning non-attendees could never satisfy the MINIMAL bar and the banner
-would never unlock for them.
+## Background
 
-Root cause: `_completenessCtx()` in `downtime-form.js` did not pass `attended` to the
-completeness functions, so the functions had no way to skip the Game Recount check for
-absent players.
+The minimum-complete validator in `dt-completeness.js` always requires at least one Game Recount highlight before clearing the MINIMAL bar. However, the Court section — which contains the Game Recount slot — is gated by `attended` in `downtime-data.js` and is entirely hidden for non-attendees. The result is a catch-22: the form demands a highlight the player cannot see or fill.
 
-## Files Modified
-
-- `public/js/data/dt-completeness.js` — conditional game-recount gate
-- `public/js/tabs/downtime-form.js` — `_completenessCtx()` now includes `attended`
-- `tests/fix-46-game-recount-non-attendee.spec.js` — new: 3 Playwright regression tests
+Reproducer: Charles Mercer-Willows, current active cycle.
 
 ## Acceptance Criteria
 
-**AC-1 — Non-attendee with all other MINIMAL fields filled is MINIMAL-complete**
-Given a player did not attend last session (Court section hidden)
-And has filled personal story, feeding, and project_1_action
-When minimum completeness is evaluated
-Then `isMinimalComplete()` returns true
+- **AC-1** — Given a character with no attendance for the current cycle, when they open the DT form, the minimum-complete banner does NOT include "Game Recount: add at least one highlight from last session" in its missing-pieces list.
+- **AC-2** — Given the same character, when they click "Submit Downtime" with all other MINIMAL fields complete, submission succeeds (proceeds past the completeness gate) without a Game Recount highlight.
+- **AC-3** — Given a character who *did* attend last game, the Game Recount requirement remains enforced — no regression.
+- **AC-4** — The `isMinimalComplete` and `missingMinimumPieces` functions remain pure and DOM-free (no new side effects introduced).
 
-**AC-2 — Non-attendee missing other fields is still incomplete**
-Given a player did not attend last session
-And has NOT filled personal story or project fields
-When minimum completeness is evaluated
-Then `isMinimalComplete()` returns false
+---
 
-**AC-3 — Attendee still requires Game Recount**
-Given a player DID attend last session
-And has left Game Recount blank
-When minimum completeness is evaluated
-Then `isMinimalComplete()` returns false
+## Root Cause
 
-**AC-4 — MINIMAL mode regression: pure-function contract**
-The `isMinimalComplete` and `missingMinimumPieces` exports from `dt-completeness.js`
-work correctly when called directly with a synthetic responses bag and ctx.
+`_completenessCtx()` (`downtime-form.js` line 1552) currently returns only:
+
+```js
+function _completenessCtx() {
+  return {
+    isRegent: gateValues.is_regent === 'yes',
+    regencyConfirmed: _isRegencyConfirmedThisCycle(),
+  };
+}
+```
+
+It does **not** pass `attended` into the context, so `isMinimalComplete()` and `missingMinimumPieces()` in `dt-completeness.js` have no way to know whether the character attended — and always evaluate the Game Recount check.
+
+---
 
 ## Implementation
 
-### `dt-completeness.js`
+### File 1: `public/js/data/dt-completeness.js`
 
-Both `isMinimalComplete` and `missingMinimumPieces` destructure `attended = true` from ctx.
-The Game Recount check is guarded:
+**Change 1a — Update `isMinimalComplete` JSDoc and ctx destructuring (lines 97–111):**
 
-```javascript
-const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
-// ...
-if (attended && !_hasAnyGameRecount(responses)) return false;
+Update the `ctx` parameter docs and add `attended` to the destructure:
+
+```js
+/**
+ * @param {object} responses
+ * @param {object} [ctx]
+ * @param {boolean} [ctx.isRegent]
+ * @param {boolean} [ctx.regencyConfirmed]
+ * @param {boolean} [ctx.attended]         — true if character attended last game
+ * @returns {boolean}
+ */
+export function isMinimalComplete(responses, ctx = {}) {
+  if (!responses || typeof responses !== 'object') return false;
+  const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
+
+  if (attended && !_hasAnyGameRecount(responses)) return false;
+  if (!_hasPersonalStory(responses)) return false;
+  if (!_hasFeedingComplete(responses)) return false;
+  if (!_hasFirstProject(responses)) return false;
+  if (isRegent && !regencyConfirmed) return false;
+  return true;
+}
 ```
 
-Default `true` preserves backward compatibility for callers that don't pass `attended`.
+Key change: `if (attended && !_hasAnyGameRecount(responses)) return false;`
+The guard is only enforced when `attended` is `true`. Default is `true` so all existing callers without attendance context are unaffected.
 
-### `downtime-form.js`
+**Change 1b — Update `missingMinimumPieces` (lines 121–157):**
 
-`_completenessCtx()` (line ~1552) adds one field:
+Same `attended` destructure; wrap the Game Recount push:
 
-```javascript
+```js
+export function missingMinimumPieces(responses, ctx = {}) {
+  const out = [];
+  if (!responses || typeof responses !== 'object') {
+    out.push({ section: 'court', label: 'Fill in your game recount' });
+    out.push({ section: 'personal_story', label: 'Personal Story: pick Touchstone or Correspondence and describe it' });
+    out.push({ section: 'feeding', label: 'Pick a feeding territory, method, blood type, and Kiss/Violent toggle' });
+    out.push({ section: 'projects', label: 'Pick an action for Project 1' });
+    return out;
+  }
+  const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
+
+  if (attended && !_hasAnyGameRecount(responses)) {
+    out.push({ section: 'court', label: 'Game Recount: add at least one highlight from last session' });
+  }
+  // ... rest unchanged
+```
+
+Only the Game Recount push is wrapped. The `!responses` fallback at the top intentionally keeps that path unmodified — it represents a degenerate state where the whole form is empty, not a non-attendee scenario.
+
+---
+
+### File 2: `public/js/tabs/downtime-form.js`
+
+**Change 2a — `_completenessCtx()` (line 1552):**
+
+Add `attended`:
+
+```js
 function _completenessCtx() {
   return {
     isRegent: gateValues.is_regent === 'yes',
@@ -86,41 +119,44 @@ function _completenessCtx() {
 }
 ```
 
-`gateValues` is already populated from the attendance API before completeness is ever called.
+`gateValues.attended` is already set at line 1240–1250 from the attendance API response (`att.attended ? 'yes' : 'no'`). No new data fetching required.
 
-## Test Plan
+---
 
-1. `npx playwright test tests/fix-46-game-recount-non-attendee.spec.js` — all 3 tests green.
-2. `npx playwright test tests/fix-45-feeding-validation-false-block.spec.js` — no regression.
+## What NOT to Change
 
-## Definition of Done
+- The Court section's `gate: 'attended'` in `downtime-data.js` — stays as-is. Non-attendees correctly do not see the Game Recount UI.
+- The Court section's collection skip in `collectResponses()` (line 362) — stays as-is.
+- The `validateRequiredFields()` highlight_slots check (line 1006–1016) — not in the minimum-complete path; leave it alone.
+- No changes to the submission schema.
+- No changes to API endpoints.
 
-- [x] `dt-completeness.js` — `attended` guard on Game Recount check in both exports
-- [x] `downtime-form.js` — `_completenessCtx()` includes `attended`
-- [x] `tests/fix-46-game-recount-non-attendee.spec.js` created with 3 passing tests
-- [x] AC-1: non-attendee reaches MINIMAL-complete with recount blank
-- [x] AC-2: non-attendee still incomplete when other fields missing
-- [x] AC-3: attendee still blocked by blank Game Recount
-- [x] AC-4: pure-function direct-call tests pass
-- [x] No regressions in other DT form tests
+---
 
-## Dev Agent Record
+## Testing
 
-**Agent:** Claude (Morningstar)
-**Date:** 2026-05-07
+Manual test with Charles Mercer-Willows in the local dev environment:
+1. Load DT form for Charles (no attendance for current cycle).
+2. Fill all MINIMAL fields *except* Game Recount (Court section should not be visible).
+3. Verify the minimum-complete banner does not flag Game Recount as missing.
+4. Click "Submit Downtime" — submission should succeed past the completeness gate.
 
-### File List
+Regression test with an attendee character:
+1. Load DT form for a character who attended last game.
+2. Leave Game Recount blank.
+3. Verify the minimum-complete banner *does* flag Game Recount as missing.
 
-**Modified**
-- `public/js/data/dt-completeness.js`
-- `public/js/tabs/downtime-form.js`
+The existing Vitest test suite in `tests/fix-45-feeding-validation-false-block.spec.js` is the closest pattern for a spec file. A new spec `tests/fix-46-game-recount-non-attendee.spec.js` should cover:
+- `isMinimalComplete` returns `true` for a complete non-attendee response (no game recount)
+- `missingMinimumPieces` returns empty array for same input
+- `isMinimalComplete` returns `false` for an attendee response with no game recount
+- `missingMinimumPieces` includes the Game Recount entry for an attendee with no game recount
 
-**Added**
-- `tests/fix-46-game-recount-non-attendee.spec.js`
+---
 
-### Change Log
+## Dev Notes
 
-| Date | Author | Change |
-|---|---|---|
-| 2026-05-07 | James (story) | Story created from issue #111 analysis. |
-| 2026-05-07 | Claude (Morningstar) | Two-file fix + 3 Playwright regression tests. All ACs satisfied. |
+- `gateValues` is a module-level object in `downtime-form.js`; it is populated before `_completenessCtx()` is ever called, so no timing issues.
+- `attended` defaults to `true` in the ctx destructure — this preserves existing behaviour for any future callers (e.g., server-side validation) that don't supply attendance context.
+- The fix is entirely in the completeness layer. No DOM changes, no section visibility changes, no submission logic changes.
+- `dt-completeness.js` is a pure ESM module (no DOM, no fetch). The change keeps it pure.

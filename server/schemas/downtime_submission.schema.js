@@ -62,13 +62,14 @@ function projectSlotProps(n) {
     [`project_${n}_description`]:  { type: 'string' },
     [`project_${n}_title`]:        { type: 'string' },
     [`project_${n}_territory`]:    { type: 'string', enum: territoryEnum },
-    // Dice pools (primary + secondary)
+    // Dice pool (single, primary). dt-form.24 stripped the secondary pool;
+    // legacy `_pool2_*` fields drop from the schema. Pre-redesign drafts
+    // retain the keys via `additionalProperties: true` (silent-leave). The
+    // separately-channelled `_pool2_expr` (CSV-import-only, not form-emitted)
+    // is unrelated and stays via additionalProperties.
     [`project_${n}_pool_attr`]:    { type: 'string' },
     [`project_${n}_pool_skill`]:   { type: 'string' },
     [`project_${n}_pool_disc`]:    { type: 'string' },
-    [`project_${n}_pool2_attr`]:   { type: 'string' },
-    [`project_${n}_pool2_skill`]:  { type: 'string' },
-    [`project_${n}_pool2_disc`]:   { type: 'string' },
     // Cast (JSON array of character IDs)
     [`project_${n}_cast`]:         { type: 'string' },
     // Applicable merits (JSON array of "Name|qualifier" keys)
