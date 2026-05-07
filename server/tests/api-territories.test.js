@@ -225,6 +225,34 @@ describe('PUT /api/territories/:id', () => {
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });
 
+  // Issue #141 — defense-in-depth follow-up to #33: PUT now carries the same
+  // strict-schema gate as POST. A stale browser session posting the retired
+  // legacy `id` field via PUT must be rejected, mirroring the POST path's
+  // literal May-5 incident reproduction.
+  it('PUT with legacy `id` body field returns 400 VALIDATION_ERROR', async () => {
+    const create = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send(testTerritory('test_territory_quinn_put_legacy_id'));
+    const mongoId = create.body._id;
+
+    const res = await request(app)
+      .put(`/api/territories/${mongoId}`)
+      .set('X-Test-User', stUser())
+      .send({
+        id: 'test_territory_quinn_put_legacy_id',
+        name: 'Legacy ID Reject (PUT)',
+        ambience: 'Settled',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'id' }),
+      ]),
+    );
+  });
+
   it('player is blocked from updating', async () => {
     const create = await request(app)
       .post('/api/territories')
