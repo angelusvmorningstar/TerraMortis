@@ -4,7 +4,7 @@ task: 24
 issue: 78
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/78
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: high
 depends_on: ['dt-form.16', 'dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
@@ -69,10 +69,10 @@ Mirror-coverage check before deletion: grep for `pool2_attr|pool2_skill|pool2_di
 
 ## Definition of Done
 
-- [ ] `renderSecondaryDicePool` and its callers removed from the action-slot render path
-- [ ] `project_${n}_pool2_attr/_skill/_disc` no longer collected on save (silent-leave preserves any pre-existing values via spread base; do not unconditionally overwrite with empty strings — same lesson class as #105)
-- [ ] Mirror-coverage report on `_pool2_*` external consumers in PR body
-- [ ] PR opened into `dev` with `Closes #78`
+- [x] `renderSecondaryDicePool` and its callers removed from the action-slot render path
+- [x] `project_${n}_pool2_attr/_skill/_disc` no longer collected on save (silent-leave preserves any pre-existing values via spread base; do not unconditionally overwrite with empty strings — same lesson class as #105)
+- [x] Mirror-coverage report on `_pool2_*` external consumers in PR body
+- [x] PR opened into `dev` with `Closes #78`
 
 ## Dependencies
 
