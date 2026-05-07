@@ -5107,6 +5107,13 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   text-underline-offset: 2px;
 }
 
+/* dt-form.19: influence budget label tooltip — informational, gold accent */
+.dt-influence-budget-label[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--gold2, #E0C47A);
+  text-underline-offset: 2px;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    .dt-min-toast — MINIMAL auto-submit confirmation (ADR-003 §Q5, dt-form.31)
    ════════════════════════════════════════════════════════════════════ */
