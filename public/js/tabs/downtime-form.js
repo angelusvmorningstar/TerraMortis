@@ -2750,6 +2750,38 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // XP row: add a new empty row immediately (no debounce)
+    const addXpRowBtn = e.target.closest('[data-xp-add-slot]');
+    if (addXpRowBtn) {
+      const responses = collectResponses();
+      const slot = addXpRowBtn.dataset.xpAddSlot;
+      const key = `project_${slot}_xp_rows`;
+      let rows = [];
+      try { rows = JSON.parse(responses[key] || '[]'); } catch { rows = []; }
+      rows.push({ category: '', item: '', dotsBuying: 0 });
+      responses[key] = JSON.stringify(rows);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // XP row: remove a row immediately and save
+    const removeXpRowBtn = e.target.closest('[data-xp-remove-slot]');
+    if (removeXpRowBtn) {
+      const responses = collectResponses();
+      const slot = removeXpRowBtn.dataset.xpRemoveSlot;
+      const idx = Number(removeXpRowBtn.dataset.xpRemoveIdx);
+      const key = `project_${slot}_xp_rows`;
+      let rows = [];
+      try { rows = JSON.parse(responses[key] || '[]'); } catch { rows = []; }
+      rows.splice(idx, 1);
+      responses[key] = JSON.stringify(rows);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // dt-form.33: NPC card click handler removed alongside the
     // _legacyRenderPersonalStorySection deletion. No DOM element with
     // [data-npc-pick] is rendered anywhere now.
@@ -3876,7 +3908,7 @@ function getItemsForCategory(category) {
   }
 }
 
-function renderXpRow(idx, row, xpActions, dotsRemaining) {
+function renderXpRow(idx, row, xpActions, dotsRemaining, slotN) {
   let h = `<div class="dt-xp-row" data-xp-row="${idx}">`;
 
   // Filter categories based on action budget
@@ -3940,6 +3972,10 @@ function renderXpRow(idx, row, xpActions, dotsRemaining) {
   const cost = getRowCost(row);
   if (cost > 0) {
     h += `<span class="dt-xp-cost">${cost} XP</span>`;
+  }
+
+  if (slotN != null && row.category) {
+    h += `<button type="button" class="dt-xp-row-remove" data-xp-remove-slot="${slotN}" data-xp-remove-idx="${idx}" title="Remove this row">×</button>`;
   }
 
   h += '</div>';
@@ -4022,8 +4058,9 @@ function _renderProjectXpRows(n, saved) {
   h += '</div>';
 
   for (let i = 0; i < xpRows.length; i++) {
-    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining);
+    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining, n);
   }
+  h += `<button type="button" class="dt-xp-row-add" data-xp-add-slot="${n}">+ Add row</button>`;
   h += '</div>'; // dt-xp-grid
 
   // In-character justification stays per-slot, single textarea. Carries the
