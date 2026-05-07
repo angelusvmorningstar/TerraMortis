@@ -18,6 +18,7 @@ import {
 import {
   standingMerits, devotions, rites, pacts,
   calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
+  calcCityStatus,
   getSkillObj
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
@@ -222,6 +223,36 @@ export function renderSheet() {
 
   infoHtml += `</div>`; // end sh-char-meta
   infoHtml += `</div>`; // end sh-char-hdr
+
+  // Status summary — read-only copy of the player's Status tab compact block (AC-1..6)
+  {
+    const cityV = calcCityStatus(c);
+    const covV  = st.covenant?.[c.covenant] || 0;
+    const clanV = st.clan || 0;
+    const COV_SHORT = {
+      'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone',
+      'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance', 'Ordo Dracul': 'Ordo',
+    };
+    let ssHtml = `<div class="status-summary">`;
+    ssHtml += `<div class="status-summary-pip"><div class="status-summary-shape">${CITY_SVG}<span class="status-summary-n">${cityV}</span></div><span class="status-summary-lbl">City</span></div>`;
+    if (c.covenant) {
+      ssHtml += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${covV}</span></div><span class="status-summary-lbl">${esc(c.covenant)}</span></div>`;
+    }
+    if (c.clan) {
+      ssHtml += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${clanV}</span></div><span class="status-summary-lbl">${esc(c.clan)}</span></div>`;
+    }
+    ssHtml += `</div>`;
+    const covObj    = st.covenant || {};
+    const otherCovs = Object.entries(covObj)
+      .filter(([cov, val]) => val && cov !== c.covenant)
+      .map(([cov, val]) => [COV_SHORT[cov] || cov, val]);
+    if (otherCovs.length) {
+      ssHtml += `<div class="status-summary-other">${otherCovs.map(([label, val]) =>
+        `<span class="status-summary-other-item">${esc(label)} <b>${val}</b></span>`
+      ).join(' · ')}</div>`;
+    }
+    infoHtml += ssHtml;
+  }
 
   // Covenant strip moved to Status tab
 
