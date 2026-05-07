@@ -38,6 +38,8 @@ function _nonEmpty(v) {
  * @param {number} totals.statusSlots
  * @param {number} totals.contactSlots
  * @param {number} totals.retainerSlots
+ * @param {number} totals.mentorSlots
+ * @param {number} totals.staffSlots
  * @param {number} totals.acquisitionSlots
  * @param {number} totals.sorcerySlots
  * @param {number} totals.equipmentSlots
@@ -50,6 +52,8 @@ export function actionSpentSummary(responses, totals = {}) {
     statusSlots:      totals.statusSlots      ?? 0,
     contactSlots:     totals.contactSlots     ?? 0,
     retainerSlots:    totals.retainerSlots    ?? 0,
+    mentorSlots:      totals.mentorSlots      ?? 0,
+    staffSlots:       totals.staffSlots       ?? 0,
     acquisitionSlots: totals.acquisitionSlots ?? 1,
     sorcerySlots:     totals.sorcerySlots     ?? 0,
     equipmentSlots:   totals.equipmentSlots   ?? 0,
@@ -85,6 +89,16 @@ export function actionSpentSummary(responses, totals = {}) {
     if (_nonEmpty(r[`retainer_${n}_task`]) || _nonEmpty(r[`retainer_${n}_type`])) retainersUsed++;
   }
 
+  let mentorsUsed = 0;
+  for (let n = 1; n <= t.mentorSlots; n++) {
+    if (_nonEmpty(r[`mentor_${n}_task`]) || _nonEmpty(r[`mentor_${n}_target`])) mentorsUsed++;
+  }
+
+  let staffUsed = 0;
+  for (let n = 1; n <= t.staffSlots; n++) {
+    if (_nonEmpty(r[`staff_${n}_task`]) || _nonEmpty(r[`staff_${n}_target`])) staffUsed++;
+  }
+
   let acquisitionsUsed = 0;
   for (let n = 1; n <= t.acquisitionSlots; n++) {
     if (_nonEmpty(r[`acq_${n}_description`])) acquisitionsUsed++;
@@ -108,6 +122,8 @@ export function actionSpentSummary(responses, totals = {}) {
     status_actions:    { used: statusUsed,       total: t.statusSlots      },
     contact_actions:   { used: contactsUsed,     total: t.contactSlots     },
     retainer_actions:  { used: retainersUsed,    total: t.retainerSlots    },
+    mentor_actions:    { used: mentorsUsed,      total: t.mentorSlots      },
+    staff_actions:     { used: staffUsed,        total: t.staffSlots       },
     acquisition_slots: { used: acquisitionsUsed, total: t.acquisitionSlots },
     sorcery_slots:     { used: sorceriesUsed,    total: t.sorcerySlots     },
     equipment_slots:   { used: equipmentUsed,    total: t.equipmentSlots   },
@@ -127,6 +143,8 @@ export function formatActionSpentSummary(summary) {
     status_actions:    'Status actions',
     contact_actions:   'Contact actions',
     retainer_actions:  'Retainer actions',
+    mentor_actions:    'Mentor actions',
+    staff_actions:     'Staff actions',
     acquisition_slots: 'Acquisition slots',
     sorcery_slots:     'Blood Sorcery slots',
     equipment_slots:   'Equipment items',

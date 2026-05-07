@@ -4,7 +4,7 @@ task: 28
 issue: 86
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/86
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Dev
 priority: medium
 depends_on: ['dt-form.16', 'dt-form.17']
 hotfix_predecessor: 'GitHub issue #45'
@@ -75,10 +75,10 @@ Detection walk: hotfix #45 establishes that granted merits should be detected by
 
 ## Definition of Done
 
-- [ ] Mentor action: one per Mentor merit (like Retainer)
-- [ ] Staff action: one per dot of Staff (like Contacts)
-- [ ] Character pickers use `charPicker` (#16)
-- [ ] Merit detection follows hotfix #45 walk
+- [x] Mentor action: one per Mentor merit (like Retainer)
+- [x] Staff action: one per dot of Staff (like Contacts)
+- [x] Character pickers use `charPicker` (#16)
+- [x] Merit detection follows hotfix #45 walk
 - [ ] PR opened into `dev`
 
 ## Dependencies
@@ -86,3 +86,39 @@ Detection walk: hotfix #45 establishes that granted merits should be detected by
 - **Upstream**: #16 (picker); #17 (lifecycle); **hotfix #45** (granted-merit detection walk — must land first via hotfix lane)
 - **Downstream**: none
 - **Cross-reference**: GitHub issue #45 establishes the merit-detection walk; #28's detection follows that pattern.
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-opus-4-7 (Ptah / James persona, BMAD dev)
+
+### Survey findings
+- **Hotfix #45 walk helper** is `detectMerits()` at `public/js/tabs/downtime-form.js:249`, where `expandedInfluence` is built by walking each merit's `benefit_grants[]` (lines 262-274) and merging non-duplicate granted entries into the influence pool. Mentor/Staff detection extends this same function — no re-implementation, no divergence.
+- **Retainer template**: per-merit, persistence keys `retainer_${n}_type`, `retainer_${n}_task`, `retainer_${n}_merit` (collect at lines 766-789, render at 5466-5513). No charPicker today.
+- **Contacts template**: per-sphere (sphere is the per-dot unit for Contacts via `m.spheres[]` expansion in detection), persistence keys `contact_${n}_info`, `contact_${n}_request`, `contact_${n}_merit` (collect at lines 752-771, render at 5415-5463). No charPicker today.
+- **Persistence-key convention divergence**: Retainer uses `_type`/`_task`/`_merit`; Contacts uses `_info`/`_request`/`_merit`. Different field names but identical structure (`<merit>_${n}_<field>`). Mentor mirrors Retainer's row pattern; Staff mirrors Contacts' per-slot pattern.
+- **No legacy `mentor_*` / `staff_*` keys** exist anywhere in `public/` or `server/` — Lesson #105 drop-the-iteration doesn't apply (clean greenfield).
+- **Mentor and Staff merits**: both `category: 'influence'` with `m.area` carrying the human-readable name/area (per `public/js/editor/sheet.js:899-903`).
+
+### Persistence shape (chosen)
+- **Mentor**: `mentor_${n}_target` (charPicker hidden id), `mentor_${n}_task` (textarea), `mentor_${n}_merit` (hidden meritLabel ref). Mirrors Retainer's `<merit>_${n}_<field>` shape with the addition of `_target` for the optional charPicker.
+- **Staff**: `staff_${n}_target`, `staff_${n}_task`, `staff_${n}_merit`. Same shape; `n` indexes total Staff dots summed across detected Staff merits.
+
+### Completion Notes
+- Detection extends `detectMerits()` at downtime-form.js:309-318: `detectedMerits.mentors` (per-merit) and `detectedMerits.staff` (per-merit list, dot count summed at render time). Both filtered from `expandedInfluence` so granted instances (e.g. via Patron / MCI grants) surface — same #45 walk pattern, no parallel implementation.
+- Render extends `renderMeritToggles()`: Mentor block (per-merit, mirrors Retainer chrome), Staff block (per-dot total summed across detected Staff merits, mirrors Contacts per-slot chrome). Both reuse `dt-contacts-table` / `dt-contact-row` / `dt-contact-panel` classes for visual consistency.
+- charPicker (#16) used for an OPTIONAL "Person involved" target in both Mentor and Staff rows. `excludeIds: [currentChar._id]` so the player can't target themselves. Each picker site has a stable hidden mirror input that the picker's `onChange` writes to (`dt-mentor_${n}_target` / `dt-staff_${n}_target`).
+- Click handlers + live row-status badge updates follow the existing Retainer/Contacts pattern verbatim (toggle, clear button, input-driven badge flip).
+- Tick rules added to `updateSectionTicks` for `mentors` and `staff` keys; both flip when any row has either a target or task.
+- Action-spent summary (`public/js/data/dt-action-summary.js`) extended with `mentor_actions` / `staff_actions` cells so the Submit Final modal renders Mentor/Staff counts alongside Contacts/Retainer when the character has those merits. Wired through `openSubmitFinalModal()` totals at downtime-form.js:1632-1636.
+- No HALT-DARs encountered. Persistence convention divergence between Retainer (`_type`/_task`) and Contacts (`_info`/`_request`) is preserved — mirrored field-by-field rather than normalised; the broader "row keyed `<merit>_${n}_<field>`" structure is the actual shared convention.
+- Server tests baseline preserved: 678/678 passing on full suite with changes applied.
+
+### File List
+- Modified: `public/js/tabs/downtime-form.js` (Mentor/Staff detection in `detectMerits`; collect loops; render blocks in `renderMeritToggles`; click handlers; live row-status updates; tick rules; modal totals)
+- Modified: `public/js/data/dt-action-summary.js` (`mentorSlots`/`staffSlots` totals; `mentor_actions`/`staff_actions` summary cells; labels)
+
+### Change Log
+| Date | Change | Notes |
+|---|---|---|
+| 2026-05-07 | Mentor + Staff actions implemented in DT form (per-merit / per-dot mirrors of Retainer / Contacts) | downtime-form.js + dt-action-summary.js |

@@ -116,7 +116,7 @@ let priorPublishedLabel = null; // label of most recent published cycle other th
 let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
-let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
+let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [], mentors: [], staff: [] };
 
 
 // Characters who attended last game (for shoutout picks)
@@ -308,6 +308,15 @@ function detectMerits() {
   // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
   detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && (m.name === 'Retainer' || m.name?.startsWith('Attaché ('))
+  ));
+  // dt-form.28: Mentor (per-merit, like Retainer) and Staff (per-dot, like
+  // Contacts) — same expandedInfluence walk so granted instances surface
+  // (hotfix #45 pattern).
+  detectedMerits.mentors = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && m.name === 'Mentor'
+  ));
+  detectedMerits.staff = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && m.name === 'Staff'
   ));
 
   gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
@@ -778,6 +787,33 @@ function collectResponses() {
     // Backwards compat: combined value in old key
     const combined = [responses[`retainer_${n}_type`], responses[`retainer_${n}_task`]].filter(Boolean).join('\n');
     responses[`retainer_${n}`] = combined;
+  }
+
+  // dt-form.28: Mentor fields (per-merit, mirrors Retainer pattern).
+  // Hidden charPicker target id is auto-written by the picker's onChange;
+  // we read it here for canonical persistence on collect.
+  const maxMentors = detectedMerits.mentors.length;
+  for (let n = 1; n <= maxMentors; n++) {
+    const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+    const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+    const meritEl = document.getElementById(`dt-mentor_${n}_merit`);
+    responses[`mentor_${n}_target`] = targetEl ? targetEl.value : '';
+    responses[`mentor_${n}_task`] = taskEl ? taskEl.value : '';
+    responses[`mentor_${n}_merit`] = meritEl ? meritEl.value : '';
+  }
+
+  // dt-form.28: Staff fields (per-dot, mirrors Contacts per-slot pattern).
+  // Total slots = sum of effective ratings across all detected Staff merits.
+  const totalStaffDots = detectedMerits.staff.reduce(
+    (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+  );
+  for (let n = 1; n <= totalStaffDots; n++) {
+    const targetEl = document.getElementById(`dt-staff_${n}_target`);
+    const taskEl = document.getElementById(`dt-staff_${n}_task`);
+    const meritEl = document.getElementById(`dt-staff_${n}_merit`);
+    responses[`staff_${n}_target`] = targetEl ? targetEl.value : '';
+    responses[`staff_${n}_task`] = taskEl ? taskEl.value : '';
+    responses[`staff_${n}_merit`] = meritEl ? meritEl.value : '';
   }
 
   // dt-form.29: structured-row collect for the redesigned Acquisitions
@@ -1602,6 +1638,10 @@ function openSubmitFinalModal(container) {
     statusSlots:      Math.min((detectedMerits.status || []).length, 5),
     contactSlots:     Math.min((detectedMerits.contacts || []).length, 5),
     retainerSlots:    (detectedMerits.retainers || []).length,
+    mentorSlots:      (detectedMerits.mentors || []).length,
+    staffSlots:       (detectedMerits.staff || []).reduce(
+                        (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+                      ),
     acquisitionSlots: parseInt(saved.acq_slot_count || '1', 10) || 1,
     sorcerySlots:     parseInt(saved.sorcery_slot_count || '0', 10) || 0,
     equipmentSlots:   parseInt(saved.equipment_slot_count || '0', 10) || 0,
@@ -2218,6 +2258,52 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
+    // dt-form.28: Mentor row toggle
+    const mentorToggle = e.target.closest('[data-mentor-toggle]');
+    if (mentorToggle && !e.target.closest('[data-mentor-clear]')) {
+      const n = mentorToggle.dataset.mentorToggle;
+      const panel = container.querySelector(`[data-mentor-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // dt-form.28: Mentor clear button
+    const mentorClear = e.target.closest('[data-mentor-clear]');
+    if (mentorClear) {
+      const n = mentorClear.dataset.mentorClear;
+      const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+      const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+      if (targetEl) targetEl.value = '';
+      if (taskEl) taskEl.value = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.28: Staff row toggle
+    const staffToggle = e.target.closest('[data-staff-toggle]');
+    if (staffToggle && !e.target.closest('[data-staff-clear]')) {
+      const n = staffToggle.dataset.staffToggle;
+      const panel = container.querySelector(`[data-staff-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // dt-form.28: Staff clear button
+    const staffClear = e.target.closest('[data-staff-clear]');
+    if (staffClear) {
+      const n = staffClear.dataset.staffClear;
+      const targetEl = document.getElementById(`dt-staff_${n}_target`);
+      const taskEl = document.getElementById(`dt-staff_${n}_task`);
+      if (targetEl) targetEl.value = '';
+      if (taskEl) taskEl.value = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // Cast picker modal
     const castBtn = e.target.closest('[data-cast-open]');
     if (castBtn) {
@@ -2307,6 +2393,33 @@ function renderForm(container) {
         const typeEl = document.getElementById(`dt-retainer_${n}_type`);
         const taskEl = document.getElementById(`dt-retainer_${n}_task`);
         const hasContent = (typeEl && typeEl.value.trim()) || (taskEl && taskEl.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Tasked' : 'Idle';
+      }
+    }
+    // dt-form.28: live status update for Mentor / Staff rows.
+    const mentorPanel = e.target.closest('[data-mentor-panel]');
+    if (mentorPanel) {
+      const n = mentorPanel.dataset.mentorPanel;
+      const row = container.querySelector(`[data-mentor-row="${n}"]`);
+      if (row) {
+        const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+        const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+        const hasContent = (targetEl && targetEl.value.trim()) || (taskEl && taskEl.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Asked' : 'Idle';
+      }
+    }
+    const staffPanel = e.target.closest('[data-staff-panel]');
+    if (staffPanel) {
+      const n = staffPanel.dataset.staffPanel;
+      const row = container.querySelector(`[data-staff-row="${n}"]`);
+      if (row) {
+        const targetEl = document.getElementById(`dt-staff_${n}_target`);
+        const taskEl = document.getElementById(`dt-staff_${n}_task`);
+        const hasContent = (targetEl && targetEl.value.trim()) || (taskEl && taskEl.value.trim());
         row.classList.toggle('dt-contact-used', !!hasContent);
         const badge = row.querySelector('.dt-contact-status');
         if (badge) badge.textContent = hasContent ? 'Tasked' : 'Idle';
@@ -5279,6 +5392,11 @@ function renderMeritToggles(saved) {
   const hasContacts = detectedMerits.contacts.length > 0;
   const hasRetainers = detectedMerits.retainers.length > 0;
   const hasStatus = detectedMerits.status.length > 0;
+  const hasMentors = detectedMerits.mentors.length > 0;
+  const totalStaffDots = detectedMerits.staff.reduce(
+    (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+  );
+  const hasStaff = totalStaffDots > 0;
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
@@ -5289,7 +5407,7 @@ function renderMeritToggles(saved) {
     m.category === 'standing' || (m.category === 'influence' && m.name === 'Status')
   );
 
-  if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
+  if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus && !hasMentors && !hasStaff) return '';
 
   // ── Spheres of Influence (tabbed, max 5) ──
   if (hasSpheres) {
@@ -5519,6 +5637,123 @@ function renderMeritToggles(saved) {
     h += '</div></div>';
   }
 
+  // ── Mentor (per-merit, mirrors Retainer pattern) ──
+  // dt-form.28: one row per Mentor merit on the character (granted instances
+  // included via the expandedInfluence walk in detectMerits — same pattern as
+  // hotfix #45). Each row carries a free-text query type, a description
+  // textarea, and an optional universal char picker for a target person.
+  if (hasMentors) {
+    const maxMentors = detectedMerits.mentors.length;
+    h += '<div class="qf-section collapsed" data-section-key="mentors">';
+    h += '<h4 class="qf-section-title">Mentor: Counsel<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
+    h += '<p class="qf-section-intro">Click a mentor to expand and ask a question or request guidance for this Downtime.</p>';
+
+    h += '<div class="dt-contacts-table">';
+    for (let n = 1; n <= maxMentors; n++) {
+      const m = detectedMerits.mentors[n - 1];
+      const area = m.area || m.qualifier || 'Mentor';
+      const dots = '●'.repeat(meritEffectiveRating(currentChar, m) || 1);
+      const savedTarget = saved[`mentor_${n}_target`] || '';
+      const savedTask = saved[`mentor_${n}_task`] || '';
+
+      const isUsed = !!(savedTarget || savedTask);
+      const expanded = isUsed;
+
+      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-mentor-row="${n}">`;
+      h += `<div class="dt-contact-header" data-mentor-toggle="${n}">`;
+      h += `<span class="dt-contact-area">${esc(area)}</span>`;
+      h += `<span class="dt-contact-dots">${dots}</span>`;
+      h += `<span class="dt-contact-status">${isUsed ? 'Asked' : 'Idle'}</span>`;
+      if (isUsed) {
+        h += `<button type="button" class="dt-contact-clear" data-mentor-clear="${n}" title="Clear and close">✕</button>`;
+      }
+      h += '</div>';
+
+      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-mentor-panel="${n}">`;
+      // Optional target — universal char picker (ADR-003 §Q6); excludes self.
+      const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
+      const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-mentor_${n}_target">Person involved (optional)</label>`;
+      h += `<input type="hidden" id="dt-mentor_${n}_target" value="${esc(savedTarget)}">`;
+      h += `<div data-cp-mount data-cp-site="mentor-target"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-cp-hidden="dt-mentor_${n}_target"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-exclude="${excludeJson}"`
+         + ` data-cp-placeholder="Pick a target character"></div>`;
+      h += '</div>';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-mentor_${n}_task">What are you asking your mentor?</label>`;
+      h += `<textarea id="dt-mentor_${n}_task" class="qf-textarea" rows="3" placeholder="Question, advice sought, or guidance you want from this mentor.">${esc(savedTask)}</textarea>`;
+      h += '</div>';
+      h += `<input type="hidden" id="dt-mentor_${n}_merit" value="${esc(meritLabel(m))}">`;
+      h += '</div>'; // panel
+      h += '</div>'; // row
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+  }
+
+  // ── Staff (per-dot, mirrors Contacts per-slot pattern) ──
+  // dt-form.28: one row per dot of Staff (summed across all Staff merits;
+  // granted instances included via the expandedInfluence walk). Each row
+  // carries an optional target char picker and a task-description textarea.
+  if (hasStaff) {
+    const primaryStaff = detectedMerits.staff[0];
+    const meritLabelText = primaryStaff
+      ? (primaryStaff.area || primaryStaff.qualifier || 'Staff')
+      : 'Staff';
+    h += '<div class="qf-section collapsed" data-section-key="staff">';
+    h += '<h4 class="qf-section-title">Staff: Tasks<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
+    h += '<p class="qf-section-intro">Click a staff slot to expand and assign a task. One slot per dot of Staff.</p>';
+
+    h += '<div class="dt-contacts-table">';
+    for (let n = 1; n <= totalStaffDots; n++) {
+      const savedTarget = saved[`staff_${n}_target`] || '';
+      const savedTask = saved[`staff_${n}_task`] || '';
+      const isUsed = !!(savedTarget || savedTask);
+      const expanded = isUsed;
+
+      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-staff-row="${n}">`;
+      h += `<div class="dt-contact-header" data-staff-toggle="${n}">`;
+      h += `<span class="dt-contact-area">${esc(meritLabelText)} — Slot ${n}</span>`;
+      h += `<span class="dt-contact-dots">●</span>`;
+      h += `<span class="dt-contact-status">${isUsed ? 'Tasked' : 'Idle'}</span>`;
+      if (isUsed) {
+        h += `<button type="button" class="dt-contact-clear" data-staff-clear="${n}" title="Clear and close">✕</button>`;
+      }
+      h += '</div>';
+
+      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-staff-panel="${n}">`;
+      const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
+      const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-staff_${n}_target">Person involved (optional)</label>`;
+      h += `<input type="hidden" id="dt-staff_${n}_target" value="${esc(savedTarget)}">`;
+      h += `<div data-cp-mount data-cp-site="staff-target"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-cp-hidden="dt-staff_${n}_target"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-exclude="${excludeJson}"`
+         + ` data-cp-placeholder="Pick a target character"></div>`;
+      h += '</div>';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-staff_${n}_task">Task description</label>`;
+      h += `<textarea id="dt-staff_${n}_task" class="qf-textarea" rows="3" placeholder="What do you want this staff slot to do?">${esc(savedTask)}</textarea>`;
+      h += '</div>';
+      h += `<input type="hidden" id="dt-staff_${n}_merit" value="${esc(primaryStaff ? meritLabel(primaryStaff) : 'Staff')}">`;
+      h += '</div>'; // panel
+      h += '</div>'; // row
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+  }
+
   return h;
 }
 
@@ -5561,6 +5796,34 @@ function updateSectionTicks(container) {
         const info = document.getElementById(`dt-contact_${n}_info`);
         const req = document.getElementById(`dt-contact_${n}_request`);
         if ((info && info.value.trim()) || (req && req.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
+      return;
+    }
+
+    // dt-form.28: Mentors tick when any mentor row has target or task
+    if (key === 'mentors') {
+      const maxM = detectedMerits.mentors.length;
+      let anyUsed = false;
+      for (let n = 1; n <= maxM; n++) {
+        const tg = document.getElementById(`dt-mentor_${n}_target`);
+        const tk = document.getElementById(`dt-mentor_${n}_task`);
+        if ((tg && tg.value.trim()) || (tk && tk.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
+      return;
+    }
+
+    // dt-form.28: Staff tick when any staff slot has target or task
+    if (key === 'staff') {
+      const maxS = detectedMerits.staff.reduce(
+        (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+      );
+      let anyUsed = false;
+      for (let n = 1; n <= maxS; n++) {
+        const tg = document.getElementById(`dt-staff_${n}_target`);
+        const tk = document.getElementById(`dt-staff_${n}_task`);
+        if ((tg && tg.value.trim()) || (tk && tk.value.trim())) { anyUsed = true; break; }
       }
       tick.classList.toggle('visible', anyUsed);
       return;
