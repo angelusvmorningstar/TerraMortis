@@ -4,7 +4,7 @@ task: 25
 issue: 79
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/79
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Dev
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
@@ -69,9 +69,7 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 **When** the slot is saved
 **Then** the selection is stored as a single (territory, direction) pair (e.g. `responses.project_N_ambience_target` and `responses.project_N_ambience_direction`).
 
-**Given** the form persists
-**When** the slot is saved
-**Then** the selections persist as a per-territory direction map (e.g. `responses.project_N_ambience_targets = { '<terr_id>': 'up' | 'down' }`).
+_(Removed contradiction: an earlier draft AC mentioned a per-territory direction map shape. Superseded — Implementation Notes lock the single-pair shape per the FINAL Q2 follow-up clarification.)_
 
 **Given** the rules summary needs to surface
 **When** the action UI renders
