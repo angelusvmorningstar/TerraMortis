@@ -5,6 +5,7 @@ import { meritByCategory, addMerit, removeMerit } from './merits.js';
 import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
+import { pruneContactsSpheres } from './domain.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -46,6 +47,8 @@ export function shEditInflMerit(idx, field, val) {
   else if (field === 'ghoul') m.ghoul = val === true || val === 'true' || val === 1;
   else if (field === 'narrow') m.narrow = val;
   else if (field === 'attached_to') { if (val) m.attached_to = val; else delete m.attached_to; }
+  // Issue #39 Task 2: Contacts spheres prune on rating decrease.
+  pruneContactsSpheres(m);
   _markDirty();
   _renderSheet(c);
 }

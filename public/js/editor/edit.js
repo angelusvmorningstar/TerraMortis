@@ -12,7 +12,7 @@ import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating } from './domain.js';
+import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1023,6 +1023,9 @@ export function shStepMeritRating(realIdx, dir) {
   }
   m.cp = newCP;
   m.rating = (m.cp || 0) + (m.xp || 0);
+  // Issue #39 Task 2: rating-stepper can decrease a Contacts merit; prune
+  // its spheres array to match.
+  pruneContactsSpheres(m);
   _markDirty();
   _renderSheet(c);
 }
@@ -1070,6 +1073,9 @@ export function shEditMeritPt(realIdx, field, val) {
   // free_* channels get silently dropped on every edit (was the case for
   // free_pt / free_mdb / free_sw / free_fwb / free_attache before this).
   m.rating = syncMeritRating(m);
+  // Issue #39 Task 2: any cp/xp/free_* mutation can drop a Contacts merit's
+  // effective rating; prune its spheres array to match.
+  pruneContactsSpheres(m);
   _markDirty();
   _renderSheet(c);
 }

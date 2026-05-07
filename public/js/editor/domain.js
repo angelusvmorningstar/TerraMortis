@@ -111,6 +111,24 @@ export function syncMeritRating(m) {
 }
 
 /**
+ * Issue #39 Task 2: when a Contacts merit's effective rating drops, trim
+ * the spheres array to match. Contacts is the only influence merit using
+ * spheres-per-dot semantics; the DT-form Contact-action picker reads
+ * c.merits[].spheres directly, so a stale sphere array surfaces options
+ * the character no longer owns. Truncate-only — increases leave the
+ * existing array untouched so newly-added dots render as unselected.
+ *
+ * Call after any edit that mutates a Contacts merit's rating-source fields
+ * (cp / xp / free_* channels, or a free-grant source removal).
+ */
+export function pruneContactsSpheres(m) {
+  if (!m || m.name !== 'Contacts') return;
+  if (!Array.isArray(m.spheres)) return;
+  const r = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+  if (m.spheres.length > r) m.spheres.length = r;
+}
+
+/**
  * Effective merit rating: sum of every dot channel + dynamic bonuses.
  * Use this everywhere a calc references a merit's effective dots.
  * Do NOT read m.rating directly — it is unreliable post-import and post-edit.
