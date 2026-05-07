@@ -4,7 +4,7 @@ task: 25
 issue: 79
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/79
 epic: epic-dt-form-mvp-redesign
-status: Ready for Dev
+status: Ready for Review
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
@@ -99,14 +99,14 @@ The UI is direction-agnostic at the action-type-picker level — the player pick
 
 ## Definition of Done
 
-- [ ] Territory-row table renders for ambience actions
-- [ ] At most one row holds a selection at any time per action slot (single-target design)
-- [ ] Clicking a different row clears the previous selection
-- [ ] Clicking the opposite direction on the same row switches direction (does NOT add a second selection)
-- [ ] Clicking the same arrow again toggles off
-- [ ] Rules summary text present
-- [ ] Persistence shape: single (territory, direction) pair per slot
-- [ ] PR opened into `dev`
+- [x] Territory-row table renders for ambience actions
+- [x] At most one row holds a selection at any time per action slot (single-target design)
+- [x] Clicking a different row clears the previous selection
+- [x] Clicking the opposite direction on the same row switches direction (does NOT add a second selection)
+- [x] Clicking the same arrow again toggles off
+- [x] Rules summary text present
+- [x] Persistence shape: single (territory, direction) pair per slot
+- [x] PR opened into `dev` with `Closes #79`
 
 ## Dependencies
 
