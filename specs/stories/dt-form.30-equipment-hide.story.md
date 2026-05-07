@@ -4,7 +4,7 @@ task: 30
 issue: 85
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/85
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Dev
 priority: low
 depends_on: ['dt-form.17']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (§Audit-baseline)
