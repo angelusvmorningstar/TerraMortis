@@ -30,7 +30,12 @@ const projectActionEnum = [
   // dt-form.22: ROTE moved out of the feeding section into its own per-slot
   // action variant. Pool inherits from primary feeding; territory writes to
   // the existing document-level `feeding_territories_rote` map.
-  'rote'
+  'rote',
+  // dt-form.25: form-side canonical action value for ambience changes
+  // (the legacy `ambience_increase` / `ambience_decrease` values are kept
+  // for CSV-import back-compat reads only — admin/parser still consume
+  // them; tracked under issue #129 for future canonical normalisation).
+  'ambience_change'
 ];
 
 const sphereActionEnum = [
@@ -70,6 +75,12 @@ function projectSlotProps(n) {
     [`project_${n}_pool_attr`]:    { type: 'string' },
     [`project_${n}_pool_skill`]:   { type: 'string' },
     [`project_${n}_pool_disc`]:    { type: 'string' },
+    // dt-form.25: ambience action redesign. Single-target row-table writes
+    // a (territory, direction) pair when action='ambience_change'. The
+    // territory value is the slug (matches existing form territory model;
+    // admin's resolveTerrId() maps slug → MongoDB _id at consumption).
+    [`project_${n}_ambience_target`]:    { type: 'string' },
+    [`project_${n}_ambience_direction`]: { type: 'string', enum: ['', 'up', 'down'] },
     // Cast (JSON array of character IDs)
     [`project_${n}_cast`]:         { type: 'string' },
     // Applicable merits (JSON array of "Name|qualifier" keys)

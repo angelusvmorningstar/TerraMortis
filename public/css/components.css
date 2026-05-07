@@ -5115,6 +5115,76 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   .dt-amb-table — Ambience row-table (ADR-003 §Implementation Plan,
+   story dt-form.25). Single-target by design: at most one row can
+   hold a selection at any time per action slot.
+   ════════════════════════════════════════════════════════════════════ */
+.dt-amb-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.dt-amb-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+
+.dt-amb-row-name {
+  font-family: var(--fl);
+  font-size: 0.95em;
+  color: var(--txt);
+}
+
+.dt-amb-arrow {
+  appearance: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 999px;
+  background: var(--surf);
+  color: var(--txt2);
+  width: 32px;
+  height: 32px;
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dt-amb-arrow:hover {
+  border-color: var(--gold);
+}
+
+.dt-amb-arrow--down {
+  color: var(--crim, #b00020);
+}
+
+.dt-amb-arrow--down.dt-amb-arrow--on {
+  background: var(--crim, #b00020);
+  color: var(--txt-on-dark, #fff);
+  border-color: var(--crim, #b00020);
+}
+
+.dt-amb-arrow--up {
+  color: var(--green, #2a8a3a);
+}
+
+.dt-amb-arrow--up.dt-amb-arrow--on {
+  background: var(--green, #2a8a3a);
+  color: var(--txt-on-dark, #fff);
+  border-color: var(--green, #2a8a3a);
+}
+
+/* ════════════════════════════════════════════════════════════════════
    .dt-min-toast — MINIMAL auto-submit confirmation (ADR-003 §Q5, dt-form.31)
    ════════════════════════════════════════════════════════════════════ */
 .dt-min-toast {

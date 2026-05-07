@@ -166,7 +166,9 @@ const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_change':   ['title', 'outcome', 'target', 'pools', 'description'],
+  // dt-form.25: 'target' dropped — the row-table inline below IS the
+  // (territory + direction) picker. Renders alongside title/outcome/pools/description.
+  'ambience_change':   ['title', 'outcome', 'pools', 'description'],
   'attack':            ['title', 'outcome', 'target', 'pools', 'description'],
   'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
   'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
@@ -612,8 +614,15 @@ function collectResponses() {
     responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
     responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
-    const ambienceDirEl = document.querySelector(`input[name="dt-project_${n}_ambience_dir"]:checked`);
-    responses[`project_${n}_ambience_dir`] = ambienceDirEl ? ambienceDirEl.value : '';
+    // dt-form.25: legacy `_ambience_dir` radio collect dropped (drop-the-
+    // iteration shape per Ma'at #127 praise). The new row-table writes
+    // `_ambience_target` + `_ambience_direction` directly via the hidden
+    // inputs below. Pre-existing legacy `_ambience_dir` values persist on
+    // the doc via the spread base (silent-leave per A1).
+    const ambTargetEl = document.getElementById(`dt-project_${n}_ambience_target`);
+    const ambDirEl    = document.getElementById(`dt-project_${n}_ambience_direction`);
+    if (ambTargetEl) responses[`project_${n}_ambience_target`]    = ambTargetEl.value;
+    if (ambDirEl)    responses[`project_${n}_ambience_direction`] = ambDirEl.value;
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -2362,7 +2371,46 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Ambience direction ticker — re-render so desc/prompt/outcome update
+    // dt-form.25: Ambience row-table arrow click. Single-target state
+    // machine per the 6 ACs:
+    //   - new row click           → switch to (newRow, clickedDir)
+    //   - opposite arrow same row → switch direction, retain row
+    //   - same arrow same row     → toggle off (clear both)
+    const ambArrow = e.target.closest('[data-amb-arrow]');
+    if (ambArrow) {
+      e.preventDefault();
+      const slot     = ambArrow.dataset.ambSlot;
+      const target   = ambArrow.dataset.ambTarget;
+      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
+      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
+      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
+      const curTarget = targetEl ? targetEl.value : '';
+      const curDir    = dirEl    ? dirEl.value    : '';
+      let nextTarget = '';
+      let nextDir    = '';
+      if (curTarget === target && curDir === dirClick) {
+        // same arrow same row → toggle off
+        nextTarget = '';
+        nextDir    = '';
+      } else {
+        // new row OR opposite arrow same row → set to clicked
+        nextTarget = target;
+        nextDir    = dirClick;
+      }
+      if (targetEl) targetEl.value = nextTarget;
+      if (dirEl)    dirEl.value    = nextDir;
+      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.25: legacy improve/degrade ticker handler retained for
+    // sphere-side ambience_change (sphere keeps the legacy radio). Project
+    // side no longer emits `[data-proj-ambience-dir]` after the row-table
+    // redesign; this branch is unreachable for projects but kept defensively.
     const projAmbienceDir = e.target.closest('[data-proj-ambience-dir]');
     if (projAmbienceDir) {
       activeProjectTab = parseInt(projAmbienceDir.dataset.projAmbienceDir, 10);
@@ -3298,6 +3346,48 @@ function renderProjectSlots(saved, mode = 'advanced') {
         type: 'textarea', required: false, rows: 2,
         placeholder: 'Describe what you are spending XP on in this action.',
       }, saved[`project_${n}_xp`] || '');
+    }
+
+    // ── dt-form.25: Ambience row-table (single-target by design) ──
+    // Replaces the legacy target-zone (territory pills + improve/degrade
+    // radios) for `ambience_change` actions. Each row has a RED DOWN arrow
+    // and a GREEN UP arrow; at most one row holds a selection at any time.
+    // Persists single (target, direction) pair as
+    // responses.project_N_ambience_target + project_N_ambience_direction.
+    if (actionVal === 'ambience_change') {
+      // Read selection. Backward-compat seed: if new fields are empty but
+      // legacy `_target_terr` + `_ambience_dir` exist, derive selection
+      // from those so pre-redesign drafts surface correctly on first render.
+      let savedTarget = saved[`project_${n}_ambience_target`] || '';
+      let savedDir    = saved[`project_${n}_ambience_direction`] || '';
+      if (!savedTarget) {
+        const legacyTerr = saved[`project_${n}_target_terr`] || '';
+        if (legacyTerr) savedTarget = legacyTerr;
+      }
+      if (!savedDir) {
+        const legacyDir = saved[`project_${n}_ambience_dir`] || '';
+        if (legacyDir === 'improve') savedDir = 'up';
+        else if (legacyDir === 'degrade') savedDir = 'down';
+      }
+
+      h += '<div class="qf-field dt-amb-table-wrap">';
+      h += '<label class="qf-label">Territory + Direction</label>';
+      h += '<p class="qf-desc">Pick one direction on one territory. Success is +/-2 influence change to territory, +/-4 on exceptional success.</p>';
+      h += `<div class="dt-amb-table" data-amb-table="${n}">`;
+      for (const t of TERRITORY_DATA) {
+        const isRow = String(savedTarget) === String(t.slug);
+        const upOn   = isRow && savedDir === 'up'   ? ' dt-amb-arrow--on'  : '';
+        const downOn = isRow && savedDir === 'down' ? ' dt-amb-arrow--on' : '';
+        h += `<div class="dt-amb-row" data-amb-row="${esc(t.slug)}">`;
+        h += `<span class="dt-amb-row-name">${esc(t.name)}</span>`;
+        h += `<button type="button" class="dt-amb-arrow dt-amb-arrow--down${downOn}" data-amb-arrow="down" data-amb-target="${esc(t.slug)}" data-amb-slot="${n}" aria-label="Decrease ambience of ${esc(t.name)}" aria-pressed="${downOn ? 'true' : 'false'}">▼</button>`;
+        h += `<button type="button" class="dt-amb-arrow dt-amb-arrow--up${upOn}" data-amb-arrow="up" data-amb-target="${esc(t.slug)}" data-amb-slot="${n}" aria-label="Increase ambience of ${esc(t.name)}" aria-pressed="${upOn ? 'true' : 'false'}">▲</button>`;
+        h += '</div>';
+      }
+      h += '</div>';
+      h += `<input type="hidden" id="dt-project_${n}_ambience_target" value="${esc(savedTarget)}">`;
+      h += `<input type="hidden" id="dt-project_${n}_ambience_direction" value="${esc(savedDir)}">`;
+      h += '</div>';
     }
 
     // ── dt-form.22: ROTE territory + read-only inherited pool ──

@@ -4,7 +4,7 @@ task: 25
 issue: 79
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/79
 epic: epic-dt-form-mvp-redesign
-status: Draft
+status: Ready for Review
 priority: medium
 depends_on: ['dt-form.17', 'dt-form.24']
 adr: specs/architecture/adr-003-dt-form-cross-cutting.md (Implementation Plan)
@@ -69,9 +69,7 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 **When** the slot is saved
 **Then** the selection is stored as a single (territory, direction) pair (e.g. `responses.project_N_ambience_target` and `responses.project_N_ambience_direction`).
 
-**Given** the form persists
-**When** the slot is saved
-**Then** the selections persist as a per-territory direction map (e.g. `responses.project_N_ambience_targets = { '<terr_id>': 'up' | 'down' }`).
+_(Removed contradiction: an earlier draft AC mentioned a per-territory direction map shape. Superseded — Implementation Notes lock the single-pair shape per the FINAL Q2 follow-up clarification.)_
 
 **Given** the rules summary needs to surface
 **When** the action UI renders
@@ -79,13 +77,20 @@ Rules summary text: *"Success is +/-2 influence change to territory, +/-4 on exc
 
 ## Implementation Notes
 
-Both action types (`ambience_increase` and `ambience_decrease`) collapse to the same UI shape. The action-type field is retained in `responses` for historical reasons but the UI doesn't ask the player to pick "increase or decrease" before the table — they just pick the direction on the row whose territory they want to target.
+**Action-type already collapsed at the form layer (Ptah survey 2026-05-07):** the form's `PROJECT_ACTIONS` (`downtime-data.js:10`) already uses a single `'ambience_change'` value. The legacy `'ambience_increase'`/`'ambience_decrease'` enum values survive only at:
 
-If the per-action-type distinction (increase vs decrease) is no longer meaningful post-redesign, surface to Piatra during pickup as a simplification candidate (collapse to one action type called `ambience` with a single direction-per-target).
+1. **Schema `projectActionEnum`** (`downtime_submission.schema.js:27-34`) — out of sync (missing `'ambience_change'`, listing the two legacy values that the form never writes). Latent because schema validation is not enforced on the PUT route. **Fix opportunistically as part of this story:** add `'ambience_change'` to the enum; KEEP the legacy values for admin/parser back-compat.
+2. **`SPHERE_ACTION_FIELDS`** (lines 186-187) — sphere-side code path with its own `ambience_change` + `ambience_dir` → legacy-enum normalisation at lines 691-693 + 735-737. **NOT in scope for this story.**
+3. **Admin/parser** (`admin/downtime-views.js`, `downtime/parser.js`) — reads the legacy enums for CSV-imported submissions where `proj.action_type` is set by the CSV parser. Live-form submissions never trigger those branches because the form persists `ambience_change`. **Latent admin tally bug** (admin's `isIncrease`/`isDecrease` at `downtime-views.js:3138` never fires for form-saved ambience actions). Tracked as a separate follow-up; out of scope for this story.
 
-**Persistence shape (lock):** single (territory, direction) pair per action slot. Suggested fields:
-- `responses.project_N_ambience_target` — territory `_id` string
-- `responses.project_N_ambience_direction` — `'up' | 'down'`
+**Persistence shape (lock):** single (territory, direction) pair per action slot, layered on top of the existing `ambience_change` action-type.
+- `responses.project_N_action` = `'ambience_change'` (existing form value, unchanged)
+- `responses.project_N_ambience_target` = territory `_id` string (NEW)
+- `responses.project_N_ambience_direction` = `'up' | 'down'` (NEW)
+
+The UI is direction-agnostic at the action-type-picker level — the player picks `Ambience` from the action-type dropdown, then picks the row + direction in the table. Drop the legacy `'target'` field from `ACTION_FIELDS['ambience_change']` (the row-table IS the territory picker; the legacy generic target zone becomes redundant). Any legacy `dt-project_N_ambience_dir` radios in the generic target zone fall away with `target` removal.
+
+**Migration**: silent-leave per A1 precedent. Existing form drafts with the `ambience_change` action persist their legacy `_ambience_dir` value untouched (drop-the-iteration on collect — no else-write); the new render path reads the locked-shape fields. If a future hardening pass wants to migrate legacy `_ambience_dir` to the new `_ambience_direction` field, that's its own story.
 
 ## Test Plan
 
@@ -94,14 +99,14 @@ If the per-action-type distinction (increase vs decrease) is no longer meaningfu
 
 ## Definition of Done
 
-- [ ] Territory-row table renders for ambience actions
-- [ ] At most one row holds a selection at any time per action slot (single-target design)
-- [ ] Clicking a different row clears the previous selection
-- [ ] Clicking the opposite direction on the same row switches direction (does NOT add a second selection)
-- [ ] Clicking the same arrow again toggles off
-- [ ] Rules summary text present
-- [ ] Persistence shape: single (territory, direction) pair per slot
-- [ ] PR opened into `dev`
+- [x] Territory-row table renders for ambience actions
+- [x] At most one row holds a selection at any time per action slot (single-target design)
+- [x] Clicking a different row clears the previous selection
+- [x] Clicking the opposite direction on the same row switches direction (does NOT add a second selection)
+- [x] Clicking the same arrow again toggles off
+- [x] Rules summary text present
+- [x] Persistence shape: single (territory, direction) pair per slot
+- [x] PR opened into `dev` with `Closes #79`
 
 ## Dependencies
 
