@@ -3941,6 +3941,9 @@ body {
 .rules-td-dim { color: var(--txt2, #aaa); font-size: 12px; }
 .rules-td-dots { color: var(--accent); font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
 .rules-td-prereq { font-size: 11px; color: var(--txt3, #777); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rules-td-held { font-family: var(--fl); font-size: 12px; color: var(--txt2); text-align: center; cursor: help; min-width: 56px; }
+.rules-td-held:empty { color: var(--txt3); }
+.rules-th-held { cursor: help; }
 .rules-td-empty { text-align: center; color: var(--txt3); padding: 24px; }
 .rules-cat-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 3px; background: var(--accent-a8); color: var(--accent); }
 .rules-edit-btn { background: none; border: none; color: var(--txt3, #777); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1; }
