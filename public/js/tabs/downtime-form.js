@@ -13,7 +13,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
@@ -92,18 +92,7 @@ let feedRoteCustomSkill = '';
 let activeProjectTab = 1;
 // Sphere tab state
 let activeSphereTab = 1;
-// JDT-2: invitations for the current cycle, fetched on form open and
-// after each joint create. Read by renderJointAuthoring for status badges.
-let _jointInvitations = [];
 
-// JDT-2: status label map for invitation states.
-const JOINT_STATUS_LABELS = {
-  pending: 'Pending',
-  accepted: 'Accepted',
-  declined: 'Declined',
-  decoupled: 'Decoupled',
-  'cancelled-by-lead': 'Cancelled by lead',
-};
 
 const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
@@ -520,59 +509,6 @@ function collectResponses() {
     meritCbs.forEach(cb => meritKeys.push(cb.value));
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
 
-    // JDT-4: support-slot personal notes
-    const personalNotesEl = document.getElementById(`dt-project_${n}_personal_notes`);
-    if (personalNotesEl) {
-      responses[`project_${n}_personal_notes`] = personalNotesEl.value;
-    }
-
-    // JDT-2: Joint scratch fields. Persist the lead's in-flight joint authoring
-    // state so a draft round-trip preserves it. The canonical joint document
-    // is created on save via POST /api/downtime_cycles/:id/joint_projects.
-    const soloJointRadio = document.querySelector(`input[name="dt-project_${n}_solo_joint"]:checked`);
-    responses[`project_${n}_is_joint`] = soloJointRadio?.value === 'joint' ? 'yes' : '';
-    const jointDescEl = document.getElementById(`dt-project_${n}_joint_description`);
-    responses[`project_${n}_joint_description`] = jointDescEl ? jointDescEl.value : '';
-    const jointTargetTypeEl = document.querySelector(`input[name="dt-project_${n}_joint_target_type"]:checked`);
-    const jointTargetType = jointTargetTypeEl ? jointTargetTypeEl.value : '';
-    responses[`project_${n}_joint_target_type`] = jointTargetType;
-    if (jointTargetType === 'character') {
-      // dt-form.16: charPicker writes JSON array directly to the hidden input.
-      const hiddenEl = document.getElementById(`dt-project_${n}_joint_target_value`);
-      const raw = hiddenEl ? hiddenEl.value : '';
-      let ids = [];
-      try {
-        const parsed = JSON.parse(raw || '[]');
-        if (Array.isArray(parsed)) ids = parsed.map(String).filter(Boolean);
-      } catch { ids = []; }
-      responses[`project_${n}_joint_target_value`] = JSON.stringify(ids);
-    } else {
-      const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
-      responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
-    }
-    // dtui-13: prefer hidden input (chip path) over legacy checkboxes (existingJoint re-invite path)
-    const invitedHidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
-    if (invitedHidden) {
-      responses[`project_${n}_joint_invited_ids`] = invitedHidden.value;
-    } else {
-      const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
-      const jointInviteeIds = [];
-      jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
-      responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
-    }
-
-    // Support Assets sphere/retainer chip selection — read from DOM so the
-    // post-click state survives the responses replacement in re-render.
-    const chipPanel = document.querySelector(`[data-support-assets-wrap="${n}"]`);
-    if (chipPanel) {
-      const selectedChips = chipPanel.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected');
-      const chipKeys = [...selectedChips].map(el => el.dataset.sphereKey).filter(Boolean);
-      responses[`project_${n}_joint_sphere_chips`] = JSON.stringify(chipKeys);
-    } else {
-      // Panel not rendered (Support Assets ticker = Solo) — preserve prior value
-      const prior = responseDoc?.responses?.[`project_${n}_joint_sphere_chips`];
-      if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
-    }
   }
 
   // dt-form.17: collection of ADVANCED-only sections (sorcery, spheres,
@@ -653,18 +589,6 @@ function collectResponses() {
     const castIds = [];
     castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
-    // If this sphere is committed to a project's Support Assets, force action
-    // to 'support'. The dropdown may still be rendered with an empty value at
-    // first-click time; the chips are the source of truth for support state.
-    const sphereSlotKey = `sphere_${n}`;
-    for (let pn = 1; pn <= projectSlotCount; pn++) {
-      let chips = [];
-      try { chips = JSON.parse(responses[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-      if (Array.isArray(chips) && chips.includes(sphereSlotKey)) {
-        responses[`sphere_${n}_action`] = 'support';
-        break;
-      }
-    }
   }
 
   // Status action fields
@@ -878,9 +802,6 @@ async function saveDraft() {
       currentChar._dtHoldFlag = !hasMinimum;
     }
 
-    // JDT-2: After the submission save lands, fan out joint creations for any
-    // slot that authored a joint and doesn't yet have a backing joint document.
-    await createPendingJoints(responses);
   } catch (err) {
     // dt-form.17 §Q11: surface the cycle-close 423 with a stable message.
     if (err && /CYCLE_CLOSED|423|Cycle is closed/i.test(err.message || '')) {
@@ -888,252 +809,6 @@ async function saveDraft() {
     } else if (statusEl) {
       statusEl.textContent = 'Save failed: ' + err.message;
     }
-  }
-}
-
-// JDT-3: Accept a pending invitation. On success the server returns the
-// updated invitation, joint, slot number, and the invitee's submission with
-// the joint markers written into slot N. We refresh local caches and
-// re-render. Race condition (409) → reload invitations and re-render.
-async function handleInvitationAccept(invId, container) {
-  if (!invId) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    const result = await apiPost(`/api/project_invitations/${invId}/accept`, {});
-    if (result?.submission) responseDoc = result.submission;
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = `Joined slot ${result?.slot ?? ''}`.trim();
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-    }
-    renderForm(container);
-  } catch (err) {
-    if (/no longer pending|no longer available|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Accept failed: ' + err.message;
-    }
-  }
-}
-
-async function handleInvitationDecline(invId, container) {
-  if (!invId) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    await apiPost(`/api/project_invitations/${invId}/decline`, {});
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    if (/no longer pending|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Decline failed: ' + err.message;
-    }
-  }
-}
-
-// JDT-6: voluntary decouple from an accepted joint. Confirms with the
-// player, then calls /api/project_invitations/:id/decouple. On success the
-// server has cleared the joint slot fields on the submission; we re-fetch
-// the cycle + invitations and re-render to show the slot reverted to a
-// normal empty project slot.
-async function handleInvitationDecouple(invId, container) {
-  if (!invId) return;
-  const ok = window.confirm('Decouple from this joint? Your slot will be freed up.');
-  if (!ok) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    const result = await apiPost(`/api/project_invitations/${invId}/decouple`, {});
-    if (result?.submission) responseDoc = result.submission;
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = 'Decoupled.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-    }
-    renderForm(container);
-  } catch (err) {
-    if (/not accepted|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This joint is no longer in a state that can be decoupled. Refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Decouple failed: ' + err.message;
-    }
-  }
-}
-
-// JDT-6: lead re-invite. Reads the ticked checkboxes inside the re-invite
-// panel and calls /api/downtime_cycles/:id/joint_projects/:jointId/reinvite.
-async function handleJointReinvite(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  const cbs = container.querySelectorAll(`.dt-joint-reinvite-cb[data-joint-id="${jointId}"]:checked`);
-  const ids = Array.from(cbs).map(cb => cb.value).filter(Boolean);
-  const statusEl = container.querySelector(`.dt-joint-reinvite-status[data-joint-id="${jointId}"]`);
-  if (!ids.length) {
-    if (statusEl) {
-      statusEl.textContent = 'Tick at least one alternate to invite.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-    }
-    return;
-  }
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/reinvite`, {
-      invitee_character_ids: ids,
-    });
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Re-invite failed: ' + err.message;
-  }
-}
-
-// JDT-6: lead cancel. Server enforces zero-supports / zero-pending precondition.
-async function handleJointCancel(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  const ok = window.confirm('Cancel this joint? Your slot will be freed up. The joint will remain on the cycle for audit.');
-  if (!ok) return;
-  const statusEl = container.querySelector(`.dt-joint-cancel-status[data-joint-id="${jointId}"]`);
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {});
-    await refreshJointCaches();
-    // Lead's slot was cleared server-side; re-fetch the submission so the
-    // local responseDoc shows the cleared slot fields on next render.
-    if (responseDoc?._id) {
-      try {
-        const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
-        const fresh = (subs || []).find(s => String(s._id) === String(responseDoc._id));
-        if (fresh) responseDoc = fresh;
-      } catch { /* keep existing */ }
-    }
-    renderForm(container);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Cancel failed: ' + err.message;
-  }
-}
-
-// JDT-6: lead saves an edit to joint description. Bumps description_updated_at
-// server-side so support slots can render the change indicator on next render.
-async function handleJointDescriptionSave(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  // Locate the textarea inside the same authoring panel as this save button.
-  const btn = container.querySelector(`.dt-joint-desc-save-btn[data-joint-id="${jointId}"]`);
-  const textareaEl = btn?.closest('.dt-joint-authoring')?.querySelector('textarea[id$="_joint_description"]');
-  if (!textareaEl) return;
-  const description = textareaEl.value;
-  const statusEl = container.querySelector(`.dt-joint-desc-save-status[data-joint-id="${jointId}"]`);
-  try {
-    await apiPatch(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}`, { description });
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = 'Saved.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-    }
-    renderForm(container);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
-  }
-}
-
-// JDT-6: support clicks "View and acknowledge" on the description-changed
-// indicator. Sets participant.description_change_acknowledged_at to now so
-// the indicator clears on next render.
-async function handleJointDescriptionAcknowledge(jointId, charId, container) {
-  if (!jointId || !charId || !currentCycle?._id) return;
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/participants/${charId}/acknowledge`, {});
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    const statusEl = document.getElementById('dt-save-status');
-    if (statusEl) statusEl.textContent = 'Acknowledge failed: ' + err.message;
-  }
-}
-
-// JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
-// invitations list so badges, panels, and slot UI all reflect the latest state.
-async function refreshJointCaches() {
-  if (!currentCycle?._id || currentCycle._id === 'dev-stub') return;
-  try {
-    const cycles = await apiGet('/api/downtime_cycles');
-    const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
-    if (fresh) {
-      const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
-        ? currentCycle.status
-        : null;
-      currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
-    }
-  } catch { /* keep prior cycle */ }
-  try {
-    _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
-  } catch { /* keep prior invitations */ }
-}
-
-// JDT-2: For each slot where the lead has selected Joint mode, has invitees,
-// and no joint yet exists on cycle.joint_projects, create the joint + invitations
-// via POST /api/downtime_cycles/:cycleId/joint_projects. Refresh local cycle and
-// invitation caches afterwards so the next render shows the saved state.
-async function createPendingJoints(responses) {
-  if (!responseDoc?._id || !currentCycle?._id) return;
-  if (currentCycle._id === 'dev-stub') return;
-
-  const slotsToCreate = [];
-  for (let n = 1; n <= 4; n++) {
-    if (responses[`project_${n}_is_joint`] !== 'yes') continue;
-    const action = responses[`project_${n}_action`];
-    if (!JOINT_ELIGIBLE_ACTIONS.includes(action)) continue;
-    if (findExistingJoint(n)) continue;
-
-    let inviteeIds = [];
-    try { inviteeIds = JSON.parse(responses[`project_${n}_joint_invited_ids`] || '[]'); }
-    catch { inviteeIds = []; }
-    if (!inviteeIds.length) continue;
-
-    slotsToCreate.push({
-      slot: n,
-      action,
-      description: responses[`project_${n}_joint_description`] || '',
-      target_type: responses[`project_${n}_joint_target_type`] || null,
-      target_value: responses[`project_${n}_joint_target_value`] || null,
-      invitee_character_ids: inviteeIds.map(String),
-    });
-  }
-  if (!slotsToCreate.length) return;
-
-  let anyCreated = false;
-  for (const s of slotsToCreate) {
-    try {
-      await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects`, {
-        lead_character_id: String(currentChar._id),
-        lead_submission_id: String(responseDoc._id),
-        lead_project_slot: s.slot,
-        description: s.description,
-        action_type: s.action,
-        target_type: s.target_type,
-        target_value: s.target_value,
-        invitee_character_ids: s.invitee_character_ids,
-      });
-      anyCreated = true;
-    } catch (err) {
-      const statusEl = document.getElementById('dt-save-status');
-      if (statusEl) statusEl.textContent = `Joint create failed (slot ${s.slot}): ${err.message}`;
-    }
-  }
-
-  if (anyCreated) {
-    await refreshJointCaches();
   }
 }
 
@@ -1418,16 +1093,6 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
-
-  // JDT-2: load invitations visible to this character on the current cycle.
-  // Used by the joint authoring panel for live status badges (lead view) and
-  // by JDT-3 for the invitee inbox. Best-effort — empty array on error.
-  _jointInvitations = [];
-  if (currentCycle?._id && currentCycle._id !== 'dev-stub') {
-    try {
-      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
-    } catch { _jointInvitations = []; }
-  }
 
   // Restore feeding state from saved responses
   if (responseDoc?.responses) {
@@ -2000,49 +1665,6 @@ function renderForm(container) {
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
 
-    // JDT-3: pending invitation Accept / Decline
-    const acceptBtn = e.target.closest('.dt-pending-invitation-accept');
-    if (acceptBtn && !acceptBtn.disabled) {
-      handleInvitationAccept(acceptBtn.dataset.invitationId, container);
-      return;
-    }
-    const declineBtn = e.target.closest('.dt-pending-invitation-decline');
-    if (declineBtn) {
-      handleInvitationDecline(declineBtn.dataset.invitationId, container);
-      return;
-    }
-
-    // JDT-6: voluntary decouple from an accepted joint
-    const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
-    if (decoupleBtn) {
-      handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
-      return;
-    }
-    // JDT-6: lead re-invite alternates
-    const reinviteBtn = e.target.closest('.dt-joint-reinvite-btn');
-    if (reinviteBtn) {
-      handleJointReinvite(reinviteBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: lead cancel joint
-    const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
-    if (cancelBtn) {
-      handleJointCancel(cancelBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: lead description save (mid-cycle edit)
-    const descSaveBtn = e.target.closest('.dt-joint-desc-save-btn');
-    if (descSaveBtn) {
-      handleJointDescriptionSave(descSaveBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: support acknowledge description change
-    const ackBtn = e.target.closest('.dt-joint-desc-acknowledge-btn');
-    if (ackBtn) {
-      handleJointDescriptionAcknowledge(ackBtn.dataset.jointId, ackBtn.dataset.characterId, container);
-      return;
-    }
-
     // Skill acquisition spec chip toggle
     const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
     if (skAcqSpec) {
@@ -2317,16 +1939,6 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // JDT-2: Solo/Joint toggle — re-render to show/hide the joint authoring panel
-    const soloJoint = e.target.closest('[data-project-solo-joint]');
-    if (soloJoint) {
-      activeProjectTab = parseInt(soloJoint.dataset.projectSoloJoint, 10);
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
     // Single/Dual roll toggle — show or hide the secondary dice pool
     const poolCountRadio = e.target.closest('[data-project-pool-count]');
     if (poolCountRadio) {
@@ -2337,24 +1949,6 @@ function renderForm(container) {
           wrap.removeAttribute('hidden');
         } else {
           wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-          wrap.setAttribute('hidden', '');
-          scheduleSave();
-        }
-      }
-      return;
-    }
-    // Solo / Support Assets toggle — show or hide the Allies/Retainers picker
-    const supportAssetsRadio = e.target.closest('[data-project-support-assets]');
-    if (supportAssetsRadio) {
-      const slot = supportAssetsRadio.dataset.projectSupportAssets;
-      const wrap = container.querySelector(`[data-support-assets-wrap="${slot}"]`);
-      if (wrap) {
-        if (supportAssetsRadio.value === 'support') {
-          wrap.removeAttribute('hidden');
-        } else {
-          // Reuse the existing chip-click handler to deselect each chip
-          // cleanly — keeps sphere_${i}_action and joint_sphere_chips in sync.
-          wrap.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected').forEach(chip => chip.click());
           wrap.setAttribute('hidden', '');
           scheduleSave();
         }
@@ -2614,8 +2208,6 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // dt-form.16: joint invitee chip handler removed — universal charPicker
-    // mounted in renderJointInviteeChips handles its own selection lifecycle.
     // dt-form.16: shoutout chip handler removed — universal charPicker mounted
     // in the shoutout_picks case handles selection and 3-pick cap via remount.
 
@@ -2635,29 +2227,6 @@ function renderForm(container) {
         if (hidden) hidden.value = '';
       }
       scheduleSave();
-      return;
-    }
-    // DTUI-14: sphere-merit collaborator chip — multi-select, auto-commits Support
-    const sphereChip = e.target.closest('[data-joint-sphere-slot]');
-    if (sphereChip && !sphereChip.disabled) {
-      const n = sphereChip.dataset.jointSphereSlot;
-      const slotKey = sphereChip.dataset.sphereKey;
-      const type = sphereChip.dataset.sphereType;
-      const willSelect = !sphereChip.classList.contains('dt-chip--selected');
-      sphereChip.classList.toggle('dt-chip--selected', willSelect);
-      if (type === 'sphere') {
-        saved[`${slotKey}_action`] = willSelect ? 'support' : '';
-      }
-      const allSphereChips = container.querySelectorAll(`[data-joint-sphere-slot="${n}"]`);
-      const keys = [...allSphereChips]
-        .filter(el => el.classList.contains('dt-chip--selected'))
-        .map(el => el.dataset.sphereKey);
-      saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
-      // T24 (DTLT-6): re-render so the sphere pane lock badge appears immediately
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
       return;
     }
     // Single-select territory pills
@@ -3211,9 +2780,6 @@ function renderProjectSlots(saved, mode = 'advanced') {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  // JDT-3: pending joint invitations sit at the top of the projects section
-  // so the player sees them as soon as they expand.
-  h += renderPendingInvitationsPanel();
   h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
@@ -3232,15 +2798,10 @@ function renderProjectSlots(saved, mode = 'advanced') {
     }
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-    // JDT-4: Joint badge on the tab when this slot has a joint role.
-    const jointRole = saved[`project_${n}_joint_role`];
-    const jointTabClass = jointRole ? ' dt-proj-tab-joint' : '';
-    const jointBadge = jointRole ? `<span class="dt-proj-tab-joint-badge">Joint</span>` : '';
-    h += `<button type="button" class="dt-proj-tab${active}${noAction}${jointTabClass}" data-proj-tab="${n}">`;
+    h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-proj-tab="${n}">`;
     h += `<span class="dt-proj-tab-icon">${icon}</span>`;
     h += `<span class="dt-proj-tab-num">Action ${n}</span>`;
     h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
-    h += jointBadge;
     h += '</button>';
   }
   h += '</div>';
@@ -3257,12 +2818,7 @@ function renderProjectSlots(saved, mode = 'advanced') {
     }
     let fields = ACTION_FIELDS[actionVal] || [];
 
-    // JDT-4: support-slot detection (set early so the pane wrapper class is right).
-    const slotJointRole = saved[`project_${n}_joint_role`];
-    const slotJointId = saved[`project_${n}_joint_id`];
-    const isSupportSlot = slotJointRole === 'support' && !!slotJointId;
-
-    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}${isSupportSlot ? ' dt-proj-support-pane' : ''}" data-proj-pane="${n}">`;
+    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
 
     // ── Rote-locked slot ──
     const isRoteLocked = feedRoteAction && n === feedRoteSlot;
@@ -3277,139 +2833,17 @@ function renderProjectSlots(saved, mode = 'advanced') {
       continue;
     }
 
-    // ── JDT-4: support slot — locked, read-only joint metadata + editable
-    // pool builder + personal notes textarea. Skip the normal action-type
-    // select and per-action fields entirely.
-    if (isSupportSlot) {
-      const joint = (currentCycle?.joint_projects || [])
-        .find(j => String(j._id) === String(slotJointId) && !j.cancelled_at);
-      if (!joint) {
-        h += `<div class="dt-proj-pane-orphaned">`;
-        h += `<p class="qf-desc">This joint project is no longer available. Contact your Storyteller.</p>`;
-        h += `</div></div>`;
-        continue;
-      }
-      const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
-      const leadName = lead ? lead.name : 'Unknown lead';
-      const personalNotes = saved[`project_${n}_personal_notes`] || '';
-      const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
-
-      h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
-
-      // JDT-6: lead description-change indicator
-      const myParticipantForAck = (joint.participants || []).find(p =>
-        String(p.character_id) === String(currentChar._id) && !p.decoupled_at
-      );
-      const updatedAt = joint.description_updated_at;
-      const ackedAt = myParticipantForAck?.description_change_acknowledged_at;
-      const showIndicator = updatedAt && (!ackedAt || new Date(updatedAt) > new Date(ackedAt));
-      if (showIndicator) {
-        h += `<div class="dt-joint-desc-changed-indicator">`;
-        h += `<strong>The lead has updated this project description.</strong>`;
-        h += `<button type="button" class="dt-joint-desc-acknowledge-btn" data-joint-id="${esc(joint._id)}" data-character-id="${esc(String(currentChar._id))}">View and acknowledge</button>`;
-        h += `</div>`;
-      }
-
-      h += `<div class="dt-proj-support-readonly-block">`;
-      h += `<div class="dt-proj-support-label">Action type</div>`;
-      h += `<div class="dt-proj-support-action">${esc(actionLabel)}</div>`;
-
-      h += `<div class="dt-proj-support-label">Joint description</div>`;
-      const descText = (joint.description || '').trim();
-      if (descText) {
-        h += `<div class="dt-proj-support-desc">${esc(descText)}</div>`;
-      } else {
-        h += `<div class="dt-proj-support-desc dt-proj-support-desc-empty">No description provided.</div>`;
-      }
-
-      if (joint.target_type) {
-        let targetLbl = '';
-        if (joint.target_type === 'character') {
-          let ids = [];
-          try {
-            const parsed = JSON.parse(joint.target_value || '[]');
-            ids = Array.isArray(parsed) ? parsed : (joint.target_value ? [joint.target_value] : []);
-          } catch { ids = joint.target_value ? [joint.target_value] : []; }
-          targetLbl = ids
-            .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
-            .join(', ');
-        } else if (joint.target_type === 'territory') {
-          targetLbl = TERRITORY_DATA.find(t => t.slug === joint.target_value)?.name || joint.target_value || '';
-        } else {
-          targetLbl = joint.target_value || '';
-        }
-        if (targetLbl) {
-          h += `<div class="dt-proj-support-label">Joint target</div>`;
-          h += `<div class="dt-proj-support-target">${esc(targetLbl)}</div>`;
-        }
-      }
-      h += `</div>`;
-
-      // Editable pool builders — same shape as a normal slot, so saves
-      // reuse project_${n}_pool_attr/skill/disc + pool2_* paths.
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
-
-      // Personal notes
-      h += `<div class="qf-field">`;
-      h += `<label class="qf-label" for="dt-project_${n}_personal_notes">Your personal notes</label>`;
-      h += `<p class="qf-desc">What do you bring to this joint? What is your character's angle on it?</p>`;
-      h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
-      h += `</div>`;
-
-      // JDT-6: Decouple — voluntary exit from this joint. The participant's
-      // invitation_id is recorded on joint.participants when accept landed.
-      const myParticipant = (joint.participants || []).find(p =>
-        String(p.submission_id) === String(responseDoc?._id) &&
-        Number(p.project_slot) === Number(n) &&
-        !p.decoupled_at
-      );
-      if (myParticipant?.invitation_id) {
-        h += `<div class="dt-joint-decouple-row">`;
-        h += `<button type="button" class="dt-joint-decouple-btn" data-invitation-id="${esc(myParticipant.invitation_id)}">Decouple from this joint</button>`;
-        h += `<p class="qf-desc dt-joint-decouple-help">Decoupling frees this slot. The lead is notified, and you can use the slot for a different project.</p>`;
-        h += `</div>`;
-      }
-
-      h += `</div>`; // close dt-proj-pane
-      continue;
-    }
-
-    // ── JDT-2: detect existing joint up front so JDT-6 can lock the
-    // action-type select while the joint has active invitations. ──
-    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
-    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
-    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
-
-    // JDT-6: action-type change is blocked while the joint has any pending
-    // or accepted (non-decoupled) invitation. Lead must cancel the joint
-    // first to repurpose the slot.
-    let lockActionType = false;
-    if (existingJoint) {
-      const activeInvs = _jointInvitations.filter(inv =>
-        String(inv.joint_project_id) === String(existingJoint._id) &&
-        (inv.status === 'pending' || inv.status === 'accepted')
-      );
-      if (activeInvs.length > 0) lockActionType = true;
-    }
-
     h += '<div class="dt-action-block">';
 
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
-    const actionSelectAttrs = lockActionType
-      ? ' disabled title="Cancel the joint first to change action type."'
-      : '';
-    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}"${actionSelectAttrs}>`;
+    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
     for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
     h += '</select>';
-    if (lockActionType) {
-      h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
-    }
     h += '</div>';
 
     // .dt-action-desc — descriptive copy for the selected action type
@@ -3541,46 +2975,6 @@ function renderProjectSlots(saved, mode = 'advanced') {
       h += `<label class="qf-label" for="dt-project_${n}_description">Approach</label>`;
       h += `<textarea id="dt-project_${n}_description" class="qf-textarea" rows="4" placeholder="${esc(approachPrompt)}">${esc(approachText)}</textarea>`;
       h += '</div>';
-    }
-
-    // ── Solo/Joint toggle — bottom of block (dtui-5) ──
-    if (isJointEligible) {
-      h += `<fieldset class="dt-ticker" data-proj-solo-joint-ticker="${n}">`;
-      h += `<legend class="dt-ticker__legend">Mode</legend>`;
-      h += `<label class="dt-ticker__pill">`;
-      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}>`;
-      h += `Solo</label>`;
-      h += `<label class="dt-ticker__pill">`;
-      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}">`;
-      h += `Joint</label>`;
-      h += `</fieldset>`;
-      if (isJoint) {
-        h += renderJointAuthoring(n, saved, existingJoint);
-      }
-
-      // Support Assets toggle — gates the Allies/Retainers picker so it
-      // doesn't read as required. Auto-defaults to "Support Assets" if any
-      // chips were saved previously, so returning players see their picks.
-      const hasAssetMerits = (detectedMerits.spheres?.length || 0) + (detectedMerits.retainers?.length || 0) > 0;
-      if (hasAssetMerits) {
-        const savedChips = saved[`project_${n}_joint_sphere_chips`];
-        const isSupport = !!(savedChips && savedChips !== '[]');
-        h += `<fieldset class="dt-ticker" data-proj-support-assets-ticker="${n}">`;
-        h += `<legend class="dt-ticker__legend">Support</legend>`;
-        h += `<label class="dt-ticker__pill">`;
-        h += `<input type="radio" name="dt-project_${n}_support_assets" value="solo"${!isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
-        h += `Solo</label>`;
-        h += `<label class="dt-ticker__pill">`;
-        h += `<input type="radio" name="dt-project_${n}_support_assets" value="support"${isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
-        h += `Support Assets</label>`;
-        h += `</fieldset>`;
-        h += `<div class="dt-support-assets-panel" data-support-assets-wrap="${n}"${isSupport ? '' : ' hidden'}>`;
-        h += `<h4 class="dt-joint-panel__heading">Your Allies and Retainers</h4>`;
-        h += `<div class="dt-chip-grid dt-chip-grid--multi">`;
-        h += renderJointSphereChips(n, saved);
-        h += `</div>`;
-        h += `</div>`;
-      }
     }
 
     h += '</div>'; // dt-action-block
@@ -4640,350 +4034,6 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
  * Used by project target_flex (single picker per slot) and sorcery targets
  * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
  */
-// JDT-6: Display helper for joint description edit timestamps.
-function formatTimestamp(iso) {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-// JDT-2: Locate an existing joint authored by the current submission for slot N.
-function findExistingJoint(slot) {
-  if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
-  const subId = String(responseDoc._id);
-  return currentCycle.joint_projects.find(j =>
-    String(j.lead_submission_id) === subId &&
-    Number(j.lead_project_slot) === Number(slot) &&
-    !j.cancelled_at
-  ) || null;
-}
-
-// JDT-2: Joint authoring panel — description, target, invitees, status badges.
-// `existingJoint` is read from cycle.joint_projects when the joint already
-// exists; otherwise the panel is in pre-save authoring mode and reads scratch
-// fields off `saved` (responses).
-function renderJointAuthoring(n, saved, existingJoint) {
-  if (!existingJoint) {
-    return renderDtJointPanel(n, saved);
-  }
-
-  // existingJoint path — JDT lifecycle controls (unchanged)
-  const desc = existingJoint.description || '';
-  const targetType = existingJoint.target_type || '';
-  const targetValue = existingJoint.target_value || '';
-
-  let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
-  h += `<div class="dt-joint-banner">Joint project</div>`;
-
-  h += `<div class="dt-joint-explainer">`;
-  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
-  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
-  h += `</div>`;
-
-  h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
-
-  h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
-  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
-  h += `<div class="dt-joint-desc-edit-row">`;
-  h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
-  if (existingJoint.description_updated_at) {
-    const ts = formatTimestamp(existingJoint.description_updated_at);
-    h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
-  }
-  h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
-  h += `</div>`;
-
-  h += `<label class="qf-label">Joint target</label>`;
-  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-  const typeLbl = labelMap[targetType] || '—';
-  let valLbl = targetValue || '';
-  if (targetType === 'character') {
-    let ids = [];
-    try {
-      const parsed = JSON.parse(targetValue || '[]');
-      ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
-    } catch {
-      ids = targetValue ? [targetValue] : [];
-    }
-    const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
-    valLbl = names.join(', ') || '—';
-  } else if (targetType === 'territory') {
-    const t = TERRITORY_DATA.find(x => x.slug === targetValue);
-    if (t) valLbl = t.name;
-  }
-  h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
-
-  h += `<label class="qf-label">Invitees</label>`;
-  h += renderJointStatusBadges(existingJoint);
-  h += renderJointReinvitePanel(n, existingJoint);
-  h += renderJointCancelPanel(existingJoint);
-
-  h += `</div>`;
-  return h;
-}
-
-// DTUI-12: new authoring panel for when no joint document exists yet.
-// Two stacked chip-grid sections: Players (dtui-13) + Sphere merits (dtui-14).
-function renderDtJointPanel(n, saved) {
-  let h = `<div class="dt-joint-panel" aria-expanded="true" data-joint-slot="${n}">`;
-
-  // Joint project explainer — shown in pre-save authoring mode so players
-  // know what they're committing to before they invite anyone. The same
-  // copy is shown in the existingJoint path of renderJointAuthoring.
-  h += `<div class="dt-joint-banner">Joint project</div>`;
-  h += `<div class="dt-joint-explainer">`;
-  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
-  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
-  h += `</div>`;
-
-  const playersHeadingId = `dt-joint-players-heading-${n}`;
-  h += `<div class="dt-joint-panel__section">`;
-  h += `<h4 class="dt-joint-panel__heading" id="${playersHeadingId}">Players</h4>`;
-  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${playersHeadingId}" data-joint-players="${n}">`;
-  h += renderJointInviteeChips(n, saved);
-  h += `</div>`;
-  h += `</div>`;
-
-  // Allies/Retainers picker now lives outside the joint panel — controlled by
-  // the separate Solo / Support Assets toggle on the project slot.
-
-  h += `</div>`;
-  return h;
-}
-
-// DTUI-13: free-slot detection for invitee chip greying
-function getCharFreeSlotCount(charId) {
-  const sub = _allSubmissions.find(s => String(s.character_id) === String(charId));
-  if (!sub) return (DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4);
-  const responses = sub.responses || {};
-  const maxSlots = DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4;
-  let used = 0;
-  for (let p = 1; p <= maxSlots; p++) {
-    if (responses[`project_${p}_action`]) used++;
-  }
-  return maxSlots - used;
-}
-
-// dt-form.16: joint invitee picker — universal charPicker (ADR-003 §Q6, site #3b).
-// Characters with no free project slots this cycle are excluded from the dropdown
-// (they cannot be invited). Self is excluded by source filter (allCharacters
-// already drops the current character at load time).
-function renderJointInviteeChips(n, saved) {
-  let invitedIds = [];
-  try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); } catch { invitedIds = []; }
-  const savedJson = JSON.stringify(invitedIds);
-
-  if (!allCharacters.length) {
-    return `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`
-         + '<p class="qf-desc">No other characters available to invite.</p>';
-  }
-
-  // Exclude characters with no free slots — invited ones stay (already accepted)
-  // because excludeIds is applied to dropdown options, not selected chips.
-  const noFreeSlots = allCharacters
-    .map(c => String(c.id))
-    .filter(id => getCharFreeSlotCount(id) <= 0 && !invitedIds.includes(id));
-  const excludeJson = esc(JSON.stringify(noFreeSlots));
-  const initialJson = esc(JSON.stringify(invitedIds.map(String)));
-
-  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
-  h += `<div data-cp-mount data-cp-site="joint-invitee"`
-     + ` data-cp-scope="all" data-cp-cardinality="multi"`
-     + ` data-cp-hidden="dt-project_${n}_joint_invited_ids"`
-     + ` data-cp-initial="${initialJson}"`
-     + ` data-cp-exclude="${excludeJson}"`
-     + ` data-cp-placeholder="Invite players"></div>`;
-  return h;
-}
-
-// DTUI-14: already-used detection for sphere/retainer merits
-function isSphereMeritUsed(slotKey, type, saved) {
-  if (type === 'sphere') return !!(saved[`${slotKey}_action`]);
-  if (type === 'retainer') return !!(saved[`${slotKey}_type`] || saved[`${slotKey}_task`]);
-  return false;
-}
-
-// DTUI-14: sphere-merit collaborator chip grid (Allies + Retainers)
-function renderJointSphereChips(n, saved) {
-  const spheres = (detectedMerits.spheres || []).map((m, i) => ({ m, slotKey: `sphere_${i + 1}`, type: 'sphere' }));
-  const retainers = (detectedMerits.retainers || []).map((m, i) => ({ m, slotKey: `retainer_${i + 1}`, type: 'retainer' }));
-  const all = [...spheres, ...retainers];
-
-  if (!all.length) {
-    return '<p class="qf-desc">You have no Allies or Retainer merits to contribute.</p>';
-  }
-
-  let selectedKeys = [];
-  try { selectedKeys = JSON.parse(saved[`project_${n}_joint_sphere_chips`] || '[]'); } catch { selectedKeys = []; }
-  const selectedSet = new Set(selectedKeys);
-
-  let h = '';
-  for (const { m, slotKey, type } of all) {
-    const isUsed = isSphereMeritUsed(slotKey, type, saved);
-    const isSelected = selectedSet.has(slotKey);
-    const isDisabled = isUsed && !isSelected;
-    const effectiveDots = meritEffectiveRating(currentChar, m);
-    const area = m.area || m.qualifier || '';
-    const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
-    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="This merit\'s action is already committed elsewhere."' : '';
-    const selectedClass = isSelected ? ' dt-chip--selected' : '';
-    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
-    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
-    h += ` data-joint-sphere-slot="${n}" data-sphere-key="${esc(slotKey)}" data-sphere-type="${type}">`;
-    h += esc(label);
-    h += `</button>`;
-  }
-  return h;
-}
-
-// JDT-6: Re-invite affordance for the lead. Shows characters not currently
-// invited (no pending or accepted invitation), lets the lead tick alternates
-// and submit. The pre-existing per-invitation status badges sit above.
-function renderJointReinvitePanel(n, joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  const blocked = new Set(myInvs
-    .filter(inv => inv.status === 'pending' || inv.status === 'accepted')
-    .map(inv => String(inv.invited_character_id)));
-  // Lead can't re-invite themselves
-  blocked.add(String(joint.lead_character_id));
-  const candidates = allCharacters.filter(c => !blocked.has(String(c.id)));
-  if (!candidates.length) {
-    return `<p class="qf-desc dt-joint-reinvite-empty">No alternates available to re-invite.</p>`;
-  }
-
-  let h = `<div class="dt-joint-reinvite-panel" data-joint-id="${esc(joint._id)}">`;
-  h += `<div class="dt-joint-reinvite-title">Invite alternates</div>`;
-  h += `<div class="dt-joint-invitee-grid">`;
-  for (const c of candidates) {
-    h += `<label class="dt-joint-invitee-item">`;
-    h += `<input type="checkbox" class="dt-joint-reinvite-cb" data-joint-id="${esc(joint._id)}" value="${esc(String(c.id))}">`;
-    h += `<span>${esc(c.name)}</span>`;
-    h += `</label>`;
-  }
-  h += `</div>`;
-  h += `<button type="button" class="dt-joint-reinvite-btn" data-joint-id="${esc(joint._id)}" data-joint-slot="${n}">Send invitations</button>`;
-  h += `<span class="dt-joint-reinvite-status" data-joint-id="${esc(joint._id)}"></span>`;
-  h += `</div>`;
-  return h;
-}
-
-// JDT-6: Cancel panel. The button is enabled only when zero accepted
-// participants AND zero pending invitations remain. Otherwise the panel
-// shows guidance about the path back to a cancellable state.
-function renderJointCancelPanel(joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  const acceptedSupports = (joint.participants || []).filter(p => !p.decoupled_at).length;
-  const pendingInvs = myInvs.filter(inv => inv.status === 'pending').length;
-  const canCancel = acceptedSupports === 0 && pendingInvs === 0;
-
-  let h = `<div class="dt-joint-cancel-panel" data-joint-id="${esc(joint._id)}">`;
-  if (canCancel) {
-    h += `<button type="button" class="dt-joint-cancel-btn" data-joint-id="${esc(joint._id)}">Cancel joint</button>`;
-    h += `<p class="qf-desc dt-joint-cancel-help">Cancelling frees this slot. The joint document is kept on the cycle for audit; a Storyteller can recover it if needed.</p>`;
-  } else {
-    h += `<p class="qf-desc dt-joint-cancel-help">You can only cancel this joint when there are zero accepted supports and zero pending invitations. Currently: ${acceptedSupports} accepted, ${pendingInvs} pending.</p>`;
-  }
-  h += `<span class="dt-joint-cancel-status" data-joint-id="${esc(joint._id)}"></span>`;
-  h += `</div>`;
-  return h;
-}
-
-function renderJointInviteeGrid(n, invitedSet) {
-  if (!allCharacters.length) {
-    return `<p class="qf-desc">No characters available to invite.</p>`;
-  }
-  let h = `<div class="dt-joint-invitee-grid">`;
-  for (const c of allCharacters) {
-    const checked = invitedSet.has(String(c.id)) ? ' checked' : '';
-    h += `<label class="dt-joint-invitee-item">`;
-    h += `<input type="checkbox" class="dt-joint-invitee-cb" data-joint-slot="${n}" value="${esc(String(c.id))}"${checked}>`;
-    h += `<span>${esc(c.name)}</span>`;
-    h += `</label>`;
-  }
-  h += `</div>`;
-  return h;
-}
-
-// JDT-3: panel rendered above the project tabs that lists pending joint
-// invitations addressed to the current character. Empty when the invitee
-// has no pending invitations on the active cycle.
-function renderPendingInvitationsPanel() {
-  if (!currentChar?._id) return '';
-  const myCharId = String(currentChar._id);
-  const pending = _jointInvitations
-    .filter(inv => String(inv.invited_character_id) === myCharId && inv.status === 'pending')
-    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  if (!pending.length) return '';
-
-  // Lowest-numbered slot with no action set is "available".
-  const responses = responseDoc?.responses || {};
-  let hasSlot = false;
-  for (let n = 1; n <= 4; n++) {
-    if (!responses[`project_${n}_action`]) { hasSlot = true; break; }
-  }
-
-  let h = `<section class="dt-pending-invitations-panel">`;
-  h += `<h3 class="dt-pending-invitations-title">Pending invitations</h3>`;
-  for (const inv of pending) {
-    const joint = inv._joint;
-    if (!joint) continue;
-    const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
-    const leadName = lead ? lead.name : 'Unknown lead';
-    const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
-    const desc = (joint.description || '').trim();
-    const descShort = desc.length > 220 ? desc.slice(0, 220).trimEnd() + '…' : desc;
-
-    h += `<div class="dt-pending-invitation-row" data-invitation-id="${esc(inv._id)}">`;
-    h += `<div class="dt-pending-invitation-meta">`;
-    h += `<span class="dt-pending-invitation-lead">${esc(leadName)} invites you</span>`;
-    h += `<span class="dt-pending-invitation-action">${esc(actionLabel)}</span>`;
-    h += `</div>`;
-    if (descShort) {
-      h += `<div class="dt-pending-invitation-desc">${esc(descShort)}</div>`;
-    } else {
-      h += `<div class="dt-pending-invitation-desc dt-pending-invitation-desc-empty">No description provided.</div>`;
-    }
-    h += `<div class="dt-pending-invitation-actions">`;
-    if (hasSlot) {
-      h += `<button type="button" class="dt-pending-invitation-accept" data-invitation-id="${esc(inv._id)}">Accept</button>`;
-    } else {
-      h += `<button type="button" class="dt-pending-invitation-accept" disabled title="You have no available project slots. Free up a slot to accept.">Accept</button>`;
-    }
-    h += `<button type="button" class="dt-pending-invitation-decline" data-invitation-id="${esc(inv._id)}">Decline</button>`;
-    h += `</div>`;
-    h += `</div>`;
-  }
-  h += `</section>`;
-  return h;
-}
-
-function renderJointStatusBadges(joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  if (!myInvs.length) {
-    return `<p class="qf-desc">No invitations on this joint.</p>`;
-  }
-  let h = `<div class="dt-joint-status-grid">`;
-  for (const inv of myInvs) {
-    const c = allCharacters.find(x => String(x.id) === String(inv.invited_character_id));
-    const name = c ? c.name : 'Unknown';
-    const status = inv.status || 'pending';
-    const label = JOINT_STATUS_LABELS[status] || status;
-    h += `<div class="dt-joint-status-row">`;
-    h += `<span class="dt-joint-invitee-name">${esc(name)}</span>`;
-    h += `<span class="dt-joint-status-badge dt-joint-status-${esc(status)}">${esc(label)}</span>`;
-    h += `</div>`;
-  }
-  h += `</div>`;
-  return h;
-}
-
 function renderTargetPicker(prefix, opts) {
   const {
     savedType = '',
@@ -5599,25 +4649,6 @@ function renderMeritToggles(saved) {
       // Merit info header
       h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
 
-      // T24 (DTLT-6): if committed as support to a project, lock the pane
-      if (actionVal === 'support') {
-        const sphereSlotKey = `sphere_${n}`;
-        let owningProject = null;
-        for (let pn = 1; pn <= 4; pn++) {
-          let chips = [];
-          try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-          if (Array.isArray(chips) && chips.includes(sphereSlotKey)) { owningProject = pn; break; }
-        }
-        h += '<div class="dt-sphere-locked">';
-        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${owningProject || '?'}</span>`;
-        h += `<p class="dt-sphere-locked-help">Un-tick this Ally's chip in the project's Support Assets panel to free this slot.</p>`;
-        h += '</div>';
-        h += `<input type="hidden" id="dt-sphere_${n}_action" value="support">`;
-        h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
-        h += '</div>';
-        continue;
-      }
-
       // Store which merit this slot references
       h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
 
@@ -5774,34 +4805,6 @@ function renderMeritToggles(saved) {
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
 
-      // Lock the retainer to "support" if its slot is referenced in any
-      // project's joint_sphere_chips (matches the sphere section pattern).
-      const retainerSlotKey = `retainer_${n}`;
-      let supportingProject = null;
-      for (let pn = 1; pn <= 4; pn++) {
-        let chips = [];
-        try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-        if (Array.isArray(chips) && chips.includes(retainerSlotKey)) { supportingProject = pn; break; }
-      }
-
-      if (supportingProject) {
-        h += `<div class="dt-contact-row dt-contact-used" data-retainer-row="${n}">`;
-        h += `<div class="dt-contact-header">`;
-        h += `<span class="dt-contact-area">${esc(area)}${esc(ghoulTag)}</span>`;
-        h += `<span class="dt-contact-dots">${dots}</span>`;
-        h += `<span class="dt-contact-status">Support</span>`;
-        h += '</div>';
-        h += `<div class="dt-contact-panel">`;
-        h += '<div class="dt-sphere-locked">';
-        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${supportingProject}</span>`;
-        h += `<p class="dt-sphere-locked-help">Un-tick this Retainer's chip in the project's Support Assets panel to free this slot.</p>`;
-        h += '</div>';
-        h += `<input type="hidden" id="dt-retainer_${n}_merit" value="${esc(meritLabel(m))}">`;
-        h += '</div>'; // panel
-        h += '</div>'; // row
-        continue;
-      }
-
       const isUsed = savedType || savedTask;
       const expanded = isUsed;
 
@@ -5856,7 +4859,7 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // Retainers: tick when any retainer has a task OR is committed to support
+    // Retainers: tick when any retainer has a task
     if (key === 'retainers') {
       const maxR = detectedMerits.retainers.length;
       let anyUsed = false;
@@ -5864,15 +4867,6 @@ function updateSectionTicks(container) {
         const t = document.getElementById(`dt-retainer_${n}_type`);
         const d = document.getElementById(`dt-retainer_${n}_task`);
         if ((t && t.value.trim()) || (d && d.value.trim())) { anyUsed = true; break; }
-      }
-      // Also tick if any retainer slot is in a project's joint_sphere_chips
-      if (!anyUsed) {
-        const r = responseDoc?.responses || {};
-        for (let pn = 1; pn <= 4 && !anyUsed; pn++) {
-          let chips = [];
-          try { chips = JSON.parse(r[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-          if (Array.isArray(chips) && chips.some(k => k.startsWith('retainer_'))) anyUsed = true;
-        }
       }
       tick.classList.toggle('visible', anyUsed);
       return;
