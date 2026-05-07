@@ -77,13 +77,19 @@ _(Removed contradiction: an earlier draft AC mentioned a per-territory direction
 
 ## Implementation Notes
 
-Both action types (`ambience_increase` and `ambience_decrease`) collapse to the same UI shape. The action-type field is retained in `responses` for historical reasons but the UI doesn't ask the player to pick "increase or decrease" before the table — they just pick the direction on the row whose territory they want to target.
+**Action-type collapse (locked 2026-05-07 by Piatra):** there are NO logic-bearing consumers of the `ambience_increase` vs `ambience_decrease` distinction — both action types result in the same effect on territory ambience (+/-2 on success, +/-4 on exceptional success), and the direction is now surfaced at the row-arrow level. Collapse to a single `ambience` enum value in `projectActionEnum`.
 
-If the per-action-type distinction (increase vs decrease) is no longer meaningful post-redesign, surface to Piatra during pickup as a simplification candidate (collapse to one action type called `ambience` with a single direction-per-target).
+Migration of existing saved data:
+- `responses.project_N_action === 'ambience_increase'` → normalize on read: action becomes `'ambience'`, direction becomes `'up'`
+- `responses.project_N_action === 'ambience_decrease'` → normalize on read: action becomes `'ambience'`, direction becomes `'down'`
+- Per dt-form.26 A1 precedent: silent-leave for any pre-existing legacy values; the read-time normalization seeds the new shape on first render; the next save rolls the doc forward.
 
-**Persistence shape (lock):** single (territory, direction) pair per action slot. Suggested fields:
+**Persistence shape (lock):** single (territory, direction) pair per action slot.
+- `responses.project_N_action` — `'ambience'` (post-collapse)
 - `responses.project_N_ambience_target` — territory `_id` string
 - `responses.project_N_ambience_direction` — `'up' | 'down'`
+
+The UI is direction-agnostic at the action-type-picker level — the player picks `Ambience` from the action-type dropdown, then picks the row + direction in the table.
 
 ## Test Plan
 
