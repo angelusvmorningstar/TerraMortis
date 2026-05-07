@@ -126,6 +126,67 @@ describe('POST /api/territories', () => {
       .send(testTerritory('test_territory_quinn_player'));
     expect(res.status).toBe(403);
   });
+
+  // Issue #33 — defence-in-depth: schema rejects the retired legacy `id` field
+  // so a stale browser session cannot silently insert a duplicate document.
+  // Reproduces the 2026-05-05 incident pattern (5 dupes via apiPost with `id`).
+  it('POST with legacy `id` field returns 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({
+        id: 'test_territory_quinn_legacy_id',
+        name: 'Legacy ID Reject',
+        ambience: 'Settled',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'id' }),
+      ]),
+    );
+  });
+
+  // Issue #33 — strict schema also rejects other unknown fields (e.g. legacy
+  // `regent_name` cache that one importer used to send).
+  it('POST with unknown field returns 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({
+        slug: 'test_territory_quinn_unknown',
+        name: 'Unknown Field Reject',
+        regent_name: 'Legacy Display Cache',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'regent_name' }),
+      ]),
+    );
+  });
+
+  // Issue #33 — sanity check: every field in the canonical post-ADR-002
+  // contract round-trips cleanly through the strict schema.
+  it('POST with full canonical fieldset round-trips (no rejection)', async () => {
+    const res = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({
+        slug: 'test_territory_quinn_canonical',
+        name: 'Canonical Round-Trip',
+        ambience: 'Curated',
+        ambienceMod: 3,
+        regent_id: null,
+        lieutenant_id: null,
+        feeding_rights: [],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.slug).toBe('test_territory_quinn_canonical');
+    expect(res.body.ambienceMod).toBe(3);
+  });
 });
 
 // ── PUT /:id ──────────────────────────────────────────────────────────────────

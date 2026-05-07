@@ -76,11 +76,13 @@ export async function writeRow(collection, row) {
 async function writeTerritoryRow(r) {
   // Post-ADR-002: insert (no _id) creates a new doc with a generated _id;
   // slug carries the legacy id value as a label.
+  // Issue #33 (2026-05-07): territorySchema is now strict — `regent_name`
+  // dropped from the body. It was a derived display cache, never persisted
+  // on real territory docs, and is not in the canonical fieldset.
   await apiPost('/api/territories', {
     slug: r.id || undefined,
     name: r.name || undefined,
     regent_id: r.regent_id || undefined,
-    regent_name: r.regent_name || undefined,
     ambience: r.ambience || undefined,
     feeding_rights: r.feeding_rights ? r.feeding_rights.split(';').map(s => s.trim()).filter(Boolean) : [],
   });
