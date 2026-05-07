@@ -142,8 +142,12 @@ export function manoeuvres(c) { return meritsByCategory(c, 'manoeuvre'); }
 // ── Domain shortcuts ──
 
 export function domainRating(c, name) {
-  const m = domainMerits(c).find(dm => dm.name === name);
-  return m ? m.rating : 0;
+  const matches = domainMerits(c).filter(dm => dm.name === name);
+  if (!matches.length) return 0;
+  // Multiple Safe Place / Feeding Grounds instances are summed into one value.
+  // Individual descriptors are not exported (no column for them in the merge template).
+  if (matches.length === 1) return matches[0].rating || 0;
+  return matches.reduce((s, dm) => s + (dm.rating || 0), 0);
 }
 
 // ── Powers by category ──

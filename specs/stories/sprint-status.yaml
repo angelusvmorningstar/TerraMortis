@@ -747,3 +747,10 @@ development_status:
   dtlt-10-mandragora-fruit-conditionality: backlog          # T13 — blocked on ST ruling (story file specced for both readings A/B; see dtlt.10.mandragora-fruit-conditionality.story.md)
   dtlt-11-rote-barrens-ambience-rule: backlog               # T16 — blocked on ST ruling
   epic-dtlt-retrospective: optional
+
+  # ============================================================
+  # GITHUB ISSUE STORIES — standalone, outside epic numbering
+  # ============================================================
+  # Picked up via tm-gh-issue-pickup skill; story files in specs/stories/issue-*.story.md
+
+  issue-12-domain-multi-instance-descriptors: review            # Domain: multi-instance SP/FG, Haven/MG cap system

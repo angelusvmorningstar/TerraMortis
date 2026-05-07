@@ -18,7 +18,8 @@ import { meritLookup } from './merits.js';
 import { fmtRuleStats } from '../suite/sheet-helpers.js';
 import {
   calcTotalInfluence, influenceBreakdown, calcMeritInfluence, calcContactsInfluence,
-  hasHoneyWithVinegar, domMeritTotal, domMeritContrib, ssjHerdBonus, flockHerdBonus,
+  hasHoneyWithVinegar, domMeritTotal, domMeritContrib, domMeritContribSingle,
+  meritEffectiveRating, ssjHerdBonus, flockHerdBonus,
 } from './domain.js';
 import {
   xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame,
@@ -184,10 +185,11 @@ export function serialiseForPrint(c, territories) {
     let effectiveRating = m.rating || 0;
     let ownDots = effectiveRating;
     const bonuses = [];
-    const isShared = m.category === 'domain' && (m.shared_with || []).length > 0;
-    if (isShared) {
-      effectiveRating = domMeritTotal(c, m.name);
-      ownDots = domMeritContrib(c, m.name);
+    if (m.category === 'domain') {
+      // meritEffectiveRating handles: multi-instance SP/FG (per-instance total),
+      // cap for Haven/MG (capped at attached Safe Place), Herd (SSJ+Flock), shared pools.
+      effectiveRating = meritEffectiveRating(c, m);
+      ownDots = domMeritContribSingle(c, m);
     }
     if (m.name === 'Herd') {
       const ssj = ssjHerdBonus(c);
