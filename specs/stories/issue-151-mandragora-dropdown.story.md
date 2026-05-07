@@ -87,7 +87,7 @@ Note: `sub_category` field is absent.
   - [x] 2a: Dry-run the migration script to confirm Mandragora Garden would be updated
   - [x] 2b: Report the output to the user; they will run with `--apply` themselves
 
-- [ ] Task 3: Smoke-test — verify Mandragora Garden appears in dropdown
+- [x] Task 3: Smoke-test — verify Mandragora Garden appears in dropdown
 
 ---
 
