@@ -1553,6 +1553,7 @@ function _completenessCtx() {
   return {
     isRegent: gateValues.is_regent === 'yes',
     regencyConfirmed: _isRegencyConfirmedThisCycle(),
+    attended: gateValues.attended === 'yes',
   };
 }
 

@@ -97,13 +97,14 @@ function _hasFirstProject(responses) {
  * @param {object} [ctx]               — optional caller-side context
  * @param {boolean} [ctx.isRegent]      — true if the character owns a regent territory
  * @param {boolean} [ctx.regencyConfirmed] — true if the regent has confirmed feeding rights this cycle
+ * @param {boolean} [ctx.attended]      — true if the character attended last game; defaults true so callers without attendance context are unaffected
  * @returns {boolean}
  */
 export function isMinimalComplete(responses, ctx = {}) {
   if (!responses || typeof responses !== 'object') return false;
-  const { isRegent = false, regencyConfirmed = false } = ctx;
+  const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
 
-  if (!_hasAnyGameRecount(responses)) return false;
+  if (attended && !_hasAnyGameRecount(responses)) return false;
   if (!_hasPersonalStory(responses)) return false;
   if (!_hasFeedingComplete(responses)) return false;
   if (!_hasFirstProject(responses)) return false;
@@ -127,9 +128,9 @@ export function missingMinimumPieces(responses, ctx = {}) {
     out.push({ section: 'projects', label: 'Pick an action for Project 1' });
     return out;
   }
-  const { isRegent = false, regencyConfirmed = false } = ctx;
+  const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
 
-  if (!_hasAnyGameRecount(responses)) {
+  if (attended && !_hasAnyGameRecount(responses)) {
     out.push({ section: 'court', label: 'Game Recount: add at least one highlight from last session' });
   }
   if (!_hasPersonalStory(responses)) {
