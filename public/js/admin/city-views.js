@@ -11,6 +11,7 @@ import { displayName, dropdownName, sortName, clanIcon, covIcon } from '../data/
 import { setStatusTerritories } from '../data/accessors.js';
 import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
+import { openCityMapOverlay } from '../tabs/city-tab.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -325,6 +326,9 @@ function _terrDoc(terrId) {
 function renderTerritories() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   let h = '<h3 class="city-section-title">Territories</h3>';
+  // Issue #9: ST entry-point to the fullscreen map overlay where the
+  // drag-to-place edit mode lives. Sibling to the existing territory cards.
+  h += '<button type="button" class="city-map-edit-launch" data-open-map-edit>Open city map (drag-to-place)</button>';
 
   for (const t of TERRITORIES) {
     const td = _terrDoc(t.id);
@@ -441,6 +445,12 @@ function renderTerritories() {
 // ══════════════════════════════════════
 
 function wireEvents(container) {
+  // Issue #9: open the fullscreen map overlay (with the ST drag-to-place
+  // edit toggle inside) — sibling to the existing territory cards.
+  container.querySelector('[data-open-map-edit]')?.addEventListener('click', () => {
+    openCityMapOverlay({ chars, territories: terrDocs });
+  });
+
   // Court edit toggle
   container.querySelector('#court-edit-toggle')?.addEventListener('click', () => {
     const panel = document.getElementById('court-edit-panel');

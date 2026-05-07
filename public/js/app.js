@@ -48,6 +48,7 @@ import {
 import { xpLeft } from './editor/xp.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
+import { renderMapStageHtml } from './components/map-overlay.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
@@ -379,7 +380,16 @@ function goTab(t) {
         }
         regHtml += '</div></div>';
       }
-      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>${regHtml}</div>`;
+      // Issue #9: render map_coords overlay labels over the inline image.
+      // Read-only on this surface — ST drag-to-place lives on the World
+      // fullscreen overlay (city-tab.js _openMapOverlay).
+      const mapStage = renderMapStageHtml({
+        territories: suiteState.territories || [],
+        chars,
+        imgClass: 'city-map',
+        editable: false,
+      });
+      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap">${mapStage}</div>${regHtml}</div>`;
     }
   }
   if (t === 'feeding') {

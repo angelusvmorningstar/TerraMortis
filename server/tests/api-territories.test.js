@@ -127,6 +127,16 @@ describe('POST /api/territories', () => {
     expect(res.status).toBe(403);
   });
 
+  // Issue #9 — `map_coords` accepted at insert time and round-tripped.
+  it('POST with valid `map_coords` round-trips', async () => {
+    const res = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({ ...testTerritory('test_territory_quinn_post_coords'), map_coords: { x: 33.3, y: 66.7 } });
+    expect(res.status).toBe(201);
+    expect(res.body.map_coords).toEqual({ x: 33.3, y: 66.7 });
+  });
+
   // Issue #33 — defence-in-depth: schema rejects the retired legacy `id` field
   // so a stale browser session cannot silently insert a duplicate document.
   // Reproduces the 2026-05-05 incident pattern (5 dupes via apiPost with `id`).
@@ -223,6 +233,67 @@ describe('PUT /api/territories/:id', () => {
       .send({ ambience: 'hostile' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  // Issue #9 — `map_coords` round-trips on PUT and validates components.
+  it('PUT with valid `map_coords` round-trips', async () => {
+    const create = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send(testTerritory('test_territory_quinn_put_coords'));
+    const mongoId = create.body._id;
+
+    const res = await request(app)
+      .put(`/api/territories/${mongoId}`)
+      .set('X-Test-User', stUser())
+      .send({ map_coords: { x: 42.5, y: 71.25 } });
+    expect(res.status).toBe(200);
+    expect(res.body.map_coords).toEqual({ x: 42.5, y: 71.25 });
+  });
+
+  it('PUT with `map_coords.x` out of range returns 400', async () => {
+    const create = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send(testTerritory('test_territory_quinn_put_coords_oor'));
+    const mongoId = create.body._id;
+
+    const res = await request(app)
+      .put(`/api/territories/${mongoId}`)
+      .set('X-Test-User', stUser())
+      .send({ map_coords: { x: 150, y: 50 } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('PUT with partial `map_coords` (missing y) returns 400', async () => {
+    const create = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send(testTerritory('test_territory_quinn_put_coords_partial'));
+    const mongoId = create.body._id;
+
+    const res = await request(app)
+      .put(`/api/territories/${mongoId}`)
+      .set('X-Test-User', stUser())
+      .send({ map_coords: { x: 50 } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('PUT with `map_coords: null` clears the field', async () => {
+    const create = await request(app)
+      .post('/api/territories')
+      .set('X-Test-User', stUser())
+      .send({ ...testTerritory('test_territory_quinn_put_coords_clear'), map_coords: { x: 25, y: 25 } });
+    const mongoId = create.body._id;
+
+    const res = await request(app)
+      .put(`/api/territories/${mongoId}`)
+      .set('X-Test-User', stUser())
+      .send({ map_coords: null });
+    expect(res.status).toBe(200);
+    expect(res.body.map_coords).toBeNull();
   });
 
   // Issue #141 — defense-in-depth follow-up to #33: PUT now carries the same
