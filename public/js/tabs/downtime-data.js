@@ -330,11 +330,12 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 11. Equipment — always shown
+  // 11. Equipment — dt-form.30: hidden for this DT cycle; set hidden: false to re-enable
   {
     key: 'equipment',
     title: 'Equipment: Items and Gear',
     gate: null,
+    hidden: true,
     intro: 'List any items, weapons, or equipment you want your character to have access to this Downtime. Sourcing is subject to ST approval and availability.',
     questions: [], // rendered dynamically
   },
