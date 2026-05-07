@@ -583,14 +583,14 @@ async function toggleRetire() {
   btn.textContent = 'Saving...';
 
   try {
-    c.retired = newState || undefined;
+    c.retired = newState;
     const { _id, ...body } = c;
     const updated = await apiPut('/api/characters/' + _id, body);
     Object.assign(chars[idx], updated);
     btn.textContent = newState ? 'Unretire' : 'Retire';
     renderCharGrid();
   } catch (err) {
-    c.retired = !newState || undefined;
+    c.retired = !newState;
     btn.textContent = newState ? 'Retire' : 'Unretire';
     console.error('Retire failed:', err.message);
   }
