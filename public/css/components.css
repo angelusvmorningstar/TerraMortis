@@ -795,7 +795,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .char-detail #sh-content{max-width:none !important;}
 
 /* ── Desktop character sheet: 2-column layout ── */
-.sh-desktop{display:grid;grid-template-columns:4fr 6fr;gap:0 24px;align-items:start;}
+.sh-desktop{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start;}
 .sh-dcol{min-width:0;overflow:visible;}
 
 /* Narrow viewports: collapse the 3-col sheet into a single column.
