@@ -5,7 +5,7 @@
  */
 
 import { addMerit, ensureMeritSync } from './merits.js';
-import { syncMeritRating } from './domain.js';
+import { syncMeritRating, pruneContactsSpheres } from './domain.js';
 import { getRulesBySource, getRulesCache } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
@@ -94,6 +94,12 @@ export function applyDerivedMerits(c, allChars = []) {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
     const total = syncMeritRating(m);
     if (total > 0) m.rating = total;
+    // Issue #144: cascade scenario — a free_* grant clearing here (e.g. MCI
+    // removed → free_mci on Contacts drops to 0) lowers the effective rating
+    // without going through the user-edit chokepoints (#143). Prune the
+    // spheres array on the auto-resync path too so the DT-form picker doesn't
+    // surface stale options the character no longer holds.
+    pruneContactsSpheres(m);
   });
 }
 

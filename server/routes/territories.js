@@ -50,7 +50,12 @@ router.post('/', requireST, validate(territorySchema), async (req, res) => {
 });
 
 // PUT /api/territories/:id — update one by _id (ST only)
-router.put('/:id', requireST, async (req, res) => {
+// Issue #141 (2026-05-07): defense-in-depth — same `validate(territorySchema)`
+// gate as POST. Closes the parallel attack vector PR #140 left open: a stale
+// browser session calling PUT with a legacy `id` body would have been
+// silently accepted and persisted unknown fields against the strict schema's
+// intent.
+router.put('/:id', requireST, validate(territorySchema), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory ID format' });
 
