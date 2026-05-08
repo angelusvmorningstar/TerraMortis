@@ -13,10 +13,11 @@ import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js'
 // Re-export the new prereq engine for direct use by consumers
 export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
 
-/** Check if a merit is excluded by a merit the character already owns. */
-function _isExcluded(c, meritName) {
-  const owned = (c.merits || []).map(m => m.name.toLowerCase());
-  // Check if any owned merit's exclusive list includes this candidate
+/** Check if a merit is excluded by a merit the character already owns.
+ *  Issue #188 (2026-05-08): exposed as `isMeritExcluded` so the DT form's
+ *  XP Spend picker can apply the same exclusion logic the sheet's Merit
+ *  Add picker uses, without duplicating the rule walk. */
+export function isMeritExcluded(c, meritName) {
   for (const m of (c.merits || [])) {
     const rule = getRuleByKey(m.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
     if (!rule || !rule.exclusive) continue;
@@ -25,6 +26,10 @@ function _isExcluded(c, meritName) {
   }
   return null;
 }
+// Local alias preserved so the existing internal callers (buildMeritOptions
+// / buildSubCategoryMeritOptions / buildMCIGrantOptions) don't need to be
+// touched.
+const _isExcluded = isMeritExcluded;
 
 /* ══════════════════════════════════════════════════════
    Merit string helpers

@@ -20,7 +20,7 @@ import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
-import { meetsPrereq } from '../editor/merits.js';
+import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
@@ -276,9 +276,16 @@ function detectMerits() {
   detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Allies'
   ));
+  // Issue #194 (2026-05-08): the standing-merit name is canonically
+  // 'Mystery Cult Initiation' across the codebase (sheet, editor, admin,
+  // audit). Filtering on 'MCI' here meant any character whose MCI was
+  // stored under the canonical name (i.e. all of them) had an empty
+  // detectedMerits.status array, so the Status block never rendered and
+  // the 'Grow' action — required to raise Status above 3 dots — was
+  // unreachable. Reproduced for Keeper.
   detectedMerits.status = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && m.name === 'Status'
-  )).concat(merits.filter(m => m.category === 'standing' && m.name === 'MCI'));
+  )).concat(merits.filter(m => m.category === 'standing' && m.name === 'Mystery Cult Initiation'));
   // Contacts: expand spheres array into individual entries for toggle rendering
   const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
@@ -562,10 +569,41 @@ function collectResponses() {
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
       const discEl = document.getElementById(`dt-${prefix}_disc`);
       const specEl = document.getElementById(`dt-${prefix}_spec`);
-      responses[`${prefix}_attr`] = attrEl ? attrEl.value : '';
-      responses[`${prefix}_skill`] = skillEl ? skillEl.value : '';
-      responses[`${prefix}_disc`] = discEl ? discEl.value : '';
-      responses[`${prefix}_spec`] = specEl ? specEl.value : '';
+      const attrName  = attrEl  ? attrEl.value  : '';
+      const skillName = skillEl ? skillEl.value : '';
+      const discName  = discEl  ? discEl.value  : '';
+      const specName  = specEl  ? specEl.value  : '';
+      responses[`${prefix}_attr`]  = attrName;
+      responses[`${prefix}_skill`] = skillName;
+      responses[`${prefix}_disc`]  = discName;
+      responses[`${prefix}_spec`]  = specName;
+      // Audit #198 — compose the human-readable pool expression admin's
+      // action-queue renderer reads (downtime-views.js:2524, 2585, 2624,
+      // 10240). Form previously wrote only the components; admin's
+      // `_pool_expr` reads always fell back to '' so the project's
+      // Player's Pool column rendered empty. Mirror the components into a
+      // single expression string + numeric total so ST sees what the
+      // player picked at a glance. Skipped silently when no component is
+      // selected, so empty rows don't pollute the queue.
+      if (attrName || skillName || discName) {
+        const validSpec = !!(specName && skillName
+          && (currentChar.skills?.[skillName]?.specs || []).includes(specName));
+        const specBonus = validSpec
+          ? ((skNineAgain(currentChar, skillName) || hasAoE(currentChar, specName)) ? 2 : 1)
+          : 0;
+        let total = 0;
+        if (attrName)  total += getAttrEffective(currentChar, attrName);
+        if (skillName) total += skTotal(currentChar, skillName);
+        if (discName)  total += discDots(currentChar, discName);
+        total += specBonus;
+        const parts = [attrName, skillName, discName].filter(Boolean);
+        let expr = parts.join(' + ');
+        if (validSpec) expr += ` (+${specBonus} ${specName})`;
+        if (expr) expr += ` = ${total}`;
+        responses[`${prefix}_expr`] = expr;
+      } else {
+        responses[`${prefix}_expr`] = '';
+      }
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
@@ -630,12 +668,18 @@ function collectResponses() {
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
+    // Issue #170 (2026-05-08): gate target_* writes on element presence
+    // (Lesson #105 silent-leave). When a slot's action doesn't render the
+    // target_* hidden inputs (e.g. action changed away from maintenance),
+    // the prior value persists on the spread base instead of being clobbered
+    // with empty. Action-change handlers that DO need to clear targets can
+    // do so explicitly via the canonical-first state write pattern.
     const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
-    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    if (targetValueEl) responses[`project_${n}_target_value`] = targetValueEl.value;
     const targetTerrEl = document.getElementById(`dt-project_${n}_target_terr`);
-    responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
+    if (targetTerrEl) responses[`project_${n}_target_terr`] = targetTerrEl.value;
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
-    responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
+    if (targetOtherEl) responses[`project_${n}_target_other`] = targetOtherEl.value;
     // dt-form.25: legacy `_ambience_dir` radio collect dropped (drop-the-
     // iteration shape per Ma'at #127 praise). The new row-table writes
     // `_ambience_target` + `_ambience_direction` directly via the hidden
@@ -1194,7 +1238,15 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   currentChar = char;
   try {
     const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
-    currentChar = fresh;
+    // Issue #184 (2026-05-08): merge server data over the cached `char`
+    // object instead of replacing the reference wholesale. `_gameXP` (set
+    // by loadGameXP() before the form opens) and any other underscore-
+    // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
+    // API response doesn't carry them — wholesale `currentChar = fresh`
+    // would silently zero out xpGame() and short xpEarned()/xpLeft() by
+    // the full game-XP total. Mirrors the existing admin.js:548 pattern.
+    Object.assign(char, fresh);
+    currentChar = char;
   } catch { /* silent — stale char is better than a broken form */ }
   if (currentChar) applyDerivedMerits(currentChar);
   try {
@@ -2103,6 +2155,17 @@ function renderForm(container) {
     // of the territory's current feeding_rights. After success, replace
     // currentCycle with the server response so the predicate sees the new
     // entry on re-render.
+
+    // Issue #161 (2026-05-08): "Open Regency tab" link from the Regency
+    // section. Navigates the player suite to the Regency tab via the
+    // existing window.goTab dispatcher (set up in app.js:2200).
+    const openRegencyTabBtn = e.target.closest('[data-open-regency-tab]');
+    if (openRegencyTabBtn) {
+      e.preventDefault();
+      if (typeof window.goTab === 'function') window.goTab('regency');
+      return;
+    }
+
     const regencyConfirmBtn = e.target.closest('#dt-btn-confirm-regency');
     if (regencyConfirmBtn) {
       e.preventDefault();
@@ -2548,42 +2611,11 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // dt-form.25: Ambience row-table arrow click. Single-target state
-    // machine per the 6 ACs:
-    //   - new row click           → switch to (newRow, clickedDir)
-    //   - opposite arrow same row → switch direction, retain row
-    //   - same arrow same row     → toggle off (clear both)
-    const ambArrow = e.target.closest('[data-amb-arrow]');
-    if (ambArrow) {
-      e.preventDefault();
-      const slot     = ambArrow.dataset.ambSlot;
-      const target   = ambArrow.dataset.ambTarget;
-      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
-      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
-      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
-      const curTarget = targetEl ? targetEl.value : '';
-      const curDir    = dirEl    ? dirEl.value    : '';
-      let nextTarget = '';
-      let nextDir    = '';
-      if (curTarget === target && curDir === dirClick) {
-        // same arrow same row → toggle off
-        nextTarget = '';
-        nextDir    = '';
-      } else {
-        // new row OR opposite arrow same row → set to clicked
-        nextTarget = target;
-        nextDir    = dirClick;
-      }
-      if (targetEl) targetEl.value = nextTarget;
-      if (dirEl)    dirEl.value    = nextDir;
-      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
+    // Issue #165 (2026-05-08): the dt-form.25 ambience-arrow handler used
+    // to live here in the `change` listener — but `<button>` clicks fire
+    // `click`, not `change`, so this never executed. Moved to the click
+    // listener below, where the maintenance-chip / feeding-card / blood-type
+    // button handlers live.
     // dt-form.25: legacy improve/degrade ticker handler retained for
     // sphere-side ambience_change (sphere keeps the legacy radio). Project
     // side no longer emits `[data-proj-ambience-dir]` after the row-table
@@ -2624,31 +2656,13 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Project dice pool spec chip — toggle selection and re-render
-    // Issue #164 (2026-05-08): hardened. Toggle now mutates responseDoc.responses
-    // directly (canonical state) AND mirrors to the hidden DOM input as a
-    // belt-and-braces measure for any consumer that reads the input directly.
-    // Then collect+render so the dice-pool total span re-renders with the
-    // bonus included via renderDicePool's spec branch.
-    const poolSpecChip = e.target.closest('[data-pool-spec]');
-    if (poolSpecChip) {
-      const prefix = poolSpecChip.dataset.poolSpec;
-      const specName = poolSpecChip.dataset.specName || '';
-      const key = `${prefix}_spec`;
-      const baseResponses = (responseDoc && responseDoc.responses) || {};
-      const cur = baseResponses[key] || '';
-      const next = cur === specName ? '' : specName;
-      // Canonical write — guarantees the spec state persists across renders
-      // even if the hidden input wasn't found or its value diverged.
-      const nextResponses = { ...baseResponses, [key]: next };
-      const hidden = document.getElementById(`dt-${prefix}_spec`);
-      if (hidden) hidden.value = next;
-      if (responseDoc) responseDoc.responses = nextResponses;
-      else responseDoc = { responses: nextResponses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
+    // Issue #165 (2026-05-08): the spec-chip handler used to live here in
+    // the `change` listener — same root cause as the ambience-arrow bug.
+    // `<button>` clicks fire `click`, not `change`. Moved to the click
+    // listener below. (My earlier #164 fix landed the canonical-first
+    // writes correctly but the handler itself was never firing — only
+    // the dropdown-label cleanup actually shipped a user-visible change.
+    // This PR restores the chip toggle behaviour the issue spec asked for.)
     // XP category/item change — collect current state and re-render
     const xpCat = e.target.closest('[data-xp-cat]');
     const xpItem = e.target.closest('[data-xp-item]');
@@ -2714,6 +2728,74 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+
+    // Issue #165 (2026-05-08): dt-form.25 Ambience row-table arrow click.
+    // Single-target state machine per the dt-form.25 ACs:
+    //   - new row click           → switch to (newRow, clickedDir)
+    //   - opposite arrow same row → switch direction, retain row
+    //   - same arrow same row     → toggle off (clear both)
+    // Originally placed in the `change` listener which never fires for
+    // `<button>` clicks; moved here so the chip click actually executes
+    // the state machine. Uses canonical-first state pattern (writes
+    // `responseDoc.responses` first, mirrors to DOM, then renders).
+    const ambArrow = e.target.closest('[data-amb-arrow]');
+    if (ambArrow) {
+      e.preventDefault();
+      const slot     = ambArrow.dataset.ambSlot;
+      const target   = ambArrow.dataset.ambTarget;
+      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
+      const targetKey = `project_${slot}_ambience_target`;
+      const dirKey    = `project_${slot}_ambience_direction`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const curTarget = baseResponses[targetKey] || '';
+      const curDir    = baseResponses[dirKey]    || '';
+      let nextTarget;
+      let nextDir;
+      if (curTarget === target && curDir === dirClick) {
+        // same arrow same row → toggle off
+        nextTarget = '';
+        nextDir    = '';
+      } else {
+        // new row OR opposite arrow same row → set to clicked
+        nextTarget = target;
+        nextDir    = dirClick;
+      }
+      // Canonical-first: spread + write to responseDoc.responses BEFORE
+      // mirroring to DOM, so renderForm reads the new state cleanly.
+      const nextResponses = { ...baseResponses, [targetKey]: nextTarget, [dirKey]: nextDir };
+      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
+      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
+      if (targetEl) targetEl.value = nextTarget;
+      if (dirEl)    dirEl.value    = nextDir;
+      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+
+    // Issue #165 (2026-05-08): Project dice pool spec chip — toggle selection
+    // and re-render. Same root-cause story as ambience-arrow above: the
+    // handler was misplaced in the `change` listener and never fired for
+    // button clicks. Moved here. Canonical-first state pattern.
+    const poolSpecChip = e.target.closest('[data-pool-spec]');
+    if (poolSpecChip) {
+      const prefix = poolSpecChip.dataset.poolSpec;
+      const specName = poolSpecChip.dataset.specName || '';
+      const key = `${prefix}_spec`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const cur = baseResponses[key] || '';
+      const next = cur === specName ? '' : specName;
+      const nextResponses = { ...baseResponses, [key]: next };
+      const hidden = document.getElementById(`dt-${prefix}_spec`);
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // Blood type toggle — single-select pill buttons
@@ -2809,21 +2891,30 @@ function renderForm(container) {
     // [data-npc-pick] is rendered anywhere now.
     // dt-form.16: target character chip handler removed — universal charPicker
     // mounted in renderTargetCharOrOther handles its own selection lifecycle.
-    // Maintenance merit chip — single-select, writes to hidden target_value input
+    // Maintenance merit chip — single-select, writes to hidden target_value input.
+    // Issue #170 (2026-05-08): hardened with canonical-first state writes +
+    // re-render so SIBLING slots' chip availability re-evaluates immediately.
+    // Previously the handler only mutated the local DOM; sibling slots couldn't
+    // see the new selection until something else triggered a render, leaving
+    // their disabled-chip state stale across add/remove/re-add cycles.
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
       const mPrefix = maintChip.dataset.maintenancePrefix || 'project';
       const targetId = maintChip.dataset.targetId;
+      const key = `${mPrefix}_${slotNum}_target_value`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const wasSelected = baseResponses[key] === targetId;
+      const next = wasSelected ? '' : targetId;
+      // Canonical-first write — mirrors the spec-chip pattern (#164) and
+      // mode-pill / ambience-arrow handlers. Sibling slots reading
+      // `responses.project_*_target_value` see the new state on re-render.
+      const nextResponses = { ...baseResponses, [key]: next };
       const hidden = document.getElementById(`dt-${mPrefix}_${slotNum}_target_value`);
-      const wasSelected = maintChip.classList.contains('dt-chip--selected');
-      container.querySelectorAll(`[data-maintenance-target="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
-      if (!wasSelected) {
-        maintChip.classList.add('dt-chip--selected');
-        if (hidden) hidden.value = targetId;
-      } else {
-        if (hidden) hidden.value = '';
-      }
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
       scheduleSave();
       return;
     }
@@ -3427,10 +3518,20 @@ function renderProjectSlots(saved, mode = 'advanced') {
     h += '<div class="dt-action-block">';
 
     // Action type selector — always visible
+    // Issue #167 (2026-05-08): ROTE is single-instance per cycle. If any
+    // sibling slot already holds 'rote', filter it out of THIS slot's
+    // dropdown (unless this slot itself is currently 'rote', so the user
+    // can still see + change/clear their existing selection). Legacy
+    // submissions with multiple ROTE entries continue to load — each slot
+    // showing 'rote' keeps it as a selectable option, but no new slot can
+    // pick a fresh 'rote' while one already exists.
+    const slotActions = siblingHasAction(saved, n, 'rote') && actionVal !== 'rote'
+      ? availableActions.filter(opt => opt.value !== 'rote')
+      : availableActions;
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
     h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
-    for (const opt of availableActions) {
+    for (const opt of slotActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
@@ -3585,11 +3686,18 @@ function renderProjectSlots(saved, mode = 'advanced') {
       // so the inherited ROTE pool matches the ADVANCED primary readout
       // 1:1. Without this, ROTE under-counted by the +1 / +2 speciality
       // bonus.
+      // Issue #189 (2026-05-08): pass the player's customised feeding skill
+      // (`feedCustomSkill`) as `skillOverride` so the spec-bonus validation
+      // matches against the player's actual skill rather than the auto-
+      // picked best. Without this, ROTE under-counted by the spec bonus
+      // whenever the player's customised skill differed from the method's
+      // auto-pick (e.g. picked a lower-dot skill that owns the spec).
       const inheritedPool = computeBestFeedingPool({
         char: currentChar,
         methodId: feedMethodId,
         territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
         spec: feedSpecName || '',
+        skillOverride: feedCustomSkill || '',
       });
       h += '<div class="qf-field dt-proj-rote-pool">';
       if (!feedMethodId) {
@@ -3810,10 +3918,28 @@ function getItemsForCategory(category) {
         return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
       }
 
-      // Try rules cache first, fallback to MERITS_DB
+      // Try rules cache first, fallback to MERITS_DB.
+      // Issue #188 (2026-05-08): harmonised with the sheet's Merit Add
+      // picker (`buildMeritOptions` in editor/merits.js:271). The XP Spend
+      // picker previously called `meetsPrereq` only — the prereq filter
+      // was honoured but the picker still surfaced merits the player
+      // can't directly XP-purchase:
+      //   - Standing-subcategory merits (MCI / PT — gained via IC events,
+      //     not XP per dot)
+      //   - Structural sub-system merits (Style / Invictus Oath /
+      //     Carthian Law parents — bought via the fighting-style pool /
+      //     sub-system enrollment paths)
+      //   - Clan/covenant-excluded merits (via `isMeritExcluded`)
+      // Influence and domain merits ARE XP-purchasable directly per
+      // VtR 2e, so they REMAIN in the picker (they were correctly there).
+      // Already-owned merits that are now clan/covenant-excluded continue
+      // to surface for raising existing dots — silent-leave on legacy
+      // owned data, parallels `buildMeritOptions`'s allow-current escape.
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
+          if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+          if (rule.sub_category === 'standing') continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
@@ -3821,6 +3947,9 @@ function getItemsForCategory(category) {
           const max = rr ? rr[1] : 1;
           const currentDots = currentMeritDots(name);
           if (currentDots >= max) continue;
+          // Skip clan/covenant-excluded merits UNLESS the character already
+          // owns the merit (allow raising existing legacy dots).
+          if (isMeritExcluded(c, name) && currentDots === 0) continue;
 
           if (min === max) {
             items.push({
@@ -4154,13 +4283,24 @@ function renderRegencySection() {
   h += '<h4 class="qf-section-title">Regency<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
 
+  // Issue #161 (2026-05-08): explain WHY the regent is being asked to confirm
+  // and WHERE residency rights are managed. Option B from the issue body — an
+  // explicit redirect to the Regency tab, rather than duplicating the
+  // residency-rights summary inline (which would mean re-implementing
+  // regency-tab logic inside the DT form).
   if (myConfirmation) {
     const at = myConfirmation.confirmed_at ? new Date(myConfirmation.confirmed_at) : null;
     const atStr = at && !isNaN(at) ? at.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     h += `<p class="qf-section-intro">Confirmed as Regent of <strong>${esc(terrName)}</strong> for this cycle${atStr ? ` — ${esc(atStr)}` : ''}.</p>`;
+    h += `<p class="qf-desc">Your feeding-rights selections for ${esc(terrName)} are locked in for this downtime. To review or update them, use the Regency tab.</p>`;
+    h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
+    h += '</div>';
   } else {
     h += `<p class="qf-section-intro">I am acting as Regent of <strong>${esc(terrName)}</strong> for this cycle.</p>`;
+    h += `<p class="qf-desc">As regent, you must confirm <strong>this downtime</strong> who has feeding rights in ${esc(terrName)}. Manage your feeding-rights slots in the Regency tab; once your selections are set, return here and confirm to lock them in for the cycle.</p>`;
     h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
     h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
     h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
     h += '</div>';
@@ -4594,12 +4734,21 @@ function renderAcquisitionsSection(saved) {
   h += '</div>';
 
   // ── Skills sub-table ──
+  // Issue #187 (2026-05-08): Skill Acquisitions is a fixed single-row
+  // section per the rules (only one skill can be acquired per cycle this
+  // way). The repeating-row affordance was misleading. Render row 0 only;
+  // no Add button, no Remove button (the `isOnly=true` flag suppresses
+  // the per-row remove already). Resources Acquisitions above keeps its
+  // Add affordance (resources can have multiple).
+  // Persistence shape unchanged: `responses.acq_skill_rows` is still a
+  // JSON array (now always length 1). Mirror keys (skill_acq_*) read
+  // from row 0 (line 919-923) — no change required there. Multi-row
+  // legacy data on the spread base prunes to row 0 on next save (per
+  // A1 silent-leave; no real users have submitted skill multi-rows).
   h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
   h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
-  for (let i = 0; i < skillRows.length; i++) {
-    h += _renderSkillRow(i, skillRows[i], charMerits, c, skSkills, skillRows.length === 1);
-  }
-  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="skill">+ Add Skill Item</button>';
+  const skillRow0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
+  h += _renderSkillRow(0, skillRow0, charMerits, c, skSkills, true);
   h += '</div>';
 
   h += '</div></div>'; // section-body, section
@@ -4883,6 +5032,26 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
+/**
+ * Issue #167 + #170 (2026-05-08): walk sibling project slots and report
+ * which actions are claimed elsewhere. Used by:
+ *   - #167 ROTE single-instance — `siblingHasAction(saved, n, 'rote')`
+ *     filters 'rote' out of the action-type dropdown
+ *   - #170 Maintenance pill exclusion — `getAlreadyMaintainedTargets`
+ *     above already does this for maintenance specifically; this helper
+ *     gives consumers a general way to ask "does any sibling slot have
+ *     action X?" without re-walking the slot map.
+ *
+ * Reads from the canonical `responses` object — no DOM dependency.
+ */
+function siblingHasAction(saved, currentSlot, action, maxSlots = 4) {
+  for (let k = 1; k <= maxSlots; k++) {
+    if (k === currentSlot) continue;
+    if (saved[`project_${k}_action`] === action) return true;
+  }
+  return false;
+}
+
 /** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
 function getAuditMaintained(cycle, char) {
   if (!cycle || !char) return new Set();
@@ -4971,11 +5140,16 @@ function renderOutcomeZone(n, actionVal, saved) {
   }
 
   if (actionVal === 'misc') {
+    // Issue #186 (2026-05-08): Desired Outcome was a single-line input —
+    // converted to textarea so the player can break their goal across
+    // multiple paragraphs / returns. Persistence key unchanged
+    // (`responses.project_${n}_outcome`); the existing collect path at
+    // line 565-571 reads `outcomeEl.value` regardless of element type.
     return `<div class="qf-field">` +
       `<label class="qf-label" for="dt-project_${n}_outcome">Desired Outcome</label>` +
-      `<input type="text" id="dt-project_${n}_outcome" class="qf-input" data-proj-outcome="${n}" ` +
-      `placeholder="${esc('State the goal of this project, aiming to achieve one clear thing.')}" ` +
-      `value="${esc(savedOutcome)}">` +
+      `<textarea id="dt-project_${n}_outcome" class="qf-textarea" rows="3" data-proj-outcome="${n}" ` +
+      `placeholder="${esc('State the goal of this project, aiming to achieve one clear thing.')}">` +
+      `${esc(savedOutcome)}</textarea>` +
       `</div>`;
   }
 
@@ -5510,8 +5684,16 @@ function renderMeritToggles(saved) {
       const label = actionVal ? (ACTION_SHORT[actionVal] || actionVal) : 'No Action';
       const active = n === 1 ? ' dt-proj-tab-active' : '';
       const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-      const statusLabel = m.name === 'MCI' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
+      const baseLabel = m.name === 'Mystery Cult Initiation' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
         (m.qualifier || m.area ? `Status (${m.qualifier || m.area})` : 'Broad Status');
+      // Issue #190 (2026-05-08): append the character's dot rating so the
+      // tab title reads "MCI ●●●" / "Status (Police) ●●●●". Uses the
+      // canonical `meritEffectiveRating` so derived bonuses (PT, MCI
+      // grants, etc.) are reflected. Tab is only rendered when the
+      // character has the merit (existing detection at maxStatus loop
+      // bound), so dots > 0 by construction.
+      const statusDots = meritEffectiveRating(currentChar, m);
+      const statusLabel = statusDots ? `${baseLabel} ${'●'.repeat(statusDots)}` : baseLabel;
       h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-status-tab="${n}">`;
       h += `<span class="dt-proj-tab-icon">${icon}</span>`;
       h += `<span class="dt-proj-tab-num">${esc(statusLabel)}</span>`;
@@ -5795,6 +5977,34 @@ function updateSectionTicks(container) {
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
       tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
+
+    // Issue #163 (2026-05-08): Court > Last Game Session tick rule. Min reqs:
+    //   - travel description present
+    //   - at least one game_recount highlight slot populated
+    //   - at least one rp_shoutout pick (hidden input is JSON; '[]' counts as empty)
+    // The fallback "all qf-fields filled" rule below was producing false
+    // positives because the rp_shoutout hidden input always contained '[]'
+    // when no picks were made — non-zero string length but empty payload.
+    // Explicit rule reads the JSON payload to compute presence accurately.
+    if (key === 'court') {
+      const travelEl = document.getElementById('dt-travel');
+      const travelOk = !!(travelEl && travelEl.value.trim());
+      let highlightOk = false;
+      for (let n = 1; n <= 5; n++) {
+        const el = document.getElementById(`dt-game_recount_${n}`);
+        if (el && el.value.trim()) { highlightOk = true; break; }
+      }
+      const shoutoutEl = document.getElementById('dt-rp_shoutout');
+      let shoutoutOk = false;
+      if (shoutoutEl) {
+        try {
+          const arr = JSON.parse(shoutoutEl.value || '[]');
+          shoutoutOk = Array.isArray(arr) && arr.length > 0;
+        } catch { shoutoutOk = false; }
+      }
+      tick.classList.toggle('visible', travelOk && highlightOk && shoutoutOk);
       return;
     }
 
@@ -6084,11 +6294,14 @@ function renderQuestion(q, value) {
         // Issue #166: pass the active speciality so the MINIMAL primary
         // readout includes the bonus when one is set (e.g. carried over
         // from a prior ADVANCED-mode toggle).
+        // Issue #189: also pass skillOverride so the spec validation
+        // matches the player's customised skill, mirroring the ROTE call.
         const pool = computeBestFeedingPool({
           char: c,
           methodId: feedMethodId,
           territorySlug,
           spec: feedSpecName || '',
+          skillOverride: feedCustomSkill || '',
         });
         h += '<div class="qf-field dt-feed-min-pool">';
         if (!feedMethodId) {
