@@ -557,10 +557,41 @@ function collectResponses() {
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
       const discEl = document.getElementById(`dt-${prefix}_disc`);
       const specEl = document.getElementById(`dt-${prefix}_spec`);
-      responses[`${prefix}_attr`] = attrEl ? attrEl.value : '';
-      responses[`${prefix}_skill`] = skillEl ? skillEl.value : '';
-      responses[`${prefix}_disc`] = discEl ? discEl.value : '';
-      responses[`${prefix}_spec`] = specEl ? specEl.value : '';
+      const attrName  = attrEl  ? attrEl.value  : '';
+      const skillName = skillEl ? skillEl.value : '';
+      const discName  = discEl  ? discEl.value  : '';
+      const specName  = specEl  ? specEl.value  : '';
+      responses[`${prefix}_attr`]  = attrName;
+      responses[`${prefix}_skill`] = skillName;
+      responses[`${prefix}_disc`]  = discName;
+      responses[`${prefix}_spec`]  = specName;
+      // Audit #198 — compose the human-readable pool expression admin's
+      // action-queue renderer reads (downtime-views.js:2524, 2585, 2624,
+      // 10240). Form previously wrote only the components; admin's
+      // `_pool_expr` reads always fell back to '' so the project's
+      // Player's Pool column rendered empty. Mirror the components into a
+      // single expression string + numeric total so ST sees what the
+      // player picked at a glance. Skipped silently when no component is
+      // selected, so empty rows don't pollute the queue.
+      if (attrName || skillName || discName) {
+        const validSpec = !!(specName && skillName
+          && (currentChar.skills?.[skillName]?.specs || []).includes(specName));
+        const specBonus = validSpec
+          ? ((skNineAgain(currentChar, skillName) || hasAoE(currentChar, specName)) ? 2 : 1)
+          : 0;
+        let total = 0;
+        if (attrName)  total += getAttrEffective(currentChar, attrName);
+        if (skillName) total += skTotal(currentChar, skillName);
+        if (discName)  total += discDots(currentChar, discName);
+        total += specBonus;
+        const parts = [attrName, skillName, discName].filter(Boolean);
+        let expr = parts.join(' + ');
+        if (validSpec) expr += ` (+${specBonus} ${specName})`;
+        if (expr) expr += ` = ${total}`;
+        responses[`${prefix}_expr`] = expr;
+      } else {
+        responses[`${prefix}_expr`] = '';
+      }
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const outcomeRadio = document.querySelector(`input[name="dt-project_${n}_outcome"]:checked`);
