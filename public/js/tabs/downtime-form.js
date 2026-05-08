@@ -3697,11 +3697,18 @@ function renderProjectSlots(saved, mode = 'advanced') {
       // so the inherited ROTE pool matches the ADVANCED primary readout
       // 1:1. Without this, ROTE under-counted by the +1 / +2 speciality
       // bonus.
+      // Issue #189 (2026-05-08): pass the player's customised feeding skill
+      // (`feedCustomSkill`) as `skillOverride` so the spec-bonus validation
+      // matches against the player's actual skill rather than the auto-
+      // picked best. Without this, ROTE under-counted by the spec bonus
+      // whenever the player's customised skill differed from the method's
+      // auto-pick (e.g. picked a lower-dot skill that owns the spec).
       const inheritedPool = computeBestFeedingPool({
         char: currentChar,
         methodId: feedMethodId,
         territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
         spec: feedSpecName || '',
+        skillOverride: feedCustomSkill || '',
       });
       h += '<div class="qf-field dt-proj-rote-pool">';
       if (!feedMethodId) {
@@ -6249,11 +6256,14 @@ function renderQuestion(q, value) {
         // Issue #166: pass the active speciality so the MINIMAL primary
         // readout includes the bonus when one is set (e.g. carried over
         // from a prior ADVANCED-mode toggle).
+        // Issue #189: also pass skillOverride so the spec validation
+        // matches the player's customised skill, mirroring the ROTE call.
         const pool = computeBestFeedingPool({
           char: c,
           methodId: feedMethodId,
           territorySlug,
           spec: feedSpecName || '',
+          skillOverride: feedCustomSkill || '',
         });
         h += '<div class="qf-field dt-feed-min-pool">';
         if (!feedMethodId) {

@@ -27,7 +27,7 @@
 import { FEED_METHODS, TERRITORY_DATA } from '../tabs/downtime-data.js';
 import { SKILLS_MENTAL } from './constants.js';
 import { getAttrTotal, skTotal, discDots } from './accessors.js';
-import { hasAoE } from './helpers.js';
+import { hasAoE, isSpecs } from './helpers.js';
 
 /**
  * Issue #166 (2026-05-08): the optional `spec` parameter folds the
@@ -38,8 +38,17 @@ import { hasAoE } from './helpers.js';
  * of Expertise (`hasAoE`) or the picked skill has nine_again, else +1.
  * Matches the bonus shape `renderFeedPoolSelector` already computes for
  * the ADVANCED primary readout (downtime-form.js:4750).
+ *
+ * Issue #189 (2026-05-08): the optional `skillOverride` parameter takes
+ * precedence over the auto-picked best skill. When the player has
+ * customised their feeding pool's skill (via ADVANCED-mode chip / select)
+ * to one that DIFFERS from the method's auto-picked best (e.g. picked a
+ * lower-dot skill that owns the spec), pass `skillOverride` so the
+ * spec-bonus validation matches against the player's actual skill rather
+ * than the auto-pick. Without it, ROTE inheritance under-counted the
+ * spec bonus whenever the player customised the primary feeding skill.
  */
-export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '' } = {}) {
+export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '', skillOverride = '' } = {}) {
   if (!char || !methodId) return null;
   const method = FEED_METHODS.find(m => m.id === methodId);
   if (!method) return null;
@@ -53,14 +62,27 @@ export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '
 
   // Best skill available among those the method allows. Carry specs for
   // the rendered breakdown.
+  // Issue #189 (2026-05-08): when `skillOverride` is supplied (the player's
+  // customised feeding skill), use it instead of auto-picking the highest-
+  // dot skill from the method allowlist. This ensures the spec-bonus
+  // validation below matches the player's actual feeding skill rather
+  // than the auto-pick, which was the root cause of ROTE under-counting
+  // the spec when the player customised their primary feeding skill.
   let bestSkillVal = 0, bestSkillName = '', bestSkillSpecs = '';
-  for (const s of method.skills || []) {
-    const v = skTotal(char, s);
-    if (v > bestSkillVal) {
-      bestSkillVal = v;
-      bestSkillName = s;
-      const sk = char.skills?.[s];
-      bestSkillSpecs = sk?.specs?.length ? sk.specs.join(', ') : '';
+  if (skillOverride) {
+    bestSkillName = skillOverride;
+    bestSkillVal = skTotal(char, skillOverride);
+    const sk = char.skills?.[skillOverride];
+    bestSkillSpecs = sk?.specs?.length ? sk.specs.join(', ') : '';
+  } else {
+    for (const s of method.skills || []) {
+      const v = skTotal(char, s);
+      if (v > bestSkillVal) {
+        bestSkillVal = v;
+        bestSkillName = s;
+        const sk = char.skills?.[s];
+        bestSkillSpecs = sk?.specs?.length ? sk.specs.join(', ') : '';
+      }
     }
   }
 
@@ -89,11 +111,19 @@ export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '
   // nine_again skills) when an active speciality is supplied. Match shape
   // mirrors `renderFeedPoolSelector` so the ROTE inherited annotation
   // agrees with the ADVANCED primary readout 1:1.
+  // Issue #189 (2026-05-08): widened the spec-validity check to accept
+  // interdisciplinary specs (`isSpecs(c)`) in addition to the picked
+  // skill's native specs. The chip strip in `renderFeedPoolSelector`
+  // (downtime-form.js:4815) renders both native + interdisciplinary
+  // specs, so the calc must accept both for the inherited pool to match.
   let specBonus = 0;
   if (spec && bestSkillName) {
     const sk = char.skills?.[bestSkillName];
     const skillSpecs = sk?.specs || [];
-    if (skillSpecs.includes(spec) || hasAoE(char, spec)) {
+    const interdisciplinary = isSpecs(char).some(({ spec: s }) =>
+      String(s).toLowerCase() === String(spec).toLowerCase()
+    );
+    if (skillSpecs.includes(spec) || interdisciplinary || hasAoE(char, spec)) {
       specBonus = (sk?.nine_again || hasAoE(char, spec)) ? 2 : 1;
     }
   }
