@@ -20,7 +20,7 @@ import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
-import { meetsPrereq } from '../editor/merits.js';
+import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
@@ -3929,10 +3929,28 @@ function getItemsForCategory(category) {
         return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
       }
 
-      // Try rules cache first, fallback to MERITS_DB
+      // Try rules cache first, fallback to MERITS_DB.
+      // Issue #188 (2026-05-08): harmonised with the sheet's Merit Add
+      // picker (`buildMeritOptions` in editor/merits.js:271). The XP Spend
+      // picker previously called `meetsPrereq` only — the prereq filter
+      // was honoured but the picker still surfaced merits the player
+      // can't directly XP-purchase:
+      //   - Standing-subcategory merits (MCI / PT — gained via IC events,
+      //     not XP per dot)
+      //   - Structural sub-system merits (Style / Invictus Oath /
+      //     Carthian Law parents — bought via the fighting-style pool /
+      //     sub-system enrollment paths)
+      //   - Clan/covenant-excluded merits (via `isMeritExcluded`)
+      // Influence and domain merits ARE XP-purchasable directly per
+      // VtR 2e, so they REMAIN in the picker (they were correctly there).
+      // Already-owned merits that are now clan/covenant-excluded continue
+      // to surface for raising existing dots — silent-leave on legacy
+      // owned data, parallels `buildMeritOptions`'s allow-current escape.
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
+          if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+          if (rule.sub_category === 'standing') continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
@@ -3940,6 +3958,9 @@ function getItemsForCategory(category) {
           const max = rr ? rr[1] : 1;
           const currentDots = currentMeritDots(name);
           if (currentDots >= max) continue;
+          // Skip clan/covenant-excluded merits UNLESS the character already
+          // owns the merit (allow raising existing legacy dots).
+          if (isMeritExcluded(c, name) && currentDots === 0) continue;
 
           if (min === max) {
             items.push({
