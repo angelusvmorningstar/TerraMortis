@@ -19,9 +19,9 @@ import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as
 import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
+  // Issue #162 (2026-05-08): shEnsureTouchstoneData / shTouchstonePickerToggleCharacter
+  // / shTouchstonePickerSetMode dropped alongside the suppressed NPC picker UI.
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
-  shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
   shEditBP, shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanity, shEditHumanityXP, shEditHumanityLost,
   shStatusUp, shStatusDown,
@@ -1040,13 +1040,10 @@ Object.assign(window, {
   shEditBaneEffect,
   shRemoveBane,
   shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd,
   shTouchstoneStartEdit,
   shTouchstonePickerClose,
   shTouchstonePickerDraft,
-  shTouchstonePickerToggleCharacter,
-  shTouchstonePickerSetMode,
   shTouchstoneSaveAdd,
   shTouchstoneSaveEdit,
   shTouchstoneRemove,

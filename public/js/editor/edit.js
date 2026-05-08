@@ -152,38 +152,21 @@ export function anchorFor(c) {
 
 function _tsCap() { return 6; }
 
-export async function shEnsureTouchstoneData() {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (c._ts_loaded === true || c._ts_loaded === 'loading') return;
-  c._ts_loaded = 'loading';
-  try {
-    const npcs = await apiGet('/api/npcs');
-    c._ts_npcs = Array.isArray(npcs) ? npcs : [];
-    c._ts_loaded = true;
-  } catch (err) {
-    console.error('[touchstone] load error:', err);
-    c._ts_npcs = [];
-    c._ts_loaded = 'error';
-    c._ts_load_error = String(err?.message || err);
-  }
-  _renderSheet(c);
-}
+// Issue #162 (2026-05-08): shEnsureTouchstoneData removed. The Touchstone
+// editor no longer exposes the DB-relational NPC picker (broader NPC
+// suppression policy, Piatra 2026-05-06), so the /api/npcs preload that
+// fed `c._ts_npcs` / `c._ts_loaded` is dead. The export was previously
+// imported by sheet.js to kick off the load on every render-edit pass.
 
 export function shTouchstoneStartAdd() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
+  // Issue #162: draft slimmed to free-text shape only (Name + Description).
+  // The legacy is_character / pick_existing / npc_id / new_npc_* fields
+  // were tied to the suppressed NPC picker and are no longer initialised.
   c._ts_picker = {
     mode: 'add',
-    draft: {
-      is_character: false,
-      pick_existing: true,
-      name: '',
-      desc: '',
-      npc_id: '',
-      new_npc_name: '',
-      new_npc_desc: '',
-    },
+    draft: { name: '', desc: '' },
   };
   _tsClearError(c);
   _renderSheet(c);
@@ -217,21 +200,10 @@ export function shTouchstonePickerDraft(field, value) {
   c._ts_picker.draft[field] = value;
 }
 
-export function shTouchstonePickerToggleCharacter(on) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!c._ts_picker) return;
-  c._ts_picker.draft.is_character = !!on;
-  _renderSheet(c);
-}
-
-export function shTouchstonePickerSetMode(mode) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!c._ts_picker) return;
-  c._ts_picker.draft.pick_existing = mode === 'existing';
-  _renderSheet(c);
-}
+// Issue #162 (2026-05-08): shTouchstonePickerToggleCharacter and
+// shTouchstonePickerSetMode removed alongside the NPC picker UI they
+// drove. The picker no longer has an is_character toggle or
+// existing/create mode chips.
 
 export async function shTouchstoneSaveAdd() {
   if (state.editIdx < 0) return;
@@ -246,60 +218,19 @@ export async function shTouchstoneSaveAdd() {
   const draft = picker.draft;
   const charId = String(c._id);
 
-  let newEntry;
-  let newEdge = null;
-  let newNpc = null;
+  // Issue #162: NPC picker branch dropped — Touchstone is free-text only.
+  // The legacy DB-relational path (POST /api/npcs + POST /api/relationships)
+  // returned 4xx under the broader NPC suppression and blocked sheet save.
+  // Free-text shape: { humanity, name, desc }. Legacy entries with edge_id
+  // continue to render and edit; their edges sit dormant in relationships.
+  const name = String(draft.name || '').trim();
+  if (!name) { _tsSetError(c, 'Name is required.'); return; }
+  const newEntry = { humanity, name, desc: String(draft.desc || '') };
 
   try {
-    if (draft.is_character) {
-      let npcId, npcName;
-      if (draft.pick_existing) {
-        if (!draft.npc_id) { _tsSetError(c, 'Pick an NPC.'); return; }
-        npcId = String(draft.npc_id);
-        const npc = (c._ts_npcs || []).find(n => String(n._id) === npcId);
-        npcName = String(draft.name || npc?.name || '').trim();
-        if (!npcName) npcName = npc?.name || '(unnamed)';
-      } else {
-        const rawName = String(draft.new_npc_name || draft.name || '').trim();
-        if (!rawName) { _tsSetError(c, 'NPC name is required.'); return; }
-        newNpc = await apiPost('/api/npcs', {
-          name: rawName,
-          description: String(draft.new_npc_desc || '').trim(),
-          status: 'active',
-        });
-        c._ts_npcs = (c._ts_npcs || []).concat(newNpc);
-        npcId = String(newNpc._id);
-        npcName = rawName;
-      }
-
-      newEdge = await apiPost('/api/relationships', {
-        a: { type: 'pc', id: charId },
-        b: { type: 'npc', id: npcId },
-        kind: 'touchstone',
-        direction: 'a_to_b',
-        state: String(draft.desc || ''),
-        st_hidden: false,
-        touchstone_meta: { humanity },
-      });
-
-      newEntry = {
-        humanity,
-        name: npcName,
-        desc: String(draft.desc || ''),
-        edge_id: String(newEdge._id),
-      };
-    } else {
-      const name = String(draft.name || '').trim();
-      if (!name) { _tsSetError(c, 'Name is required.'); return; }
-      newEntry = { humanity, name, desc: String(draft.desc || '') };
-    }
-
     const nextTouchstones = existing.concat([newEntry]);
     await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
     c.touchstones = nextTouchstones;
-    // Surface the resolved name client-side so the slot renders immediately
-    // without waiting for the next GET enrichment.
-    if (newEntry.edge_id) newEntry._npc_name = newEntry.name;
     delete c._ts_picker;
     _renderSheet(c);
   } catch (err) {

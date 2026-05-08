@@ -14,7 +14,9 @@ import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
-import { shEnsureTouchstoneData } from './edit.js';
+// Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
+// Touchstone editor no longer needs the NPC list (DB-relational picker
+// removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
@@ -272,10 +274,9 @@ export function renderTouchstones(c, editMode) {
     return expRow('touchstones', 'Touchstones', '', rows);
   }
 
-  // Edit mode — kick off NPC load (used by Add-picker).
-  if (c._ts_loaded !== true && c._ts_loaded !== 'error' && c._ts_loaded !== 'loading') {
-    shEnsureTouchstoneData();
-  }
+  // Issue #162: NPC pre-load dropped — Touchstone editor no longer
+  // exposes the DB-relational NPC picker. Free-text Name + Description
+  // only.
 
   const picker = c._ts_picker;
   let h = '<div class="sh-touchstones-edit">';
@@ -331,65 +332,26 @@ export function renderTouchstones(c, editMode) {
 function renderTouchstoneAddForm(c, anchor, existingCount) {
   const draft = c._ts_picker.draft;
   const humanity = anchor - existingCount;
-  const npcsLoading = c._ts_loaded !== true;
-  const linkedNpcIds = new Set(
-    (c.touchstones || []).map(t => t.edge_id ? String(t._npc_id || '') : null).filter(Boolean)
-  );
-  const npcs = (c._ts_npcs || [])
-    .filter(n => n.status === 'active' || n.status === 'pending')
-    .filter(n => !linkedNpcIds.has(String(n._id)))
-    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
+  // Issue #162 (2026-05-08): NPC selector removed from the Touchstone editor
+  // per the broader NPC-suppression policy (Piatra 2026-05-06). The
+  // 'is_character' branch (Pick existing NPC / Create new NPC) was a
+  // DB-relational picker that POSTed to /api/relationships to create an
+  // edge — that endpoint flow no longer round-trips cleanly under the
+  // suppression sweep, returning 4xx and blocking sheet save. Touchstone
+  // is now free-text only (Name + optional Description), categorically a
+  // typed-string input — same shape dt-form.18 used for the Personal
+  // Story person field. Legacy touchstones carrying `edge_id` continue
+  // to render and edit by name + desc; their edges sit dormant in the
+  // relationships collection (silent-leave per A1 precedent).
   let h = '<div class="sh-ts-picker">';
   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
-
-  h += '<label class="sh-ts-picker-check">';
-  h += '<input type="checkbox"' + (draft.is_character ? ' checked' : '')
-    + ' onchange="shTouchstonePickerToggleCharacter(this.checked)"> ';
-  h += '<span>This touchstone is a character (link or create an NPC)</span>';
-  h += '</label>';
-
-  if (!draft.is_character) {
-    h += '<label class="sh-ts-picker-field"><span>Name *</span>'
-      + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch" value="'
-      + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
-    h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
-      + '<input class="sh-edit-input" placeholder="Why it matters" value="'
-      + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-  } else {
-    h += '<div class="sh-ts-picker-mode-chips">';
-    h += '<button type="button" class="sh-ts-slot-btn' + (draft.pick_existing ? ' primary' : '')
-      + '" onclick="shTouchstonePickerSetMode(&#39;existing&#39;)">Pick existing NPC</button>';
-    h += '<button type="button" class="sh-ts-slot-btn' + (!draft.pick_existing ? ' primary' : '')
-      + '" onclick="shTouchstonePickerSetMode(&#39;create&#39;)">Create new NPC</button>';
-    h += '</div>';
-
-    if (draft.pick_existing) {
-      if (npcsLoading) {
-        h += '<div class="sh-ts-picker-loading">Loading NPCs…</div>';
-      } else {
-        const opts = npcs.map(n => '<option value="' + esc(String(n._id)) + '"'
-          + (String(draft.npc_id || '') === String(n._id) ? ' selected' : '') + '>'
-          + esc(n.name || '(unnamed)') + '</option>').join('');
-        h += '<label class="sh-ts-picker-field"><span>NPC *</span>'
-          + '<select class="sh-edit-select" onchange="shTouchstonePickerDraft(&#39;npc_id&#39;, this.value)">'
-          + '<option value="">(pick an NPC)</option>' + opts + '</select></label>';
-      }
-      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
-        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
-        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-    } else {
-      h += '<label class="sh-ts-picker-field"><span>NPC name *</span>'
-        + '<input class="sh-edit-input" placeholder="Full NPC name" value="'
-        + esc(draft.new_npc_name || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_name&#39;, this.value)"></label>';
-      h += '<label class="sh-ts-picker-field"><span>NPC description (for the register)</span>'
-        + '<input class="sh-edit-input" placeholder="Short description" value="'
-        + esc(draft.new_npc_desc || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_desc&#39;, this.value)"></label>';
-      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
-        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
-        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-    }
-  }
+  h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+    + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch or person&#39;s name" value="'
+    + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+  h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
+    + '<input class="sh-edit-input" placeholder="Why it matters" value="'
+    + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
 
   h += '<div class="sh-ts-picker-actions">';
   h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveAdd()">Save</button>';
