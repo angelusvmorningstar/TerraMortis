@@ -37,7 +37,6 @@ import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
   shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
@@ -1165,7 +1164,6 @@ Object.assign(window, {
   markDirty, printSheet,
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
   shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
