@@ -2757,6 +2757,67 @@ function buildProcessingQueue(subs) {
       meritFlatIdx++;
     });
 
+    // Audit #198 / Issue #202 — Mentor + Staff surfaces (PR #137 / dt-form.28)
+    // were entirely invisible on the admin side. Mirror the per-slot loop the
+    // contacts + retainers blocks use, reading the form's mentor_${n}_* and
+    // staff_${n}_* response keys. Mentor mirrors Retainer (per-merit, directed
+    // action — phase 12); Staff mirrors Contacts (per-dot, tasked action —
+    // phase 11). Description composes the merit label + resolved target name +
+    // task so the ST sees who the action is directed at without drilling into
+    // the raw response. Bound to 10 / 20 slots to cover any realistic dot
+    // total.
+    const _resolveTargetName = (id) => {
+      if (!id) return '';
+      const c = characters.find(ch => String(ch._id) === String(id));
+      return c ? displayName(c) : '';
+    };
+    const _composeDirectedDesc = (meritLabel, targetName, task) => {
+      const head = [meritLabel, targetName].filter(Boolean).join(' — ');
+      return [head, task].filter(Boolean).join(': ');
+    };
+    for (let n = 1; n <= 10; n++) {
+      const task    = resp[`mentor_${n}_task`];
+      const target  = resp[`mentor_${n}_target`];
+      const meritLb = resp[`mentor_${n}_merit`];
+      if (!task && !target) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
+        actionType: 'resources_retainers',
+        label: 'Mentor: Directed Action',
+        description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
+        source: 'merit',
+        meritCategory: 'mentor',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+    for (let n = 1; n <= 20; n++) {
+      const task    = resp[`staff_${n}_task`];
+      const target  = resp[`staff_${n}_target`];
+      const meritLb = resp[`staff_${n}_merit`];
+      if (!task && !target) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[11],
+        phaseNum: 11,
+        actionType: 'contacts',
+        label: 'Staff: Tasked Action',
+        description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
+        source: 'merit',
+        meritCategory: 'staff',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+
     // ── Acquisitions (resource and skill, from raw.acquisitions form section) ──
     const resAcq   = (raw.acquisitions?.resource_acquisitions || '').trim();
     const skillAcq = (raw.acquisitions?.skill_acquisitions   || '').trim();
