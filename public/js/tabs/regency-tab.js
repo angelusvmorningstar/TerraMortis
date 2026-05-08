@@ -141,8 +141,18 @@ function render(container) {
     id => id !== regentId && (!ltId || id !== ltId)
   );
 
-  // Render slots from loopStart; show any existing over-cap entries too
-  const loopEnd = Math.max(cap, loopStart + additionalRights.length - 1);
+  // Issue #159 (2026-05-08): cap is a SOFT warning, not a hard gate. Per
+  // the rules, exceeding the cap is permitted with a mechanical penalty
+  // surfaced via the existing `.dt-over-cap` row treatment + 'Over
+  // capacity' chip. The render must always provide a trailing empty slot
+  // beyond the current filled count so the regent can add a fresh
+  // resident — including past the cap into over-capacity territory.
+  // Cap-allowed slots within cap stay visible (so the regent sees the
+  // unfilled cap slots even before any rights are added).
+  const filledCount = additionalRights.length;
+  const minWithinCap = Math.max(0, cap - (loopStart - 1));
+  const desiredAdditionals = Math.max(minWithinCap, filledCount + 1);
+  const loopEnd = Math.min(loopStart + desiredAdditionals - 1, MAX_FEEDING_POSITION);
 
   // dt-form.16: publish source list to the universal char picker (ADR-003 §Q6).
   setCharPickerSources({
@@ -175,7 +185,7 @@ function render(container) {
 
   h += `<h3 class="regency-title">Regency: ${esc(terrName)}</h3>`;
   h += `<p class="regency-meta">Ambience: ${esc(ambience)} — Feeding rights cap: ${cap}</p>`;
-  h += `<p class="regency-desc">Grant feeding rights for your territory. Slots beyond the cap are highlighted as over-capacity.</p>`;
+  h += `<p class="regency-desc">Grant feeding rights for your territory. The cap is a soft warning — you can grant rights beyond it, but residents in over-capacity slots feed under a mechanical penalty per the rules. The ST adjudicates the penalty when feeding rolls resolve.</p>`;
 
   h += '<div class="dt-residency-grid">';
 
@@ -223,7 +233,7 @@ function render(container) {
          + ` data-cp-initial="${initialJson}"`
          + ` data-cp-placeholder="Pick a feeding right"></div>`;
     }
-    if (overCap) h += '<span class="dt-over-cap-warn">Over capacity</span>';
+    if (overCap) h += '<span class="dt-over-cap-warn" title="This slot exceeds the territory feeding-rights cap. The resident feeds under a mechanical penalty (ST adjudicates).">Over cap — penalty applies</span>';
     h += '</div>';
   }
 
