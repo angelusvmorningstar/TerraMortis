@@ -1392,6 +1392,30 @@ function renderPlayerResponses(s) {
     h += '</div>';
   }
 
+  // ── Personal Story ──
+  // Issue #208 / audit #195 — dt-form.18's Touchstone-or-Correspondence
+  // narrative was form-write-only. Form persists: personal_story_kind
+  // ('touchstone' | 'correspondence'), personal_story_npc_name (free
+  // text), personal_story_text (narrative body), story_moment_note
+  // (additional note). All four were dropped on the admin floor — the
+  // ST had no visibility into what the player wrote here.
+  const psKind    = r['personal_story_kind']     || '';
+  const psNpcName = r['personal_story_npc_name'] || '';
+  const psText    = r['personal_story_text']     || '';
+  const psMomentNote = r['story_moment_note']    || '';
+  if (psKind || psText || psNpcName || psMomentNote) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Personal Story</div>';
+    if (psKind) {
+      const kindLabel = psKind === 'touchstone' ? 'Touchstone Vignette'
+                      : psKind === 'correspondence' ? 'Correspondence' : psKind;
+      h += row('Kind', kindLabel);
+    }
+    if (psNpcName) h += row('Person involved', psNpcName);
+    if (psText)    h += row('Narrative', psText);
+    if (psMomentNote) h += row('Moment note', psMomentNote);
+    h += '</div>';
+  }
+
   // ── Projects ──
   const projRows = [];
   for (let n = 1; n <= 4; n++) {
