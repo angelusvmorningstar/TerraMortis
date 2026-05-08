@@ -276,9 +276,16 @@ function detectMerits() {
   detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Allies'
   ));
+  // Issue #194 (2026-05-08): the standing-merit name is canonically
+  // 'Mystery Cult Initiation' across the codebase (sheet, editor, admin,
+  // audit). Filtering on 'MCI' here meant any character whose MCI was
+  // stored under the canonical name (i.e. all of them) had an empty
+  // detectedMerits.status array, so the Status block never rendered and
+  // the 'Grow' action — required to raise Status above 3 dots — was
+  // unreachable. Reproduced for Keeper.
   detectedMerits.status = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && m.name === 'Status'
-  )).concat(merits.filter(m => m.category === 'standing' && m.name === 'MCI'));
+  )).concat(merits.filter(m => m.category === 'standing' && m.name === 'Mystery Cult Initiation'));
   // Contacts: expand spheres array into individual entries for toggle rendering
   const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
@@ -5699,7 +5706,7 @@ function renderMeritToggles(saved) {
       const label = actionVal ? (ACTION_SHORT[actionVal] || actionVal) : 'No Action';
       const active = n === 1 ? ' dt-proj-tab-active' : '';
       const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-      const baseLabel = m.name === 'MCI' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
+      const baseLabel = m.name === 'Mystery Cult Initiation' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
         (m.qualifier || m.area ? `Status (${m.qualifier || m.area})` : 'Broad Status');
       // Issue #190 (2026-05-08): append the character's dot rating so the
       // tab title reads "MCI ●●●" / "Status (Police) ●●●●". Uses the
