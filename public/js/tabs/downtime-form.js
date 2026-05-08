@@ -625,12 +625,18 @@ function collectResponses() {
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
+    // Issue #170 (2026-05-08): gate target_* writes on element presence
+    // (Lesson #105 silent-leave). When a slot's action doesn't render the
+    // target_* hidden inputs (e.g. action changed away from maintenance),
+    // the prior value persists on the spread base instead of being clobbered
+    // with empty. Action-change handlers that DO need to clear targets can
+    // do so explicitly via the canonical-first state write pattern.
     const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
-    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    if (targetValueEl) responses[`project_${n}_target_value`] = targetValueEl.value;
     const targetTerrEl = document.getElementById(`dt-project_${n}_target_terr`);
-    responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
+    if (targetTerrEl) responses[`project_${n}_target_terr`] = targetTerrEl.value;
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
-    responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
+    if (targetOtherEl) responses[`project_${n}_target_other`] = targetOtherEl.value;
     // dt-form.25: legacy `_ambience_dir` radio collect dropped (drop-the-
     // iteration shape per Ma'at #127 praise). The new row-table writes
     // `_ambience_target` + `_ambience_direction` directly via the hidden
@@ -2799,21 +2805,30 @@ function renderForm(container) {
     // [data-npc-pick] is rendered anywhere now.
     // dt-form.16: target character chip handler removed — universal charPicker
     // mounted in renderTargetCharOrOther handles its own selection lifecycle.
-    // Maintenance merit chip — single-select, writes to hidden target_value input
+    // Maintenance merit chip — single-select, writes to hidden target_value input.
+    // Issue #170 (2026-05-08): hardened with canonical-first state writes +
+    // re-render so SIBLING slots' chip availability re-evaluates immediately.
+    // Previously the handler only mutated the local DOM; sibling slots couldn't
+    // see the new selection until something else triggered a render, leaving
+    // their disabled-chip state stale across add/remove/re-add cycles.
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
       const mPrefix = maintChip.dataset.maintenancePrefix || 'project';
       const targetId = maintChip.dataset.targetId;
+      const key = `${mPrefix}_${slotNum}_target_value`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const wasSelected = baseResponses[key] === targetId;
+      const next = wasSelected ? '' : targetId;
+      // Canonical-first write — mirrors the spec-chip pattern (#164) and
+      // mode-pill / ambience-arrow handlers. Sibling slots reading
+      // `responses.project_*_target_value` see the new state on re-render.
+      const nextResponses = { ...baseResponses, [key]: next };
       const hidden = document.getElementById(`dt-${mPrefix}_${slotNum}_target_value`);
-      const wasSelected = maintChip.classList.contains('dt-chip--selected');
-      container.querySelectorAll(`[data-maintenance-target="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
-      if (!wasSelected) {
-        maintChip.classList.add('dt-chip--selected');
-        if (hidden) hidden.value = targetId;
-      } else {
-        if (hidden) hidden.value = '';
-      }
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
       scheduleSave();
       return;
     }
@@ -3417,10 +3432,20 @@ function renderProjectSlots(saved, mode = 'advanced') {
     h += '<div class="dt-action-block">';
 
     // Action type selector — always visible
+    // Issue #167 (2026-05-08): ROTE is single-instance per cycle. If any
+    // sibling slot already holds 'rote', filter it out of THIS slot's
+    // dropdown (unless this slot itself is currently 'rote', so the user
+    // can still see + change/clear their existing selection). Legacy
+    // submissions with multiple ROTE entries continue to load — each slot
+    // showing 'rote' keeps it as a selectable option, but no new slot can
+    // pick a fresh 'rote' while one already exists.
+    const slotActions = siblingHasAction(saved, n, 'rote') && actionVal !== 'rote'
+      ? availableActions.filter(opt => opt.value !== 'rote')
+      : availableActions;
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
     h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
-    for (const opt of availableActions) {
+    for (const opt of slotActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
@@ -4930,6 +4955,26 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
     }
   }
   return maintained;
+}
+
+/**
+ * Issue #167 + #170 (2026-05-08): walk sibling project slots and report
+ * which actions are claimed elsewhere. Used by:
+ *   - #167 ROTE single-instance — `siblingHasAction(saved, n, 'rote')`
+ *     filters 'rote' out of the action-type dropdown
+ *   - #170 Maintenance pill exclusion — `getAlreadyMaintainedTargets`
+ *     above already does this for maintenance specifically; this helper
+ *     gives consumers a general way to ask "does any sibling slot have
+ *     action X?" without re-walking the slot map.
+ *
+ * Reads from the canonical `responses` object — no DOM dependency.
+ */
+function siblingHasAction(saved, currentSlot, action, maxSlots = 4) {
+  for (let k = 1; k <= maxSlots; k++) {
+    if (k === currentSlot) continue;
+    if (saved[`project_${k}_action`] === action) return true;
+  }
+  return false;
 }
 
 /** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
