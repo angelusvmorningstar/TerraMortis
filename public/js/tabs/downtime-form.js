@@ -1188,7 +1188,15 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   currentChar = char;
   try {
     const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
-    currentChar = fresh;
+    // Issue #184 (2026-05-08): merge server data over the cached `char`
+    // object instead of replacing the reference wholesale. `_gameXP` (set
+    // by loadGameXP() before the form opens) and any other underscore-
+    // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
+    // API response doesn't carry them — wholesale `currentChar = fresh`
+    // would silently zero out xpGame() and short xpEarned()/xpLeft() by
+    // the full game-XP total. Mirrors the existing admin.js:548 pattern.
+    Object.assign(char, fresh);
+    currentChar = char;
   } catch { /* silent — stale char is better than a broken form */ }
   if (currentChar) applyDerivedMerits(currentChar);
   _territories = territories || [];
