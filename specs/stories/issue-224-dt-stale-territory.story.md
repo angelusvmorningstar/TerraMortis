@@ -177,18 +177,21 @@ If the test proves too complex to isolate cleanly within the existing test infra
 - `apiGet` already imported in downtime-form.js at line 12; no new imports needed.
 - Test requires mocking 18 browser-only modules before dynamic import; vi.mock hoisting handles this correctly.
 - All 3 new tests pass; 34 existing territory API tests still pass.
+- QA follow-up: api-territories.test.js had no tests for regent_id/lieutenant_id persistence via POST; added api-territories-regent-save.test.js (4 tests) covering that gap and the GET fresh-fetch roundtrip.
 
 ### Completion Notes
 
 - **Task 1**: `renderDowntimeTab` (downtime-form.js) now fetches `/api/territories` fresh on every call, using the `territories` parameter only as a silent fallback on network failure. Mirrors the existing character-refresh pattern at lines 1195-1198.
 - **Task 2**: `saveTerritory` (city-views.js) now calls `invalidateCachedTerritories()` after updating the local `terrDocs` cache, matching the pattern already used in `saveTerrAmbience`. This ensures the ST processing view (downtime-views.js) refetches on next render.
 - **Task 3**: 3 Vitest tests added in `server/tests/dt-form-territory-fresh-fetch.test.js` verifying apiGet('/api/territories') is called during renderDowntimeTab, regardless of the parameter passed in.
+- **QA**: 4 API tests added in `server/tests/api-territories-regent-save.test.js` covering the AC-1 data contract: POST persists regent_id/lieutenant_id, clears to null, and GET returns updated values for the fresh-fetch path.
 
 ### File List
 
 - `public/js/tabs/downtime-form.js` — modified (Task 1: territory fresh-fetch)
 - `public/js/admin/city-views.js` — modified (Task 2: invalidateCachedTerritories call)
 - `server/tests/dt-form-territory-fresh-fetch.test.js` — new (Task 3: unit test for AC-2)
+- `server/tests/api-territories-regent-save.test.js` — new (QA: API data-contract tests for AC-1)
 - `specs/stories/issue-224-dt-stale-territory.story.md` — this file
 
 ### Change Log
@@ -196,3 +199,4 @@ If the test proves too complex to isolate cleanly within the existing test infra
 - 2026-05-08: Task 1 — renderDowntimeTab fetches /api/territories fresh on render (downtime-form.js)
 - 2026-05-08: Task 2 — saveTerritory calls invalidateCachedTerritories() after local cache update (city-views.js)
 - 2026-05-08: Task 3 — Added 3 unit tests verifying territory fresh-fetch behaviour (dt-form-territory-fresh-fetch.test.js)
+- 2026-05-08: QA — Added 4 API tests for regent_id/lieutenant_id POST persistence and GET roundtrip (api-territories-regent-save.test.js)
