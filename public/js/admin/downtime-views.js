@@ -830,7 +830,7 @@ export function matchSubmission(sub) {
   return { character: char, warnings };
 }
 
-function buildFeedingPool(char, methodId, ambienceMod) {
+function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   if (!char) return null;
   const method = FEED_METHODS_DATA.find(m => m.id === methodId);
   if (!method) return null;
@@ -848,17 +848,53 @@ function buildFeedingPool(char, methodId, ambienceMod) {
     if (v > bestSkill) { bestSkill = v; bestSkillName = s; }
   }
 
+  // Issue #197 — discipline contribution. Prefer the player's chosen
+  // `_feed_disc` if it is in the method's allowed set; otherwise auto-pick
+  // the highest-dot discipline from the method allowlist (mirrors the
+  // canonical computeBestFeedingPool in data/feeding-pool.js so player /
+  // ST views agree). Pre-fix, the breakdown skipped disc entirely so the
+  // discipline component never surfaced in the admin pool readout.
+  let bestDisc = 0, bestDiscName = '';
+  const playerDisc = picks.disc || '';
+  if (playerDisc && method.discs.includes(playerDisc)) {
+    bestDiscName = playerDisc;
+    bestDisc = char.disciplines?.[playerDisc]?.dots || 0;
+  } else {
+    for (const d of method.discs) {
+      const v = char.disciplines?.[d]?.dots || 0;
+      if (v > bestDisc) { bestDisc = v; bestDiscName = d; }
+    }
+  }
+
+  // Spec bonus: +2 if Area-of-Expertise / nine-again, +1 otherwise. Only
+  // counts when the player's picked spec is on the method-derived best
+  // skill (matches feeding-pool.js).
+  let specBonus = 0;
+  const playerSpec = picks.spec || '';
+  if (playerSpec && bestSkillName) {
+    const sk = char.skills?.[bestSkillName];
+    if (sk?.specs?.includes(playerSpec)) {
+      specBonus = (sk.nine_again || hasAoE(char, playerSpec)) ? 2 : 1;
+    }
+  }
+
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
-  const total = Math.max(0, bestAttr + bestSkill + fgVal + amb + unskilled);
+  const total = Math.max(0, bestAttr + bestSkill + bestDisc + fgVal + amb + unskilled + specBonus);
 
   return {
     total,
-    breakdown: { attr: bestAttrName, attrVal: bestAttr, skill: bestSkillName, skillVal: bestSkill, fg: fgVal, ambience: amb, unskilled },
+    breakdown: {
+      attr: bestAttrName, attrVal: bestAttr,
+      skill: bestSkillName, skillVal: bestSkill,
+      disc: bestDiscName, discVal: bestDisc,
+      spec: playerSpec, specBonus,
+      fg: fgVal, ambience: amb, unskilled,
+    },
   };
 }
 
@@ -1180,7 +1216,11 @@ function renderFeedingDetail(s, raw, char) {
   if (char) {
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Hunt method</span>';
     h += '<div class="dt-method-btns">';
-    const selectedMethod = s._feed_method || '';
+    // Issue #197 — read from `responses`, not the doc root. Pre-fix this
+    // read missed every submission's method choice (form writes to
+    // responses._feed_method per downtime-form.js:407), so the method-button
+    // selection never highlighted and the pool breakdown branch never fired.
+    const selectedMethod = s.responses?._feed_method || '';
     FEED_METHODS_DATA.forEach(m => {
       h += `<button class="dt-method-btn${selectedMethod === m.id ? ' selected' : ''}" data-method="${m.id}" data-sub-id="${s._id}">${esc(m.name)}</button>`;
     });
@@ -1189,28 +1229,69 @@ function renderFeedingDetail(s, raw, char) {
     // Show pool breakdown if method selected
     if (selectedMethod) {
       const stMod = s.st_review?.feeding_modifier || 0;
-      const pool = buildFeedingPool(char, selectedMethod, stMod);
-      if (pool) {
-        const bd = pool.breakdown;
-        h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
-        h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
-        if (bd.fg) h += ` + ${bd.fg} FG`;
-        if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
-        if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
-        h += ` = <b>${pool.total}</b></span>`;
-        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl">Mod</label> <input type="number" class="dt-pool-mod dt-num-input-sm" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1"></span>`;
-        h += '</div>';
+      const playerDisc = s.responses?._feed_disc || '';
+      const playerSpec = s.responses?._feed_spec || '';
+      // 'other' method: not in FEED_METHODS_DATA, so buildFeedingPool returns
+      // null. Render the player's custom pool components directly, mirroring
+      // the action-queue's handling of the 'other' branch.
+      if (selectedMethod === 'other') {
+        const customAttr  = s.responses?._feed_custom_attr  || '';
+        const customSkill = s.responses?._feed_custom_skill || '';
+        const customDisc  = s.responses?._feed_custom_disc  || playerDisc || '';
+        const parts = [customAttr, customSkill, customDisc].filter(Boolean);
+        if (parts.length) {
+          h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+          h += `<span class="dt-pool-breakdown">${esc(parts.join(' + '))}`;
+          if (playerSpec) h += ` (+${esc(playerSpec)})`;
+          h += ` <span class="dt-feed-other-tag">(custom \u2014 'other' method)</span></span>`;
+          h += '</div>';
+        }
+      } else {
+        const pool = buildFeedingPool(char, selectedMethod, stMod, { disc: playerDisc, spec: playerSpec });
+        if (pool) {
+          const bd = pool.breakdown;
+          h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+          h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
+          if (bd.discVal) h += ` + ${bd.discVal} ${esc(bd.disc)}`;
+          if (bd.specBonus) h += ` + ${bd.specBonus} ${esc(bd.spec)}`;
+          if (bd.fg) h += ` + ${bd.fg} FG`;
+          if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
+          if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
+          h += ` = <b>${pool.total}</b></span>`;
+          h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl">Mod</label> <input type="number" class="dt-pool-mod dt-num-input-sm" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1"></span>`;
+          h += '</div>';
+        }
       }
     }
 
-    // Rote toggle — shown when a project action was dedicated to feeding
-    const hasFeedAction = [1,2,3,4].some(n => s.responses?.[`project_${n}_action`] === 'feed');
+    // Rote toggle — shown when a project action was dedicated to rote feeding.
+    // dt-form.22 made ROTE a per-slot project action (`action === 'rote'`);
+    // legacy `'feed'` is kept for back-compat with pre-redesign drafts.
+    const hasFeedAction = [1,2,3,4].some(n => {
+      const a = s.responses?.[`project_${n}_action`];
+      return a === 'rote' || a === 'feed';
+    });
     const isRote = s.st_review?.feeding_rote || false;
     h += `<div class="dt-feed-row"><span class="dt-feed-lbl">Rote</span>`;
     h += `<label class="dt-rote-label"><input type="checkbox" class="dt-feed-rote-chk" data-sub-id="${s._id}"${isRote ? ' checked' : ''}>`;
     h += ` Rote quality`;
-    if (hasFeedAction) h += ` <span class="dt-rote-hint">(feed action detected)</span>`;
+    if (hasFeedAction) h += ` <span class="dt-rote-hint">(rote action detected)</span>`;
     h += `</label></div>`;
+
+    // Issue #197 / audit #198 — surface the player's per-territory rote
+    // feeding intent. Form writes `feeding_territories_rote` JSON when any
+    // project slot is a rote action (downtime-form.js:446); admin previously
+    // never read this key, so the player's rote-feed territory choices were
+    // dropped on the floor.
+    try {
+      const roteTerrs = JSON.parse(s.responses?.feeding_territories_rote || '{}');
+      const activeRote = Object.entries(roteTerrs).filter(([, v]) => v && v !== 'none');
+      if (activeRote.length) {
+        h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Rote territories</span>';
+        h += activeRote.map(([t, status]) => `<span class="dt-sub-tag">${esc(t.replace(/_/g, ' '))}: ${esc(status)}</span>`).join(' ');
+        h += '</div>';
+      }
+    } catch { /* ignore malformed JSON */ }
   } else {
     // Manual pool for unmatched characters
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
@@ -1257,17 +1338,31 @@ function renderPlayerResponses(s) {
   const feedDesc = r['feeding_description'];
   const feedDisc = r['_feed_disc'];
   const feedSpec = r['_feed_spec'];
-  const feedRote = r['_feed_rote'] === 'yes';
+  // Issue #197 / audit #198 — `_feed_rote` was dropped by dt-form.22 (legacy
+  // key, no longer written). Derive rote presence from project actions
+  // (`action === 'rote'` is the post-redesign indicator; `'feed'` is the
+  // back-compat alias) instead of reading the orphan key.
+  const feedRote = [1,2,3,4].some(n => {
+    const a = r[`project_${n}_action`];
+    return a === 'rote' || a === 'feed';
+  });
   if (feedMethod) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Feeding</div>';
     h += row('Method', FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod);
     if (feedDisc) h += row('Discipline', feedDisc);
     if (feedSpec) h += row('Specialisation', feedSpec);
-    if (feedRote) h += row('Rote action', 'Yes — Project 1 dedicated to feeding');
+    if (feedRote) h += row('Rote action', 'Yes — project slot dedicated to rote feeding');
     try {
       const terrs = JSON.parse(r['feeding_territories'] || '{}');
       const active = Object.entries(terrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
       if (active) h += row('Territory', active);
+    } catch { /* ignore */ }
+    // Surface rote-feed territory choices (form writes `feeding_territories_rote`
+    // when any project slot is a rote action; previously never read by admin).
+    try {
+      const roteTerrs = JSON.parse(r['feeding_territories_rote'] || '{}');
+      const activeRote = Object.entries(roteTerrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (activeRote) h += row('Rote territory', activeRote);
     } catch { /* ignore */ }
     if (feedDesc) h += row('Description', feedDesc);
     h += '</div>';
@@ -2464,7 +2559,17 @@ function buildProcessingQueue(subs) {
       const feedCustomDisc  = resp['_feed_custom_disc']  || '';
       const feedDesc        = sub._raw?.feeding?.method || resp['feeding_description'] || '';
       const feedSpec        = resp['_feed_spec']   || '';
-      const feedRote        = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
+      // Issue #197 / audit #198 — `_feed_rote` was dropped by dt-form.22.
+      // Derive rote presence from any project slot's action being `'rote'`
+      // (or legacy `'feed'`) instead of reading the orphan key. ST review
+      // override remains canonical (st_review.feeding_rote takes precedence
+      // when explicitly set by the ST).
+      const feedRote        = sub.st_review?.feeding_rote
+                              || [1,2,3,4].some(n => {
+                                   const a = resp[`project_${n}_action`];
+                                   return a === 'rote' || a === 'feed';
+                                 })
+                              || false;
       let   feedTerrs   = {};
       try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
       const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'feeding_rights' || feedTerrs[k] === 'resident')
