@@ -2758,6 +2758,43 @@ function buildProcessingQueue(subs) {
         ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
         : (resp[`project_${slot}_territory`] || '');
 
+      // Issue #210 — resolve the player's target picker selection into a
+      // human-readable string. Form's structured shape (downtime-form.js
+      // renderTargetCharOrOther:5215+) writes:
+      //   _target_type:  'character' | 'territory' | 'own_merit' | 'other'
+      //   _target_value: charId (when type=character) | merit_key
+      //                  ('Name|qualifier', when type=own_merit) | ''
+      //   _target_terr:  territory slug (when type=territory)
+      //   _target_other: free-text description (when type=other)
+      // Pre-fix all four were silently dropped on the admin floor.
+      const _targetType  = resp[`project_${slot}_target_type`]  || '';
+      const _targetValue = resp[`project_${slot}_target_value`] || '';
+      const _targetTerr  = resp[`project_${slot}_target_terr`]  || '';
+      const _targetOther = resp[`project_${slot}_target_other`] || '';
+      let _projTarget = '';
+      if (_targetType === 'character' && _targetValue) {
+        // Backward-compat: pre-DTFP-6 drafts stored char IDs as JSON arrays.
+        let charId = _targetValue;
+        if (charId.startsWith('[')) {
+          try {
+            const arr = JSON.parse(charId);
+            charId = Array.isArray(arr) && arr.length ? String(arr[0]) : '';
+          } catch { charId = ''; }
+        }
+        if (charId) {
+          const c = characters.find(ch => String(ch._id) === String(charId));
+          _projTarget = c ? `Character: ${displayName(c)}` : `Character: ${charId} (unresolved)`;
+        }
+      } else if (_targetType === 'territory' && _targetTerr) {
+        _projTarget = `Territory: ${_targetTerr}`;
+      } else if (_targetType === 'own_merit' && _targetValue) {
+        // merit_key is `'Name|qualifier'` — split for readability.
+        const [mName, mQual] = _targetValue.split('|');
+        _projTarget = `Own merit: ${mQual ? `${mName} (${mQual})` : mName}`;
+      } else if (_targetType === 'other' && _targetOther) {
+        _projTarget = `Other: ${_targetOther}`;
+      }
+
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2778,6 +2815,7 @@ function buildProcessingQueue(subs) {
         projCast:        projCastResolved,
         projMerits:      projMeritsResolved,
         projTerritory:   _projTerritory,
+        projTarget:      _projTarget,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -7485,6 +7523,7 @@ function renderActionPanel(entry, review) {
       if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
       if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (entry.projTarget) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.projTarget)}</div>`;
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
       if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
