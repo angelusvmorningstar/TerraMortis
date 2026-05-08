@@ -4745,12 +4745,21 @@ function renderAcquisitionsSection(saved) {
   h += '</div>';
 
   // ── Skills sub-table ──
+  // Issue #187 (2026-05-08): Skill Acquisitions is a fixed single-row
+  // section per the rules (only one skill can be acquired per cycle this
+  // way). The repeating-row affordance was misleading. Render row 0 only;
+  // no Add button, no Remove button (the `isOnly=true` flag suppresses
+  // the per-row remove already). Resources Acquisitions above keeps its
+  // Add affordance (resources can have multiple).
+  // Persistence shape unchanged: `responses.acq_skill_rows` is still a
+  // JSON array (now always length 1). Mirror keys (skill_acq_*) read
+  // from row 0 (line 919-923) — no change required there. Multi-row
+  // legacy data on the spread base prunes to row 0 on next save (per
+  // A1 silent-leave; no real users have submitted skill multi-rows).
   h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
   h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
-  for (let i = 0; i < skillRows.length; i++) {
-    h += _renderSkillRow(i, skillRows[i], charMerits, c, skSkills, skillRows.length === 1);
-  }
-  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="skill">+ Add Skill Item</button>';
+  const skillRow0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
+  h += _renderSkillRow(0, skillRow0, charMerits, c, skSkills, true);
   h += '</div>';
 
   h += '</div></div>'; // section-body, section
@@ -5142,11 +5151,16 @@ function renderOutcomeZone(n, actionVal, saved) {
   }
 
   if (actionVal === 'misc') {
+    // Issue #186 (2026-05-08): Desired Outcome was a single-line input —
+    // converted to textarea so the player can break their goal across
+    // multiple paragraphs / returns. Persistence key unchanged
+    // (`responses.project_${n}_outcome`); the existing collect path at
+    // line 565-571 reads `outcomeEl.value` regardless of element type.
     return `<div class="qf-field">` +
       `<label class="qf-label" for="dt-project_${n}_outcome">Desired Outcome</label>` +
-      `<input type="text" id="dt-project_${n}_outcome" class="qf-input" data-proj-outcome="${n}" ` +
-      `placeholder="${esc('State the goal of this project, aiming to achieve one clear thing.')}" ` +
-      `value="${esc(savedOutcome)}">` +
+      `<textarea id="dt-project_${n}_outcome" class="qf-textarea" rows="3" data-proj-outcome="${n}" ` +
+      `placeholder="${esc('State the goal of this project, aiming to achieve one clear thing.')}">` +
+      `${esc(savedOutcome)}</textarea>` +
       `</div>`;
   }
 
@@ -5685,8 +5699,16 @@ function renderMeritToggles(saved) {
       const label = actionVal ? (ACTION_SHORT[actionVal] || actionVal) : 'No Action';
       const active = n === 1 ? ' dt-proj-tab-active' : '';
       const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-      const statusLabel = m.name === 'MCI' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
+      const baseLabel = m.name === 'MCI' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
         (m.qualifier || m.area ? `Status (${m.qualifier || m.area})` : 'Broad Status');
+      // Issue #190 (2026-05-08): append the character's dot rating so the
+      // tab title reads "MCI ●●●" / "Status (Police) ●●●●". Uses the
+      // canonical `meritEffectiveRating` so derived bonuses (PT, MCI
+      // grants, etc.) are reflected. Tab is only rendered when the
+      // character has the merit (existing detection at maxStatus loop
+      // bound), so dots > 0 by construction.
+      const statusDots = meritEffectiveRating(currentChar, m);
+      const statusLabel = statusDots ? `${baseLabel} ${'●'.repeat(statusDots)}` : baseLabel;
       h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-status-tab="${n}">`;
       h += `<span class="dt-proj-tab-icon">${icon}</span>`;
       h += `<span class="dt-proj-tab-num">${esc(statusLabel)}</span>`;
