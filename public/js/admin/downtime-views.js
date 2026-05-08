@@ -2486,6 +2486,52 @@ function esc(s) {
 // ── Processing Mode (feature.43) ────────────────────────────────────────────
 
 /**
+ * Issues #210 + #217 — shared target-picker composer. Resolves the
+ * structured target shape (`<prefix>_target_type` / `_target_value` /
+ * `_target_terr` / `_target_other`) into a human-readable string for
+ * the admin action card. Used by:
+ *   - Project per-slot target (prefix = `project_${slot}`)
+ *   - Sphere per-slot target (prefix = `sphere_${idx + 1}`)
+ *
+ * Sphere's target_value can be a JSON array (multi-select character
+ * checkboxes at downtime-form.js:766-769); project's target_value is
+ * single but pre-DTFP-6 drafts stored single IDs as JSON arrays.
+ * Branch on the bracket prefix to disambiguate.
+ *
+ * Returns '' for empty / unrecognised targets so callers can use a
+ * truthy check to gate the render row.
+ */
+function _composeTargetString(resp, prefix, chars) {
+  const tType  = resp[`${prefix}_target_type`]  || '';
+  const tValue = resp[`${prefix}_target_value`] || '';
+  const tTerr  = resp[`${prefix}_target_terr`]  || '';
+  const tOther = resp[`${prefix}_target_other`] || '';
+  if (tType === 'character' && tValue) {
+    let ids = [];
+    if (typeof tValue === 'string' && tValue.startsWith('[')) {
+      try { const a = JSON.parse(tValue); if (Array.isArray(a)) ids = a; }
+      catch { ids = []; }
+    } else { ids = [tValue]; }
+    ids = ids.map(String).filter(Boolean);
+    if (!ids.length) return '';
+    const names = ids.map(id => {
+      const c = chars.find(ch => String(ch._id) === String(id));
+      return c ? displayName(c) : `${id} (unresolved)`;
+    });
+    return `Character${ids.length > 1 ? 's' : ''}: ${names.join(', ')}`;
+  } else if (tType === 'territory' && tTerr) {
+    return `Territory: ${tTerr}`;
+  } else if (tType === 'own_merit' && tValue) {
+    // merit_key is `'Name|qualifier'` — split for readability.
+    const [mName, mQual] = String(tValue).split('|');
+    return `Own merit: ${mQual ? `${mName} (${mQual})` : mName}`;
+  } else if (tType === 'other' && tOther) {
+    return `Other: ${tOther}`;
+  }
+  return '';
+}
+
+/**
  * Aggregate all actions from all submissions into a flat, phase-tagged queue.
  * Each entry: { key, subId, charName, phase, phaseNum, actionType, label, description, source, actionIdx, poolPlayer }
  */
@@ -2758,42 +2804,11 @@ function buildProcessingQueue(subs) {
         ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
         : (resp[`project_${slot}_territory`] || '');
 
-      // Issue #210 — resolve the player's target picker selection into a
-      // human-readable string. Form's structured shape (downtime-form.js
-      // renderTargetCharOrOther:5215+) writes:
-      //   _target_type:  'character' | 'territory' | 'own_merit' | 'other'
-      //   _target_value: charId (when type=character) | merit_key
-      //                  ('Name|qualifier', when type=own_merit) | ''
-      //   _target_terr:  territory slug (when type=territory)
-      //   _target_other: free-text description (when type=other)
-      // Pre-fix all four were silently dropped on the admin floor.
-      const _targetType  = resp[`project_${slot}_target_type`]  || '';
-      const _targetValue = resp[`project_${slot}_target_value`] || '';
-      const _targetTerr  = resp[`project_${slot}_target_terr`]  || '';
-      const _targetOther = resp[`project_${slot}_target_other`] || '';
-      let _projTarget = '';
-      if (_targetType === 'character' && _targetValue) {
-        // Backward-compat: pre-DTFP-6 drafts stored char IDs as JSON arrays.
-        let charId = _targetValue;
-        if (charId.startsWith('[')) {
-          try {
-            const arr = JSON.parse(charId);
-            charId = Array.isArray(arr) && arr.length ? String(arr[0]) : '';
-          } catch { charId = ''; }
-        }
-        if (charId) {
-          const c = characters.find(ch => String(ch._id) === String(charId));
-          _projTarget = c ? `Character: ${displayName(c)}` : `Character: ${charId} (unresolved)`;
-        }
-      } else if (_targetType === 'territory' && _targetTerr) {
-        _projTarget = `Territory: ${_targetTerr}`;
-      } else if (_targetType === 'own_merit' && _targetValue) {
-        // merit_key is `'Name|qualifier'` — split for readability.
-        const [mName, mQual] = _targetValue.split('|');
-        _projTarget = `Own merit: ${mQual ? `${mName} (${mQual})` : mName}`;
-      } else if (_targetType === 'other' && _targetOther) {
-        _projTarget = `Other: ${_targetOther}`;
-      }
+      // Issues #210 / #217 — resolve the player's target picker selection
+      // into a human-readable string. Composer is the shared
+      // `_composeTargetString` helper defined below; project + sphere
+      // both consume it.
+      const _projTarget = _composeTargetString(resp, `project_${slot}`, characters);
 
       queue.push({
         key: `${sub._id}:proj:${idx}`,
@@ -2842,6 +2857,20 @@ function buildProcessingQueue(subs) {
           // the project per-slot territory). Pre-fix this key was never
           // read; sphere action cards rendered no territory cell.
           territory:       resp[`sphere_${n}_territory`]   || '',
+          // Issue #217 — pull the three sphere-action data points the
+          // audit flagged as MEDIUM Type A: the structured target
+          // picker, the investigate-lead chip, and the cast list. The
+          // target shape mirrors project's renderTargetCharOrOther
+          // (downtime-form.js:5215+) but sphere's value can be a
+          // JSON array of char IDs (multi-select checkboxes at
+          // downtime-form.js:766-769); the shared composer handles
+          // both single + array shapes.
+          target_type:     resp[`sphere_${n}_target_type`]      || '',
+          target_value:    resp[`sphere_${n}_target_value`]     || '',
+          target_terr:     resp[`sphere_${n}_target_terr`]      || '',
+          target_other:    resp[`sphere_${n}_target_other`]     || '',
+          investigate_lead: resp[`sphere_${n}_investigate_lead`] || '',
+          cast:            resp[`sphere_${n}_cast`]             || '',
         }];
       }
     }
@@ -2904,6 +2933,30 @@ function buildProcessingQueue(subs) {
                           || resp[`sphere_${idx + 1}_territory`]
                           || '';
 
+      // Issue #217 — sphere target picker / investigate lead / cast.
+      // Target uses the shared `_composeTargetString` helper so any
+      // future shape changes converge with the project target render.
+      const meritTarget = _composeTargetString(resp, `sphere_${idx + 1}`, characters);
+      const meritInvestigateLead = action.investigate_lead
+                                || resp[`sphere_${idx + 1}_investigate_lead`]
+                                || '';
+      // Cast: form persists JSON-array of char IDs at
+      // `sphere_${n}_cast` (downtime-form.js:781). Resolve to display
+      // names; gracefully fall back to raw IDs for unresolved chars.
+      let meritCast = '';
+      const castRaw = action.cast || resp[`sphere_${idx + 1}_cast`] || '';
+      if (castRaw) {
+        try {
+          const ids = JSON.parse(castRaw);
+          if (Array.isArray(ids) && ids.length) {
+            meritCast = ids.map(id => {
+              const c = characters.find(ch => String(ch._id) === String(id));
+              return c ? displayName(c) : `${id} (unresolved)`;
+            }).join(', ');
+          }
+        } catch { meritCast = String(castRaw); }
+      }
+
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
@@ -2924,6 +2977,9 @@ function buildProcessingQueue(subs) {
         meritQualifier,
         meritDesiredOutcome: action.desired_outcome || '',
         meritTerritory,
+        meritTarget,
+        meritInvestigateLead,
+        meritCast,
       });
       meritFlatIdx++;
     });
@@ -7547,8 +7603,11 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-view">`;
       if (outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
-      if (entry.meritTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.meritTerritory)}</div>`;
-      if (!outcomeVal && !descVal && !entry.meritTerritory) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      if (entry.meritTerritory)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.meritTerritory)}</div>`;
+      if (entry.meritTarget)          h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.meritTarget)}</div>`;
+      if (entry.meritInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.meritInvestigateLead)}</div>`;
+      if (entry.meritCast)            h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Cast</span> ${esc(entry.meritCast)}</div>`;
+      if (!outcomeVal && !descVal && !entry.meritTerritory && !entry.meritTarget && !entry.meritInvestigateLead && !entry.meritCast) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
