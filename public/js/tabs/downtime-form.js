@@ -2093,6 +2093,17 @@ function renderForm(container) {
     // of the territory's current feeding_rights. After success, replace
     // currentCycle with the server response so the predicate sees the new
     // entry on re-render.
+
+    // Issue #161 (2026-05-08): "Open Regency tab" link from the Regency
+    // section. Navigates the player suite to the Regency tab via the
+    // existing window.goTab dispatcher (set up in app.js:2200).
+    const openRegencyTabBtn = e.target.closest('[data-open-regency-tab]');
+    if (openRegencyTabBtn) {
+      e.preventDefault();
+      if (typeof window.goTab === 'function') window.goTab('regency');
+      return;
+    }
+
     const regencyConfirmBtn = e.target.closest('#dt-btn-confirm-regency');
     if (regencyConfirmBtn) {
       e.preventDefault();
@@ -4247,13 +4258,24 @@ function renderRegencySection() {
   h += '<h4 class="qf-section-title">Regency<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
 
+  // Issue #161 (2026-05-08): explain WHY the regent is being asked to confirm
+  // and WHERE residency rights are managed. Option B from the issue body — an
+  // explicit redirect to the Regency tab, rather than duplicating the
+  // residency-rights summary inline (which would mean re-implementing
+  // regency-tab logic inside the DT form).
   if (myConfirmation) {
     const at = myConfirmation.confirmed_at ? new Date(myConfirmation.confirmed_at) : null;
     const atStr = at && !isNaN(at) ? at.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     h += `<p class="qf-section-intro">Confirmed as Regent of <strong>${esc(terrName)}</strong> for this cycle${atStr ? ` — ${esc(atStr)}` : ''}.</p>`;
+    h += `<p class="qf-desc">Your feeding-rights selections for ${esc(terrName)} are locked in for this downtime. To review or update them, use the Regency tab.</p>`;
+    h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
+    h += '</div>';
   } else {
     h += `<p class="qf-section-intro">I am acting as Regent of <strong>${esc(terrName)}</strong> for this cycle.</p>`;
+    h += `<p class="qf-desc">As regent, you must confirm <strong>this downtime</strong> who has feeding rights in ${esc(terrName)}. Manage your feeding-rights slots in the Regency tab; once your selections are set, return here and confirm to lock them in for the cycle.</p>`;
     h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
     h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
     h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
     h += '</div>';
@@ -5902,6 +5924,34 @@ function updateSectionTicks(container) {
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
       tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
+
+    // Issue #163 (2026-05-08): Court > Last Game Session tick rule. Min reqs:
+    //   - travel description present
+    //   - at least one game_recount highlight slot populated
+    //   - at least one rp_shoutout pick (hidden input is JSON; '[]' counts as empty)
+    // The fallback "all qf-fields filled" rule below was producing false
+    // positives because the rp_shoutout hidden input always contained '[]'
+    // when no picks were made — non-zero string length but empty payload.
+    // Explicit rule reads the JSON payload to compute presence accurately.
+    if (key === 'court') {
+      const travelEl = document.getElementById('dt-travel');
+      const travelOk = !!(travelEl && travelEl.value.trim());
+      let highlightOk = false;
+      for (let n = 1; n <= 5; n++) {
+        const el = document.getElementById(`dt-game_recount_${n}`);
+        if (el && el.value.trim()) { highlightOk = true; break; }
+      }
+      const shoutoutEl = document.getElementById('dt-rp_shoutout');
+      let shoutoutOk = false;
+      if (shoutoutEl) {
+        try {
+          const arr = JSON.parse(shoutoutEl.value || '[]');
+          shoutoutOk = Array.isArray(arr) && arr.length > 0;
+        } catch { shoutoutOk = false; }
+      }
+      tick.classList.toggle('visible', travelOk && highlightOk && shoutoutOk);
       return;
     }
 
