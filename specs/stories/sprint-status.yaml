@@ -754,3 +754,5 @@ development_status:
   # Picked up via tm-gh-issue-pickup skill; story files in specs/stories/issue-*.story.md
 
   issue-12-domain-multi-instance-descriptors: review            # Domain: multi-instance SP/FG, Haven/MG cap system
+  issue-216-alice-regent-territory: review                      # findRegentTerritory canonical-slug guard; PR #223
+  issue-224-dt-stale-territory: review                          # renderDowntimeTab territory fresh-fetch + saveTerritory invalidation
