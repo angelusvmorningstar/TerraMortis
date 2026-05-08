@@ -1424,8 +1424,30 @@ function renderPlayerResponses(s) {
     const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
     if (action === 'xp_spend') {
-      const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
-      if (cat && item) desc = `${cat}: ${item}`;
+      // Issue #219 — read multi-row `_xp_rows` JSON first; legacy
+      // single-row keys remain as fallback for pre-redesign drafts.
+      const rj = r[`project_${n}_xp_rows`] || '';
+      let multi = '';
+      if (rj) {
+        try {
+          const rows = JSON.parse(rj);
+          if (Array.isArray(rows) && rows.length) {
+            multi = rows
+              .filter(x => x && (x.category || x.item))
+              .map(x => {
+                const dots = x.dotsBuying ? ` (${x.dotsBuying} dot${x.dotsBuying === 1 ? '' : 's'})` : '';
+                return `${x.category || ''}: ${x.item || ''}${dots}`;
+              })
+              .join(' — ');
+          }
+        } catch { /* fall through */ }
+      }
+      if (multi) {
+        desc = multi;
+      } else {
+        const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
+        if (cat && item) desc = `${cat}: ${item}`;
+      }
     }
     projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
   }
@@ -2810,6 +2832,41 @@ function buildProcessingQueue(subs) {
       // both consume it.
       const _projTarget = _composeTargetString(resp, `project_${slot}`, characters);
 
+      // Issue #219 — investigate-lead chip + multi-row xp_spend breakdown.
+      // Form persists `project_${n}_investigate_lead` (free text, populated
+      // when action === 'investigate') and `project_${n}_xp_rows` (JSON
+      // array of `{category, item, dotsBuying}` from the per-slot xp grid,
+      // when action === 'xp_spend'). Pre-fix neither surfaced on the
+      // project card; admin's xp review table read the top-level
+      // `responses.xp_spend` mirror but the per-slot card showed only the
+      // legacy single-row keys.
+      const _projInvestigateLead = resp[`project_${slot}_investigate_lead`] || '';
+      let _projXpBreakdown = '';
+      if (effectiveActionType === 'xp_spend') {
+        const _rj = resp[`project_${slot}_xp_rows`] || '';
+        if (_rj) {
+          try {
+            const _xpRows = JSON.parse(_rj);
+            if (Array.isArray(_xpRows) && _xpRows.length) {
+              _projXpBreakdown = _xpRows
+                .filter(r => r && (r.category || r.item))
+                .map(r => {
+                  const _dots = r.dotsBuying ? ` (${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})` : '';
+                  return `${r.category || ''}: ${r.item || ''}${_dots}`;
+                })
+                .join(' — ');
+            }
+          } catch { /* malformed — fall through to legacy single-row */ }
+        }
+        // Single-row fallback for pre-redesign drafts that never engaged
+        // the multi-row grid (legacy `_xp_category` / `_xp_item` only).
+        if (!_projXpBreakdown) {
+          const _cat  = resp[`project_${slot}_xp_category`] || '';
+          const _item = resp[`project_${slot}_xp_item`]     || '';
+          if (_cat && _item) _projXpBreakdown = `${_cat}: ${_item}`;
+        }
+      }
+
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2831,6 +2888,8 @@ function buildProcessingQueue(subs) {
         projMerits:      projMeritsResolved,
         projTerritory:   _projTerritory,
         projTarget:      _projTarget,
+        projInvestigateLead: _projInvestigateLead,
+        projXpBreakdown: _projXpBreakdown,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -7641,6 +7700,8 @@ function renderActionPanel(entry, review) {
       if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (entry.projTarget) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.projTarget)}</div>`;
+      if (entry.projInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.projInvestigateLead)}</div>`;
+      if (entry.projXpBreakdown) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
       if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
