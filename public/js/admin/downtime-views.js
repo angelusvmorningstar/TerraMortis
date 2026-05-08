@@ -140,6 +140,31 @@ const ALL_ACTION_TYPES = [
   'block', 'rumour', 'grow', 'acquisition',
 ];
 
+// Issue #129 (2026-05-08): canonical ambience action dispatcher.
+// The DT form (post-#79) persists `project_${n}_action === 'ambience_change'`
+// + `responses.project_${n}_ambience_direction` ('improve' | 'degrade').
+// Legacy CSV-imported submissions in the DB carry `'ambience_increase'` /
+// `'ambience_decrease'` (pre-canonicalisation parser output). Both shapes
+// must dispatch correctly here. The helper accepts any of the three action
+// type strings; direction is derived from the type itself for legacy or
+// from the responses bag for canonical.
+const _AMBIENCE_ACTION_TYPES = new Set(['ambience_change', 'ambience_increase', 'ambience_decrease']);
+function _isAmbienceAction(actionType) {
+  return _AMBIENCE_ACTION_TYPES.has(actionType);
+}
+function _ambienceDirection(actionType, projN, responses) {
+  if (actionType === 'ambience_increase') return 'increase';
+  if (actionType === 'ambience_decrease') return 'decrease';
+  if (actionType === 'ambience_change' && responses) {
+    const dir = responses[`project_${projN}_ambience_direction`]
+      || responses[`project_${projN}_ambience_dir`]
+      || '';
+    if (dir === 'improve') return 'increase';
+    if (dir === 'degrade') return 'decrease';
+  }
+  return null;
+}
+
 const FEED_METHOD_LABELS_MAP = {
   seduction: 'Seduction', stalking: 'Stalking', force: 'By Force',
   familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other',
@@ -2875,7 +2900,8 @@ async function recomputeDisciplineProfile() {
       if (!proj?.pool_validated) continue;
       if (proj.pool_status !== 'validated') continue;
       const actionType = proj.action_type_override || proj.action_type;
-      const isAmbience = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      // Issue #129: accept canonical 'ambience_change' alongside legacy aliases.
+      const isAmbience = _isAmbienceAction(actionType);
       const isRoteFeed = actionType === 'feed';
       if (!isAmbience && !isRoteFeed) continue;
       const territory = _resolveProjectTerritory(sub, pIdx);
@@ -2944,7 +2970,7 @@ async function saveEntryReview(entry, patch) {
     sub.projects_resolved = resolved;
     // Recompute discipline profile when ambience actions are validated
     if (('pool_status' in patch || 'pool_validated' in patch) &&
-        (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+        _isAmbienceAction(entry.actionType)) {
       recomputeDisciplineProfile(); // fire-and-forget
     }
   } else if (entry.source === 'merit') {
@@ -3135,8 +3161,10 @@ function _gatherProjectAmbience(subs) {
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
       const effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
-      const isIncrease = effectiveType === 'ambience_increase';
-      const isDecrease = effectiveType === 'ambience_decrease';
+      // Issue #129: dispatch on canonical + legacy ambience shapes.
+      const dir = _ambienceDirection(effectiveType, n, resp);
+      const isIncrease = dir === 'increase';
+      const isDecrease = dir === 'decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
@@ -7153,7 +7181,10 @@ function renderActionPanel(entry, review) {
   const playerFacingNote  = rev.player_facing_note  || '';
   const isSorcery        = entry.source === 'sorcery'
                         || (entry.source === 'st_created' && entry.actionType === 'sorcery');
-  const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
+  // Issue #129: defensive symmetry. Form sphere/status collect (downtime-form.js:717-718,761-762)
+  // already normalises 'ambience_change' to legacy here, so this stays
+  // legacy-only in practice — but the helper handles all three shapes.
+  const isAmbienceMerit  = entry.source === 'merit' && _isAmbienceAction(entry.actionType);
 
   // Single character lookup — resolved once for all source types
   const entrySub  = submissions.find(s => s._id === entry.subId) || null;
