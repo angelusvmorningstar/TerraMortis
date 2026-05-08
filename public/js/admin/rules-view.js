@@ -7,6 +7,7 @@ import { apiGet, apiPut, apiPost, apiDelete } from '../data/api.js';
 import { esc, displayName, sortName } from '../data/helpers.js';
 import { invalidateRulesCache } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
+import { meritFreeSum } from '../editor/domain.js';
 
 // ── State ──
 
@@ -80,8 +81,13 @@ function _isPowerHeld(c, rule) {
     case 'merit':
       // c.merits[].name; require some non-zero contribution so a hollow entry
       // (e.g. dropdown picked but no rating set) is not counted.
+      // Issue #146 (2026-05-08): widened the contribution check to include
+      // every free_* channel via meritFreeSum() so a merit whose dots come
+      // ONLY from a grant (e.g. free_mci=2 from MCI tier) and whose stored
+      // m.rating happens to be desynced still counts as held. Hollow entries
+      // (no cp / xp / free_* dots) remain filtered.
       return (c.merits || []).some(m =>
-        m.name === rule.name && ((m.rating || 0) > 0 || (m.cp || 0) > 0 || (m.xp || 0) > 0)
+        m.name === rule.name && ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) > 0
       );
     case 'discipline':
       // c.disciplines is keyed by name; sanitiseChar already strips 0-dot entries.

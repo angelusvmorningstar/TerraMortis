@@ -324,6 +324,8 @@ Current code does not lock the form on `cycle.status === 'closed'`. Players can 
 
 Recommendation: (a). Server-side is one short middleware in `server/routes/downtime.js`. Client gates are nice-to-have; server gates are the contract.
 
+**Exempt from the cycle-close gate (clarification, issue #62, 2026-05-08):** the section-flag routes — `POST /api/downtime_submissions/:id/section-flag` (`server/routes/downtime.js:825`) and `PATCH /api/downtime_submissions/:id/section-flag/:flagId` (`:871`) — are intentionally NOT gated by `requireOpenCycle`. These routes target published outcomes that exist post-cycle-close, and the recall path is a player-write that needs to work after the cycle closes. Gating them would break the recall feature. All OTHER player writes that mutate a submission (the canonical `PUT /api/downtime_submissions/:id` path) remain gated.
+
 ### Q12 - The Save Draft button removal
 
 Recommendation per Piatra's note: remove `#dt-btn-save` and its event handler at `:2804`. The status indicator at `#dt-save-status` stays but is repurposed to surface auto-save state ("Saved 14:23" or "Saving..."). Story #7 already covers this; called out here so it ladders into the Q3 lifecycle naturally.

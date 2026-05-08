@@ -5747,52 +5747,62 @@ function renderMeritToggles(saved) {
   // granted instances included via the expandedInfluence walk). Each row
   // carries an optional target char picker and a task-description textarea.
   if (hasStaff) {
-    const primaryStaff = detectedMerits.staff[0];
-    const meritLabelText = primaryStaff
-      ? (primaryStaff.area || primaryStaff.qualifier || 'Staff')
-      : 'Staff';
     h += '<div class="qf-section collapsed" data-section-key="staff">';
     h += '<h4 class="qf-section-title">Staff: Tasks<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
     h += '<p class="qf-section-intro">Click a staff slot to expand and assign a task. One slot per dot of Staff.</p>';
 
     h += '<div class="dt-contacts-table">';
-    for (let n = 1; n <= totalStaffDots; n++) {
-      const savedTarget = saved[`staff_${n}_target`] || '';
-      const savedTask = saved[`staff_${n}_task`] || '';
-      const isUsed = !!(savedTarget || savedTask);
-      const expanded = isUsed;
+    // Issue #138 (2026-05-08): per-merit slot grouping. The persistence
+    // shape stays sequential (`staff_${n}_*` 1..totalStaffDots) so legacy
+    // submissions and the collect path are unchanged, but each row's
+    // displayed label and `_merit` hidden field reflect its actual source
+    // merit instead of the primary Staff merit. A character with
+    // Staff 2 (Hospital) + Staff 1 (Police) now sees "Hospital — Slot 1/2"
+    // for the first two rows and "Police — Slot 3/3" for the third.
+    let n = 0;
+    for (const m of detectedMerits.staff) {
+      const dots = meritEffectiveRating(currentChar, m) || 0;
+      if (!dots) continue;
+      const meritLabelText = m.area || m.qualifier || 'Staff';
+      for (let d = 0; d < dots; d++) {
+        n += 1;
+        const savedTarget = saved[`staff_${n}_target`] || '';
+        const savedTask = saved[`staff_${n}_task`] || '';
+        const isUsed = !!(savedTarget || savedTask);
+        const expanded = isUsed;
 
-      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-staff-row="${n}">`;
-      h += `<div class="dt-contact-header" data-staff-toggle="${n}">`;
-      h += `<span class="dt-contact-area">${esc(meritLabelText)} — Slot ${n}</span>`;
-      h += `<span class="dt-contact-dots">●</span>`;
-      h += `<span class="dt-contact-status">${isUsed ? 'Tasked' : 'Idle'}</span>`;
-      if (isUsed) {
-        h += `<button type="button" class="dt-contact-clear" data-staff-clear="${n}" title="Clear and close">✕</button>`;
+        h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-staff-row="${n}">`;
+        h += `<div class="dt-contact-header" data-staff-toggle="${n}">`;
+        h += `<span class="dt-contact-area">${esc(meritLabelText)} — Slot ${n}</span>`;
+        h += `<span class="dt-contact-dots">●</span>`;
+        h += `<span class="dt-contact-status">${isUsed ? 'Tasked' : 'Idle'}</span>`;
+        if (isUsed) {
+          h += `<button type="button" class="dt-contact-clear" data-staff-clear="${n}" title="Clear and close">✕</button>`;
+        }
+        h += '</div>';
+
+        h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-staff-panel="${n}">`;
+        const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
+        const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label" for="dt-staff_${n}_target">Person involved (optional)</label>`;
+        h += `<input type="hidden" id="dt-staff_${n}_target" value="${esc(savedTarget)}">`;
+        h += `<div data-cp-mount data-cp-site="staff-target"`
+           + ` data-cp-scope="all" data-cp-cardinality="single"`
+           + ` data-cp-hidden="dt-staff_${n}_target"`
+           + ` data-cp-initial="${initialJson}"`
+           + ` data-cp-exclude="${excludeJson}"`
+           + ` data-cp-placeholder="Pick a target character"></div>`;
+        h += '</div>';
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label" for="dt-staff_${n}_task">Task description</label>`;
+        h += `<textarea id="dt-staff_${n}_task" class="qf-textarea" rows="3" placeholder="What do you want this staff slot to do?">${esc(savedTask)}</textarea>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-staff_${n}_merit" value="${esc(meritLabel(m))}">`;
+        h += '</div>'; // panel
+        h += '</div>'; // row
       }
-      h += '</div>';
-
-      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-staff-panel="${n}">`;
-      const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
-      const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-staff_${n}_target">Person involved (optional)</label>`;
-      h += `<input type="hidden" id="dt-staff_${n}_target" value="${esc(savedTarget)}">`;
-      h += `<div data-cp-mount data-cp-site="staff-target"`
-         + ` data-cp-scope="all" data-cp-cardinality="single"`
-         + ` data-cp-hidden="dt-staff_${n}_target"`
-         + ` data-cp-initial="${initialJson}"`
-         + ` data-cp-exclude="${excludeJson}"`
-         + ` data-cp-placeholder="Pick a target character"></div>`;
-      h += '</div>';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-staff_${n}_task">Task description</label>`;
-      h += `<textarea id="dt-staff_${n}_task" class="qf-textarea" rows="3" placeholder="What do you want this staff slot to do?">${esc(savedTask)}</textarea>`;
-      h += '</div>';
-      h += `<input type="hidden" id="dt-staff_${n}_merit" value="${esc(primaryStaff ? meritLabel(primaryStaff) : 'Staff')}">`;
-      h += '</div>'; // panel
-      h += '</div>'; // row
     }
     h += '</div>';
 
