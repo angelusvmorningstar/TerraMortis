@@ -116,27 +116,12 @@ router.get('/directory', async (req, res) => {
   res.json(docs);
 });
 
-// DTOSL.2: player-readable endpoint (must register BEFORE the ST-only
-// router.use below). Returns NPCs linked to the given character. The
-// caller must own the character (character_ids contains the id). ST
-// bypasses the ownership check.
-router.get('/for-character/:characterId', async (req, res) => {
-  const { characterId } = req.params;
-  const userCharIds = (req.user?.character_ids || []).map(String);
-  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
-  if (!isSt && !userCharIds.includes(String(characterId))) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
-  }
-  const filter = {
-    linked_character_ids: String(characterId),
-    status: { $in: ['active', 'pending'] },
-  };
-  if (req.query.is_correspondent === 'true') {
-    filter.is_correspondent = true;
-  }
-  const docs = await col().find(filter).sort({ name: 1 }).toArray();
-  res.json(docs);
-});
+// Issue #108 (2026-05-08): the player-readable
+// `GET /api/npcs/for-character/:characterId` route (formerly DTOSL.2) was
+// removed. After PR #107 (closes #84, dt-form.33 NPC selector removal),
+// no client code calls it anywhere in `public/`. The companion
+// `/api/relationships/for-character/:characterId` route (NPCR.6) is
+// independently consumed by `relationships-tab.js` and is unaffected.
 
 // NPCP-1: list endpoint is now player-readable but scoped at the Mongo
 // query level to NPCs linked to the caller's characters. ST/dev see the
