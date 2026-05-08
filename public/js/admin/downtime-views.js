@@ -2798,6 +2798,12 @@ function buildProcessingQueue(subs) {
           desired_outcome: resp[`sphere_${n}_outcome`]     || '',
           description:     resp[`sphere_${n}_description`] || '',
           primary_pool:    resp[`sphere_${n}_pool_expr`] ? { expression: resp[`sphere_${n}_pool_expr`] } : null,
+          // Issue #212 — surface the player's territory pick. Form writes
+          // `sphere_${n}_territory` (territory slug, populated by the
+          // generic suffix loop at downtime-form.js:752 — same shape as
+          // the project per-slot territory). Pre-fix this key was never
+          // read; sphere action cards rendered no territory cell.
+          territory:       resp[`sphere_${n}_territory`]   || '',
         }];
       }
     }
@@ -2849,6 +2855,17 @@ function buildProcessingQueue(subs) {
         phaseNum = PHASE_ORDER[actionType] ?? 13;
       }
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      // Issue #212 — carry the player's sphere territory pick onto the
+      // queue entry. `action.territory` is set by the response-keys
+      // fallback above (form-shape submissions); legacy
+      // `raw.sphere_actions[]` may also include it. Falls back to
+      // `resp[\`sphere_${idx+1}_territory\`]` so submissions whose
+      // sphere_actions array lacks a territory field still surface
+      // the player's pick.
+      const meritTerritory = action.territory
+                          || resp[`sphere_${idx + 1}_territory`]
+                          || '';
+
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
@@ -2868,6 +2885,7 @@ function buildProcessingQueue(subs) {
         meritDots,
         meritQualifier,
         meritDesiredOutcome: action.desired_outcome || '',
+        meritTerritory,
       });
       meritFlatIdx++;
     });
@@ -7452,7 +7470,8 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-view">`;
       if (outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
-      if (!outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      if (entry.meritTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.meritTerritory)}</div>`;
+      if (!outcomeVal && !descVal && !entry.meritTerritory) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
