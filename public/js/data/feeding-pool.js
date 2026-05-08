@@ -27,8 +27,19 @@
 import { FEED_METHODS, TERRITORY_DATA } from '../tabs/downtime-data.js';
 import { SKILLS_MENTAL } from './constants.js';
 import { getAttrTotal, skTotal, discDots } from './accessors.js';
+import { hasAoE } from './helpers.js';
 
-export function computeBestFeedingPool({ char, methodId, territorySlug } = {}) {
+/**
+ * Issue #166 (2026-05-08): the optional `spec` parameter folds the
+ * primary feeding's active speciality bonus into the inherited pool
+ * total. Without it, ROTE's read-only annotation showed a value lower
+ * than the primary feeding's actual pool — the speciality contribution
+ * wasn't flowing through. The bonus is +2 if the speciality is an Area
+ * of Expertise (`hasAoE`) or the picked skill has nine_again, else +1.
+ * Matches the bonus shape `renderFeedPoolSelector` already computes for
+ * the ADVANCED primary readout (downtime-form.js:4750).
+ */
+export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '' } = {}) {
   if (!char || !methodId) return null;
   const method = FEED_METHODS.find(m => m.id === methodId);
   if (!method) return null;
@@ -74,9 +85,22 @@ export function computeBestFeedingPool({ char, methodId, territorySlug } = {}) {
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
 
+  // Issue #166: speciality bonus. Adds +1 (or +2 for Area-of-Expertise /
+  // nine_again skills) when an active speciality is supplied. Match shape
+  // mirrors `renderFeedPoolSelector` so the ROTE inherited annotation
+  // agrees with the ADVANCED primary readout 1:1.
+  let specBonus = 0;
+  if (spec && bestSkillName) {
+    const sk = char.skills?.[bestSkillName];
+    const skillSpecs = sk?.specs || [];
+    if (skillSpecs.includes(spec) || hasAoE(char, spec)) {
+      specBonus = (sk?.nine_again || hasAoE(char, spec)) ? 2 : 1;
+    }
+  }
+
   const total = Math.max(
     0,
-    bestAttrVal + bestSkillVal + bestDiscVal + ambMod + unskilled
+    bestAttrVal + bestSkillVal + bestDiscVal + ambMod + unskilled + specBonus
   );
 
   return {
@@ -85,6 +109,7 @@ export function computeBestFeedingPool({ char, methodId, territorySlug } = {}) {
     skill: { name: bestSkillName, val: bestSkillVal, specs: bestSkillSpecs },
     disc:  { name: bestDiscName,  val: bestDiscVal  },
     ambience: { mod: ambMod, label: ambLabel, territorySlug: territorySlug || '', name: ambName },
+    spec: spec ? { name: spec, bonus: specBonus } : { name: '', bonus: 0 },
     unskilled,
   };
 }

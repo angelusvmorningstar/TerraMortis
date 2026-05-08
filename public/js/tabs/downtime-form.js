@@ -2615,16 +2615,28 @@ function renderForm(container) {
       return;
     }
     // Project dice pool spec chip — toggle selection and re-render
+    // Issue #164 (2026-05-08): hardened. Toggle now mutates responseDoc.responses
+    // directly (canonical state) AND mirrors to the hidden DOM input as a
+    // belt-and-braces measure for any consumer that reads the input directly.
+    // Then collect+render so the dice-pool total span re-renders with the
+    // bonus included via renderDicePool's spec branch.
     const poolSpecChip = e.target.closest('[data-pool-spec]');
     if (poolSpecChip) {
       const prefix = poolSpecChip.dataset.poolSpec;
-      const specName = poolSpecChip.dataset.specName;
+      const specName = poolSpecChip.dataset.specName || '';
+      const key = `${prefix}_spec`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const cur = baseResponses[key] || '';
+      const next = cur === specName ? '' : specName;
+      // Canonical write — guarantees the spec state persists across renders
+      // even if the hidden input wasn't found or its value diverged.
+      const nextResponses = { ...baseResponses, [key]: next };
       const hidden = document.getElementById(`dt-${prefix}_spec`);
-      if (hidden) hidden.value = hidden.value === specName ? '' : specName;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
       renderForm(container);
+      scheduleSave();
       return;
     }
     // XP category/item change — collect current state and re-render
@@ -3618,10 +3630,15 @@ function renderProjectSlots(saved, mode = 'advanced') {
         return td?.slug || '';
       };
       const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
+      // Issue #166 (2026-05-08): pass the primary feeding's active spec
+      // so the inherited ROTE pool matches the ADVANCED primary readout
+      // 1:1. Without this, ROTE under-counted by the +1 / +2 speciality
+      // bonus.
       const inheritedPool = computeBestFeedingPool({
         char: currentChar,
         methodId: feedMethodId,
         territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
+        spec: feedSpecName || '',
       });
       h += '<div class="qf-field dt-proj-rote-pool">';
       if (!feedMethodId) {
@@ -3635,6 +3652,7 @@ function renderProjectSlots(saved, mode = 'advanced') {
         else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
         if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
         if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
+        if (inheritedPool.spec?.bonus) parts.push(`+${inheritedPool.spec.bonus} ${esc(inheritedPool.spec.name)}`);
         h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
         h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
       }
@@ -3694,13 +3712,16 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += '</select>';
 
   // Skill dropdown
+  // Issue #164 (2026-05-08): dropdown label is plain `Skill (dots)`. The
+  // `[spec1, spec2]` suffix was redundant with the speciality chip strip
+  // below and made the label noisy. The chips ARE the speciality affordance
+  // — clicking one toggles the +1 / +2 bonus into the pool total.
   h += `<select id="dt-${prefix}_skill" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Skill</option>';
   for (const s of skills) {
     const dots = skTotal(currentChar, s);
-    const specs = currentChar.skills?.[s]?.specs?.length ? ` [${currentChar.skills[s].specs.join(', ')}]` : '';
     const sel = savedSkill === s ? ' selected' : '';
-    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})${esc(specs)}</option>`;
+    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
 
@@ -6103,7 +6124,15 @@ function renderQuestion(q, value) {
           return td?.slug || '';
         };
         const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
-        const pool = computeBestFeedingPool({ char: c, methodId: feedMethodId, territorySlug });
+        // Issue #166: pass the active speciality so the MINIMAL primary
+        // readout includes the bonus when one is set (e.g. carried over
+        // from a prior ADVANCED-mode toggle).
+        const pool = computeBestFeedingPool({
+          char: c,
+          methodId: feedMethodId,
+          territorySlug,
+          spec: feedSpecName || '',
+        });
         h += '<div class="qf-field dt-feed-min-pool">';
         if (!feedMethodId) {
           h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
@@ -6116,6 +6145,7 @@ function renderQuestion(q, value) {
           else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
           if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
           if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          if (pool.spec?.bonus) parts.push(`+${pool.spec.bonus} ${esc(pool.spec.name)}`);
           h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
           h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
         }
