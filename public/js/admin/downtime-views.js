@@ -1369,20 +1369,39 @@ function renderPlayerResponses(s) {
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
-  const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
+  // Issue #221 — read per-game `game_recount_${n}` slots first so the
+  // ST sees one row per game highlight (form persists per-slot via the
+  // structured highlight UI at downtime-form.js:6597; the joined
+  // top-level `game_recount` mirror at line 545 is kept for back-compat
+  // with legacy single-cell readers). Pre-fix the player summary read
+  // only the joined string, collapsing the structured shape into a
+  // single 'Game Recount' cell with numbered prefixes.
+  const gameRecountSlots = [];
+  for (let n = 1; n <= 5; n++) {
+    const txt = (r[`game_recount_${n}`] || '').trim();
+    if (txt) gameRecountSlots.push({ n, txt });
+  }
+  const courtKeysWithoutRecount = ['travel', 'rp_shoutout', 'correspondence'];
+  const courtLabels = { travel: 'Travel', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
+  const courtVals = courtKeysWithoutRecount.filter(k => r[k] && r[k].trim());
   const aspLines = [1,2,3].map(n => {
     const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
     return (t && v) ? `${t}: ${v}` : null;
   }).filter(Boolean);
-  const hasCourtContent = courtVals.length || aspLines.length || r['aspirations'];
+  const hasJoinedRecount = !gameRecountSlots.length && r['game_recount'] && r['game_recount'].trim();
+  const hasCourtContent = courtVals.length || gameRecountSlots.length || hasJoinedRecount || aspLines.length || r['aspirations'];
   if (hasCourtContent) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
       let val = r[k];
       if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
+    }
+    if (gameRecountSlots.length) {
+      for (const { n, txt } of gameRecountSlots) h += row(`Game ${n} Recount`, txt);
+    } else if (hasJoinedRecount) {
+      // Legacy / migrated drafts that have only the joined string.
+      h += row('Game Recount', r['game_recount']);
     }
     if (aspLines.length) {
       h += row('Aspirations', aspLines.join('\n'));
@@ -1505,6 +1524,13 @@ function renderPlayerResponses(s) {
     ['form_feedback', 'Form Feedback'],
   ];
   let miscH = '';
+  // Issue #221 — surface the structured `regent_territory` slug
+  // (downtime-form.js:377, written when gateValues.is_regent === 'yes')
+  // alongside the free-text `regency_action` blob. Pre-fix the slug
+  // was never read — the ST saw the regent's narrative description
+  // but no structured indication of which territory they were
+  // governing.
+  if (r['regent_territory']) miscH += row('Regent territory', r['regent_territory']);
   for (const [key, label] of miscFields) {
     if (!r[key] || !r[key].trim?.()) continue;
     if (key === 'xp_spend') {
@@ -1512,6 +1538,17 @@ function renderPlayerResponses(s) {
         const rows = JSON.parse(r[key]).filter(rw => rw.category && rw.item);
         if (rows.length) miscH += row(label, rows.map(rw => `${rw.item} (${rw.cost} XP)`).join(', '));
       } catch { /* ignore */ }
+    } else if (key === 'resources_acquisitions') {
+      // Issue #221 — annotate the blob with the structured slot count
+      // (form persists `acq_slot_count` at downtime-form.js:920) so the
+      // ST can see at a glance how many acquisitions the player split
+      // their declaration into. Slot count > 1 indicates a multi-row
+      // submission already structured-rendered by PR #215; this adds
+      // the count summary to the player-summary panel where only the
+      // blob was shown.
+      const slotCount = parseInt(r['acq_slot_count'] || '1', 10) || 1;
+      const labelWithCount = slotCount > 1 ? `${label} (${slotCount} slots)` : label;
+      miscH += row(labelWithCount, r[key]);
     } else {
       miscH += row(label, r[key]);
     }
