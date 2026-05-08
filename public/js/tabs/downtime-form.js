@@ -2544,42 +2544,11 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // dt-form.25: Ambience row-table arrow click. Single-target state
-    // machine per the 6 ACs:
-    //   - new row click           → switch to (newRow, clickedDir)
-    //   - opposite arrow same row → switch direction, retain row
-    //   - same arrow same row     → toggle off (clear both)
-    const ambArrow = e.target.closest('[data-amb-arrow]');
-    if (ambArrow) {
-      e.preventDefault();
-      const slot     = ambArrow.dataset.ambSlot;
-      const target   = ambArrow.dataset.ambTarget;
-      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
-      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
-      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
-      const curTarget = targetEl ? targetEl.value : '';
-      const curDir    = dirEl    ? dirEl.value    : '';
-      let nextTarget = '';
-      let nextDir    = '';
-      if (curTarget === target && curDir === dirClick) {
-        // same arrow same row → toggle off
-        nextTarget = '';
-        nextDir    = '';
-      } else {
-        // new row OR opposite arrow same row → set to clicked
-        nextTarget = target;
-        nextDir    = dirClick;
-      }
-      if (targetEl) targetEl.value = nextTarget;
-      if (dirEl)    dirEl.value    = nextDir;
-      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
+    // Issue #165 (2026-05-08): the dt-form.25 ambience-arrow handler used
+    // to live here in the `change` listener — but `<button>` clicks fire
+    // `click`, not `change`, so this never executed. Moved to the click
+    // listener below, where the maintenance-chip / feeding-card / blood-type
+    // button handlers live.
     // dt-form.25: legacy improve/degrade ticker handler retained for
     // sphere-side ambience_change (sphere keeps the legacy radio). Project
     // side no longer emits `[data-proj-ambience-dir]` after the row-table
@@ -2620,31 +2589,13 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Project dice pool spec chip — toggle selection and re-render
-    // Issue #164 (2026-05-08): hardened. Toggle now mutates responseDoc.responses
-    // directly (canonical state) AND mirrors to the hidden DOM input as a
-    // belt-and-braces measure for any consumer that reads the input directly.
-    // Then collect+render so the dice-pool total span re-renders with the
-    // bonus included via renderDicePool's spec branch.
-    const poolSpecChip = e.target.closest('[data-pool-spec]');
-    if (poolSpecChip) {
-      const prefix = poolSpecChip.dataset.poolSpec;
-      const specName = poolSpecChip.dataset.specName || '';
-      const key = `${prefix}_spec`;
-      const baseResponses = (responseDoc && responseDoc.responses) || {};
-      const cur = baseResponses[key] || '';
-      const next = cur === specName ? '' : specName;
-      // Canonical write — guarantees the spec state persists across renders
-      // even if the hidden input wasn't found or its value diverged.
-      const nextResponses = { ...baseResponses, [key]: next };
-      const hidden = document.getElementById(`dt-${prefix}_spec`);
-      if (hidden) hidden.value = next;
-      if (responseDoc) responseDoc.responses = nextResponses;
-      else responseDoc = { responses: nextResponses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
+    // Issue #165 (2026-05-08): the spec-chip handler used to live here in
+    // the `change` listener — same root cause as the ambience-arrow bug.
+    // `<button>` clicks fire `click`, not `change`. Moved to the click
+    // listener below. (My earlier #164 fix landed the canonical-first
+    // writes correctly but the handler itself was never firing — only
+    // the dropdown-label cleanup actually shipped a user-visible change.
+    // This PR restores the chip toggle behaviour the issue spec asked for.)
     // XP category/item change — collect current state and re-render
     const xpCat = e.target.closest('[data-xp-cat]');
     const xpItem = e.target.closest('[data-xp-item]');
@@ -2710,6 +2661,74 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+
+    // Issue #165 (2026-05-08): dt-form.25 Ambience row-table arrow click.
+    // Single-target state machine per the dt-form.25 ACs:
+    //   - new row click           → switch to (newRow, clickedDir)
+    //   - opposite arrow same row → switch direction, retain row
+    //   - same arrow same row     → toggle off (clear both)
+    // Originally placed in the `change` listener which never fires for
+    // `<button>` clicks; moved here so the chip click actually executes
+    // the state machine. Uses canonical-first state pattern (writes
+    // `responseDoc.responses` first, mirrors to DOM, then renders).
+    const ambArrow = e.target.closest('[data-amb-arrow]');
+    if (ambArrow) {
+      e.preventDefault();
+      const slot     = ambArrow.dataset.ambSlot;
+      const target   = ambArrow.dataset.ambTarget;
+      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
+      const targetKey = `project_${slot}_ambience_target`;
+      const dirKey    = `project_${slot}_ambience_direction`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const curTarget = baseResponses[targetKey] || '';
+      const curDir    = baseResponses[dirKey]    || '';
+      let nextTarget;
+      let nextDir;
+      if (curTarget === target && curDir === dirClick) {
+        // same arrow same row → toggle off
+        nextTarget = '';
+        nextDir    = '';
+      } else {
+        // new row OR opposite arrow same row → set to clicked
+        nextTarget = target;
+        nextDir    = dirClick;
+      }
+      // Canonical-first: spread + write to responseDoc.responses BEFORE
+      // mirroring to DOM, so renderForm reads the new state cleanly.
+      const nextResponses = { ...baseResponses, [targetKey]: nextTarget, [dirKey]: nextDir };
+      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
+      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
+      if (targetEl) targetEl.value = nextTarget;
+      if (dirEl)    dirEl.value    = nextDir;
+      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+
+    // Issue #165 (2026-05-08): Project dice pool spec chip — toggle selection
+    // and re-render. Same root-cause story as ambience-arrow above: the
+    // handler was misplaced in the `change` listener and never fired for
+    // button clicks. Moved here. Canonical-first state pattern.
+    const poolSpecChip = e.target.closest('[data-pool-spec]');
+    if (poolSpecChip) {
+      const prefix = poolSpecChip.dataset.poolSpec;
+      const specName = poolSpecChip.dataset.specName || '';
+      const key = `${prefix}_spec`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const cur = baseResponses[key] || '';
+      const next = cur === specName ? '' : specName;
+      const nextResponses = { ...baseResponses, [key]: next };
+      const hidden = document.getElementById(`dt-${prefix}_spec`);
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // Blood type toggle — single-select pill buttons
