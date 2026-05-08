@@ -1703,8 +1703,32 @@ function buildMeritActions(sub) {
   // ── Resource / skill acquisitions ──
   // Stored separately from sphere actions — appended last so flat indices for
   // spheres/contacts/retainers above are not disturbed.
+  // Issue #214 — read the canonical JSON-array shape
+  // (`acq_resource_rows` / `acq_skill_rows`, downtime-form.js:907-908)
+  // first so multi-row acquisitions surface as one action per row. Pre-fix
+  // this only emitted a single combined entry from the slot-1 mirror
+  // (`acq_description` / `acq_merits`) or the joined blob — slots ≥ 2
+  // were structurally invisible.
   const resAcqBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
-  if (resAcqBlob.trim()) {
+  let pushedStructuredRes = false;
+  try {
+    const rRows = JSON.parse(resp['acq_resource_rows'] || '[]');
+    if (Array.isArray(rRows) && rRows.length) {
+      rRows.forEach((row, i) => {
+        const merits = Array.isArray(row.merits) ? row.merits.join(', ') : '';
+        const desc   = row.description || '';
+        if (!desc && !merits) return;
+        actions.push({
+          merit_type:      rRows.length > 1 ? `Resources (Row ${i + 1})` : 'Resources',
+          action_type:     'acquisition',
+          desired_outcome: merits,
+          description:     desc,
+        });
+      });
+      pushedStructuredRes = true;
+    }
+  } catch { /* malformed JSON — fall through to blob */ }
+  if (!pushedStructuredRes && resAcqBlob.trim()) {
     const desc = resp['acq_description'] || resAcqBlob;
     let meritsLabel = '';
     try {
@@ -1719,8 +1743,29 @@ function buildMeritActions(sub) {
     });
   }
 
+  // Skill acquisitions: form's PR #187 collapsed skill_acq to a single
+  // fixed row, so `acq_skill_rows` always has length ≤ 1 in current
+  // submissions. Still preferred over the blob for structured access.
   const skillAcqBlob = raw.acquisitions?.skill_acquisitions || resp['skill_acquisitions'] || '';
-  if (skillAcqBlob.trim()) {
+  let pushedStructuredSkill = false;
+  try {
+    const sRows = JSON.parse(resp['acq_skill_rows'] || '[]');
+    if (Array.isArray(sRows) && sRows.length) {
+      sRows.forEach((row) => {
+        const merits = Array.isArray(row.merits) ? row.merits.join(', ') : '';
+        const desc   = row.description || '';
+        if (!desc && !merits) return;
+        actions.push({
+          merit_type:      'Skill Acquisition',
+          action_type:     'acquisition',
+          desired_outcome: merits,
+          description:     desc,
+        });
+      });
+      pushedStructuredSkill = true;
+    }
+  } catch { /* malformed JSON — fall through to blob */ }
+  if (!pushedStructuredSkill && skillAcqBlob.trim()) {
     actions.push({
       merit_type:      'Skill Acquisition',
       action_type:     'acquisition',

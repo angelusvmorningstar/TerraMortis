@@ -3025,14 +3025,53 @@ function buildProcessingQueue(subs) {
     }
 
     // ── Acquisitions (resource and skill, from raw.acquisitions form section) ──
-    const resAcq   = (raw.acquisitions?.resource_acquisitions || '').trim();
-    const skillAcq = (raw.acquisitions?.skill_acquisitions   || '').trim();
+    // Issue #214 — pre-fix this block read ONLY `raw.acquisitions?.*`,
+    // which is populated by the CSV import path (server schema:478, _raw
+    // is the CSV-structured-data slot). For app-form submissions `raw`
+    // is `{}` and both branches were skipped — Resources and Skill
+    // Acquisitions phases of the action queue were entirely empty for
+    // every submission entered through the player form. Fall back to
+    // the canonical response-key blobs (form writes both at
+    // downtime-form.js:953 and :967 alongside the structured JSON-array
+    // sources of truth at :907-908).
+    const resAcq   = (raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '').trim();
+    const skillAcq = (raw.acquisitions?.skill_acquisitions   || resp['skill_acquisitions']    || '').trim();
     /** Extract the first "Description: ..." value from an acquisitions blob for the row summary. */
     function _acqRowSummary(text) {
       const m = text.match(/description[:\s]+([^\n]+)/i);
       if (m) return m[1].trim();
       // Fall back to first non-empty line
       return text.split('\n').map(l => l.trim()).find(l => l) || text;
+    }
+    /**
+     * Issue #214 — compose a multi-row description from the canonical
+     * `acq_resource_rows` / `acq_skill_rows` JSON arrays (form-side
+     * single source of truth, downtime-form.js:907-908). Pre-fix only
+     * slot 1 (via `acq_description` mirror) was visible in any
+     * structured form; rows 2..N were either entirely dropped (for
+     * app-form submissions, see the resp fallback above) or
+     * concatenated as a free-text blob with no per-row delimiter.
+     * When the JSON array is present, build a per-row summary with
+     * `Row N: <description> | <merits>` so the ST sees the structure
+     * the player entered. Falls back to the blob's first-line summary
+     * (existing behaviour) when no JSON array is present.
+     */
+    function _multiRowSummary(jsonStr, blob) {
+      try {
+        const rows = JSON.parse(jsonStr || '[]');
+        if (Array.isArray(rows) && rows.length > 1) {
+          return rows.map((r, i) => {
+            const merits = Array.isArray(r.merits) && r.merits.length ? ` | ${r.merits.join(', ')}` : '';
+            const desc   = r.description || '';
+            return `Row ${i + 1}: ${desc}${merits}`;
+          }).join(' — ');
+        }
+        if (Array.isArray(rows) && rows.length === 1) {
+          // Single row — show description directly (matches blob summary shape).
+          return rows[0].description || _acqRowSummary(blob);
+        }
+      } catch { /* malformed JSON — fall through to blob */ }
+      return _acqRowSummary(blob);
     }
     if (resAcq) {
       queue.push({
@@ -3043,7 +3082,7 @@ function buildProcessingQueue(subs) {
         phaseNum: 14,
         actionType: 'resources_acquisitions',
         label: 'Resources Acquisitions',
-        description: _acqRowSummary(resAcq),
+        description: _multiRowSummary(resp['acq_resource_rows'], resAcq),
         acqNotes: resAcq,
         source: 'acquisition',
         actionIdx: 0,
@@ -3064,7 +3103,7 @@ function buildProcessingQueue(subs) {
         phaseNum: 7,
         actionType: 'skill_acquisitions',
         label: 'Skill Acquisitions',
-        description: _acqRowSummary(skillAcq),
+        description: _multiRowSummary(resp['acq_skill_rows'], skillAcq),
         acqNotes: skillAcq,
         source: 'acquisition',
         actionIdx: 1,
