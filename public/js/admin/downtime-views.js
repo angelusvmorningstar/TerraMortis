@@ -2595,7 +2595,19 @@ function buildProcessingQueue(subs) {
 
       // ST recategorisation override — changes phase and label without altering player data
       const projReview = (sub.projects_resolved || [])[idx] || {};
-      const effectiveActionType = projReview.action_type_override || actionType;
+      let effectiveActionType = projReview.action_type_override || actionType;
+
+      // Issue #196 — dt-form.25's project ambience redesign keeps action
+      // = 'ambience_change' and persists direction in `_ambience_direction`
+      // ('up' | 'down'). Normalise to the canonical enum so phase routing,
+      // ACTION_TYPE_LABELS, and downstream tally + render code match. The
+      // ST override (if set) was already applied above, so this only
+      // touches the player-submitted shape.
+      if (effectiveActionType === 'ambience_change') {
+        const projDir = resp[`project_${slot}_ambience_direction`] || resp[`project_${slot}_ambience_dir`] || '';
+        if (projDir === 'up' || projDir === 'improve') effectiveActionType = 'ambience_increase';
+        else if (projDir === 'down' || projDir === 'degrade') effectiveActionType = 'ambience_decrease';
+      }
 
       let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
       let phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
@@ -2607,6 +2619,15 @@ function buildProcessingQueue(subs) {
         phaseNum = PHASE_JOINT;
         phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
       }
+
+      // Issue #196 — for ambience-change projects, dt-form.25 writes the
+      // territory to `_ambience_target` instead of `_territory`. Prefer
+      // the new key, fall back to legacy for pre-redesign drafts.
+      const _isProjAmb = effectiveActionType === 'ambience_increase'
+                      || effectiveActionType === 'ambience_decrease';
+      const _projTerritory = _isProjAmb
+        ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
+        : (resp[`project_${slot}_territory`] || '');
 
       queue.push({
         key: `${sub._id}:proj:${idx}`,
@@ -2627,7 +2648,7 @@ function buildProcessingQueue(subs) {
         projDescription,
         projCast:        projCastResolved,
         projMerits:      projMeritsResolved,
-        projTerritory:   resp[`project_${slot}_territory`] || '',
+        projTerritory:   _projTerritory,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -3134,14 +3155,29 @@ function _gatherProjectAmbience(subs) {
       const n = idx + 1;
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
-      const effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
+      let effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
+      // Issue #196 — dt-form.25's project ambience redesign keeps the raw
+      // action `'ambience_change'` and persists direction in
+      // `_ambience_direction` ('up' | 'down'). Sphere-side normalises to
+      // ambience_increase / _decrease at form-write time; project-side does
+      // not. Map at admin read so the existing tally branches still match.
+      if (effectiveType === 'ambience_change') {
+        const dir = resp[`project_${n}_ambience_direction`] || resp[`project_${n}_ambience_dir`] || '';
+        if (dir === 'up' || dir === 'improve') effectiveType = 'ambience_increase';
+        else if (dir === 'down' || dir === 'degrade') effectiveType = 'ambience_decrease';
+      }
       const isIncrease = effectiveType === 'ambience_increase';
       const isDecrease = effectiveType === 'ambience_decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
       const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
-      const terrRaw = resp[`project_${n}_territory`] || '';
+      // Issue #196 — dt-form.25 writes `_ambience_target` (territory slug)
+      // for ambience-change actions; the legacy `_territory` key is no
+      // longer set on those rows. Prefer the new key, fall back for
+      // pre-redesign drafts and non-ambience action types that still
+      // carry `_territory`.
+      const terrRaw = resp[`project_${n}_ambience_target`] || resp[`project_${n}_territory`] || '';
       const desc    = resp[`project_${n}_description`] || proj.detail || '';
       const outcome = proj.desired_outcome || resp[`project_${n}_outcome`] || '';
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
