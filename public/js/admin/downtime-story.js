@@ -1387,7 +1387,14 @@ function buildLetterContext(char, sub, opts = {}) {
   const touchstones = char?.touchstones || [];
 
   // Player's submitted letter — check known field names in priority order
+  // Issue #208 / audit #195 — dt-form.18 (option Y locked 2026-05-06)
+  // collapsed the personal-story narrative to `personal_story_text`.
+  // Legacy keys below remain as fallbacks for pre-redesign submissions
+  // in the dev DB; without `personal_story_text` first this context
+  // panel rendered '[No player letter submitted]' for every
+  // post-dt-form.18 submission.
   const playerLetter =
+    sub.responses?.personal_story_text ||
     sub.responses?.correspondence ||
     sub.responses?.letter_to_home ||
     sub.responses?.letter ||
@@ -1514,7 +1521,14 @@ function renderStoryMoment(char, sub, stNarrative) {
 
   const humanity    = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
+  // Issue #208 / audit #195 — dt-form.18 (option Y locked 2026-05-06)
+  // collapsed the personal-story narrative to `personal_story_text`.
+  // Legacy keys below remain as fallbacks for pre-redesign submissions
+  // in the dev DB; without `personal_story_text` first this context
+  // panel rendered '[No player letter submitted]' for every
+  // post-dt-form.18 submission.
   const playerLetter =
+    sub.responses?.personal_story_text ||
     sub.responses?.correspondence ||
     sub.responses?.letter_to_home ||
     sub.responses?.letter ||
