@@ -100,14 +100,21 @@ function feedingStatus(v) {
 /**
  * Extract the canonical action type from the composite Google Forms value.
  * e.g. "XP Spend: Grow your character 🌱" → "xp_spend"
- *      "Ambience Change (Increase): Make a Territory delicious 😄" → "ambience_increase"
+ *      "Ambience Change (Increase): Make a Territory delicious 😄" → "ambience_change"
+ *
+ * Issue #129 (2026-05-08): legacy 'ambience_increase' / 'ambience_decrease'
+ * action types unified into the canonical 'ambience_change' shape that the
+ * live DT form persists post-#79. Direction is captured separately via
+ * `extractAmbienceDirection()` so the project's collect path can write
+ * `responses[\`project_${n}_ambience_direction\`]`. One canonical shape
+ * across CSV-import and live-form paths; one dispatcher.
  */
 function normaliseActionType(raw) {
   if (!raw) return null;
   const s = raw.trim();
   if (/^xp spend/i.test(s))                    return 'xp_spend';
-  if (/^ambience.*increase/i.test(s))           return 'ambience_increase';
-  if (/^ambience.*decrease/i.test(s))           return 'ambience_decrease';
+  if (/^ambience.*increase/i.test(s))           return 'ambience_change';
+  if (/^ambience.*decrease/i.test(s))           return 'ambience_change';
   if (/^attack/i.test(s))                       return 'attack';
   if (/^feed/i.test(s))                         return 'feed';
   if (/^hide|^protect/i.test(s))                return 'hide_protect';
@@ -117,6 +124,20 @@ function normaliseActionType(raw) {
   if (/^misc/i.test(s))                          return 'misc';
   if (/^no action/i.test(s))                     return null;
   return s.split(':')[0].trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+/**
+ * Issue #129: extract the ambience direction from the raw composite value
+ * for canonical-shape persistence. Returns 'improve', 'degrade', or null.
+ * Mirrors the live form's direction value space so mapRawToResponses can
+ * write `responses.project_${n}_ambience_direction` directly.
+ */
+function extractAmbienceDirection(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (/^ambience.*increase/i.test(s)) return 'improve';
+  if (/^ambience.*decrease/i.test(s)) return 'degrade';
+  return null;
 }
 
 /**
@@ -175,6 +196,10 @@ function parseProject(cols, offset) {
   return {
     action_type: normaliseActionType(actionTypeRaw),
     action_type_raw: actionTypeRaw,
+    // Issue #129: ambience direction extracted alongside the canonical
+    // 'ambience_change' action_type. mapRawToResponses writes this into
+    // `responses.project_${n}_ambience_direction`.
+    ambience_direction: extractAmbienceDirection(actionTypeRaw),
     primary_pool: parseDicePool(cols[offset + 1]),
     secondary_pool: parseDicePool(cols[offset + 2]),
     desired_outcome: str(cols[offset + 3]) || '',
