@@ -208,12 +208,13 @@ function _parseMeritType(str) {
 
   const categoryRaw = label.toLowerCase();
   let category;
-  if (/allies/.test(categoryRaw))         category = 'allies';
-  else if (/status/.test(categoryRaw))    category = 'status';
-  else if (/retainer/.test(categoryRaw))  category = 'retainer';
-  else if (/staff/.test(categoryRaw))     category = 'staff';
-  else if (/contacts?/.test(categoryRaw)) category = 'contacts';
-  else                                    category = 'misc';
+  if (/allies/.test(categoryRaw))                   category = 'allies';
+  else if (/status/.test(categoryRaw))              category = 'status';
+  else if (/mystery cult initiate/.test(categoryRaw)) category = 'status';  // #233 — MCI grouped with Status
+  else if (/retainer/.test(categoryRaw))            category = 'retainer';
+  else if (/staff/.test(categoryRaw))               category = 'staff';
+  else if (/contacts?/.test(categoryRaw))           category = 'contacts';
+  else                                              category = 'misc';
 
   return { category, label, dots, qualifier };
 }
