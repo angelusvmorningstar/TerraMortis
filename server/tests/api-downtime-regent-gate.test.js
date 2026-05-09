@@ -25,9 +25,36 @@ const OTHER    = new ObjectId().toHexString();
 let insertedCycleIds = [];
 let insertedTerrIds = [];
 
+// Issue #241: tm_suite_test was populated with 5 production-like territories
+// carrying `regent_id` values by the regent-id migration script run on
+// 2026-05-05 (server/scripts/migrate-regent-to-id.js + backup at
+// scripts/_backups/territory-fk-migration-2026-05-05T05-36-59-765Z.json).
+// The confirm-feeding gate at routes/downtime.js:139 queries every
+// territory with `regent_id` set; pre-existing territories leak into the
+// query alongside the test's own inserts and force allConfirmed=false
+// because the test only confirms its single territory. Snapshot the
+// pre-existing regent_id values in beforeAll, null them out for the
+// suite's lifetime, restore in afterAll. The test DB is throwaway so
+// the temporary mutation is bounded to this suite's run; restoring
+// keeps the snapshot intact for subsequent test files in the same
+// vitest worker.
+let _seededRegentSnapshot = [];
+
 beforeAll(async () => {
   await setupDb();
   app = createTestApp();
+  const terrCol = getCollection('territories');
+  _seededRegentSnapshot = await terrCol
+    .find({ regent_id: { $exists: true, $ne: null } })
+    .project({ _id: 1, regent_id: 1, lieutenant_id: 1 })
+    .toArray();
+  if (_seededRegentSnapshot.length) {
+    const ids = _seededRegentSnapshot.map(d => d._id);
+    await terrCol.updateMany(
+      { _id: { $in: ids } },
+      { $set: { regent_id: null, lieutenant_id: null } }
+    );
+  }
 });
 
 afterEach(async () => {
@@ -40,6 +67,19 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  // Restore any seeded territories' regent_id we nulled in beforeAll
+  // (issue #241) so subsequent test files in the same worker — and
+  // manual ST smoke runs against tm_suite_test — see the original
+  // state.
+  if (_seededRegentSnapshot.length) {
+    const terrCol = getCollection('territories');
+    for (const doc of _seededRegentSnapshot) {
+      await terrCol.updateOne(
+        { _id: doc._id },
+        { $set: { regent_id: doc.regent_id, lieutenant_id: doc.lieutenant_id ?? null } }
+      );
+    }
+  }
   await teardownDb();
 });
 
