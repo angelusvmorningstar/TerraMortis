@@ -957,14 +957,24 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
-  // The `ambienceMod` parameter is misleadingly named — every caller in
-  // this file (renderFeedingDetail at line 1327, character-grid pool at
-  // 9208) passes `stMod` (ST manual feeding modifier from
-  // st_review.feeding_modifier), NOT territory ambience. Territory
-  // ambience is handled separately in feeding-pool.js (player-side) and
-  // gets the issue #176 Vitae-modifier treatment there. The ST manual
-  // modifier here legitimately adjusts dice (it's the ST's adjudication
-  // lever for difficulty / cover / etc.) and stays in the pool total.
+  // The `ambienceMod` parameter is misleadingly named. Three callers
+  // exist; only one passes actual territory ambience, and that one is
+  // a bug:
+  //   - renderFeedingDetail (line 1327): passes `stMod`
+  //     (st_review.feeding_modifier — ST manual adjudication lever for
+  //     cover / difficulty / etc.). Legitimately a dice modifier;
+  //     stays in `total` here.
+  //   - bestGenericPool (line 9716): passes `0`. Neutral.
+  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
+  //     Ma'at flagged the original `ambienceMod` (territory) here as a
+  //     dice double-count. Territory ambience is surfaced separately in
+  //     that table's 'Ambience' column.
+  //
+  // Net effect: `ambienceMod` here is now exclusively the ST manual
+  // modifier path; territory ambience is handled in feeding-pool.js
+  // (player-side) and surfaced separately in admin display surfaces.
+  // A follow-up tech-debt issue should rename this parameter to `stMod`
+  // to remove the lurking ambiguity.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -9776,7 +9786,17 @@ function renderFeedingScene() {
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, ambienceMod);
+        // Issue #176 (fix loop 2 — Ma'at catch): pre-fix this passed
+        // `ambienceMod` (territory ambience from `terrRec.ambienceMod`)
+        // through `buildFeedingPool`'s misleadingly-named third parameter,
+        // which summed it into the dice total. Per Damnation City §158
+        // ambience is a Vitae yield modifier, not a dice pool component.
+        // The summary table already surfaces ambience separately via
+        // `ambModStr` rendered as a dedicated 'Ambience' column at line
+        // 9773 + downstream, so there is no display regression — passing
+        // `0` here just stops the dice double-count. Matches the
+        // neutral-call pattern bestGenericPool uses at line 9716.
+        const pool = buildFeedingPool(char, methodId, 0);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);
