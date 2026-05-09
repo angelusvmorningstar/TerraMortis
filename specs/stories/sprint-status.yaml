@@ -757,3 +757,4 @@ development_status:
   issue-216-alice-regent-territory: review                      # findRegentTerritory canonical-slug guard; PR #223
   issue-224-dt-stale-territory: review                          # renderDowntimeTab territory fresh-fetch + saveTerritory invalidation
   issue-230-dt-form-init-char-mismatch: ready-for-dev           # _buildCharMenu before openChar: sidebar shows wrong char; DT form renders for sheetChar not visual selection
+  issue-231-dt-prep-open-override: review                       # DT Prep: manual override flag latches cycle.status to active; deriveCycleStatus + setManualOpen + UI button + banner

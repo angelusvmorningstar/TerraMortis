@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
@@ -371,11 +371,59 @@ async function _handleSignoffClick(btn) {
   await loadCycleById(currentCycle._id);
 }
 
+// Issue #231 \u2014 Manual "open downtimes" override (DT Prep tab).
+// The button's data-manual-open attribute reflects the CURRENT latched
+// state ('true' if override is on, 'false' if off). Clicking flips it.
+async function _handleManualOpenClick(btn) {
+  if (!currentCycle) return;
+  const currentlyOn = btn.dataset.manualOpen === 'true';
+  const turningOn = !currentlyOn;
+  const confirmMsg = turningOn
+    ? 'Open downtimes for all players, overriding automation?\n\n'
+      + 'This sets a latched override on the cycle. Status stays "active" '
+      + 'regardless of phase sign-off \u2014 until you turn it off or the cycle is closed.'
+    : 'Clear the manual override and resume automatic phase derivation?\n\n'
+      + 'The cycle status will revert to whatever the current phase_signoff state derives.';
+  if (!confirm(confirmMsg)) return;
+  const userId = getUser()?._id || getUser()?.user_id || null;
+  await setManualOpen(currentCycle, turningOn, userId);
+  // Mirror into allCycles so subsequent renders see the new override state.
+  const idx = allCycles.findIndex(c => c._id === currentCycle._id);
+  if (idx >= 0) {
+    allCycles[idx].manual_open    = currentCycle.manual_open;
+    allCycles[idx].manual_open_at = currentCycle.manual_open_at;
+    allCycles[idx].manual_open_by = currentCycle.manual_open_by;
+    allCycles[idx].status         = currentCycle.status;
+  }
+  // Same fan-out as signoff: status drives ~14 sites, refresh the lot.
+  await loadCycleById(currentCycle._id);
+}
+
 function renderSignoffButton(phase, cycle) {
   const signed = !!(cycle?.phase_signoff || {})[phase];
   const label = signed ? '\u2713 Signed-off \u2014 undo?' : 'Mark phase signed-off';
   const cls = signed ? 'dt-btn dt-signoff-btn dt-signoff-signed' : 'dt-btn dt-signoff-btn';
   return `<button type="button" class="${cls}" data-signoff-phase="${phase}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Override toggle. data-manual-open carries the CURRENT state
+// (so the click handler knows which way to flip).
+function renderManualOpenButton(cycle) {
+  const on = cycle?.manual_open === true;
+  const label = on ? 'Resume automation' : 'Open Downtimes (override)';
+  const cls = on
+    ? 'dt-btn dt-signoff-btn dt-manual-open-on'
+    : 'dt-btn dt-signoff-btn';
+  return `<button type="button" class="${cls}" data-manual-open="${on ? 'true' : 'false'}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Banner shown above the prep grid when the override is active.
+function renderManualOpenBanner(cycle) {
+  if (cycle?.manual_open !== true) return '';
+  return '<div class="dt-manual-open-banner" role="status">'
+       + '<strong>Downtimes manually open</strong> \u2014 override is active. '
+       + 'Click <em>Resume automation</em> below to clear it.'
+       + '</div>';
 }
 
 function renderReadyPanel(cycle, subs) {
@@ -444,6 +492,9 @@ export async function initDowntimeView(passedChars) {
     document.addEventListener('click', e => {
       const signoff = e.target.closest('[data-signoff-phase]');
       if (signoff) { _handleSignoffClick(signoff); return; }
+      // Issue #231 — manual-open override toggle (DT Prep tab)
+      const manualOpen = e.target.closest('[data-manual-open]');
+      if (manualOpen) { _handleManualOpenClick(manualOpen); return; }
       // DTIL-1: Court Pulse copy + save buttons
       const cpCopy = e.target.closest('.dt-court-pulse-copy-btn');
       if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
@@ -2465,6 +2516,7 @@ function renderPrepPanel(cycle) {
     : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
+    renderManualOpenBanner(cycle) +
     `<div class="dt-prep-grid">` +
     `<div class="dt-prep-field"><label class="dt-lbl">Auto-Open Date/Time</label>` +
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
@@ -2479,6 +2531,7 @@ function renderPrepPanel(cycle) {
     `</div>` +
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
+    renderManualOpenButton(cycle) +
     `</div>` +
     renderMaintenanceAuditPanel(cycle) +
     `<div id="dt-cycle-intelligence" class="dt-cycle-intelligence"></div>`;
