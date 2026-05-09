@@ -3635,7 +3635,15 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
       h += '<div class="qf-field dt-amb-table-wrap">';
       h += '<label class="qf-label">Territory + Direction</label>';
-      h += '<p class="qf-desc">Pick one direction on one territory. Success is +/-2 influence change to territory, +/-4 on exceptional success.</p>';
+      // Issue #174 — pre-fix the rule text described a non-existent
+      // '+/-2 per success / +/-4 exceptional' mechanic. Per Damnation
+      // City §102 the Ambience Change personal project is a dice-roll
+      // action (Attribute + Skill + Discipline pool, rendered below):
+      // each success on that roll shifts the territory's ambience by
+      // ±1 in the chosen direction. Player UI exposes only the dice
+      // pool — there is no influence-spend channel on this action in
+      // the current form, so language stays focused on the roll.
+      h += '<p class="qf-desc">Pick one direction on one territory. Each success on the dice pool below shifts that territory’s ambience by ±1 in the chosen direction.</p>';
       h += `<div class="dt-amb-table" data-amb-table="${n}">`;
       for (const t of TERRITORY_DATA) {
         const isRow = String(savedTarget) === String(t.slug);
