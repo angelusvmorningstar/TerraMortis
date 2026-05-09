@@ -1307,6 +1307,26 @@ body {
   border-color: var(--gold2);
 }
 
+/* Issue #231 — Manual "open downtimes" override (DT Prep tab) */
+.dt-manual-open-on {
+  background: rgba(224, 196, 122, 0.18);
+  color: var(--gold2);
+  border-color: var(--gold2);
+}
+.dt-manual-open-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: rgba(224, 196, 122, 0.10);
+  border: 1px solid rgba(224, 196, 122, 0.35);
+  border-left: 4px solid var(--gold2);
+  border-radius: 4px;
+  color: var(--txt);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.dt-manual-open-banner strong { color: var(--gold2); }
+.dt-manual-open-banner em { color: var(--gold2); font-style: italic; }
+
 /* DT Ready panel content */
 .dt-ready-content { padding: 24px; }
 .dt-ready-title  { margin: 0 0 12px; color: var(--accent); font-family: var(--fh2); }

@@ -546,6 +546,15 @@ export const downtimeCycleSchema = {
     submission_count: { type: 'integer', minimum: 0 },
     early_access_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
+
+    // Issue #231 — Manual "open downtimes" override (DT Prep tab).
+    // Latched flag that forces effective status to 'active' regardless of
+    // phase_signoff state (closed gate still wins). See public/js/downtime/db.js
+    // (deriveCycleStatus, setManualOpen).
+    manual_open:    { type: 'boolean' },
+    manual_open_at: { type: ['string', 'null'] },  // ISO timestamp when override toggled on; null when off
+    manual_open_by: { type: ['string', 'null'] },  // user id of the ST who toggled it on; null when off
+
     regent_confirmations: {
       type: 'array',
       items: {
