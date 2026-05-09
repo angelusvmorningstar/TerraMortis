@@ -1774,6 +1774,23 @@ function buildMeritActions(sub) {
     });
   }
 
+  // ── Status / MCI ──
+  // Issue #233 — form writes status_${n}_* for Status influence merits and
+  // MCI standing merits (downtime-form.js:789-815) but no consumer was
+  // normalising them. Appended last so flat indices for spheres / contacts /
+  // retainers / acquisitions above are not disturbed. MCI labels route to
+  // the 'status' category via the regex in deriveMeritCategory (Task 2).
+  for (let n = 1; n <= 5; n++) {
+    const mt = resp[`status_${n}_merit`];
+    if (!mt) continue;
+    actions.push({
+      merit_type:      mt,
+      action_type:     resp[`status_${n}_action`]      || 'misc',
+      desired_outcome: resp[`status_${n}_outcome`]     || '',
+      description:     resp[`status_${n}_description`] || '',
+    });
+  }
+
   return actions;
 }
 
@@ -1783,13 +1800,14 @@ function buildMeritActions(sub) {
  */
 function deriveMeritCategory(meritTypeStr) {
   const s = (meritTypeStr || '').toLowerCase();
-  if (/allies/.test(s))    return 'allies';
-  if (/status/.test(s))    return 'status';
-  if (/retainer/.test(s))  return 'retainer';
-  if (/staff/.test(s))     return 'staff';
-  if (/contacts?/.test(s)) return 'contacts';
-  if (/resources?/.test(s)) return 'resources';
-  if (/skill/.test(s))      return 'resources';
+  if (/allies/.test(s))                  return 'allies';
+  if (/status/.test(s))                  return 'status';
+  if (/mystery cult initiate/.test(s))   return 'status';  // #233 — MCI grouped with Status
+  if (/retainer/.test(s))                return 'retainer';
+  if (/staff/.test(s))                   return 'staff';
+  if (/contacts?/.test(s))               return 'contacts';
+  if (/resources?/.test(s))              return 'resources';
+  if (/skill/.test(s))                   return 'resources';
   return 'misc';
 }
 
