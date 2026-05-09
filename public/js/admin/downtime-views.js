@@ -957,6 +957,14 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
+  // The `ambienceMod` parameter is misleadingly named — every caller in
+  // this file (renderFeedingDetail at line 1327, character-grid pool at
+  // 9208) passes `stMod` (ST manual feeding modifier from
+  // st_review.feeding_modifier), NOT territory ambience. Territory
+  // ambience is handled separately in feeding-pool.js (player-side) and
+  // gets the issue #176 Vitae-modifier treatment there. The ST manual
+  // modifier here legitimately adjusts dice (it's the ST's adjudication
+  // lever for difficulty / cover / etc.) and stays in the pool total.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
