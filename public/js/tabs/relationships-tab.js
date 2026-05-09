@@ -22,6 +22,14 @@ import {
 // Per-character picker state: { charId, mode: 'closed'|'add', draft, npcs, error }
 let _tabState = null;
 
+// Issue #232: non-ST users can no longer enter 'new' (NPC quick-add) mode.
+// The chip + form are gated on isSTRole() in renderAddPanel; this helper
+// determines the initial picker mode so a player session opens directly into
+// the PC-to-PC ('pc') form without flashing the hidden new-NPC form.
+function _defaultNpcMode() {
+  return isSTRole() ? 'new' : 'pc';
+}
+
 function resetTabState(charId) {
   _tabState = {
     charId: String(charId),
@@ -29,7 +37,8 @@ function resetTabState(charId) {
     // NPCR.7 + NPCR.8: picker has two sub-modes — pick an existing NPC or
     // quick-add a new pending one. npc_mode = 'new' | 'pc' (existing removed
     // from index.html — STs handle existing-NPC linking via admin.html).
-    npc_mode: 'new',
+    // Issue #232: default depends on role — see _defaultNpcMode().
+    npc_mode: _defaultNpcMode(),
     draft: {
       npc_id: '',
       new_name: '',
@@ -721,7 +730,8 @@ function attachHandlers(root, charId, char, edges) {
 
 async function openAddPicker(el, char) {
   _tabState.mode = 'add';
-  _tabState.npc_mode = 'new';
+  // Issue #232: role-aware initial mode (mirrors resetTabState default).
+  _tabState.npc_mode = _defaultNpcMode();
   _tabState.error = null;
   _tabState.submitting = false;
   _tabState.draft = {
@@ -751,7 +761,16 @@ async function openAddPicker(el, char) {
 }
 
 function setNpcMode(el, char, mode) {
-  _tabState.npc_mode = (mode === 'pc') ? 'pc' : 'new';
+  // Issue #232: non-ST users can never enter 'new' mode — the chip is hidden,
+  // but coerce defensively in case a stale handler / cached DOM fires a click
+  // with data-npc-mode="new". Not a security boundary (server-side
+  // requireRole('st') on /api/npcs/quick-add is the actual gate); this is
+  // state hygiene only.
+  if (!isSTRole()) {
+    _tabState.npc_mode = 'pc';
+  } else {
+    _tabState.npc_mode = (mode === 'pc') ? 'pc' : 'new';
+  }
   _tabState.error = null;
   renderAddPanel(el, char);
 }
@@ -798,25 +817,14 @@ function renderAddPanel(el, char) {
       <div class="rel-add-form-head">New relationship</div>
       ${_tabState.error ? `<div class="rel-error" role="alert">${esc(_tabState.error)}</div>` : ''}
 
-      <div class="rel-add-mode-chips" role="radiogroup" aria-label="Connection target">
-        <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
-        <button type="button" class="rel-add-mode-chip${npcMode === 'pc' ? ' on' : ''}" data-npc-mode="pc">Another PC</button>
-      </div>
+      ${isSTRole() ? `
+        <div class="rel-add-mode-chips" role="radiogroup" aria-label="Connection target">
+          <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
+          <button type="button" class="rel-add-mode-chip${npcMode === 'pc' ? ' on' : ''}" data-npc-mode="pc">Another PC</button>
+        </div>
+      ` : ''}
 
-      ${npcMode === 'existing' ? `
-        <label class="rel-add-field">
-          <span class="rel-add-field-label">NPC *</span>
-          ${loading
-            ? '<div class="rel-add-loading">Loading NPCs…</div>'
-            : (_tabState.npcs && _tabState.npcs.length === 0 && !isSTRole())
-              ? `<div class="rel-add-hint">You haven't created any NPCs yet. Use <strong>New NPC (pending)</strong> to add one, or ask the ST to link you to a register NPC.</div>`
-              : `<select class="rel-add-input" data-field="npc_id">
-                   <option value="">(pick an NPC)</option>
-                   ${npcOpts}
-                 </select>`}
-        </label>
-        ${!isSTRole() && _tabState.npcs && _tabState.npcs.length > 0 ? `<div class="rel-add-hint">Only NPCs you have quick-added appear here. STs handle links to register NPCs.</div>` : ''}
-      ` : npcMode === 'new' ? `
+      ${npcMode === 'new' ? `
         <label class="rel-add-field">
           <span class="rel-add-field-label">Name *</span>
           <input class="rel-add-input" data-field="new_name" value="${esc(draft.new_name)}" placeholder="NPC name" />
