@@ -1420,7 +1420,7 @@ const MORE_APPS = [
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
-  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'player', condition: 'hasArchive' },
+  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'player' },
 ];
 
 const MORE_SECTIONS = [
@@ -1445,10 +1445,6 @@ function _moreGridCondition(app) {
   }
   if (app.condition === 'hasOffice') {
     return !!(myChar && myChar.court_category);
-  }
-  if (app.condition === 'hasArchive') {
-    // Archive visible if character has any archive documents — check loaded state
-    return !!(myChar && myChar._has_archive);
   }
   return true;
 }
