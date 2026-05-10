@@ -35,7 +35,7 @@ vi.mock('../../public/js/data/loader.js', () => ({
 vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
   preloadRules: async () => {},
   invalidateRulesCache: () => {},
-  getRulesCache: () => null,
+  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),  // #249 hotfix: non-null sentinel so applyDerivedMerits guard does not bail
   getRulesBySource: (source) =>
     storeMap[source] || { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null },
 }));

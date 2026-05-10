@@ -501,7 +501,29 @@ async function loadAllData() {
   // and a missing cache means free_attache / free_fwb / free_pt etc. all
   // resolve to 0, then m.rating gets re-synced to (cp + xp), wiping the
   // bonus the editor had correctly saved.
-  await preloadRules().catch(() => {});
+  // Issue #249 (HOTFIX 2026-05-09): pre-fix this swallowed all errors
+  // silently — when the rules API call failed, _cache stayed null and
+  // applyDerivedMerits proceeded with broken derivation, causing
+  // permanent Contacts-spheres data loss for any character with PT/MCI-
+  // granted spheres (Yusuf canonical example). The downstream
+  // applyDerivedMerits null-cache guard now prevents the data loss,
+  // but failing silently is still wrong — surface the error so the
+  // user knows the app is in a degraded state (derivations skipped
+  // until cache loads).
+  try {
+    await preloadRules();
+  } catch (err) {
+    console.error('[app] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
+    // Best-effort user-visible signal. The element may not exist on
+    // every page; failure to surface is non-fatal — the console error
+    // remains the canonical signal.
+    const banner = document.getElementById('app-status-banner');
+    if (banner) {
+      banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
+      banner.classList.add('app-status-banner--error');
+      banner.style.display = '';
+    }
+  }
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();

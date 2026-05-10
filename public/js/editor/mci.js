@@ -26,6 +26,28 @@ import { applyAutoBonusRulesFromDb } from './rule_engine/auto-bonus-evaluator.js
 export function applyDerivedMerits(c, allChars = []) {
   if (!c) return;
 
+  // Issue #249 (HOTFIX 2026-05-09): bail out when the rules cache is null.
+  // Pre-fix sequence:
+  //   1. line 42 below clears `m.free_pt = 0` on every merit
+  //   2. line 52 calls applyPTRulesFromDb → no-ops when cache is null
+  //      (getRulesBySource returns empty arrays per load-rules.js:43)
+  //   3. line 102 calls pruneContactsSpheres → computes
+  //      `r = cp + xp + meritFreeSum(m)` with PT contribution missing →
+  //      truncates `m.spheres.length` to the deflated rating →
+  //      PT-granted spheres physically deleted from the array
+  //   4. next save persists the truncated spheres → permanent data loss
+  //
+  // Triggers: preloadRules silent failure, save-cycle before preload
+  // resolves, admin Rules Data view re-preload race, etc.
+  //
+  // Affected: any character with PT- or MCI-granted Contacts spheres.
+  // Yusuf: rating 3 (1 MCI + 2 PT) collapsed to ['Legal'] when bug
+  // fired; Street + Underworld physically deleted.
+  if (!getRulesCache()) {
+    console.warn('applyDerivedMerits: rules cache not loaded — skipping derivation to avoid partial-state corruption (issue #249)');
+    return;
+  }
+
   // Clear ephemeral tracking
   c._pt_nine_again_skills = new Set();
   c._pt_dot4_bonus_skills = new Set();
