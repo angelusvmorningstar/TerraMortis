@@ -3635,7 +3635,15 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
       h += '<div class="qf-field dt-amb-table-wrap">';
       h += '<label class="qf-label">Territory + Direction</label>';
-      h += '<p class="qf-desc">Pick one direction on one territory. Success is +/-2 influence change to territory, +/-4 on exceptional success.</p>';
+      // Issue #174 — pre-fix the rule text described a non-existent
+      // '+/-2 per success / +/-4 exceptional' mechanic. Per Damnation
+      // City §102 the Ambience Change personal project is a dice-roll
+      // action (Attribute + Skill + Discipline pool, rendered below):
+      // each success on that roll shifts the territory's ambience by
+      // ±1 in the chosen direction. Player UI exposes only the dice
+      // pool — there is no influence-spend channel on this action in
+      // the current form, so language stays focused on the roll.
+      h += '<p class="qf-desc">Pick one direction on one territory. Each success on the dice pool below shifts that territory’s ambience by ±1 in the chosen direction.</p>';
       h += `<div class="dt-amb-table" data-amb-table="${n}">`;
       for (const t of TERRITORY_DATA) {
         const isRow = String(savedTarget) === String(t.slug);
@@ -3710,10 +3718,19 @@ function renderProjectSlots(saved, mode = 'advanced') {
         if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
         else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
         if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
-        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
         if (inheritedPool.spec?.bonus) parts.push(`+${inheritedPool.spec.bonus} ${esc(inheritedPool.spec.name)}`);
+        // Issue #176: ambience is a Vitae yield modifier (Damnation City
+        // §158), not a dice pool component. Removed from the dice
+        // breakdown above; surfaced as a separate annotation line below
+        // so the player still sees the territory's ambience contribution
+        // — just labelled correctly.
         h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
         h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+        if (inheritedPool.ambience.mod) {
+          const ambSign = inheritedPool.ambience.mod > 0 ? '+' : '−';
+          const ambLabel = inheritedPool.ambience.label ? ` (${esc(inheritedPool.ambience.label)})` : '';
+          h += `<p class="qf-desc dt-feed-dim">${ambSign}${Math.abs(inheritedPool.ambience.mod)} Vitae from territory ambience${ambLabel}</p>`;
+        }
       }
       h += '</div>';
     }
@@ -6314,10 +6331,17 @@ function renderQuestion(q, value) {
           if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
           else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
           if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
-          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
           if (pool.spec?.bonus) parts.push(`+${pool.spec.bonus} ${esc(pool.spec.name)}`);
           h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
           h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+          // Issue #176: ambience is a Vitae yield modifier (Damnation
+          // City §158), not a dice pool component. Surfaced separately
+          // so the player still sees the territory's contribution.
+          if (pool.ambience.mod) {
+            const ambSign = pool.ambience.mod > 0 ? '+' : '−';
+            const ambLabel = pool.ambience.label ? ` (${esc(pool.ambience.label)})` : '';
+            h += `<p class="qf-desc dt-feed-dim">${ambSign}${Math.abs(pool.ambience.mod)} Vitae from territory ambience${ambLabel}</p>`;
+          }
         }
         h += '</div>';
         h += '<p class="qf-desc dt-feed-min-pool__advanced-hint">Want to customise your pool? Switch to <strong>Advanced</strong> mode at the top of the form.</p>';
