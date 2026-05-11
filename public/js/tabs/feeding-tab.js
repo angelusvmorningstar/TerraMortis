@@ -341,12 +341,22 @@ function renderFeedingSummary() {
   }
 
   // Rote + secondary hunt
-  if (r['_feed_rote'] === 'yes') {
+  // Issue #234 — `_feed_rote` was dropped by dt-form.22; rote is now a per-slot
+  // project action. Detect via project-slot scan, mirroring the admin pattern
+  // at downtime-views.js:2775-2780. Match both 'rote' and 'feed': the rote-lock
+  // at downtime-form.js:620 auto-writes 'feed' for the locked slot; users
+  // selecting Rote Hunt manually from the dropdown write 'rote'.
+  const feedRote = [1, 2, 3, 4].some(n => {
+    const a = r[`project_${n}_action`];
+    return a === 'rote' || a === 'feed';
+  });
+  if (feedRote) {
     h += '<div class="feeding-sum-rote">';
     h += '<span class="feeding-sum-label">Rote:</span> Project action dedicated to feeding';
-    // Find the feed project slot
+    // Find the rote/feed project slot
     for (let n = 1; n <= 4; n++) {
-      if (r[`project_${n}_action`] === 'feed') {
+      const a = r[`project_${n}_action`];
+      if (a === 'rote' || a === 'feed') {
         const method2 = r[`project_${n}_feed_method2`];
         if (method2) {
           const m2 = FEED_METHODS.find(fm => fm.id === method2);
