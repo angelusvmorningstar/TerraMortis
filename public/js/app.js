@@ -493,30 +493,32 @@ function populateSuiteDropdowns(chars) {
 }
 
 async function loadAllData() {
-  // 0. Load rules data (purchasable powers) — must complete before sheet renders
-  //    so discipline powers resolve from the rules cache
-  await loadRulesFromApi().catch(() => {});
-  // 0b. Load rule-engine docs — PT, MCI etc. evaluators read from this cache.
-  // MUST await: applyDerivedMerits below calls getRulesBySource synchronously
-  // and a missing cache means free_attache / free_fwb / free_pt etc. all
-  // resolve to 0, then m.rating gets re-synced to (cp + xp), wiping the
-  // bonus the editor had correctly saved.
-  // Issue #249 (HOTFIX 2026-05-09): pre-fix this swallowed all errors
-  // silently — when the rules API call failed, _cache stayed null and
-  // applyDerivedMerits proceeded with broken derivation, causing
-  // permanent Contacts-spheres data loss for any character with PT/MCI-
-  // granted spheres (Yusuf canonical example). The downstream
-  // applyDerivedMerits null-cache guard now prevents the data loss,
-  // but failing silently is still wrong — surface the error so the
-  // user knows the app is in a degraded state (derivations skipped
-  // until cache loads).
-  try {
-    await preloadRules();
-  } catch (err) {
-    console.error('[app] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
-    // Best-effort user-visible signal. The element may not exist on
-    // every page; failure to surface is non-fatal — the console error
-    // remains the canonical signal.
+  const isST = getRole() === 'st';
+
+  // Issue #256 (perf, 2026-05-11): Phase 1a — every step below is
+  // mutually independent (none reads another's result), so they fire in
+  // parallel via Promise.allSettled. One failure (e.g. preloadRules
+  // 403 for a player against the ST-only rules-engine endpoint) doesn't
+  // kill the others. Wall-time is now max-of-5 instead of sum-of-5.
+  //
+  // applyDerivedMerits at the bottom of this function reads the rules
+  // cache synchronously; the cache state is determined by the time the
+  // Promise.allSettled resolves (loaded if preloadRules succeeded,
+  // null otherwise — issue #249 guard handles both).
+  const [_rulesFromApi, rulesEngineRes, apiCharsRes, terrRes, combatRes] = await Promise.allSettled([
+    loadRulesFromApi(),
+    preloadRules(),
+    loadCharsFromApi(),
+    apiGet('/api/territories'),
+    apiGet('/api/characters/combat'),
+  ]);
+
+  // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via
+  // console.error + best-effort status banner. The downstream
+  // applyDerivedMerits null-cache guard prevents data loss; this is the
+  // user-visible signal of the degraded state.
+  if (rulesEngineRes.status === 'rejected') {
+    console.error('[app] preloadRules failed — derivations skipped until rules cache loads (issue #249):', rulesEngineRes.reason);
     const banner = document.getElementById('app-status-banner');
     if (banner) {
       banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
@@ -525,11 +527,11 @@ async function loadAllData() {
     }
   }
 
-  // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
-  const apiChars = await loadCharsFromApi();
+  // 1. Chars handling — role-filtered server-side (player sees own, ST sees all).
+  const apiChars = apiCharsRes.status === 'fulfilled' ? apiCharsRes.value : null;
   if (apiChars) {
     editorState.chars = apiChars;
-  } else if (getRole() === 'st') {
+  } else if (isST) {
     // Only fall back to embedded data for STs
     loadDB();
   } else {
@@ -537,44 +539,45 @@ async function loadAllData() {
     editorState.chars = [];
   }
 
-  // 1b. Load game session XP (attendance-based) — same as admin/player portal
-  await loadGameXP(editorState.chars, getRole() === 'st').catch(() => {});
-  // dt-form.17: cache downtime-credit-on-hold flag so XP-Available renders the annotation.
-  await loadDowntimeHoldFlag(editorState.chars, { isST: getRole() === 'st' }).catch(() => {});
+  // Issue #256 Phase 1b — loadGameXP + loadDowntimeHoldFlag both depend
+  // on `editorState.chars` being loaded but are mutually independent.
+  await Promise.allSettled([
+    loadGameXP(editorState.chars, isST),
+    loadDowntimeHoldFlag(editorState.chars, { isST }),
+  ]);
 
-  // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
+  // Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
+  // The rules-engine cache is either loaded (Phase 1a fulfilled) or
+  // null (the #249 guard bails out per-character). Safe either way.
   editorState.chars.forEach(c => applyDerivedMerits(c));
 
   // 2. Copy to suite state
   const sortedChars = editorState.chars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
   suiteState.chars = sortedChars;
 
-  // 2b. Load combat data for ALL characters (resist target dropdown).
-  // Players only have their own chars in editorState, but the resist
-  // calculator needs opponents' attributes. The /combat endpoint returns
-  // lightweight attribute/discipline data for all active characters.
-  try {
-    const combatChars = await apiGet('/api/characters/combat');
-    if (Array.isArray(combatChars) && combatChars.length) {
-      // Merge combat chars into suiteState so resist lookups find them
-      const ownIds = new Set(sortedChars.map(c => String(c._id)));
-      for (const cc of combatChars) {
-        if (!ownIds.has(String(cc._id))) suiteState.chars.push(cc);
-      }
+  // 2b. Merge combat chars (resist target dropdown) — already fetched
+  // in Phase 1a; just apply the result here. Players only have their
+  // own chars in editorState, but resist calc needs opponents'
+  // attributes.
+  if (combatRes.status === 'fulfilled' && Array.isArray(combatRes.value) && combatRes.value.length) {
+    const ownIds = new Set(sortedChars.map(c => String(c._id)));
+    for (const cc of combatRes.value) {
+      if (!ownIds.has(String(cc._id))) suiteState.chars.push(cc);
     }
-  } catch (e) { console.warn('Combat chars load failed:', e.message); }
+  } else if (combatRes.status === 'rejected') {
+    console.warn('Combat chars load failed:', combatRes.reason?.message);
+  }
 
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
 
-  // 3. Load territories (used by regency condition + renderRegencyTab).
-  // setStatusTerritories keeps the City Status calc's recompute path in sync
-  // (issue #13 Surface 2 — no per-character cache; territories store is
-  // module-level in accessors.js).
-  try {
-    suiteState.territories = await apiGet('/api/territories');
-    setStatusTerritories(suiteState.territories);
-  } catch { suiteState.territories = []; setStatusTerritories([]); }
+  // 3. Territories — already fetched in Phase 1a. setStatusTerritories
+  // keeps the City Status calc's recompute path in sync (issue #13
+  // Surface 2 — module-level store in accessors.js).
+  suiteState.territories = terrRes.status === 'fulfilled' && Array.isArray(terrRes.value)
+    ? terrRes.value
+    : [];
+  setStatusTerritories(suiteState.territories);
 
   // 4. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);
@@ -1284,6 +1287,7 @@ async function boot() {
             await ensureTrackerLoaded(editorState.chars[charIdx]);
             openChar(charIdx);
             pickChar(editorState.chars[charIdx]);
+            _buildCharMenu(); // re-render sidebar with sheetChar now set (closes #230)
           }
         }
         // Desktop: STs → character grid, players → sheet.

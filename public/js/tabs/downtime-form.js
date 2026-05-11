@@ -1236,23 +1236,42 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  try {
-    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
-    // Issue #184 (2026-05-08): merge server data over the cached `char`
-    // object instead of replacing the reference wholesale. `_gameXP` (set
-    // by loadGameXP() before the form opens) and any other underscore-
-    // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
-    // API response doesn't carry them — wholesale `currentChar = fresh`
-    // would silently zero out xpGame() and short xpEarned()/xpLeft() by
-    // the full game-XP total. Mirrors the existing admin.js:548 pattern.
-    Object.assign(char, fresh);
-    currentChar = char;
-  } catch { /* silent — stale char is better than a broken form */ }
+  // Issue #259 (perf, 2026-05-11): the two fresh-fetches below cost an
+  // /api/characters/<id> + /api/territories round-trip per call. Callers
+  // that already loaded both seconds ago (selectCharacter in player.js,
+  // and the More-grid tab init in downtime-tab.js) can opt out by
+  // passing `options.skipFreshFetch: true`. Default stays `false` so
+  // any future caller without pre-loaded data (e.g. page-reload-into-
+  // DT-tab via a direct deep link) keeps the existing fresh-load
+  // behaviour and the #184 _gameXP-preservation merge.
+  if (!options.skipFreshFetch) {
+    try {
+      const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+      // Issue #184 (2026-05-08): merge server data over the cached `char`
+      // object instead of replacing the reference wholesale. `_gameXP` (set
+      // by loadGameXP() before the form opens) and any other underscore-
+      // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
+      // API response doesn't carry them — wholesale `currentChar = fresh`
+      // would silently zero out xpGame() and short xpEarned()/xpLeft() by
+      // the full game-XP total. Mirrors the existing admin.js:548 pattern.
+      Object.assign(char, fresh);
+      currentChar = char;
+    } catch { /* silent — stale char is better than a broken form */ }
+  }
   if (currentChar) applyDerivedMerits(currentChar);
-  try {
-    _territories = await apiGet('/api/territories');
-  } catch {
+  // Issue #259: when callers pre-load territories (the common path from
+  // selectCharacter + More-grid), skip the redundant /api/territories
+  // fetch and reuse the supplied list directly. The `|| []` guard
+  // preserves the existing fallback behaviour for callers that pass
+  // `null` or omit the arg.
+  if (options.skipFreshFetch) {
     _territories = territories || [];
+  } else {
+    try {
+      _territories = await apiGet('/api/territories');
+    } catch {
+      _territories = territories || [];
+    }
   }
   responseDoc = null;
   currentCycle = null;
