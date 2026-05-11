@@ -343,8 +343,9 @@ function renderFeedingSummary() {
   // Rote + secondary hunt
   // Issue #234 — `_feed_rote` was dropped by dt-form.22; rote is now a per-slot
   // project action. Detect via project-slot scan, mirroring the admin pattern
-  // at downtime-views.js:2775-2780. Legacy `'feed'` retained for back-compat
-  // with pre-dt-form.22 submissions where rote info lived in a feed-action slot.
+  // at downtime-views.js:2775-2780. Match both 'rote' and 'feed': the rote-lock
+  // at downtime-form.js:620 auto-writes 'feed' for the locked slot; users
+  // selecting Rote Hunt manually from the dropdown write 'rote'.
   const feedRote = [1, 2, 3, 4].some(n => {
     const a = r[`project_${n}_action`];
     return a === 'rote' || a === 'feed';
