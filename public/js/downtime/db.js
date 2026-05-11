@@ -56,15 +56,26 @@ export async function openGamePhase(id) {
 // where each entry is { at: ISO, by: user_id } when signed-off, absent when not.
 // cycle.status remains in the schema (~14 reads across the codebase) but is
 // auto-derived from sign-off state on every write.
+//
+// Issue #231 — Manual override: cycle.manual_open (boolean) is a latched flag
+// that forces effective status to 'active' regardless of phase_signoff state.
+// The closed gate (projects signed) wins over the override; everything else
+// is dominated by it. setManualOpen() below is the single write path.
 
 export const DTUX_PHASES = ['prep', 'city', 'projects', 'story', 'ready'];
 
 export function deriveCycleStatus(cycle) {
   const ps = cycle?.phase_signoff || {};
-  if (!ps.prep)     return 'prep';
-  if (!ps.city)     return 'game';
-  if (!ps.projects) return 'active';
-  return 'closed';
+  // Closed wins regardless of override (issue #231 AC-4): once projects
+  // are signed off the ST is processing; no late submissions.
+  if (ps.projects) return 'closed';
+  // Manual override (issue #231): latched flag forces 'active' for any
+  // non-closed state. Strict equality so stale string/numeric values
+  // from hand-edited docs don't accidentally activate the override.
+  if (cycle?.manual_open === true) return 'active';
+  if (!ps.prep) return 'prep';
+  if (!ps.city) return 'game';
+  return 'active';
 }
 
 export async function signoffPhase(cycle, phase, signedOff, userId) {
@@ -79,6 +90,25 @@ export async function signoffPhase(cycle, phase, signedOff, userId) {
   await updateCycle(cycle._id, { phase_signoff: ps, status: newStatus });
   cycle.phase_signoff = ps;
   cycle.status = newStatus;
+  return cycle;
+}
+
+// Issue #231 — Manual "open downtimes" override (DT Prep tab).
+// Latches `manual_open` on the currently-loaded cycle and re-derives status.
+// Mirrors signoffPhase's mutate-in-place pattern so callers see new values
+// without re-fetching. Setting `on=true` when the cycle has no closed gate
+// forces effective status to 'active'; setting `on=false` reverts the cycle
+// to whatever phase_signoff alone derives.
+export async function setManualOpen(cycle, on, userId) {
+  if (!cycle?._id) return null;
+  const updates = on
+    ? { manual_open: true,  manual_open_at: new Date().toISOString(), manual_open_by: userId || null }
+    : { manual_open: false, manual_open_at: null,                     manual_open_by: null };
+  // Re-derive status against the projected next state (closed-wins /
+  // override-active / phase fallback — see deriveCycleStatus).
+  updates.status = deriveCycleStatus({ ...cycle, ...updates });
+  await updateCycle(cycle._id, updates);
+  Object.assign(cycle, updates);
   return cycle;
 }
 

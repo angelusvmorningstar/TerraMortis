@@ -702,6 +702,8 @@ async function saveTerritory(terrId) {
     const patch = { regent_id: regentId, lieutenant_id: lieutenantId };
     if (idx >= 0) Object.assign(terrDocs[idx], patch);
 
+    invalidateCachedTerritories();
+
     if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
     // Refresh card header to show updated name
     patchTerritories(document.getElementById('city-content'));

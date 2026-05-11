@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
@@ -208,12 +208,13 @@ function _parseMeritType(str) {
 
   const categoryRaw = label.toLowerCase();
   let category;
-  if (/allies/.test(categoryRaw))         category = 'allies';
-  else if (/status/.test(categoryRaw))    category = 'status';
-  else if (/retainer/.test(categoryRaw))  category = 'retainer';
-  else if (/staff/.test(categoryRaw))     category = 'staff';
-  else if (/contacts?/.test(categoryRaw)) category = 'contacts';
-  else                                    category = 'misc';
+  if (/allies/.test(categoryRaw))                   category = 'allies';
+  else if (/status/.test(categoryRaw))              category = 'status';
+  else if (/mystery cult initiate/.test(categoryRaw)) category = 'status';  // #233 — MCI grouped with Status
+  else if (/retainer/.test(categoryRaw))            category = 'retainer';
+  else if (/staff/.test(categoryRaw))               category = 'staff';
+  else if (/contacts?/.test(categoryRaw))           category = 'contacts';
+  else                                              category = 'misc';
 
   return { category, label, dots, qualifier };
 }
@@ -371,11 +372,59 @@ async function _handleSignoffClick(btn) {
   await loadCycleById(currentCycle._id);
 }
 
+// Issue #231 \u2014 Manual "open downtimes" override (DT Prep tab).
+// The button's data-manual-open attribute reflects the CURRENT latched
+// state ('true' if override is on, 'false' if off). Clicking flips it.
+async function _handleManualOpenClick(btn) {
+  if (!currentCycle) return;
+  const currentlyOn = btn.dataset.manualOpen === 'true';
+  const turningOn = !currentlyOn;
+  const confirmMsg = turningOn
+    ? 'Open downtimes for all players, overriding automation?\n\n'
+      + 'This sets a latched override on the cycle. Status stays "active" '
+      + 'regardless of phase sign-off \u2014 until you turn it off or the cycle is closed.'
+    : 'Clear the manual override and resume automatic phase derivation?\n\n'
+      + 'The cycle status will revert to whatever the current phase_signoff state derives.';
+  if (!confirm(confirmMsg)) return;
+  const userId = getUser()?._id || getUser()?.user_id || null;
+  await setManualOpen(currentCycle, turningOn, userId);
+  // Mirror into allCycles so subsequent renders see the new override state.
+  const idx = allCycles.findIndex(c => c._id === currentCycle._id);
+  if (idx >= 0) {
+    allCycles[idx].manual_open    = currentCycle.manual_open;
+    allCycles[idx].manual_open_at = currentCycle.manual_open_at;
+    allCycles[idx].manual_open_by = currentCycle.manual_open_by;
+    allCycles[idx].status         = currentCycle.status;
+  }
+  // Same fan-out as signoff: status drives ~14 sites, refresh the lot.
+  await loadCycleById(currentCycle._id);
+}
+
 function renderSignoffButton(phase, cycle) {
   const signed = !!(cycle?.phase_signoff || {})[phase];
   const label = signed ? '\u2713 Signed-off \u2014 undo?' : 'Mark phase signed-off';
   const cls = signed ? 'dt-btn dt-signoff-btn dt-signoff-signed' : 'dt-btn dt-signoff-btn';
   return `<button type="button" class="${cls}" data-signoff-phase="${phase}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Override toggle. data-manual-open carries the CURRENT state
+// (so the click handler knows which way to flip).
+function renderManualOpenButton(cycle) {
+  const on = cycle?.manual_open === true;
+  const label = on ? 'Resume automation' : 'Open Downtimes (override)';
+  const cls = on
+    ? 'dt-btn dt-signoff-btn dt-manual-open-on'
+    : 'dt-btn dt-signoff-btn';
+  return `<button type="button" class="${cls}" data-manual-open="${on ? 'true' : 'false'}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Banner shown above the prep grid when the override is active.
+function renderManualOpenBanner(cycle) {
+  if (cycle?.manual_open !== true) return '';
+  return '<div class="dt-manual-open-banner" role="status">'
+       + '<strong>Downtimes manually open</strong> \u2014 override is active. '
+       + 'Click <em>Resume automation</em> below to clear it.'
+       + '</div>';
 }
 
 function renderReadyPanel(cycle, subs) {
@@ -444,6 +493,9 @@ export async function initDowntimeView(passedChars) {
     document.addEventListener('click', e => {
       const signoff = e.target.closest('[data-signoff-phase]');
       if (signoff) { _handleSignoffClick(signoff); return; }
+      // Issue #231 — manual-open override toggle (DT Prep tab)
+      const manualOpen = e.target.closest('[data-manual-open]');
+      if (manualOpen) { _handleManualOpenClick(manualOpen); return; }
       // DTIL-1: Court Pulse copy + save buttons
       const cpCopy = e.target.closest('.dt-court-pulse-copy-btn');
       if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
@@ -855,7 +907,7 @@ export function matchSubmission(sub) {
   return { character: char, warnings };
 }
 
-function buildFeedingPool(char, methodId, ambienceMod) {
+function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   if (!char) return null;
   const method = FEED_METHODS_DATA.find(m => m.id === methodId);
   if (!method) return null;
@@ -873,17 +925,71 @@ function buildFeedingPool(char, methodId, ambienceMod) {
     if (v > bestSkill) { bestSkill = v; bestSkillName = s; }
   }
 
+  // Issue #197 — discipline contribution. Prefer the player's chosen
+  // `_feed_disc` if it is in the method's allowed set; otherwise auto-pick
+  // the highest-dot discipline from the method allowlist (mirrors the
+  // canonical computeBestFeedingPool in data/feeding-pool.js so player /
+  // ST views agree). Pre-fix, the breakdown skipped disc entirely so the
+  // discipline component never surfaced in the admin pool readout.
+  let bestDisc = 0, bestDiscName = '';
+  const playerDisc = picks.disc || '';
+  if (playerDisc && method.discs.includes(playerDisc)) {
+    bestDiscName = playerDisc;
+    bestDisc = char.disciplines?.[playerDisc]?.dots || 0;
+  } else {
+    for (const d of method.discs) {
+      const v = char.disciplines?.[d]?.dots || 0;
+      if (v > bestDisc) { bestDisc = v; bestDiscName = d; }
+    }
+  }
+
+  // Spec bonus: +2 if Area-of-Expertise / nine-again, +1 otherwise. Only
+  // counts when the player's picked spec is on the method-derived best
+  // skill (matches feeding-pool.js).
+  let specBonus = 0;
+  const playerSpec = picks.spec || '';
+  if (playerSpec && bestSkillName) {
+    const sk = char.skills?.[bestSkillName];
+    if (sk?.specs?.includes(playerSpec)) {
+      specBonus = (sk.nine_again || hasAoE(char, playerSpec)) ? 2 : 1;
+    }
+  }
+
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
+  // The `ambienceMod` parameter is misleadingly named. Three callers
+  // exist; only one passes actual territory ambience, and that one is
+  // a bug:
+  //   - renderFeedingDetail (line 1327): passes `stMod`
+  //     (st_review.feeding_modifier — ST manual adjudication lever for
+  //     cover / difficulty / etc.). Legitimately a dice modifier;
+  //     stays in `total` here.
+  //   - bestGenericPool (line 9716): passes `0`. Neutral.
+  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
+  //     Ma'at flagged the original `ambienceMod` (territory) here as a
+  //     dice double-count. Territory ambience is surfaced separately in
+  //     that table's 'Ambience' column.
+  //
+  // Net effect: `ambienceMod` here is now exclusively the ST manual
+  // modifier path; territory ambience is handled in feeding-pool.js
+  // (player-side) and surfaced separately in admin display surfaces.
+  // A follow-up tech-debt issue should rename this parameter to `stMod`
+  // to remove the lurking ambiguity.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
-  const total = Math.max(0, bestAttr + bestSkill + fgVal + amb + unskilled);
+  const total = Math.max(0, bestAttr + bestSkill + bestDisc + fgVal + amb + unskilled + specBonus);
 
   return {
     total,
-    breakdown: { attr: bestAttrName, attrVal: bestAttr, skill: bestSkillName, skillVal: bestSkill, fg: fgVal, ambience: amb, unskilled },
+    breakdown: {
+      attr: bestAttrName, attrVal: bestAttr,
+      skill: bestSkillName, skillVal: bestSkill,
+      disc: bestDiscName, discVal: bestDisc,
+      spec: playerSpec, specBonus,
+      fg: fgVal, ambience: amb, unskilled,
+    },
   };
 }
 
@@ -1205,7 +1311,11 @@ function renderFeedingDetail(s, raw, char) {
   if (char) {
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Hunt method</span>';
     h += '<div class="dt-method-btns">';
-    const selectedMethod = s._feed_method || '';
+    // Issue #197 — read from `responses`, not the doc root. Pre-fix this
+    // read missed every submission's method choice (form writes to
+    // responses._feed_method per downtime-form.js:407), so the method-button
+    // selection never highlighted and the pool breakdown branch never fired.
+    const selectedMethod = s.responses?._feed_method || '';
     FEED_METHODS_DATA.forEach(m => {
       h += `<button class="dt-method-btn${selectedMethod === m.id ? ' selected' : ''}" data-method="${m.id}" data-sub-id="${s._id}">${esc(m.name)}</button>`;
     });
@@ -1214,28 +1324,69 @@ function renderFeedingDetail(s, raw, char) {
     // Show pool breakdown if method selected
     if (selectedMethod) {
       const stMod = s.st_review?.feeding_modifier || 0;
-      const pool = buildFeedingPool(char, selectedMethod, stMod);
-      if (pool) {
-        const bd = pool.breakdown;
-        h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
-        h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
-        if (bd.fg) h += ` + ${bd.fg} FG`;
-        if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
-        if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
-        h += ` = <b>${pool.total}</b></span>`;
-        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl">Mod</label> <input type="number" class="dt-pool-mod dt-num-input-sm" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1"></span>`;
-        h += '</div>';
+      const playerDisc = s.responses?._feed_disc || '';
+      const playerSpec = s.responses?._feed_spec || '';
+      // 'other' method: not in FEED_METHODS_DATA, so buildFeedingPool returns
+      // null. Render the player's custom pool components directly, mirroring
+      // the action-queue's handling of the 'other' branch.
+      if (selectedMethod === 'other') {
+        const customAttr  = s.responses?._feed_custom_attr  || '';
+        const customSkill = s.responses?._feed_custom_skill || '';
+        const customDisc  = s.responses?._feed_custom_disc  || playerDisc || '';
+        const parts = [customAttr, customSkill, customDisc].filter(Boolean);
+        if (parts.length) {
+          h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+          h += `<span class="dt-pool-breakdown">${esc(parts.join(' + '))}`;
+          if (playerSpec) h += ` (+${esc(playerSpec)})`;
+          h += ` <span class="dt-feed-other-tag">(custom \u2014 'other' method)</span></span>`;
+          h += '</div>';
+        }
+      } else {
+        const pool = buildFeedingPool(char, selectedMethod, stMod, { disc: playerDisc, spec: playerSpec });
+        if (pool) {
+          const bd = pool.breakdown;
+          h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+          h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
+          if (bd.discVal) h += ` + ${bd.discVal} ${esc(bd.disc)}`;
+          if (bd.specBonus) h += ` + ${bd.specBonus} ${esc(bd.spec)}`;
+          if (bd.fg) h += ` + ${bd.fg} FG`;
+          if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
+          if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
+          h += ` = <b>${pool.total}</b></span>`;
+          h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl">Mod</label> <input type="number" class="dt-pool-mod dt-num-input-sm" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1"></span>`;
+          h += '</div>';
+        }
       }
     }
 
-    // Rote toggle — shown when a project action was dedicated to feeding
-    const hasFeedAction = [1,2,3,4].some(n => s.responses?.[`project_${n}_action`] === 'feed');
+    // Rote toggle — shown when a project action was dedicated to rote feeding.
+    // dt-form.22 made ROTE a per-slot project action (`action === 'rote'`);
+    // legacy `'feed'` is kept for back-compat with pre-redesign drafts.
+    const hasFeedAction = [1,2,3,4].some(n => {
+      const a = s.responses?.[`project_${n}_action`];
+      return a === 'rote' || a === 'feed';
+    });
     const isRote = s.st_review?.feeding_rote || false;
     h += `<div class="dt-feed-row"><span class="dt-feed-lbl">Rote</span>`;
     h += `<label class="dt-rote-label"><input type="checkbox" class="dt-feed-rote-chk" data-sub-id="${s._id}"${isRote ? ' checked' : ''}>`;
     h += ` Rote quality`;
-    if (hasFeedAction) h += ` <span class="dt-rote-hint">(feed action detected)</span>`;
+    if (hasFeedAction) h += ` <span class="dt-rote-hint">(rote action detected)</span>`;
     h += `</label></div>`;
+
+    // Issue #197 / audit #198 — surface the player's per-territory rote
+    // feeding intent. Form writes `feeding_territories_rote` JSON when any
+    // project slot is a rote action (downtime-form.js:446); admin previously
+    // never read this key, so the player's rote-feed territory choices were
+    // dropped on the floor.
+    try {
+      const roteTerrs = JSON.parse(s.responses?.feeding_territories_rote || '{}');
+      const activeRote = Object.entries(roteTerrs).filter(([, v]) => v && v !== 'none');
+      if (activeRote.length) {
+        h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Rote territories</span>';
+        h += activeRote.map(([t, status]) => `<span class="dt-sub-tag">${esc(t.replace(/_/g, ' '))}: ${esc(status)}</span>`).join(' ');
+        h += '</div>';
+      }
+    } catch { /* ignore malformed JSON */ }
   } else {
     // Manual pool for unmatched characters
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
@@ -1282,31 +1433,58 @@ function renderPlayerResponses(s) {
   const feedDesc = r['feeding_description'];
   const feedDisc = r['_feed_disc'];
   const feedSpec = r['_feed_spec'];
-  const feedRote = r['_feed_rote'] === 'yes';
+  // Issue #197 / audit #198 — `_feed_rote` was dropped by dt-form.22 (legacy
+  // key, no longer written). Derive rote presence from project actions
+  // (`action === 'rote'` is the post-redesign indicator; `'feed'` is the
+  // back-compat alias) instead of reading the orphan key.
+  const feedRote = [1,2,3,4].some(n => {
+    const a = r[`project_${n}_action`];
+    return a === 'rote' || a === 'feed';
+  });
   if (feedMethod) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Feeding</div>';
     h += row('Method', FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod);
     if (feedDisc) h += row('Discipline', feedDisc);
     if (feedSpec) h += row('Specialisation', feedSpec);
-    if (feedRote) h += row('Rote action', 'Yes — Project 1 dedicated to feeding');
+    if (feedRote) h += row('Rote action', 'Yes — project slot dedicated to rote feeding');
     try {
       const terrs = JSON.parse(r['feeding_territories'] || '{}');
       const active = Object.entries(terrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
       if (active) h += row('Territory', active);
+    } catch { /* ignore */ }
+    // Surface rote-feed territory choices (form writes `feeding_territories_rote`
+    // when any project slot is a rote action; previously never read by admin).
+    try {
+      const roteTerrs = JSON.parse(r['feeding_territories_rote'] || '{}');
+      const activeRote = Object.entries(roteTerrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (activeRote) h += row('Rote territory', activeRote);
     } catch { /* ignore */ }
     if (feedDesc) h += row('Description', feedDesc);
     h += '</div>';
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
-  const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
+  // Issue #221 — read per-game `game_recount_${n}` slots first so the
+  // ST sees one row per game highlight (form persists per-slot via the
+  // structured highlight UI at downtime-form.js:6597; the joined
+  // top-level `game_recount` mirror at line 545 is kept for back-compat
+  // with legacy single-cell readers). Pre-fix the player summary read
+  // only the joined string, collapsing the structured shape into a
+  // single 'Game Recount' cell with numbered prefixes.
+  const gameRecountSlots = [];
+  for (let n = 1; n <= 5; n++) {
+    const txt = (r[`game_recount_${n}`] || '').trim();
+    if (txt) gameRecountSlots.push({ n, txt });
+  }
+  const courtKeysWithoutRecount = ['travel', 'rp_shoutout', 'correspondence'];
+  const courtLabels = { travel: 'Travel', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
+  const courtVals = courtKeysWithoutRecount.filter(k => r[k] && r[k].trim());
   const aspLines = [1,2,3].map(n => {
     const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
     return (t && v) ? `${t}: ${v}` : null;
   }).filter(Boolean);
-  const hasCourtContent = courtVals.length || aspLines.length || r['aspirations'];
+  const hasJoinedRecount = !gameRecountSlots.length && r['game_recount'] && r['game_recount'].trim();
+  const hasCourtContent = courtVals.length || gameRecountSlots.length || hasJoinedRecount || aspLines.length || r['aspirations'];
   if (hasCourtContent) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
@@ -1314,11 +1492,41 @@ function renderPlayerResponses(s) {
       if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
     }
+    if (gameRecountSlots.length) {
+      for (const { n, txt } of gameRecountSlots) h += row(`Game ${n} Recount`, txt);
+    } else if (hasJoinedRecount) {
+      // Legacy / migrated drafts that have only the joined string.
+      h += row('Game Recount', r['game_recount']);
+    }
     if (aspLines.length) {
       h += row('Aspirations', aspLines.join('\n'));
     } else if (r['aspirations']) {
       h += row('Aspirations', r['aspirations']);
     }
+    h += '</div>';
+  }
+
+  // ── Personal Story ──
+  // Issue #208 / audit #195 — dt-form.18's Touchstone-or-Correspondence
+  // narrative was form-write-only. Form persists: personal_story_kind
+  // ('touchstone' | 'correspondence'), personal_story_npc_name (free
+  // text), personal_story_text (narrative body), story_moment_note
+  // (additional note). All four were dropped on the admin floor — the
+  // ST had no visibility into what the player wrote here.
+  const psKind    = r['personal_story_kind']     || '';
+  const psNpcName = r['personal_story_npc_name'] || '';
+  const psText    = r['personal_story_text']     || '';
+  const psMomentNote = r['story_moment_note']    || '';
+  if (psKind || psText || psNpcName || psMomentNote) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Personal Story</div>';
+    if (psKind) {
+      const kindLabel = psKind === 'touchstone' ? 'Touchstone Vignette'
+                      : psKind === 'correspondence' ? 'Correspondence' : psKind;
+      h += row('Kind', kindLabel);
+    }
+    if (psNpcName) h += row('Person involved', psNpcName);
+    if (psText)    h += row('Narrative', psText);
+    if (psMomentNote) h += row('Moment note', psMomentNote);
     h += '</div>';
   }
 
@@ -1330,8 +1538,30 @@ function renderPlayerResponses(s) {
     const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
     if (action === 'xp_spend') {
-      const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
-      if (cat && item) desc = `${cat}: ${item}`;
+      // Issue #219 — read multi-row `_xp_rows` JSON first; legacy
+      // single-row keys remain as fallback for pre-redesign drafts.
+      const rj = r[`project_${n}_xp_rows`] || '';
+      let multi = '';
+      if (rj) {
+        try {
+          const rows = JSON.parse(rj);
+          if (Array.isArray(rows) && rows.length) {
+            multi = rows
+              .filter(x => x && (x.category || x.item))
+              .map(x => {
+                const dots = x.dotsBuying ? ` (${x.dotsBuying} dot${x.dotsBuying === 1 ? '' : 's'})` : '';
+                return `${x.category || ''}: ${x.item || ''}${dots}`;
+              })
+              .join(' — ');
+          }
+        } catch { /* fall through */ }
+      }
+      if (multi) {
+        desc = multi;
+      } else {
+        const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
+        if (cat && item) desc = `${cat}: ${item}`;
+      }
     }
     projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
   }
@@ -1389,6 +1619,13 @@ function renderPlayerResponses(s) {
     ['form_feedback', 'Form Feedback'],
   ];
   let miscH = '';
+  // Issue #221 — surface the structured `regent_territory` slug
+  // (downtime-form.js:377, written when gateValues.is_regent === 'yes')
+  // alongside the free-text `regency_action` blob. Pre-fix the slug
+  // was never read — the ST saw the regent's narrative description
+  // but no structured indication of which territory they were
+  // governing.
+  if (r['regent_territory']) miscH += row('Regent territory', r['regent_territory']);
   for (const [key, label] of miscFields) {
     if (!r[key] || !r[key].trim?.()) continue;
     if (key === 'xp_spend') {
@@ -1396,6 +1633,17 @@ function renderPlayerResponses(s) {
         const rows = JSON.parse(r[key]).filter(rw => rw.category && rw.item);
         if (rows.length) miscH += row(label, rows.map(rw => `${rw.item} (${rw.cost} XP)`).join(', '));
       } catch { /* ignore */ }
+    } else if (key === 'resources_acquisitions') {
+      // Issue #221 — annotate the blob with the structured slot count
+      // (form persists `acq_slot_count` at downtime-form.js:920) so the
+      // ST can see at a glance how many acquisitions the player split
+      // their declaration into. Slot count > 1 indicates a multi-row
+      // submission already structured-rendered by PR #215; this adds
+      // the count summary to the player-summary panel where only the
+      // blob was shown.
+      const slotCount = parseInt(r['acq_slot_count'] || '1', 10) || 1;
+      const labelWithCount = slotCount > 1 ? `${label} (${slotCount} slots)` : label;
+      miscH += row(labelWithCount, r[key]);
     } else {
       miscH += row(label, r[key]);
     }
@@ -2287,6 +2535,7 @@ function renderPrepPanel(cycle) {
     : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
+    renderManualOpenBanner(cycle) +
     `<div class="dt-prep-grid">` +
     `<div class="dt-prep-field"><label class="dt-lbl">Auto-Open Date/Time</label>` +
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
@@ -2301,6 +2550,7 @@ function renderPrepPanel(cycle) {
     `</div>` +
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
+    renderManualOpenButton(cycle) +
     `</div>` +
     renderMaintenanceAuditPanel(cycle) +
     `<div id="dt-cycle-intelligence" class="dt-cycle-intelligence"></div>`;
@@ -2390,6 +2640,52 @@ function esc(s) {
 }
 
 // ── Processing Mode (feature.43) ────────────────────────────────────────────
+
+/**
+ * Issues #210 + #217 — shared target-picker composer. Resolves the
+ * structured target shape (`<prefix>_target_type` / `_target_value` /
+ * `_target_terr` / `_target_other`) into a human-readable string for
+ * the admin action card. Used by:
+ *   - Project per-slot target (prefix = `project_${slot}`)
+ *   - Sphere per-slot target (prefix = `sphere_${idx + 1}`)
+ *
+ * Sphere's target_value can be a JSON array (multi-select character
+ * checkboxes at downtime-form.js:766-769); project's target_value is
+ * single but pre-DTFP-6 drafts stored single IDs as JSON arrays.
+ * Branch on the bracket prefix to disambiguate.
+ *
+ * Returns '' for empty / unrecognised targets so callers can use a
+ * truthy check to gate the render row.
+ */
+function _composeTargetString(resp, prefix, chars) {
+  const tType  = resp[`${prefix}_target_type`]  || '';
+  const tValue = resp[`${prefix}_target_value`] || '';
+  const tTerr  = resp[`${prefix}_target_terr`]  || '';
+  const tOther = resp[`${prefix}_target_other`] || '';
+  if (tType === 'character' && tValue) {
+    let ids = [];
+    if (typeof tValue === 'string' && tValue.startsWith('[')) {
+      try { const a = JSON.parse(tValue); if (Array.isArray(a)) ids = a; }
+      catch { ids = []; }
+    } else { ids = [tValue]; }
+    ids = ids.map(String).filter(Boolean);
+    if (!ids.length) return '';
+    const names = ids.map(id => {
+      const c = chars.find(ch => String(ch._id) === String(id));
+      return c ? displayName(c) : `${id} (unresolved)`;
+    });
+    return `Character${ids.length > 1 ? 's' : ''}: ${names.join(', ')}`;
+  } else if (tType === 'territory' && tTerr) {
+    return `Territory: ${tTerr}`;
+  } else if (tType === 'own_merit' && tValue) {
+    // merit_key is `'Name|qualifier'` — split for readability.
+    const [mName, mQual] = String(tValue).split('|');
+    return `Own merit: ${mQual ? `${mName} (${mQual})` : mName}`;
+  } else if (tType === 'other' && tOther) {
+    return `Other: ${tOther}`;
+  }
+  return '';
+}
 
 /**
  * Aggregate all actions from all submissions into a flat, phase-tagged queue.
@@ -2489,7 +2785,17 @@ function buildProcessingQueue(subs) {
       const feedCustomDisc  = resp['_feed_custom_disc']  || '';
       const feedDesc        = sub._raw?.feeding?.method || resp['feeding_description'] || '';
       const feedSpec        = resp['_feed_spec']   || '';
-      const feedRote        = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
+      // Issue #197 / audit #198 — `_feed_rote` was dropped by dt-form.22.
+      // Derive rote presence from any project slot's action being `'rote'`
+      // (or legacy `'feed'`) instead of reading the orphan key. ST review
+      // override remains canonical (st_review.feeding_rote takes precedence
+      // when explicitly set by the ST).
+      const feedRote        = sub.st_review?.feeding_rote
+                              || [1,2,3,4].some(n => {
+                                   const a = resp[`project_${n}_action`];
+                                   return a === 'rote' || a === 'feed';
+                                 })
+                              || false;
       let   feedTerrs   = {};
       try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
       const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'feeding_rights' || feedTerrs[k] === 'resident')
@@ -2620,7 +2926,19 @@ function buildProcessingQueue(subs) {
 
       // ST recategorisation override — changes phase and label without altering player data
       const projReview = (sub.projects_resolved || [])[idx] || {};
-      const effectiveActionType = projReview.action_type_override || actionType;
+      let effectiveActionType = projReview.action_type_override || actionType;
+
+      // Issue #196 — dt-form.25's project ambience redesign keeps action
+      // = 'ambience_change' and persists direction in `_ambience_direction`
+      // ('up' | 'down'). Normalise to the canonical enum so phase routing,
+      // ACTION_TYPE_LABELS, and downstream tally + render code match. The
+      // ST override (if set) was already applied above, so this only
+      // touches the player-submitted shape.
+      if (effectiveActionType === 'ambience_change') {
+        const projDir = resp[`project_${slot}_ambience_direction`] || resp[`project_${slot}_ambience_dir`] || '';
+        if (projDir === 'up' || projDir === 'improve') effectiveActionType = 'ambience_increase';
+        else if (projDir === 'down' || projDir === 'degrade') effectiveActionType = 'ambience_decrease';
+      }
 
       let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
       let phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
@@ -2631,6 +2949,56 @@ function buildProcessingQueue(subs) {
       if (_jointInfo) {
         phaseNum = PHASE_JOINT;
         phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
+      }
+
+      // Issue #196 — for ambience-change projects, dt-form.25 writes the
+      // territory to `_ambience_target` instead of `_territory`. Prefer
+      // the new key, fall back to legacy for pre-redesign drafts.
+      const _isProjAmb = effectiveActionType === 'ambience_increase'
+                      || effectiveActionType === 'ambience_decrease';
+      const _projTerritory = _isProjAmb
+        ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
+        : (resp[`project_${slot}_territory`] || '');
+
+      // Issues #210 / #217 — resolve the player's target picker selection
+      // into a human-readable string. Composer is the shared
+      // `_composeTargetString` helper defined below; project + sphere
+      // both consume it.
+      const _projTarget = _composeTargetString(resp, `project_${slot}`, characters);
+
+      // Issue #219 — investigate-lead chip + multi-row xp_spend breakdown.
+      // Form persists `project_${n}_investigate_lead` (free text, populated
+      // when action === 'investigate') and `project_${n}_xp_rows` (JSON
+      // array of `{category, item, dotsBuying}` from the per-slot xp grid,
+      // when action === 'xp_spend'). Pre-fix neither surfaced on the
+      // project card; admin's xp review table read the top-level
+      // `responses.xp_spend` mirror but the per-slot card showed only the
+      // legacy single-row keys.
+      const _projInvestigateLead = resp[`project_${slot}_investigate_lead`] || '';
+      let _projXpBreakdown = '';
+      if (effectiveActionType === 'xp_spend') {
+        const _rj = resp[`project_${slot}_xp_rows`] || '';
+        if (_rj) {
+          try {
+            const _xpRows = JSON.parse(_rj);
+            if (Array.isArray(_xpRows) && _xpRows.length) {
+              _projXpBreakdown = _xpRows
+                .filter(r => r && (r.category || r.item))
+                .map(r => {
+                  const _dots = r.dotsBuying ? ` (${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})` : '';
+                  return `${r.category || ''}: ${r.item || ''}${_dots}`;
+                })
+                .join(' — ');
+            }
+          } catch { /* malformed — fall through to legacy single-row */ }
+        }
+        // Single-row fallback for pre-redesign drafts that never engaged
+        // the multi-row grid (legacy `_xp_category` / `_xp_item` only).
+        if (!_projXpBreakdown) {
+          const _cat  = resp[`project_${slot}_xp_category`] || '';
+          const _item = resp[`project_${slot}_xp_item`]     || '';
+          if (_cat && _item) _projXpBreakdown = `${_cat}: ${_item}`;
+        }
       }
 
       queue.push({
@@ -2652,7 +3020,10 @@ function buildProcessingQueue(subs) {
         projDescription,
         projCast:        projCastResolved,
         projMerits:      projMeritsResolved,
-        projTerritory:   resp[`project_${slot}_territory`] || '',
+        projTerritory:   _projTerritory,
+        projTarget:      _projTarget,
+        projInvestigateLead: _projInvestigateLead,
+        projXpBreakdown: _projXpBreakdown,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -2673,6 +3044,26 @@ function buildProcessingQueue(subs) {
           desired_outcome: resp[`sphere_${n}_outcome`]     || '',
           description:     resp[`sphere_${n}_description`] || '',
           primary_pool:    resp[`sphere_${n}_pool_expr`] ? { expression: resp[`sphere_${n}_pool_expr`] } : null,
+          // Issue #212 — surface the player's territory pick. Form writes
+          // `sphere_${n}_territory` (territory slug, populated by the
+          // generic suffix loop at downtime-form.js:752 — same shape as
+          // the project per-slot territory). Pre-fix this key was never
+          // read; sphere action cards rendered no territory cell.
+          territory:       resp[`sphere_${n}_territory`]   || '',
+          // Issue #217 — pull the three sphere-action data points the
+          // audit flagged as MEDIUM Type A: the structured target
+          // picker, the investigate-lead chip, and the cast list. The
+          // target shape mirrors project's renderTargetCharOrOther
+          // (downtime-form.js:5215+) but sphere's value can be a
+          // JSON array of char IDs (multi-select checkboxes at
+          // downtime-form.js:766-769); the shared composer handles
+          // both single + array shapes.
+          target_type:     resp[`sphere_${n}_target_type`]      || '',
+          target_value:    resp[`sphere_${n}_target_value`]     || '',
+          target_terr:     resp[`sphere_${n}_target_terr`]      || '',
+          target_other:    resp[`sphere_${n}_target_other`]     || '',
+          investigate_lead: resp[`sphere_${n}_investigate_lead`] || '',
+          cast:            resp[`sphere_${n}_cast`]             || '',
         }];
       }
     }
@@ -2724,6 +3115,41 @@ function buildProcessingQueue(subs) {
         phaseNum = PHASE_ORDER[actionType] ?? 13;
       }
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      // Issue #212 — carry the player's sphere territory pick onto the
+      // queue entry. `action.territory` is set by the response-keys
+      // fallback above (form-shape submissions); legacy
+      // `raw.sphere_actions[]` may also include it. Falls back to
+      // `resp[\`sphere_${idx+1}_territory\`]` so submissions whose
+      // sphere_actions array lacks a territory field still surface
+      // the player's pick.
+      const meritTerritory = action.territory
+                          || resp[`sphere_${idx + 1}_territory`]
+                          || '';
+
+      // Issue #217 — sphere target picker / investigate lead / cast.
+      // Target uses the shared `_composeTargetString` helper so any
+      // future shape changes converge with the project target render.
+      const meritTarget = _composeTargetString(resp, `sphere_${idx + 1}`, characters);
+      const meritInvestigateLead = action.investigate_lead
+                                || resp[`sphere_${idx + 1}_investigate_lead`]
+                                || '';
+      // Cast: form persists JSON-array of char IDs at
+      // `sphere_${n}_cast` (downtime-form.js:781). Resolve to display
+      // names; gracefully fall back to raw IDs for unresolved chars.
+      let meritCast = '';
+      const castRaw = action.cast || resp[`sphere_${idx + 1}_cast`] || '';
+      if (castRaw) {
+        try {
+          const ids = JSON.parse(castRaw);
+          if (Array.isArray(ids) && ids.length) {
+            meritCast = ids.map(id => {
+              const c = characters.find(ch => String(ch._id) === String(id));
+              return c ? displayName(c) : `${id} (unresolved)`;
+            }).join(', ');
+          }
+        } catch { meritCast = String(castRaw); }
+      }
+
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
@@ -2743,6 +3169,10 @@ function buildProcessingQueue(subs) {
         meritDots,
         meritQualifier,
         meritDesiredOutcome: action.desired_outcome || '',
+        meritTerritory,
+        meritTarget,
+        meritInvestigateLead,
+        meritCast,
       });
       meritFlatIdx++;
     });
@@ -2782,15 +3212,115 @@ function buildProcessingQueue(subs) {
       meritFlatIdx++;
     });
 
+    // Audit #198 / Issue #202 — Mentor + Staff surfaces (PR #137 / dt-form.28)
+    // were entirely invisible on the admin side. Mirror the per-slot loop the
+    // contacts + retainers blocks use, reading the form's mentor_${n}_* and
+    // staff_${n}_* response keys. Mentor mirrors Retainer (per-merit, directed
+    // action — phase 12); Staff mirrors Contacts (per-dot, tasked action —
+    // phase 11). Description composes the merit label + resolved target name +
+    // task so the ST sees who the action is directed at without drilling into
+    // the raw response. Bound to 10 / 20 slots to cover any realistic dot
+    // total.
+    const _resolveTargetName = (id) => {
+      if (!id) return '';
+      const c = characters.find(ch => String(ch._id) === String(id));
+      return c ? displayName(c) : '';
+    };
+    const _composeDirectedDesc = (meritLabel, targetName, task) => {
+      const head = [meritLabel, targetName].filter(Boolean).join(' — ');
+      return [head, task].filter(Boolean).join(': ');
+    };
+    for (let n = 1; n <= 10; n++) {
+      const task    = resp[`mentor_${n}_task`];
+      const target  = resp[`mentor_${n}_target`];
+      const meritLb = resp[`mentor_${n}_merit`];
+      if (!task && !target) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
+        actionType: 'resources_retainers',
+        label: 'Mentor: Directed Action',
+        description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
+        source: 'merit',
+        meritCategory: 'mentor',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+    for (let n = 1; n <= 20; n++) {
+      const task    = resp[`staff_${n}_task`];
+      const target  = resp[`staff_${n}_target`];
+      const meritLb = resp[`staff_${n}_merit`];
+      if (!task && !target) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[11],
+        phaseNum: 11,
+        actionType: 'contacts',
+        label: 'Staff: Tasked Action',
+        description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
+        source: 'merit',
+        meritCategory: 'staff',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+
     // ── Acquisitions (resource and skill, from raw.acquisitions form section) ──
-    const resAcq   = (raw.acquisitions?.resource_acquisitions || '').trim();
-    const skillAcq = (raw.acquisitions?.skill_acquisitions   || '').trim();
+    // Issue #214 — pre-fix this block read ONLY `raw.acquisitions?.*`,
+    // which is populated by the CSV import path (server schema:478, _raw
+    // is the CSV-structured-data slot). For app-form submissions `raw`
+    // is `{}` and both branches were skipped — Resources and Skill
+    // Acquisitions phases of the action queue were entirely empty for
+    // every submission entered through the player form. Fall back to
+    // the canonical response-key blobs (form writes both at
+    // downtime-form.js:953 and :967 alongside the structured JSON-array
+    // sources of truth at :907-908).
+    const resAcq   = (raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '').trim();
+    const skillAcq = (raw.acquisitions?.skill_acquisitions   || resp['skill_acquisitions']    || '').trim();
     /** Extract the first "Description: ..." value from an acquisitions blob for the row summary. */
     function _acqRowSummary(text) {
       const m = text.match(/description[:\s]+([^\n]+)/i);
       if (m) return m[1].trim();
       // Fall back to first non-empty line
       return text.split('\n').map(l => l.trim()).find(l => l) || text;
+    }
+    /**
+     * Issue #214 — compose a multi-row description from the canonical
+     * `acq_resource_rows` / `acq_skill_rows` JSON arrays (form-side
+     * single source of truth, downtime-form.js:907-908). Pre-fix only
+     * slot 1 (via `acq_description` mirror) was visible in any
+     * structured form; rows 2..N were either entirely dropped (for
+     * app-form submissions, see the resp fallback above) or
+     * concatenated as a free-text blob with no per-row delimiter.
+     * When the JSON array is present, build a per-row summary with
+     * `Row N: <description> | <merits>` so the ST sees the structure
+     * the player entered. Falls back to the blob's first-line summary
+     * (existing behaviour) when no JSON array is present.
+     */
+    function _multiRowSummary(jsonStr, blob) {
+      try {
+        const rows = JSON.parse(jsonStr || '[]');
+        if (Array.isArray(rows) && rows.length > 1) {
+          return rows.map((r, i) => {
+            const merits = Array.isArray(r.merits) && r.merits.length ? ` | ${r.merits.join(', ')}` : '';
+            const desc   = r.description || '';
+            return `Row ${i + 1}: ${desc}${merits}`;
+          }).join(' — ');
+        }
+        if (Array.isArray(rows) && rows.length === 1) {
+          // Single row — show description directly (matches blob summary shape).
+          return rows[0].description || _acqRowSummary(blob);
+        }
+      } catch { /* malformed JSON — fall through to blob */ }
+      return _acqRowSummary(blob);
     }
     if (resAcq) {
       queue.push({
@@ -2801,7 +3331,7 @@ function buildProcessingQueue(subs) {
         phaseNum: 14,
         actionType: 'resources_acquisitions',
         label: 'Resources Acquisitions',
-        description: _acqRowSummary(resAcq),
+        description: _multiRowSummary(resp['acq_resource_rows'], resAcq),
         acqNotes: resAcq,
         source: 'acquisition',
         actionIdx: 0,
@@ -2822,7 +3352,7 @@ function buildProcessingQueue(subs) {
         phaseNum: 7,
         actionType: 'skill_acquisitions',
         label: 'Skill Acquisitions',
-        description: _acqRowSummary(skillAcq),
+        description: _multiRowSummary(resp['acq_skill_rows'], skillAcq),
         acqNotes: skillAcq,
         source: 'acquisition',
         actionIdx: 1,
@@ -3160,16 +3690,29 @@ function _gatherProjectAmbience(subs) {
       const n = idx + 1;
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
-      const effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
-      // Issue #129: dispatch on canonical + legacy ambience shapes.
-      const dir = _ambienceDirection(effectiveType, n, resp);
-      const isIncrease = dir === 'increase';
-      const isDecrease = dir === 'decrease';
+      let effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
+      // Issue #196 — dt-form.25's project ambience redesign keeps the raw
+      // action `'ambience_change'` and persists direction in
+      // `_ambience_direction` ('up' | 'down'). Sphere-side normalises to
+      // ambience_increase / _decrease at form-write time; project-side does
+      // not. Map at admin read so the existing tally branches still match.
+      if (effectiveType === 'ambience_change') {
+        const dir = resp[`project_${n}_ambience_direction`] || resp[`project_${n}_ambience_dir`] || '';
+        if (dir === 'up' || dir === 'improve') effectiveType = 'ambience_increase';
+        else if (dir === 'down' || dir === 'degrade') effectiveType = 'ambience_decrease';
+      }
+      const isIncrease = effectiveType === 'ambience_increase';
+      const isDecrease = effectiveType === 'ambience_decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
       const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
-      const terrRaw = resp[`project_${n}_territory`] || '';
+      // Issue #196 — dt-form.25 writes `_ambience_target` (territory slug)
+      // for ambience-change actions; the legacy `_territory` key is no
+      // longer set on those rows. Prefer the new key, fall back for
+      // pre-redesign drafts and non-ambience action types that still
+      // carry `_territory`.
+      const terrRaw = resp[`project_${n}_ambience_target`] || resp[`project_${n}_territory`] || '';
       const desc    = resp[`project_${n}_description`] || proj.detail || '';
       const outcome = proj.desired_outcome || resp[`project_${n}_outcome`] || '';
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
@@ -7257,7 +7800,11 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-view">`;
       if (outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
-      if (!outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      if (entry.meritTerritory)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.meritTerritory)}</div>`;
+      if (entry.meritTarget)          h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.meritTarget)}</div>`;
+      if (entry.meritInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.meritInvestigateLead)}</div>`;
+      if (entry.meritCast)            h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Cast</span> ${esc(entry.meritCast)}</div>`;
+      if (!outcomeVal && !descVal && !entry.meritTerritory && !entry.meritTarget && !entry.meritInvestigateLead && !entry.meritCast) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
@@ -7290,6 +7837,9 @@ function renderActionPanel(entry, review) {
       if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
       if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (entry.projTarget) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.projTarget)}</div>`;
+      if (entry.projInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.projInvestigateLead)}</div>`;
+      if (entry.projXpBreakdown) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
       if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
@@ -9236,7 +9786,17 @@ function renderFeedingScene() {
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, ambienceMod);
+        // Issue #176 (fix loop 2 — Ma'at catch): pre-fix this passed
+        // `ambienceMod` (territory ambience from `terrRec.ambienceMod`)
+        // through `buildFeedingPool`'s misleadingly-named third parameter,
+        // which summed it into the dice total. Per Damnation City §158
+        // ambience is a Vitae yield modifier, not a dice pool component.
+        // The summary table already surfaces ambience separately via
+        // `ambModStr` rendered as a dedicated 'Ambience' column at line
+        // 9773 + downstream, so there is no display regression — passing
+        // `0` here just stops the dice double-count. Matches the
+        // neutral-call pattern bestGenericPool uses at line 9716.
+        const pool = buildFeedingPool(char, methodId, 0);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);

@@ -951,8 +951,15 @@ export function shRenderDomainMerits(c, editMode) {
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
-      // Haven and Mandragora Garden excluded from partner sharing (sharing is at the Safe Place level)
-      const _noShare = ['Herd', 'Feeding Grounds', 'Haven', 'Mandragora Garden'];
+      // Issue #160 (2026-05-08): Mandragora Garden gains the shared quality
+      // per published errata — direct partner sharing on the Mandragora
+      // instance, semantically identical to Safe Place's existing treatment.
+      // Removed from _noShare here. The attached-to-Safe-Place cap stays
+      // (CAP_DOMAIN in editor/domain.js); per-instance shared_with sums
+      // partner contributions through the existing domMeritShareable path.
+      // Haven still excluded — its shared treatment is via the Safe Place
+      // it attaches to, NOT a direct shared quality on the Haven itself.
+      const _noShare = ['Herd', 'Feeding Grounds', 'Haven'];
       if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
