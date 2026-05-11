@@ -164,7 +164,20 @@ async function loadCharacters() {
   // unconditionally zeroes free_pt / free_mdb at start. Without rules in
   // cache, the evaluators can't re-apply them, so the displayed m.rating
   // collapses to (cp + xp) and any engine bonus disappears from the view.
-  await preloadRules().catch(() => {});
+  // Issue #249 (HOTFIX 2026-05-09): see app.js:504 — silent catch removed.
+  // Downstream applyDerivedMerits guard now prevents data loss from a
+  // null cache; explicit error surfaces the degraded state to the user.
+  try {
+    await preloadRules();
+  } catch (err) {
+    console.error('[player] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
+    const banner = document.getElementById('app-status-banner');
+    if (banner) {
+      banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
+      banner.classList.add('app-status-banner--error');
+      banner.style.display = '';
+    }
+  }
 
   try {
     chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');

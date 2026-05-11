@@ -36,9 +36,16 @@ const projectActionEnum = [
   // for CSV-import back-compat reads only — admin/parser still consume
   // them; tracked under issue #129 for future canonical normalisation).
   'ambience_change',
-  // dt-form.28 / #146 / #235: maintenance action for upkeep of professional
-  // or cult relationships. Form writes this via PROJECT_ACTIONS at
-  // public/js/tabs/downtime-data.js:20.
+  // Issue #235: dt-form.28 added 'maintenance' as a project action for
+  // Professional Training / Mystery Cult Initiation upkeep
+  // (`MAINTENANCE_MERITS` in tabs/downtime-data.js:113). Form writes it
+  // via the PROJECT_ACTIONS dropdown at downtime-data.js:20; the
+  // canonical action label is rendered with maintenance-specific
+  // sub-fields (`renderMaintenanceChips` at downtime-form.js:5207). The
+  // server schema enum was missed when the action shipped — latent
+  // validation landmine where a maintenance submission would 400 on
+  // POST /downtime_submissions if strict enum checking was on the
+  // request path.
   'maintenance'
 ];
 
