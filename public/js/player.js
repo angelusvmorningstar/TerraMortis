@@ -283,7 +283,10 @@ function selectCharacter(activeChars, idx) {
   state.editIdx = chars.indexOf(activeChar);
   renderSheet(activeChar);
   initOrdeals(activeChar, chars);
-  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar, _territories);
+  // Issue #259 (perf): selectCharacter just loaded `activeChar` and
+  // `_territories` 1-2s ago via loadCharacters() — pass skipFreshFetch so
+  // renderDowntimeTab reuses them instead of re-fetching both endpoints.
+  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar, _territories, { skipFreshFetch: true });
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
