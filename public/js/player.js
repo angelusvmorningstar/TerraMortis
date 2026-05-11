@@ -298,41 +298,83 @@ function showPending() {
   document.getElementById('pending-container').style.display = '';
 }
 
+// Issue #258 (perf, 2026-05-11): per-char lazy-render bookkeeping.
+// `_lazyRenderedTabs` records which char-dependent tabs have already
+// been rendered for the CURRENT character. Reset on every
+// selectCharacter call so a char-switch re-arms every tab.
+// `_lazyRenderers` maps tab name → render fn that closes over the
+// current `activeChar` / `_territories` / `retiredChars` module-level
+// state. Tabs absent from the map (sheet / city / primer / tickets)
+// are not lazy — sheet renders eagerly in selectCharacter; the others
+// are char-independent and rendered once in loadCharacters.
+const _lazyRenderedTabs = new Set();
+
+const _lazyRenderers = {
+  xplog: () => {
+    initOrdeals(activeChar, chars);
+    renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
+  },
+  // Issue #259: selectCharacter just loaded `activeChar` and `_territories`
+  // — pass skipFreshFetch so renderDowntimeTab reuses them instead of
+  // re-fetching. (Same opt-in preserved through the lazy boundary.)
+  downtime: () => renderDowntimeTab(document.getElementById('tab-downtime'), activeChar, _territories, { skipFreshFetch: true }),
+  feeding: () => renderFeedingTab(document.getElementById('feeding-content'), activeChar),
+  story:   () => renderStoryTab(document.getElementById('story-content'), activeChar),
+  status:  () => renderStatusTab(document.getElementById('tab-status'), activeChar, isSTRole()),
+  archive: () => initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars),
+  regency: () => renderRegencyTab(document.getElementById('regency-content'), activeChar, _territories),
+  office:  () => renderOfficeTab(document.getElementById('office-content'), activeChar),
+};
+
+/**
+ * Render a lazy tab if not yet rendered for the current character.
+ * Idempotent — re-clicking a tab is a no-op once it's rendered.
+ */
+function _renderTabIfNeeded(tabName) {
+  if (_lazyRenderedTabs.has(tabName)) return;
+  const fn = _lazyRenderers[tabName];
+  if (!fn) return; // sheet / city / primer / tickets — eager / char-independent
+  _lazyRenderedTabs.add(tabName);
+  try {
+    fn();
+  } catch (err) {
+    // Render failure shouldn't poison the lazy state — clear so a
+    // subsequent click retries. Mirrors the catch-and-continue pattern
+    // the eager renderers had pre-fix (per-tab failure didn't kill the
+    // others).
+    _lazyRenderedTabs.delete(tabName);
+    console.error(`[player] tab '${tabName}' render failed:`, err);
+  }
+}
+
 function selectCharacter(activeChars, idx) {
   activeChar = activeChars[idx];
   state.editIdx = chars.indexOf(activeChar);
+
+  // Re-arm lazy state — every tab needs fresh render for the new char.
+  _lazyRenderedTabs.clear();
+
+  // Sheet is the default-active tab on first paint; always render it
+  // eagerly so the user has content immediately.
   renderSheet(activeChar);
-  initOrdeals(activeChar, chars);
-  // Issue #259 (perf): selectCharacter just loaded `activeChar` and
-  // `_territories` 1-2s ago via loadCharacters() — pass skipFreshFetch so
-  // renderDowntimeTab reuses them instead of re-fetching both endpoints.
-  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar, _territories, { skipFreshFetch: true });
-  renderFeedingTab(document.getElementById('feeding-content'), activeChar);
-  renderStoryTab(document.getElementById('story-content'), activeChar);
-  renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
-  renderStatusTab(document.getElementById('tab-status'), activeChar, isSTRole());
-  initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
-  // Derive regent status from territories (single source of truth)
+  // Visibility toggles for conditional tab buttons. The actual tab
+  // CONTENT renders lazily when the user clicks the button. We still
+  // need to set button display here so the sidebar reflects which
+  // tabs exist for this character.
   const regInfo = findRegentTerritory(_territories, activeChar);
-
-  // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');
-  if (regInfo) {
-    if (regBtn) regBtn.style.display = '';
-    renderRegencyTab(document.getElementById('regency-content'), activeChar, _territories);
-  } else {
-    if (regBtn) regBtn.style.display = 'none';
-  }
+  if (regBtn) regBtn.style.display = regInfo ? '' : 'none';
 
-  // Office tab — only visible for characters with a court office
   const offBtn = document.getElementById('tab-btn-office');
-  if (activeChar.court_category) {
-    if (offBtn) offBtn.style.display = '';
-    renderOfficeTab(document.getElementById('office-content'), activeChar);
-  } else {
-    if (offBtn) offBtn.style.display = 'none';
-  }
+  if (offBtn) offBtn.style.display = activeChar.court_category ? '' : 'none';
+
+  // If the currently-active tab is char-dependent (e.g. user previously
+  // navigated to Downtime, then changed characters), render it now so
+  // they don't see a blank panel.
+  const activeBtn = document.querySelector('.sidebar-btn.on[data-tab]');
+  const activeTab = activeBtn?.dataset.tab;
+  if (activeTab && activeTab !== 'sheet') _renderTabIfNeeded(activeTab);
 }
 
 async function updateCycleIndicators() {
@@ -360,6 +402,11 @@ document.getElementById('sidebar').addEventListener('click', e => {
   btn.classList.add('on');
   const panel = document.getElementById('tab-' + btn.dataset.tab);
   if (panel) panel.classList.add('active');
+
+  // Issue #258 (perf): lazy-render the tab's content if this is its
+  // first activation for the current character. Saves ~15-20 API calls
+  // per char-selection by deferring non-active tab init until needed.
+  _renderTabIfNeeded(btn.dataset.tab);
 });
 
 // ── Sidebar collapse ──
