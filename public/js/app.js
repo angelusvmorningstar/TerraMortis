@@ -1284,6 +1284,7 @@ async function boot() {
             await ensureTrackerLoaded(editorState.chars[charIdx]);
             openChar(charIdx);
             pickChar(editorState.chars[charIdx]);
+            _buildCharMenu(); // re-render sidebar with sheetChar now set (closes #230)
           }
         }
         // Desktop: STs → character grid, players → sheet.
