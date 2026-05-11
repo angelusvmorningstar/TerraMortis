@@ -39,7 +39,14 @@ vi.mock('../../public/js/data/loader.js', () => ({
 vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
   preloadRules: async () => {},
   invalidateRulesCache: () => {},
-  getRulesCache: () => null,
+  // Issue #249 (HOTFIX): applyDerivedMerits now bails out when
+  // getRulesCache() returns null to prevent Contacts-spheres data loss
+  // (PT/MCI free_pt + free_mci channels reset before evaluators apply
+  // them; pruneContactsSpheres then truncates the array). Harness
+  // supplies its rules via getRulesBySource directly, so we return a
+  // non-null sentinel here so the guard sees the cache as 'loaded'
+  // and proceeds with the derivation under test.
+  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),
   getRulesBySource: (source) => {
     if (source === 'Professional Training') {
       return {

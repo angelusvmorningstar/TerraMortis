@@ -35,7 +35,18 @@ const projectActionEnum = [
   // (the legacy `ambience_increase` / `ambience_decrease` values are kept
   // for CSV-import back-compat reads only — admin/parser still consume
   // them; tracked under issue #129 for future canonical normalisation).
-  'ambience_change'
+  'ambience_change',
+  // Issue #235: dt-form.28 added 'maintenance' as a project action for
+  // Professional Training / Mystery Cult Initiation upkeep
+  // (`MAINTENANCE_MERITS` in tabs/downtime-data.js:113). Form writes it
+  // via the PROJECT_ACTIONS dropdown at downtime-data.js:20; the
+  // canonical action label is rendered with maintenance-specific
+  // sub-fields (`renderMaintenanceChips` at downtime-form.js:5207). The
+  // server schema enum was missed when the action shipped — latent
+  // validation landmine where a maintenance submission would 400 on
+  // POST /downtime_submissions if strict enum checking was on the
+  // request path.
+  'maintenance'
 ];
 
 const sphereActionEnum = [
@@ -546,6 +557,15 @@ export const downtimeCycleSchema = {
     submission_count: { type: 'integer', minimum: 0 },
     early_access_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
+
+    // Issue #231 — Manual "open downtimes" override (DT Prep tab).
+    // Latched flag that forces effective status to 'active' regardless of
+    // phase_signoff state (closed gate still wins). See public/js/downtime/db.js
+    // (deriveCycleStatus, setManualOpen).
+    manual_open:    { type: 'boolean' },
+    manual_open_at: { type: ['string', 'null'] },  // ISO timestamp when override toggled on; null when off
+    manual_open_by: { type: ['string', 'null'] },  // user id of the ST who toggled it on; null when off
+
     regent_confirmations: {
       type: 'array',
       items: {

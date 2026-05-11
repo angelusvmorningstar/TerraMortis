@@ -757,3 +757,8 @@ development_status:
   issue-216-alice-regent-territory: review                      # findRegentTerritory canonical-slug guard; PR #223
   issue-224-dt-stale-territory: review                          # renderDowntimeTab territory fresh-fetch + saveTerritory invalidation
   issue-230-dt-form-init-char-mismatch: review                  # _buildCharMenu before openChar: sidebar shows wrong char; DT form renders for sheetChar not visual selection
+  issue-231-dt-prep-open-override: review                       # DT Prep: manual override flag latches cycle.status to active; deriveCycleStatus + setManualOpen + UI button + banner
+  issue-232-hide-player-npc-chip: review                        # Relationships tab: gate "New NPC (pending)" chip on isSTRole(); default npc_mode='pc' for non-ST; sweep dead hint copy
+  issue-233-status-mci-merit-actions: review                    # B1 from DT data-flow audit: status loop added to buildMeritActions; MCI promoted to 'status' category in deriveMeritCategory + _parseMeritType (both duplicated functions per NFR-DS-01); admin-only scope; player Story tab gap noted as follow-up
+  issue-236-archive-nav-tile-carver: review                     # Archive nav tile gated on dead `_has_archive` flag (never set anywhere); dropped the condition entirely — tab self-handles empty state via existing "Nothing archived yet." placeholder; ST view unchanged via existing role bypass
+  issue-234-feed-rote-maintenance-enum: review                  # Bundled B2+B3 from DT audit: feeding-tab.js outer gate replaced + inner slot loop matches rote||feed; schema's projectActionEnum accepts 'maintenance'. Two-file change, both parse-check clean

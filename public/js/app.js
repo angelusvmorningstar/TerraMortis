@@ -501,7 +501,29 @@ async function loadAllData() {
   // and a missing cache means free_attache / free_fwb / free_pt etc. all
   // resolve to 0, then m.rating gets re-synced to (cp + xp), wiping the
   // bonus the editor had correctly saved.
-  await preloadRules().catch(() => {});
+  // Issue #249 (HOTFIX 2026-05-09): pre-fix this swallowed all errors
+  // silently — when the rules API call failed, _cache stayed null and
+  // applyDerivedMerits proceeded with broken derivation, causing
+  // permanent Contacts-spheres data loss for any character with PT/MCI-
+  // granted spheres (Yusuf canonical example). The downstream
+  // applyDerivedMerits null-cache guard now prevents the data loss,
+  // but failing silently is still wrong — surface the error so the
+  // user knows the app is in a degraded state (derivations skipped
+  // until cache loads).
+  try {
+    await preloadRules();
+  } catch (err) {
+    console.error('[app] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
+    // Best-effort user-visible signal. The element may not exist on
+    // every page; failure to surface is non-fatal — the console error
+    // remains the canonical signal.
+    const banner = document.getElementById('app-status-banner');
+    if (banner) {
+      banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
+      banner.classList.add('app-status-banner--error');
+      banner.style.display = '';
+    }
+  }
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
@@ -1405,7 +1427,7 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
-  { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'player' },
+  { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'st', stOnly: true },
   // Tickets removed — submit form is in Settings
   { id: 'challenge',    label: 'Challenge',   icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'player', playerOnly: true },
   // ── Lore section (gated by show_guides setting) ──
@@ -1421,7 +1443,7 @@ const MORE_APPS = [
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
-  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'player', condition: 'hasArchive' },
+  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'player' },
 ];
 
 const MORE_SECTIONS = [
@@ -1446,10 +1468,6 @@ function _moreGridCondition(app) {
   }
   if (app.condition === 'hasOffice') {
     return !!(myChar && myChar.court_category);
-  }
-  if (app.condition === 'hasArchive') {
-    // Archive visible if character has any archive documents — check loaded state
-    return !!(myChar && myChar._has_archive);
   }
   return true;
 }

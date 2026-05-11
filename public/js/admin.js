@@ -1108,7 +1108,20 @@ async function init() {
   // MUST await — applyDerivedMerits below (via charAlerts in renderCharGrid)
   // calls getRulesBySource synchronously. Cache miss → engine bonuses skipped
   // → m.rating gets re-synced to (cp + xp), wiping the saved bonus on display.
-  await preloadRules().catch(() => {});
+  // Issue #249 (HOTFIX 2026-05-09): silent catch removed. Downstream
+  // applyDerivedMerits guard now prevents Contacts-spheres data loss
+  // from a null cache; explicit error surfaces the degraded state.
+  try {
+    await preloadRules();
+  } catch (err) {
+    console.error('[admin] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
+    const banner = document.getElementById('app-status-banner');
+    if (banner) {
+      banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
+      banner.classList.add('app-status-banner--error');
+      banner.style.display = '';
+    }
+  }
 
   try {
     chars = await apiGet('/api/characters');

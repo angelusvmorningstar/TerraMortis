@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, DTUX_PHASES } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
@@ -208,12 +208,13 @@ function _parseMeritType(str) {
 
   const categoryRaw = label.toLowerCase();
   let category;
-  if (/allies/.test(categoryRaw))         category = 'allies';
-  else if (/status/.test(categoryRaw))    category = 'status';
-  else if (/retainer/.test(categoryRaw))  category = 'retainer';
-  else if (/staff/.test(categoryRaw))     category = 'staff';
-  else if (/contacts?/.test(categoryRaw)) category = 'contacts';
-  else                                    category = 'misc';
+  if (/allies/.test(categoryRaw))                   category = 'allies';
+  else if (/status/.test(categoryRaw))              category = 'status';
+  else if (/mystery cult initiate/.test(categoryRaw)) category = 'status';  // #233 — MCI grouped with Status
+  else if (/retainer/.test(categoryRaw))            category = 'retainer';
+  else if (/staff/.test(categoryRaw))               category = 'staff';
+  else if (/contacts?/.test(categoryRaw))           category = 'contacts';
+  else                                              category = 'misc';
 
   return { category, label, dots, qualifier };
 }
@@ -371,11 +372,59 @@ async function _handleSignoffClick(btn) {
   await loadCycleById(currentCycle._id);
 }
 
+// Issue #231 \u2014 Manual "open downtimes" override (DT Prep tab).
+// The button's data-manual-open attribute reflects the CURRENT latched
+// state ('true' if override is on, 'false' if off). Clicking flips it.
+async function _handleManualOpenClick(btn) {
+  if (!currentCycle) return;
+  const currentlyOn = btn.dataset.manualOpen === 'true';
+  const turningOn = !currentlyOn;
+  const confirmMsg = turningOn
+    ? 'Open downtimes for all players, overriding automation?\n\n'
+      + 'This sets a latched override on the cycle. Status stays "active" '
+      + 'regardless of phase sign-off \u2014 until you turn it off or the cycle is closed.'
+    : 'Clear the manual override and resume automatic phase derivation?\n\n'
+      + 'The cycle status will revert to whatever the current phase_signoff state derives.';
+  if (!confirm(confirmMsg)) return;
+  const userId = getUser()?._id || getUser()?.user_id || null;
+  await setManualOpen(currentCycle, turningOn, userId);
+  // Mirror into allCycles so subsequent renders see the new override state.
+  const idx = allCycles.findIndex(c => c._id === currentCycle._id);
+  if (idx >= 0) {
+    allCycles[idx].manual_open    = currentCycle.manual_open;
+    allCycles[idx].manual_open_at = currentCycle.manual_open_at;
+    allCycles[idx].manual_open_by = currentCycle.manual_open_by;
+    allCycles[idx].status         = currentCycle.status;
+  }
+  // Same fan-out as signoff: status drives ~14 sites, refresh the lot.
+  await loadCycleById(currentCycle._id);
+}
+
 function renderSignoffButton(phase, cycle) {
   const signed = !!(cycle?.phase_signoff || {})[phase];
   const label = signed ? '\u2713 Signed-off \u2014 undo?' : 'Mark phase signed-off';
   const cls = signed ? 'dt-btn dt-signoff-btn dt-signoff-signed' : 'dt-btn dt-signoff-btn';
   return `<button type="button" class="${cls}" data-signoff-phase="${phase}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Override toggle. data-manual-open carries the CURRENT state
+// (so the click handler knows which way to flip).
+function renderManualOpenButton(cycle) {
+  const on = cycle?.manual_open === true;
+  const label = on ? 'Resume automation' : 'Open Downtimes (override)';
+  const cls = on
+    ? 'dt-btn dt-signoff-btn dt-manual-open-on'
+    : 'dt-btn dt-signoff-btn';
+  return `<button type="button" class="${cls}" data-manual-open="${on ? 'true' : 'false'}">${label}</button>`;
+}
+
+// Issue #231 \u2014 Banner shown above the prep grid when the override is active.
+function renderManualOpenBanner(cycle) {
+  if (cycle?.manual_open !== true) return '';
+  return '<div class="dt-manual-open-banner" role="status">'
+       + '<strong>Downtimes manually open</strong> \u2014 override is active. '
+       + 'Click <em>Resume automation</em> below to clear it.'
+       + '</div>';
 }
 
 function renderReadyPanel(cycle, subs) {
@@ -444,6 +493,9 @@ export async function initDowntimeView(passedChars) {
     document.addEventListener('click', e => {
       const signoff = e.target.closest('[data-signoff-phase]');
       if (signoff) { _handleSignoffClick(signoff); return; }
+      // Issue #231 — manual-open override toggle (DT Prep tab)
+      const manualOpen = e.target.closest('[data-manual-open]');
+      if (manualOpen) { _handleManualOpenClick(manualOpen); return; }
       // DTIL-1: Court Pulse copy + save buttons
       const cpCopy = e.target.closest('.dt-court-pulse-copy-btn');
       if (cpCopy) { _handleCourtPulseCopy(cpCopy); return; }
@@ -905,6 +957,24 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
+  // The `ambienceMod` parameter is misleadingly named. Three callers
+  // exist; only one passes actual territory ambience, and that one is
+  // a bug:
+  //   - renderFeedingDetail (line 1327): passes `stMod`
+  //     (st_review.feeding_modifier — ST manual adjudication lever for
+  //     cover / difficulty / etc.). Legitimately a dice modifier;
+  //     stays in `total` here.
+  //   - bestGenericPool (line 9716): passes `0`. Neutral.
+  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
+  //     Ma'at flagged the original `ambienceMod` (territory) here as a
+  //     dice double-count. Territory ambience is surfaced separately in
+  //     that table's 'Ambience' column.
+  //
+  // Net effect: `ambienceMod` here is now exclusively the ST manual
+  // modifier path; territory ambience is handled in feeding-pool.js
+  // (player-side) and surfaced separately in admin display surfaces.
+  // A follow-up tech-debt issue should rename this parameter to `stMod`
+  // to remove the lurking ambiguity.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -2465,6 +2535,7 @@ function renderPrepPanel(cycle) {
     : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
+    renderManualOpenBanner(cycle) +
     `<div class="dt-prep-grid">` +
     `<div class="dt-prep-field"><label class="dt-lbl">Auto-Open Date/Time</label>` +
     `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
@@ -2479,6 +2550,7 @@ function renderPrepPanel(cycle) {
     `</div>` +
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
+    renderManualOpenButton(cycle) +
     `</div>` +
     renderMaintenanceAuditPanel(cycle) +
     `<div id="dt-cycle-intelligence" class="dt-cycle-intelligence"></div>`;
@@ -9714,7 +9786,17 @@ function renderFeedingScene() {
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, ambienceMod);
+        // Issue #176 (fix loop 2 — Ma'at catch): pre-fix this passed
+        // `ambienceMod` (territory ambience from `terrRec.ambienceMod`)
+        // through `buildFeedingPool`'s misleadingly-named third parameter,
+        // which summed it into the dice total. Per Damnation City §158
+        // ambience is a Vitae yield modifier, not a dice pool component.
+        // The summary table already surfaces ambience separately via
+        // `ambModStr` rendered as a dedicated 'Ambience' column at line
+        // 9773 + downstream, so there is no display regression — passing
+        // `0` here just stops the dice double-count. Matches the
+        // neutral-call pattern bestGenericPool uses at line 9716.
+        const pool = buildFeedingPool(char, methodId, 0);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);
