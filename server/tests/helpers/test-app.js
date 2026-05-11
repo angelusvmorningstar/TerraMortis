@@ -17,7 +17,7 @@ import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
 import {
-  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
 } from '../../routes/rules-engine.js';
 import relationshipsRouter from '../../routes/relationships.js';
@@ -76,6 +76,7 @@ export function createTestApp() {
   app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, derivedStatModRouter);
   app.use('/api/rules/tier_budget',           mockAuth, reRoleST, tierBudgetRouter);
   app.use('/api/rules/status_floor',          mockAuth, reRoleST, statusFloorRouter);
+  app.use('/api/rules/aggregate',             mockAuth, reRoleST, rulesAggregateRouter);
   app.use('/api/rules', mockAuth, rulesRouter);
   app.use('/api/relationships', mockAuth, relationshipsRouter);
   app.use('/api/npcs', mockAuth, npcsRouter);

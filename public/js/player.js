@@ -160,17 +160,24 @@ async function openProfileModal() {
 async function loadCharacters() {
   // Load rules data (purchasable powers) — non-blocking, cached
   loadRulesFromApi().catch(() => {});
-  // MUST await rule-engine docs — applyDerivedMerits (called from renderSheet)
-  // unconditionally zeroes free_pt / free_mdb at start. Without rules in
-  // cache, the evaluators can't re-apply them, so the displayed m.rating
-  // collapses to (cp + xp) and any engine bonus disappears from the view.
-  // Issue #249 (HOTFIX 2026-05-09): see app.js:504 — silent catch removed.
-  // Downstream applyDerivedMerits guard now prevents data loss from a
-  // null cache; explicit error surfaces the degraded state to the user.
-  try {
-    await preloadRules();
-  } catch (err) {
-    console.error('[player] preloadRules failed — derivations skipped until rules cache loads (issue #249):', err);
+
+  // Issue #256 (perf, 2026-05-11): Phase 1a — preloadRules + characters +
+  // territories are mutually independent, fire in parallel via
+  // Promise.allSettled so a single failure (e.g. preloadRules 403 for
+  // a player against the ST-only rules-engine endpoint) doesn't kill
+  // the others. Keeps the issue #249 hotfix's user-visible error
+  // surface in place for the rules-cache path.
+  const charsUrl = getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1';
+  const [rulesRes, charsRes, terrRes] = await Promise.allSettled([
+    preloadRules(),
+    apiGet(charsUrl),
+    apiGet('/api/territories'),
+  ]);
+
+  // preloadRules failure: same console.error + status-banner surface
+  // as the post-#249 explicit catch in app.js:514.
+  if (rulesRes.status === 'rejected') {
+    console.error('[player] preloadRules failed — derivations skipped until rules cache loads (issue #249):', rulesRes.reason);
     const banner = document.getElementById('app-status-banner');
     if (banner) {
       banner.textContent = 'Rules data failed to load — some derived merit values may be unavailable. Reload the page or check your connection.';
@@ -179,18 +186,30 @@ async function loadCharacters() {
     }
   }
 
-  try {
-    chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
-    // Sanitise: strip zero-dot disciplines (treated as absent)
-    chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if ((v?.dots ?? v) === 0) delete c.disciplines[k]; } });
-    await loadGameXP(chars, isSTRole());
-    // dt-form.17: cache "downtime credit on hold" flag for XP-Available annotation
-    await loadDowntimeHoldFlag(chars, { isST: isSTRole() }).catch(() => {});
-  } catch (err) {
+  // /api/characters failure is fatal for the player view — short-circuit.
+  if (charsRes.status === 'rejected') {
     document.getElementById('sh-content').innerHTML =
-      `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
+      `<p class="placeholder-msg">Failed to load characters: ${esc(charsRes.reason?.message || 'unknown')}</p>`;
     return;
   }
+  chars = charsRes.value || [];
+  // Sanitise: strip zero-dot disciplines (treated as absent)
+  chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if ((v?.dots ?? v) === 0) delete c.disciplines[k]; } });
+
+  // Territories failure is non-fatal — degrade to empty list, downstream
+  // tabs render with the territory data they have. Hoisted from the
+  // pre-fix position at line 233 into Phase 1a so it parallelises with
+  // the other two independent fetches.
+  _territories = terrRes.status === 'fulfilled' && Array.isArray(terrRes.value)
+    ? terrRes.value
+    : [];
+
+  // Phase 1b: loadGameXP + loadDowntimeHoldFlag both depend on `chars`
+  // being loaded but are mutually independent. Fire in parallel.
+  await Promise.allSettled([
+    loadGameXP(chars, isSTRole()),
+    loadDowntimeHoldFlag(chars, { isST: isSTRole() }),
+  ]);
 
   // Check for wizard / pending states before rendering normal UI
   if (!chars.length) {
@@ -230,7 +249,8 @@ async function loadCharacters() {
     });
   }
 
-  try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+  // Issue #256: _territories was loaded in Phase 1a above (parallel with
+  // rules + characters). No second fetch needed here.
   // Sync City Status calc recompute path (issue #13 Surface 2).
   setStatusTerritories(_territories);
   renderCityTab(document.getElementById('tab-city'));

@@ -26,7 +26,7 @@ import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
 import {
-  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
 } from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
@@ -94,6 +94,11 @@ app.use('/api/rules/disc_attr',              ...RE_ST, discAttrRouter);
 app.use('/api/rules/derived_stat_modifier',  ...RE_ST, derivedStatModRouter);
 app.use('/api/rules/tier_budget',            ...RE_ST, tierBudgetRouter);
 app.use('/api/rules/status_floor',           ...RE_ST, statusFloorRouter);
+// Issue #256 (perf): aggregated rules-engine endpoint — coalesces the
+// 7 per-category endpoints into a single round-trip for `preloadRules`.
+// Mounted before `/api/rules` (purchasable powers) so Express routes
+// `/api/rules/aggregate` to this router, not the wildcard.
+app.use('/api/rules/aggregate',              ...RE_ST, rulesAggregateRouter);
 app.use('/api/rules', requireAuth, rulesRouter);
 app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 
