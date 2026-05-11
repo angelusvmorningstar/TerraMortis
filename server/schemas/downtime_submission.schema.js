@@ -35,7 +35,11 @@ const projectActionEnum = [
   // (the legacy `ambience_increase` / `ambience_decrease` values are kept
   // for CSV-import back-compat reads only — admin/parser still consume
   // them; tracked under issue #129 for future canonical normalisation).
-  'ambience_change'
+  'ambience_change',
+  // dt-form.28 / #146 / #235: maintenance action for upkeep of professional
+  // or cult relationships. Form writes this via PROJECT_ACTIONS at
+  // public/js/tabs/downtime-data.js:20.
+  'maintenance'
 ];
 
 const sphereActionEnum = [
