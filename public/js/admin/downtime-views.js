@@ -9,7 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGa
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
-import { displayName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
+import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -799,7 +799,7 @@ function renderJointGroup(joint, entries) {
       } catch { ids = [joint.target_value]; }
       const names = ids.map(id => {
         const c = characters.find(ch => String(ch._id) === String(id));
-        return c ? sortName(c) : id;
+        return c ? dropdownName(c) : id;
       });
       targetLine = `Target: ${names.join(', ')}`;
     } else if (joint.target_type === 'territory') {
@@ -990,7 +990,7 @@ export async function takeSnapshot(cycleId) {
   // Per-character: prestige = clan status + covenant status, plus influence budget
   const charData = activeChars.map(c => ({
     character_id: String(c._id),
-    name: sortName(c),
+    name: dropdownName(c),
     clan: c.clan || '',
     covenant: c.covenant || '',
     prestige: (c.status?.clan || 0) + (c.status?.covenant?.[c.covenant] || 0),
@@ -1049,7 +1049,7 @@ export async function applyInfluenceIncome() {
       });
       c.influence_balance = newBalance;
     } catch (err) {
-      errors.push({ name: sortName(c), error: err.message });
+      errors.push({ name: dropdownName(c), error: err.message });
     }
   }
 
@@ -1965,7 +1965,7 @@ function renderMaintenanceAuditPanel(cycle) {
         mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
       }
     }
-    html += `<tr><td>${esc(sortName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+    html += `<tr><td>${esc(dropdownName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
   }
   html += '</tbody></table></section>';
   return html;
@@ -2011,7 +2011,7 @@ function _buildCourtPulsePromptText(cycle, subs, chars) {
       count += 1;
       lines.push(`  ${count}. ${txt}`);
     }
-    const name = (char ? sortName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     blocks.push(`Highlights from ${name}:\n${lines.join('\n')}`);
   }
 
@@ -2125,7 +2125,7 @@ function _buildActionQueueItems(cycle, subs, chars) {
         text,
         state: ACTION_QUEUE_STATES.includes(entry.state) ? entry.state : 'unread',
         note: entry.note || '',
-        charName: (char ? sortName(char) : null) || sub.character_name || 'Unknown',
+        charName: (char ? dropdownName(char) : null) || sub.character_name || 'Unknown',
         sortKey: char ? sortName(char) : (sub.character_name || ''),
         submittedAt: sub.submitted_at || sub.created_at || '',
       });
@@ -2345,7 +2345,7 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
     // TERRITORY_DATA slug too. Slug-to-slug comparison is correct here.
     if (!_feedTerrIdsForSub(sub).includes(territory.slug)) continue;
     const char = charById.get(String(sub.character_id));
-    const name = (char ? sortName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
     feeders.push({ name, method, sortKey: char ? sortName(char) : (sub.character_name || '') });
   }
@@ -2507,7 +2507,7 @@ function renderPrepPanel(cycle) {
     const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${esc(sortName(c))}</span>
+      <span class="dt-early-name">${esc(dropdownName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
@@ -2654,7 +2654,7 @@ function _composeTargetString(resp, prefix, chars) {
     if (!ids.length) return '';
     const names = ids.map(id => {
       const c = chars.find(ch => String(ch._id) === String(id));
-      return c ? sortName(c) : `${id} (unresolved)`;
+      return c ? dropdownName(c) : `${id} (unresolved)`;
     });
     return `Character${ids.length > 1 ? 's' : ''}: ${names.join(', ')}`;
   } else if (tType === 'territory' && tTerr) {
@@ -2851,7 +2851,7 @@ function buildProcessingQueue(subs) {
         if (Array.isArray(castArr) && castArr.length) {
           projCastResolved = castArr.map(id => {
             const c = characters.find(ch => String(ch._id) === String(id));
-            return c ? sortName(c) : id;
+            return c ? dropdownName(c) : id;
           }).join(', ');
         } else {
           projCastResolved = resp[`project_${slot}_cast`] || '';
@@ -3126,7 +3126,7 @@ function buildProcessingQueue(subs) {
           if (Array.isArray(ids) && ids.length) {
             meritCast = ids.map(id => {
               const c = characters.find(ch => String(ch._id) === String(id));
-              return c ? sortName(c) : `${id} (unresolved)`;
+              return c ? dropdownName(c) : `${id} (unresolved)`;
             }).join(', ');
           }
         } catch { meritCast = String(castRaw); }
@@ -3206,7 +3206,7 @@ function buildProcessingQueue(subs) {
     const _resolveTargetName = (id) => {
       if (!id) return '';
       const c = characters.find(ch => String(ch._id) === String(id));
-      return c ? sortName(c) : '';
+      return c ? dropdownName(c) : '';
     };
     const _composeDirectedDesc = (meritLabel, targetName, task) => {
       const head = [meritLabel, targetName].filter(Boolean).join(' — ');
@@ -8833,7 +8833,7 @@ async function buildExportMd(sub, char, questResp) {
   const meritResolved = sub.merit_actions_resolved || [];
   const feed = raw.feeding || {};
 
-  const name = char ? sortName(char) : (sub.character_name || 'Unknown');
+  const name = char ? dropdownName(char) : (sub.character_name || 'Unknown');
   let md = `# ${name}\n`;
 
   // Identity
@@ -9780,7 +9780,7 @@ function renderFeedingScene() {
       const rowClass = hasSub ? '' : ' dt-scene-nosub';
 
       h += `<tr class="dt-scene-row${rowClass}" data-char-id="${esc(charId)}">`;
-      h += `<td class="dt-scene-name">${esc(sortName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
+      h += `<td class="dt-scene-name">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
       h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)} <span class="dt-scene-mod">(${ambModStr})</span></span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
@@ -9956,7 +9956,7 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     const hasSub = !!sub;
     const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
     h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}"${hasSub ? ` data-sub-id="${esc(sub._id)}"` : ''}>`;
-    h += `<td class="dt-matrix-char">${esc(sortName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+    h += `<td class="dt-matrix-char">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
     for (const t of cols) {
       const isBarrens = t.ambienceKey === null;
       const fed = fedTerrs.has(t.csvKey);
@@ -10157,7 +10157,7 @@ function _buildSpheresHtml() {
       if (!raw) continue;
       const ensureRow = key => {
         if (!spheres[key]) spheres[key] = {};
-        if (!spheres[key][cid]) spheres[key][cid] = { name: sortName(c), allies: 0, status: 0, hasContacts: false };
+        if (!spheres[key][cid]) spheres[key][cid] = { name: dropdownName(c), allies: 0, status: 0, hasContacts: false };
         return spheres[key][cid];
       };
       if (m.name === 'Contacts') {
@@ -10228,7 +10228,7 @@ function _exportCityOverview(matrix) {
       const resident = (!mt || mt.ambienceKey === null) ? null : res.has(String(char._id));
       entries.push({ territory: mt?.label || csvKey, resident });
     }
-    feeding[sortName(char)] = entries;
+    feeding[dropdownName(char)] = entries;
   }
 
   // Actions matrix
@@ -10291,7 +10291,7 @@ function _exportCityOverview(matrix) {
     const amb = td.ambienceKey ? getTerritoryAmbience(td.ambienceKey) : null;
     territories[td.name] = {
       ambience_state: amb || 'Unknown',
-      regent:         regentChar ? sortName(regentChar) : null,
+      regent:         regentChar ? dropdownName(regentChar) : null,
       residents:      residents.size,
       poachers,
     };
@@ -10314,7 +10314,7 @@ function _exportCityOverview(matrix) {
         const key = _ns(part);
         if (!key || !CANONICAL_SPHERES.has(key)) continue;
         if (!spheres[key]) spheres[key] = {};
-        const cn = sortName(c);
+        const cn = dropdownName(c);
         if (!spheres[key][cn]) spheres[key][cn] = { allies: 0, status: 0, contacts: false };
         if (m.name === 'Allies')         spheres[key][cn].allies   += m.rating || 0;
         else if (m.name === 'Status')    spheres[key][cn].status   += m.rating || 0;
