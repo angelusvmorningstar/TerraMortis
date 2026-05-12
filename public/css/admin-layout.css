@@ -1011,7 +1011,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
-  padding: 8px 0;
+  padding: 8px 16px;
 }
 .sphere-card {
   background: var(--surf);
@@ -6084,8 +6084,7 @@ body {
 }
 
 .proc-amb-notes-block {
-  margin-top: 16px;
-  padding-top: 12px;
+  padding: 14px;
   border-top: 1px solid var(--bdr);
 }
 
