@@ -98,7 +98,11 @@ function buildPool() {
   const unskilled = bestSkillVal === 0
     ? (m.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
-  const total = Math.max(0, bestAttrVal + bestSkillVal + discVal + ambMod + unskilled);
+  // Issue #176: ambience is a Vitae yield modifier per Damnation City §158,
+  // NOT a dice pool component. Dice total now excludes ambMod; the field is
+  // returned separately below so render() can show it as a Vitae bonus and
+  // renderResult() can fold it into the vitae yield calc.
+  const total = Math.max(0, bestAttrVal + bestSkillVal + discVal + unskilled);
 
   return { bestAttrName, bestAttrVal, bestSkillName, bestSkillVal, bestSkillSpec, discVal, discName: feedDiscName, ambMod, ambience: terr.ambience || '', unskilled, total };
 }
@@ -175,8 +179,10 @@ function render() {
       h += `<br>+ <span>${pool.bestSkillVal}</span> ${esc(pool.bestSkillName)}`;
       if (pool.bestSkillSpec) h += ` <span class="feed-dim">[${esc(pool.bestSkillSpec)}]</span>`;
       if (pool.discVal) h += `<br>+ <span>${pool.discVal}</span> ${esc(pool.discName)}`;
-      if (pool.ambMod !== 0) h += `<br>${pool.ambMod > 0 ? '+ ' : '\u2212 '}<span>${Math.abs(pool.ambMod)}</span> Ambience (${esc(pool.ambience)})`;
       if (pool.unskilled) h += `<br>\u2212 <span>${Math.abs(pool.unskilled)}</span> <span class="feed-dim">(unskilled)</span>`;
+      // Issue #176: ambience displayed as a separate Vitae modifier below
+      // the dice breakdown, not as a pool component.
+      if (pool.ambMod !== 0) h += `<br><span class="feed-dim">${pool.ambMod > 0 ? '+' : '\u2212'}${Math.abs(pool.ambMod)} Vitae from ${esc(pool.ambience || 'ambience')}</span>`;
       h += '</div>';
       h += '<div class="feed-pool-total">';
       h += `<div class="feed-pool-n">${pool.total}</div>`;
@@ -201,7 +207,14 @@ function render() {
 function renderResult() {
   const { cols, suc, poolN } = feedResult;
   const vessels = suc;
-  const safeVitae = vessels * 2;
+  // Issue #176: ambience modifies Vitae yield per Damnation City \u00A7158.
+  // Vessels still drive the base (2 Vitae per vessel); ambience is added
+  // after, floored at 0 so a hostile/barrens territory doesn't push the
+  // yield negative.
+  const pool = buildPool();
+  const ambMod = pool?.ambMod || 0;
+  const baseVitae = vessels * 2;
+  const safeVitae = Math.max(0, baseVitae + ambMod);
 
   let h = '<div class="feed-result-box">';
   h += '<div class="feed-suc-row"><div>';
@@ -227,9 +240,14 @@ function renderResult() {
     h += '<div class="feed-v-lbl">No vessels secured this hunt.</div>';
     h += '</div>';
   } else {
+    // Issue #176: when ambience is non-zero, surface its contribution
+    // explicitly so the ST sees vessels \u00D7 2 \u00B1 ambience = total Vitae.
+    const ambBreakdown = ambMod !== 0
+      ? ` (${baseVitae} from vessels ${ambMod > 0 ? '+' : '\u2212'} ${Math.abs(ambMod)} ambience)`
+      : ' (2 per vessel)';
     h += '<div class="feed-vessel-row" style="padding:12px 14px 8px;">';
     h += `<div class="feed-v-num">${vessels}</div>`;
-    h += `<div class="feed-v-lbl">vessel${vessels !== 1 ? 's' : ''} available \u00B7 <b>${safeVitae} Vitae</b> safe (2 per vessel)</div>`;
+    h += `<div class="feed-v-lbl">vessel${vessels !== 1 ? 's' : ''} available \u00B7 <b>${safeVitae} Vitae</b> safe${ambBreakdown}</div>`;
     h += '</div>';
 
     // Apply controls
@@ -334,8 +352,10 @@ function updateApplyBtn() {
   if (btn && feedChar) {
     btn.textContent = `Apply ${applyAmount} Vitae to ${displayName(feedChar)}`;
   }
-  // Show/hide warning
-  const safeVitae = (feedResult?.suc || 0) * 2;
+  // Show/hide warning. Issue #176: keep the safe-vitae calc in sync with
+  // renderResult — base from vessels × 2 plus ambience modifier, floored.
+  const _ambModForWarn = buildPool()?.ambMod || 0;
+  const safeVitae = Math.max(0, (feedResult?.suc || 0) * 2 + _ambModForWarn);
   const warnEl = document.querySelector('.fe-warn');
   if (warnEl) {
     warnEl.style.display = applyAmount > safeVitae ? '' : 'none';

@@ -10,10 +10,11 @@
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
-import { AMBIENCE_CAP } from './downtime-data.js';
+import { AMBIENCE_FEEDING_TOLERANCE } from './downtime-data.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 
-const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
+const MAX_FEEDING_POSITION = 20; // maximum position index to scan (regent=1, lt=2, additional 3+)
+const DEFAULT_MIN_SLOTS = 10;   // minimum visible feeding-right rows at initial render
 
 // Mirrors server/utils/territory-slugs.js — maps submission feeding_territories
 // slug variants to canonical territory.slug values.
@@ -116,7 +117,7 @@ async function _computeLocked() {
 
 function getRegentCap() {
   const td = _terrDoc();
-  return td ? (AMBIENCE_CAP[td.ambience] || 5) : 5;
+  return td ? (AMBIENCE_FEEDING_TOLERANCE[td.ambience] || 5) : 5;
 }
 
 function render(container) {
@@ -151,7 +152,7 @@ function render(container) {
   // unfilled cap slots even before any rights are added).
   const filledCount = additionalRights.length;
   const minWithinCap = Math.max(0, cap - (loopStart - 1));
-  const desiredAdditionals = Math.max(minWithinCap, filledCount + 1);
+  const desiredAdditionals = Math.max(DEFAULT_MIN_SLOTS, minWithinCap, filledCount + 1);
   const loopEnd = Math.min(loopStart + desiredAdditionals - 1, MAX_FEEDING_POSITION);
 
   // dt-form.16: publish source list to the universal char picker (ADR-003 §Q6).
@@ -241,6 +242,10 @@ function render(container) {
 
   // Action buttons
   h += '<div class="regency-actions">';
+  const canAdd = !cycleConfirmed && !myConfirmation;
+  if (canAdd && loopEnd < MAX_FEEDING_POSITION) {
+    h += '<button id="reg-add-right" class="qf-btn qf-btn-secondary">+ Add Feeding Right</button>';
+  }
   h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
   if (_activeCycle && !cycleConfirmed) {
     h += '<button id="reg-confirm" class="qf-btn qf-btn-secondary">Confirm Feeding Rights</button>';
@@ -259,6 +264,54 @@ function wireEvents(container) {
   _mountRegSlotPickers(container);
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
   container.querySelector('#reg-confirm')?.addEventListener('click', () => confirmFeeding(container));
+  container.querySelector('#reg-add-right')?.addEventListener('click', () => _addFeedingRightSlot(container));
+}
+
+function _addFeedingRightSlot(container) {
+  const grid = container.querySelector('.dt-residency-grid');
+  if (!grid) return;
+  const cap = getRegentCap();
+
+  const rows = grid.querySelectorAll('[data-reg-slot-row]');
+  if (!rows.length) return;
+  const lastSlot = parseInt(rows[rows.length - 1].dataset.regSlotRow, 10);
+  const nextSlot = lastSlot + 1;
+  if (nextSlot > MAX_FEEDING_POSITION) return;
+
+  const overCap = nextSlot > cap;
+  const row = document.createElement('div');
+  row.className = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
+  row.dataset.regSlotRow = String(nextSlot);
+
+  const label = document.createElement('span');
+  label.className = 'dt-residency-label';
+  label.textContent = `Feeding Right ${nextSlot}`;
+  row.appendChild(label);
+
+  const ph = document.createElement('div');
+  ph.dataset.cpMount = '';
+  ph.dataset.cpSite = 'reg-slot';
+  ph.dataset.cpScope = 'all';
+  ph.dataset.cpCardinality = 'single';
+  ph.dataset.regSlot = String(nextSlot);
+  ph.dataset.cpInitial = JSON.stringify('');
+  ph.dataset.cpPlaceholder = 'Pick a feeding right';
+  row.appendChild(ph);
+
+  if (overCap) {
+    const warn = document.createElement('span');
+    warn.className = 'dt-over-cap-warn';
+    warn.title = 'This slot exceeds the territory feeding-rights cap. The resident feeds under a mechanical penalty (ST adjudicates).';
+    warn.textContent = 'Over cap — penalty applies';
+    row.appendChild(warn);
+  }
+
+  grid.appendChild(row);
+  _mountOneRegSlotPicker(ph, container);
+
+  if (nextSlot >= MAX_FEEDING_POSITION) {
+    container.querySelector('#reg-add-right')?.remove();
+  }
 }
 
 function _mountRegSlotPickers(container) {
