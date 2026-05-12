@@ -128,9 +128,18 @@ export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '
     }
   }
 
+  // Issue #176 (2026-05-09): ambience is a Vitae yield modifier, NOT a dice
+  // pool component, per Damnation City §158: 'Starting Vitae is blood taken
+  // from hunting vessels (with Territory Ambience + Herd adding to this)'.
+  // Pre-fix `ambMod` was summed into `total`, which both inflated the dice
+  // count rendered to the player AND effectively double-counted ambience
+  // into vitae (more dice → more vessels → more vitae × 2). The dice pool
+  // is now Attribute + Skill + Discipline + spec ± unskilled penalty only;
+  // the `ambience.mod` field below stays so consuming display + vitae-yield
+  // logic can surface it on a separate line / fold it into vitae yield.
   const total = Math.max(
     0,
-    bestAttrVal + bestSkillVal + bestDiscVal + ambMod + unskilled + specBonus
+    bestAttrVal + bestSkillVal + bestDiscVal + unskilled + specBonus
   );
 
   return {

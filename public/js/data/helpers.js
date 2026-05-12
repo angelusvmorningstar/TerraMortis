@@ -3,6 +3,7 @@
 import { ICONS } from './icons.js';
 import { ARCHETYPES_DB } from './constants.js';
 import { getRole } from '../auth/discord.js';
+import { TERRITORY_DATA } from '../tabs/downtime-data.js';
 
 /* ── Dev-mode redaction ────────────────────────────────────
    The 'dev' role has full ST-equivalent access but every character and
@@ -153,8 +154,13 @@ export function dropdownName(c) {
 export function findRegentTerritory(territories, c) {
   if (!territories || !c) return null;
   const cid = String(c._id);
-  const t = territories.find(t => t.regent_id === cid);
-  if (!t) return null;
+  // Prefer canonical territories over stale/orphaned duplicates (issue #216).
+  // If multiple docs match the same regent_id, the one whose slug appears in
+  // TERRITORY_DATA wins; otherwise the first match is used as a safe fallback.
+  const canonicalSlugs = new Set(TERRITORY_DATA.map(td => td.slug));
+  const matches = territories.filter(t => t.regent_id === cid);
+  if (!matches.length) return null;
+  const t = matches.find(m => canonicalSlugs.has(m.slug)) || matches[0];
   // territoryId is the canonical FK (Mongo _id, stringified) per ADR-002.
   // slug is exposed alongside for callers that need to match against legacy
   // slug-variant strings (e.g. submissions feeding_territories keys, Q4).

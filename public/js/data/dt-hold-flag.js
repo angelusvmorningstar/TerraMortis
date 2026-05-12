@@ -9,11 +9,26 @@
  * session is being held at false until the form clears the minimum bar.
  *
  * Browser-only. The pure rule encoder is in `dt-completeness.js`.
+ *
+ * Issue #257 (perf, 2026-05-11): collapsed the per-character fetch loop
+ * into a single batch endpoint call. Pre-fix this looped over every
+ * character and awaited /api/downtime_submissions?cycle_id=X&character_id=Y
+ * — ~30 sequential MongoDB queries per ST/dev boot, 1–3 for a player.
+ * Post-fix one call to /api/downtime_submissions/hold-flags returns the
+ * full { <character_id>: bool } map.
  */
 
 import { apiGet } from './api.js';
 
-export async function loadDowntimeHoldFlag(chars, { isST = false } = {}) {
+/**
+ * @param {Array} chars - characters to annotate with `_dtHoldFlag`.
+ * @param {object} [opts] - back-compat opts arg. The previous `isST`
+ *   flag is no longer needed (server-side auth scopes the cohort);
+ *   the signature stays the same so existing callers (app.js:543,
+ *   player.js:188) don't have to change. The arg is currently ignored.
+ */
+// eslint-disable-next-line no-unused-vars
+export async function loadDowntimeHoldFlag(chars, opts = {}) {
   if (!Array.isArray(chars) || chars.length === 0) return;
 
   // Default flag to false (not on hold) before any async work, so renderers
@@ -29,27 +44,24 @@ export async function loadDowntimeHoldFlag(chars, { isST = false } = {}) {
   } catch { /* fall through — flag stays false */ }
   if (!activeCycle?._id) return;
 
+  // Single batched fetch — server returns { <character_id>: bool } map.
+  // Auth-scoped server-side: player sees only own; ST sees all.
+  let map = null;
+  try {
+    map = await apiGet(
+      `/api/downtime_submissions/hold-flags?cycle_id=${encodeURIComponent(activeCycle._id)}`
+    );
+  } catch {
+    // Best-effort — if the call fails, leave the prior flag values intact.
+    return;
+  }
+  if (!map || typeof map !== 'object') return;
+
   for (const c of chars) {
-    try {
-      const subs = await apiGet(
-        `/api/downtime_submissions?cycle_id=${encodeURIComponent(activeCycle._id)}&character_id=${encodeURIComponent(c._id)}`
-      );
-      const sub = Array.isArray(subs) ? subs[0] : null;
-      if (!sub) {
-        // No submission yet for this cycle ⇒ definitely below-minimum.
-        c._dtHoldFlag = true;
-        continue;
-      }
-      const r = sub.responses || {};
-      // Trust the persisted derived bool when present; otherwise fall back
-      // to the submission's coarse status (mirrored by the lifecycle hook).
-      if (typeof r._has_minimum === 'boolean') {
-        c._dtHoldFlag = !r._has_minimum;
-      } else {
-        c._dtHoldFlag = sub.status !== 'submitted';
-      }
-    } catch {
-      // Best-effort — if a single fetch fails, leave the prior flag value.
-    }
+    const key = String(c._id);
+    // Server returns entries only for chars with a submission. Anything
+    // absent from the map → no submission for this cycle ⇒ on hold (true).
+    // Matches the pre-fix fallback at the old line 39.
+    c._dtHoldFlag = Object.prototype.hasOwnProperty.call(map, key) ? !!map[key] : true;
   }
 }

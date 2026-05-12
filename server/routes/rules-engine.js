@@ -84,3 +84,66 @@ export const discAttrRouter        = makeRulesRouter('rule_disc_attr',         r
 export const derivedStatModRouter  = makeRulesRouter('rule_derived_stat_modifier', ruleDerivedStatModifierSchema);
 export const tierBudgetRouter      = makeRulesRouter('rule_tier_budget',       ruleTierBudgetSchema);
 export const statusFloorRouter     = makeRulesRouter('rule_status_floor',      ruleStatusFloorSchema);
+
+/**
+ * Issue #256 (perf): coalesce 7 rule-engine endpoints into a single
+ * round-trip used by `preloadRules` on the client. Cuts boot latency
+ * from 7 parallel TLS+auth round-trips to 1.
+ *
+ * GET /api/rules/aggregate?categories=grant,nine_again,...
+ *   → { rule_grant: [...], rule_nine_again: [...], ... }
+ *
+ * Auth: ST/dev only (mounted with the same `requireRole('st')` gate as
+ * the individual rule-engine endpoints in index.js — composes cleanly
+ * because every category has identical auth semantics).
+ *
+ * The 7 existing per-category endpoints stay in place for admin
+ * tooling that writes / inspects them individually.
+ */
+const ALLOWED_RULE_CATEGORIES = new Set([
+  'grant',
+  'nine_again',
+  'skill_bonus',
+  'speciality_grant',
+  'tier_budget',
+  'disc_attr',
+  'derived_stat_modifier',
+  'status_floor',
+]);
+
+export const rulesAggregateRouter = Router();
+
+rulesAggregateRouter.get('/', async (req, res) => {
+  const raw = req.query.categories;
+  if (!raw) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'categories query param required' });
+  }
+  const categories = String(raw)
+    .split(',')
+    .map(c => c.trim())
+    .filter(Boolean);
+  if (!categories.length) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'categories cannot be empty' });
+  }
+  const invalid = categories.filter(c => !ALLOWED_RULE_CATEGORIES.has(c));
+  if (invalid.length) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `Unknown rule categories: ${invalid.join(', ')}`,
+      allowed: [...ALLOWED_RULE_CATEGORIES],
+    });
+  }
+  // Deduplicate so a malformed `categories=grant,grant` doesn't double-query.
+  const uniq = [...new Set(categories)];
+  // Fire all category queries in parallel. Each backed by the same
+  // `rule_<category>` collection the individual routers use, so the
+  // wire format and semantics are identical.
+  const arrays = await Promise.all(
+    uniq.map(cat => getCollection(`rule_${cat}`).find({}).toArray())
+  );
+  const result = {};
+  for (let i = 0; i < uniq.length; i++) {
+    result[`rule_${uniq[i]}`] = arrays[i];
+  }
+  res.json(result);
+});
