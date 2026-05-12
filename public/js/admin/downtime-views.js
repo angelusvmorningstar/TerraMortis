@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -3718,7 +3718,7 @@ function _gatherProjectAmbience(subs) {
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = resolved.roll.successes ?? 0;
-      const contrib = successes >= 5 ? 2 : successes > 0 ? 1 : 0;
+      const contrib = successes >= 5 ? 4 : successes > 0 ? 2 : 0;
       if (isIncrease) projPos[tid] = (projPos[tid] || 0) + contrib;
       else            projNeg[tid] = (projNeg[tid] || 0) + contrib;
     }
@@ -3828,10 +3828,10 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   const rows = TERRITORY_DATA.map(td => {
     const id = td.slug;
     const ambience = startingAmbience[id] || td.ambience;
-    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const cap = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
-    const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
-    const entropy = -3;
+    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : 0;
+    const entropy = AMBIENCE_ENTROPY[ambience] ?? -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
     const influence = inf_pos - inf_neg;
@@ -3845,12 +3845,16 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
-      let delta = 0;
-      if (net >= 3) delta = 1;
-      else if (net <= -5) delta = -2;
-      else if (net < 0) delta = -1;
-      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
-      projStep = AMBIENCE_STEPS_LIST[newIdx];
+      const thresh = AMBIENCE_THRESHOLDS[ambience];
+      if (thresh) {
+        let delta = 0;
+        if (thresh.negThresh2 !== null && net <= -thresh.negThresh2)        delta = -2;
+        else if (thresh.negThresh1 !== null && net <= -thresh.negThresh1)   delta = -1;
+        else if (thresh.posThreshold !== null && net >= thresh.posThreshold) delta = 1;
+        const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+        projStep = AMBIENCE_STEPS_LIST[newIdx];
+      }
+      // Barrens (thresh === null): projStep stays as ambience — no step calculation
     }
     const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
     return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, allies_pos, allies_neg, allies, net, projStep };
@@ -10095,10 +10099,10 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
   h += `<thead><tr>
     <th>Territory</th>
     <th title="Current ambience step">Starting</th>
-    <th title="Fixed -3 entropy per cycle">Entropy</th>
-    <th title="Feeders vs cap">Overfeeding</th>
+    <th title="Per-territory entropy (Hostile/Settled/Untended/Neglected −3; Tended −5; Curated −6; Verdant −7; The Rack −8)">Entropy</th>
+    <th title="Feeders vs Feeding Tolerance (−2 per feed over tolerance)">Overfeeding</th>
     <th title="Influence spend: +positive / -negative / net">Influence</th>
-    <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
+    <th title="Ambience project contributions: 1–4 successes = ±2, 5+ = ±4; step thresholds are territory-specific">Projects</th>
     <th title="Allies / Status / Retainer automatic actions">Allies</th>
     <th title="Sum of all columns">Net Change</th>
     <th title="Projected new ambience step">Projected</th>
@@ -10147,7 +10151,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     h += `</tr>`;
   }
   h += `</tbody></table></div>`;
-  h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
+  h += `<p class="proc-amb-note">Step thresholds are territory-specific (hover column headers for details). Projects: 1\u20134 successes = \u00b12, 5+ = \u00b14. Overfeeding: \u22122 per feed over Feeding Tolerance.</p>`;
   return h;
 }
 
