@@ -6084,8 +6084,7 @@ body {
 }
 
 .proc-amb-notes-block {
-  margin-top: 16px;
-  padding: 12px 16px 0;
+  padding: 14px;
   border-top: 1px solid var(--bdr);
 }
 
