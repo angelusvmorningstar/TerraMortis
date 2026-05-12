@@ -525,6 +525,7 @@ export const downtimeSubmissionSchema = {
         roll:               { $ref: '#/definitions/rollResult' },
         no_roll:            { type: 'boolean' },
         st_note:            { type: 'string' },
+        story_context:      { type: 'string' },
         player_facing_note: { type: 'string' },
 
         // ── JDT-1: Joint Downtime support-slot markers ────────────

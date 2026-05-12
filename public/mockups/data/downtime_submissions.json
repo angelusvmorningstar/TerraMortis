@@ -260,7 +260,7 @@
           "created_at": "2026-04-12T11:11:34.788Z"
         }
       ],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false,
       "active_feed_specs": [
         "Motives"
@@ -297,7 +297,7 @@
             "created_at": "2026-04-13T07:25:14.784Z"
           }
         ],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -499,7 +499,7 @@
           "created_at": "2026-04-12T07:46:48.258Z"
         }
       ],
-      "player_feedback": "Expression or Subterfuge would have also been good skills for this method.",
+      "story_context": "Expression or Subterfuge would have also been good skills for this method.",
       "pool_mod_equipment": 4,
       "vitae_mod_manual": 0,
       "vitae_rite_cost": 1
@@ -515,7 +515,7 @@
         "pool_validated": "",
         "pool_status": "no_roll",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null
       }
     ]
@@ -623,7 +623,7 @@
       "pool_validated": "Wits 3 + Empathy 3 + 4 = 10",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "pool_mod_equipment": 1,
       "vitae_rite_cost": 1
     }
@@ -889,7 +889,7 @@
       "pool_validated": "Presence 3 + Intimidation 3 + 4 = 10",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "pool_mod_equipment": 4
     }
   },
@@ -1066,7 +1066,7 @@
       "pool_validated": "Intelligence 3 + Subterfuge 2 = 5",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": ""
+      "story_context": ""
     },
     "projects_resolved": [
       {
@@ -1078,7 +1078,7 @@
         "pool_validated": "Intelligence 3 + Occult 2 = 5",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "Unfortunately, ley lines aren't specifically relevant to this so they won't apply.",
+        "story_context": "Unfortunately, ley lines aren't specifically relevant to this so they won't apply.",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -1286,7 +1286,7 @@
           "created_at": "2026-04-12T08:53:49.301Z"
         }
       ],
-      "player_feedback": "This should be Obfuscate not Auspex given the relevance to what allows feeding",
+      "story_context": "This should be Obfuscate not Auspex given the relevance to what allows feeding",
       "pool_mod_equipment": 0,
       "active_feed_specs": [
         "stalking"
@@ -1304,7 +1304,7 @@
         "pool_validated": "Intelligence 4 + Occult 4 + Auspex 5 = 13",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -1522,7 +1522,7 @@
           "created_at": "2026-04-12T09:01:47.301Z"
         }
       ],
-      "player_feedback": "Majesty would have been viable here. We assumed to add the Confidant specialisation, but we recommend you add it next time. The next downtime form should make it easier",
+      "story_context": "Majesty would have been viable here. We assumed to add the Confidant specialisation, but we recommend you add it next time. The next downtime form should make it easier",
       "pool_mod_equipment": 0,
       "active_feed_specs": [
         "confidant"
@@ -1555,7 +1555,7 @@
         "pool_validated": "Manipulation 3 + Empathy 3 = 6",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "A dice pool needs to be an Attribute + Skill. I would have been happy with either Manipulation or Presence as the Attribute.",
+        "story_context": "A dice pool needs to be an Attribute + Skill. I would have been happy with either Manipulation or Presence as the Attribute.",
         "resolved_at": null,
         "st_response": "",
         "response_author": "a_morningstar",
@@ -1728,7 +1728,7 @@
           "created_at": "2026-04-12T10:03:59.826Z"
         }
       ],
-      "player_feedback": "Kurtis rebuilt your sheet to be a monster. Empathy or even Intimidation would be a much better dice pool. Especially since both have specialisations; Additionally Majesty or Nightmare are good choices too.",
+      "story_context": "Kurtis rebuilt your sheet to be a monster. Empathy or even Intimidation would be a much better dice pool. Especially since both have specialisations; Additionally Majesty or Nightmare are good choices too.",
       "nine_again": false,
       "active_feed_specs": [
         "Fuckin' Lyin'"
@@ -1757,7 +1757,7 @@
         "pool_validated": "Presence 3 + Empathy 5 = 8",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "Obfuscate would not really apply here",
+        "story_context": "Obfuscate would not really apply here",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -1965,7 +1965,7 @@
           "created_at": "2026-04-12T10:05:43.410Z"
         }
       ],
-      "player_feedback": "Physical disciplines are already baked into your Attribute. You can use (3+2) + 5 (boosted strength and brawl), or augment actively with Vigour but this will likely be messy",
+      "story_context": "Physical disciplines are already baked into your Attribute. You can use (3+2) + 5 (boosted strength and brawl), or augment actively with Vigour but this will likely be messy",
       "nine_again": false
     }
   },
@@ -2068,7 +2068,7 @@
       "pool_validated": "Manipulation 2 + Subterfuge 3 = 5",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "We weren't sure what dice pool you wanted for this feeding method. I took a guess at Manipulation + Subterfuge.",
+      "story_context": "We weren't sure what dice pool you wanted for this feeding method. I took a guess at Manipulation + Subterfuge.",
       "nine_again": false
     }
   },
@@ -2260,7 +2260,7 @@
       "pool_validated": "Presence 3 + Empathy 3 + 3 = 9",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "We would allow you to use your Resources as an equipment bonus in context if soliciting people for sex to feed on. Also Majesty would be fitting.",
+      "story_context": "We would allow you to use your Resources as an equipment bonus in context if soliciting people for sex to feed on. Also Majesty would be fitting.",
       "pool_mod_equipment": 3,
       "nine_again": false,
       "active_feed_specs": [
@@ -2278,7 +2278,7 @@
         "pool_validated": "Wits 3 + Investigation 2 = 5",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -2494,7 +2494,7 @@
           "created_at": "2026-04-12T11:03:27.358Z"
         }
       ],
-      "player_feedback": "We understand this as reading people for the mark, which makes Empathy viable. If so, we will use Auspex",
+      "story_context": "We understand this as reading people for the mark, which makes Empathy viable. If so, we will use Auspex",
       "nine_again": false
     }
   },
@@ -2770,7 +2770,7 @@
       "pool_validated": "Wits 3 + Stealth 1 + Obfuscate 1 = 5",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "This is describing Face in the Crowd, Auspex is not relevant here",
+      "story_context": "This is describing Face in the Crowd, Auspex is not relevant here",
       "nine_again": false
     },
     "projects_resolved": [
@@ -2786,7 +2786,7 @@
         "pool_validated": "Wits 3 + Computer 3 = 6",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "A valid dice pool has to be an Attribute +  Skill with an optional modifier or Discipline",
+        "story_context": "A valid dice pool has to be an Attribute +  Skill with an optional modifier or Discipline",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -3060,7 +3060,7 @@
       "pool_validated": "Intelligence 3 + Empathy 3 + Dominate 4 + 4 = 14",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false,
       "active_feed_specs": [
         "Sin-Eater"
@@ -3235,7 +3235,7 @@
       "pool_validated": "Stamina 2 + Athletics 3 + 2 = 7",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "A completely viable dice pool for this description would be Presence + Persuasion + Majesty instead - we have you +2 equipment mod for running shoes.",
+      "story_context": "A completely viable dice pool for this description would be Presence + Persuasion + Majesty instead - we have you +2 equipment mod for running shoes.",
       "pool_mod_equipment": 2,
       "nine_again": false
     }
@@ -3444,7 +3444,7 @@
           "created_at": "2026-04-12T11:09:49.932Z"
         }
       ],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false
     },
     "projects_resolved": [
@@ -3457,7 +3457,7 @@
         "pool_validated": "Wits 4 + Occult 3 = 7",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -3474,7 +3474,7 @@
         "pool_validated": "Wits 4 + Occult 3 = 7",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -3702,7 +3702,7 @@
       "pool_validated": "Wits 3 + Stealth 2 + Obfuscate 1 = 6",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false
     }
   },
@@ -3957,7 +3957,7 @@
       "pool_validated": "Intelligence 5 + Expression 4 + Dominate 5 = 14",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false,
       "active_feed_specs": [],
       "pool_mod_spec": 0
@@ -3984,7 +3984,7 @@
         "pool_validated": "Manipulation 3 + Subterfuge 4 = 7",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "Pool corrected from Manipulation + Expression to Manipulation + Subterfuge.",
+        "story_context": "Pool corrected from Manipulation + Expression to Manipulation + Subterfuge.",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -4002,7 +4002,7 @@
         "pool_validated": "Intelligence 5 + Computer 3 = 8",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -4235,7 +4235,7 @@
       "pool_validated": "",
       "pool_status": "pending",
       "notes_thread": [],
-      "player_feedback": "No dice pool was provided... we took a guess?"
+      "story_context": "No dice pool was provided... we took a guess?"
     }
   },
   {
@@ -4427,7 +4427,7 @@
       "pool_validated": "Strength 6 + Streetwise 3 = 9",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "nine_again": false
     },
     "projects_resolved": [
@@ -4442,7 +4442,7 @@
         "pool_validated": "Presence 3 + Streetwise 3 = 6",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -4638,7 +4638,7 @@
       "pool_validated": "Manipulation 3 + Persuasion 3 = 6",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "Manipulation + Persuasion agreed, 6 dice",
+      "story_context": "Manipulation + Persuasion agreed, 6 dice",
       "active_feed_specs": [],
       "pool_mod_spec": 0,
       "nine_again": false
@@ -4845,7 +4845,7 @@
         "pool_validated": "",
         "pool_status": "no_roll",
         "notes_thread": [],
-        "player_feedback": "MCI does not add to dice pool. Also this action doesn't really need a roll if it's the maintenance action.",
+        "story_context": "MCI does not add to dice pool. Also this action doesn't really need a roll if it's the maintenance action.",
         "resolved_at": null
       }
     ]
@@ -5025,7 +5025,7 @@
       "pool_validated": "Presence 3 + Expression 5 = 8",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "active_feed_specs": [],
       "pool_mod_spec": 0,
       "nine_again": false
@@ -5171,7 +5171,7 @@
       "pool_validated": "Stamina 1 + Athletics 0 + 3 = 4",
       "pool_status": "pending",
       "notes_thread": [],
-      "player_feedback": "A completely viable dice pool for this description would be Presence + Persuasion + Majesty instead",
+      "story_context": "A completely viable dice pool for this description would be Presence + Persuasion + Majesty instead",
       "pool_mod_equipment": 3,
       "nine_again": false
     },
@@ -5192,7 +5192,7 @@
             "created_at": "2026-04-13T08:49:16.741Z"
           }
         ],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null
       }
     ]
@@ -5431,7 +5431,7 @@
       "pool_validated": "Strength 3 + Stealth 3 + Obfuscate 5 + 1 = 12",
       "pool_status": "validated",
       "notes_thread": [],
-      "player_feedback": "",
+      "story_context": "",
       "active_feed_specs": [
         "coward punch"
       ],
@@ -5464,7 +5464,7 @@
         "pool_validated": "Strength 3 + Weaponry 5 + Obfuscate 5 + 5 = 18",
         "pool_status": "validated",
         "notes_thread": [],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [],
         "pool_mod_spec": 0,
@@ -5669,7 +5669,7 @@
             "created_at": "2026-04-13T07:29:10.960Z"
           }
         ],
-        "player_feedback": "",
+        "story_context": "",
         "resolved_at": null,
         "active_feed_specs": [
           "diplomacy"
