@@ -6,6 +6,7 @@
 import express from 'express';
 import cors from 'cors';
 import { requireRole } from '../../middleware/auth.js';
+import { cacheControl, noCache } from '../../middleware/cache-control.js';
 import charactersRouter from '../../routes/characters.js';
 import territoriesRouter from '../../routes/territories.js';
 import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
@@ -17,7 +18,7 @@ import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
 import {
-  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
 } from '../../routes/rules-engine.js';
 import relationshipsRouter from '../../routes/relationships.js';
@@ -50,36 +51,42 @@ export function createTestApp() {
   // Health check
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-  // Protected routes with mock auth
-  app.use('/api/characters', mockAuth, charactersRouter);
-  app.use('/api/downtime_cycles', mockAuth, cyclesRouter);
-  app.use('/api/downtime_submissions', mockAuth, submissionsRouter);
-  app.use('/api/project_invitations', mockAuth, projectInvitationsRouter);
-  app.use('/api/players', mockAuth, playersRouter);
-  app.use('/api/attendance', mockAuth, attendanceRouter);
+  // Protected routes with mock auth.
+  // Issue #255: mirror prod Cache-Control discipline so tests can assert
+  // the headers are wired correctly through the same middleware stack.
+  const CACHE_5MIN = cacheControl(300);
+  app.use('/api/characters', mockAuth, noCache(), charactersRouter);
+  app.use('/api/downtime_cycles', mockAuth, noCache(), cyclesRouter);
+  app.use('/api/downtime_submissions', mockAuth, noCache(), submissionsRouter);
+  app.use('/api/project_invitations', mockAuth, noCache(), projectInvitationsRouter);
+  app.use('/api/players', mockAuth, noCache(), playersRouter);
+  app.use('/api/attendance', mockAuth, noCache(), attendanceRouter);
 
   // Territories — matches prod: auth required at app level; write gating is
   // inside the router (POST/PUT ST-only, PATCH /:id/feeding-rights regent+ST).
-  app.use('/api/territories', mockAuth, territoriesRouter);
+  app.use('/api/territories', mockAuth, CACHE_5MIN, territoriesRouter);
   // ST-only routes
-  app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), gameSessionsRouter);
-  app.use('/api/tracker_state', mockAuth, requireRole('st'), trackerRouter);
-  app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
-  app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
+  app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);
+  app.use('/api/tracker_state', mockAuth, requireRole('st'), noCache(), trackerRouter);
+  app.use('/api/ordeal_submissions', mockAuth, noCache(), ordealSubmissionsRouter);
+  app.use('/api/archive_documents', mockAuth, noCache(), archiveDocumentsRouter);
   // Rules engine — must mount before /api/rules (purchasable_powers)
   const reRoleST = requireRole('st');
-  app.use('/api/rules/grant',                 mockAuth, reRoleST, grantRouter);
-  app.use('/api/rules/speciality_grant',      mockAuth, reRoleST, specialityGrantRouter);
-  app.use('/api/rules/skill_bonus',           mockAuth, reRoleST, skillBonusRouter);
-  app.use('/api/rules/nine_again',            mockAuth, reRoleST, nineAgainRouter);
-  app.use('/api/rules/disc_attr',             mockAuth, reRoleST, discAttrRouter);
-  app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, derivedStatModRouter);
-  app.use('/api/rules/tier_budget',           mockAuth, reRoleST, tierBudgetRouter);
-  app.use('/api/rules/status_floor',          mockAuth, reRoleST, statusFloorRouter);
-  app.use('/api/rules', mockAuth, rulesRouter);
-  app.use('/api/relationships', mockAuth, relationshipsRouter);
-  app.use('/api/npcs', mockAuth, npcsRouter);
-  app.use('/api/npc-flags', mockAuth, npcFlagsRouter);
+  app.use('/api/rules/grant',                 mockAuth, reRoleST, CACHE_5MIN, grantRouter);
+  app.use('/api/rules/speciality_grant',      mockAuth, reRoleST, CACHE_5MIN, specialityGrantRouter);
+  app.use('/api/rules/skill_bonus',           mockAuth, reRoleST, CACHE_5MIN, skillBonusRouter);
+  app.use('/api/rules/nine_again',            mockAuth, reRoleST, CACHE_5MIN, nineAgainRouter);
+  app.use('/api/rules/disc_attr',             mockAuth, reRoleST, CACHE_5MIN, discAttrRouter);
+  app.use('/api/rules/derived_stat_modifier', mockAuth, reRoleST, CACHE_5MIN, derivedStatModRouter);
+  app.use('/api/rules/tier_budget',           mockAuth, reRoleST, CACHE_5MIN, tierBudgetRouter);
+  app.use('/api/rules/status_floor',          mockAuth, reRoleST, CACHE_5MIN, statusFloorRouter);
+  // Issue #265 (rebase): aggregate endpoint same content as per-category
+  // routes — mounted with the same CACHE_5MIN wiring.
+  app.use('/api/rules/aggregate',             mockAuth, reRoleST, CACHE_5MIN, rulesAggregateRouter);
+  app.use('/api/rules', mockAuth, CACHE_5MIN, rulesRouter);
+  app.use('/api/relationships', mockAuth, noCache(), relationshipsRouter);
+  app.use('/api/npcs', mockAuth, noCache(), npcsRouter);
+  app.use('/api/npc-flags', mockAuth, noCache(), npcFlagsRouter);
 
   return app;
 }

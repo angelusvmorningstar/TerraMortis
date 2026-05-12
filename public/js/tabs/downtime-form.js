@@ -1236,23 +1236,42 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  try {
-    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
-    // Issue #184 (2026-05-08): merge server data over the cached `char`
-    // object instead of replacing the reference wholesale. `_gameXP` (set
-    // by loadGameXP() before the form opens) and any other underscore-
-    // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
-    // API response doesn't carry them — wholesale `currentChar = fresh`
-    // would silently zero out xpGame() and short xpEarned()/xpLeft() by
-    // the full game-XP total. Mirrors the existing admin.js:548 pattern.
-    Object.assign(char, fresh);
-    currentChar = char;
-  } catch { /* silent — stale char is better than a broken form */ }
+  // Issue #259 (perf, 2026-05-11): the two fresh-fetches below cost an
+  // /api/characters/<id> + /api/territories round-trip per call. Callers
+  // that already loaded both seconds ago (selectCharacter in player.js,
+  // and the More-grid tab init in downtime-tab.js) can opt out by
+  // passing `options.skipFreshFetch: true`. Default stays `false` so
+  // any future caller without pre-loaded data (e.g. page-reload-into-
+  // DT-tab via a direct deep link) keeps the existing fresh-load
+  // behaviour and the #184 _gameXP-preservation merge.
+  if (!options.skipFreshFetch) {
+    try {
+      const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+      // Issue #184 (2026-05-08): merge server data over the cached `char`
+      // object instead of replacing the reference wholesale. `_gameXP` (set
+      // by loadGameXP() before the form opens) and any other underscore-
+      // prefixed ephemeral state are NOT persisted to MongoDB, so the fresh
+      // API response doesn't carry them — wholesale `currentChar = fresh`
+      // would silently zero out xpGame() and short xpEarned()/xpLeft() by
+      // the full game-XP total. Mirrors the existing admin.js:548 pattern.
+      Object.assign(char, fresh);
+      currentChar = char;
+    } catch { /* silent — stale char is better than a broken form */ }
+  }
   if (currentChar) applyDerivedMerits(currentChar);
-  try {
-    _territories = await apiGet('/api/territories');
-  } catch {
+  // Issue #259: when callers pre-load territories (the common path from
+  // selectCharacter + More-grid), skip the redundant /api/territories
+  // fetch and reuse the supplied list directly. The `|| []` guard
+  // preserves the existing fallback behaviour for callers that pass
+  // `null` or omit the arg.
+  if (options.skipFreshFetch) {
     _territories = territories || [];
+  } else {
+    try {
+      _territories = await apiGet('/api/territories');
+    } catch {
+      _territories = territories || [];
+    }
   }
   responseDoc = null;
   currentCycle = null;
@@ -3635,7 +3654,15 @@ function renderProjectSlots(saved, mode = 'advanced') {
 
       h += '<div class="qf-field dt-amb-table-wrap">';
       h += '<label class="qf-label">Territory + Direction</label>';
-      h += '<p class="qf-desc">Pick one direction on one territory. Success is +/-2 influence change to territory, +/-4 on exceptional success.</p>';
+      // Issue #174 — pre-fix the rule text described a non-existent
+      // '+/-2 per success / +/-4 exceptional' mechanic. Per Damnation
+      // City §102 the Ambience Change personal project is a dice-roll
+      // action (Attribute + Skill + Discipline pool, rendered below):
+      // each success on that roll shifts the territory's ambience by
+      // ±1 in the chosen direction. Player UI exposes only the dice
+      // pool — there is no influence-spend channel on this action in
+      // the current form, so language stays focused on the roll.
+      h += '<p class="qf-desc">Pick one direction on one territory. Each success on the dice pool below shifts that territory’s ambience by ±1 in the chosen direction.</p>';
       h += `<div class="dt-amb-table" data-amb-table="${n}">`;
       for (const t of TERRITORY_DATA) {
         const isRow = String(savedTarget) === String(t.slug);
@@ -3710,10 +3737,19 @@ function renderProjectSlots(saved, mode = 'advanced') {
         if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
         else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
         if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
-        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
         if (inheritedPool.spec?.bonus) parts.push(`+${inheritedPool.spec.bonus} ${esc(inheritedPool.spec.name)}`);
+        // Issue #176: ambience is a Vitae yield modifier (Damnation City
+        // §158), not a dice pool component. Removed from the dice
+        // breakdown above; surfaced as a separate annotation line below
+        // so the player still sees the territory's ambience contribution
+        // — just labelled correctly.
         h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
         h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+        if (inheritedPool.ambience.mod) {
+          const ambSign = inheritedPool.ambience.mod > 0 ? '+' : '−';
+          const ambLabel = inheritedPool.ambience.label ? ` (${esc(inheritedPool.ambience.label)})` : '';
+          h += `<p class="qf-desc dt-feed-dim">${ambSign}${Math.abs(inheritedPool.ambience.mod)} Vitae from territory ambience${ambLabel}</p>`;
+        }
       }
       h += '</div>';
     }
@@ -6314,10 +6350,17 @@ function renderQuestion(q, value) {
           if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
           else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
           if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
-          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
           if (pool.spec?.bonus) parts.push(`+${pool.spec.bonus} ${esc(pool.spec.name)}`);
           h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
           h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+          // Issue #176: ambience is a Vitae yield modifier (Damnation
+          // City §158), not a dice pool component. Surfaced separately
+          // so the player still sees the territory's contribution.
+          if (pool.ambience.mod) {
+            const ambSign = pool.ambience.mod > 0 ? '+' : '−';
+            const ambLabel = pool.ambience.label ? ` (${esc(pool.ambience.label)})` : '';
+            h += `<p class="qf-desc dt-feed-dim">${ambSign}${Math.abs(pool.ambience.mod)} Vitae from territory ambience${ambLabel}</p>`;
+          }
         }
         h += '</div>';
         h += '<p class="qf-desc dt-feed-min-pool__advanced-hint">Want to customise your pool? Switch to <strong>Advanced</strong> mode at the top of the form.</p>';
