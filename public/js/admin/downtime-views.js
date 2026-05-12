@@ -43,7 +43,6 @@ let matrixCollapsed = true;    // collapse state for the Feeding Matrix section 
 let ovAmbienceCollapsed = true; // City Overview: ambience section collapse state
 let ovSpheresCollapsed = true;  // City Overview: spheres section collapse state
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
-const preReadExpanded = new Set();   // subIds with pre-read body expanded in processing mode
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
 const xpReviewExpanded  = new Set(); // subIds with XP review body expanded in processing mode
 const signOffExpanded   = new Set(); // subIds with sign-off body expanded in processing mode
@@ -3840,108 +3839,6 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   return { rows, pendingAmbienceCount };
 }
 
-// ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
-
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
-const COURT_LABELS = {
-  travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X',
-};
-
-function renderPreReadSection() {
-  const readable = submissions
-    .filter(s => {
-      const r = s.responses || {};
-      const hasAsp = [1,2,3].some(n => r[`aspiration_${n}_text`]?.trim?.()) || r.aspirations?.trim?.();
-      return COURT_KEYS.some(k => r[k]?.trim?.()) || hasAsp || r.vamping?.trim?.() || r.lore_request?.trim?.();
-    })
-    .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
-
-  if (!readable.length) return '';
-
-  const isExpanded = expandedPhases.has('preread');
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('preread', 'Step 0 \u2014 Pre-read', readable.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of readable) {
-      const r = s.responses || {};
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = preReadExpanded.has(s._id);
-      const hasLore = !!r.lore_request?.trim?.();
-      const loreResponded = !!s.st_review?.lore_responded;
-      const loreBadge = hasLore && !loreResponded
-        ? '<span class="proc-preread-lore-badge">Lore ?</span>'
-        : '';
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-preread-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}</span>`;
-      h += `<span class="proc-preread-char-right">${loreBadge}<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span></span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Court section
-        const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
-        const preReadAspLines = [1,2,3].map(n => {
-          const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
-          return (t && v) ? `${t}: ${v}` : null;
-        }).filter(Boolean);
-        if (courtVals.length || preReadAspLines.length || r.aspirations) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Court</div>`;
-          for (const k of courtVals) {
-            let val = r[k];
-            if (k === 'rp_shoutout') {
-              try {
-                val = JSON.parse(val).filter(Boolean).map(id => {
-                  const ch = characters.find(c => String(c._id) === String(id));
-                  return ch ? (ch.moniker || ch.name) : id;
-                }).join(', ');
-              } catch { /* ignore */ }
-            }
-            if (!val?.trim?.()) continue;
-            h += `<div class="dt-resp-row">`;
-            h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
-            h += `<span class="dt-resp-val">${esc(val)}</span>`;
-            h += `</div>`;
-          }
-          if (preReadAspLines.length) {
-            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${preReadAspLines.map(esc).join('<br>')}</span></div>`;
-          } else if (r.aspirations) {
-            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${esc(r.aspirations)}</span></div>`;
-          }
-          h += `</div>`;
-        }
-
-        // Vamping
-        if (r.vamping?.trim?.()) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Vamping</div>`;
-          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.vamping)}</span></div>`;
-          h += `</div>`;
-        }
-
-        // Lore request
-        if (hasLore) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Lore Request</div>`;
-          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.lore_request)}</span></div>`;
-          h += `<button class="dt-btn dt-btn-sm proc-lore-btn${loreResponded ? ' active' : ''}" data-sub-id="${esc(s._id)}">${loreResponded ? '\u2713 Responded' : 'Mark responded'}</button>`;
-          h += `</div>`;
-        }
-
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
-}
-
 // ── Sign-off Step (Epic 4 — Stories 4.1 + 4.2 + 4.3) ────────────────────────
 
 function _signOffStatus(s) {
@@ -4499,9 +4396,6 @@ function renderProcessingMode(container) {
 
   // Character status strip — at-a-glance state + jump-to navigation
   h += renderCharacterStrip(queue);
-
-  // Pre-read — Step 0, player questionnaire responses
-  h += renderPreReadSection();
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
@@ -5793,36 +5687,6 @@ function renderProcessingMode(container) {
       if (expandedPhases.has(key)) expandedPhases.delete(key);
       else expandedPhases.add(key);
       renderProcessingMode(container);
-    });
-  });
-
-  // Wire pre-read character block toggles
-  container.querySelectorAll('.proc-preread-char').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.prereadId;
-      if (preReadExpanded.has(id)) preReadExpanded.delete(id);
-      else preReadExpanded.add(id);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire lore responded button — update in-place without full re-render
-  container.querySelectorAll('.proc-lore-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const newVal = !sub.st_review?.lore_responded;
-      try {
-        await updateSubmission(subId, { 'st_review.lore_responded': newVal });
-        if (!sub.st_review) sub.st_review = {};
-        sub.st_review.lore_responded = newVal;
-        btn.textContent = newVal ? '\u2713 Responded' : 'Mark responded';
-        btn.classList.toggle('active', newVal);
-        const charRow = container.querySelector(`.proc-preread-char[data-preread-id="${subId}"]`);
-        if (charRow) charRow.querySelector('.proc-preread-lore-badge')?.remove();
-      } catch (err) { console.error('Lore responded error:', err.message); }
     });
   });
 
