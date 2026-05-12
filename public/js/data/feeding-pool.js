@@ -35,7 +35,7 @@ import { hasAoE, isSpecs } from './helpers.js';
  * total. Without it, ROTE's read-only annotation showed a value lower
  * than the primary feeding's actual pool — the speciality contribution
  * wasn't flowing through. The bonus is +2 if the speciality is an Area
- * of Expertise (`hasAoE`) or the picked skill has nine_again, else +1.
+ * of Expertise (`hasAoE`), else +1.
  * Matches the bonus shape `renderFeedPoolSelector` already computes for
  * the ADVANCED primary readout (downtime-form.js:4750).
  *
@@ -124,7 +124,7 @@ export function computeBestFeedingPool({ char, methodId, territorySlug, spec = '
       String(s).toLowerCase() === String(spec).toLowerCase()
     );
     if (skillSpecs.includes(spec) || interdisciplinary || hasAoE(char, spec)) {
-      specBonus = (sk?.nine_again || hasAoE(char, spec)) ? 2 : 1;
+      specBonus = hasAoE(char, spec) ? 2 : 1;
     }
   }
 
