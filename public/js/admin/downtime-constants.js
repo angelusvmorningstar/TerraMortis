@@ -139,6 +139,12 @@ export const TERRITORY_SLUG_MAP = {
   'The Shore':                  'northshore',  // short form used in _raw.influence
   'The Barrens':                null,
   'The Barrens (No Territory)': null,
+  // Short-form variants (no 'The' prefix — old CSV import format)
+  'Academy':     'academy',
+  'Harbour':     'harbour',
+  'Dockyards':   'dockyards',
+  'Second City': 'secondcity',
+  'North Shore': 'northshore',
   // TERRITORY_DATA ids (pass-through)
   academy:    'academy',
   harbour:    'harbour',

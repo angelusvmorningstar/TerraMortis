@@ -8051,6 +8051,12 @@ function renderActionPanel(entry, review) {
               ? _pool.breakdown.disc : 'none';
           }
         }
+        // Disc-only fallback: old-format submissions have no _feed_method; if poolPlayer
+        // is a bare discipline name, seed the disc dropdown so the ST has a starting point.
+        if (preDisc === 'none' && poolPlayer) {
+          const _pp = poolPlayer.trim();
+          if (_pp && allDiscNames.includes(_pp)) preDisc = _pp;
+        }
       }
 
       const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
