@@ -667,7 +667,7 @@ function collectResponses() {
     }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
-    responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
+    if (targetTypeRadio) responses[`project_${n}_target_type`] = targetTypeRadio.value;
     // Issue #170 (2026-05-08): gate target_* writes on element presence
     // (Lesson #105 silent-leave). When a slot's action doesn't render the
     // target_* hidden inputs (e.g. action changed away from maintenance),
