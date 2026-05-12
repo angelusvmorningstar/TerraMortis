@@ -8107,9 +8107,30 @@ function renderActionPanel(entry, review) {
     }
     // Territory pills row — feeding multi-select
     {
-      const _feedOvrArr = Array.isArray(feedSub?.st_review?.territory_overrides?.feeding)
-        ? feedSub.st_review.territory_overrides.feeding : [];
-      const _feedSet = new Set(_feedOvrArr);
+      const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
+      let _feedSet;
+      if (Array.isArray(_stOvrArr)) {
+        _feedSet = new Set(_stOvrArr);
+      } else {
+        // No ST override — pre-select from player's submitted territories
+        _feedSet = new Set();
+        try {
+          const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
+          for (const [slug, status] of Object.entries(_grid)) {
+            if (!status || status === 'none' || status === 'Not feeding here') continue;
+            const tid = TERRITORY_SLUG_MAP[slug];
+            if (tid) _feedSet.add(tid);
+          }
+        } catch { /* ignore malformed JSON */ }
+        if (_feedSet.size === 0) {
+          const _rawTerrs = _normTerrKeys(feedSub?._raw?.feeding?.territories || {});
+          for (const [key, status] of Object.entries(_rawTerrs)) {
+            if (!status || status === 'Not feeding here' || status === 'none') continue;
+            const tid = TERRITORY_SLUG_MAP[key];
+            if (tid) _feedSet.add(tid);
+          }
+        }
+      }
       h += `<div class="proc-recat-row">`;
       h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet);
       h += `</div>`;
@@ -8135,7 +8156,7 @@ function renderActionPanel(entry, review) {
       const discNames = charDiscs.map(d => d.name);
       const allDiscNames = char ? discNames : KNOWN_DISCIPLINES;
 
-      // Pre-populate from existing pool_validated
+      // Pre-populate from existing pool_validated, else from player's submitted feeding method
       let preAttr = '', preSkill = '', preDisc = 'none', preMod = 0, showParseRef = false;
       if (poolValidated) {
         const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
@@ -8146,6 +8167,22 @@ function renderActionPanel(entry, review) {
           preMod   = parsed.modifier || 0;
         } else {
           showParseRef = true;
+        }
+      } else {
+        const _method = resp._feed_method || '';
+        if (_method === 'other') {
+          preAttr  = resp._feed_custom_attr  || '';
+          preSkill = resp._feed_custom_skill || '';
+          const _cd = resp._feed_custom_disc || resp._feed_disc || '';
+          preDisc  = (_cd && allDiscNames.includes(_cd)) ? _cd : 'none';
+        } else if (_method && char) {
+          const _pool = buildFeedingPool(char, _method, 0, { disc: resp._feed_disc || '', spec: resp._feed_spec || '' });
+          if (_pool) {
+            preAttr  = _pool.breakdown.attr  || '';
+            preSkill = _pool.breakdown.skill || '';
+            preDisc  = (_pool.breakdown.disc && allDiscNames.includes(_pool.breakdown.disc))
+              ? _pool.breakdown.disc : 'none';
+          }
         }
       }
 
