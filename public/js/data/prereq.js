@@ -64,6 +64,20 @@ export function meetsPrereq(char, node, opts = {}) {
 
     case 'merit': {
       const merits = char.merits || [];
+      // Issue #239: 'same level' is a semantic sentinel meaning "the
+      // prerequisite merit must be at the same (or higher) dot rating
+      // as the merit being purchased." Used by Mandragora Garden's
+      // Safe Place prereq (rules cache `mandragora-garden` rule). The
+      // per-rating cap is enforced at runtime via CAP_DOMAIN
+      // (editor/domain.js:17), so a static prereq check just needs
+      // presence of the named merit at the dots floor — treating
+      // 'same level' as a literal qualifier-name (the pre-fix
+      // behaviour) silently excluded Mandragora Garden from every
+      // character's XP-purchase picker because no real merit has
+      // qualifier === 'same level'.
+      if (node.qualifier === 'same level') {
+        return merits.some(m => m.name === node.name && (m.rating || 0) >= (dots || 1));
+      }
       const directMatch = merits.some(m => {
         if (m.name !== node.name) return false;
         if (node.qualifier && m.qualifier !== node.qualifier && m.area !== node.qualifier) return false;
