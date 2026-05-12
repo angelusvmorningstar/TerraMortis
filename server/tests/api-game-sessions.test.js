@@ -1,8 +1,6 @@
 /**
- * API tests — /api/game_sessions, /api/territory-residency.
+ * API tests — /api/game_sessions.
  * Tests role gating, CRUD, validation.
- *
- * /api/players tests live in api-players.test.js (removed from here — was duplicate).
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -14,7 +12,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanupIds = { game_sessions: [], territory_residency: [] };
+const cleanupIds = { game_sessions: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -27,7 +25,6 @@ afterEach(async () => {
     for (const id of ids) await col.deleteOne({ _id: id });
     cleanupIds[colName] = [];
   }
-  await getCollection('territory_residency').deleteMany({ territory: /^Test / });
 });
 
 afterAll(async () => {
@@ -202,82 +199,100 @@ describe('GET /api/game_sessions/next', () => {
   });
 });
 
-// ══════════════════════════════════════
-//  TERRITORY RESIDENCY
-// ══════════════════════════════════════
+// dt-form.17 (ADR-003 §Q3): PATCH attendance.downtime per-character.
+// Mounted under /api/attendance (player-accessible) — see attendance.js.
+describe('PATCH /api/attendance/:session_id/:character_id', () => {
+  it('flips downtime true for a matching attendance entry (ST)', async () => {
+    const charId = '69d73ea49162ece35897a47e'; // sample valid 24-char hex
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      title: 'PATCH-Attendance Test',
+      attendance: [{
+        character_id: charId,
+        character_name: 'Test PC',
+        attended: true,
+        costuming: false,
+        downtime: false,
+        extra: 0,
+        paid: false,
+      }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
 
-describe('GET /api/territory-residency', () => {
-  it('returns all residency docs', async () => {
     const res = await request(app)
-      .get('/api/territory-residency')
-      .set('X-Test-User', playerUser([]));
+      .patch(`/api/attendance/${sessRes.insertedId}/${charId}`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: true });
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.entry.downtime).toBe(true);
   });
 
-  it('returns single territory by query', async () => {
-    // Upsert a test residency first
-    await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Territory', residents: ['char-001'] });
+  it('flips downtime back to false (idempotent both ways)', async () => {
+    const charId = '69d73ea49162ece35897a48d';
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      title: 'PATCH-Attendance Flipback',
+      attendance: [{ character_id: charId, character_name: 'Test PC', downtime: true }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
 
     const res = await request(app)
-      .get('/api/territory-residency?territory=Test%20Territory')
-      .set('X-Test-User', playerUser([]));
+      .patch(`/api/attendance/${sessRes.insertedId}/${charId}`)
+      .set('X-Test-User', stUser())
+      .send({ downtime: false });
     expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Territory');
-    expect(res.body.residents).toContain('char-001');
+    expect(res.body.entry.downtime).toBe(false);
   });
 
-  it('returns empty residents for unknown territory', async () => {
+  it('returns 404 when no attendance entry matches', async () => {
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
     const res = await request(app)
-      .get('/api/territory-residency?territory=Nonexistent')
-      .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Nonexistent');
-    expect(res.body.residents).toEqual([]);
-  });
-});
-
-describe('PUT /api/territory-residency', () => {
-  it('upserts residency for a territory', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
+      .patch(`/api/attendance/${sessRes.insertedId}/000000000000000000000000`)
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Upsert', residents: ['char-001', 'char-002'] });
-    expect(res.status).toBe(200);
-    expect(res.body.territory).toBe('Test Upsert');
-    expect(res.body.residents).toHaveLength(2);
+      .send({ downtime: true });
+    expect(res.status).toBe(404);
   });
 
-  it('updates existing residency', async () => {
-    await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001'] });
-
+  it('rejects non-boolean downtime body', async () => {
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [{ character_id: '69d73ea49162ece35897a47f', downtime: false }],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
     const res = await request(app)
-      .put('/api/territory-residency')
+      .patch(`/api/attendance/${sessRes.insertedId}/69d73ea49162ece35897a47f`)
       .set('X-Test-User', stUser())
-      .send({ territory: 'Test Update', residents: ['char-001', 'char-002', 'char-003'] });
-    expect(res.status).toBe(200);
-    expect(res.body.residents).toHaveLength(3);
-  });
-
-  it('rejects missing territory', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ residents: ['char-001'] });
+      .send({ downtime: 'yes' });
     expect(res.status).toBe(400);
   });
 
-  it('rejects missing residents array', async () => {
-    const res = await request(app)
-      .put('/api/territory-residency')
-      .set('X-Test-User', stUser())
-      .send({ territory: 'Test Bad' });
-    expect(res.status).toBe(400);
+  it('player can flip their own character but not someone else’s', async () => {
+    const myCharId = '69d73ea49162ece35897a481';
+    const otherCharId = '69d73ea49162ece35897a482';
+    const sessRes = await getCollection('game_sessions').insertOne({
+      session_date: '2026-05-06',
+      attendance: [
+        { character_id: myCharId, downtime: false },
+        { character_id: otherCharId, downtime: false },
+      ],
+    });
+    cleanupIds.game_sessions.push(sessRes.insertedId);
+
+    const okRes = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${myCharId}`)
+      .set('X-Test-User', playerUser([myCharId]))
+      .send({ downtime: true });
+    expect(okRes.status).toBe(200);
+
+    const blockRes = await request(app)
+      .patch(`/api/attendance/${sessRes.insertedId}/${otherCharId}`)
+      .set('X-Test-User', playerUser([myCharId]))
+      .send({ downtime: true });
+    expect(blockRes.status).toBe(403);
   });
 });

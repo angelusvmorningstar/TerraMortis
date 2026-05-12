@@ -105,10 +105,14 @@ function _removeStaleSwMerit(c) {
 /**
  * Effective partner merit rating: sums all active dot sources.
  * Excludes free_sw to prevent circular reference (one-hop only).
+ * Mirrors meritEffectiveRating() in public/js/editor/domain.js minus
+ * free_sw — adding a new free_* channel there must update both.
  */
 function _effectivePartnerRating(m) {
-  // inherent-intentional: effective partner rating sums all purchased + free dot sources; mirrors legacy mci.js line 79-81
-  return (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + // inherent-intentional: continuation
+  // inherent-intentional: effective partner rating sums all purchased + free dot sources except free_sw (cycle guard)
+  return (m.cp || 0) + (m.xp || 0) + (m.free || 0) +
+    (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) +
     (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) +
-    (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0); // inherent-intentional: continuation
+    (m.free_pt || 0) + (m.free_mdb || 0) +
+    (m.free_fwb || 0) + (m.free_attache || 0); // inherent-intentional: continuation
 }

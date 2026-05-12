@@ -27,10 +27,19 @@ export function renderXpLogTab(el, char) {
   let h = '<div class="xpl-log">';
 
   // Balance
+  // dt-form.17: annotate when downtime credit is on hold (cycle's submission
+  // below minimum-complete) and render xpLeft red with a tooltip when negative.
+  const onHold = !!char._dtHoldFlag;
+  const deficitTip = overBudget
+    ? 'Spent XP exceeds available — restore the form to minimum-complete, or reverse the spend.'
+    : '';
   h += `<div class="xpl-panel ${overBudget ? 'xpl-over' : 'xpl-ok'}">`;
   h += '<div class="xpl-balance">';
   h += '<span class="xpl-bal-lbl">XP Available</span>';
-  h += `<span class="xpl-bal-val">${left}</span>`;
+  h += `<span class="xpl-bal-val${overBudget ? ' dt-xp-deficit' : ''}"${deficitTip ? ` title="${esc(deficitTip)}"` : ''}>${left}</span>`;
+  if (onHold) {
+    h += '<span class="dt-xp-on-hold">(downtime credit on hold)</span>';
+  }
   h += '</div>';
   if (overBudget) {
     h += `<p class="xpl-over-warn">Over budget by ${Math.abs(left)} XP</p>`;

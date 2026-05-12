@@ -140,6 +140,31 @@ const ALL_ACTION_TYPES = [
   'block', 'rumour', 'grow', 'acquisition',
 ];
 
+// Issue #129 (2026-05-08): canonical ambience action dispatcher.
+// The DT form (post-#79) persists `project_${n}_action === 'ambience_change'`
+// + `responses.project_${n}_ambience_direction` ('improve' | 'degrade').
+// Legacy CSV-imported submissions in the DB carry `'ambience_increase'` /
+// `'ambience_decrease'` (pre-canonicalisation parser output). Both shapes
+// must dispatch correctly here. The helper accepts any of the three action
+// type strings; direction is derived from the type itself for legacy or
+// from the responses bag for canonical.
+const _AMBIENCE_ACTION_TYPES = new Set(['ambience_change', 'ambience_increase', 'ambience_decrease']);
+function _isAmbienceAction(actionType) {
+  return _AMBIENCE_ACTION_TYPES.has(actionType);
+}
+function _ambienceDirection(actionType, projN, responses) {
+  if (actionType === 'ambience_increase') return 'increase';
+  if (actionType === 'ambience_decrease') return 'decrease';
+  if (actionType === 'ambience_change' && responses) {
+    const dir = responses[`project_${projN}_ambience_direction`]
+      || responses[`project_${projN}_ambience_dir`]
+      || '';
+    if (dir === 'improve') return 'increase';
+    if (dir === 'degrade') return 'decrease';
+  }
+  return null;
+}
+
 const FEED_METHOD_LABELS_MAP = {
   seduction: 'Seduction', stalking: 'Stalking', force: 'By Force',
   familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other',
@@ -2060,23 +2085,35 @@ function _feedTerrIdsForSub(sub) {
   return [...ids];
 }
 
+// Resolve a TERRITORY_DATA entry's slug to the Mongo _id-string. Returns null
+// if the territory has no Mongo doc yet. Cycle object maps (confirmed_ambience,
+// discipline_profile, territory_pulse) are keyed by _id-string per ADR-002.
+function _terrOidForSlug(slug) {
+  const cached = (cachedTerritories || []).find(t => t.slug === slug);
+  return cached ? String(cached._id) : null;
+}
+
 function _territoryAmbienceLabel(territory) {
-  const confirmed = currentCycle?.confirmed_ambience?.[territory.id]?.ambience;
+  const oid = _terrOidForSlug(territory.slug);
+  const confirmed = oid ? currentCycle?.confirmed_ambience?.[oid]?.ambience : undefined;
   if (confirmed) return confirmed;
-  const cached = (cachedTerritories || []).find(t => t.id === territory.id || t.name === territory.name);
+  const cached = (cachedTerritories || []).find(t => t.slug === territory.slug || t.name === territory.name);
   return cached?.ambience || territory.ambience || 'unknown';
 }
 
 function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   const ambience = _territoryAmbienceLabel(territory);
-  const profile  = cycle?.discipline_profile?.[territory.id] || {};
+  const oid = _terrOidForSlug(territory.slug);
+  const profile  = (oid && cycle?.discipline_profile?.[oid]) || {};
   const discsUsed = Object.entries(profile)
     .filter(([, c]) => c > 0)
     .sort(([a], [b]) => a.localeCompare(b));
 
   const feeders = [];
   for (const sub of subs || []) {
-    if (!_feedTerrIdsForSub(sub).includes(territory.id)) continue;
+    // _feedTerrIdsForSub returns TERRITORY_DATA slugs; territory.slug is the
+    // TERRITORY_DATA slug too. Slug-to-slug comparison is correct here.
+    if (!_feedTerrIdsForSub(sub).includes(territory.slug)) continue;
     const char = charById.get(String(sub.character_id));
     const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
     const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
@@ -2114,28 +2151,32 @@ function renderTerritoryPulsePanel(cycle, subs, chars) {
   h += `<div class="dt-territory-pulse-list">`;
   for (const td of TERRITORY_DATA) {
     const promptText = _buildTerritoryPulsePromptText(cycle, td, subs || [], charById);
-    const stored = pulseMap[td.id] || {};
+    // Cycle pulseMap is _id-keyed per ADR-002; resolve TERRITORY_DATA slug to _id.
+    const oid = _terrOidForSlug(td.slug);
+    const stored = (oid && pulseMap[oid]) || {};
     const draft = stored.draft || '';
     const ambience = _territoryAmbienceLabel(td);
     const lastEdited = stored.last_edited_at
       ? new Date(stored.last_edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
       : '';
-    h += `<div class="dt-territory-pulse-row" data-terr-id="${esc(td.id)}" data-cycle-id="${esc(String(cycle._id))}">`;
+    // data-terr-id carries the _id-string so save handlers post the correct FK.
+    const terrAttr = oid || td.slug;
+    h += `<div class="dt-territory-pulse-row" data-terr-id="${esc(terrAttr)}" data-cycle-id="${esc(String(cycle._id))}">`;
     h += `<div class="dt-territory-pulse-row-head">`;
     h += `<span class="dt-territory-pulse-name">${esc(td.name)}</span>`;
     h += `<span class="dt-territory-pulse-ambience">Ambience: ${esc(ambience)}</span>`;
-    h += `<button type="button" class="dt-territory-pulse-toggle-btn" data-terr-id="${esc(td.id)}">Show prompt</button>`;
+    h += `<button type="button" class="dt-territory-pulse-toggle-btn" data-terr-id="${esc(terrAttr)}">Show prompt</button>`;
     h += `</div>`;
-    h += `<div class="dt-territory-pulse-prompt-block" data-terr-id="${esc(td.id)}" hidden>`;
+    h += `<div class="dt-territory-pulse-prompt-block" data-terr-id="${esc(terrAttr)}" hidden>`;
     h += `<textarea class="dt-territory-pulse-prompt-ta" readonly>${esc(promptText)}</textarea>`;
     h += `<div class="dt-territory-pulse-actions">`;
-    h += `<button type="button" class="dt-btn dt-territory-pulse-copy-btn" data-terr-id="${esc(td.id)}">Copy prompt</button>`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-copy-btn" data-terr-id="${esc(terrAttr)}">Copy prompt</button>`;
     h += `<span class="dt-territory-pulse-copy-status"></span>`;
     h += `</div></div>`;
     h += `<label class="dt-territory-pulse-draft-lbl">Synthesis draft</label>`;
-    h += `<textarea class="dt-territory-pulse-draft-ta" data-terr-id="${esc(td.id)}" placeholder="Paste the LLM's pulse here…">${esc(draft)}</textarea>`;
+    h += `<textarea class="dt-territory-pulse-draft-ta" data-terr-id="${esc(terrAttr)}" placeholder="Paste the LLM's pulse here…">${esc(draft)}</textarea>`;
     h += `<div class="dt-territory-pulse-actions">`;
-    h += `<button type="button" class="dt-btn dt-territory-pulse-save-btn" data-terr-id="${esc(td.id)}">Save</button>`;
+    h += `<button type="button" class="dt-btn dt-territory-pulse-save-btn" data-terr-id="${esc(terrAttr)}">Save</button>`;
     h += `<span class="dt-territory-pulse-save-status">${lastEdited ? 'Last saved ' + esc(lastEdited) : ''}</span>`;
     h += `</div>`;
     h += `</div>`;
@@ -2770,7 +2811,6 @@ function buildProcessingQueue(subs) {
     if (skillAcq) {
       const _skAcqChar = findCharacter(sub.character_name, sub.player_name);
       const _skPoolPlayer = _skAcqChar ? skillAcqPoolStr(_skAcqChar, {
-        attr: resp.skill_acq_pool_attr || '',
         skill: resp.skill_acq_pool_skill || '',
         spec: resp.skill_acq_pool_spec || '',
       }) : '';
@@ -2860,7 +2900,8 @@ async function recomputeDisciplineProfile() {
       if (!proj?.pool_validated) continue;
       if (proj.pool_status !== 'validated') continue;
       const actionType = proj.action_type_override || proj.action_type;
-      const isAmbience = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      // Issue #129: accept canonical 'ambience_change' alongside legacy aliases.
+      const isAmbience = _isAmbienceAction(actionType);
       const isRoteFeed = actionType === 'feed';
       if (!isAmbience && !isRoteFeed) continue;
       const territory = _resolveProjectTerritory(sub, pIdx);
@@ -2929,7 +2970,7 @@ async function saveEntryReview(entry, patch) {
     sub.projects_resolved = resolved;
     // Recompute discipline profile when ambience actions are validated
     if (('pool_status' in patch || 'pool_validated' in patch) &&
-        (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+        _isAmbienceAction(entry.actionType)) {
       recomputeDisciplineProfile(); // fire-and-forget
     }
   } else if (entry.source === 'merit') {
@@ -3009,7 +3050,7 @@ function resolveTerrId(raw) {
   const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
   for (const td of TERRITORY_DATA) {
     const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.id;
+    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.slug;
   }
   return null;
 }
@@ -3120,8 +3161,10 @@ function _gatherProjectAmbience(subs) {
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
       const effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
-      const isIncrease = effectiveType === 'ambience_increase';
-      const isDecrease = effectiveType === 'ambience_decrease';
+      // Issue #129: dispatch on canonical + legacy ambience shapes.
+      const dir = _ambienceDirection(effectiveType, n, resp);
+      const isIncrease = dir === 'increase';
+      const isDecrease = dir === 'decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
@@ -3212,21 +3255,22 @@ function _gatherMeritAmbience(subs) {
  * Returns { rows, pendingAmbienceCount }.
  */
 function buildAmbienceData(terrs, passedFeedCounts = null) {
-  // Starting ambience from DB records (fallback to TERRITORY_DATA defaults)
+  // Starting ambience from DB records (fallback to TERRITORY_DATA defaults).
+  // Both Mongo territories and TERRITORY_DATA key the territory slug as `slug`.
   const startingAmbience = {}, startingAmbienceMod = {};
   if (terrs?.length) {
     for (const t of terrs) {
-      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      const td = TERRITORY_DATA.find(d => d.slug === t.slug || d.name === t.name);
       if (td) {
-        startingAmbience[td.id]    = t.ambience    || td.ambience;
-        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
+        startingAmbience[td.slug]    = t.ambience    || td.ambience;
+        startingAmbienceMod[td.slug] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
           ? t.ambienceMod : td.ambienceMod;
       }
     }
   }
   for (const td of TERRITORY_DATA) {
-    if (!startingAmbience[td.id])              startingAmbience[td.id]    = td.ambience;
-    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
+    if (!startingAmbience[td.slug])              startingAmbience[td.slug]    = td.ambience;
+    if (startingAmbienceMod[td.slug] === undefined) startingAmbienceMod[td.slug] = td.ambienceMod;
   }
 
   // Aggregate each change source (all accumulators keyed by canonical territory id)
@@ -3239,7 +3283,7 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
   // ── Assemble rows ──
   const rows = TERRITORY_DATA.map(td => {
-    const id = td.id;
+    const id = td.slug;
     const ambience = startingAmbience[id] || td.ambience;
     const cap = AMBIENCE_CAP[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
@@ -3616,7 +3660,15 @@ function renderXpReviewStep() {
           if (legacy) rows.push({ category: 'xp_spend', item: legacy, cost: null, _proj: n });
         }
       }
-      // Also include admin xp_grid rows (free merits)
+      // dt-form.26: top-level `responses.xp_spend` is now a mirror built
+      // from the per-slot `project_N_xp_rows` (DAR-A1). The duplicate concat
+      // here is harmless because the per-slot rows above were derived from
+      // `project_N_xp_category`/`_xp_item` (legacy single-row keys), while
+      // the top-level mirror carries the FULL multi-row breakdown across
+      // all xp_spend slots. Reading both paths gives the ST every row even
+      // for legacy-shaped or transitional submissions; rows from the
+      // per-slot loop above are picked up here as duplicates only when a
+      // slot still has both shapes (transition window).
       try {
         const adminRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
         rows = rows.concat(adminRows);
@@ -6691,13 +6743,17 @@ function _renderFeedRightPanel(entry, char, rev) {
     const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
     if (!mt || !mt.ambienceKey) continue;
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-    const confirmedAmb = tid ? currentCycle?.confirmed_ambience?.[tid] : null;
+    // Translate slug to Mongo _id-string so cycle confirmed_ambience reads correctly (ADR-002).
+    const oid = tid ? (cachedTerritories || []).find(t => t.slug === tid)?._id : null;
+    const oidStr = oid ? String(oid) : null;
+    const confirmedAmb = oidStr ? currentCycle?.confirmed_ambience?.[oidStr] : null;
     let mod = null;
     if (confirmedAmb != null) {
       mod = confirmedAmb.ambienceMod ?? 0;
     } else {
+      // Both Mongo docs and TERRITORY_DATA key the slug as `slug` post-#3e.
       const tr = terrList.find(t =>
-        t.id === tid || t.name === mt.ambienceKey
+        t.slug === tid || t.name === mt.ambienceKey
       );
       mod = tr?.ambienceMod ?? null;
     }
@@ -6706,15 +6762,17 @@ function _renderFeedRightPanel(entry, char, rev) {
       bestTerrLabel = mt.label;
     }
   }
-  // Fallback: if no fed territories resolved, use primaryTerr as before
+  // Fallback: if no fed territories resolved, use primaryTerr as before.
+  // normalizedTerrId is a slug; translate to _id for confirmed_ambience reads.
   if (ambienceVitae === null && entry.primaryTerr) {
     const normalizedTerrId = TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr;
     const terrRec = terrList.find(t =>
-      t.id === normalizedTerrId ||
+      t.slug === normalizedTerrId ||
       t.name === entry.primaryTerr ||
       t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
     );
-    const confirmedAmb = currentCycle?.confirmed_ambience?.[normalizedTerrId];
+    const fallbackOid = terrRec?._id ? String(terrRec._id) : null;
+    const confirmedAmb = fallbackOid ? currentCycle?.confirmed_ambience?.[fallbackOid] : null;
     ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
     bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
   }
@@ -7123,7 +7181,10 @@ function renderActionPanel(entry, review) {
   const playerFacingNote  = rev.player_facing_note  || '';
   const isSorcery        = entry.source === 'sorcery'
                         || (entry.source === 'st_created' && entry.actionType === 'sorcery');
-  const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
+  // Issue #129: defensive symmetry. Form sphere/status collect (downtime-form.js:717-718,761-762)
+  // already normalises 'ambience_change' to legacy here, so this stays
+  // legacy-only in practice — but the helper handles all three shapes.
+  const isAmbienceMerit  = entry.source === 'merit' && _isAmbienceAction(entry.actionType);
 
   // Single character lookup — resolved once for all source types
   const entrySub  = submissions.find(s => s._id === entry.subId) || null;
@@ -7489,9 +7550,9 @@ function renderActionPanel(entry, review) {
       const _mismatches = [];
       for (const [terrKey, val] of Object.entries(_feedGrid)) {
         if (!val || val === 'none') continue;
-        // Resolve territory doc by slug key
+        // Resolve territory doc by slug key (Mongo docs carry slug post-ADR-002).
         const _td = _terrDocs.find(t =>
-          (t.id && t.id === terrKey) ||
+          (t.slug && t.slug === terrKey) ||
           (t.name && t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') === terrKey)
         );
         if (!_td) continue;
@@ -9247,9 +9308,9 @@ function getTerritoryAmbience(ambienceKey) {
   if (!ambienceKey) return null;
   const td = TERRITORY_DATA.find(t => t.name === ambienceKey);
   if (!td) return null;
-  // Prefer live DB record so matrix cap matches the ambience table (both use cachedTerritories)
+  // Prefer live DB record so matrix cap matches the ambience table (both use cachedTerritories).
   if (cachedTerritories?.length) {
-    const dbRec = cachedTerritories.find(t => t.id === td.id || t.name === td.name);
+    const dbRec = cachedTerritories.find(t => t.slug === td.slug || t.name === td.name);
     if (dbRec?.ambience) return dbRec.ambience;
   }
   return td.ambience;
@@ -9391,11 +9452,12 @@ function renderFeedingMatrix() {
 
   if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
 
-  // Build residency lookup: feeding_rights + regent + lieutenant always count as residents
+  // Build residency lookup: feeding_rights + regent + lieutenant always count as residents.
+  // tid is a TERRITORY_DATA-style slug; Mongo docs key the same value as `slug`.
   const residentsByTerrKey = {};
   for (const mt of MATRIX_TERRS) {
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-    const td = (cachedTerritories || []).find(t => t.id === tid);
+    const td = (cachedTerritories || []).find(t => t.slug === tid);
     const residents = new Set(td?.feeding_rights || []);
     if (td?.regent_id) residents.add(String(td.regent_id));
     if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
@@ -9501,11 +9563,16 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const alliesNetStr = _fmtMod(alliesNet);
     const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
     const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
-    const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+    // r.id is a TERRITORY_DATA slug; cycle.confirmed_ambience is _id-keyed (ADR-002).
+    const rOid = (cachedTerritories || []).find(t => t.slug === r.id)?._id;
+    const rOidStr = rOid ? String(rOid) : null;
+    const confirmed = rOidStr ? currentCycle?.confirmed_ambience?.[rOidStr] : null;
     const projMod = AMBIENCE_MODS[r.projStep] ?? r.ambienceMod ?? 0;
+    // data-terr-id carries the _id-string so the confirm handler can write the right key.
+    const dataTerrAttr = rOidStr || r.id;
     const confirmCell = confirmed
-      ? `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="city-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`
-      : `<td><button class="city-amb-confirm-btn" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
+      ? `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="city-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(dataTerrAttr)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`
+      : `<td><button class="city-amb-confirm-btn" data-terr-id="${esc(dataTerrAttr)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
     h += `<tr>`;
     h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
     h += `<td>${esc(r.ambience)}</td>`;
@@ -9528,7 +9595,8 @@ function _buildFeedingMatrixHtml() {
   const mResidents = {};
   for (const mt of MATRIX_TERRS) {
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-    const td = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
+    // Both Mongo docs and TERRITORY_DATA key the slug as `slug` post-#3e.
+    const td = (cachedTerritories || TERRITORY_DATA).find(t => t.slug === tid);
     const residents = new Set(td?.feeding_rights || []);
     if (td?.regent_id) residents.add(String(td.regent_id));
     if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
@@ -9621,7 +9689,7 @@ function _exportCityOverview(matrix) {
     for (const csvKey of fedTerrs) {
       const mt  = MATRIX_TERRS.find(t => t.csvKey === csvKey);
       const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
-      const td  = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
+      const td  = (cachedTerritories || TERRITORY_DATA).find(t => t.slug === tid);
       const res = new Set(td?.feeding_rights || []);
       if (td?.regent_id)      res.add(String(td.regent_id));
       if (td?.lieutenant_id)  res.add(String(td.lieutenant_id));
@@ -9642,7 +9710,7 @@ function _exportCityOverview(matrix) {
   for (const p of PHASES) {
     const rows = {};
     for (const t of TERRITORY_DATA) {
-      const chars = (matrix?.[p.key]?.[t.id] || []).map(e => e.charName);
+      const chars = (matrix?.[p.key]?.[t.slug] || []).map(e => e.charName);
       if (chars.length) rows[t.name] = chars;
     }
     if (Object.keys(rows).length) actions[p.label] = rows;
@@ -9652,7 +9720,9 @@ function _exportCityOverview(matrix) {
   const { rows: ambienceRows } = buildAmbienceData(cachedTerritories || TERRITORY_DATA);
   const ambience_by_territory = {};
   for (const r of ambienceRows) {
-    const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+    // r.id is a slug; cycle.confirmed_ambience is _id-keyed post-ADR-002.
+    const rOid = (cachedTerritories || []).find(t => t.slug === r.id)?._id;
+    const confirmed = rOid ? currentCycle?.confirmed_ambience?.[String(rOid)] : null;
     ambience_by_territory[r.name] = {
       current_state:    r.ambience,
       entropy:          r.entropy,
@@ -9675,8 +9745,9 @@ function _exportCityOverview(matrix) {
     const residents = new Set(td.feeding_rights || []);
     if (td.regent_id)      residents.add(String(td.regent_id));
     if (td.lieutenant_id)  residents.add(String(td.lieutenant_id));
-    // Count poachers: chars who fed here but are not residents
-    const mt = MATRIX_TERRS.find(t => (TERRITORY_SLUG_MAP[t.csvKey] ?? null) === td.id);
+    // Count poachers: chars who fed here but are not residents.
+    // Both Mongo docs and TERRITORY_DATA key the slug as `slug` post-#3e.
+    const mt = MATRIX_TERRS.find(t => (TERRITORY_SLUG_MAP[t.csvKey] ?? null) === td.slug);
     let poachers = 0;
     if (mt) {
       for (const [charId, sub] of _mSubByCharId) {
@@ -9789,7 +9860,7 @@ export function renderCityOverview() {
     }
   }
   const activePhases = TAAG_PHASES.filter(p =>
-    TERRITORY_DATA.some(t => (matrix[p.key][t.id] || []).length > 0)
+    TERRITORY_DATA.some(t => (matrix[p.key][t.slug] || []).length > 0)
   );
 
   // ── HTML ──
@@ -9820,7 +9891,7 @@ export function renderCityOverview() {
       // Extract TAAG feeding counts so Ambience overfeeding uses the exact same numbers
       const feedCountsByTerrId = {};
       for (const td of TERRITORY_DATA) {
-        feedCountsByTerrId[td.id] = (matrix['feeding'][td.id] || []).length;
+        feedCountsByTerrId[td.slug] = (matrix['feeding'][td.slug] || []).length;
       }
       h += _buildAmbienceHtml(feedCountsByTerrId);
     }
@@ -9838,10 +9909,10 @@ export function renderCityOverview() {
     } else {
       for (const p of TAAG_PHASES) {
         const rowEntries = matrix[p.key];
-        if (!TERRITORY_DATA.some(t => (rowEntries[t.id] || []).length > 0)) continue;
+        if (!TERRITORY_DATA.some(t => (rowEntries[t.slug] || []).length > 0)) continue;
         h += `<tr><td class="dt-taag-phase-lbl">${esc(p.label)}</td>`;
         for (const t of TERRITORY_DATA) {
-          const chips = rowEntries[t.id] || [];
+          const chips = rowEntries[t.slug] || [];
           h += `<td class="dt-taag-cell">`;
           if (chips.length) {
             h += `<div class="dt-taag-chips">`;
@@ -9864,14 +9935,21 @@ export function renderCityOverview() {
     h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
     if (!discDashCollapsed) {
-      const discSet = new Set(), terrSet = new Set();
-      for (const [terrId, discs] of Object.entries(profile)) {
+      // discipline_profile is _id-keyed post-ADR-002; build slug→_id resolver to
+      // bridge between the cycle data (keyed by _id) and TERRITORY_DATA iteration
+      // (keyed by slug).
+      const slugToOid = new Map();
+      for (const t of (cachedTerritories || [])) {
+        if (t.slug) slugToOid.set(t.slug, String(t._id));
+      }
+      const discSet = new Set(), terrOidSet = new Set();
+      for (const [terrOid, discs] of Object.entries(profile)) {
         for (const [disc, count] of Object.entries(discs)) {
-          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+          if (count > 0) { discSet.add(disc); terrOidSet.add(terrOid); }
         }
       }
       const discList = [...discSet].sort();
-      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+      const terrList = TERRITORY_DATA.filter(t => terrOidSet.has(slugToOid.get(t.slug)));
       if (!discList.length) {
         h += `<p class="proc-amb-empty">No discipline uses recorded yet.</p>`;
       } else {
@@ -9881,7 +9959,8 @@ export function renderCityOverview() {
         for (const disc of discList) {
           h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
           for (const t of terrList) {
-            const count = profile[t.id]?.[disc] || 0;
+            const tOid = slugToOid.get(t.slug);
+            const count = (tOid && profile[tOid]?.[disc]) || 0;
             h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
           }
           h += `</tr>`;
@@ -10006,14 +10085,15 @@ async function _applyProjectedAmbience(markApplied) {
   let dbTerritories = [];
   try { dbTerritories = await apiGet('/api/territories'); } catch { /* ignore */ }
   if (!dbTerritories.length) {
+    // Fallback seed (post-ADR-002: pass slug as a label, not as an FK).
     for (const td of TERRITORY_DATA) {
-      try { await apiPost('/api/territories', { id: td.id, name: td.name, ambience: td.ambience }); } catch { /* ignore */ }
+      try { await apiPost('/api/territories', { slug: td.slug, name: td.name, ambience: td.ambience }); } catch { /* ignore */ }
     }
     try { dbTerritories = await apiGet('/api/territories'); } catch { /* ignore */ }
   }
-  // Build id → DB record map
+  // Build slug → DB record map (Mongo docs carry slug post-ADR-002).
   const terrRecMap = {};
-  for (const t of dbTerritories) { if (t.id || t.name) terrRecMap[t.id || t.name] = t; }
+  for (const t of dbTerritories) { if (t.slug || t.name) terrRecMap[t.slug || t.name] = t; }
 
   // 2. Get projected values from the dashboard calculation
   const { rows } = buildAmbienceData(dbTerritories.length ? dbTerritories : TERRITORY_DATA);
@@ -10025,11 +10105,12 @@ async function _applyProjectedAmbience(markApplied) {
       if (rec?._id) {
         await apiPut(`/api/territories/${rec._id}`, { ambience: r.projStep });
       } else {
-        await apiPost('/api/territories', { id: r.id, name: r.name, ambience: r.projStep });
+        // No matching DB record — insert (server generates _id; r.id is a slug label).
+        await apiPost('/api/territories', { slug: r.id, name: r.name, ambience: r.projStep });
       }
       // Update cachedTerritories in-memory so dashboard reflects new values immediately
       if (cachedTerritories) {
-        const ct = cachedTerritories.find(t => t.id === r.id);
+        const ct = cachedTerritories.find(t => t.slug === r.id);
         if (ct) ct.ambience = r.projStep;
       }
     } catch (err) {

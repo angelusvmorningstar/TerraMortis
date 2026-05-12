@@ -270,6 +270,11 @@ export function mapRawToResponses(parsed, characters) {
   projects.forEach((p, i) => {
     const n = i + 1;
     if (p.action_type) r[`project_${n}_action`] = p.action_type;
+    // Issue #129: canonicalise CSV-imported ambience actions. Parser now
+    // emits `action_type: 'ambience_change'` + `ambience_direction:
+    // 'improve' | 'degrade'`. Write the direction into the canonical
+    // responses key the live form uses so the admin tally sees one shape.
+    if (p.ambience_direction) r[`project_${n}_ambience_direction`] = p.ambience_direction;
     if (p.project_name) r[`project_${n}_title`] = p.project_name;
     if (p.desired_outcome) r[`project_${n}_outcome`] = p.desired_outcome;
     if (p.detail || p.description) r[`project_${n}_description`] = p.detail || p.description;

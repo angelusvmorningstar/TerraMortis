@@ -8,6 +8,7 @@ import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
+import { setStatusTerritories } from './data/accessors.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
@@ -36,7 +37,6 @@ import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
   shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
@@ -46,7 +46,7 @@ import {
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
   shEditDiscPt, shShowDevSelect, shAddDevotion, shRemoveDevotion,
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
+  shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -204,7 +204,7 @@ function switchDomain(domain) {
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
-  if (domain === 'rules') initRulesView(document.getElementById('rules-content'));
+  if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
 }
 
@@ -546,7 +546,10 @@ function openCharDetail(c) {
           const fresh = await apiGet('/api/characters/' + c._id);
           sanitiseChar(fresh);
           // Merge server data over cached object; _-prefixed ephemeral props
-          // (e.g. _gameXP, _regentTerritory) are not on `fresh` so they survive.
+          // (e.g. _gameXP) are not on `fresh` so they survive. Note: regent-
+          // territory derivation is no longer cached on the character — the
+          // City Status calc recomputes from setStatusTerritories per render
+          // (issue #13 Surface 2 fix).
           Object.assign(chars[idx], fresh);
           selectedChar = chars[idx];
         } catch { /* keep cached data if fetch fails — don't block editing */ }
@@ -579,14 +582,14 @@ async function toggleRetire() {
   btn.textContent = 'Saving...';
 
   try {
-    c.retired = newState || undefined;
+    c.retired = newState;
     const { _id, ...body } = c;
     const updated = await apiPut('/api/characters/' + _id, body);
     Object.assign(chars[idx], updated);
     btn.textContent = newState ? 'Unretire' : 'Retire';
     renderCharGrid();
   } catch (err) {
-    c.retired = !newState || undefined;
+    c.retired = !newState;
     btn.textContent = newState ? 'Retire' : 'Unretire';
     console.error('Retire failed:', err.message);
   }
@@ -1113,10 +1116,14 @@ async function init() {
     chars.forEach(sanitiseChar);
     await loadGameXP(chars);
     try { _players = await apiGet('/api/players'); } catch { _players = []; }
-    // Derive regent status from territories (single source of truth)
+    // Derive regent status from territories (single source of truth).
+    // Per issue #13 Surface 2 (audit 2026-05-05), the City Status calc
+    // recomputes the regent ambience bonus from territories every render
+    // via getRegentTerritoryFor; setStatusTerritories keeps the accessors
+    // module-level store in sync with the live load.
     try {
       const terrs = await apiGet('/api/territories');
-      chars.forEach(c => findRegentTerritory(terrs, c));
+      setStatusTerritories(terrs);
     } catch { /* territories not available — regent display will be blank */ }
     renderCharGrid();
   } catch (err) {
@@ -1146,7 +1153,7 @@ Object.assign(window, {
       await loadGameXP(fresh);
       try {
         const terrs = await apiGet('/api/territories');
-        fresh.forEach(c => findRegentTerritory(terrs, c));
+        setStatusTerritories(terrs);
       } catch { /* territories unavailable — city status exports without regent ambience bonus */ }
     } catch (err) {
       alert('Export failed: could not fetch character data from API.\n\n' + err.message);
@@ -1157,7 +1164,6 @@ Object.assign(window, {
   markDirty, printSheet,
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
   shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
@@ -1166,7 +1172,7 @@ Object.assign(window, {
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
   shEditDiscPt, shShowDevSelect, shAddDevotion, shRemoveDevotion,
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
+  shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,

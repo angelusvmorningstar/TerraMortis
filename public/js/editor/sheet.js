@@ -3,18 +3,20 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, isInClanDisc, riteCost } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
-import { shEnsureTouchstoneData } from './edit.js';
+// Issue #162 (2026-05-08): shEnsureTouchstoneData import dropped — the
+// Touchstone editor no longer needs the NPC list (DB-relational picker
+// removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
@@ -138,7 +140,7 @@ function shDotsMixed(purchased, bonus) {
 /** Derived dot source notes on a merit. Only emits lines where the field > 0. */
 function _derivedNotes(m) {
   const _n = (v, lbl, why) => v ? '<div class="derived-note">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
-  return _n(m.free_mci,       'MCI',        'removed if MCI drops')
+  let h = _n(m.free_mci,       'MCI',        'removed if MCI drops')
        + _n(m.free_vm,        'VM',         'removed if VM removed')
        + _n(m.free_ohm,       'OHM',        'removed if oath is removed')
        + _n(m.free_lk,        'Lorekeeper', 'removed if Lorekeeper removed')
@@ -150,6 +152,22 @@ function _derivedNotes(m) {
        + _n(m.free_sw,        'Safe Word',  'removed if oath is removed')
        + _n(m.free_fwb,       'FwB Bonus',  'equals MCI + Status dots, removed if FwB removed')
        + _n(m.free_attache,   'Attaché',    'equals Invictus status, removed if Attaché variant removed');
+  // Issue #39 Task 1: rating-vs-sum invariant guard. syncMeritRating(m) is the
+  // canonical persisted-rating formula (cp + xp + sum of free_* channels).
+  // If m.rating diverges, render a visible warning and log so the next editor
+  // pass can correct the drift. Defensive guard at the bad-edit moment rather
+  // than at audit time.
+  if (m && m.rating != null) {
+    const expected = syncMeritRating(m);
+    if (m.rating !== expected) {
+      const tt = 'Rating ' + m.rating + ' ≠ cp(' + (m.cp || 0) + ') + xp(' + (m.xp || 0) + ') + free-sum(' + meritFreeSum(m) + ') = ' + expected;
+      h += '<div class="derived-note merit-rating-warn" title="' + esc(tt) + '">⚠ Rating mismatch — stored ' + m.rating + ', expected ' + expected + '</div>';
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[merit-rating-mismatch]', m.name, m.area || m.qualifier || '', { stored: m.rating, expected });
+      }
+    }
+  }
+  return h;
 }
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   const dot = i => {
@@ -256,10 +274,9 @@ export function renderTouchstones(c, editMode) {
     return expRow('touchstones', 'Touchstones', '', rows);
   }
 
-  // Edit mode — kick off NPC load (used by Add-picker).
-  if (c._ts_loaded !== true && c._ts_loaded !== 'error' && c._ts_loaded !== 'loading') {
-    shEnsureTouchstoneData();
-  }
+  // Issue #162: NPC pre-load dropped — Touchstone editor no longer
+  // exposes the DB-relational NPC picker. Free-text Name + Description
+  // only.
 
   const picker = c._ts_picker;
   let h = '<div class="sh-touchstones-edit">';
@@ -315,65 +332,26 @@ export function renderTouchstones(c, editMode) {
 function renderTouchstoneAddForm(c, anchor, existingCount) {
   const draft = c._ts_picker.draft;
   const humanity = anchor - existingCount;
-  const npcsLoading = c._ts_loaded !== true;
-  const linkedNpcIds = new Set(
-    (c.touchstones || []).map(t => t.edge_id ? String(t._npc_id || '') : null).filter(Boolean)
-  );
-  const npcs = (c._ts_npcs || [])
-    .filter(n => n.status === 'active' || n.status === 'pending')
-    .filter(n => !linkedNpcIds.has(String(n._id)))
-    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
+  // Issue #162 (2026-05-08): NPC selector removed from the Touchstone editor
+  // per the broader NPC-suppression policy (Piatra 2026-05-06). The
+  // 'is_character' branch (Pick existing NPC / Create new NPC) was a
+  // DB-relational picker that POSTed to /api/relationships to create an
+  // edge — that endpoint flow no longer round-trips cleanly under the
+  // suppression sweep, returning 4xx and blocking sheet save. Touchstone
+  // is now free-text only (Name + optional Description), categorically a
+  // typed-string input — same shape dt-form.18 used for the Personal
+  // Story person field. Legacy touchstones carrying `edge_id` continue
+  // to render and edit by name + desc; their edges sit dormant in the
+  // relationships collection (silent-leave per A1 precedent).
   let h = '<div class="sh-ts-picker">';
   h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
-
-  h += '<label class="sh-ts-picker-check">';
-  h += '<input type="checkbox"' + (draft.is_character ? ' checked' : '')
-    + ' onchange="shTouchstonePickerToggleCharacter(this.checked)"> ';
-  h += '<span>This touchstone is a character (link or create an NPC)</span>';
-  h += '</label>';
-
-  if (!draft.is_character) {
-    h += '<label class="sh-ts-picker-field"><span>Name *</span>'
-      + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch" value="'
-      + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
-    h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
-      + '<input class="sh-edit-input" placeholder="Why it matters" value="'
-      + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-  } else {
-    h += '<div class="sh-ts-picker-mode-chips">';
-    h += '<button type="button" class="sh-ts-slot-btn' + (draft.pick_existing ? ' primary' : '')
-      + '" onclick="shTouchstonePickerSetMode(&#39;existing&#39;)">Pick existing NPC</button>';
-    h += '<button type="button" class="sh-ts-slot-btn' + (!draft.pick_existing ? ' primary' : '')
-      + '" onclick="shTouchstonePickerSetMode(&#39;create&#39;)">Create new NPC</button>';
-    h += '</div>';
-
-    if (draft.pick_existing) {
-      if (npcsLoading) {
-        h += '<div class="sh-ts-picker-loading">Loading NPCs…</div>';
-      } else {
-        const opts = npcs.map(n => '<option value="' + esc(String(n._id)) + '"'
-          + (String(draft.npc_id || '') === String(n._id) ? ' selected' : '') + '>'
-          + esc(n.name || '(unnamed)') + '</option>').join('');
-        h += '<label class="sh-ts-picker-field"><span>NPC *</span>'
-          + '<select class="sh-edit-select" onchange="shTouchstonePickerDraft(&#39;npc_id&#39;, this.value)">'
-          + '<option value="">(pick an NPC)</option>' + opts + '</select></label>';
-      }
-      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
-        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
-        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-    } else {
-      h += '<label class="sh-ts-picker-field"><span>NPC name *</span>'
-        + '<input class="sh-edit-input" placeholder="Full NPC name" value="'
-        + esc(draft.new_npc_name || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_name&#39;, this.value)"></label>';
-      h += '<label class="sh-ts-picker-field"><span>NPC description (for the register)</span>'
-        + '<input class="sh-edit-input" placeholder="Short description" value="'
-        + esc(draft.new_npc_desc || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_desc&#39;, this.value)"></label>';
-      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
-        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
-        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
-    }
-  }
+  h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+    + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch or person&#39;s name" value="'
+    + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+  h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
+    + '<input class="sh-edit-input" placeholder="Why it matters" value="'
+    + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
 
   h += '<div class="sh-ts-picker-actions">';
   h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveAdd()">Save</button>';
@@ -833,7 +811,14 @@ export function shRenderInfluenceMerits(c, editMode) {
     const contactsEntry = inflM.find(m => m.name === 'Contacts');
     const cInf = calcContactsInfluence(c);
     if (contactsEntry) {
-      const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0), spOpts = s => INFLUENCE_SPHERES.map(sp => '<option' + (s === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
+      const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0);
+      // Per-dot sphere picker: exclude spheres in use by *other* dots so a
+      // single Contacts entry cannot collapse to one sphere across all its dots.
+      const spOpts = (currentSel, dotIdx) => {
+        const used = new Set(spheres.filter((s, i) => i !== dotIdx && s));
+        return INFLUENCE_SPHERES.filter(sp => !used.has(sp) || sp === currentSel)
+          .map(sp => '<option' + (currentSel === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
+      };
       h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + '\u25CF'.repeat(baseDots) + '\u25CB'.repeat(Math.max(0, rating - baseDots)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       const _cKey = contactsEntry.area ? 'Contacts (' + contactsEntry.area + ')' : 'Contacts';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0, attachBonus: attacheBonusDots(c, _cKey) });
@@ -845,7 +830,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         let src = '';
         if (d < baseDots) src = 'base';
         else src = 'granted';
-        h += '<div class="contacts-dot-row"><span class="contacts-dot-num">\u25CF ' + (d + 1) + '</span><select class="contacts-sphere-sel" onchange="shEditContactSphere(' + cIdx + ',' + d + ',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(sp) + '</select>' + (src !== 'base' ? '<span class="contacts-dot-src">' + src + '</span>' : '') + '</div>';
+        h += '<div class="contacts-dot-row"><span class="contacts-dot-num">\u25CF ' + (d + 1) + '</span><select class="contacts-sphere-sel" onchange="shEditContactSphere(' + cIdx + ',' + d + ',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(sp, d) + '</select>' + (src !== 'base' ? '<span class="contacts-dot-src">' + src + '</span>' : '') + '</div>';
       }
       h += '</div>';
     }
@@ -854,9 +839,11 @@ export function shRenderInfluenceMerits(c, editMode) {
   } else {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
+      const narrow = m.name === 'Status' && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
+      const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
-      h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name);
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
@@ -892,7 +879,10 @@ function _inflArea(m, idx, isC) {
   // functionally Retainers (description text + Ghoul flag) per game-rule.
   if (m.name === 'Retainer' || m.name?.startsWith('Attaché (')) return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Description" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><label class="infl-ghoul-lbl"><input type="checkbox"' + (m.ghoul ? ' checked' : '') + ' onchange="shEditInflMerit(' + idx + ',\'ghoul\',this.checked)"> Ghoul</label>';
   if (m.name === 'Staff') return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Area of expertise" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">';
-  if (m.name === 'Status') { const isNarrow = m.narrow || (m.area && !INFLUENCE_SPHERES.includes(m.area)); return '<button class="infl-mode-btn" onclick="shEditStatusMode(' + idx + ')" title="' + (isNarrow ? 'Switch to sphere' : 'Switch to narrow') + '">' + (isNarrow ? 'Sphere \u2195' : 'Narrow \u2195') + '</button>' + (isNarrow ? '<input type="text" class="infl-area infl-area-narrow" value="' + esc(m.area || '') + '" placeholder="Narrow status" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">' : '<select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(m.area) + '</select>'); }
+  if (m.name === 'Status') {
+    return '<select class="infl-area infl-area-sphere" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>' + spOpts(m.area) + '</select>' +
+           '<input type="text" class="infl-area infl-area-narrow" value="' + esc(typeof m.narrow === 'string' ? m.narrow : '') + '" placeholder="Narrow descriptor" onchange="shEditInflMerit(' + idx + ',\'narrow\',this.value)">';
+  }
   return '<input type="text" class="infl-area" value="' + esc(m.area || '') + '" placeholder="Sphere / scope" onchange="shEditInflMerit(' + idx + ',\'area\',this.value)">';
 }
 
@@ -913,7 +903,7 @@ export function shRenderDomainMerits(c, editMode) {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
       // rule layered on top. Mandragora Garden's prereq is enforced by the helper.
-      let tOpts = buildSubCategoryMeritOptions(c, 'domain', m.name);
+      let tOpts = buildSubCategoryMeritOptions(c, 'domain', m.name, DOMAIN_MERIT_TYPES);
       if (hTk && m.name !== 'Herd') {
         // Strip Herd from this row's options if another row already has Herd
         tOpts = tOpts.replace(/<option value="Herd"[^>]*>Herd<\/option>/g, '');
@@ -931,31 +921,79 @@ export function shRenderDomainMerits(c, editMode) {
       const _totalSolid = Math.min(eT, _dPurch);
       const _totalHollow = Math.max(0, eT - _totalSolid);
       const _totalDots = shDotsMixed(_totalSolid, _totalHollow);
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // Cap-aware dot display for Haven / Mandragora Garden
+      const _isCapped = ['Haven', 'Mandragora Garden'].includes(m.name);
+      const _capEff = _isCapped ? meritEffectiveRating(c, m) : null;
+      const _capStored = _isCapped ? ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) : null;
+      const _capTotalDots = _isCapped ? shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))) : _totalDots;
+      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // Qualifier input for Safe Place / Feeding Grounds
+      if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
+        const _qErr = c._domQualError && !m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : (c._domQualError && m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : '');
+        h += '<div class="dom-qual-row"><input type="text" class="dom-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Descriptor (e.g. Penthouse, Brothels)" onchange="shEditDomMerit(' + di + ',\'qualifier\',this.value.trim())">' + _qErr + '</div>';
+        if (!m.qualifier) h += '<div class="dom-qual-hint">Add a descriptor to support multiple instances of this merit</div>';
+      }
+      // Attached-to selector for Haven / Mandragora Garden
+      if (_isCapped) {
+        const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
+        const _spOpts = ['<option value="">(select Safe Place)</option>']
+          .concat(_spInstances.map(sp => { const k = domKey(sp); return '<option value="' + esc(k) + '"' + (m.attached_to === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
+          .join('');
+        h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
+        if (!m.attached_to || _spInstances.length === 0) {
+          h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
+        } else if (_capStored > _capEff) {
+          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
+        }
+      }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
-      if (!['Herd', 'Feeding Grounds'].includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (!['Herd', 'Feeding Grounds'].includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Haven and Mandragora Garden excluded from partner sharing (sharing is at the Safe Place level)
+      const _noShare = ['Herd', 'Feeding Grounds', 'Haven', 'Mandragora Garden'];
+      if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0, dPurch = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? _dRaw : Math.min(5, _dRaw);
-      const dotHtml = (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
+      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null;
+      // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
+      const de = meritEffectiveRating(c, m);
+      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
+      const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+      const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
+      // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
+      let dotHtml;
+      if (_isCappedView) {
+        const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
+        dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
+      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) {
+        const dPurch = _dRaw;
+        dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch));
+      } else {
+        dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
+      }
       // Shared display: own dots filled + partner contribution hollow.
-      // Solid = purchased only (cp + xp); hollow = bonuses (free_attache,
-      // free_mci, free_fwb, etc.) + partner contributions. Using
-      // domMeritContrib (dO) marked free_* bonus dots as solid because they
-      // belong to "own" by source, but visually they should be hollow.
       const _shPurch = (m.cp || 0) + (m.xp || 0);
       const _shOwn = Math.min(de, _shPurch);
       const _shPart = Math.max(0, de - _shOwn);
       const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
-      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div></div>';
+      // Display name includes qualifier when present
+      const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
+      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      if (_isCappedView) {
+        if (!m.attached_to) {
+          h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
+        } else {
+          if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
+          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(m.attached_to) + '</span></div>';
+        }
+      }
+      h += '</div>';
     });
   }
   h += '</div></div>'; return h;
@@ -1671,7 +1709,7 @@ export function renderSheet(c, target = null) {
   const clanIconHtml = clanIcon(c.clan, 48), covIconHtml = covIcon(c.covenant, 48);
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
   let h = '';
-  // Desktop layout hint — admin CSS uses this for 3-col grid
+  // Desktop layout hint — admin CSS uses this for 2-col grid
   const isDesktop = el.closest('.cd-sheet');
   if (isDesktop) h += '<div class="sh-desktop' + (editMode ? ' sh-editing' : '') + '"><div class="sh-dcol sh-dcol-left">';
   // Header
@@ -1728,17 +1766,29 @@ export function renderSheet(c, target = null) {
   // Right panel
   h += '<div class="sh-hdr-right">';
   const tOpts = COURT_TITLES.map(t => '<option value="' + esc(t) + '"' + (c.court_category === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
-  // Regent territory is derived from territories collection, not stored on character
-  const _regTerrName = c._regentTerritory?.territory || null;
+  // Regent territory is derived from territories collection, not stored on character.
+  // Resolved fresh per-render via the accessors module-level store
+  // (issue #13 Surface 2 — drop the c._regentTerritory cache).
+  const _regTerr = getRegentTerritoryFor(c);
+  const _regTerrName = _regTerr?.territory || null;
   const _courtLabel = c.court_category ? (c.court_title ? c.court_category + ' \u2014 ' + c.court_title : c.court_category) : '\u2014';
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
   if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_category\',this.value||null)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   else { h += '<div class="sh-faction-label">' + esc(_courtLabel) + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
-  const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), regentBonus = regentAmienceBonus(c), cityTotal = cityBase + titleBonus + regentBonus;
+  const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), regentBonus = regentAmienceBonus(c), cityTotal = Math.min(cityBase + titleBonus + regentBonus, 10);
   h += '<div class="sh-faction-sub">Title</div>'
     + _statusDots(cityBase, titleBonus + regentBonus, 10)
-    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '')
-    + '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
+    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '');
+  // Derived notes mirror the Attaché pattern at sheet.js:830 — surface the
+  // bonus origin so the user can see *why* their City Status is what it is.
+  if (titleBonus > 0) {
+    h += '<div class="derived-note">Title: +' + titleBonus + ' dot' + (titleBonus !== 1 ? 's' : '') + ' (' + esc(c.court_category || '') + ')</div>';
+  }
+  if (regentBonus > 0) {
+    const _regAmb = _regTerr?.ambience || '';
+    h += '<div class="derived-note">Regency: +' + regentBonus + ' dot' + (regentBonus !== 1 ? 's' : '') + ' from ' + esc(_regTerrName || '') + ' (' + esc(_regAmb) + ')</div>';
+  }
+  h += '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
   // covRow: dots + arrows live in the text column; pip is just diamond + number + label
   const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus) => {
     h += '<div class="sh-hdr-row">'
@@ -1768,8 +1818,7 @@ export function renderSheet(c, target = null) {
   if (isDesktop) {
     h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + '</div>';
     h += '</div>'; // end sh-dcol-left
-    h += '<div class="sh-dcol sh-dcol-mid"><div class="sh-body">' + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div></div>';
-    h += '<div class="sh-dcol sh-dcol-right"><div class="sh-body">' + shRenderDisciplines(c, editMode) + '</div></div>';
+    h += '<div class="sh-dcol sh-dcol-right"><div class="sh-body">' + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + shRenderDisciplines(c, editMode) + '</div></div>';
     h += '</div>'; // end sh-desktop
   } else {
     h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + shRenderDisciplines(c, editMode) + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div>';

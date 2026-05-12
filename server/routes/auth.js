@@ -20,7 +20,7 @@ router.get('/discord', (req, res) => {
 
 // POST /api/auth/discord/callback — exchange authorisation code for access token
 router.post('/discord/callback', async (req, res) => {
-  const { code } = req.body;
+  const { code, redirect_uri } = req.body;
   if (!code) return res.status(400).json({ error: 'AUTH_ERROR', message: 'Missing authorisation code' });
 
   // Exchange code for token with Discord
@@ -32,7 +32,7 @@ router.post('/discord/callback', async (req, res) => {
       client_secret: config.DISCORD_CLIENT_SECRET,
       grant_type: 'authorization_code',
       code,
-      redirect_uri: config.DISCORD_REDIRECT_URI,
+      redirect_uri: redirect_uri || config.DISCORD_REDIRECT_URI,
     }),
   });
 

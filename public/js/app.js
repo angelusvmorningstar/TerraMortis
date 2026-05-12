@@ -19,9 +19,9 @@ import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as
 import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
-  shEnsureTouchstoneData,
+  // Issue #162 (2026-05-08): shEnsureTouchstoneData / shTouchstonePickerToggleCharacter
+  // / shTouchstonePickerSetMode dropped alongside the suppressed NPC picker UI.
   shTouchstoneStartAdd, shTouchstoneStartEdit, shTouchstonePickerClose, shTouchstonePickerDraft,
-  shTouchstonePickerToggleCharacter, shTouchstonePickerSetMode,
   shTouchstoneSaveAdd, shTouchstoneSaveEdit, shTouchstoneRemove,
   shEditBP, shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanity, shEditHumanityXP, shEditHumanityLost,
   shStatusUp, shStatusDown,
@@ -29,7 +29,7 @@ import {
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
   shEditDiscPt, shShowDevSelect, shAddDevotion, shRemoveDevotion,
-  shEditInflMerit, shEditStatusMode, shEditContactSphere, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -46,8 +46,9 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
-import { devotions, rites } from './data/accessors.js';
+import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
+import { renderMapStageHtml } from './components/map-overlay.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
@@ -89,6 +90,7 @@ import {
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
 import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
+import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -378,7 +380,16 @@ function goTab(t) {
         }
         regHtml += '</div></div>';
       }
-      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>${regHtml}</div>`;
+      // Issue #9: render map_coords overlay labels over the inline image.
+      // Read-only on this surface — ST drag-to-place lives on the World
+      // fullscreen overlay (city-tab.js _openMapOverlay).
+      const mapStage = renderMapStageHtml({
+        territories: suiteState.territories || [],
+        chars,
+        imgClass: 'city-map',
+        editable: false,
+      });
+      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap">${mapStage}</div>${regHtml}</div>`;
     }
   }
   if (t === 'feeding') {
@@ -506,6 +517,8 @@ async function loadAllData() {
 
   // 1b. Load game session XP (attendance-based) — same as admin/player portal
   await loadGameXP(editorState.chars, getRole() === 'st').catch(() => {});
+  // dt-form.17: cache downtime-credit-on-hold flag so XP-Available renders the annotation.
+  await loadDowntimeHoldFlag(editorState.chars, { isST: getRole() === 'st' }).catch(() => {});
 
   // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));
@@ -532,10 +545,14 @@ async function loadAllData() {
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
 
-  // 3. Load territories (used by regency condition + renderRegencyTab)
+  // 3. Load territories (used by regency condition + renderRegencyTab).
+  // setStatusTerritories keeps the City Status calc's recompute path in sync
+  // (issue #13 Surface 2 — no per-character cache; territories store is
+  // module-level in accessors.js).
   try {
     suiteState.territories = await apiGet('/api/territories');
-  } catch { suiteState.territories = []; }
+    setStatusTerritories(suiteState.territories);
+  } catch { suiteState.territories = []; setStatusTerritories([]); }
 
   // 4. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);
@@ -1023,13 +1040,10 @@ Object.assign(window, {
   shEditBaneEffect,
   shRemoveBane,
   shAddBane,
-  shEnsureTouchstoneData,
   shTouchstoneStartAdd,
   shTouchstoneStartEdit,
   shTouchstonePickerClose,
   shTouchstonePickerDraft,
-  shTouchstonePickerToggleCharacter,
-  shTouchstonePickerSetMode,
   shTouchstoneSaveAdd,
   shTouchstoneSaveEdit,
   shTouchstoneRemove,
@@ -1053,7 +1067,6 @@ Object.assign(window, {
   shRemoveDevotion,
   shEditInflMerit,
   shEditContactSphere,
-  shEditStatusMode,
   shRemoveInflMerit,
   shAddInflMerit,
   shEditDomMerit,
@@ -1202,60 +1215,95 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
-      loginScreen.style.display = 'none';
-      app.style.display = '';
-      applyRoleRestrictions();
-      if (localStorage.getItem('tm_auth_token') === 'local-test-token') {
-        await import('./dev-fixtures.js');
+      // Keep login screen visible during boot so the user never sees a
+      // wrong-mode chrome flash or an empty content area. Reveal #app only
+      // after _initDesktopMode() has set body classes AND goTab() has
+      // painted the first tab.
+      // The login-screen element ships with inline `display:none` in the HTML
+      // (and the CSS rule has no !important), so we have to explicitly clear
+      // the inline style here — otherwise the Loading… indicator and the
+      // catch-path error message render against an invisible element.
+      loginScreen.style.display = '';
+      const loginBtn = document.getElementById('login-btn');
+      const originalLoginHTML = loginBtn?.outerHTML;
+      if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Loading…';
       }
-      await loadAllData();
-      renderList();
-      renderImportBanner();
-      renderUserHeader();
-      _buildCharMenu();
-      // Desktop mode must be initialised before rendering so sheet.js
-      // knows whether to render into the full sheet or split tabs.
-      _initDesktopMode();
-      _updateThemeIcon();
 
-      // Auto-open a character so split tabs and dice roller are ready.
-      // Players: always (saved selection or first linked char).
-      // STs: only if they have a previously saved selection (don't randomly
-      // pick someone else's character for them).
-      const isDesktop = DESKTOP_MQ.matches;
-      const isST = getRole() === 'st';
-      if (editorState.chars.length > 0) {
-        const savedCharId = localStorage.getItem('tm_active_char');
-        const savedIdx = savedCharId
-          ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
-          : -1;
-        const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
-        if (charIdx >= 0) {
-          await ensureTrackerLoaded(editorState.chars[charIdx]);
-          openChar(charIdx);
-          pickChar(editorState.chars[charIdx]);
+      try {
+        applyRoleRestrictions();
+        if (localStorage.getItem('tm_auth_token') === 'local-test-token') {
+          await import('./dev-fixtures.js');
         }
-      }
-      // Desktop: STs → character grid, players → sheet.
-      // Phone: players → stats (split tab), STs → dice (works without a character).
-      const hasChar = !!suiteState.sheetChar;
-      goTab(isDesktop
-        ? (!isST && hasChar ? 'sheets' : 'chars')
-        : (hasChar ? 'stats' : 'dice'));
-      renderLifecycleCards(); // non-blocking
-      checkMoreBadge();       // non-blocking
-      if (getRole() !== 'st') startChallengePoller(); // player-only polling
+        await loadAllData();
+        renderList();
+        renderImportBanner();
+        renderUserHeader();
+        _buildCharMenu();
+        // Desktop mode must be initialised before rendering so sheet.js
+        // knows whether to render into the full sheet or split tabs.
+        _initDesktopMode();
+        _updateThemeIcon();
 
-      // Start WebSocket for live tracker sync
-      initWS({
-        onTrackerUpdate: (charId) => {
-          // Patch just the affected tracker card (not full tab rebuild)
-          refreshTrackerCard(charId);
-          // Repaint sheet tracker boxes if this is the current sheet char
-          if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
-        },
-      });
-      return;
+        // Auto-open a character so split tabs and dice roller are ready.
+        // Players: always (saved selection or first linked char).
+        // STs: only if they have a previously saved selection (don't randomly
+        // pick someone else's character for them).
+        const isDesktop = DESKTOP_MQ.matches;
+        const isST = getRole() === 'st';
+        if (editorState.chars.length > 0) {
+          const savedCharId = localStorage.getItem('tm_active_char');
+          const savedIdx = savedCharId
+            ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
+            : -1;
+          const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
+          if (charIdx >= 0) {
+            await ensureTrackerLoaded(editorState.chars[charIdx]);
+            openChar(charIdx);
+            pickChar(editorState.chars[charIdx]);
+          }
+        }
+        // Desktop: STs → character grid, players → sheet.
+        // Phone: players → stats (split tab), STs → dice (works without a character).
+        const hasChar = !!suiteState.sheetChar;
+        goTab(isDesktop
+          ? (!isST && hasChar ? 'sheets' : 'chars')
+          : (hasChar ? 'stats' : 'dice'));
+
+        // Atomic reveal — first paint already committed, body class already set.
+        loginScreen.style.display = 'none';
+        app.style.display = '';
+
+        renderLifecycleCards(); // non-blocking
+        checkMoreBadge();       // non-blocking
+        if (getRole() !== 'st') startChallengePoller(); // player-only polling
+
+        // Start WebSocket for live tracker sync
+        initWS({
+          onTrackerUpdate: (charId) => {
+            // Patch just the affected tracker card (not full tab rebuild)
+            refreshTrackerCard(charId);
+            // Repaint sheet tracker boxes if this is the current sheet char
+            if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
+          },
+        });
+        return;
+      } catch (err) {
+        // Mid-flight failure: leave the user on the login screen with a
+        // working button rather than a permanently-hidden #app.
+        console.error('[boot] post-auth setup failed', err);
+        // Belt-and-braces: ensure the login screen is visible even if a
+        // future refactor moves or removes the unhide above.
+        loginScreen.style.display = '';
+        if (errorEl) errorEl.textContent = 'Could not load app. Please try again.';
+        if (loginBtn && originalLoginHTML) {
+          loginBtn.outerHTML = originalLoginHTML;
+          const restored = document.getElementById('login-btn');
+          if (restored) restored.addEventListener('click', login);
+        }
+        return;
+      }
     }
   }
 

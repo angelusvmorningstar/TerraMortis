@@ -14,6 +14,7 @@ const PROJECT_ACTIONS = [
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
+  { value: 'rote', label: 'Rote Hunt: Spend a project to feed a second time this cycle' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
   { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
@@ -28,6 +29,7 @@ export const ACTION_APPROACH_PROMPTS = {
   'patrol_scout': 'How does your character observe or patrol this territory in narrative terms.',
   'misc': 'Describe your approach to this action in narrative terms.',
   'maintenance': 'Describe how your character maintains this relationship or organisation in narrative terms.',
+  'rote': 'Describe how your character pursues this second hunt — same method as your primary feed, in a (potentially different) territory.',
 };
 
 export const ACTION_DESCRIPTIONS = {
@@ -40,6 +42,7 @@ export const ACTION_DESCRIPTIONS = {
   'xp_spend': 'You are spending experience to grow your character. Select the trait below.',
   'misc': 'This is for downtime actions that don\'t neatly fit into any other category. Describe what you\'re attempting to achieve and how your character goes about it.',
   'maintenance': 'You are maintaining your professional or cult relationships. Select the asset you are maintaining below.',
+  'rote': 'A second hunt this cycle. The method (and dice pool) is inherited from your primary feed in the Feeding section; you only pick the territory here. If the roll succeeds, the rote quality applies — roll twice, take the best.',
 };
 
 // Action type options for sphere (social merit) slots
@@ -82,13 +85,16 @@ export const AMBIENCE_MODS = {
   Settled: 0, Tended: 2, Curated: 3, Verdant: 4, 'The Rack': 5,
 };
 
-// Territory definitions with current ambience (mirrors city-views.js)
+// Territory definitions with current ambience (mirrors city-views.js).
+// Field name `slug` aligns with the Mongo territory document's `slug` field
+// (renamed from `id` in ADR-002 / story #3c). TERRITORY_DATA is reference
+// data only — never used as a foreign key.
 export const TERRITORY_DATA = [
-  { id: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
-  { id: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
-  { id: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
-  { id: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
-  { id: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
+  { slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
+  { slug: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
+  { slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
 ];
 
 // Helper: generate select options for a numeric range (inclusive)
@@ -105,19 +111,6 @@ export { PROJECT_ACTIONS };
 // to upkeep professional/cult relationships at chapter end. CHM-0: single
 // source of truth; CHM-1/2/3 read from here.
 export const MAINTENANCE_MERITS = ['Professional Training', 'Mystery Cult Initiation'];
-
-// JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
-// Must stay in sync with JOINT_ELIGIBLE_ACTIONS in server/routes/downtime.js.
-// Excluded: support (recursive role conflict), xp_spend (personal),
-// maintenance (personal). The toggle is hidden for these.
-export const JOINT_ELIGIBLE_ACTIONS = [
-  'ambience_change',
-  'attack',
-  'hide_protect',
-  'investigate',
-  'patrol_scout',
-  'misc',
-];
 
 // DTFP-3: id values are stable for back-compat (existing submissions keyed by id);
 // only display name and chip lists change. 'familiar' id stays; name flips to 'Deception'.
@@ -218,11 +211,11 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 3. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
-  //    so players know which rites affect their hunt pool before committing to a method
+  // 3. Blood Sorcery — auto-gated by disciplines; rendered in ADVANCED between Personal Actions
+  //    and Sphere Actions (dt-form.27). Section entry kept here for gate definition + title.
   {
     key: 'blood_sorcery',
-    title: 'Blood Sorcery: Theban and Cruac',
+    title: 'Blood Sorcery: Crúac and Theban',
     gate: 'has_sorcery',
     intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
     questions: [], // rendered dynamically by downtime-form.js
@@ -264,7 +257,7 @@ export const DOWNTIME_SECTIONS = [
         key: 'feeding_method',
         label: 'How does your character hunt?',
         type: 'feeding_method',
-        required: true,
+        required: false,   // DTFP-4: pool components (_feed_method/_feed_custom_*) are the gate
         desc: null,
       },
     ],
@@ -324,11 +317,12 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 11. Equipment — always shown
+  // 11. Equipment — dt-form.30: hidden for this DT cycle; set hidden: false to re-enable
   {
     key: 'equipment',
     title: 'Equipment: Items and Gear',
     gate: null,
+    hidden: true,
     intro: 'List any items, weapons, or equipment you want your character to have access to this Downtime. Sourcing is subject to ST approval and availability.',
     questions: [], // rendered dynamically
   },
@@ -358,42 +352,31 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 13. Admin — always shown
+  // dt-form.31 (ADR-003 §Q5): the Admin section is removed. The form-rating +
+  // form-feedback widgets move to the ADVANCED Submit Final modal; XP Spend
+  // moves to a project-action variant under #26. Existing legacy submissions
+  // keep `xp_spend` / `lore_request` / `form_rating` / `form_feedback` keys
+  // on `responses` — ST views read them directly.
+];
+
+// dt-form.31: Submit Final modal questions. Lifted from the removed Admin
+// section's `form_rating` + `form_feedback`. The modal renders these via the
+// existing renderQuestion() switch (star_rating + textarea types) so the
+// widgets are not re-implemented.
+export const SUBMIT_FINAL_MODAL_QUESTIONS = [
   {
-    key: 'admin',
-    title: 'Admin: Crunching Numbers and Asking Questions',
-    gate: null,
-    intro: null,
-    questions: [
-      {
-        key: 'xp_spend',
-        label: 'XP Spend',
-        type: 'xp_grid',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'lore_request',
-        label: 'What game rules, elements, or Lore would you like more information about?',
-        type: 'textarea',
-        required: false,
-        desc: 'Ask anything — rules clarifications, in-character history, covenant doctrine, NPC backgrounds, or setting details.',
-      },
-      {
-        key: 'form_rating',
-        label: 'How would you rate this Downtime form for clarity and ease of use?',
-        type: 'star_rating',
-        required: false,
-        desc: null,
-      },
-      {
-        key: 'form_feedback',
-        label: 'Any comments or recommendations on the Downtime form?',
-        type: 'textarea',
-        required: false,
-        desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
-      },
-    ],
+    key: 'form_rating',
+    label: 'How would you rate this Downtime form for clarity and ease of use?',
+    type: 'star_rating',
+    required: false,
+    desc: null,
+  },
+  {
+    key: 'form_feedback',
+    label: 'Any comments or recommendations on the Downtime form?',
+    type: 'textarea',
+    required: false,
+    desc: 'We iterate on this form each cycle. Your feedback helps us make it clearer and more useful.',
   },
 ];
 

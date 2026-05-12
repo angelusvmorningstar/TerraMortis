@@ -159,3 +159,55 @@ describe('POST /api/rules — sub_category enum relaxed (rites.3)', () => {
     expect(res.body.sub_category).toBe('general');
   });
 });
+
+// Issue #5: the legacy `selected` boolean was removed from the schema. POST
+// without the field continues to succeed; POST WITH the field is rejected
+// (additionalProperties: false catches the unknown key).
+describe('POST /api/rules — `selected` field retired (issue #5)', () => {
+  const retiredKeys = [];
+
+  afterAll(async () => {
+    const col = getCollection('purchasable_powers');
+    await col.deleteMany({ key: { $in: retiredKeys } });
+  });
+
+  it('POST without `selected` succeeds (no regression)', async () => {
+    const key = 'rite-selected-retired-baseline';
+    retiredKeys.push(key);
+    const res = await request(app)
+      .post('/api/rules')
+      .set('X-Test-User', stUser())
+      .send({
+        key,
+        name: 'Selected Retired Baseline',
+        category: 'rite',
+        parent: 'Theban',
+        rank: 1,
+        cost: '1 WP',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body).not.toHaveProperty('selected');
+  });
+
+  it('POST with `selected: true` returns 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/rules')
+      .set('X-Test-User', stUser())
+      .send({
+        key: 'rite-selected-retired-reject',
+        name: 'Selected Retired Reject',
+        category: 'rite',
+        parent: 'Theban',
+        rank: 1,
+        cost: '1 WP',
+        selected: true,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: 'selected' }),
+      ]),
+    );
+  });
+});

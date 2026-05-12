@@ -2,7 +2,7 @@
 
 import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
 import { getRulesCache } from '../editor/rule_engine/load-rules.js';
-import { hasAoE } from './helpers.js';
+import { hasAoE, findRegentTerritory } from './helpers.js';
 export { meritEffectiveRating } from '../editor/domain.js';
 
 // ── Clan/bloodline/covenant discipline helpers ──
@@ -142,8 +142,12 @@ export function manoeuvres(c) { return meritsByCategory(c, 'manoeuvre'); }
 // ── Domain shortcuts ──
 
 export function domainRating(c, name) {
-  const m = domainMerits(c).find(dm => dm.name === name);
-  return m ? m.rating : 0;
+  const matches = domainMerits(c).filter(dm => dm.name === name);
+  if (!matches.length) return 0;
+  // Multiple Safe Place / Feeding Grounds instances are summed into one value.
+  // Individual descriptors are not exported (no column for them in the merge template).
+  if (matches.length === 1) return matches[0].rating || 0;
+  return matches.reduce((s, dm) => s + (dm.rating || 0), 0);
 }
 
 // ── Powers by category ──
@@ -176,22 +180,16 @@ export function riteCost(rite) {
 }
 
 /** Build a human-readable pool expression for a skill acquisition.
+ *  Per VtR 2e rules the pool is SKILL only (no attribute addend).
  *  Used by the player form's legacy blob and the ST queue construction. */
-export function skillAcqPoolStr(c, { attr = '', skill = '', spec = '' } = {}) {
-  if (!attr && !skill) return '';
+export function skillAcqPoolStr(c, { skill = '', spec = '' } = {}) {
+  if (!skill) return '';
   const parts = [];
   let total = 0;
-  if (attr) {
-    const v = getAttrEffective(c, attr);
-    parts.push(`${attr} ${v}`);
-    total += v;
-  }
-  if (skill) {
-    const v = skTotal(c, skill);
-    parts.push(`${skill} ${v}`);
-    total += v;
-  }
-  if (spec && skill) {
+  const v = skTotal(c, skill);
+  parts.push(`${skill} ${v}`);
+  total += v;
+  if (spec) {
     const skillSpecs = c.skills?.[skill]?.specs || [];
     if (skillSpecs.includes(spec)) {
       const bonus = (skNineAgain(c, skill) || hasAoE(c, spec)) ? 2 : 1;
@@ -300,10 +298,34 @@ export function titleStatusBonus(c) {
 
 const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
 
-export function regentAmienceBonus(c) {
-  return REGENT_AMBIENCE_BONUS[c._regentTerritory?.ambience] || 0;
+// Module-level territories store, set by load sites via setStatusTerritories
+// (or implicitly kept in sync with the apps' own caches). Used by the City
+// Status calc path to recompute the regent ambience bonus from fresh data
+// every call (per issue #13 Surface 2: drop the c._regentTerritory cache).
+let _currentTerritories = [];
+
+/** Update the module-level territories store. Call this whenever the app's
+ *  own territories cache is loaded or mutated (load, save, ambience confirm). */
+export function setStatusTerritories(territories) {
+  _currentTerritories = Array.isArray(territories) ? territories : [];
 }
 
+/** Resolve a character's regent territory from the module-level store. */
+export function getRegentTerritoryFor(c) {
+  return findRegentTerritory(_currentTerritories, c);
+}
+
+// Lieutenants intentionally receive no ambience bonus (issue #13 Q-A, 2026-05-05).
+// Bonus is regent-only by design; do not extend to lieutenant_id without an
+// explicit game-rules decision.
+export function regentAmienceBonus(c) {
+  return REGENT_AMBIENCE_BONUS[getRegentTerritoryFor(c)?.ambience] || 0;
+}
+
+// Clamped to 10 per issue #13 Q-B (2026-05-05) — system cap on City Status.
+// Display dot tracks already cap at 10; this matches the calc to the display
+// so prereq checks and downstream consumers see the same value.
 export function calcCityStatus(c) {
-  return (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
+  const raw = (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
+  return Math.min(raw, 10);
 }

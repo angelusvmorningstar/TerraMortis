@@ -13,16 +13,22 @@ import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, JOINT_ELIGIBLE_ACTIONS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
+import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
+import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
 import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
-import { promptForKind } from '../data/kind-prompts.js';
+// dt-form.33: removed `promptForKind` import — last consumer was the
+// dt-story_moment_relationship_id change handler, deleted with the
+// other NPC-picker-driven UI under the suppression policy.
+import { charPicker, setCharPickerSources } from '../components/character-picker.js';
+import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -47,6 +53,52 @@ function _promotePublishedOutcome(sub) {
   }
 }
 
+// dt-form.22: one-shot migration of legacy ROTE state into the new
+// project-action shape. Reads `_feed_rote` / `_feed_rote_slot` (plus the
+// pool-builder `_rote_*` companions) and translates to:
+//   responses.project_N_action      = 'rote'
+//   responses.project_N_feed_method2 = <primary method, if known>
+// Drops the legacy keys. `feeding_territories_rote` is left in place — it's
+// the canonical doc-level territory map per the 2026-05-06 HALT-DAR.
+//
+// Idempotent: the function returns early if there are no legacy fields to
+// migrate. Called from renderDowntimeTab after responseDoc loads, and as
+// a defensive prelude inside collectResponses so a stray legacy save can't
+// re-introduce the old shape.
+function _migrateLegacyRoteState(responses) {
+  if (!responses || typeof responses !== 'object') return;
+  const isLegacy = responses._feed_rote === 'yes' || responses._feed_rote_slot
+    || responses._rote_disc || responses._rote_spec
+    || responses._rote_custom_attr || responses._rote_custom_skill;
+  if (!isLegacy) return;
+
+  const rawSlot = parseInt(responses._feed_rote_slot, 10);
+  const slot = Number.isInteger(rawSlot) && rawSlot >= 1 && rawSlot <= 4 ? rawSlot : 1;
+  const wasOn = responses._feed_rote === 'yes';
+  if (wasOn) {
+    // The slot may have been auto-locked to action='feed' by the legacy
+    // applyRoteToProjectSlot path. Flip it to the new 'rote' action type.
+    if (responses[`project_${slot}_action`] === 'feed' || !responses[`project_${slot}_action`]) {
+      responses[`project_${slot}_action`] = 'rote';
+    }
+    // Persist the primary method into the per-slot `_method2` field if
+    // available. The pool itself is no longer separately stored — derived
+    // at render time from the primary feeding inputs.
+    const primaryMethod = responses._feed_method;
+    if (primaryMethod && !responses[`project_${slot}_feed_method2`]) {
+      responses[`project_${slot}_feed_method2`] = primaryMethod;
+    }
+  }
+
+  // Drop legacy keys so subsequent saves don't re-introduce them.
+  delete responses._feed_rote;
+  delete responses._feed_rote_slot;
+  delete responses._rote_disc;
+  delete responses._rote_spec;
+  delete responses._rote_custom_attr;
+  delete responses._rote_custom_skill;
+}
+
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
@@ -56,22 +108,24 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
-let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
+// dt-form.33: removed `_linkedNpcs` and `_myRelationships` module vars
+// + their data loads. Both fed DB-relational NPC pickers (the legacy
+// _legacyRenderPersonalStorySection NPC card grid and the story-moment
+// relationship picker) that this story prunes under the NPC-interaction
+// suppression policy. No live consumer remained after dt-form.18.
 let _allSubmissions = []; // DTUI-13: all submissions for the current cycle, for free-slot detection
 
 // Merits detected from the character sheet, grouped by type
-let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
+let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [], mentors: [], staff: [] };
 
 
 // Characters who attended last game (for shoutout picks)
 let lastGameAttendees = [];
+// dt-form.17: game_session id matching the active cycle, for the soft-submit
+// lifecycle PATCH on attendance.downtime.
+let _activeGameSessionId = null;
 // All active characters (for cast picker modal)
 let allCharacters = [];
-
-// Map of territory name → Set of resident character IDs (for feeding grid indicators)
-let residencyByTerritory = {};
-
 
 // Feeding method state (for feeding_method widget)
 let feedMethodId = '';
@@ -91,43 +145,41 @@ let feedRoteCustomSkill = '';
 let activeProjectTab = 1;
 // Sphere tab state
 let activeSphereTab = 1;
-// JDT-2: invitations for the current cycle, fetched on form open and
-// after each joint create. Read by renderJointAuthoring for status badges.
-let _jointInvitations = [];
 
-// JDT-2: status label map for invitation states.
-const JOINT_STATUS_LABELS = {
-  pending: 'Pending',
-  accepted: 'Accepted',
-  declined: 'Declined',
-  decoupled: 'Decoupled',
-  'cancelled-by-lead': 'Cancelled by lead',
-};
 
 const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
   'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
   'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
   'xp_spend': '\u2726', 'misc': '\u25CF', 'maintenance': '\u2699',
+  'rote': '\u2666', // dt-form.22: same diamond as feed; ROTE is a feed variant
 };
 const ACTION_SHORT = {
   '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
   'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
   'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
   'xp_spend': 'XP Spend', 'misc': 'Misc', 'maintenance': 'Maintenance',
+  'rote': 'Rote Hunt', // dt-form.22
 };
 // Which fields each action type shows
 const ACTION_FIELDS = {
   '': [],
   'feed': [],
   'xp_spend': ['xp_picker'],
-  'ambience_change':   ['title', 'outcome', 'target', 'pools', 'description'],
+  // dt-form.25: 'target' dropped — the row-table inline below IS the
+  // (territory + direction) picker. Renders alongside title/outcome/pools/description.
+  'ambience_change':   ['title', 'outcome', 'pools', 'description'],
   'attack':            ['title', 'outcome', 'target', 'pools', 'description'],
   'investigate':       ['title', 'outcome', 'target', 'investigate_lead', 'pools', 'description'],
   'hide_protect':      ['title', 'outcome', 'target', 'pools', 'description'],
   'patrol_scout':      ['title', 'outcome', 'target', 'pools', 'description'],
   'misc':              ['title', 'outcome', 'target', 'pools', 'description'],
   'maintenance':       ['target', 'description'],
+  // dt-form.22: ROTE renders only the territory + description; pool is
+  // inherited from primary feeding (read-only annotation). The handler
+  // below renders rote-specific UI, so this list is intentionally just
+  // 'description' — the territory + pool annotation are emitted inline.
+  'rote':              ['description'],
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -199,12 +251,24 @@ function detectMerits() {
   const merits = (currentChar.merits || []).filter(m => m.category);
   const discs = currentChar.disciplines || {};
 
-  // Expand benefit_grants from standing merits (MCI) into the influence pool
+  // Expand benefit_grants from standing merits (MCI) into the influence pool.
+  // Skip grants whose name is already represented by a direct influence merit
+  // — by convention the MCI's contribution has been absorbed into the player's
+  // direct merit's rating/spheres, so re-adding the grant here would double-
+  // count (issue #90, Yusuf's MCI Contacts already in his direct Contacts
+  // spheres). Charlie Ballsack's Retainer-via-Attaché pattern (hotfix #45)
+  // is preserved because Charlie has no direct Retainer merit — the grant
+  // still surfaces.
+  const directInfluenceNames = new Set(
+    merits.filter(m => m.category === 'influence').map(m => m.name)
+  );
   const expandedInfluence = [...merits];
   for (const m of merits) {
     if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
       for (const g of m.benefit_grants) {
-        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
+        if (g.category !== 'influence') continue;
+        if (directInfluenceNames.has(g.name)) continue;
+        expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
       }
     }
   }
@@ -240,8 +304,19 @@ function detectMerits() {
       }
     }
   }
-  detectedMerits.retainers = deduplicateMerits(merits.filter(m =>
-    m.category === 'influence' && m.name === 'Retainer'
+  // Attaché (*) merits are functionally Retainers (per sheet.js:900); also walk
+  // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
+  detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && (m.name === 'Retainer' || m.name?.startsWith('Attaché ('))
+  ));
+  // dt-form.28: Mentor (per-merit, like Retainer) and Staff (per-dot, like
+  // Contacts) — same expandedInfluence walk so granted instances surface
+  // (hotfix #45 pattern).
+  detectedMerits.mentors = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && m.name === 'Mentor'
+  ));
+  detectedMerits.staff = deduplicateMerits(expandedInfluence.filter(m =>
+    m.category === 'influence' && m.name === 'Staff'
   ));
 
   gateValues.has_sorcery = (discDots(currentChar, 'Cruac') > 0 || discDots(currentChar, 'Theban') > 0) ? 'yes' : 'no';
@@ -253,15 +328,39 @@ function getInfluenceBudget() {
 }
 
 /**
-/** Convenience: effective rating for a domain merit by name (looks up the instance). */
+/** Convenience: effective rating for a domain merit by name.
+ *  SP/FG are multi-instance — sums all instances.
+ *  Haven/MG delegate to meritEffectiveRating which applies the SP cap.
+ */
 function effectiveDomainDots(c, name) {
+  if (name === 'Safe Place' || name === 'Feeding Grounds') {
+    return (c.merits || [])
+      .filter(merit => merit.category === 'domain' && merit.name === name)
+      .reduce((s, m) => s + meritEffectiveRating(c, m), 0);
+  }
   const m = (c.merits || []).find(merit => merit.category === 'domain' && merit.name === name);
   return meritEffectiveRating(c, m);
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
 function collectResponses() {
-  const responses = {};
+  // dt-form.17 (ADR-003 §Q1 Resolutions): preserve previously-entered fields
+  // for sections hidden by the current mode. Spread the prior responses as a
+  // base, then specific section blocks below either overwrite (when their UI
+  // is rendered) or are skipped (when hidden by MINIMAL).
+  // dt-form.22: defensive prelude — translate any stragglers from the legacy
+  // ROTE state into the new project-action shape before the spread, so a
+  // load → save round-trip can never re-introduce the old keys.
+  if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
+  const _prior = responseDoc?.responses || {};
+  const responses = { ..._prior };
+  // Carry the existing mode flag forward; the toggle handler updates it
+  // explicitly before triggering a save/render.
+  if (_prior._mode === 'minimal' || _prior._mode === 'advanced') {
+    responses._mode = _prior._mode;
+  }
+  const _mode = _formMode(_prior);
+  const _isMinimal = _mode === 'minimal';
 
   // Persist auto-detected gates
   responses['_gate_attended'] = gateValues.attended || '';
@@ -280,49 +379,64 @@ function collectResponses() {
   // Collect static section responses
   for (const section of DOWNTIME_SECTIONS) {
     if (section.gate && gateValues[section.gate] !== 'yes') continue;
+    // dt-form.17: skip hidden sections in MINIMAL so we don't clobber prior
+    // values with empty strings when the DOM isn't rendered.
+    if (_isMinimal && !MINIMAL_SECTIONS.has(section.key)) continue;
 
     for (const q of section.questions) {
       if (q.type === 'shoutout_picks') {
-        const picks = [];
-        document.querySelectorAll('[data-shoutout-pick].dt-chip--selected').forEach(btn => picks.push(btn.dataset.shoutoutPick));
+        // dt-form.16: charPicker writes JSON array directly to the hidden input.
+        const hiddenEl = document.getElementById(`dt-${q.key}`);
+        const raw = hiddenEl ? hiddenEl.value : '';
+        let picks = [];
+        try {
+          const parsed = JSON.parse(raw || '[]');
+          if (Array.isArray(parsed)) picks = parsed.map(String).filter(Boolean);
+        } catch { picks = []; }
         responses[q.key] = JSON.stringify(picks);
         continue;
       }
       if (q.type === 'feeding_method') {
-        // DTFP-4: _feed_method is no longer persisted on new submissions.
-        // The method-card pick is UX-only scaffolding for the chip suggestions;
-        // the saved pool is whatever the player built via attr/skill/disc/spec.
-        // Legacy submissions keep their stored _feed_method for back-compat reads.
-        // DTFP-5: feed_violence persists only after the player clicks the toggle.
-        // Pre-selection is visual only; preserve any explicit choice through saves.
-        if (responseDoc?.responses?.feed_violence) {
-          responses.feed_violence = responseDoc.responses.feed_violence;
-        }
+        // dt-form.20 fix-up (Ma'at PR #98 review, bug 1): persist `_feed_method`
+        // again. DTFP-4 dropped it because the manual pool builder was the
+        // canonical method-set signal in ADVANCED, but MINIMAL has no pool
+        // builder — without this the simplified form's method choice is
+        // invisible to isMinimalComplete and the hard-mirror lifecycle never
+        // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
+        // so this is additive, not a regression of the original DTFP-4 case.
+        responses['_feed_method'] = feedMethodId || '';
+        // dt-form.35: include method-default violence so visual highlight matches
+        // what collectResponses writes. Explicit player click overrides the default.
+        const _explicitViolence = responseDoc?.responses?.feed_violence;
+        const _defaultViolence = feedMethodId ? (FEED_VIOLENCE_DEFAULTS[feedMethodId] || null) : null;
+        const _violence = _explicitViolence || _defaultViolence;
+        if (_violence) responses.feed_violence = _violence;
         responses['_feed_disc'] = feedDiscName;
         responses['_feed_spec'] = feedSpecName;
         responses['_feed_custom_attr'] = feedCustomAttr;
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
-        responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
-        responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
-        const roteDiscEl = document.getElementById('dt-rote-disc');
-        feedRoteDisc = roteDiscEl ? roteDiscEl.value : feedRoteDisc;
-        const roteAttrEl = document.getElementById('dt-rote-custom-attr');
-        const roteSkillEl = document.getElementById('dt-rote-custom-skill');
-        if (roteAttrEl) feedRoteCustomAttr = roteAttrEl.value;
-        if (roteSkillEl) feedRoteCustomSkill = roteSkillEl.value;
-        responses['_rote_disc'] = feedRoteAction ? feedRoteDisc : '';
-        responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
-        responses['_rote_custom_attr'] = feedRoteAction ? feedRoteCustomAttr : '';
-        responses['_rote_custom_skill'] = feedRoteAction ? feedRoteCustomSkill : '';
+        // dt-form.22: legacy `_feed_rote*` and `_rote_*` writes removed.
+        // ROTE is now a per-slot project action; method persists per-slot
+        // as `project_N_feed_method2`, territory persists at the document
+        // level as `feeding_territories_rote` (existing field, kept).
         // Blood type
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type].dt-feed-vi-on').forEach(btn => bloodChecked.push(btn.dataset.bloodType));
         responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
-        // Rote territory picker
-        if (feedRoteAction) {
+        // dt-form.22 fix-up (Ma'at PR #98 review round 2, bug-2 rework):
+        // read the action selectors from the DOM, not from `responses`.
+        // The feeding_method branch runs BEFORE the project-slot collect
+        // loop at :532, so `responses[project_N_action]` here is still the
+        // spread base from the prior responseDoc — it doesn't yet reflect
+        // the user's current slot selection. The DOM does.
+        const _hasRoteSlotForCollect = [1, 2, 3, 4].some(n => {
+          const el = document.getElementById(`dt-project_${n}_action`);
+          return el && el.value === 'rote';
+        });
+        if (_hasRoteSlotForCollect) {
           const roteGridVals = {};
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -334,20 +448,11 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'xp_grid') {
-        const gridEl = document.getElementById('dt-xp_spend');
-        const rows = [];
-        if (gridEl) {
-          gridEl.querySelectorAll('[data-xp-row]').forEach(rowEl => {
-            const catEl = rowEl.querySelector('[data-xp-cat]');
-            const itemEl = rowEl.querySelector('[data-xp-item]');
-            const dotsEl = rowEl.querySelector('[data-xp-dots]');
-            const category = catEl ? catEl.value : '';
-            const item = itemEl ? itemEl.value : '';
-            const dotsBuying = dotsEl ? parseInt(dotsEl.value, 10) || 0 : 0;
-            if (category) rows.push({ category, item, dotsBuying });
-          });
-        }
-        responses[q.key] = JSON.stringify(rows);
+        // dt-form.26: legacy Admin-section xp_grid collector pruned. The
+        // Admin section was removed in #31, so no DOWNTIME_SECTIONS question
+        // has type='xp_grid' anymore — the iteration that lands here is dead.
+        // Keeping a defensive `continue` so a re-introduced legacy question
+        // wouldn't accidentally clobber the new top-level mirror.
         continue;
       }
       if (q.type === 'influence_grid') {
@@ -382,29 +487,42 @@ function collectResponses() {
   }
 
   // Personal story fields (legacy keys kept for back-compat with ST admin views)
-  const psNpcId   = document.getElementById('dt-personal_story_npc_id');
-  const psNpcName = document.getElementById('dt-personal_story_npc_name');
-  const psNote    = document.getElementById('dt-personal_story_note');
-  // NPCR.12 r3: personal_story_direction retired (Story direction radios
-  // removed). Existing legacy submissions still carry the field.
-  responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
-  responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
-  responses['personal_story_note']     = psNote    ? psNote.value    : '';
+  // dt-form.18 (option Y locked 2026-05-06): Personal Story collapsed to
+  // Touchstone-or-Correspondence binary plus an optional free-text NPC
+  // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
+  // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
+  // (the new `_text` replaces the note; the rich-UI direction radios are
+  // gone). Pre-redesign drafts retain the old keys via the spread base, so
+  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
+  // keeps recognising them.
+  const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
+  const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
+  const psTextEl = document.getElementById('dt-personal_story_text');
+  if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
+  if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
+  if (psTextEl) responses['personal_story_text'] = psTextEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
   // the DB are read by downstream renderers via fallback lookups.
+  // Issue #105 (2026-05-08): gate writes on element presence so any
+  // pre-existing legacy `story_moment_*` data on the spread base survives a
+  // save when the legacy DOM elements are absent (the redesigned Personal
+  // Story renderer no longer emits them). Drop-the-iteration / silent-leave
+  // correctness — matches Lesson #105 discipline.
   const relIdEl = document.getElementById('dt-story_moment_relationship_id');
   const noteEl  = document.getElementById('dt-story_moment_note');
-  responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
-  responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
+  if (relIdEl) responses['story_moment_relationship_id'] = relIdEl.value;
+  if (noteEl)  responses['story_moment_note']            = noteEl.value;
 
-  // Aspiration structured slots
-  for (let n = 1; n <= 3; n++) {
-    const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
-    const textEl = document.getElementById(`dt-aspiration_${n}_text`);
-    responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
-    responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+  // Aspiration structured slots — admin section, ADVANCED only.
+  if (!_isMinimal) {
+    for (let n = 1; n <= 3; n++) {
+      const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
+      const textEl = document.getElementById(`dt-aspiration_${n}_text`);
+      responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
+      responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+    }
   }
 
   // DTR.1: Game recount structured highlight slots (game_recount_1…5).
@@ -426,12 +544,19 @@ function collectResponses() {
   }
 
   // Collect project slots
+  // dt-form.17: in MINIMAL only the first slot is rendered; iterate just slot
+  // 1 so slots 2-4 retain their prior values from the spread base.
   const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const projectSlotCount = projectSection?.projectSlots || 4;
+  const projectSlotCount = _isMinimal ? 1 : (projectSection?.projectSlots || 4);
   for (let n = 1; n <= projectSlotCount; n++) {
     const actionEl = document.getElementById(`dt-project_${n}_action`);
     responses[`project_${n}_action`] = actionEl ? actionEl.value : '';
-    for (const poolKey of ['pool', 'pool2']) {
+    // dt-form.24: secondary pool ('pool2') stripped per ADR §Audit-baseline.
+    // Single-vs-dual roll selector removed; only the primary pool collects.
+    // Legacy `_pool2_*` keys persist in `responses` via the spread base if a
+    // pre-redesign draft had them — we don't unconditionally overwrite them
+    // with empty strings (lesson from #105).
+    for (const poolKey of ['pool']) {
       const prefix = `project_${n}_${poolKey}`;
       const attrEl = document.getElementById(`dt-${prefix}_attr`);
       const skillEl = document.getElementById(`dt-${prefix}_skill`);
@@ -461,11 +586,47 @@ function collectResponses() {
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
     const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
     responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
-    const xpCatEl = document.getElementById(`dt-project_${n}_xp_category`);
-    const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
-    responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
-    responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
-    if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
+    // Issue #102 (2026-05-08): the legacy `_xp_category` / `_xp_item`
+    // collect path was deleted alongside the dead-code-wrapped renderer.
+    // Pre-existing legacy values on the spread base survive untouched
+    // (silent-leave); the redesigned grid persists via `_xp_rows`.
+    // dt-form.26: collect this slot's multi-row XP-Spend grid. Read row
+    // values directly from the slot-scoped grid container; legacy single-row
+    // placeholder fields (`_xp_dots`, `_xp_category`, `_xp_item`) are no
+    // longer written here. Backward-compat fallback: if the slot has no
+    // grid mounted (action just flipped to xp_spend, render hasn't fired
+    // yet) preserve any prior `_xp_rows` from the spread base.
+    if (responses[`project_${n}_action`] === 'xp_spend') {
+      const slotGrid = document.querySelector(`[data-proj-xp-grid="${n}"]`);
+      if (slotGrid) {
+        const rows = [];
+        slotGrid.querySelectorAll('[data-xp-row]').forEach(rowEl => {
+          const catEl  = rowEl.querySelector('[data-xp-cat]');
+          const itemEl = rowEl.querySelector('[data-xp-item]');
+          const dotsEl = rowEl.querySelector('[data-xp-dots]');
+          const category = catEl ? catEl.value : '';
+          const item     = itemEl ? itemEl.value : '';
+          const dotsBuying = dotsEl ? (parseInt(dotsEl.value, 10) || 0) : 0;
+          if (category) rows.push({ category, item, dotsBuying });
+        });
+        responses[`project_${n}_xp_rows`] = JSON.stringify(rows);
+      }
+      // Drop the legacy `_xp_dots` placeholder; persist '0' so legacy ST
+      // readers see "no dots" rather than the stale "1" sentinel.
+      responses[`project_${n}_xp_dots`] = '0';
+    } else {
+      // Slot is no longer xp_spend; clear the rows JSON so stale data doesn't
+      // contaminate the top-level mirror.
+      if (responses[`project_${n}_xp_rows`]) responses[`project_${n}_xp_rows`] = '';
+    }
+    // dt-form.22 fix-up (Ma'at PR #98 review, bug 3): write
+    // `project_N_feed_method2` whenever the slot's action is `rote`. Migration
+    // helper handles legacy submissions; this covers fresh ROTE saves so ST
+    // consumers (feeding-tab.js:350, admin/downtime-views.js:2569) read the
+    // method directly rather than seeing undefined.
+    if (responses[`project_${n}_action`] === 'rote' && feedMethodId) {
+      responses[`project_${n}_feed_method2`] = feedMethodId;
+    }
     // Target zone (unified: attack, hide_protect, investigate, patrol_scout, misc)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
@@ -475,8 +636,15 @@ function collectResponses() {
     responses[`project_${n}_target_terr`] = targetTerrEl ? targetTerrEl.value : '';
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
     responses[`project_${n}_target_other`] = targetOtherEl ? targetOtherEl.value : '';
-    const ambienceDirEl = document.querySelector(`input[name="dt-project_${n}_ambience_dir"]:checked`);
-    responses[`project_${n}_ambience_dir`] = ambienceDirEl ? ambienceDirEl.value : '';
+    // dt-form.25: legacy `_ambience_dir` radio collect dropped (drop-the-
+    // iteration shape per Ma'at #127 praise). The new row-table writes
+    // `_ambience_target` + `_ambience_direction` directly via the hidden
+    // inputs below. Pre-existing legacy `_ambience_dir` values persist on
+    // the doc via the spread base (silent-leave per A1).
+    const ambTargetEl = document.getElementById(`dt-project_${n}_ambience_target`);
+    const ambDirEl    = document.getElementById(`dt-project_${n}_ambience_direction`);
+    if (ambTargetEl) responses[`project_${n}_ambience_target`]    = ambTargetEl.value;
+    if (ambDirEl)    responses[`project_${n}_ambience_direction`] = ambDirEl.value;
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -492,58 +660,12 @@ function collectResponses() {
     meritCbs.forEach(cb => meritKeys.push(cb.value));
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
 
-    // JDT-4: support-slot personal notes
-    const personalNotesEl = document.getElementById(`dt-project_${n}_personal_notes`);
-    if (personalNotesEl) {
-      responses[`project_${n}_personal_notes`] = personalNotesEl.value;
-    }
-
-    // JDT-2: Joint scratch fields. Persist the lead's in-flight joint authoring
-    // state so a draft round-trip preserves it. The canonical joint document
-    // is created on save via POST /api/downtime_cycles/:id/joint_projects.
-    const soloJointRadio = document.querySelector(`input[name="dt-project_${n}_solo_joint"]:checked`);
-    responses[`project_${n}_is_joint`] = soloJointRadio?.value === 'joint' ? 'yes' : '';
-    const jointDescEl = document.getElementById(`dt-project_${n}_joint_description`);
-    responses[`project_${n}_joint_description`] = jointDescEl ? jointDescEl.value : '';
-    const jointTargetTypeEl = document.querySelector(`input[name="dt-project_${n}_joint_target_type"]:checked`);
-    const jointTargetType = jointTargetTypeEl ? jointTargetTypeEl.value : '';
-    responses[`project_${n}_joint_target_type`] = jointTargetType;
-    if (jointTargetType === 'character') {
-      // Multi-select character target — collect from the checkbox grid and
-      // serialise as a JSON array of character IDs.
-      const charCbs = document.querySelectorAll(
-        `.dt-flex-multi-char-cb[data-flex-multi-prefix="project_${n}_joint_target"]:checked`
-      );
-      const ids = Array.from(charCbs).map(cb => cb.value).filter(Boolean);
-      responses[`project_${n}_joint_target_value`] = JSON.stringify(ids);
-    } else {
-      const jointTargetValEl = document.getElementById(`dt-project_${n}_joint_target_value`);
-      responses[`project_${n}_joint_target_value`] = jointTargetValEl ? jointTargetValEl.value : '';
-    }
-    // dtui-13: prefer hidden input (chip path) over legacy checkboxes (existingJoint re-invite path)
-    const invitedHidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
-    if (invitedHidden) {
-      responses[`project_${n}_joint_invited_ids`] = invitedHidden.value;
-    } else {
-      const jointInviteeCbs = document.querySelectorAll(`.dt-joint-invitee-cb[data-joint-slot="${n}"]:checked`);
-      const jointInviteeIds = [];
-      jointInviteeCbs.forEach(cb => { if (cb.value) jointInviteeIds.push(cb.value); });
-      responses[`project_${n}_joint_invited_ids`] = JSON.stringify(jointInviteeIds);
-    }
-
-    // Support Assets sphere/retainer chip selection — read from DOM so the
-    // post-click state survives the responses replacement in re-render.
-    const chipPanel = document.querySelector(`[data-support-assets-wrap="${n}"]`);
-    if (chipPanel) {
-      const selectedChips = chipPanel.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected');
-      const chipKeys = [...selectedChips].map(el => el.dataset.sphereKey).filter(Boolean);
-      responses[`project_${n}_joint_sphere_chips`] = JSON.stringify(chipKeys);
-    } else {
-      // Panel not rendered (Support Assets ticker = Solo) — preserve prior value
-      const prior = responseDoc?.responses?.[`project_${n}_joint_sphere_chips`];
-      if (prior !== undefined) responses[`project_${n}_joint_sphere_chips`] = prior;
-    }
   }
+
+  // dt-form.17: collection of ADVANCED-only sections (sorcery, spheres,
+  // status, contacts, retainers, acquisitions, equipment, skill acq) is
+  // skipped in MINIMAL mode. Their prior values stay intact via the spread.
+  if (!_isMinimal) {
 
   // Collect sorcery slots (dynamic count)
   const sorceryCountEl = document.getElementById('dt-sorcery-slot-count');
@@ -564,7 +686,7 @@ function collectResponses() {
         const value = valEl ? (valEl.value || '').trim() : '';
         if (type) arr.push({ type, value });
       });
-      responses[`sorcery_${n}_targets`] = arr;
+      responses[`sorcery_${n}_targets`] = JSON.stringify(arr);
     } else {
       // No DOM block (slot not currently rendered) — preserve any previously-saved value
       const prior = responseDoc?.responses?.[`sorcery_${n}_targets`];
@@ -618,18 +740,6 @@ function collectResponses() {
     const castIds = [];
     castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
-    // If this sphere is committed to a project's Support Assets, force action
-    // to 'support'. The dropdown may still be rendered with an empty value at
-    // first-click time; the chips are the source of truth for support state.
-    const sphereSlotKey = `sphere_${n}`;
-    for (let pn = 1; pn <= projectSlotCount; pn++) {
-      let chips = [];
-      try { chips = JSON.parse(responses[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-      if (Array.isArray(chips) && chips.includes(sphereSlotKey)) {
-        responses[`sphere_${n}_action`] = 'support';
-        break;
-      }
-    }
   }
 
   // Status action fields
@@ -692,67 +802,134 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
-  // Acquisition fields (multi-slot, per-slot keys)
-  const acqCountEl = document.getElementById('dt-acq-slot-count');
-  const acqSlotCount = acqCountEl ? parseInt(acqCountEl.value, 10) || 1 : 1;
-  responses['acq_slot_count'] = String(acqSlotCount);
-  const acqSlots = [];
-  for (let n = 1; n <= acqSlotCount; n++) {
-    const descEl = document.getElementById(`dt-acq_${n}_description`);
-    const availEl = document.getElementById(`dt-acq_${n}_availability`);
-    responses[`acq_${n}_description`] = descEl ? descEl.value : '';
-    responses[`acq_${n}_availability`] = availEl ? availEl.value : '';
-    const cbs = document.querySelectorAll(`[data-acq-merit-cb="${n}"]:checked`);
-    const keys = [];
-    cbs.forEach(cb => keys.push(cb.value));
-    responses[`acq_${n}_merits`] = JSON.stringify(keys);
-    acqSlots.push({ description: responses[`acq_${n}_description`], availability: responses[`acq_${n}_availability`], merits: keys });
+  // dt-form.28: Mentor fields (per-merit, mirrors Retainer pattern).
+  // Hidden charPicker target id is auto-written by the picker's onChange;
+  // we read it here for canonical persistence on collect.
+  const maxMentors = detectedMerits.mentors.length;
+  for (let n = 1; n <= maxMentors; n++) {
+    const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+    const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+    const meritEl = document.getElementById(`dt-mentor_${n}_merit`);
+    responses[`mentor_${n}_target`] = targetEl ? targetEl.value : '';
+    responses[`mentor_${n}_task`] = taskEl ? taskEl.value : '';
+    responses[`mentor_${n}_merit`] = meritEl ? meritEl.value : '';
   }
-  // Legacy keys: slot 1 mirror
-  responses['acq_description']  = responses['acq_1_description']  || '';
-  responses['acq_availability'] = responses['acq_1_availability'] || '';
-  responses['acq_merits']       = responses['acq_1_merits']       || '[]';
-  // Composite blob: all slots
-  const resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(currentChar, resourcesM);
-  const blobLines = [];
-  if (resourcesRating) blobLines.push(`Resources ${resourcesRating}`);
-  if (acqSlotCount === 1) {
-    const s = acqSlots[0];
-    if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-    if (s.description)   blobLines.push(s.description);
-    if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
-  } else {
-    acqSlots.forEach((s, i) => {
-      blobLines.push('');
-      blobLines.push(`--- Item ${i + 1} ---`);
-      if (s.merits.length) blobLines.push(`Merits: ${s.merits.join(', ')}`);
-      if (s.description)   blobLines.push(s.description);
-      if (s.availability)  blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+
+  // dt-form.28: Staff fields (per-dot, mirrors Contacts per-slot pattern).
+  // Total slots = sum of effective ratings across all detected Staff merits.
+  const totalStaffDots = detectedMerits.staff.reduce(
+    (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+  );
+  for (let n = 1; n <= totalStaffDots; n++) {
+    const targetEl = document.getElementById(`dt-staff_${n}_target`);
+    const taskEl = document.getElementById(`dt-staff_${n}_task`);
+    const meritEl = document.getElementById(`dt-staff_${n}_merit`);
+    responses[`staff_${n}_target`] = targetEl ? targetEl.value : '';
+    responses[`staff_${n}_task`] = taskEl ? taskEl.value : '';
+    responses[`staff_${n}_merit`] = meritEl ? meritEl.value : '';
+  }
+
+  // dt-form.29: structured-row collect for the redesigned Acquisitions
+  // section. Reads `data-acq-row="resource_${i}"` / `="skill_${i}"` row
+  // containers and extracts the canonical row arrays. Then the mirror
+  // builder rebuilds every legacy key in the consumer→key map (see PR
+  // body for the inventory) so existing admin/parser/db readers keep
+  // working unchanged. Idempotent both ways: re-running on the same DOM
+  // produces the same output.
+  const _collectAcqRows = (rowKey) => {
+    const out = [];
+    document.querySelectorAll(`[data-acq-row-key="${rowKey}"][data-acq-row]`).forEach(rowEl => {
+      const idx = rowEl.dataset.acqRowIdx;
+      const descEl = rowEl.querySelector(`[data-acq-desc="${rowKey}_${idx}"]`);
+      const availEl = rowEl.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      const merits = [];
+      rowEl.querySelectorAll(`[data-acq-merit-cb][data-acq-row-key="${rowKey}"][data-acq-row-idx="${idx}"]:checked`)
+        .forEach(cb => { if (cb.value) merits.push(cb.value); });
+      const description = descEl ? descEl.value : '';
+      const availability = availEl ? availEl.value : '';
+      const row = { description, availability, merits };
+      if (rowKey === 'skill') {
+        const skillEl = rowEl.querySelector(`[data-acq-skill="${idx}"]`);
+        const specEl  = rowEl.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+        row.skill = skillEl ? skillEl.value : '';
+        row.spec  = specEl  ? specEl.value  : '';
+      }
+      out.push(row);
+    });
+    return out;
+  };
+
+  const resourceRows = _collectAcqRows('resource');
+  const skillRows = _collectAcqRows('skill');
+
+  // Persist canonical rows. If the DOM didn't render any rows (section
+  // collapsed off-screen or load timing edge), preserve prior arrays via
+  // the spread base — don't clobber with empty.
+  if (resourceRows.length) responses['acq_resource_rows'] = JSON.stringify(resourceRows);
+  if (skillRows.length)    responses['acq_skill_rows']    = JSON.stringify(skillRows);
+
+  // ── Mirror builder: rebuild legacy keys for back-compat consumers ──
+  // Consumer→key map (see PR body for the inventory):
+  //   acq_slot_count, acq_${N}_description, acq_${N}_availability, acq_${N}_merits
+  //   acq_description, acq_availability, acq_merits      (legacy single = row 0)
+  //   resources_acquisitions                             (blob, downtime-views/story-tab)
+  //   skill_acq_description, skill_acq_pool_skill, skill_acq_pool_spec,
+  //   skill_acq_availability, skill_acq_merits           (legacy single skill = row 0)
+  //   skill_acquisitions                                 (blob, downtime-views/parser)
+  // skill_acq_pool_attr is intentionally NOT mirrored — post-#42 dropped.
+  // Issue #120 (2026-05-08): defensive symmetry with the canonical writes
+  // above — when the DOM has no rows (section never rendered, or a future
+  // pure-API caller bypasses the form), don't overwrite legacy keys with
+  // empty values. Any existing legacy data on the spread base passes
+  // through unchanged.
+  if (resourceRows.length || skillRows.length) {
+  const _rrows = resourceRows.length ? resourceRows : [];
+  responses['acq_slot_count'] = String(Math.max(1, _rrows.length));
+  // Per-slot keys (1-indexed). Always write at least slot 1.
+  const _maxSlot = Math.max(1, _rrows.length);
+  for (let n = 1; n <= _maxSlot; n++) {
+    const r = _rrows[n - 1] || { description: '', availability: '', merits: [] };
+    responses[`acq_${n}_description`]  = r.description || '';
+    responses[`acq_${n}_availability`] = r.availability || '';
+    responses[`acq_${n}_merits`]       = JSON.stringify(r.merits || []);
+  }
+  // Legacy single-row mirror = row 0.
+  const _r0 = _rrows[0] || { description: '', availability: '', merits: [] };
+  responses['acq_description']  = _r0.description || '';
+  responses['acq_availability'] = _r0.availability || '';
+  responses['acq_merits']       = JSON.stringify(_r0.merits || []);
+  // Composite blob (resources_acquisitions). Same format as the legacy builder.
+  const _resourcesM = (currentChar.merits || []).find(m => m.name === 'Resources');
+  const _resourcesRating = meritEffectiveRating(currentChar, _resourcesM);
+  const _blobLines = [];
+  if (_resourcesRating) _blobLines.push(`Resources ${_resourcesRating}`);
+  if (_rrows.length === 1) {
+    const s = _rrows[0];
+    if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+    if (s.description)   _blobLines.push(s.description);
+    if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
+  } else if (_rrows.length > 1) {
+    _rrows.forEach((s, i) => {
+      _blobLines.push('');
+      _blobLines.push(`--- Item ${i + 1} ---`);
+      if (s.merits && s.merits.length) _blobLines.push(`Merits: ${s.merits.join(', ')}`);
+      if (s.description)   _blobLines.push(s.description);
+      if (s.availability)  _blobLines.push(`Availability: ${s.availability === 'unknown' ? 'Unknown' : s.availability + '/5'}`);
     });
   }
-  responses['resources_acquisitions'] = blobLines.join('\n').replace(/^\n/, '').trim();
+  responses['resources_acquisitions'] = _blobLines.join('\n').replace(/^\n/, '').trim();
 
-  // Skill acquisition fields
-  const skDescEl = document.getElementById('dt-skill_acq_description');
-  responses['skill_acq_description'] = skDescEl ? skDescEl.value : '';
-  const skAttrEl = document.getElementById('dt-skill_acq_pool_attr');
-  const skSkillEl = document.getElementById('dt-skill_acq_pool_skill');
-  responses['skill_acq_pool_attr'] = skAttrEl ? skAttrEl.value : '';
-  responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
-  const skSpecEl = document.getElementById('dt-skill_acq_pool_spec');
-  responses['skill_acq_pool_spec'] = skSpecEl ? skSpecEl.value : '';
-  const skAvailEl = document.getElementById('dt-skill_acq_availability');
-  responses['skill_acq_availability'] = skAvailEl ? skAvailEl.value : '';
-  const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
-  const skAcqMeritKeys = [];
-  skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
-  responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
-  // Backwards compat: enrich with pool + availability so text-only consumers see the full picture
+  // Skill mirror = row 0 of acq_skill_rows.
+  const _s0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
+  responses['skill_acq_description']  = _s0.description || '';
+  responses['skill_acq_pool_skill']   = _s0.skill || '';
+  responses['skill_acq_pool_spec']    = _s0.spec || '';
+  responses['skill_acq_availability'] = _s0.availability || '';
+  responses['skill_acq_merits']       = JSON.stringify(_s0.merits || []);
+  // skill_acquisitions blob — same composition as the legacy builder.
   const _skPoolStr = skillAcqPoolStr(currentChar, {
-    attr: responses['skill_acq_pool_attr'],
     skill: responses['skill_acq_pool_skill'],
-    spec: responses['skill_acq_pool_spec'],
+    spec:  responses['skill_acq_pool_spec'],
   });
   responses['skill_acquisitions'] = [
     responses['skill_acq_description'],
@@ -761,21 +938,60 @@ function collectResponses() {
       ? `Availability: ${responses['skill_acq_availability'] === 'unknown' ? 'Unknown' : responses['skill_acq_availability'] + '/5'}`
       : '',
   ].filter(Boolean).join('\n');
+  } // end if (resourceRows.length || skillRows.length) — issue #120
 
-  // Collect equipment slots
-  const equipCountEl = document.getElementById('dt-equipment-slot-count');
-  const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
-  responses['equipment_slot_count'] = String(equipSlotCount);
-  for (let n = 1; n <= equipSlotCount; n++) {
-    const nameEl = document.getElementById(`dt-equipment_${n}_name`);
-    const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
-    const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
-    responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
-    responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
-    responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+  // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread)
+  if (!DOWNTIME_SECTIONS.find(s => s.key === 'equipment')?.hidden) {
+    const equipCountEl = document.getElementById('dt-equipment-slot-count');
+    const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
+    responses['equipment_slot_count'] = String(equipSlotCount);
+    for (let n = 1; n <= equipSlotCount; n++) {
+      const nameEl = document.getElementById(`dt-equipment_${n}_name`);
+      const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
+      const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
+      responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
+      responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
+      responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+    }
+  }
+
+  } // end if (!_isMinimal) — ADVANCED-only collection
+
+  // dt-form.26 (DAR-A1): mirror per-slot XP-spend rows into the legacy
+  // top-level `responses.xp_spend` JSON array so existing readers
+  // (player-side budget validator at submitForm:1263, ST review at
+  // admin/downtime-views.js:3637) keep working unchanged. The per-slot
+  // shape is canonical post-redesign; this rebuilds top-level on every
+  // save. If no slot has xp_spend rows, the legacy top-level value (from
+  // the spread base) passes through untouched — preserves any in-flight
+  // legacy data until the player engages the redesigned UI.
+  let _hasAnyXpRows = false;
+  const _topLevelMirror = [];
+  for (let s = 1; s <= 4; s++) {
+    if (responses[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = responses[`project_${s}_xp_rows`] || '';
+    if (rj) {
+      try { slotRows = JSON.parse(rj); } catch { slotRows = []; }
+    }
+    if (slotRows.length) {
+      _hasAnyXpRows = true;
+      for (const r of slotRows) {
+        if (!r || !r.category) continue;
+        _topLevelMirror.push(r);
+      }
+    }
+  }
+  if (_hasAnyXpRows) {
+    responses['xp_spend'] = JSON.stringify(_topLevelMirror);
   }
 
   return responses;
+}
+
+function _saveTimestamp() {
+  const now = new Date();
+  return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 }
 
 async function saveDraft() {
@@ -788,277 +1004,67 @@ async function saveDraft() {
     if (statusEl) statusEl.textContent = '[Dev] Save skipped';
     return;
   }
+  if (statusEl) statusEl.textContent = 'Saving…';
   const responses = collectResponses();
 
+  // dt-form.17 (ADR-003 §Q3, §Q4): hard-mirror lifecycle. Compute the
+  // derived bool, persist on responses, and on transition mirror to
+  // submission.status + attendance.downtime.
+  const completenessCtx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(responses, completenessCtx);
+  responses._has_minimum = hasMinimum;
+  const priorHasMinimum = !!responseDoc?.responses?._has_minimum;
+  const flipped = priorHasMinimum !== hasMinimum;
+  const nextStatus = hasMinimum ? 'submitted' : 'draft';
+
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
         cycle_id: currentCycle._id,
-        status: 'draft',
+        status: nextStatus,
         responses,
       });
     } else {
-      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, { responses });
+      // Include status in the body so a status flip and the responses write
+      // land in the same PUT — saves a round-trip and keeps the two fields
+      // consistent on retry.
+      const body = flipped ? { responses, status: nextStatus } : { responses };
+      responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, body);
     }
     // Residency is now saved in the Regency tab
-    if (statusEl) statusEl.textContent = 'Saved';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    if (statusEl) statusEl.textContent = 'Saved ' + _saveTimestamp();
     // DTU-2: server now has the truth, drop the local mirror.
     _clearLocalSnapshot();
 
-    // JDT-2: After the submission save lands, fan out joint creations for any
-    // slot that authored a joint and doesn't yet have a backing joint document.
-    await createPendingJoints(responses);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
-  }
-}
-
-// JDT-3: Accept a pending invitation. On success the server returns the
-// updated invitation, joint, slot number, and the invitee's submission with
-// the joint markers written into slot N. We refresh local caches and
-// re-render. Race condition (409) → reload invitations and re-render.
-async function handleInvitationAccept(invId, container) {
-  if (!invId) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    const result = await apiPost(`/api/project_invitations/${invId}/accept`, {});
-    if (result?.submission) responseDoc = result.submission;
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = `Joined slot ${result?.slot ?? ''}`.trim();
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-    }
-    renderForm(container);
-  } catch (err) {
-    if (/no longer pending|no longer available|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Accept failed: ' + err.message;
-    }
-  }
-}
-
-async function handleInvitationDecline(invId, container) {
-  if (!invId) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    await apiPost(`/api/project_invitations/${invId}/decline`, {});
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    if (/no longer pending|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This invitation is no longer available. The list has been refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Decline failed: ' + err.message;
-    }
-  }
-}
-
-// JDT-6: voluntary decouple from an accepted joint. Confirms with the
-// player, then calls /api/project_invitations/:id/decouple. On success the
-// server has cleared the joint slot fields on the submission; we re-fetch
-// the cycle + invitations and re-render to show the slot reverted to a
-// normal empty project slot.
-async function handleInvitationDecouple(invId, container) {
-  if (!invId) return;
-  const ok = window.confirm('Decouple from this joint? Your slot will be freed up.');
-  if (!ok) return;
-  const statusEl = document.getElementById('dt-save-status');
-  try {
-    const result = await apiPost(`/api/project_invitations/${invId}/decouple`, {});
-    if (result?.submission) responseDoc = result.submission;
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = 'Decoupled.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
-    }
-    renderForm(container);
-  } catch (err) {
-    if (/not accepted|409/i.test(err.message)) {
-      await refreshJointCaches();
-      renderForm(container);
-      if (statusEl) {
-        statusEl.textContent = 'This joint is no longer in a state that can be decoupled. Refreshed.';
-        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'Decouple failed: ' + err.message;
-    }
-  }
-}
-
-// JDT-6: lead re-invite. Reads the ticked checkboxes inside the re-invite
-// panel and calls /api/downtime_cycles/:id/joint_projects/:jointId/reinvite.
-async function handleJointReinvite(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  const cbs = container.querySelectorAll(`.dt-joint-reinvite-cb[data-joint-id="${jointId}"]:checked`);
-  const ids = Array.from(cbs).map(cb => cb.value).filter(Boolean);
-  const statusEl = container.querySelector(`.dt-joint-reinvite-status[data-joint-id="${jointId}"]`);
-  if (!ids.length) {
-    if (statusEl) {
-      statusEl.textContent = 'Tick at least one alternate to invite.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-    }
-    return;
-  }
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/reinvite`, {
-      invitee_character_ids: ids,
-    });
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Re-invite failed: ' + err.message;
-  }
-}
-
-// JDT-6: lead cancel. Server enforces zero-supports / zero-pending precondition.
-async function handleJointCancel(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  const ok = window.confirm('Cancel this joint? Your slot will be freed up. The joint will remain on the cycle for audit.');
-  if (!ok) return;
-  const statusEl = container.querySelector(`.dt-joint-cancel-status[data-joint-id="${jointId}"]`);
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/cancel`, {});
-    await refreshJointCaches();
-    // Lead's slot was cleared server-side; re-fetch the submission so the
-    // local responseDoc shows the cleared slot fields on next render.
-    if (responseDoc?._id) {
+    // dt-form.17: mirror to attendance.downtime on transition. Idempotent —
+    // we still send the PATCH on flip, even if the bool is the same as last
+    // time (e.g. on a fresh form load with no prior state).
+    if (flipped && _activeGameSessionId && currentChar?._id) {
       try {
-        const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
-        const fresh = (subs || []).find(s => String(s._id) === String(responseDoc._id));
-        if (fresh) responseDoc = fresh;
-      } catch { /* keep existing */ }
+        await apiPatch(
+          `/api/attendance/${encodeURIComponent(_activeGameSessionId)}/${encodeURIComponent(String(currentChar._id))}`,
+          { downtime: hasMinimum }
+        );
+        // Local cache for XP-Available annotation; also flips the player
+        // sheet's _gameXP on the next loadGameXP call.
+        currentChar._dtHoldFlag = !hasMinimum;
+      } catch {
+        // Non-fatal — the bool can be reconciled at cycle-close. The 423
+        // gate handler logs to status if cycle is closed.
+      }
+    } else if (currentChar) {
+      currentChar._dtHoldFlag = !hasMinimum;
     }
-    renderForm(container);
+
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'Cancel failed: ' + err.message;
-  }
-}
-
-// JDT-6: lead saves an edit to joint description. Bumps description_updated_at
-// server-side so support slots can render the change indicator on next render.
-async function handleJointDescriptionSave(jointId, container) {
-  if (!jointId || !currentCycle?._id) return;
-  // Locate the textarea inside the same authoring panel as this save button.
-  const btn = container.querySelector(`.dt-joint-desc-save-btn[data-joint-id="${jointId}"]`);
-  const textareaEl = btn?.closest('.dt-joint-authoring')?.querySelector('textarea[id$="_joint_description"]');
-  if (!textareaEl) return;
-  const description = textareaEl.value;
-  const statusEl = container.querySelector(`.dt-joint-desc-save-status[data-joint-id="${jointId}"]`);
-  try {
-    await apiPatch(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}`, { description });
-    await refreshJointCaches();
-    if (statusEl) {
-      statusEl.textContent = 'Saved.';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+    // dt-form.17 §Q11: surface the cycle-close 423 with a stable message.
+    if (err && /CYCLE_CLOSED|423|Cycle is closed/i.test(err.message || '')) {
+      if (statusEl) statusEl.textContent = 'Cycle closed; submission locked';
+    } else if (statusEl) {
+      statusEl.textContent = 'Save failed: ' + err.message;
     }
-    renderForm(container);
-  } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
-  }
-}
-
-// JDT-6: support clicks "View and acknowledge" on the description-changed
-// indicator. Sets participant.description_change_acknowledged_at to now so
-// the indicator clears on next render.
-async function handleJointDescriptionAcknowledge(jointId, charId, container) {
-  if (!jointId || !charId || !currentCycle?._id) return;
-  try {
-    await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects/${jointId}/participants/${charId}/acknowledge`, {});
-    await refreshJointCaches();
-    renderForm(container);
-  } catch (err) {
-    const statusEl = document.getElementById('dt-save-status');
-    if (statusEl) statusEl.textContent = 'Acknowledge failed: ' + err.message;
-  }
-}
-
-// JDT-3: re-fetch the cycle (joint_projects array changes on accept) and the
-// invitations list so badges, panels, and slot UI all reflect the latest state.
-async function refreshJointCaches() {
-  if (!currentCycle?._id || currentCycle._id === 'dev-stub') return;
-  try {
-    const cycles = await apiGet('/api/downtime_cycles');
-    const fresh = cycles.find(c => String(c._id) === String(currentCycle._id));
-    if (fresh) {
-      const prevStatusOverride = currentCycle.status !== fresh.status && location.hostname === 'localhost'
-        ? currentCycle.status
-        : null;
-      currentCycle = prevStatusOverride ? { ...fresh, status: prevStatusOverride } : fresh;
-    }
-  } catch { /* keep prior cycle */ }
-  try {
-    _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
-  } catch { /* keep prior invitations */ }
-}
-
-// JDT-2: For each slot where the lead has selected Joint mode, has invitees,
-// and no joint yet exists on cycle.joint_projects, create the joint + invitations
-// via POST /api/downtime_cycles/:cycleId/joint_projects. Refresh local cycle and
-// invitation caches afterwards so the next render shows the saved state.
-async function createPendingJoints(responses) {
-  if (!responseDoc?._id || !currentCycle?._id) return;
-  if (currentCycle._id === 'dev-stub') return;
-
-  const slotsToCreate = [];
-  for (let n = 1; n <= 4; n++) {
-    if (responses[`project_${n}_is_joint`] !== 'yes') continue;
-    const action = responses[`project_${n}_action`];
-    if (!JOINT_ELIGIBLE_ACTIONS.includes(action)) continue;
-    if (findExistingJoint(n)) continue;
-
-    let inviteeIds = [];
-    try { inviteeIds = JSON.parse(responses[`project_${n}_joint_invited_ids`] || '[]'); }
-    catch { inviteeIds = []; }
-    if (!inviteeIds.length) continue;
-
-    slotsToCreate.push({
-      slot: n,
-      action,
-      description: responses[`project_${n}_joint_description`] || '',
-      target_type: responses[`project_${n}_joint_target_type`] || null,
-      target_value: responses[`project_${n}_joint_target_value`] || null,
-      invitee_character_ids: inviteeIds.map(String),
-    });
-  }
-  if (!slotsToCreate.length) return;
-
-  let anyCreated = false;
-  for (const s of slotsToCreate) {
-    try {
-      await apiPost(`/api/downtime_cycles/${currentCycle._id}/joint_projects`, {
-        lead_character_id: String(currentChar._id),
-        lead_submission_id: String(responseDoc._id),
-        lead_project_slot: s.slot,
-        description: s.description,
-        action_type: s.action,
-        target_type: s.target_type,
-        target_value: s.target_value,
-        invitee_character_ids: s.invitee_character_ids,
-      });
-      anyCreated = true;
-    } catch (err) {
-      const statusEl = document.getElementById('dt-save-status');
-      if (statusEl) statusEl.textContent = `Joint create failed (slot ${s.slot}): ${err.message}`;
-    }
-  }
-
-  if (anyCreated) {
-    await refreshJointCaches();
   }
 }
 
@@ -1108,7 +1114,7 @@ async function submitForm() {
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
 
   try {
-    if (!responseDoc) {
+    if (!responseDoc?._id) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
         character_name: currentChar.name,
@@ -1186,8 +1192,16 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
-  if (char) applyDerivedMerits(char);
-  _territories = territories || [];
+  try {
+    const fresh = await apiGet(`/api/characters/${encodeURIComponent(String(char._id))}`);
+    currentChar = fresh;
+  } catch { /* silent — stale char is better than a broken form */ }
+  if (currentChar) applyDerivedMerits(currentChar);
+  try {
+    _territories = await apiGet('/api/territories');
+  } catch {
+    _territories = territories || [];
+  }
   responseDoc = null;
   currentCycle = null;
   gateValues = {};
@@ -1214,24 +1228,11 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
-  // don't break when viewing old cycles. The new flow (NPCR.12) does not
-  // use this list.
-  _linkedNpcs = [];
-  if (currentChar?._id) {
-    try {
-      _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _linkedNpcs = []; }
-  }
-
-  // NPCR.12: load this character's relationships (active + pending) for
-  // the Personal Story picker. Fails silently — picker shows empty state.
-  _myRelationships = [];
-  if (currentChar?._id) {
-    try {
-      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
-    } catch { _myRelationships = []; }
-  }
+  // dt-form.33: removed two NPC-DB data loads. The legacy
+  // `/api/npcs/for-character/...` fetch fed `_linkedNpcs` for the legacy
+  // renderer (deleted), and `/api/relationships/for-character/...` fed
+  // `_myRelationships` for the story-moment relationship picker (deleted).
+  // Saves two API round-trips per form load.
 
   // Load existing submission for this character + cycle
   priorPublishedLabel = null;
@@ -1243,6 +1244,9 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
       if (responseDoc) _promotePublishedOutcome(responseDoc);
+      // dt-form.22: translate legacy ROTE state on first read. Once any
+      // save fires, the document persists in the new shape.
+      if (responseDoc?.responses) _migrateLegacyRoteState(responseDoc.responses);
     } catch { /* no submission */ }
   }
 
@@ -1309,12 +1313,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect attendance from the game session matching this downtime cycle
   lastGameAttendees = [];
+  _activeGameSessionId = null;
   try {
     let attUrl = '/api/attendance?character_id=' + encodeURIComponent(String(currentChar._id));
     if (currentCycle?.game_number) attUrl += '&game_number=' + currentCycle.game_number;
     const att = await apiGet(attUrl);
     gateValues.attended = att.attended ? 'yes' : 'no';
     lastGameAttendees = att.attendees || [];
+    _activeGameSessionId = att.session_id || null;
   } catch { /* fall back — leave gateValues.attended unset */ }
 
   // Load all character names for cast picker
@@ -1333,27 +1339,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     }
   } catch { /* ignore */ }
 
+  // Publish character data to the universal picker (ADR-003 §Q6).
+  setCharPickerSources({
+    all: allCharacters.map(c => ({ id: String(c.id), name: c.name })),
+    attendees: lastGameAttendees.map(a => ({ id: String(a.id), name: a.name })),
+  });
+
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
-
-  // Load all territory residency lists (for feeding grid indicators)
-  try {
-    const allRes = await apiGet('/api/territory-residency');
-    residencyByTerritory = {};
-    for (const doc of allRes) {
-      residencyByTerritory[doc.territory] = new Set(doc.residents || []);
-    }
-  } catch { residencyByTerritory = {}; }
-
-  // JDT-2: load invitations visible to this character on the current cycle.
-  // Used by the joint authoring panel for live status badges (lead view) and
-  // by JDT-3 for the invitee inbox. Best-effort — empty array on error.
-  _jointInvitations = [];
-  if (currentCycle?._id && currentCycle._id !== 'dev-stub') {
-    try {
-      _jointInvitations = await apiGet(`/api/project_invitations?cycle_id=${encodeURIComponent(currentCycle._id)}`) || [];
-    } catch { _jointInvitations = []; }
-  }
 
   // Restore feeding state from saved responses
   if (responseDoc?.responses) {
@@ -1363,6 +1356,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     feedCustomAttr = responseDoc.responses['_feed_custom_attr'] || '';
     feedCustomSkill = responseDoc.responses['_feed_custom_skill'] || '';
     feedCustomDisc = responseDoc.responses['_feed_custom_disc'] || '';
+    // fix.48: sync violence default so the render-path completeness check
+    // (isMinimalComplete(saved, ctx) line 1719) agrees with the visual pre-select.
+    // Only backfills when feed_violence is absent and the method has a default;
+    // stalking/other have null defaults and are intentionally left for explicit pick.
+    if (!responseDoc.responses.feed_violence && feedMethodId && FEED_VIOLENCE_DEFAULTS[feedMethodId]) {
+      responseDoc.responses.feed_violence = FEED_VIOLENCE_DEFAULTS[feedMethodId];
+    }
   } else {
     feedMethodId = ''; feedDiscName = ''; feedSpecName = ''; feedCustomAttr = ''; feedCustomSkill = ''; feedCustomDisc = '';
   }
@@ -1530,11 +1530,272 @@ function renderCycleGatePage() {
   return h;
 }
 
+// ── Universal character picker plumbing (ADR-003 §Q6) ────────────────────
+// Picker render sites emit a placeholder element marked with [data-cp-mount];
+// after innerHTML assignment, mountCharPickers() replaces each placeholder
+// with a live charPicker instance whose onChange writes back to a hidden
+// input (so existing collection paths keep working) and triggers scheduleSave.
+
+function mountCharPickers(container) {
+  const placeholders = container.querySelectorAll('[data-cp-mount]');
+  placeholders.forEach(ph => {
+    const site = ph.dataset.cpSite || '';
+    const scope = ph.dataset.cpScope === 'attendees' ? 'attendees' : 'all';
+    const cardinality = ph.dataset.cpCardinality === 'multi' ? 'multi' : 'single';
+    const placeholderText = ph.dataset.cpPlaceholder || '';
+    let initial;
+    try { initial = JSON.parse(ph.dataset.cpInitial || (cardinality === 'multi' ? '[]' : '""')); }
+    catch { initial = (cardinality === 'multi' ? [] : ''); }
+    let excludeIds = [];
+    try { excludeIds = JSON.parse(ph.dataset.cpExclude || '[]'); } catch { excludeIds = []; }
+
+    const hiddenId = ph.dataset.cpHidden || '';
+    const onChange = _makeCharPickerOnChange(site, hiddenId, cardinality);
+    const el = charPicker({ scope, cardinality, initial, onChange, placeholder: placeholderText, excludeIds });
+    el.dataset.cpMountedSite = site;
+    if (hiddenId) el.dataset.cpMountedHidden = hiddenId;
+    if (placeholderText) el.dataset.cpMountedPlaceholder = placeholderText;
+    if (ph.className) el.classList.add(...ph.className.split(/\s+/).filter(Boolean));
+    ph.replaceWith(el);
+  });
+}
+
+function _writeHidden(hiddenId, value) {
+  if (!hiddenId) return;
+  const el = document.getElementById(hiddenId);
+  if (el) el.value = value;
+}
+
+function _makeCharPickerOnChange(site, hiddenId, cardinality) {
+  if (site === 'shoutout') {
+    // 3-pick cap preserved from prior behaviour. Locked picker signature has
+    // no max-N parameter, so over-cap selections are reverted by remounting
+    // the picker with the trimmed list.
+    return (next) => {
+      const arr = Array.isArray(next) ? next : [];
+      if (arr.length > 3) {
+        const trimmed = arr.slice(0, 3);
+        _writeHidden(hiddenId, JSON.stringify(trimmed));
+        scheduleSave();
+        _remountShoutoutPicker(trimmed);
+        return;
+      }
+      _writeHidden(hiddenId, JSON.stringify(arr));
+      scheduleSave();
+    };
+  }
+  if (cardinality === 'multi') {
+    return (next) => {
+      const arr = Array.isArray(next) ? next : [];
+      _writeHidden(hiddenId, JSON.stringify(arr));
+      scheduleSave();
+    };
+  }
+  return (next) => {
+    _writeHidden(hiddenId, typeof next === 'string' ? next : '');
+    scheduleSave();
+  };
+}
+
+function _remountShoutoutPicker(trimmed) {
+  const cur = document.querySelector('[data-cp-mounted-site="shoutout"]');
+  if (!cur) return;
+  const hiddenId = cur.dataset.cpMountedHidden || '';
+  const placeholderText = cur.dataset.cpMountedPlaceholder || '';
+  const fresh = charPicker({
+    scope: 'attendees',
+    cardinality: 'multi',
+    initial: trimmed,
+    onChange: _makeCharPickerOnChange('shoutout', hiddenId, 'multi'),
+    placeholder: placeholderText,
+    excludeIds: [],
+  });
+  fresh.dataset.cpMountedSite = 'shoutout';
+  if (hiddenId) fresh.dataset.cpMountedHidden = hiddenId;
+  if (placeholderText) fresh.dataset.cpMountedPlaceholder = placeholderText;
+  cur.replaceWith(fresh);
+}
+
+// dt-form.17 (ADR-003 §Q1, §Q2): MINIMAL vs ADVANCED mode gate.
+// Sections in MINIMAL_SECTIONS render in both modes; everything else is
+// hidden in MINIMAL (per ADR §Q2 lock — "not rendered, not just display:none").
+const MINIMAL_SECTIONS = new Set(['court', 'personal_story', 'feeding', 'projects', 'regency']);
+
+function _formMode(saved) {
+  return saved?._mode === 'advanced' ? 'advanced' : 'minimal';
+}
+
+function _isSectionVisibleInMode(sectionKey, mode) {
+  if (mode === 'advanced') return true;
+  return MINIMAL_SECTIONS.has(sectionKey);
+}
+
+function _completenessCtx() {
+  return {
+    isRegent: gateValues.is_regent === 'yes',
+    regencyConfirmed: _isRegencyConfirmedThisCycle(),
+    attended: gateValues.attended === 'yes',
+  };
+}
+
+function _isRegencyConfirmedThisCycle() {
+  if (!currentCycle?.regent_confirmations) return false;
+  const ri = findRegentTerritory(_territories, currentChar);
+  if (!ri?.territoryId) return false;
+  return (currentCycle.regent_confirmations || []).some(
+    c => String(c.territory_id) === String(ri.territoryId)
+  );
+}
+
+// dt-form.31 (ADR-003 §Q5): Submit Final modal. ADVANCED-only affordance
+// that lets a player declare "I am done editing" via responses._final_submitted_at.
+// Mirrors the existing .npcr-modal pattern (admin-layout.css) but lives in
+// components.css under .dt-modal-* so the player surface picks it up.
+function openSubmitFinalModal(container) {
+  // Render fresh markup each time so the action-spent counts reflect the
+  // current responses (per §Q9, ADVANCED + MINIMAL-filled shows zeros).
+  closeSubmitFinalModal();
+  const saved = responseDoc?.responses || {};
+  const totals = {
+    projectSlots:     DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4,
+    sphereSlots:      Math.min((detectedMerits.spheres || []).length, 5),
+    statusSlots:      Math.min((detectedMerits.status || []).length, 5),
+    contactSlots:     Math.min((detectedMerits.contacts || []).length, 5),
+    retainerSlots:    (detectedMerits.retainers || []).length,
+    mentorSlots:      (detectedMerits.mentors || []).length,
+    staffSlots:       (detectedMerits.staff || []).reduce(
+                        (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+                      ),
+    acquisitionSlots: parseInt(saved.acq_slot_count || '1', 10) || 1,
+    sorcerySlots:     parseInt(saved.sorcery_slot_count || '0', 10) || 0,
+    equipmentSlots:   parseInt(saved.equipment_slot_count || '0', 10) || 0,
+  };
+  const summary = actionSpentSummary(saved, totals);
+  const lines = formatActionSpentSummary(summary);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'dt-modal-overlay';
+  overlay.id = 'dt-submit-final-overlay';
+  overlay.setAttribute('role', 'presentation');
+
+  const titleId = 'dt-submit-final-title';
+  let h = '';
+  h += `<div class="dt-modal" role="dialog" aria-modal="true" aria-labelledby="${titleId}">`;
+  h += `<h3 class="dt-modal-title" id="${titleId}">Submit Final</h3>`;
+  h += '<div class="dt-modal-body">';
+  h += '<p class="qf-section-intro">Use this when you are done editing. Your downtime will continue auto-saving until the cycle deadline; this just records the moment you stopped.</p>';
+
+  // Action-spent summary
+  h += '<h4 class="dt-modal-subhead">This cycle so far</h4>';
+  if (lines.length) {
+    h += '<ul class="dt-modal-summary-list">';
+    for (const line of lines) {
+      h += `<li>${esc(line)}</li>`;
+    }
+    h += '</ul>';
+  } else {
+    h += '<p class="qf-desc">No actions filled in yet.</p>';
+  }
+
+  // Optional rate-the-form widget — lifted from the removed Admin section
+  // (SUBMIT_FINAL_MODAL_QUESTIONS in downtime-data.js) so the existing
+  // star_rating + textarea widgets render via renderQuestion(), unchanged.
+  h += '<h4 class="dt-modal-subhead">Rate the form (optional)</h4>';
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    h += renderQuestion(q, saved[q.key] || '');
+  }
+  h += '</div>'; // dt-modal-body
+
+  // Actions
+  h += '<div class="dt-modal-actions">';
+  h += '<button type="button" class="qf-btn qf-btn-save" data-dt-final-cancel>Cancel</button>';
+  h += '<button type="button" class="qf-btn qf-btn-submit-final" data-dt-final-confirm>Submit Final</button>';
+  h += '</div>';
+
+  h += '</div>'; // dt-modal
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+
+  // Focus management: send focus to the dialog so screen readers announce it.
+  overlay.querySelector('.dt-modal')?.focus({ preventScroll: true });
+
+  // Escape closes the modal.
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSubmitFinalModal(); }
+  });
+
+  // Click delegation MUST live on the overlay, not on the form container,
+  // because document.body.appendChild(overlay) above puts the modal outside
+  // the container's DOM subtree. Clicks here would not bubble to a
+  // container-scoped listener (caused issue #89).
+  overlay.addEventListener('click', (e) => {
+    if (e.target.closest('[data-dt-final-cancel]')) {
+      e.preventDefault();
+      closeSubmitFinalModal();
+      return;
+    }
+    if (e.target.closest('[data-dt-final-confirm]')) {
+      e.preventDefault();
+      handleSubmitFinalConfirm(container);
+      return;
+    }
+    // Click on the overlay backdrop itself (not on a modal child) dismisses.
+    if (e.target === overlay) {
+      closeSubmitFinalModal();
+    }
+  });
+}
+
+function closeSubmitFinalModal() {
+  const el = document.getElementById('dt-submit-final-overlay');
+  if (el) el.remove();
+}
+
+async function handleSubmitFinalConfirm(container) {
+  // Collect the rating widget values from the modal so they round-trip on
+  // the next save. Star rating writes to a hidden input; textarea writes
+  // straight to its DOM node. We seed them onto responseDoc so collectResponses
+  // (which iterates over rendered form fields, not the modal) keeps the values.
+  if (!responseDoc) responseDoc = { responses: {} };
+  if (!responseDoc.responses) responseDoc.responses = {};
+  for (const q of SUBMIT_FINAL_MODAL_QUESTIONS) {
+    const el = document.getElementById('dt-' + q.key);
+    if (el) responseDoc.responses[q.key] = el.value;
+  }
+  responseDoc.responses._final_submitted_at = new Date().toISOString();
+  closeSubmitFinalModal();
+  // Re-render the form so the button label flips to "Update Final Submission",
+  // then save so the new field reaches the server. Save handles the toast
+  // status banner via the auto-mirror lifecycle.
+  renderForm(container);
+  scheduleSave();
+  const statusEl = document.getElementById('dt-save-status');
+  if (statusEl) {
+    statusEl.textContent = 'Final submission recorded; keep editing until the deadline.';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+}
+
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
   const isST = isSTRole();
   const isSubmitted = status === 'submitted';
+
+  // dt-form.17: derive _mode + _has_minimum on every render so the gate and
+  // banner reflect the latest state. The persistent fields are written by
+  // the lifecycle hook in scheduleSave; this is read-only here.
+  const mode = _formMode(saved);
+  const ctx = _completenessCtx();
+  const hasMinimum = isMinimalComplete(saved, ctx);
+  const missing = hasMinimum ? [] : missingMinimumPieces(saved, ctx);
+
+  // Re-publish picker sources every render — guards against another module
+  // (regency-tab) overwriting them between navigations.
+  setCharPickerSources({
+    all: allCharacters.map(c => ({ id: String(c.id), name: c.name })),
+    attendees: lastGameAttendees.map(a => ({ id: String(a.id), name: a.name })),
+  });
 
   let h = '';
 
@@ -1554,6 +1815,39 @@ function renderForm(container) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+  }
+
+  // dt-form.17 (ADR-003 §Q1): mode selector at top of form.
+  h += '<div class="dt-mode-selector" role="group" aria-label="Form mode">';
+  h += `<button type="button" class="dt-mode-pill${mode === 'minimal' ? ' dt-mode-pill--active' : ''}" data-dt-mode="minimal" aria-pressed="${mode === 'minimal'}">Minimal</button>`;
+  h += `<button type="button" class="dt-mode-pill${mode === 'advanced' ? ' dt-mode-pill--active' : ''}" data-dt-mode="advanced" aria-pressed="${mode === 'advanced'}">Advanced</button>`;
+  h += '<span class="dt-mode-desc">';
+  h += mode === 'minimal'
+    ? 'Just the essentials. Switch to Advanced for the full form — your data is preserved either way.'
+    : 'All sections shown. Switch back to Minimal at any time without losing what you have entered.';
+  h += '</span>';
+  h += '</div>';
+
+  // dt-form.17 (ADR-003 §Q3): persistent below-minimum banner with the
+  // missing-pieces list. Locked copy per story §Banner copy.
+  if (!hasMinimum) {
+    h += '<div class="dt-min-banner" role="status" aria-live="polite">';
+    h += '<p class="dt-min-banner__lead"><strong>Your form is below minimum-complete.</strong> Your downtime XP credit is on hold. Add the missing pieces to restore it:</p>';
+    if (missing.length) {
+      h += '<ul class="dt-min-banner__list">';
+      for (const item of missing) {
+        h += `<li>${esc(item.label)}</li>`;
+      }
+      h += '</ul>';
+    }
+    h += '</div>';
+  } else if (mode === 'minimal') {
+    // dt-form.31 (ADR-003 §Q5): MINIMAL auto-submit confirmation toast.
+    // Locked copy. Persistent — stays as long as the form is above minimum
+    // in MINIMAL mode. ADVANCED uses the Submit Final modal instead.
+    h += '<div class="dt-min-toast" role="status" aria-live="polite">';
+    h += '<p class="dt-min-toast__lead"><strong>Submitted</strong> — keep editing until the deadline.</p>';
+    h += '</div>';
   }
 
   // Header
@@ -1578,7 +1872,6 @@ function renderForm(container) {
   }
   h += '<span id="dt-save-status" class="qf-save-status"></span>';
   h += '</div>';
-  h += '<p class="qf-intro">Your responses auto-save as you type.</p>';
 
   // Status badges
   h += '<div class="dt-status-badges">';
@@ -1611,11 +1904,16 @@ function renderForm(container) {
     if (section.key === 'blood_sorcery') continue;
     if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
+    // dt-form.31: admin section removed from DOWNTIME_SECTIONS. Defensive skip
+    // kept in case legacy data or imports re-introduce the key.
     if (section.key === 'admin') continue;
     if (section.key === 'territory') continue;
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
+    // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
+    // MINIMAL so it falls through; trust/harm/aspirations live in admin).
+    if (!_isSectionVisibleInMode(section.key, mode)) continue;
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
@@ -1633,16 +1931,12 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // ── Personal Story — NPC interaction ──
+  // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
-
-  // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
-  if (gateValues.has_sorcery === 'yes') {
-    h += renderSorcerySection(saved);
-  }
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     h += `<div class="qf-section collapsed" data-gate-section="" data-section-key="${key}">`;
@@ -1658,18 +1952,34 @@ function renderForm(container) {
   }
 
   // ── Projects section with dynamic slots ──
-  h += renderProjectSlots(saved);
+  // dt-form.17: in MINIMAL only the first project slot renders.
+  h += renderProjectSlots(saved, mode);
 
-  // ── Dynamic merit sections ──
-  h += renderMeritToggles(saved);
+  // ── Regency confirmation (regent-only, both modes) ──
+  // dt-form.23 (ADR-003 §Q2): confirmation UI for regents; writes to
+  // cycle.regent_confirmations via the existing /confirm-feeding endpoint.
+  // Non-regents see nothing (renderRegencySection returns '' on is_regent !== 'yes').
+  if (_isSectionVisibleInMode('regency', mode)) h += renderRegencySection();
 
-  // ── Acquisitions (custom render) ──
-  h += renderAcquisitionsSection(saved);
+  // dt-form.17: ADVANCED-only sections below the projects.
+  if (mode === 'advanced') {
+    // ── Blood Sorcery — between Personal Actions and Sphere Actions (dt-form.27) ──
+    if (gateValues.has_sorcery === 'yes') h += renderSorcerySection(saved);
 
-  // ── Equipment (dynamic rows) ──
-  h += renderEquipmentSection(saved);
+    // ── Dynamic merit sections ──
+    h += renderMeritToggles(saved);
 
-  for (const key of ['vamping', 'admin']) {
+    // ── Acquisitions (custom render) ──
+    h += renderAcquisitionsSection(saved);
+
+    // ── Equipment (dynamic rows) ──
+    h += renderEquipmentSection(saved);
+  }
+
+  // dt-form.31: 'admin' removed from DOWNTIME_SECTIONS — find() returns
+  // undefined for it and the body is skipped. Loop kept for vamping.
+  for (const key of ['vamping']) {
+    if (!_isSectionVisibleInMode(key, mode)) continue;
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
@@ -1696,16 +2006,23 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
-  // Hide feedback textarea until a rating is provided
-  if (!saved['form_rating']) {
-    h = h.replace('dt-feedback-field', 'dt-feedback-field dt-feedback-hidden');
-  }
+  // dt-form.31: form-rating hide hack removed — the rating widget now lives
+  // in the Submit Final modal (ADVANCED only); not in the form body.
 
   // Actions
   const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
   h += '<div class="qf-actions">';
-  h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
   h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
+  // dt-form.31 (ADR-003 §Q5): ADVANCED-only Submit Final affordance. Opens
+  // the modal; the modal sets responses._final_submitted_at on confirm.
+  // Per §Q9 the button is mode-conditional, not state-conditional — an
+  // ADVANCED player who only filled MINIMAL still sees it (the modal
+  // shows zeros in that case).
+  if (mode === 'advanced') {
+    const finalAt = saved._final_submitted_at;
+    const finalLabel = finalAt ? 'Update Final Submission' : 'Submit Final';
+    h += `<button type="button" class="qf-btn qf-btn-submit-final" id="dt-btn-submit-final">${esc(finalLabel)}</button>`;
+  }
   h += '</div>';
 
   // Capture expanded sections before re-render
@@ -1721,6 +2038,10 @@ function renderForm(container) {
     const el = container.querySelector(`.qf-section[data-section-key="${key}"]`);
     if (el) el.classList.remove('collapsed');
   });
+
+  // Mount universal character pickers in place of their placeholders.
+  // Re-runs on every renderForm because innerHTML wipes prior mounts.
+  mountCharPickers(container);
 
   // Update section completion ticks on initial render
   updateSectionTicks(container);
@@ -1739,51 +2060,83 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // dt-form.17: Mode pill toggle. Persist on responses._mode and re-render.
+    // Switching preserves entered data (per ADR §Q1 Resolutions): non-MINIMAL
+    // fields stay in responses; only their UI is hidden.
+    const modePill = e.target.closest('[data-dt-mode]');
+    if (modePill) {
+      const next = modePill.dataset.dtMode === 'advanced' ? 'advanced' : 'minimal';
+      const cur = collectResponses();
+      cur._mode = next;
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.34: delegated submit — survives re-renders; direct listener below was lost
+    // after any inline renderForm() call (sorcery rite change, feed pool, mode toggle).
+    if (e.target.closest('#dt-btn-submit')) {
+      submitForm();
+      return;
+    }
+    // dt-form.18: Personal Story kind radio — re-render so the textarea
+    // label and placeholder reflect the chosen kind (touchstone vs
+    // correspondence). The radio's `value` is set by the browser before
+    // this handler fires, so collectResponses captures it.
+    if (e.target.matches('[data-personal-story-kind]')) {
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.31: Submit Final button (ADVANCED only) opens the modal.
+    if (e.target.closest('#dt-btn-submit-final')) {
+      e.preventDefault();
+      openSubmitFinalModal(container);
+      return;
+    }
+    // dt-form.23 (ADR-003 §Q2): regent confirmation. POSTs to the same
+    // /confirm-feeding endpoint regency-tab uses; rights[] is a snapshot
+    // of the territory's current feeding_rights. After success, replace
+    // currentCycle with the server response so the predicate sees the new
+    // entry on re-render.
+    const regencyConfirmBtn = e.target.closest('#dt-btn-confirm-regency');
+    if (regencyConfirmBtn) {
+      e.preventDefault();
+      const ri = findRegentTerritory(_territories, currentChar);
+      const statusEl = container.querySelector('#dt-regency-confirm-status');
+      if (!ri?.territoryId || !currentCycle?._id) return;
+      if (currentCycle._id === 'dev-stub') {
+        if (statusEl) statusEl.textContent = 'Dev preview — confirmation requires a live cycle.';
+        return;
+      }
+      const terr = (_territories || []).find(t => String(t._id) === String(ri.territoryId));
+      const rights = Array.isArray(terr?.feeding_rights) ? terr.feeding_rights : [];
+      regencyConfirmBtn.disabled = true;
+      regencyConfirmBtn.textContent = 'Confirming…';
+      if (statusEl) statusEl.textContent = '';
+      apiPost(`/api/downtime_cycles/${currentCycle._id}/confirm-feeding`, {
+        territory_id: ri.territoryId,
+        rights,
+      }).then(updated => {
+        currentCycle = updated;
+        renderForm(container);
+      }).catch(err => {
+        regencyConfirmBtn.disabled = false;
+        regencyConfirmBtn.textContent = 'Confirm regency this cycle';
+        if (statusEl) statusEl.textContent = 'Confirm failed: ' + (err?.message || 'unknown error');
+      });
+      return;
+    }
+    // dt-form.31 modal click delegations moved to the overlay element in
+    // openSubmitFinalModal() — see issue #89. The overlay is appended to
+    // document.body, not to container, so its clicks never reach this
+    // listener.
     // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
     // single relationships picker in renderPersonalStorySection).
-
-    // JDT-3: pending invitation Accept / Decline
-    const acceptBtn = e.target.closest('.dt-pending-invitation-accept');
-    if (acceptBtn && !acceptBtn.disabled) {
-      handleInvitationAccept(acceptBtn.dataset.invitationId, container);
-      return;
-    }
-    const declineBtn = e.target.closest('.dt-pending-invitation-decline');
-    if (declineBtn) {
-      handleInvitationDecline(declineBtn.dataset.invitationId, container);
-      return;
-    }
-
-    // JDT-6: voluntary decouple from an accepted joint
-    const decoupleBtn = e.target.closest('.dt-joint-decouple-btn');
-    if (decoupleBtn) {
-      handleInvitationDecouple(decoupleBtn.dataset.invitationId, container);
-      return;
-    }
-    // JDT-6: lead re-invite alternates
-    const reinviteBtn = e.target.closest('.dt-joint-reinvite-btn');
-    if (reinviteBtn) {
-      handleJointReinvite(reinviteBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: lead cancel joint
-    const cancelBtn = e.target.closest('.dt-joint-cancel-btn');
-    if (cancelBtn) {
-      handleJointCancel(cancelBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: lead description save (mid-cycle edit)
-    const descSaveBtn = e.target.closest('.dt-joint-desc-save-btn');
-    if (descSaveBtn) {
-      handleJointDescriptionSave(descSaveBtn.dataset.jointId, container);
-      return;
-    }
-    // JDT-6: support acknowledge description change
-    const ackBtn = e.target.closest('.dt-joint-desc-acknowledge-btn');
-    if (ackBtn) {
-      handleJointDescriptionAcknowledge(ackBtn.dataset.jointId, ackBtn.dataset.characterId, container);
-      return;
-    }
 
     // Skill acquisition spec chip toggle
     const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
@@ -1799,48 +2152,88 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Availability dot selectors (resources + skill acquisition)
-    const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
-    if (acqUnknown) {
-      const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
-      const slot = isSkill ? null : (acqUnknown.dataset.acqUnknown || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = 'unknown';
-      const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => d.classList.remove('dt-acq-dot-filled'));
-        acqUnknown.classList.add('dt-acq-dot-filled');
-        const lbl = row.querySelector('.dt-acq-avail-label');
-        if (lbl) lbl.textContent = '';
-      }
+
+    // dt-form.29: Acquisitions row handlers (Add / Remove / Avail dots /
+    // Avail unknown / Skill spec chip). Row state is canonical in
+    // `responses.acq_resource_rows` / `acq_skill_rows`; click handlers
+    // mutate the spread base then re-render. Saves the cycle of
+    // legacy-input mutation + DOM dot-class toggles by going straight
+    // through collectResponses → mutate → renderForm.
+    const acqAddBtn = e.target.closest('[data-acq-add-row]');
+    if (acqAddBtn) {
+      const rowKey = acqAddBtn.dataset.acqAddRow;
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (!Array.isArray(arr)) arr = [];
+      const empty = rowKey === 'skill'
+        ? { skill: '', spec: '', description: '', availability: '', merits: [] }
+        : { description: '', availability: '', merits: [] };
+      arr.push(empty);
+      cur[arrKey] = JSON.stringify(arr);
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
       scheduleSave();
-      updateSectionTicks(container);
       return;
     }
-    const acqDot = e.target.closest('[data-acq-dot]') || e.target.closest('[data-skill-acq-dot]');
-    if (acqDot) {
-      const isSkill = !!acqDot.dataset.skillAcqDot;
-      const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
-      const slot = isSkill ? null : (acqDot.dataset.acqSlot || null);
-      const inputId = isSkill ? 'dt-skill_acq_availability' : (slot ? `dt-acq_${slot}_availability` : 'dt-acq_availability');
-      const input = document.getElementById(inputId);
-      if (input) input.value = val;
-      const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
-      if (row) {
-        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
-        row.querySelectorAll(`[${dotAttr}]`).forEach(d => {
-          d.classList.toggle('dt-acq-dot-filled', parseInt(d.getAttribute(dotAttr), 10) <= val);
-        });
-        row.querySelectorAll('[data-acq-unknown],[data-skill-acq-unknown]').forEach(u => u.classList.remove('dt-acq-dot-filled'));
-        const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-        let lbl = row.querySelector('.dt-acq-avail-label');
-        if (!lbl) { lbl = document.createElement('span'); lbl.className = 'dt-acq-avail-label'; row.appendChild(lbl); }
-        lbl.textContent = labels[val] || '';
+    const acqRemoveBtn = e.target.closest('[data-acq-row-remove]');
+    if (acqRemoveBtn) {
+      const rowKey = acqRemoveBtn.dataset.acqRowRemove;
+      const idx = parseInt(acqRemoveBtn.dataset.acqRowIdx, 10);
+      const cur = collectResponses();
+      const arrKey = rowKey === 'skill' ? 'acq_skill_rows' : 'acq_resource_rows';
+      let arr = [];
+      try { arr = JSON.parse(cur[arrKey] || '[]'); } catch { arr = []; }
+      if (Array.isArray(arr) && idx >= 0 && idx < arr.length) {
+        arr.splice(idx, 1);
+        cur[arrKey] = JSON.stringify(arr);
+        if (responseDoc) responseDoc.responses = cur;
+        else responseDoc = { responses: cur };
+        renderForm(container);
+        scheduleSave();
       }
+      return;
+    }
+    const acqUnknown = e.target.closest('[data-acq-unknown]');
+    if (acqUnknown) {
+      const rowKey = acqUnknown.dataset.acqRowKey;
+      const idx = acqUnknown.dataset.acqRowIdx;
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = hidden.value === 'unknown' ? '' : 'unknown';
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
       scheduleSave();
-      updateSectionTicks(container);
+      return;
+    }
+    const acqDot = e.target.closest('[data-acq-dot]');
+    if (acqDot) {
+      const rowKey = acqDot.dataset.acqRowKey;
+      const idx = acqDot.dataset.acqRowIdx;
+      const val = String(parseInt(acqDot.dataset.acqDot, 10) || 0);
+      const hidden = container.querySelector(`[data-acq-avail-hidden="${rowKey}_${idx}"]`);
+      if (hidden) hidden.value = val;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    const acqSkillSpec = e.target.closest('[data-acq-skill-spec]');
+    if (acqSkillSpec) {
+      const idx = acqSkillSpec.dataset.acqRowIdx;
+      const sp = acqSkillSpec.dataset.acqSkillSpec;
+      const hidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (hidden) hidden.value = hidden.value === sp ? '' : sp;
+      const cur = collectResponses();
+      if (responseDoc) responseDoc.responses = cur;
+      else responseDoc = { responses: cur };
+      renderForm(container);
+      scheduleSave();
       return;
     }
     // Contact row toggle
@@ -1881,6 +2274,52 @@ function renderForm(container) {
       const typeEl = document.getElementById(`dt-retainer_${n}_type`);
       const taskEl = document.getElementById(`dt-retainer_${n}_task`);
       if (typeEl) typeEl.value = '';
+      if (taskEl) taskEl.value = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.28: Mentor row toggle
+    const mentorToggle = e.target.closest('[data-mentor-toggle]');
+    if (mentorToggle && !e.target.closest('[data-mentor-clear]')) {
+      const n = mentorToggle.dataset.mentorToggle;
+      const panel = container.querySelector(`[data-mentor-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // dt-form.28: Mentor clear button
+    const mentorClear = e.target.closest('[data-mentor-clear]');
+    if (mentorClear) {
+      const n = mentorClear.dataset.mentorClear;
+      const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+      const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+      if (targetEl) targetEl.value = '';
+      if (taskEl) taskEl.value = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.28: Staff row toggle
+    const staffToggle = e.target.closest('[data-staff-toggle]');
+    if (staffToggle && !e.target.closest('[data-staff-clear]')) {
+      const n = staffToggle.dataset.staffToggle;
+      const panel = container.querySelector(`[data-staff-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // dt-form.28: Staff clear button
+    const staffClear = e.target.closest('[data-staff-clear]');
+    if (staffClear) {
+      const n = staffClear.dataset.staffClear;
+      const targetEl = document.getElementById(`dt-staff_${n}_target`);
+      const taskEl = document.getElementById(`dt-staff_${n}_task`);
+      if (targetEl) targetEl.value = '';
       if (taskEl) taskEl.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -1983,35 +2422,45 @@ function renderForm(container) {
         if (badge) badge.textContent = hasContent ? 'Tasked' : 'Idle';
       }
     }
+    // dt-form.28: live status update for Mentor / Staff rows.
+    const mentorPanel = e.target.closest('[data-mentor-panel]');
+    if (mentorPanel) {
+      const n = mentorPanel.dataset.mentorPanel;
+      const row = container.querySelector(`[data-mentor-row="${n}"]`);
+      if (row) {
+        const targetEl = document.getElementById(`dt-mentor_${n}_target`);
+        const taskEl = document.getElementById(`dt-mentor_${n}_task`);
+        const hasContent = (targetEl && targetEl.value.trim()) || (taskEl && taskEl.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Asked' : 'Idle';
+      }
+    }
+    const staffPanel = e.target.closest('[data-staff-panel]');
+    if (staffPanel) {
+      const n = staffPanel.dataset.staffPanel;
+      const row = container.querySelector(`[data-staff-row="${n}"]`);
+      if (row) {
+        const targetEl = document.getElementById(`dt-staff_${n}_target`);
+        const taskEl = document.getElementById(`dt-staff_${n}_task`);
+        const hasContent = (targetEl && targetEl.value.trim()) || (taskEl && taskEl.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Tasked' : 'Idle';
+      }
+    }
   });
   container.addEventListener('change', (e) => {
-    // NPCR.12/13: relationship picker change — swap the kind-driven label
-    // and placeholder in place, preserving whatever the player has typed.
-    if (e.target.id === 'dt-story_moment_relationship_id') {
-      const relId = e.target.value;
-      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
-      const prompt = edge
-        ? promptForKind(edge.kind, edge.custom_label)
-        : promptForKind('_default', null);
-      const label = document.getElementById('dt-story_moment_note_label');
-      const note  = document.getElementById('dt-story_moment_note');
-      if (label) label.textContent = prompt.label;
-      if (note)  note.setAttribute('placeholder', prompt.placeholder);
-      scheduleSave();
-      return;
-    }
+    // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
+    // The story-moment relationship picker (a DB-relational element) was
+    // suppressed under the broader NPC-interaction policy alongside the
+    // legacy renderer deletion. No DOM element with id
+    // `dt-story_moment_relationship_id` is rendered anywhere now.
 
-    // Personal story free-text NPC name — sync to hidden fields and deselect cards
-    if (e.target.id === 'dt-personal_story_npc_name_free') {
-      const val    = e.target.value.trim();
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = val ? '__new__' : '';
-      if (nameEl) nameEl.value = val;
-      if (val) container.querySelectorAll('[data-npc-pick]').forEach(c => c.classList.remove('dt-npc-card-selected'));
-      scheduleSave();
-      return;
-    }
+    // dt-form.33: legacy free-text NPC name `_free` change handler removed.
+    // The legacy renderer that emitted `dt-personal_story_npc_name_free` is
+    // gone; dt-form.18's option Y uses `dt-personal_story_npc_name` directly
+    // as a typed-string input, no `_free` mirror needed.
     if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -2039,16 +2488,10 @@ function renderForm(container) {
       gateValues[`merit_${mk}`] = meritToggle.value;
       updateMeritSections(container);
     }
-    // XP category picker — re-render to show item dropdown
-    if (e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]')) {
-      const slotEl = e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]');
-      activeProjectTab = parseInt(slotEl.dataset.xpPickCat || slotEl.dataset.xpPickItem, 10);
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
+    // Issue #102 (2026-05-08): legacy XP category/item picker click handler
+    // deleted — the data-xp-pick-cat / data-xp-pick-item attributes were
+    // emitted only by the dead-code-wrapped legacy block. The redesigned
+    // multi-row grid uses [data-xp-row] / [data-xp-cat] / [data-xp-item].
     // Project action change — re-render to show correct fields for action type
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
@@ -2059,50 +2502,10 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // JDT-2: Solo/Joint toggle — re-render to show/hide the joint authoring panel
-    const soloJoint = e.target.closest('[data-project-solo-joint]');
-    if (soloJoint) {
-      activeProjectTab = parseInt(soloJoint.dataset.projectSoloJoint, 10);
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // Single/Dual roll toggle — show or hide the secondary dice pool
-    const poolCountRadio = e.target.closest('[data-project-pool-count]');
-    if (poolCountRadio) {
-      const slot = poolCountRadio.dataset.projectPoolCount;
-      const wrap = container.querySelector(`[data-secondary-wrap="${slot}"]`);
-      if (wrap) {
-        if (poolCountRadio.value === 'dual') {
-          wrap.removeAttribute('hidden');
-        } else {
-          wrap.querySelectorAll('select').forEach(sel => { sel.value = ''; });
-          wrap.setAttribute('hidden', '');
-          scheduleSave();
-        }
-      }
-      return;
-    }
-    // Solo / Support Assets toggle — show or hide the Allies/Retainers picker
-    const supportAssetsRadio = e.target.closest('[data-project-support-assets]');
-    if (supportAssetsRadio) {
-      const slot = supportAssetsRadio.dataset.projectSupportAssets;
-      const wrap = container.querySelector(`[data-support-assets-wrap="${slot}"]`);
-      if (wrap) {
-        if (supportAssetsRadio.value === 'support') {
-          wrap.removeAttribute('hidden');
-        } else {
-          // Reuse the existing chip-click handler to deselect each chip
-          // cleanly — keeps sphere_${i}_action and joint_sphere_chips in sync.
-          wrap.querySelectorAll('[data-joint-sphere-slot].dt-chip--selected').forEach(chip => chip.click());
-          wrap.setAttribute('hidden', '');
-          scheduleSave();
-        }
-      }
-      return;
-    }
+    // dt-form.24: Single/Dual roll toggle handler removed alongside
+    // renderSecondaryDicePool. No DOM emits `[data-project-pool-count]`
+    // anymore; defensive delegation harmless if a stale element somehow
+    // survives.
     // Sphere action change — re-render for action-specific fields
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
@@ -2145,7 +2548,46 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Ambience direction ticker — re-render so desc/prompt/outcome update
+    // dt-form.25: Ambience row-table arrow click. Single-target state
+    // machine per the 6 ACs:
+    //   - new row click           → switch to (newRow, clickedDir)
+    //   - opposite arrow same row → switch direction, retain row
+    //   - same arrow same row     → toggle off (clear both)
+    const ambArrow = e.target.closest('[data-amb-arrow]');
+    if (ambArrow) {
+      e.preventDefault();
+      const slot     = ambArrow.dataset.ambSlot;
+      const target   = ambArrow.dataset.ambTarget;
+      const dirClick = ambArrow.dataset.ambArrow; // 'up' | 'down'
+      const targetEl = document.getElementById(`dt-project_${slot}_ambience_target`);
+      const dirEl    = document.getElementById(`dt-project_${slot}_ambience_direction`);
+      const curTarget = targetEl ? targetEl.value : '';
+      const curDir    = dirEl    ? dirEl.value    : '';
+      let nextTarget = '';
+      let nextDir    = '';
+      if (curTarget === target && curDir === dirClick) {
+        // same arrow same row → toggle off
+        nextTarget = '';
+        nextDir    = '';
+      } else {
+        // new row OR opposite arrow same row → set to clicked
+        nextTarget = target;
+        nextDir    = dirClick;
+      }
+      if (targetEl) targetEl.value = nextTarget;
+      if (dirEl)    dirEl.value    = nextDir;
+      activeProjectTab = parseInt(slot, 10) || activeProjectTab;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // dt-form.25: legacy improve/degrade ticker handler retained for
+    // sphere-side ambience_change (sphere keeps the legacy radio). Project
+    // side no longer emits `[data-proj-ambience-dir]` after the row-table
+    // redesign; this branch is unreachable for projects but kept defensively.
     const projAmbienceDir = e.target.closest('[data-proj-ambience-dir]');
     if (projAmbienceDir) {
       activeProjectTab = parseInt(projAmbienceDir.dataset.projAmbienceDir, 10);
@@ -2183,16 +2625,28 @@ function renderForm(container) {
       return;
     }
     // Project dice pool spec chip — toggle selection and re-render
+    // Issue #164 (2026-05-08): hardened. Toggle now mutates responseDoc.responses
+    // directly (canonical state) AND mirrors to the hidden DOM input as a
+    // belt-and-braces measure for any consumer that reads the input directly.
+    // Then collect+render so the dice-pool total span re-renders with the
+    // bonus included via renderDicePool's spec branch.
     const poolSpecChip = e.target.closest('[data-pool-spec]');
     if (poolSpecChip) {
       const prefix = poolSpecChip.dataset.poolSpec;
-      const specName = poolSpecChip.dataset.specName;
+      const specName = poolSpecChip.dataset.specName || '';
+      const key = `${prefix}_spec`;
+      const baseResponses = (responseDoc && responseDoc.responses) || {};
+      const cur = baseResponses[key] || '';
+      const next = cur === specName ? '' : specName;
+      // Canonical write — guarantees the spec state persists across renders
+      // even if the hidden input wasn't found or its value diverged.
+      const nextResponses = { ...baseResponses, [key]: next };
       const hidden = document.getElementById(`dt-${prefix}_spec`);
-      if (hidden) hidden.value = hidden.value === specName ? '' : specName;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
+      if (hidden) hidden.value = next;
+      if (responseDoc) responseDoc.responses = nextResponses;
+      else responseDoc = { responses: nextResponses };
       renderForm(container);
+      scheduleSave();
       return;
     }
     // XP category/item change — collect current state and re-render
@@ -2206,13 +2660,14 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Skill acquisition pool change — re-render for spec chips
-    if (e.target.id === 'dt-skill_acq_pool_skill' || e.target.id === 'dt-skill_acq_pool_attr') {
-      // Clear spec if skill changed
-      if (e.target.id === 'dt-skill_acq_pool_skill') {
-        const specInput = document.getElementById('dt-skill_acq_pool_spec');
-        if (specInput) specInput.value = '';
-      }
+    // dt-form.29: Skill row select change — re-render so the spec-chip
+    // strip rebuilds for the new skill and the read-only pool annotation
+    // updates. Spec is cleared on skill change to avoid carrying a spec
+    // that doesn't apply to the newly-selected skill.
+    if (e.target.matches('[data-acq-skill]')) {
+      const idx = e.target.dataset.acqSkill;
+      const specHidden = container.querySelector(`[data-acq-skill-spec-hidden="${idx}"]`);
+      if (specHidden) specHidden.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2317,42 +2772,43 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // NPC card selection
-    const npcCard = e.target.closest('[data-npc-pick]');
-    if (npcCard) {
-      const id   = npcCard.dataset.npcPick;
-      const name = npcCard.dataset.npcName || '';
-      const idEl   = document.getElementById('dt-personal_story_npc_id');
-      const nameEl = document.getElementById('dt-personal_story_npc_name');
-      if (idEl)   idEl.value   = id;
-      if (nameEl) nameEl.value = name;
-      container.querySelectorAll('[data-npc-pick]').forEach(c =>
-        c.classList.toggle('dt-npc-card-selected', c.dataset.npcPick === id)
-      );
-      // Clear free-text field when a card is picked
-      const freeEl = document.getElementById('dt-personal_story_npc_name_free');
-      if (freeEl) freeEl.value = '';
-      scheduleSave();
-      updateSectionTicks(container);
+    // XP row: add a new empty row immediately (no debounce)
+    const addXpRowBtn = e.target.closest('[data-xp-add-slot]');
+    if (addXpRowBtn) {
+      const responses = collectResponses();
+      const slot = addXpRowBtn.dataset.xpAddSlot;
+      const key = `project_${slot}_xp_rows`;
+      let rows = [];
+      try { rows = JSON.parse(responses[key] || '[]'); } catch { rows = []; }
+      rows.push({ category: '', item: '', dotsBuying: 0 });
+      responses[key] = JSON.stringify(rows);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       return;
     }
-    // Target character chip (single-select, dtui-8)
-    const targetCharChip = e.target.closest('[data-project-target-char]');
-    if (targetCharChip) {
-      const slotNum = targetCharChip.dataset.projectTargetChar;
-      const charId  = targetCharChip.dataset.charId;
-      const hidden  = document.getElementById(`dt-project_${slotNum}_target_value`);
-      const wasSelected = targetCharChip.classList.contains('dt-chip--selected');
-      container.querySelectorAll(`[data-project-target-char="${slotNum}"]`).forEach(c => c.classList.remove('dt-chip--selected'));
-      if (!wasSelected) {
-        targetCharChip.classList.add('dt-chip--selected');
-        if (hidden) hidden.value = charId;
-      } else {
-        if (hidden) hidden.value = '';
-      }
+    // XP row: remove a row immediately and save
+    const removeXpRowBtn = e.target.closest('[data-xp-remove-slot]');
+    if (removeXpRowBtn) {
+      const responses = collectResponses();
+      const slot = removeXpRowBtn.dataset.xpRemoveSlot;
+      const idx = Number(removeXpRowBtn.dataset.xpRemoveIdx);
+      const key = `project_${slot}_xp_rows`;
+      let rows = [];
+      try { rows = JSON.parse(responses[key] || '[]'); } catch { rows = []; }
+      rows.splice(idx, 1);
+      responses[key] = JSON.stringify(rows);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       scheduleSave();
       return;
     }
+    // dt-form.33: NPC card click handler removed alongside the
+    // _legacyRenderPersonalStorySection deletion. No DOM element with
+    // [data-npc-pick] is rendered anywhere now.
+    // dt-form.16: target character chip handler removed — universal charPicker
+    // mounted in renderTargetCharOrOther handles its own selection lifecycle.
     // Maintenance merit chip — single-select, writes to hidden target_value input
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
@@ -2371,47 +2827,9 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // DTUI-13: joint invitee chip — multi-select, writes to hidden input
-    const inviteeChip = e.target.closest('[data-joint-invitee-slot]');
-    if (inviteeChip && !inviteeChip.disabled) {
-      const n = inviteeChip.dataset.jointInviteeSlot;
-      inviteeChip.classList.toggle('dt-chip--selected');
-      const selected = container.querySelectorAll(`[data-joint-invitee-slot="${n}"].dt-chip--selected`);
-      const ids = [...selected].map(el => el.dataset.charId).filter(Boolean);
-      const hidden = document.getElementById(`dt-project_${n}_joint_invited_ids`);
-      if (hidden) hidden.value = JSON.stringify(ids);
-      scheduleSave();
-      return;
-    }
-    // DTUI-16: sphere character target chip — single-select
-    // Shoutout picks chip — multi-select up to 3, non-attendees disabled
-    const shoutoutChip = e.target.closest('[data-shoutout-pick]');
-    if (shoutoutChip && !shoutoutChip.disabled) {
-      const grid = container.querySelector('[data-shoutout-grid]');
-      const selected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
-      const wasSelected = shoutoutChip.classList.contains('dt-chip--selected');
-      if (wasSelected) {
-        shoutoutChip.classList.remove('dt-chip--selected');
-      } else if (selected.length < 3) {
-        shoutoutChip.classList.add('dt-chip--selected');
-      }
-      const newSelected = grid ? [...grid.querySelectorAll('.dt-chip--selected')] : [];
-      const atLimit = newSelected.length >= 3;
-      grid?.querySelectorAll('[data-shoutout-pick]:not(.dt-chip--selected)').forEach(btn => {
-        btn.disabled = atLimit;
-      });
-      const limitMsg = container.querySelector('.dt-shoutout-limit');
-      if (atLimit && !limitMsg) {
-        const msg = document.createElement('p');
-        msg.className = 'dt-shoutout-limit';
-        msg.textContent = '3 selections made — unselect one to change.';
-        grid?.insertAdjacentElement('afterend', msg);
-      } else if (!atLimit && limitMsg) {
-        limitMsg.remove();
-      }
-      scheduleSave();
-      return;
-    }
+    // dt-form.16: shoutout chip handler removed — universal charPicker mounted
+    // in the shoutout_picks case handles selection and 3-pick cap via remount.
+
     const sphereCharChip = e.target.closest('[data-sphere-char-target]');
     if (sphereCharChip && !sphereCharChip.disabled) {
       const prefixN = sphereCharChip.dataset.sphereCharTarget; // e.g. 'sphere_2'
@@ -2428,29 +2846,6 @@ function renderForm(container) {
         if (hidden) hidden.value = '';
       }
       scheduleSave();
-      return;
-    }
-    // DTUI-14: sphere-merit collaborator chip — multi-select, auto-commits Support
-    const sphereChip = e.target.closest('[data-joint-sphere-slot]');
-    if (sphereChip && !sphereChip.disabled) {
-      const n = sphereChip.dataset.jointSphereSlot;
-      const slotKey = sphereChip.dataset.sphereKey;
-      const type = sphereChip.dataset.sphereType;
-      const willSelect = !sphereChip.classList.contains('dt-chip--selected');
-      sphereChip.classList.toggle('dt-chip--selected', willSelect);
-      if (type === 'sphere') {
-        saved[`${slotKey}_action`] = willSelect ? 'support' : '';
-      }
-      const allSphereChips = container.querySelectorAll(`[data-joint-sphere-slot="${n}"]`);
-      const keys = [...allSphereChips]
-        .filter(el => el.classList.contains('dt-chip--selected'))
-        .map(el => el.dataset.sphereKey);
-      saved[`project_${n}_joint_sphere_chips`] = JSON.stringify(keys);
-      // T24 (DTLT-6): re-render so the sphere pane lock badge appears immediately
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
       return;
     }
     // Single-select territory pills
@@ -2641,38 +3036,11 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Add Acquisition button
-    if (e.target.closest('#dt-add-acquisition')) {
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      responses['acq_slot_count'] = String(current + 1);
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // Remove Acquisition button
-    const removeAcqBtn = e.target.closest('[data-remove-acq]');
-    if (removeAcqBtn) {
-      const removeN = parseInt(removeAcqBtn.dataset.removeAcq, 10);
-      const responses = collectResponses();
-      const countEl = document.getElementById('dt-acq-slot-count');
-      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      for (let n = removeN; n < current; n++) {
-        responses[`acq_${n}_description`]  = responses[`acq_${n + 1}_description`]  || '';
-        responses[`acq_${n}_availability`] = responses[`acq_${n + 1}_availability`] || '';
-        responses[`acq_${n}_merits`]       = responses[`acq_${n + 1}_merits`]       || '[]';
-      }
-      delete responses[`acq_${current}_description`];
-      delete responses[`acq_${current}_availability`];
-      delete responses[`acq_${current}_merits`];
-      responses['acq_slot_count'] = String(Math.max(1, current - 1));
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
+    // dt-form.29: legacy `#dt-add-acquisition` and `[data-remove-acq]`
+    // handlers removed. Add/Remove now goes through the structured-row
+    // path at `[data-acq-add-row]` / `[data-acq-row-remove]` which mutates
+    // `responses.acq_resource_rows` / `acq_skill_rows` directly. Mirror
+    // builder rebuilds the legacy `acq_slot_count` + per-slot keys on save.
     // Add Equipment button
     if (e.target.closest('#dt-add-equipment')) {
       const responses = collectResponses();
@@ -2814,8 +3182,7 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
 
-  document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
-  document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
+  // dt-form.34: submit handled via delegated click listener above (survives re-renders).
 }
 
 // ── Cast picker modal ──
@@ -2979,9 +3346,10 @@ function renderMaintenanceWarnings(char, cycle) {
   return out.join('');
 }
 
-function renderProjectSlots(saved) {
+function renderProjectSlots(saved, mode = 'advanced') {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
-  const slotCount = section?.projectSlots || 4;
+  // dt-form.17 (ADR-003 §Q2): MINIMAL renders one project slot only.
+  const slotCount = mode === 'minimal' ? 1 : (section?.projectSlots || 4);
 
   // Build attribute/skill/discipline option lists from character data
   const attrs = ALL_ATTRS.filter(a => getAttrTotal(currentChar, a) > 0);
@@ -3003,9 +3371,6 @@ function renderProjectSlots(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  // JDT-3: pending joint invitations sit at the top of the projects section
-  // so the player sees them as soon as they expand.
-  h += renderPendingInvitationsPanel();
   h += renderMaintenanceWarnings(currentChar, currentCycle);
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
@@ -3024,15 +3389,10 @@ function renderProjectSlots(saved) {
     }
     const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
     const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
-    // JDT-4: Joint badge on the tab when this slot has a joint role.
-    const jointRole = saved[`project_${n}_joint_role`];
-    const jointTabClass = jointRole ? ' dt-proj-tab-joint' : '';
-    const jointBadge = jointRole ? `<span class="dt-proj-tab-joint-badge">Joint</span>` : '';
-    h += `<button type="button" class="dt-proj-tab${active}${noAction}${jointTabClass}" data-proj-tab="${n}">`;
+    h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-proj-tab="${n}">`;
     h += `<span class="dt-proj-tab-icon">${icon}</span>`;
     h += `<span class="dt-proj-tab-num">Action ${n}</span>`;
     h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
-    h += jointBadge;
     h += '</button>';
   }
   h += '</div>';
@@ -3049,12 +3409,7 @@ function renderProjectSlots(saved) {
     }
     let fields = ACTION_FIELDS[actionVal] || [];
 
-    // JDT-4: support-slot detection (set early so the pane wrapper class is right).
-    const slotJointRole = saved[`project_${n}_joint_role`];
-    const slotJointId = saved[`project_${n}_joint_id`];
-    const isSupportSlot = slotJointRole === 'support' && !!slotJointId;
-
-    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}${isSupportSlot ? ' dt-proj-support-pane' : ''}" data-proj-pane="${n}">`;
+    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
 
     // ── Rote-locked slot ──
     const isRoteLocked = feedRoteAction && n === feedRoteSlot;
@@ -3069,139 +3424,17 @@ function renderProjectSlots(saved) {
       continue;
     }
 
-    // ── JDT-4: support slot — locked, read-only joint metadata + editable
-    // pool builder + personal notes textarea. Skip the normal action-type
-    // select and per-action fields entirely.
-    if (isSupportSlot) {
-      const joint = (currentCycle?.joint_projects || [])
-        .find(j => String(j._id) === String(slotJointId) && !j.cancelled_at);
-      if (!joint) {
-        h += `<div class="dt-proj-pane-orphaned">`;
-        h += `<p class="qf-desc">This joint project is no longer available. Contact your Storyteller.</p>`;
-        h += `</div></div>`;
-        continue;
-      }
-      const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
-      const leadName = lead ? lead.name : 'Unknown lead';
-      const personalNotes = saved[`project_${n}_personal_notes`] || '';
-      const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
-
-      h += `<div class="dt-proj-support-header">Support <span class="dt-proj-support-sep">— joint with</span> <strong>${esc(leadName)}</strong></div>`;
-
-      // JDT-6: lead description-change indicator
-      const myParticipantForAck = (joint.participants || []).find(p =>
-        String(p.character_id) === String(currentChar._id) && !p.decoupled_at
-      );
-      const updatedAt = joint.description_updated_at;
-      const ackedAt = myParticipantForAck?.description_change_acknowledged_at;
-      const showIndicator = updatedAt && (!ackedAt || new Date(updatedAt) > new Date(ackedAt));
-      if (showIndicator) {
-        h += `<div class="dt-joint-desc-changed-indicator">`;
-        h += `<strong>The lead has updated this project description.</strong>`;
-        h += `<button type="button" class="dt-joint-desc-acknowledge-btn" data-joint-id="${esc(joint._id)}" data-character-id="${esc(String(currentChar._id))}">View and acknowledge</button>`;
-        h += `</div>`;
-      }
-
-      h += `<div class="dt-proj-support-readonly-block">`;
-      h += `<div class="dt-proj-support-label">Action type</div>`;
-      h += `<div class="dt-proj-support-action">${esc(actionLabel)}</div>`;
-
-      h += `<div class="dt-proj-support-label">Joint description</div>`;
-      const descText = (joint.description || '').trim();
-      if (descText) {
-        h += `<div class="dt-proj-support-desc">${esc(descText)}</div>`;
-      } else {
-        h += `<div class="dt-proj-support-desc dt-proj-support-desc-empty">No description provided.</div>`;
-      }
-
-      if (joint.target_type) {
-        let targetLbl = '';
-        if (joint.target_type === 'character') {
-          let ids = [];
-          try {
-            const parsed = JSON.parse(joint.target_value || '[]');
-            ids = Array.isArray(parsed) ? parsed : (joint.target_value ? [joint.target_value] : []);
-          } catch { ids = joint.target_value ? [joint.target_value] : []; }
-          targetLbl = ids
-            .map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id)
-            .join(', ');
-        } else if (joint.target_type === 'territory') {
-          targetLbl = TERRITORY_DATA.find(t => t.id === joint.target_value)?.name || joint.target_value || '';
-        } else {
-          targetLbl = joint.target_value || '';
-        }
-        if (targetLbl) {
-          h += `<div class="dt-proj-support-label">Joint target</div>`;
-          h += `<div class="dt-proj-support-target">${esc(targetLbl)}</div>`;
-        }
-      }
-      h += `</div>`;
-
-      // Editable pool builders — same shape as a normal slot, so saves
-      // reuse project_${n}_pool_attr/skill/disc + pool2_* paths.
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
-
-      // Personal notes
-      h += `<div class="qf-field">`;
-      h += `<label class="qf-label" for="dt-project_${n}_personal_notes">Your personal notes</label>`;
-      h += `<p class="qf-desc">What do you bring to this joint? What is your character's angle on it?</p>`;
-      h += `<textarea id="dt-project_${n}_personal_notes" class="qf-textarea" rows="4">${esc(personalNotes)}</textarea>`;
-      h += `</div>`;
-
-      // JDT-6: Decouple — voluntary exit from this joint. The participant's
-      // invitation_id is recorded on joint.participants when accept landed.
-      const myParticipant = (joint.participants || []).find(p =>
-        String(p.submission_id) === String(responseDoc?._id) &&
-        Number(p.project_slot) === Number(n) &&
-        !p.decoupled_at
-      );
-      if (myParticipant?.invitation_id) {
-        h += `<div class="dt-joint-decouple-row">`;
-        h += `<button type="button" class="dt-joint-decouple-btn" data-invitation-id="${esc(myParticipant.invitation_id)}">Decouple from this joint</button>`;
-        h += `<p class="qf-desc dt-joint-decouple-help">Decoupling frees this slot. The lead is notified, and you can use the slot for a different project.</p>`;
-        h += `</div>`;
-      }
-
-      h += `</div>`; // close dt-proj-pane
-      continue;
-    }
-
-    // ── JDT-2: detect existing joint up front so JDT-6 can lock the
-    // action-type select while the joint has active invitations. ──
-    const isJointEligible = JOINT_ELIGIBLE_ACTIONS.includes(actionVal);
-    const existingJoint = isJointEligible ? findExistingJoint(n) : null;
-    const isJoint = isJointEligible && (existingJoint != null || saved[`project_${n}_is_joint`] === 'yes');
-
-    // JDT-6: action-type change is blocked while the joint has any pending
-    // or accepted (non-decoupled) invitation. Lead must cancel the joint
-    // first to repurpose the slot.
-    let lockActionType = false;
-    if (existingJoint) {
-      const activeInvs = _jointInvitations.filter(inv =>
-        String(inv.joint_project_id) === String(existingJoint._id) &&
-        (inv.status === 'pending' || inv.status === 'accepted')
-      );
-      if (activeInvs.length > 0) lockActionType = true;
-    }
-
     h += '<div class="dt-action-block">';
 
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
-    const actionSelectAttrs = lockActionType
-      ? ' disabled title="Cancel the joint first to change action type."'
-      : '';
-    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}"${actionSelectAttrs}>`;
+    h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
     for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
     h += '</select>';
-    if (lockActionType) {
-      h += `<p class="qf-desc dt-action-type-locked-help">This joint has active invitations. Cancel the joint first to change action type.</p>`;
-    }
     h += '</div>';
 
     // .dt-action-desc — descriptive copy for the selected action type
@@ -3217,60 +3450,12 @@ function renderProjectSlots(saved) {
 
     // ── XP Spend picker (structured) ──
     if (fields.includes('xp_picker')) {
-      const savedCat  = saved[`project_${n}_xp_category`] || '';
-      const savedItem = saved[`project_${n}_xp_item`] || '';
-      const budget = xpLeft(currentChar);
-
-      // Deduct already-committed project XP from other slots
-      let committed = 0;
-      for (let s = 1; s <= 4; s++) {
-        if (s === n) continue;
-        if (saved[`project_${s}_action`] === 'xp_spend') {
-          const cat = saved[`project_${s}_xp_category`];
-          const item = saved[`project_${s}_xp_item`];
-          if (cat && item) committed += getRowCost({ category: cat, item, dotsBuying: 1 });
-        }
-      }
-      const remaining = budget - committed;
-
-      h += '<div class="dt-xp-picker">';
-      h += '<p class="qf-desc">Select one trait to purchase. 1 dot per project action committed.</p>';
-      h += `<div class="dt-xp-picker-budget ${remaining < 0 ? 'dt-influence-over' : ''}">`;
-      h += `${remaining} / ${budget} XP available</div>`;
-
-      // Category dropdown (merits excluded — use Admin section for free merits)
-      h += `<div class="dt-xp-picker-row">`;
-      h += `<select id="dt-project_${n}_xp_category" class="qf-select dt-xp-pick-cat" data-xp-pick-cat="${n}">`;
-      h += '<option value="">\u2014 Category \u2014</option>';
-      for (const opt of XP_CATEGORIES.filter(o => o.value && o.value !== 'merit')) {
-        h += `<option value="${esc(opt.value)}"${savedCat === opt.value ? ' selected' : ''}>${esc(opt.label)}</option>`;
-      }
-      h += '</select>';
-
-      if (savedCat) {
-        const items = getItemsForCategory(savedCat);
-        h += `<select id="dt-project_${n}_xp_item" class="qf-select dt-xp-pick-item" data-xp-pick-item="${n}">`;
-        h += '<option value="">\u2014 Item \u2014</option>';
-        for (const item of items) {
-          h += `<option value="${esc(item.value)}"${savedItem === item.value ? ' selected' : ''}>${esc(item.label)}</option>`;
-        }
-        h += '</select>';
-      }
-
-      if (savedCat && savedItem) {
-        const cost = getRowCost({ category: savedCat, item: savedItem, dotsBuying: 1 });
-        const insufficient = cost > remaining;
-        h += `<span class="dt-xp-cost${insufficient ? ' dt-vitae-over' : ''}">${cost} XP${insufficient ? ' \u2014 Insufficient XP' : ''}</span>`;
-      }
-      h += '</div>';
-
-      h += renderQuestion({
-        key: `project_${n}_xp_trait`, label: 'In-character justification',
-        type: 'textarea', required: false,
-        placeholder: 'Describe the activity or events that justify this growth.',
-      }, saved[`project_${n}_xp_trait`] || '');
-
-      h += '</div>';
+      // dt-form.26: in-slot multi-row XP-Spend grid. Reuses renderXpRow which
+      // already encodes hotfix #44's merit-eligibility logic
+      // (getItemsForCategory('merit') -> getRulesByCategory + meetsPrereq).
+      // Per-slot rows persist as `responses.project_N_xp_rows` (JSON);
+      // top-level `responses.xp_spend` mirror-built in collectResponses (DAR-A1).
+      h += _renderProjectXpRows(n, saved);
     }
 
     if (fields.includes('title')) {
@@ -3309,10 +3494,11 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_investigate_lead`] || '');
     }
 
-    // ── Dice pools ──
+    // ── Dice pool (single, primary) ──
+    // dt-form.24: secondary pool + Single/Dual roll selector stripped per
+    // ADR §Audit-baseline. Personal Action slots emit one dice pool only.
     if (fields.includes('pools')) {
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
-      h += renderSecondaryDicePool(n, attrs, skills, discs, saved);
+      h += renderDicePool(n, 'pool', 'Dice Pool', attrs, skills, discs, saved);
     }
 
     // ── XP note ──
@@ -3324,6 +3510,106 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_xp`] || '');
     }
 
+    // ── dt-form.25: Ambience row-table (single-target by design) ──
+    // Replaces the legacy target-zone (territory pills + improve/degrade
+    // radios) for `ambience_change` actions. Each row has a RED DOWN arrow
+    // and a GREEN UP arrow; at most one row holds a selection at any time.
+    // Persists single (target, direction) pair as
+    // responses.project_N_ambience_target + project_N_ambience_direction.
+    if (actionVal === 'ambience_change') {
+      // Read selection. Backward-compat seed: if new fields are empty but
+      // legacy `_target_terr` + `_ambience_dir` exist, derive selection
+      // from those so pre-redesign drafts surface correctly on first render.
+      let savedTarget = saved[`project_${n}_ambience_target`] || '';
+      let savedDir    = saved[`project_${n}_ambience_direction`] || '';
+      if (!savedTarget) {
+        const legacyTerr = saved[`project_${n}_target_terr`] || '';
+        if (legacyTerr) savedTarget = legacyTerr;
+      }
+      if (!savedDir) {
+        const legacyDir = saved[`project_${n}_ambience_dir`] || '';
+        if (legacyDir === 'improve') savedDir = 'up';
+        else if (legacyDir === 'degrade') savedDir = 'down';
+      }
+
+      h += '<div class="qf-field dt-amb-table-wrap">';
+      h += '<label class="qf-label">Territory + Direction</label>';
+      h += '<p class="qf-desc">Pick one direction on one territory. Success is +/-2 influence change to territory, +/-4 on exceptional success.</p>';
+      h += `<div class="dt-amb-table" data-amb-table="${n}">`;
+      for (const t of TERRITORY_DATA) {
+        const isRow = String(savedTarget) === String(t.slug);
+        const upOn   = isRow && savedDir === 'up'   ? ' dt-amb-arrow--on'  : '';
+        const downOn = isRow && savedDir === 'down' ? ' dt-amb-arrow--on' : '';
+        h += `<div class="dt-amb-row" data-amb-row="${esc(t.slug)}">`;
+        h += `<span class="dt-amb-row-name">${esc(t.name)}</span>`;
+        h += `<button type="button" class="dt-amb-arrow dt-amb-arrow--down${downOn}" data-amb-arrow="down" data-amb-target="${esc(t.slug)}" data-amb-slot="${n}" aria-label="Decrease ambience of ${esc(t.name)}" aria-pressed="${downOn ? 'true' : 'false'}">▼</button>`;
+        h += `<button type="button" class="dt-amb-arrow dt-amb-arrow--up${upOn}" data-amb-arrow="up" data-amb-target="${esc(t.slug)}" data-amb-slot="${n}" aria-label="Increase ambience of ${esc(t.name)}" aria-pressed="${upOn ? 'true' : 'false'}">▲</button>`;
+        h += '</div>';
+      }
+      h += '</div>';
+      h += `<input type="hidden" id="dt-project_${n}_ambience_target" value="${esc(savedTarget)}">`;
+      h += `<input type="hidden" id="dt-project_${n}_ambience_direction" value="${esc(savedDir)}">`;
+      h += '</div>';
+    }
+
+    // ── dt-form.22: ROTE territory + read-only inherited pool ──
+    if (actionVal === 'rote') {
+      h += '<div class="qf-field dt-proj-rote-territory">';
+      h += '<label class="qf-label">Where does this second hunt happen?</label>';
+      const roteTerrSaved = saved.feeding_territories_rote || '';
+      let roteTerrGridVals = {};
+      try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
+      const mainTerrSaved = saved.feeding_territories || '';
+      let mainTerrGridVals = {};
+      try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
+      h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
+      h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
+      h += '</div>';
+
+      // Read-only inherited pool. Derive from the same primary-feed inputs
+      // the simplified MINIMAL form uses, plus the chosen rote territory's
+      // ambience modifier.
+      const slugFromGrid = (gridStr) => {
+        let grid = {};
+        try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+        const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+        if (!key) return '';
+        const niceName = FEEDING_TERRITORIES.find(
+          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        );
+        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+        return td?.slug || '';
+      };
+      const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
+      // Issue #166 (2026-05-08): pass the primary feeding's active spec
+      // so the inherited ROTE pool matches the ADVANCED primary readout
+      // 1:1. Without this, ROTE under-counted by the +1 / +2 speciality
+      // bonus.
+      const inheritedPool = computeBestFeedingPool({
+        char: currentChar,
+        methodId: feedMethodId,
+        territorySlug: roteSlug || slugFromGrid(saved.feeding_territories || ''),
+        spec: feedSpecName || '',
+      });
+      h += '<div class="qf-field dt-proj-rote-pool">';
+      if (!feedMethodId) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else if (!inheritedPool) {
+        h += '<p class="qf-desc">Pool will be derived from primary feeding once you pick a method in the Feeding section.</p>';
+      } else {
+        const parts = [];
+        if (inheritedPool.attr.name) parts.push(`${inheritedPool.attr.val} ${esc(inheritedPool.attr.name)}`);
+        if (inheritedPool.skill.name) parts.push(`${inheritedPool.skill.val} ${esc(inheritedPool.skill.name)}`);
+        else if (inheritedPool.unskilled) parts.push(`${inheritedPool.unskilled} unskilled`);
+        if (inheritedPool.disc.name) parts.push(`${inheritedPool.disc.val} ${esc(inheritedPool.disc.name)}`);
+        if (inheritedPool.ambience.mod) parts.push(`${inheritedPool.ambience.mod > 0 ? '+' : ''}${inheritedPool.ambience.mod} ambience`);
+        if (inheritedPool.spec?.bonus) parts.push(`+${inheritedPool.spec.bonus} ${esc(inheritedPool.spec.name)}`);
+        h += `<label class="qf-label">Pool: <strong>${inheritedPool.total}</strong> <span class="qf-desc" style="font-weight:normal">(inherited from primary hunt)</span></label>`;
+        h += `<p class="qf-desc">${parts.join(' &middot; ')}</p>`;
+      }
+      h += '</div>';
+    }
+
     // ── Approach ──
     if (fields.includes('description')) {
       const approachText = saved[`project_${n}_description`] || '';
@@ -3333,46 +3619,6 @@ function renderProjectSlots(saved) {
       h += `<label class="qf-label" for="dt-project_${n}_description">Approach</label>`;
       h += `<textarea id="dt-project_${n}_description" class="qf-textarea" rows="4" placeholder="${esc(approachPrompt)}">${esc(approachText)}</textarea>`;
       h += '</div>';
-    }
-
-    // ── Solo/Joint toggle — bottom of block (dtui-5) ──
-    if (isJointEligible) {
-      h += `<fieldset class="dt-ticker" data-proj-solo-joint-ticker="${n}">`;
-      h += `<legend class="dt-ticker__legend">Mode</legend>`;
-      h += `<label class="dt-ticker__pill">`;
-      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="solo"${!isJoint ? ' checked' : ''} data-project-solo-joint="${n}"${existingJoint ? ' disabled' : ''}>`;
-      h += `Solo</label>`;
-      h += `<label class="dt-ticker__pill">`;
-      h += `<input type="radio" name="dt-project_${n}_solo_joint" value="joint"${isJoint ? ' checked' : ''} data-project-solo-joint="${n}">`;
-      h += `Joint</label>`;
-      h += `</fieldset>`;
-      if (isJoint) {
-        h += renderJointAuthoring(n, saved, existingJoint);
-      }
-
-      // Support Assets toggle — gates the Allies/Retainers picker so it
-      // doesn't read as required. Auto-defaults to "Support Assets" if any
-      // chips were saved previously, so returning players see their picks.
-      const hasAssetMerits = (detectedMerits.spheres?.length || 0) + (detectedMerits.retainers?.length || 0) > 0;
-      if (hasAssetMerits) {
-        const savedChips = saved[`project_${n}_joint_sphere_chips`];
-        const isSupport = !!(savedChips && savedChips !== '[]');
-        h += `<fieldset class="dt-ticker" data-proj-support-assets-ticker="${n}">`;
-        h += `<legend class="dt-ticker__legend">Support</legend>`;
-        h += `<label class="dt-ticker__pill">`;
-        h += `<input type="radio" name="dt-project_${n}_support_assets" value="solo"${!isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
-        h += `Solo</label>`;
-        h += `<label class="dt-ticker__pill">`;
-        h += `<input type="radio" name="dt-project_${n}_support_assets" value="support"${isSupport ? ' checked' : ''} data-project-support-assets="${n}">`;
-        h += `Support Assets</label>`;
-        h += `</fieldset>`;
-        h += `<div class="dt-support-assets-panel" data-support-assets-wrap="${n}"${isSupport ? '' : ' hidden'}>`;
-        h += `<h4 class="dt-joint-panel__heading">Your Allies and Retainers</h4>`;
-        h += `<div class="dt-chip-grid dt-chip-grid--multi">`;
-        h += renderJointSphereChips(n, saved);
-        h += `</div>`;
-        h += `</div>`;
-      }
     }
 
     h += '</div>'; // dt-action-block
@@ -3417,13 +3663,16 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   h += '</select>';
 
   // Skill dropdown
+  // Issue #164 (2026-05-08): dropdown label is plain `Skill (dots)`. The
+  // `[spec1, spec2]` suffix was redundant with the speciality chip strip
+  // below and made the label noisy. The chips ARE the speciality affordance
+  // — clicking one toggles the +1 / +2 bonus into the pool total.
   h += `<select id="dt-${prefix}_skill" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Skill</option>';
   for (const s of skills) {
     const dots = skTotal(currentChar, s);
-    const specs = currentChar.skills?.[s]?.specs?.length ? ` [${currentChar.skills[s].specs.join(', ')}]` : '';
     const sel = savedSkill === s ? ' selected' : '';
-    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})${esc(specs)}</option>`;
+    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
   }
   h += '</select>';
 
@@ -3477,29 +3726,6 @@ function isClanDisc(discName) {
   if (bl && BLOODLINE_DISCS[bl]) return BLOODLINE_DISCS[bl].includes(discName);
   if (clan && CLAN_DISCS[clan]) return CLAN_DISCS[clan].includes(discName);
   return false;
-}
-
-/**
- * Renders the optional Secondary Dice Pool behind a Single Roll / Dual Roll
- * pill toggle (mirrors the Solo/Joint pattern). Defaults to Single. If the
- * slot has any saved pool2 values, the toggle starts on Dual.
- */
-function renderSecondaryDicePool(n, attrs, skills, discs, saved) {
-  const isDual = !!(saved[`project_${n}_pool2_attr`] || saved[`project_${n}_pool2_skill`] || saved[`project_${n}_pool2_disc`]);
-  let h = '';
-  h += `<fieldset class="dt-ticker" data-proj-pool-count-ticker="${n}">`;
-  h += `<legend class="dt-ticker__legend">Roll</legend>`;
-  h += `<label class="dt-ticker__pill">`;
-  h += `<input type="radio" name="dt-project_${n}_pool_count" value="single"${!isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
-  h += `Single Roll</label>`;
-  h += `<label class="dt-ticker__pill">`;
-  h += `<input type="radio" name="dt-project_${n}_pool_count" value="dual"${isDual ? ' checked' : ''} data-project-pool-count="${n}">`;
-  h += `Dual Roll</label>`;
-  h += `</fieldset>`;
-  h += `<div class="dt-secondary-pool-wrap" data-secondary-wrap="${n}"${isDual ? '' : ' hidden'}>`;
-  h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
-  h += '</div>';
-  return h;
 }
 
 /** Parse merit rating string: "2" → { flat: true, min: 2, max: 2 }, "1–5" → { flat: false, min: 1, max: 5 } */
@@ -3588,7 +3814,6 @@ function getItemsForCategory(category) {
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
-          if (rule.parent && (rule.parent === 'Invictus Oath' || rule.parent === 'Carthian Law')) continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
           const rr = rule.rating_range;
@@ -3655,7 +3880,7 @@ function getItemsForCategory(category) {
   }
 }
 
-function renderXpRow(idx, row, xpActions, dotsRemaining) {
+function renderXpRow(idx, row, xpActions, dotsRemaining, slotN) {
   let h = `<div class="dt-xp-row" data-xp-row="${idx}">`;
 
   // Filter categories based on action budget
@@ -3721,7 +3946,105 @@ function renderXpRow(idx, row, xpActions, dotsRemaining) {
     h += `<span class="dt-xp-cost">${cost} XP</span>`;
   }
 
+  if (slotN != null && row.category) {
+    h += `<button type="button" class="dt-xp-row-remove" data-xp-remove-slot="${slotN}" data-xp-remove-idx="${idx}" title="Remove this row">×</button>`;
+  }
+
   h += '</div>';
+  return h;
+}
+
+/**
+ * dt-form.26: per-slot multi-row XP-Spend grid. Replaces the legacy single-row
+ * placeholder when a project slot's action is `xp_spend`. Reuses renderXpRow
+ * for each row (which carries hotfix #44's merit-eligibility logic). Read from
+ * `responses.project_${n}_xp_rows` (JSON-stringified array); backward-compat
+ * seeds rows[0] from the legacy `project_${n}_xp_category` / `_xp_item` /
+ * `_xp_dots` triple when no `_xp_rows` is present yet.
+ *
+ * Per CLAUDE.md XP rules: 1 dot of non-merit growth per xp_spend slot, plus
+ * unlimited free 1-3 dot merits. The dotsRemaining tracker spans all xp_spend
+ * slots' rows so the player sees a single global budget.
+ */
+function _renderProjectXpRows(n, saved) {
+  // Read this slot's rows (JSON), or seed from legacy single-row fields.
+  let xpRows = [];
+  const savedRowsJson = saved[`project_${n}_xp_rows`] || '';
+  if (savedRowsJson) {
+    try { xpRows = JSON.parse(savedRowsJson); } catch { xpRows = []; }
+  }
+  if (!xpRows.length) {
+    const legacyCat  = saved[`project_${n}_xp_category`] || '';
+    const legacyItem = saved[`project_${n}_xp_item`] || '';
+    const legacyDots = parseInt(saved[`project_${n}_xp_dots`] || '0', 10) || 0;
+    if (legacyCat && legacyItem) {
+      xpRows.push({ category: legacyCat, item: legacyItem, dotsBuying: legacyDots || 1 });
+    }
+  }
+  // Always render a trailing empty row so the player can add another purchase
+  // without an extra click. Mirrors the legacy admin xp_grid behaviour.
+  if (!xpRows.length || xpRows[xpRows.length - 1].category) {
+    xpRows.push({ category: '', item: '', dotsBuying: 0 });
+  }
+
+  // Cross-slot accounting. xp_spend slot count drives the non-merit dot budget;
+  // merits 1-3 are free per CLAUDE.md.
+  let xpActions = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] === 'xp_spend') xpActions++;
+  }
+  // Sum non-merit dots across ALL xp_spend slots' rows so the dotsRemaining
+  // displayed on this slot reflects the true cross-slot budget.
+  let dotsUsed = 0;
+  for (let s = 1; s <= 4; s++) {
+    if (saved[`project_${s}_action`] !== 'xp_spend') continue;
+    let slotRows = [];
+    const rj = saved[`project_${s}_xp_rows`] || '';
+    if (rj) { try { slotRows = JSON.parse(rj); } catch { slotRows = []; } }
+    if (!slotRows.length) {
+      const lc = saved[`project_${s}_xp_category`] || '';
+      const li = saved[`project_${s}_xp_item`]     || '';
+      if (lc && li) slotRows = [{ category: lc, item: li, dotsBuying: 1 }];
+    }
+    for (const r of slotRows) {
+      if (!r.category || !r.item) continue;
+      if (r.category === 'merit') continue; // free 1-3 dot merits
+      if (r.category === 'devotion') dotsUsed++; // 1 action per devotion
+      else dotsUsed += (r.dotsBuying || 1);
+    }
+  }
+  const dotsRemaining = xpActions - dotsUsed;
+
+  // Slot total + global budget
+  const slotCost = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const budget = xpLeft(currentChar);
+
+  let h = `<div class="dt-xp-picker dt-xp-grid" data-proj-xp-grid="${n}">`;
+  h += `<p class="qf-desc">XP-spend declarations for this action. Add as many traits as your XP budget allows; merits at 1-3 dots are free, other categories require an XP-Spend action per dot.</p>`;
+  h += `<div class="dt-xp-budget" id="dt-proj_${n}_xp_budget">`;
+  h += `<span>Slot total: <strong>${slotCost}</strong> XP</span>`;
+  h += `<span style="margin-left:14px">Cycle budget: <strong>${budget}</strong> XP available</span>`;
+  if (xpActions > 0) {
+    h += `<span style="margin-left:14px">${xpActions} XP-Spend action${xpActions > 1 ? 's' : ''} — <span class="${dotsRemaining < 0 ? 'dt-influence-over' : ''}">${dotsRemaining} dot${dotsRemaining !== 1 ? 's' : ''} remaining</span></span>`;
+  }
+  h += '</div>';
+
+  for (let i = 0; i < xpRows.length; i++) {
+    h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining, n);
+  }
+  h += `<button type="button" class="dt-xp-row-add" data-xp-add-slot="${n}">+ Add row</button>`;
+  h += '</div>'; // dt-xp-grid
+
+  // In-character justification stays per-slot, single textarea. Carries the
+  // narrative for the entire xp-spend action regardless of row count.
+  h += renderQuestion({
+    key: `project_${n}_xp_trait`,
+    label: 'In-character justification',
+    type: 'textarea',
+    required: false,
+    placeholder: 'Describe the activity or events that justify this growth.',
+  }, saved[`project_${n}_xp_trait`] || '');
+
   return h;
 }
 
@@ -3738,168 +4061,109 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
-// NPCR.12: Personal Story: Off-Screen Life — relationships-driven picker.
-// Retires the DTOSL.2/.4 three-way choice. The picker shows a single list of
-// the character's active relationships (grouped by kind family); selecting
-// one stores its _id as responses.story_moment_relationship_id. The
-// follow-up textarea is kind-driven via kind-prompts.js (NPCR.13).
+// Issue #24: Personal Story — free-text NPC name + interaction note.
+// Replaces the NPCR.12 relationships picker. Players name any NPC they know
+// and describe the interaction; no registered relationship required.
 
 function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  // Back-compat read: new submissions use story_moment_relationship_id;
-  // legacy submissions seeded the note into osl_moment / personal_story_note /
-  // correspondence. The direction radio used personal_story_direction.
-  const savedRelId = saved['story_moment_relationship_id'] || '';
-  const savedNote  = saved['story_moment_note']
-                   || saved['osl_moment']
-                   || saved['personal_story_note']
-                   || saved['correspondence']
-                   || '';
-  // NPCR.12 r3: personal_story_direction no longer read — Story direction radios removed.
-
-  // Only active edges are pickable. _myRelationships was loaded in
-  // renderDowntimeTab from /api/relationships/for-character/:id.
-  const activeEdges = (_myRelationships || []).filter(e => e.status === 'active');
-
-  // Resolve the selected edge (if still active) to drive the prompt copy.
-  const selectedEdge = activeEdges.find(e => String(e._id) === String(savedRelId)) || null;
-  const prompt = selectedEdge
-    ? promptForKind(selectedEdge.kind, selectedEdge.custom_label)
-    : promptForKind('_default', null);
+  // dt-form.18 (ADR-003 §Q2, option Y locked 2026-05-06): single binary
+  // render in BOTH modes — pick Touchstone or Correspondence, optionally
+  // name a person involved (free-text only, NOT a DB-backed picker), then
+  // describe the beat in one textarea. The legacy NPC card picker (DB-
+  // relational, suppressed under the broader NPC-interaction policy) is
+  // removed; the free-text NPC name input is RETAINED because a typed
+  // string is categorically different from an "NPC interaction." Legacy
+  // `personal_story_note` / `_npc_id` / `_direction` fields remain in
+  // `responses` on existing drafts (silent-leave per the no-real-
+  // submissions migration window) but no UI emits them anymore.
+  const savedKind = saved['personal_story_kind'] === 'correspondence'
+    ? 'correspondence'
+    : (saved['personal_story_kind'] === 'touchstone' ? 'touchstone' : '');
+  const savedText = saved['personal_story_text'] || '';
+  const savedNpcName = saved['personal_story_npc_name'] || '';
+  const placeholder = savedKind === 'correspondence'
+    ? 'Describe the correspondence — to whom, about what, what tone you want it to strike.'
+    : savedKind === 'touchstone'
+      ? 'Describe the touchstone moment — a scene with someone or something that anchors your humanity this cycle.'
+      : 'Pick Touchstone or Correspondence above to focus your description.';
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the NPCs tab to add one, or submit without a story moment.</p>';
+  h += '<p class="qf-section-intro">Pick one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen.</p>';
 
-  // Picker: grouped by kind family via <optgroup>.
   h += '<div class="qf-field">';
-  h += '<label class="qf-label">Who is this moment about?</label>';
-  if (activeEdges.length === 0) {
-    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the NPCs tab to create one, or submit this downtime without a story moment.</p>';
-    h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
-  } else {
-    // Group by kind family, sort entries by other-endpoint name within family.
-    const byFamily = Object.fromEntries(FAMILIES.map(f => [f, []]));
-    for (const e of activeEdges) {
-      const k = kindByCode(e.kind);
-      const fam = k?.family || 'Other';
-      byFamily[fam].push(e);
-    }
-    for (const fam of FAMILIES) {
-      byFamily[fam].sort((a, b) => String(a._other_name || '').localeCompare(String(b._other_name || ''), undefined, { sensitivity: 'base' }));
-    }
-
-    h += '<select id="dt-story_moment_relationship_id" class="qf-select">';
-    h += '<option value="">— None (no story moment this cycle) —</option>';
-    for (const fam of FAMILIES) {
-      const bucket = byFamily[fam];
-      if (bucket.length === 0) continue;
-      h += `<optgroup label="${esc(fam)}">`;
-      for (const e of bucket) {
-        const k = kindByCode(e.kind);
-        const kindLabel = k?.label || e.kind;
-        const custom = e.kind === 'other' && e.custom_label ? ` (${esc(e.custom_label)})` : '';
-        const name = e._other_name || '(unknown)';
-        const sel = String(savedRelId) === String(e._id) ? ' selected' : '';
-        h += `<option value="${esc(String(e._id))}"${sel}>${esc(name)} · ${esc(kindLabel)}${custom}</option>`;
-      }
-      h += '</optgroup>';
-    }
-    h += '</select>';
-  }
+  h += '<div class="qf-radio-group" role="radiogroup" aria-label="Personal Story kind">';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="touchstone"${savedKind === 'touchstone' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Touchstone moment</span>';
+  h += '</label>';
+  h += '<label class="qf-radio-label">';
+  h += `<input type="radio" name="dt-personal_story_kind" value="correspondence"${savedKind === 'correspondence' ? ' checked' : ''} data-personal-story-kind>`;
+  h += '<span>Correspondence</span>';
+  h += '</label>';
+  h += '</div>';
   h += '</div>';
 
-  // Kind-driven prompt (NPCR.13).
+  // Optional free-text NPC name. Typed string only — no picker, no DB
+  // lookup. Does not affect isMinimalComplete's gate; metadata only.
   h += '<div class="qf-field" style="margin-top:12px;">';
-  h += `<label class="qf-label" id="dt-story_moment_note_label">${esc(prompt.label)}</label>`;
-  h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
+  h += '<label class="qf-label" for="dt-personal_story_npc_name">Person involved (optional)</label>';
+  h += `<input type="text" id="dt-personal_story_npc_name" class="qf-input" value="${esc(savedNpcName)}" placeholder="Optional — name a person you want involved">`;
   h += '</div>';
 
-  // NPCR.12 r3: Story direction radios retired — subsumed by the NPCs tab
-  // (players flag NPCs for review via NPCR.11, edit their own edges via
-  // NPCR.9, or propose direction shifts by editing edge state text).
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-personal_story_text">';
+  h += savedKind === 'correspondence' ? 'Describe the correspondence' : 'Describe the touchstone moment';
+  h += '</label>';
+  h += `<textarea id="dt-personal_story_text" class="qf-textarea" rows="4" placeholder="${esc(placeholder)}">${esc(savedText)}</textarea>`;
+  h += '</div>';
 
   h += '</div></div>';
   return h;
 }
 
-// ── Legacy renderer (kept for diff isolation — unused after DTOSL.2) ──
-function _legacyRenderPersonalStorySection(saved) {
-  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
-  if (!section) return '';
+// dt-form.33: legacy `_legacyRenderPersonalStorySection` deleted. The
+// function rendered the DB-relational `dt-npc-cards` picker driven by
+// `currentChar.npcs`; suppressed under the broader NPC-interaction
+// release-cycle policy. dt-form.18 already replaced the live render
+// with the Touchstone-or-Correspondence binary; this story prunes the
+// orphan plus its associated click handler and the now-unused
+// `_linkedNpcs` / `_myRelationships` data loads.
 
-  const availableNpcs = (currentChar?.npcs || []).filter(n => n.available !== false);
-  const savedNpcId    = saved['personal_story_npc_id']    || '';
-  const savedNpcName  = saved['personal_story_npc_name']  || '';
-  const savedNote     = saved['personal_story_note']       || '';
-  const savedDir      = saved['personal_story_direction']  || 'continue';
+// dt-form.23 (ADR-003 §Q2): regent-only confirmation section. Canonical
+// store is `cycle.regent_confirmations[]` (same as the regency tab);
+// this surface POSTs to /api/downtime_cycles/:id/confirm-feeding with
+// the territory's current `feeding_rights[]` as the rights snapshot,
+// and the predicate `_isRegencyConfirmedThisCycle()` reads it back.
+// Multi-territory regents are not modelled — `findRegentTerritory()`
+// returns a single territory by design (helpers.js:153).
+function renderRegencySection() {
+  if (gateValues.is_regent !== 'yes') return '';
+  const ri = findRegentTerritory(_territories, currentChar);
+  if (!ri?.territoryId) return '';
+  const terrName = ri.territory || 'your territory';
 
-  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  const myConfirmation = (currentCycle?.regent_confirmations || [])
+    .find(c => String(c.territory_id) === String(ri.territoryId));
+
+  let h = '<div class="qf-section" data-section-key="regency">';
+  h += '<h4 class="qf-section-title">Regency<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Who does your character spend time with this month? Choose someone from your life, or introduce someone new.</p>';
 
-  if (availableNpcs.length) {
-    // NPC card picker
-    h += '<div class="dt-npc-cards">';
-    for (const npc of availableNpcs) {
-      const isSelected = savedNpcId === npc.id;
-      h += `<div class="dt-npc-card${isSelected ? ' dt-npc-card-selected' : ''}" data-npc-pick="${esc(npc.id)}" data-npc-name="${esc(npc.name)}">`;
-      h += `<div class="dt-npc-card-name">${esc(npc.name)}</div>`;
-      if (npc.relationship_type) h += `<div class="dt-npc-card-rel">${esc(npc.relationship_type)}</div>`;
-      if (npc.location_context)  h += `<div class="dt-npc-card-loc">${esc(npc.location_context)}</div>`;
-      h += '</div>';
-    }
-    h += '</div>';
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedNpcId)}">`;
-    h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}">`;
-    h += '<div class="dt-npc-propose">';
-    h += '<label class="qf-label">Or introduce someone new:</label>';
-    h += `<input type="text" class="qf-input dt-npc-freetext" id="dt-personal_story_npc_name_free" value="${esc(savedNpcId === '__new__' ? savedNpcName : '')}" placeholder="Name and brief description\u2026">`;
-    h += '</div>';
+  if (myConfirmation) {
+    const at = myConfirmation.confirmed_at ? new Date(myConfirmation.confirmed_at) : null;
+    const atStr = at && !isNaN(at) ? at.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    h += `<p class="qf-section-intro">Confirmed as Regent of <strong>${esc(terrName)}</strong> for this cycle${atStr ? ` — ${esc(atStr)}` : ''}.</p>`;
   } else {
-    // Free-text fallback — no NPCs registered yet
-    h += `<input type="hidden" id="dt-personal_story_npc_id" value="__new__">`;
-    h += '<div class="qf-field">';
-    h += '<label class="qf-label">Who do you want your character to spend time with?</label>';
-    h += '<p class="qf-desc">Describe them briefly — name, relationship, context. Your ST will use this to seed their character register.</p>';
-    h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}" placeholder="e.g. Marcus, my character\u2019s younger brother\u2026">`;
+    h += `<p class="qf-section-intro">I am acting as Regent of <strong>${esc(terrName)}</strong> for this cycle.</p>`;
+    h += '<div class="qf-actions">';
+    h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
+    h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
     h += '</div>';
-  }
-
-  // Interaction note
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label">What kind of moment do you want?</label>';
-  h += '<p class="qf-desc">What are you hoping for from this interaction — a quiet scene, a difficult conversation, a letter, something unexpected? The more you share, the better the story.</p>';
-  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="3" placeholder="Optional\u2014 any direction, tone, or story beats you\u2019d like\u2026">${esc(savedNote)}</textarea>`;
-  h += '</div>';
-
-  // Story direction
-  h += '<div class="qf-field" style="margin-top:8px;">';
-  h += '<label class="qf-label">Story direction</label>';
-  h += '<div class="dt-npc-direction">';
-  for (const [val, label, desc] of [
-    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
-    ['redirect', 'I\'d like to redirect', 'I want to adjust the story — see note above'],
-  ]) {
-    const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
-    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
-    h += `<span class="dt-npc-dir-label">${label}</span>`;
-    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
-  }
-  h += '</div></div>';
-
-  // DTR.2: correspondence moved here from Court. Rendered from the first
-  // question in section.questions (type 'textarea') so collectResponses
-  // can still find it via `dt-<key>`.
-  const correspondenceQ = (section.questions || []).find(q => q.key === 'correspondence');
-  if (correspondenceQ) {
-    h += renderQuestion(correspondenceQ, saved['correspondence'] || '');
   }
 
   h += '</div></div>';
@@ -4030,9 +4294,16 @@ function renderSorcerySection(saved) {
       // {type, value} objects on responses[`sorcery_N_targets`]. Legacy string
       // values render as a single 'other' row; the next save converts to array.
       const rawTargets = saved[`sorcery_${n}_targets`];
-      const targets = Array.isArray(rawTargets)
-        ? rawTargets
-        : (rawTargets ? [{ type: 'other', value: String(rawTargets) }] : [{ type: '', value: '' }]);
+      let targets;
+      if (Array.isArray(rawTargets)) {
+        targets = rawTargets;
+      } else if (rawTargets && rawTargets.startsWith('[')) {
+        try { targets = JSON.parse(rawTargets); } catch { targets = [{ type: '', value: '' }]; }
+      } else if (rawTargets) {
+        targets = [{ type: 'other', value: String(rawTargets) }];
+      } else {
+        targets = [{ type: '', value: '' }];
+      }
       h += `<div class="qf-field dt-sorcery-targets-block" data-sorcery-slot-targets="${n}">`;
       h += `<label class="qf-label">Target/s</label>`;
       h += `<p class="qf-desc" style="margin:0 0 8px;font-size:.85em;opacity:.8">Not all target types are valid for every rite — check the rite's description for valid targets. The ST will reject any mismatched targeting at processing.</p>`;
@@ -4070,216 +4341,268 @@ function renderSorcerySection(saved) {
 
 // ── Acquisitions (custom render) ──
 
-function renderAcquisitionsSection(saved) {
-  const c = currentChar;
-  // Find Resources merit rating
-  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
-  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+// dt-form.29 (story #87, ADR-003 §Audit-baseline). Two distinct sub-tables —
+// Resources rows + Skill rows — both using the locked 3-col condensed shape
+// (Description / Availability dots / Merit multi-select). Skill rows carry
+// extra inline sub-fields (skill + spec) above the row + a read-only pool
+// annotation derived via `skillAcqPoolStr` (the post-#42 source of truth).
+//
+// Persistence: `responses.acq_resource_rows` + `responses.acq_skill_rows`
+// (JSON-stringified arrays). Mirror builder in collectResponses rebuilds the
+// full legacy surface (acq_slot_count + acq_${N}_* + acq_* + resources_acquisitions
+// blob + skill_acq_* + skill_acquisitions blob) on every save so existing
+// admin/parser/db consumers keep working unchanged.
+//
+// Backward-compat seed: when `_rows` is empty, _readResourceRows /
+// _readSkillRows seed rows[0] from the legacy single-row + multi-slot keys
+// so pre-redesign drafts surface in the new UI on first render. Silent-leave
+// for legacy keys per dt-form.26 A1 precedent — no migration script.
 
-  // All character merits for the picker
-  const charMerits = (c.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
-  );
-
-  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
-  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
-  h += '<div class="qf-section-body">';
-
-  // ── Resources acquisition ──
-    // -- Resources acquisition (multi-slot) --
-  const savedCount = parseInt(saved['acq_slot_count'] || '1', 10);
-  const slotCount = Math.max(1, savedCount);
-  h += `<input type="hidden" id="dt-acq-slot-count" value="${slotCount}">`;
-
-  // Resources Level header (section-level, shared across all slots)
-  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
-  h += `<span class="dt-acq-label">Resources Level:</span>`;
-  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
-  h += '</div>';
-
-  for (let n = 1; n <= slotCount; n++) {
-    h += renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount);
-  }
-
-  h += `<button type="button" class="dt-add-rite-btn dt-add-acq-btn" id="dt-add-acquisition">+ Add Item</button>`;
-
-  // ── Skill-based acquisition ──
-  const skAttrs = ALL_ATTRS.filter(a => getAttrTotal(c, a) > 0);
-  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
-
-  h += '<div class="dt-acq-card" style="margin-top:16px;">';
-  h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
-  h += '<p class="qf-desc">Limited to ONE skill-based acquisition per Downtime.</p>';
-
-  h += renderQuestion({
-    key: 'skill_acq_description', label: 'Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to obtain, and how?',
-  }, saved['skill_acq_description'] || '');
-
-  // Dice pool: Attribute + Skill + relevant Merit
-  h += '<div class="qf-field">';
-  h += '<div class="dt-pool-label">Acquisition Pool</div>';
-  h += '<div class="dt-dice-pool-row">';
-
-  const skSavedAttr = saved['skill_acq_pool_attr'] || '';
-  const skSavedSkill = saved['skill_acq_pool_skill'] || '';
-
-  h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
-  h += '<option value="">Attribute</option>';
-  for (const a of skAttrs) {
-    const dots = getAttrEffective(c, a);
-    h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
-  }
-  h += '</select>';
-
-  h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
-  h += '<option value="">Skill</option>';
-  for (const s of skSkills) {
-    const dots = skTotal(c, s);
-    h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
-  }
-  h += '</select>';
-
-  // Specialisation chips (if selected skill has specs, or IS grants cross-skill specs)
-  const skSavedSpec = saved['skill_acq_pool_spec'] || '';
-  let specBonus = 0;
-  const skNativeSpecs = skSavedSkill ? (c.skills?.[skSavedSkill]?.specs || []) : [];
-  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
-  const skAllSpecs = [...skNativeSpecs, ...skIsSpecs.map(({ spec }) => spec)];
-  if (skSavedSpec && skAllSpecs.includes(skSavedSpec)) {
-    specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
-  }
-
-  // Pool total
-  let skPoolTotal = 0;
-  if (skSavedAttr) skPoolTotal += getAttrEffective(c, skSavedAttr);
-  if (skSavedSkill) skPoolTotal += skTotal(c, skSavedSkill);
-  skPoolTotal += specBonus;
-  h += `<span class="dt-pool-total">${skPoolTotal || '\u2014'}</span>`;
-  h += '</div>';
-
-  // Spec chips row + hidden input
-  h += `<input type="hidden" id="dt-skill_acq_pool_spec" value="${esc(skSavedSpec)}">`;
-  if (skNativeSpecs.length || skIsSpecs.length) {
-    h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
-    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    const allSkSpecs = [
-      ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
-      ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
-    ];
-    for (const { sp, fromSkill, native } of sortChips(allSkSpecs, item => item.sp)) {
-      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+function _readResourceRows(saved) {
+  let rows = [];
+  const json = saved.acq_resource_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy multi-slot keys.
+  const slotCount = parseInt(saved.acq_slot_count || '0', 10);
+  if (slotCount > 0) {
+    for (let n = 1; n <= slotCount; n++) {
+      const desc = saved[`acq_${n}_description`] || '';
+      const avail = saved[`acq_${n}_availability`] || '';
+      let merits = [];
+      try { merits = JSON.parse(saved[`acq_${n}_merits`] || '[]'); } catch { merits = []; }
+      if (desc || avail || merits.length) {
+        rows.push({ description: desc, availability: avail, merits });
+      }
     }
-    h += '</div>';
   }
-  h += '</div>';
-
-  // Relevant merits for this acquisition
-  let skMeritPicks = [];
-  try { skMeritPicks = JSON.parse(saved['skill_acq_merits'] || '[]'); } catch { /* ignore */ }
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Relevant Merits</label>';
-  h += '<div class="dt-proj-merits" data-skill-acq-merits>';
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '\u25CF'.repeat(meritEffectiveRating(c, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-skill-acq-merit-cb${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
+  // Seed from legacy single-row if multi-slot was empty.
+  if (!rows.length) {
+    const desc = saved.acq_description || '';
+    const avail = saved.acq_availability || '';
+    let merits = [];
+    try { merits = JSON.parse(saved.acq_merits || '[]'); } catch { merits = []; }
+    if (desc || avail || merits.length) {
+      rows.push({ description: desc, availability: avail, merits });
+    }
   }
-  h += '</div></div>';
+  if (!rows.length) rows.push({ description: '', availability: '', merits: [] });
+  return rows;
+}
 
-  // Availability (dot selector 1-5 + Unknown)
-  const skSavedAvailRaw = saved['skill_acq_availability'];
-  const skSavedAvail = skSavedAvailRaw === 'unknown' ? 'unknown' : (parseInt(skSavedAvailRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += '<div class="dt-acq-avail-row" data-skill-acq-avail>';
+function _readSkillRows(saved) {
+  let rows = [];
+  const json = saved.acq_skill_rows || '';
+  if (json) { try { rows = JSON.parse(json); } catch { rows = []; } }
+  if (!Array.isArray(rows)) rows = [];
+  if (rows.length) return rows;
+  // Seed from legacy single-row keys (skills was 1-per-cycle pre-redesign).
+  const skill = saved.skill_acq_pool_skill || '';
+  const spec  = saved.skill_acq_pool_spec  || '';
+  const desc  = saved.skill_acq_description || '';
+  const avail = saved.skill_acq_availability || '';
+  let merits = [];
+  try { merits = JSON.parse(saved.skill_acq_merits || '[]'); } catch { merits = []; }
+  if (skill || spec || desc || avail || merits.length) {
+    rows.push({ skill, spec, description: desc, availability: avail, merits });
+  }
+  if (!rows.length) rows.push({ skill: '', spec: '', description: '', availability: '', merits: [] });
+  return rows;
+}
+
+function _renderAcqAvailabilityDots(rowKey, idx, savedAvail) {
+  const isUnknown = savedAvail === 'unknown';
+  const numAvail = isUnknown ? 0 : (parseInt(savedAvail, 10) || 0);
+  let h = `<div class="dt-acq-avail-row" data-acq-avail="${rowKey}_${idx}">`;
   for (let d = 1; d <= 5; d++) {
-    const filled = typeof skSavedAvail === 'number' && d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-skill-acq-dot="${d}">\u25CF</span>`;
+    const filled = !isUnknown && d <= numAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">●</span>`;
   }
-  h += `<span class="dt-acq-unknown${skSavedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-skill-acq-unknown>Unknown</span>`;
-  if (skSavedAvail) {
+  h += `<span class="dt-acq-unknown${isUnknown ? ' dt-acq-dot-filled' : ''}" data-acq-unknown data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}">Unknown</span>`;
+  if (numAvail) {
     const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = skSavedAvail === 'unknown' ? '' : (labels[skSavedAvail] || '');
+    const lbl = labels[numAvail] || '';
     if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
   }
-  h += `<input type="hidden" id="dt-skill_acq_availability" value="${esc(String(skSavedAvail || ''))}">`;
-  h += '</div></div>';
-
+  h += `<input type="hidden" data-acq-avail-hidden="${rowKey}_${idx}" value="${esc(String(savedAvail || ''))}">`;
   h += '</div>';
-
-  h += '</div></div>'; // section-body, section
   return h;
 }
 
-function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
-  const useLegacy = n === 1 && saved['acq_slot_count'] === undefined && saved['acq_1_description'] === undefined;
-  const description = useLegacy ? (saved['acq_description'] || '') : (saved[`acq_${n}_description`] || '');
-  const availabilityRaw = useLegacy ? saved['acq_availability'] : saved[`acq_${n}_availability`];
-  const meritsRaw = useLegacy ? (saved['acq_merits'] || '[]') : (saved[`acq_${n}_merits`] || '[]');
-
-  let meritPicks = [];
-  try { meritPicks = JSON.parse(meritsRaw); } catch { /* ignore */ }
-
-  let h = `<div class="dt-acq-card" data-acq-slot="${n}">`;
-  h += '<div class="dt-acq-card-hd">';
-  h += `<div class="dt-acq-card-title">Item ${n}</div>`;
-  if (slotCount > 1) {
-    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-remove-acq="${n}" title="Remove this item">\xD7 Remove</button>`;
+function _renderAcqMeritsCheckboxes(rowKey, idx, charMerits, savedMerits) {
+  let h = `<div class="dt-proj-merits" data-acq-merits="${rowKey}_${idx}">`;
+  if (!charMerits.length) {
+    h += '<p class="qf-desc">No applicable merits.</p>';
+  } else {
+    for (const m of charMerits) {
+      const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const checked = (savedMerits || []).includes(mKey) ? ' checked' : '';
+      h += `<label class="dt-proj-merit-label">`;
+      h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb data-acq-row-key="${rowKey}" data-acq-row-idx="${idx}"${checked}>`;
+      h += `<span>${esc(mName)} ${dots}</span>`;
+      h += `</label>`;
+    }
   }
+  h += '</div>';
+  return h;
+}
+
+function _renderResourceRow(idx, row, charMerits, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="resource_${idx}" data-acq-row-key="resource" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Item ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="resource" data-acq-row-idx="${idx}" title="Remove this item">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="resource_${idx}" placeholder="What are you attempting to acquire? Include context and purpose.">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('resource', idx, row.availability);
   h += '</div>';
 
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Relevant Merits</label>';
   h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
-  h += `<div class="dt-proj-merits" data-acq-merits="${n}">`;
-  for (const m of charMerits) {
-    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
-    const dots = '●'.repeat(meritEffectiveRating(currentChar, m));
-    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
-    const checked = meritPicks.includes(mKey) ? ' checked' : '';
-    h += `<label class="dt-proj-merit-label">`;
-    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb="${n}"${checked}>`;
-    h += `<span>${esc(mName)} ${dots}</span>`;
-    h += '</label>';
-  }
-  if (!charMerits.length) h += '<p class="qf-desc">No applicable merits.</p>';
-  h += '</div></div>';
-
-  h += renderQuestion({
-    key: `acq_${n}_description`, label: 'Acquisition Description',
-    type: 'textarea', required: false,
-    desc: 'What are you attempting to acquire? Include context and purpose.',
-  }, description);
-
-  const savedAvail = availabilityRaw === 'unknown' ? 'unknown' : (parseInt(availabilityRaw, 10) || 0);
-  h += '<div class="qf-field">';
-  h += '<label class="qf-label">Availability</label>';
-  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
-  h += `<div class="dt-acq-avail-row" data-acq-avail="${n}">`;
-  for (let d = 1; d <= 5; d++) {
-    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
-    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}" data-acq-slot="${n}">●</span>`;
-  }
-  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown="${n}">Unknown</span>`;
-  if (savedAvail) {
-    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
-    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
-  }
-  h += `<input type="hidden" id="dt-acq_${n}_availability" value="${esc(String(savedAvail || ''))}">`;
-  h += '</div></div>';
+  h += _renderAcqMeritsCheckboxes('resource', idx, charMerits, row.merits);
+  h += '</div>';
 
   h += '</div>';
+  return h;
+}
+
+function _renderSkillRow(idx, row, charMerits, c, skSkills, isOnly) {
+  let h = `<div class="dt-acq-card" data-acq-row="skill_${idx}" data-acq-row-key="skill" data-acq-row-idx="${idx}">`;
+  h += '<div class="dt-acq-card-hd">';
+  h += `<div class="dt-acq-card-title">Skill ${idx + 1}</div>`;
+  if (!isOnly) {
+    h += `<button type="button" class="dt-sorcery-remove dt-acq-remove" data-acq-row-remove="skill" data-acq-row-idx="${idx}" title="Remove this skill">\xD7 Remove</button>`;
+  }
+  h += '</div>';
+
+  const savedSkill = row.skill || '';
+  const savedSpec  = row.spec  || '';
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Skill</label>';
+  h += `<select class="qf-select" data-acq-skill="${idx}">`;
+  h += '<option value="">— Select skill —</option>';
+  for (const s of skSkills) {
+    const dots = skTotal(c, s);
+    const sel = savedSkill === s ? ' selected' : '';
+    h += `<option value="${esc(s)}"${sel}>${esc(s)} (${dots})</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+
+  const skNativeSpecs = savedSkill ? (c.skills?.[savedSkill]?.specs || []) : [];
+  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
+  const allSpecs = [
+    ...skNativeSpecs.map(sp => ({ sp, fromSkill: null, native: true })),
+    ...skIsSpecs.map(({ spec, fromSkill }) => ({ sp: spec, fromSkill, native: false })),
+  ];
+  if (allSpecs.length) {
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Specialisation</label>';
+    h += '<div class="dt-feed-spec-row">';
+    for (const { sp, fromSkill, native } of sortChips(allSpecs, item => item.sp)) {
+      const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
+      const label = native ? esc(sp) : `${esc(sp)} (${esc(fromSkill)})`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-acq-skill-spec="${esc(sp)}" data-acq-row-idx="${idx}">${label} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+    }
+    h += '</div>';
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+    h += '</div>';
+  } else {
+    h += `<input type="hidden" data-acq-skill-spec-hidden="${idx}" value="${esc(savedSpec)}">`;
+  }
+
+  // Read-only pool annotation. Post-#42: SKILL only via skillAcqPoolStr.
+  // This is the only pool-rendering site after dt-form.29 (the inline
+  // duplicate at the legacy renderer is gone).
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Acquisition Pool</label>';
+  if (savedSkill) {
+    const poolStr = skillAcqPoolStr(c, { skill: savedSkill, spec: savedSpec });
+    if (poolStr) {
+      h += `<p class="qf-desc dt-acq-pool-readout">${esc(poolStr)}</p>`;
+    } else {
+      h += '<p class="qf-desc">Pool unavailable for this skill.</p>';
+    }
+  } else {
+    h += '<p class="qf-desc">Pick a skill above to see the auto-derived pool.</p>';
+  }
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Description</label>';
+  h += `<textarea class="qf-textarea" rows="2" data-acq-desc="skill_${idx}" placeholder="What are you attempting to obtain, and how?">${esc(row.description || '')}</textarea>`;
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this skill source? 1 = Common, 5 = Unique.</p>';
+  h += _renderAcqAvailabilityDots('skill', idx, row.availability);
+  h += '</div>';
+
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += _renderAcqMeritsCheckboxes('skill', idx, charMerits, row.merits);
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderAcquisitionsSection(saved) {
+  const c = currentChar;
+  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
+  const resourcesRating = meritEffectiveRating(c, resourcesMerit);
+
+  const charMerits = (c.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
+  );
+  const skSkills = ALL_SKILLS.filter(s => skTotal(c, s) > 0);
+
+  const resourceRows = _readResourceRows(saved);
+  const skillRows = _readSkillRows(saved);
+
+  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
+  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<div class="qf-section-body">';
+
+  // ── Resources sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
+  h += '<h5 class="dt-acq-subtitle">Resources Acquisitions</h5>';
+  h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
+  h += `<span class="dt-acq-label">Resources Level:</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
+  h += '</div>';
+  for (let i = 0; i < resourceRows.length; i++) {
+    h += _renderResourceRow(i, resourceRows[i], charMerits, resourceRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="resource">+ Add Resource Item</button>';
+  h += '</div>';
+
+  // ── Skills sub-table ──
+  h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
+  h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
+  for (let i = 0; i < skillRows.length; i++) {
+    h += _renderSkillRow(i, skillRows[i], charMerits, c, skSkills, skillRows.length === 1);
+  }
+  h += '<button type="button" class="dt-add-rite-btn dt-acq-add" data-acq-add-row="skill">+ Add Skill Item</button>';
+  h += '</div>';
+
+  h += '</div></div>'; // section-body, section
   return h;
 }
 
@@ -4287,7 +4610,7 @@ function renderResourcesAcquisitionSlot(n, saved, charMerits, slotCount) {
 
 function renderEquipmentSection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'equipment');
-  if (!section) return '';
+  if (!section || section.hidden) return '';  // dt-form.30: hidden for this cycle
 
   const savedCount = parseInt(saved['equipment_slot_count'] || '1', 10);
   const slotCount = Math.max(1, savedCount);
@@ -4493,349 +4816,6 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
  * Used by project target_flex (single picker per slot) and sorcery targets
  * (multi-target via repeated picker rows; prefix becomes 'sorcery_N_targets_TI').
  */
-// JDT-6: Display helper for joint description edit timestamps.
-function formatTimestamp(iso) {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-// JDT-2: Locate an existing joint authored by the current submission for slot N.
-function findExistingJoint(slot) {
-  if (!currentCycle?.joint_projects || !responseDoc?._id) return null;
-  const subId = String(responseDoc._id);
-  return currentCycle.joint_projects.find(j =>
-    String(j.lead_submission_id) === subId &&
-    Number(j.lead_project_slot) === Number(slot) &&
-    !j.cancelled_at
-  ) || null;
-}
-
-// JDT-2: Joint authoring panel — description, target, invitees, status badges.
-// `existingJoint` is read from cycle.joint_projects when the joint already
-// exists; otherwise the panel is in pre-save authoring mode and reads scratch
-// fields off `saved` (responses).
-function renderJointAuthoring(n, saved, existingJoint) {
-  if (!existingJoint) {
-    return renderDtJointPanel(n, saved);
-  }
-
-  // existingJoint path — JDT lifecycle controls (unchanged)
-  const desc = existingJoint.description || '';
-  const targetType = existingJoint.target_type || '';
-  const targetValue = existingJoint.target_value || '';
-
-  let h = `<div class="dt-joint-authoring" data-joint-slot="${n}">`;
-  h += `<div class="dt-joint-banner">Joint project</div>`;
-
-  h += `<div class="dt-joint-explainer">`;
-  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
-  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
-  h += `</div>`;
-
-  h += `<p class="qf-desc dt-joint-saved-note">Joint created. Use the controls below to invite alternates or cancel the joint when no supports remain.</p>`;
-
-  h += `<label class="qf-label" for="dt-project_${n}_joint_description">Joint description</label>`;
-  h += `<textarea id="dt-project_${n}_joint_description" class="qf-textarea" rows="3">${esc(desc)}</textarea>`;
-  h += `<div class="dt-joint-desc-edit-row">`;
-  h += `<button type="button" class="dt-joint-desc-save-btn" data-joint-id="${esc(existingJoint._id)}">Save description</button>`;
-  if (existingJoint.description_updated_at) {
-    const ts = formatTimestamp(existingJoint.description_updated_at);
-    h += `<span class="dt-joint-desc-last-edited">Last edited ${esc(ts)}</span>`;
-  }
-  h += `<span class="dt-joint-desc-save-status" data-joint-id="${esc(existingJoint._id)}"></span>`;
-  h += `</div>`;
-
-  h += `<label class="qf-label">Joint target</label>`;
-  const labelMap = { character: 'Character', territory: 'Territory', other: 'Other' };
-  const typeLbl = labelMap[targetType] || '—';
-  let valLbl = targetValue || '';
-  if (targetType === 'character') {
-    let ids = [];
-    try {
-      const parsed = JSON.parse(targetValue || '[]');
-      ids = Array.isArray(parsed) ? parsed : (targetValue ? [targetValue] : []);
-    } catch {
-      ids = targetValue ? [targetValue] : [];
-    }
-    const names = ids.map(id => allCharacters.find(x => String(x.id) === String(id))?.name || id);
-    valLbl = names.join(', ') || '—';
-  } else if (targetType === 'territory') {
-    const t = TERRITORY_DATA.find(x => x.id === targetValue);
-    if (t) valLbl = t.name;
-  }
-  h += `<div class="dt-joint-readonly-target"><span class="dt-joint-readonly-type">${esc(typeLbl)}</span> <span class="dt-joint-readonly-val">${esc(valLbl)}</span></div>`;
-
-  h += `<label class="qf-label">Invitees</label>`;
-  h += renderJointStatusBadges(existingJoint);
-  h += renderJointReinvitePanel(n, existingJoint);
-  h += renderJointCancelPanel(existingJoint);
-
-  h += `</div>`;
-  return h;
-}
-
-// DTUI-12: new authoring panel for when no joint document exists yet.
-// Two stacked chip-grid sections: Players (dtui-13) + Sphere merits (dtui-14).
-function renderDtJointPanel(n, saved) {
-  let h = `<div class="dt-joint-panel" aria-expanded="true" data-joint-slot="${n}">`;
-
-  // Joint project explainer — shown in pre-save authoring mode so players
-  // know what they're committing to before they invite anyone. The same
-  // copy is shown in the existingJoint path of renderJointAuthoring.
-  h += `<div class="dt-joint-banner">Joint project</div>`;
-  h += `<div class="dt-joint-explainer">`;
-  h += `<p><strong>What you are committing to.</strong> Selecting Joint makes you the lead of this project. Coordinate the details with your invitees out of game before submitting; the description below should reflect what you have agreed.</p>`;
-  h += `<p>Once any invitee accepts, you cannot quietly cancel. Supports must explicitly decouple themselves first. While submissions are open you can re-invite alternates after a decline or a decouple. Storytellers can override any joint state if circumstances require it.</p>`;
-  h += `</div>`;
-
-  const playersHeadingId = `dt-joint-players-heading-${n}`;
-  h += `<div class="dt-joint-panel__section">`;
-  h += `<h4 class="dt-joint-panel__heading" id="${playersHeadingId}">Players</h4>`;
-  h += `<div class="dt-chip-grid dt-chip-grid--multi" aria-labelledby="${playersHeadingId}" data-joint-players="${n}">`;
-  h += renderJointInviteeChips(n, saved);
-  h += `</div>`;
-  h += `</div>`;
-
-  // Allies/Retainers picker now lives outside the joint panel — controlled by
-  // the separate Solo / Support Assets toggle on the project slot.
-
-  h += `</div>`;
-  return h;
-}
-
-// DTUI-13: free-slot detection for invitee chip greying
-function getCharFreeSlotCount(charId) {
-  const sub = _allSubmissions.find(s => String(s.character_id) === String(charId));
-  if (!sub) return (DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4);
-  const responses = sub.responses || {};
-  const maxSlots = DOWNTIME_SECTIONS.find(s => s.key === 'projects')?.projectSlots || 4;
-  let used = 0;
-  for (let p = 1; p <= maxSlots; p++) {
-    if (responses[`project_${p}_action`]) used++;
-  }
-  return maxSlots - used;
-}
-
-// DTUI-13: player invitee chip grid — replaces renderJointInviteeGrid for new-joint path
-function renderJointInviteeChips(n, saved) {
-  const myId = String(currentChar?._id || '');
-  const candidates = allCharacters.filter(c => String(c.id) !== myId);
-
-  let invitedIds = [];
-  try { invitedIds = JSON.parse(saved[`project_${n}_joint_invited_ids`] || '[]'); } catch { invitedIds = []; }
-  const invitedSet = new Set(invitedIds.map(String));
-  const savedJson = JSON.stringify(invitedIds);
-
-  let h = `<input type="hidden" id="dt-project_${n}_joint_invited_ids" value="${esc(savedJson)}">`;
-  if (!candidates.length) {
-    return h + '<p class="qf-desc">No other characters available to invite.</p>';
-  }
-
-  const sorted = [...candidates].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  for (const c of sorted) {
-    const id = String(c.id);
-    const freeSlots = getCharFreeSlotCount(id);
-    const isSelected = invitedSet.has(id);
-    const isDisabled = freeSlots <= 0;
-    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="This player has no free projects this cycle."' : '';
-    const selectedClass = isSelected ? ' dt-chip--selected' : '';
-    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
-    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
-    h += ` data-joint-invitee-slot="${n}" data-char-id="${esc(id)}">${esc(c.name)}</button>`;
-  }
-  return h;
-}
-
-// DTUI-14: already-used detection for sphere/retainer merits
-function isSphereMeritUsed(slotKey, type, saved) {
-  if (type === 'sphere') return !!(saved[`${slotKey}_action`]);
-  if (type === 'retainer') return !!(saved[`${slotKey}_type`] || saved[`${slotKey}_task`]);
-  return false;
-}
-
-// DTUI-14: sphere-merit collaborator chip grid (Allies + Retainers)
-function renderJointSphereChips(n, saved) {
-  const spheres = (detectedMerits.spheres || []).map((m, i) => ({ m, slotKey: `sphere_${i + 1}`, type: 'sphere' }));
-  const retainers = (detectedMerits.retainers || []).map((m, i) => ({ m, slotKey: `retainer_${i + 1}`, type: 'retainer' }));
-  const all = [...spheres, ...retainers];
-
-  if (!all.length) {
-    return '<p class="qf-desc">You have no Allies or Retainer merits to contribute.</p>';
-  }
-
-  let selectedKeys = [];
-  try { selectedKeys = JSON.parse(saved[`project_${n}_joint_sphere_chips`] || '[]'); } catch { selectedKeys = []; }
-  const selectedSet = new Set(selectedKeys);
-
-  let h = '';
-  for (const { m, slotKey, type } of all) {
-    const isUsed = isSphereMeritUsed(slotKey, type, saved);
-    const isSelected = selectedSet.has(slotKey);
-    const isDisabled = isUsed && !isSelected;
-    const effectiveDots = meritEffectiveRating(currentChar, m);
-    const area = m.area || m.qualifier || '';
-    const label = m.name + (area ? ` (${area})` : '') + (effectiveDots ? ' ' + '●'.repeat(effectiveDots) : '');
-    const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="This merit\'s action is already committed elsewhere."' : '';
-    const selectedClass = isSelected ? ' dt-chip--selected' : '';
-    const disabledClass = isDisabled ? ' dt-chip--disabled' : '';
-    h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"${disabledAttr}${titleAttr}`;
-    h += ` data-joint-sphere-slot="${n}" data-sphere-key="${esc(slotKey)}" data-sphere-type="${type}">`;
-    h += esc(label);
-    h += `</button>`;
-  }
-  return h;
-}
-
-// JDT-6: Re-invite affordance for the lead. Shows characters not currently
-// invited (no pending or accepted invitation), lets the lead tick alternates
-// and submit. The pre-existing per-invitation status badges sit above.
-function renderJointReinvitePanel(n, joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  const blocked = new Set(myInvs
-    .filter(inv => inv.status === 'pending' || inv.status === 'accepted')
-    .map(inv => String(inv.invited_character_id)));
-  // Lead can't re-invite themselves
-  blocked.add(String(joint.lead_character_id));
-  const candidates = allCharacters.filter(c => !blocked.has(String(c.id)));
-  if (!candidates.length) {
-    return `<p class="qf-desc dt-joint-reinvite-empty">No alternates available to re-invite.</p>`;
-  }
-
-  let h = `<div class="dt-joint-reinvite-panel" data-joint-id="${esc(joint._id)}">`;
-  h += `<div class="dt-joint-reinvite-title">Invite alternates</div>`;
-  h += `<div class="dt-joint-invitee-grid">`;
-  for (const c of candidates) {
-    h += `<label class="dt-joint-invitee-item">`;
-    h += `<input type="checkbox" class="dt-joint-reinvite-cb" data-joint-id="${esc(joint._id)}" value="${esc(String(c.id))}">`;
-    h += `<span>${esc(c.name)}</span>`;
-    h += `</label>`;
-  }
-  h += `</div>`;
-  h += `<button type="button" class="dt-joint-reinvite-btn" data-joint-id="${esc(joint._id)}" data-joint-slot="${n}">Send invitations</button>`;
-  h += `<span class="dt-joint-reinvite-status" data-joint-id="${esc(joint._id)}"></span>`;
-  h += `</div>`;
-  return h;
-}
-
-// JDT-6: Cancel panel. The button is enabled only when zero accepted
-// participants AND zero pending invitations remain. Otherwise the panel
-// shows guidance about the path back to a cancellable state.
-function renderJointCancelPanel(joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  const acceptedSupports = (joint.participants || []).filter(p => !p.decoupled_at).length;
-  const pendingInvs = myInvs.filter(inv => inv.status === 'pending').length;
-  const canCancel = acceptedSupports === 0 && pendingInvs === 0;
-
-  let h = `<div class="dt-joint-cancel-panel" data-joint-id="${esc(joint._id)}">`;
-  if (canCancel) {
-    h += `<button type="button" class="dt-joint-cancel-btn" data-joint-id="${esc(joint._id)}">Cancel joint</button>`;
-    h += `<p class="qf-desc dt-joint-cancel-help">Cancelling frees this slot. The joint document is kept on the cycle for audit; a Storyteller can recover it if needed.</p>`;
-  } else {
-    h += `<p class="qf-desc dt-joint-cancel-help">You can only cancel this joint when there are zero accepted supports and zero pending invitations. Currently: ${acceptedSupports} accepted, ${pendingInvs} pending.</p>`;
-  }
-  h += `<span class="dt-joint-cancel-status" data-joint-id="${esc(joint._id)}"></span>`;
-  h += `</div>`;
-  return h;
-}
-
-function renderJointInviteeGrid(n, invitedSet) {
-  if (!allCharacters.length) {
-    return `<p class="qf-desc">No characters available to invite.</p>`;
-  }
-  let h = `<div class="dt-joint-invitee-grid">`;
-  for (const c of allCharacters) {
-    const checked = invitedSet.has(String(c.id)) ? ' checked' : '';
-    h += `<label class="dt-joint-invitee-item">`;
-    h += `<input type="checkbox" class="dt-joint-invitee-cb" data-joint-slot="${n}" value="${esc(String(c.id))}"${checked}>`;
-    h += `<span>${esc(c.name)}</span>`;
-    h += `</label>`;
-  }
-  h += `</div>`;
-  return h;
-}
-
-// JDT-3: panel rendered above the project tabs that lists pending joint
-// invitations addressed to the current character. Empty when the invitee
-// has no pending invitations on the active cycle.
-function renderPendingInvitationsPanel() {
-  if (!currentChar?._id) return '';
-  const myCharId = String(currentChar._id);
-  const pending = _jointInvitations
-    .filter(inv => String(inv.invited_character_id) === myCharId && inv.status === 'pending')
-    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  if (!pending.length) return '';
-
-  // Lowest-numbered slot with no action set is "available".
-  const responses = responseDoc?.responses || {};
-  let hasSlot = false;
-  for (let n = 1; n <= 4; n++) {
-    if (!responses[`project_${n}_action`]) { hasSlot = true; break; }
-  }
-
-  let h = `<section class="dt-pending-invitations-panel">`;
-  h += `<h3 class="dt-pending-invitations-title">Pending invitations</h3>`;
-  for (const inv of pending) {
-    const joint = inv._joint;
-    if (!joint) continue;
-    const lead = allCharacters.find(c => String(c.id) === String(joint.lead_character_id));
-    const leadName = lead ? lead.name : 'Unknown lead';
-    const actionLabel = (PROJECT_ACTIONS.find(a => a.value === joint.action_type)?.label) || joint.action_type;
-    const desc = (joint.description || '').trim();
-    const descShort = desc.length > 220 ? desc.slice(0, 220).trimEnd() + '…' : desc;
-
-    h += `<div class="dt-pending-invitation-row" data-invitation-id="${esc(inv._id)}">`;
-    h += `<div class="dt-pending-invitation-meta">`;
-    h += `<span class="dt-pending-invitation-lead">${esc(leadName)} invites you</span>`;
-    h += `<span class="dt-pending-invitation-action">${esc(actionLabel)}</span>`;
-    h += `</div>`;
-    if (descShort) {
-      h += `<div class="dt-pending-invitation-desc">${esc(descShort)}</div>`;
-    } else {
-      h += `<div class="dt-pending-invitation-desc dt-pending-invitation-desc-empty">No description provided.</div>`;
-    }
-    h += `<div class="dt-pending-invitation-actions">`;
-    if (hasSlot) {
-      h += `<button type="button" class="dt-pending-invitation-accept" data-invitation-id="${esc(inv._id)}">Accept</button>`;
-    } else {
-      h += `<button type="button" class="dt-pending-invitation-accept" disabled title="You have no available project slots. Free up a slot to accept.">Accept</button>`;
-    }
-    h += `<button type="button" class="dt-pending-invitation-decline" data-invitation-id="${esc(inv._id)}">Decline</button>`;
-    h += `</div>`;
-    h += `</div>`;
-  }
-  h += `</section>`;
-  return h;
-}
-
-function renderJointStatusBadges(joint) {
-  const myInvs = _jointInvitations.filter(inv => String(inv.joint_project_id) === String(joint._id));
-  if (!myInvs.length) {
-    return `<p class="qf-desc">No invitations on this joint.</p>`;
-  }
-  let h = `<div class="dt-joint-status-grid">`;
-  for (const inv of myInvs) {
-    const c = allCharacters.find(x => String(x.id) === String(inv.invited_character_id));
-    const name = c ? c.name : 'Unknown';
-    const status = inv.status || 'pending';
-    const label = JOINT_STATUS_LABELS[status] || status;
-    h += `<div class="dt-joint-status-row">`;
-    h += `<span class="dt-joint-invitee-name">${esc(name)}</span>`;
-    h += `<span class="dt-joint-status-badge dt-joint-status-${esc(status)}">${esc(label)}</span>`;
-    h += `</div>`;
-  }
-  h += `</div>`;
-  return h;
-}
-
 function renderTargetPicker(prefix, opts) {
   const {
     savedType = '',
@@ -4856,34 +4836,31 @@ function renderTargetPicker(prefix, opts) {
 
   if (savedType === 'character') {
     if (multiCharacter) {
-      // Multi-select character target — checkbox grid; value persisted as
-      // JSON array of character IDs. Used by joint authoring (a joint can
-      // target multiple characters).
-      let selected = new Set();
+      // Universal char picker (ADR-003 §Q6) — site #3a (joint target multi)
+      let initialIds = [];
       try {
         const parsed = JSON.parse(savedValue || '[]');
-        if (Array.isArray(parsed)) selected = new Set(parsed.map(String));
-        else if (savedValue) selected = new Set([String(savedValue)]);
+        if (Array.isArray(parsed)) initialIds = parsed.map(String).filter(Boolean);
+        else if (savedValue) initialIds = [String(savedValue)];
       } catch {
-        if (savedValue) selected = new Set([String(savedValue)]);
+        if (savedValue) initialIds = [String(savedValue)];
       }
-      h += `<div class="dt-flex-multi-char-grid" data-flex-multi-prefix="${esc(prefix)}">`;
-      for (const c of allCharacters) {
-        const chk = selected.has(String(c.id)) ? ' checked' : '';
-        h += `<label class="dt-flex-multi-char-item">`;
-        h += `<input type="checkbox" class="dt-flex-multi-char-cb" data-flex-multi-prefix="${esc(prefix)}" value="${esc(String(c.id))}"${chk}>`;
-        h += `<span>${esc(c.name)}</span>`;
-        h += `</label>`;
-      }
-      h += `</div>`;
+      const initialJson = esc(JSON.stringify(initialIds));
+      h += `<input type="hidden" id="dt-${esc(prefix)}_value" value="${esc(JSON.stringify(initialIds))}">`;
+      h += `<div data-cp-mount data-cp-site="target-flex-multi"`
+         + ` data-cp-scope="all" data-cp-cardinality="multi"`
+         + ` data-cp-hidden="dt-${esc(prefix)}_value"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick characters"></div>`;
     } else {
-      h += `<select id="dt-${esc(prefix)}_value" class="qf-select dt-flex-char-sel">`;
-      h += '<option value="">— Select Character —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedValue) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
-      }
-      h += '</select>';
+      // Universal char picker (ADR-003 §Q6) — site #1
+      const initialJson = esc(JSON.stringify(savedValue ? String(savedValue) : ''));
+      h += `<input type="hidden" id="dt-${esc(prefix)}_value" value="${esc(savedValue || '')}">`;
+      h += `<div data-cp-mount data-cp-site="target-flex-single"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-cp-hidden="dt-${esc(prefix)}_value"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick a character"></div>`;
     }
   } else if (savedType === 'territory') {
     h += renderTerritoryPills(`dt-${prefix}_value`, savedValue);
@@ -4906,9 +4883,25 @@ function getAlreadyMaintainedTargets(n, saved, maxSlots) {
   return maintained;
 }
 
+/** Returns a Set of chip ids that maintenance_audit says are already done this chapter (dtui-50). */
+function getAuditMaintained(cycle, char) {
+  if (!cycle || !char) return new Set();
+  const audit = cycle.maintenance_audit?.[String(char._id)] || {};
+  const set = new Set();
+  for (const m of (char.merits || [])) {
+    if (m.name === 'Professional Training' && audit.pt === true) {
+      set.add(`Professional Training_${meritEffectiveRating(char, m)}`);
+    }
+    if (m.name === 'Mystery Cult Initiation' && audit.mci === true && m.active !== false) {
+      set.add(`Mystery Cult Initiation_${meritEffectiveRating(char, m)}`);
+    }
+  }
+  return set;
+}
+
 /** Chip grid of the character's own maintenance-eligible merits (dtui-11).
  *  prefix defaults to 'project'; pass 'sphere' for Allies maintenance (dtui-16). */
-function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project') {
+function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 'project', auditMaintained = new Set()) {
   const maintMerits = (charData?.merits || [])
     .filter(m => MAINTENANCE_MERITS.includes(m.name));
 
@@ -4926,9 +4919,13 @@ function renderMaintenanceChips(n, saved, charData, alreadyMaintained, prefix = 
     const id = `${m.name}_${dots}`;
     const dotStr = '●'.repeat(dots);
     const isSelected = savedTarget === id;
-    const isDisabled = alreadyMaintained.has(id);
+    const isDisabled = alreadyMaintained.has(id) || auditMaintained.has(id);
     const disabledAttr = isDisabled ? ' disabled aria-disabled="true"' : '';
-    const titleAttr = isDisabled ? ' title="Maintained this chapter."' : '';
+    const titleAttr = auditMaintained.has(id)
+      ? ' title="Maintained this chapter — no action needed."'
+      : isDisabled
+        ? ' title="Already chosen as a target in another project slot."'
+        : '';
     const selectedClass = isSelected ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selectedClass}"${disabledAttr}${titleAttr} ` +
          `data-maintenance-target="${n}" data-maintenance-prefix="${esc(prefix)}" data-target-id="${esc(id)}">` +
@@ -5002,17 +4999,13 @@ function renderTargetZone(n, actionVal, saved, chars) {
   let h = '<div class="qf-field dt-target-zone">';
   h += '<label class="qf-label">Target</label>';
 
-  if (['ambience_change', 'patrol_scout'].includes(actionVal)) {
+  // Issue #132 (2026-05-08): dropped 'ambience_change' from this includes-list
+  // and the orphan ambience_dir radio block that followed. After dt-form.25
+  // (PR #130), 'target' is no longer in ACTION_FIELDS['ambience_change'], so
+  // renderTargetZone is never called for ambience actions — the inner radio
+  // render was unreachable dead code superseded by the row-table from #79.
+  if (actionVal === 'patrol_scout') {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
-    if (actionVal === 'ambience_change') {
-      const savedAmbienceDir = saved[`project_${n}_ambience_dir`] || 'improve';
-      h += `<fieldset class="dt-ticker" aria-label="Direction" style="margin-top:8px">`;
-      for (const d of ['improve', 'degrade']) {
-        const dLabel = d[0].toUpperCase() + d.slice(1);
-        h += `<label class="dt-ticker__pill"><input type="radio" name="dt-project_${n}_ambience_dir" value="${d}"${savedAmbienceDir === d ? ' checked' : ''} data-proj-ambience-dir="${n}"> ${dLabel}</label>`;
-      }
-      h += '</fieldset>';
-    }
   } else if (actionVal === 'attack') {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: false });
   } else if (actionVal === 'hide_protect') {
@@ -5020,8 +5013,9 @@ function renderTargetZone(n, actionVal, saved, chars) {
   } else if (['investigate', 'misc'].includes(actionVal)) {
     h += renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, { includeTerritory: true });
   } else if (actionVal === 'maintenance') {
-    const alreadyMaintained = getAlreadyMaintainedTargets(n, saved, 5);
-    h += renderMaintenanceChips(n, saved, currentChar, alreadyMaintained);
+    const formDedup = getAlreadyMaintainedTargets(n, saved, 5);
+    const auditMaint = getAuditMaintained(currentCycle, currentChar);
+    h += renderMaintenanceChips(n, saved, currentChar, formDedup, 'project', auditMaint);
   }
 
   h += '</div>';
@@ -5057,13 +5051,14 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
     }
     h += '</select>';
   } else if (effectiveType === 'character') {
-    h += `<div class="dt-chip-grid" role="group" aria-label="Target character">`;
-    for (const c of chars) {
-      const isSelected = String(c.id) === String(savedCharId);
-      h += `<button type="button" class="dt-chip${isSelected ? ' dt-chip--selected' : ''}" data-project-target-char="${n}" data-char-id="${esc(String(c.id))}">${esc(c.name)}</button>`;
-    }
-    h += '</div>';
+    // Universal char picker (ADR-003 §Q6) — site #2
+    const initialJson = esc(JSON.stringify(savedCharId ? String(savedCharId) : ''));
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="${esc(savedCharId)}">`;
+    h += `<div data-cp-mount data-cp-site="project-target-char"`
+       + ` data-cp-scope="all" data-cp-cardinality="single"`
+       + ` data-cp-hidden="dt-project_${n}_target_value"`
+       + ` data-cp-initial="${initialJson}"`
+       + ` data-cp-placeholder="Pick a target character"></div>`;
   } else if (effectiveType === 'territory') {
     h += renderTerritoryPills(`dt-project_${n}_target_terr`, savedTerrId);
     h += `<input type="hidden" id="dt-project_${n}_target_value" value="">`;
@@ -5083,8 +5078,8 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
 function renderTerritoryPills(fieldId, savedVal) {
   let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const selected = savedVal === t.id ? ' dt-chip--selected' : '';
-    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+    const selected = savedVal === t.slug ? ' dt-chip--selected' : '';
+    h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.slug)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
   h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;
@@ -5143,9 +5138,8 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const statusVal = isBarrens ? 'barrens' : (hasFeedingRights ? 'feeding_rights' : 'poaching');
     const statusLabel = isBarrens ? 'The Barrens' : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
 
-    const activeClass = isActive
-      ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
-      : '';
+    const tintClass = (isBarrens || !hasFeedingRights) ? ' dt-terr-pill-barrens' : ' dt-terr-pill-rights';
+    const selectedClass = isActive ? ' dt-terr-pill--selected' : '';
 
     // Rote-feed Barrens lock: if main is Barrens, only Barrens-rote is allowed;
     // if main is non-Barrens, Barrens-rote is disallowed. Also disable Barrens
@@ -5161,7 +5155,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     const disabledAttrs = disabled ? ' disabled aria-disabled="true" title="Rote territory must match main feed territory"' : '';
     const disabledClass = disabled ? ' dt-terr-pill-disabled' : '';
 
-    h += `<button type="button" class="dt-terr-pill${activeClass}${disabledClass}"${disabledAttrs}`;
+    h += `<button type="button" class="dt-terr-pill${tintClass}${selectedClass}${disabledClass}"${disabledAttrs}`;
     h += ` ${keyAttr}="${terrKey}" ${statusAttr}="${statusVal}" ${activeAttr}="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
     if (isBarrens) {
@@ -5193,7 +5187,8 @@ function getAlliesAmbienceEligible(m) {
 function renderAlliesGrowXp(n, prefix, m, saved) {
   const currentDots = meritEffectiveRating(currentChar, m);
   const savedTarget = parseInt(saved[`${prefix}_${n}_grow_target`] || '0') || 0;
-  const meritName = m.area ? `Allies (${m.area})` : (m.qualifier ? `Allies (${m.qualifier})` : 'Allies');
+  const baseName = m.name || 'Merit';
+  const meritName = m.area ? `${baseName} (${m.area})` : (m.qualifier ? `${baseName} (${m.qualifier})` : baseName);
 
   let h = '<div class="qf-field">';
   h += `<p class="qf-desc">Growing: <strong>${esc(meritName)}</strong> — currently ${currentDots} dot${currentDots !== 1 ? 's' : ''}.</p>`;
@@ -5410,11 +5405,22 @@ function renderMeritToggles(saved) {
   const hasContacts = detectedMerits.contacts.length > 0;
   const hasRetainers = detectedMerits.retainers.length > 0;
   const hasStatus = detectedMerits.status.length > 0;
+  const hasMentors = detectedMerits.mentors.length > 0;
+  const totalStaffDots = detectedMerits.staff.reduce(
+    (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+  );
+  const hasStaff = totalStaffDots > 0;
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
+  // Status-scoped list: only Status influence merits and standing merits (MCI etc.)
+  // Used in renderSphereFields for Status tabs to prevent Allies/Contacts bleeding into
+  // the hide_protect "What are you protecting?" dropdown.
+  const statusMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'standing' || (m.category === 'influence' && m.name === 'Status')
+  );
 
-  if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
+  if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus && !hasMentors && !hasStaff) return '';
 
   // ── Spheres of Influence (tabbed, max 5) ──
   if (hasSpheres) {
@@ -5452,25 +5458,6 @@ function renderMeritToggles(saved) {
 
       // Merit info header
       h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
-
-      // T24 (DTLT-6): if committed as support to a project, lock the pane
-      if (actionVal === 'support') {
-        const sphereSlotKey = `sphere_${n}`;
-        let owningProject = null;
-        for (let pn = 1; pn <= 4; pn++) {
-          let chips = [];
-          try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-          if (Array.isArray(chips) && chips.includes(sphereSlotKey)) { owningProject = pn; break; }
-        }
-        h += '<div class="dt-sphere-locked">';
-        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${owningProject || '?'}</span>`;
-        h += `<p class="dt-sphere-locked-help">Un-tick this Ally's chip in the project's Support Assets panel to free this slot.</p>`;
-        h += '</div>';
-        h += `<input type="hidden" id="dt-sphere_${n}_action" value="support">`;
-        h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
-        h += '</div>';
-        continue;
-      }
 
       // Store which merit this slot references
       h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
@@ -5545,15 +5532,17 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
       h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
-      // Legacy actionVals map to 'ambience_change' for the dropdown
-      const stDropdownVal = (actionVal === 'ambience_increase' || actionVal === 'ambience_decrease') ? 'ambience_change' : actionVal;
-      for (const opt of SPHERE_ACTIONS) {
+      // ambience_change is an Allies/sphere-only action; exclude from Status dropdown.
+      // Legacy ambience_increase/decrease values in saved data are cleared gracefully
+      // (no matching option → falls back to blank/"No Action").
+      const stDropdownVal = actionVal;
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'ambience_change')) {
         const sel = stDropdownVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }
       h += '</select></div>';
 
-      h += renderSphereFields(n, 'status', fields, saved, charMerits);
+      h += renderSphereFields(n, 'status', fields, saved, statusMerits, m);
 
       h += '</div>';
     }
@@ -5628,34 +5617,6 @@ function renderMeritToggles(saved) {
       const savedType = saved[`retainer_${n}_type`] || '';
       const savedTask = saved[`retainer_${n}_task`] || '';
 
-      // Lock the retainer to "support" if its slot is referenced in any
-      // project's joint_sphere_chips (matches the sphere section pattern).
-      const retainerSlotKey = `retainer_${n}`;
-      let supportingProject = null;
-      for (let pn = 1; pn <= 4; pn++) {
-        let chips = [];
-        try { chips = JSON.parse(saved[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-        if (Array.isArray(chips) && chips.includes(retainerSlotKey)) { supportingProject = pn; break; }
-      }
-
-      if (supportingProject) {
-        h += `<div class="dt-contact-row dt-contact-used" data-retainer-row="${n}">`;
-        h += `<div class="dt-contact-header">`;
-        h += `<span class="dt-contact-area">${esc(area)}${esc(ghoulTag)}</span>`;
-        h += `<span class="dt-contact-dots">${dots}</span>`;
-        h += `<span class="dt-contact-status">Support</span>`;
-        h += '</div>';
-        h += `<div class="dt-contact-panel">`;
-        h += '<div class="dt-sphere-locked">';
-        h += `<span class="dt-sphere-locked-badge">Committed to support of Project ${supportingProject}</span>`;
-        h += `<p class="dt-sphere-locked-help">Un-tick this Retainer's chip in the project's Support Assets panel to free this slot.</p>`;
-        h += '</div>';
-        h += `<input type="hidden" id="dt-retainer_${n}_merit" value="${esc(meritLabel(m))}">`;
-        h += '</div>'; // panel
-        h += '</div>'; // row
-        continue;
-      }
-
       const isUsed = savedType || savedTask;
       const expanded = isUsed;
 
@@ -5689,6 +5650,133 @@ function renderMeritToggles(saved) {
     h += '</div></div>';
   }
 
+  // ── Mentor (per-merit, mirrors Retainer pattern) ──
+  // dt-form.28: one row per Mentor merit on the character (granted instances
+  // included via the expandedInfluence walk in detectMerits — same pattern as
+  // hotfix #45). Each row carries a free-text query type, a description
+  // textarea, and an optional universal char picker for a target person.
+  if (hasMentors) {
+    const maxMentors = detectedMerits.mentors.length;
+    h += '<div class="qf-section collapsed" data-section-key="mentors">';
+    h += '<h4 class="qf-section-title">Mentor: Counsel<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
+    h += '<p class="qf-section-intro">Click a mentor to expand and ask a question or request guidance for this Downtime.</p>';
+
+    h += '<div class="dt-contacts-table">';
+    for (let n = 1; n <= maxMentors; n++) {
+      const m = detectedMerits.mentors[n - 1];
+      const area = m.area || m.qualifier || 'Mentor';
+      const dots = '●'.repeat(meritEffectiveRating(currentChar, m) || 1);
+      const savedTarget = saved[`mentor_${n}_target`] || '';
+      const savedTask = saved[`mentor_${n}_task`] || '';
+
+      const isUsed = !!(savedTarget || savedTask);
+      const expanded = isUsed;
+
+      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-mentor-row="${n}">`;
+      h += `<div class="dt-contact-header" data-mentor-toggle="${n}">`;
+      h += `<span class="dt-contact-area">${esc(area)}</span>`;
+      h += `<span class="dt-contact-dots">${dots}</span>`;
+      h += `<span class="dt-contact-status">${isUsed ? 'Asked' : 'Idle'}</span>`;
+      if (isUsed) {
+        h += `<button type="button" class="dt-contact-clear" data-mentor-clear="${n}" title="Clear and close">✕</button>`;
+      }
+      h += '</div>';
+
+      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-mentor-panel="${n}">`;
+      // Optional target — universal char picker (ADR-003 §Q6); excludes self.
+      const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
+      const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-mentor_${n}_target">Person involved (optional)</label>`;
+      h += `<input type="hidden" id="dt-mentor_${n}_target" value="${esc(savedTarget)}">`;
+      h += `<div data-cp-mount data-cp-site="mentor-target"`
+         + ` data-cp-scope="all" data-cp-cardinality="single"`
+         + ` data-cp-hidden="dt-mentor_${n}_target"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-exclude="${excludeJson}"`
+         + ` data-cp-placeholder="Pick a target character"></div>`;
+      h += '</div>';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-mentor_${n}_task">What are you asking your mentor?</label>`;
+      h += `<textarea id="dt-mentor_${n}_task" class="qf-textarea" rows="3" placeholder="Question, advice sought, or guidance you want from this mentor.">${esc(savedTask)}</textarea>`;
+      h += '</div>';
+      h += `<input type="hidden" id="dt-mentor_${n}_merit" value="${esc(meritLabel(m))}">`;
+      h += '</div>'; // panel
+      h += '</div>'; // row
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+  }
+
+  // ── Staff (per-dot, mirrors Contacts per-slot pattern) ──
+  // dt-form.28: one row per dot of Staff (summed across all Staff merits;
+  // granted instances included via the expandedInfluence walk). Each row
+  // carries an optional target char picker and a task-description textarea.
+  if (hasStaff) {
+    h += '<div class="qf-section collapsed" data-section-key="staff">';
+    h += '<h4 class="qf-section-title">Staff: Tasks<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
+    h += '<p class="qf-section-intro">Click a staff slot to expand and assign a task. One slot per dot of Staff.</p>';
+
+    h += '<div class="dt-contacts-table">';
+    // Issue #138 (2026-05-08): per-merit slot grouping. The persistence
+    // shape stays sequential (`staff_${n}_*` 1..totalStaffDots) so legacy
+    // submissions and the collect path are unchanged, but each row's
+    // displayed label and `_merit` hidden field reflect its actual source
+    // merit instead of the primary Staff merit. A character with
+    // Staff 2 (Hospital) + Staff 1 (Police) now sees "Hospital — Slot 1/2"
+    // for the first two rows and "Police — Slot 3/3" for the third.
+    let n = 0;
+    for (const m of detectedMerits.staff) {
+      const dots = meritEffectiveRating(currentChar, m) || 0;
+      if (!dots) continue;
+      const meritLabelText = m.area || m.qualifier || 'Staff';
+      for (let d = 0; d < dots; d++) {
+        n += 1;
+        const savedTarget = saved[`staff_${n}_target`] || '';
+        const savedTask = saved[`staff_${n}_task`] || '';
+        const isUsed = !!(savedTarget || savedTask);
+        const expanded = isUsed;
+
+        h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-staff-row="${n}">`;
+        h += `<div class="dt-contact-header" data-staff-toggle="${n}">`;
+        h += `<span class="dt-contact-area">${esc(meritLabelText)} — Slot ${n}</span>`;
+        h += `<span class="dt-contact-dots">●</span>`;
+        h += `<span class="dt-contact-status">${isUsed ? 'Tasked' : 'Idle'}</span>`;
+        if (isUsed) {
+          h += `<button type="button" class="dt-contact-clear" data-staff-clear="${n}" title="Clear and close">✕</button>`;
+        }
+        h += '</div>';
+
+        h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-staff-panel="${n}">`;
+        const initialJson = esc(JSON.stringify(savedTarget ? String(savedTarget) : ''));
+        const excludeJson = esc(JSON.stringify(currentChar?._id ? [String(currentChar._id)] : []));
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label" for="dt-staff_${n}_target">Person involved (optional)</label>`;
+        h += `<input type="hidden" id="dt-staff_${n}_target" value="${esc(savedTarget)}">`;
+        h += `<div data-cp-mount data-cp-site="staff-target"`
+           + ` data-cp-scope="all" data-cp-cardinality="single"`
+           + ` data-cp-hidden="dt-staff_${n}_target"`
+           + ` data-cp-initial="${initialJson}"`
+           + ` data-cp-exclude="${excludeJson}"`
+           + ` data-cp-placeholder="Pick a target character"></div>`;
+        h += '</div>';
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label" for="dt-staff_${n}_task">Task description</label>`;
+        h += `<textarea id="dt-staff_${n}_task" class="qf-textarea" rows="3" placeholder="What do you want this staff slot to do?">${esc(savedTask)}</textarea>`;
+        h += '</div>';
+        h += `<input type="hidden" id="dt-staff_${n}_merit" value="${esc(meritLabel(m))}">`;
+        h += '</div>'; // panel
+        h += '</div>'; // row
+      }
+    }
+    h += '</div>';
+
+    h += '</div></div>';
+  }
+
   return h;
 }
 
@@ -5710,7 +5798,7 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // Retainers: tick when any retainer has a task OR is committed to support
+    // Retainers: tick when any retainer has a task
     if (key === 'retainers') {
       const maxR = detectedMerits.retainers.length;
       let anyUsed = false;
@@ -5718,15 +5806,6 @@ function updateSectionTicks(container) {
         const t = document.getElementById(`dt-retainer_${n}_type`);
         const d = document.getElementById(`dt-retainer_${n}_task`);
         if ((t && t.value.trim()) || (d && d.value.trim())) { anyUsed = true; break; }
-      }
-      // Also tick if any retainer slot is in a project's joint_sphere_chips
-      if (!anyUsed) {
-        const r = responseDoc?.responses || {};
-        for (let pn = 1; pn <= 4 && !anyUsed; pn++) {
-          let chips = [];
-          try { chips = JSON.parse(r[`project_${pn}_joint_sphere_chips`] || '[]'); } catch { chips = []; }
-          if (Array.isArray(chips) && chips.some(k => k.startsWith('retainer_'))) anyUsed = true;
-        }
       }
       tick.classList.toggle('visible', anyUsed);
       return;
@@ -5745,6 +5824,34 @@ function updateSectionTicks(container) {
       return;
     }
 
+    // dt-form.28: Mentors tick when any mentor row has target or task
+    if (key === 'mentors') {
+      const maxM = detectedMerits.mentors.length;
+      let anyUsed = false;
+      for (let n = 1; n <= maxM; n++) {
+        const tg = document.getElementById(`dt-mentor_${n}_target`);
+        const tk = document.getElementById(`dt-mentor_${n}_task`);
+        if ((tg && tg.value.trim()) || (tk && tk.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
+      return;
+    }
+
+    // dt-form.28: Staff tick when any staff slot has target or task
+    if (key === 'staff') {
+      const maxS = detectedMerits.staff.reduce(
+        (s, m) => s + (meritEffectiveRating(currentChar, m) || 0), 0
+      );
+      let anyUsed = false;
+      for (let n = 1; n <= maxS; n++) {
+        const tg = document.getElementById(`dt-staff_${n}_target`);
+        const tk = document.getElementById(`dt-staff_${n}_task`);
+        if ((tg && tg.value.trim()) || (tk && tk.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
+      return;
+    }
+
     // Spheres: tick when any sphere slot has an action selected
     if (key === 'spheres') {
       const maxS = Math.min(detectedMerits.spheres.length, 5);
@@ -5754,6 +5861,13 @@ function updateSectionTicks(container) {
         if (el && el.value) { anyAction = true; break; }
       }
       tick.classList.toggle('visible', anyAction);
+      return;
+    }
+
+    // dt-form.23: Regency tick reflects the cycle.regent_confirmations entry,
+    // not a form field — predicate is the source of truth.
+    if (key === 'regency') {
+      tick.classList.toggle('visible', _isRegencyConfirmedThisCycle());
       return;
     }
 
@@ -5904,27 +6018,20 @@ function renderQuestion(q, value) {
       break;
 
     case 'shoutout_picks': {
+      // Universal char picker (ADR-003 §Q6) — site #4 (attendees scope, multi).
+      // Max-3 cap preserved via consumer-side onChange (see _makeCharPickerOnChange).
       let picks = [];
       if (value) { try { picks = JSON.parse(value); } catch { /* ignore */ } }
-      const pickSet = new Set(picks.map(String));
-      const atLimit = pickSet.size >= 3;
-
-      h += '<div class="dt-chip-grid" data-shoutout-grid>';
-      for (const char of allCharacters) {
-        const id = String(char.id);
-        const isSelected = pickSet.has(id);
-        const isAtt = lastGameAttendees.some(a => String(a.id) === id);
-        const disabledAttr = (!isAtt || (!isSelected && atLimit)) ? ' disabled' : '';
-        const selectedClass = isSelected ? ' dt-chip--selected' : '';
-        const disabledClass = !isAtt ? ' dt-chip--disabled' : '';
-        const title = !isAtt ? ` title="Did not attend court"` : '';
-        h += `<button type="button" class="dt-chip${selectedClass}${disabledClass}"`;
-        h += ` data-shoutout-pick="${esc(id)}"${disabledAttr}${title}>${esc(char.name)}</button>`;
-      }
-      h += '</div>';
-      if (atLimit) {
-        h += '<p class="dt-shoutout-limit">3 selections made — uncheck one to change.</p>';
-      }
+      const initialIds = picks.map(String).filter(Boolean);
+      const initialJson = esc(JSON.stringify(initialIds));
+      const savedJson = esc(JSON.stringify(initialIds));
+      h += `<input type="hidden" id="dt-${esc(q.key)}" value="${savedJson}">`;
+      h += `<div data-cp-mount data-cp-site="shoutout"`
+         + ` data-cp-scope="attendees" data-cp-cardinality="multi"`
+         + ` data-cp-hidden="dt-${esc(q.key)}"`
+         + ` data-cp-initial="${initialJson}"`
+         + ` data-cp-placeholder="Pick up to 3 attendees"></div>`;
+      h += '<p class="qf-desc dt-shoutout-limit-hint">Up to 3 picks. A 4th will be ignored.</p>';
       break;
     }
 
@@ -5958,8 +6065,53 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // ── Unified pool builder (DTFP-4: always visible, method optional) ──
-      h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      // dt-form.20 (ADR-003 §Q2): MINIMAL renders a read-only auto-derived
+      // pool annotation in place of the manual pool selectors. ADVANCED keeps
+      // the existing chrome (DTFP-4: always visible, method optional).
+      if (_formMode(responseDoc?.responses) === 'minimal') {
+        const slugFromGrid = (gridStr) => {
+          let grid = {};
+          try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
+          const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
+          if (!key) return '';
+          const niceName = FEEDING_TERRITORIES.find(
+            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+          );
+          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
+          return td?.slug || '';
+        };
+        const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
+        // Issue #166: pass the active speciality so the MINIMAL primary
+        // readout includes the bonus when one is set (e.g. carried over
+        // from a prior ADVANCED-mode toggle).
+        const pool = computeBestFeedingPool({
+          char: c,
+          methodId: feedMethodId,
+          territorySlug,
+          spec: feedSpecName || '',
+        });
+        h += '<div class="qf-field dt-feed-min-pool">';
+        if (!feedMethodId) {
+          h += '<p class="qf-desc">Pick a method above to see your auto-derived hunt pool.</p>';
+        } else if (!pool) {
+          h += '<p class="qf-desc">Pool unavailable for this method.</p>';
+        } else {
+          const parts = [];
+          if (pool.attr.name) parts.push(`${pool.attr.val} ${esc(pool.attr.name)}`);
+          if (pool.skill.name) parts.push(`${pool.skill.val} ${esc(pool.skill.name)}`);
+          else if (pool.unskilled) parts.push(`${pool.unskilled} unskilled`);
+          if (pool.disc.name) parts.push(`${pool.disc.val} ${esc(pool.disc.name)}`);
+          if (pool.ambience.mod) parts.push(`${pool.ambience.mod > 0 ? '+' : ''}${pool.ambience.mod} ambience`);
+          if (pool.spec?.bonus) parts.push(`+${pool.spec.bonus} ${esc(pool.spec.name)}`);
+          h += `<label class="qf-label">Pool: <strong>${pool.total}</strong></label>`;
+          h += `<p class="qf-desc">${parts.join(' &middot; ')} (auto-picked from your sheet)</p>`;
+        }
+        h += '</div>';
+        h += '<p class="qf-desc dt-feed-min-pool__advanced-hint">Want to customise your pool? Switch to <strong>Advanced</strong> mode at the top of the form.</p>';
+      } else {
+        // ── Unified pool builder (DTFP-4: always visible, method optional) ──
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
+      }
 
       // Blood type selection — single-select (legacy multi-array reads first item)
       const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
@@ -5996,52 +6148,12 @@ function renderQuestion(q, value) {
       h += '</div>';
       h += '</div>'; // dt-feed-card-wrap
 
-      // ── Container 2: Feeding quality (Standard / Rote) ──
-      {
-        const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
-        if (savedRote && !feedRoteAction) feedRoteAction = true;
-        feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
-        feedRoteSpec = responseDoc?.responses?.['_rote_spec'] || feedRoteSpec;
-        feedRoteCustomAttr = responseDoc?.responses?.['_rote_custom_attr'] || feedRoteCustomAttr;
-        feedRoteCustomSkill = responseDoc?.responses?.['_rote_custom_skill'] || feedRoteCustomSkill;
-
-        const saved = responseDoc?.responses || {};
-
-        const firstAvail = [1,2,3,4].find(n => {
-          const act = saved[`project_${n}_action`];
-          return !act || act === 'feed';
-        }) || 1;
-        if (feedRoteAction && feedRoteSlot !== firstAvail) feedRoteSlot = firstAvail;
-
-        const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
-
-        h += '<div class="dt-feed-rote-section">';
-        h += '<label class="qf-label">Commit a project to hunting this downtime?</label>';
-        h += '<div class="dt-feed-violence-toggle">';
-        h += `<button type="button" class="dt-feed-vi-btn${!feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="off">Standard Hunt</button>`;
-        h += `<button type="button" class="dt-feed-vi-btn${feedRoteAction ? ' dt-feed-vi-on' : ''}" data-feed-rote="on">Rote Hunt</button>`;
-        h += '</div>';
-        if (feedRoteAction) {
-          h += '<div class="dt-rote-slot-picker">';
-          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt. IF this roll is successful, it will apply the Rote quality to your feeding roll (roll twice, take the best result).</p>`;
-          {
-            const roteTerrSaved = (responseDoc?.responses || {})['feeding_territories_rote'] || '';
-            let roteTerrGridVals = {};
-            try { roteTerrGridVals = JSON.parse(roteTerrSaved); } catch { /* ignore */ }
-            const mainTerrSaved = (responseDoc?.responses || {})['feeding_territories'] || '';
-            let mainTerrGridVals = {};
-            try { mainTerrGridVals = JSON.parse(mainTerrSaved); } catch { /* ignore */ }
-            h += '<div class="qf-field">';
-            h += '<p class="qf-desc" style="margin:0 0 6px;font-size:.85em;opacity:.8">Rote feed must use the same territory type as your main feed. Barrens locks both.</p>';
-            h += renderFeedingTerritoryPills(roteTerrGridVals, true, mainTerrGridVals);
-            h += '</div>';
-          }
-          h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
-          h += `<div class="qf-field"><textarea id="dt-rote-description" class="qf-textarea" rows="4" placeholder="Describe how your character hunts">${esc(roteDesc)}</textarea></div>`;
-          h += '</div>';
-        }
-        h += '</div>';
-      }
+      // dt-form.22: ROTE block removed from the feeding section. ROTE is now
+      // a personal-project-action variant (see PROJECT_ACTIONS in
+      // downtime-data.js). The legacy `_feed_rote_*` state is migrated on
+      // the next save in collectResponses; territory continues to write to
+      // the document-level `feeding_territories_rote` map for ambience
+      // resolution by the Vitae Projection container below.
 
       // ── Container 3: Vitae Projection ──
       {
@@ -6112,8 +6224,12 @@ function renderQuestion(q, value) {
           return { mod: td.ambienceMod || 0, label: `${td.ambience} (${name})` };
         };
 
+        // dt-form.22: rote-active is derived from the new project-action
+        // shape — any slot whose action is 'rote' counts. Replaces the
+        // legacy module-scoped `feedRoteAction` flag.
+        const _hasRoteSlot = [1, 2, 3, 4].some(n => allResp[`project_${n}_action`] === 'rote');
         const mainAmb = resolveTerrAmbience(allResp['feeding_territories']);
-        const roteAmb = feedRoteAction ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
+        const roteAmb = _hasRoteSlot ? resolveTerrAmbience(allResp['feeding_territories_rote']) : null;
 
         // Best of the two territories (highest mod wins)
         let bestAmb = null;
@@ -6133,7 +6249,7 @@ function renderQuestion(q, value) {
         mainPool += fgVal;
         if (feedSpecName) mainPool += hasAoE(c, feedSpecName) ? 2 : 1;
         // Average vitae: base = floor(2N/3); rote = floor(5N/6) (max of two rolls)
-        const avgGathered = feedRoteAction
+        const avgGathered = _hasRoteSlot
           ? Math.floor((mainPool * 5) / 6)
           : Math.floor((mainPool * 2) / 3);
 
@@ -6167,7 +6283,7 @@ function renderQuestion(q, value) {
         const netSign = netStarting >= 0 ? '+' : '−';
         h += `<div class="dt-vitae-row dt-vitae-subtotal"><span>Net starting Vitae</span><span>${netSign}${Math.abs(netStarting)}</span></div>`;
         if (mainPool > 0) {
-          const yieldLabel = feedRoteAction ? 'Projected average gathered (rote)' : 'Projected average gathered';
+          const yieldLabel = _hasRoteSlot ? 'Projected average gathered (rote)' : 'Projected average gathered';
           h += `<div class="dt-vitae-row dt-vitae-pos"><span>${yieldLabel}</span><span>+${avgGathered}</span></div>`;
         } else {
           h += '<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Build your hunt pool above to see expected yield.</span><span></span></div>';
@@ -6335,10 +6451,12 @@ function renderQuestion(q, value) {
       }
       const remaining = budget - totalSpent;
 
+      const infBreakdown = influenceBreakdown(currentChar);
+      const infTitle = infBreakdown.length ? infBreakdown.join('\n') : 'No influence sources';
       h += `<div class="dt-influence-grid" id="dt-${q.key}">`;
       h += `<div class="dt-influence-budget" id="dt-influence-budget">`;
       h += `<span class="dt-influence-remaining${remaining < 0 ? ' dt-influence-over' : ''}">${remaining}</span>`;
-      h += ` / ${budget} Influence remaining`;
+      h += ` / <span class="dt-influence-budget-label" title="${esc(infTitle)}">${budget} Influence remaining</span>`;
       h += '</div>';
 
       for (const terr of INFLUENCE_TERRITORIES) {

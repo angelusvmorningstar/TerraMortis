@@ -327,7 +327,7 @@ function renderFeedingSummary() {
   const feedTerrs = Object.entries(territories)
     .filter(([, v]) => v === 'resident' || v === 'poach')
     .map(([k, v]) => {
-      const t = TERRITORY_DATA.find(td => td.id === k || k.includes(td.id));
+      const t = TERRITORY_DATA.find(td => td.slug === k || k.includes(td.slug));
       const name = t ? t.name : k.replace(/_/g, ' ');
       return `${name} (${v})`;
     });
@@ -354,7 +354,7 @@ function renderFeedingSummary() {
         }
         const projTerr = r[`project_${n}_territory`];
         if (projTerr) {
-          const t = TERRITORY_DATA.find(td => td.id === projTerr);
+          const t = TERRITORY_DATA.find(td => td.slug === projTerr);
           h += ` in <strong>${esc(t?.name || projTerr)}</strong>`;
         }
         const projDesc = r[`project_${n}_description`];
@@ -452,9 +452,9 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
   ).length;
 
-  // Merge live territory docs over hardcoded defaults — live values take precedence
+  // Merge live territory docs over hardcoded defaults — live values take precedence.
   const effectiveTerrs = TERRITORY_DATA.map(t => {
-    const live = liveTerrDocs.find(d => d.id === t.id);
+    const live = liveTerrDocs.find(d => d.slug === t.slug);
     return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
   });
 
@@ -466,7 +466,7 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       const grid = JSON.parse(sub.responses.feeding_territories);
       for (const [tid, status] of Object.entries(grid)) {
         if (status !== 'resident' && status !== 'poach') continue;
-        const td = effectiveTerrs.find(t => t.id === tid || tid.startsWith(t.id));
+        const td = effectiveTerrs.find(t => t.slug === tid || tid.startsWith(t.slug));
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;

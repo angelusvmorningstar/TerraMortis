@@ -73,30 +73,6 @@ function validPlayerBody(overrides = {}) {
   };
 }
 
-// ── NPC directory ───────────────────────────────────────────────────────────
-
-describe('GET /api/npcs/directory', () => {
-  it('returns active + pending NPCs with minimal projection', async () => {
-    const res = await request(app)
-      .get('/api/npcs/directory')
-      .set('X-Test-User', playerUser([MY_CHAR]));
-    expect(res.status).toBe(200);
-    const names = res.body.map(n => n.name);
-    expect(names).toContain('Alice NPC');
-    expect(names).toContain('Pending NPC');
-    expect(names).not.toContain('Archived NPC');
-    // Minimal projection: no notes / linked_character_ids
-    const alice = res.body.find(n => n.name === 'Alice NPC');
-    expect(alice.notes).toBeUndefined();
-    expect(alice.linked_character_ids).toBeUndefined();
-  });
-
-  it('401 without auth', async () => {
-    const res = await request(app).get('/api/npcs/directory');
-    expect(res.status).toBe(401);
-  });
-});
-
 // ── Player POST: happy path ─────────────────────────────────────────────────
 
 describe('POST /api/relationships — player happy path', () => {

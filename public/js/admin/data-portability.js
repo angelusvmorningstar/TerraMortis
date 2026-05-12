@@ -515,11 +515,18 @@ async function writeJsonDoc(collection, doc) {
       return apiPost('/api/characters', doc);
 
     case 'territories': {
-      // Territories use a slug `id` field, not MongoDB _id
-      const slugId = doc.id || id;
-      if (!slugId) throw new Error('Territory doc missing id field');
-      try { return await apiPut(`/api/territories/${slugId}`, body); }
-      catch { return apiPost('/api/territories', doc); }
+      // Post-ADR-002: territories use MongoDB _id as canonical FK; slug is a label.
+      // Issue #141 (2026-05-07): PUT is now schema-validated like POST. Apply
+      // the same body-shaping to BOTH paths so legacy export JSON (which may
+      // carry the retired `id` and `regent_name` fields) imports cleanly under
+      // strict mode. Lesson #105 — drop the legacy keys at the writer rather
+      // than gate them on the schema.
+      const cleanBody = { ...body };
+      if (doc.slug || doc.id) cleanBody.slug = doc.slug || doc.id;
+      delete cleanBody.id;
+      delete cleanBody.regent_name;
+      if (id) return apiPut(`/api/territories/${id}`, cleanBody);
+      return apiPost('/api/territories', cleanBody);
     }
 
     case 'game_sessions':

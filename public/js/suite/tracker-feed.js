@@ -35,7 +35,7 @@ function feedInit() {
   if (tsel.options.length <= 1) {
     TERRITORY_DATA.forEach(t => {
       const o = document.createElement('option');
-      o.value = t.id;
+      o.value = t.slug;
       o.textContent = t.name + (t.ambience
         ? ' — ' + t.ambience + (t.ambienceMod > 0 ? ' (+' + t.ambienceMod + ')' : t.ambienceMod < 0 ? ' (' + t.ambienceMod + ')' : '')
         : '');
@@ -92,7 +92,7 @@ function feedBuildPool() {
 
   // Territory ambience
   const terrId = document.getElementById('feed-terr').value;
-  const terr = TERRITORY_DATA.find(t => t.id === terrId) || { ambienceMod: 0 };
+  const terr = TERRITORY_DATA.find(t => t.slug === terrId) || { ambienceMod: 0 };
   const ambMod = terr.ambienceMod || 0;
 
   // Discipline select — populate with valid discs char has

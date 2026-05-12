@@ -11,7 +11,6 @@ import territoriesRouter from '../../routes/territories.js';
 import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from '../../routes/downtime.js';
 import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
-import residencyRouter from '../../routes/territory-residency.js';
 import attendanceRouter from '../../routes/attendance.js';
 import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
@@ -57,7 +56,6 @@ export function createTestApp() {
   app.use('/api/downtime_submissions', mockAuth, submissionsRouter);
   app.use('/api/project_invitations', mockAuth, projectInvitationsRouter);
   app.use('/api/players', mockAuth, playersRouter);
-  app.use('/api/territory-residency', mockAuth, residencyRouter);
   app.use('/api/attendance', mockAuth, attendanceRouter);
 
   // Territories — matches prod: auth required at app level; write gating is

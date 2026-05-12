@@ -28,21 +28,34 @@ router.get('/', async (req, res) => {
   res.json(docs);
 });
 
-// POST /api/territories — create or upsert by territory id field (ST only)
+// POST /api/territories — create new (no _id) or update existing (with _id), ST only.
+// Strict cutover per ADR-002 Q2: no upsert by slug; _id is the only update key.
 router.post('/', requireST, validate(territorySchema), async (req, res) => {
-  const { id, ...fields } = req.body;
-  if (!id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'id required' });
-
-  const result = await col().findOneAndUpdate(
-    { id },
-    { $set: { id, ...fields, updated_at: new Date().toISOString() } },
-    { upsert: true, returnDocument: 'after' }
-  );
-  res.status(201).json(result);
+  const { _id, ...fields } = req.body;
+  if (_id) {
+    const oid = parseId(_id);
+    if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid _id format' });
+    const result = await col().findOneAndUpdate(
+      { _id: oid },
+      { $set: { ...fields, updated_at: new Date().toISOString() } },
+      { returnDocument: 'after' }
+    );
+    if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Territory not found' });
+    return res.json(result);
+  }
+  // No _id → insert new
+  const insert = await col().insertOne({ ...fields, updated_at: new Date().toISOString() });
+  const doc = await col().findOne({ _id: insert.insertedId });
+  res.status(201).json(doc);
 });
 
-// PUT /api/territories/:id — update one (ST only)
-router.put('/:id', requireST, async (req, res) => {
+// PUT /api/territories/:id — update one by _id (ST only)
+// Issue #141 (2026-05-07): defense-in-depth — same `validate(territorySchema)`
+// gate as POST. Closes the parallel attack vector PR #140 left open: a stale
+// browser session calling PUT with a legacy `id` body would have been
+// silently accepted and persisted unknown fields against the strict schema's
+// intent.
+router.put('/:id', requireST, validate(territorySchema), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory ID format' });
 
@@ -62,6 +75,8 @@ router.put('/:id', requireST, async (req, res) => {
 // Lock rule: a character who has submitted a DT marked 'resident' on this
 // territory in the active cycle cannot be removed from feeding_rights by the
 // regent. ST override bypasses the lock.
+//
+// Strict cutover per ADR-002 Q2: :id MUST be an ObjectId. Slug-fallback removed.
 router.patch('/:id/feeding-rights', async (req, res) => {
   const { id } = req.params;
   const { feeding_rights } = req.body;
@@ -73,11 +88,10 @@ router.patch('/:id/feeding-rights', async (req, res) => {
     });
   }
 
-  // Look up territory by MongoDB _id OR by the slug id field
   const oid = parseId(id);
-  const query = oid ? { $or: [{ _id: oid }, { id }] } : { id };
-  const territory = await col().findOne(query);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory ID format' });
 
+  const territory = await col().findOne({ _id: oid });
   if (!territory) {
     return res.status(404).json({ error: 'NOT_FOUND', message: 'Territory not found' });
   }
@@ -90,7 +104,10 @@ router.patch('/:id/feeding-rights', async (req, res) => {
     });
   }
 
-  // Lock check — only applies to non-ST callers
+  // Lock check — only applies to non-ST callers.
+  // Note: feeding_territories keys in submissions remain slug-variant strings
+  // (per ADR-002 Q4); the legacy reader resolves them against the territory's
+  // `slug` field.
   if (!isStRole(req.user)) {
     const activeCycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
 
@@ -99,13 +116,13 @@ router.patch('/:id/feeding-rights', async (req, res) => {
       const removed = current.filter(cid => !feeding_rights.includes(cid));
 
       if (removed.length > 0) {
-        // Find submissions in the active cycle marked 'resident' on this territory
         const subs = await getCollection('downtime_submissions').find({
           cycle_id: activeCycle._id,
           status: 'submitted',
         }).toArray();
 
         const fedCharIds = new Set();
+        const terrSlug = territory.slug;
         for (const sub of subs) {
           const raw = sub?.responses?.feeding_territories;
           if (!raw) continue;
@@ -114,7 +131,7 @@ router.patch('/:id/feeding-rights', async (req, res) => {
           if (!grid || typeof grid !== 'object') continue;
           for (const [slug, state] of Object.entries(grid)) {
             if (state !== 'resident') continue;
-            if (normaliseTerritorySlug(slug) === territory.id) {
+            if (normaliseTerritorySlug(slug) === terrSlug) {
               fedCharIds.add(String(sub.character_id));
             }
           }

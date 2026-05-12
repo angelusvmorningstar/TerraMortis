@@ -87,7 +87,65 @@ router.get('/', async (req, res) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  res.json({ attended, attendees });
+  // dt-form.17: surface session_id so the player client can address the
+  // soft-submit lifecycle PATCH at /api/attendance/:session_id/:character_id.
+  res.json({ attended, attendees, session_id: latest?._id ? String(latest._id) : null });
+});
+
+// dt-form.17 (ADR-003 §Q3): PATCH attendance.downtime for a single character
+// on a single game session. Mirrors the player's submission `_has_minimum`
+// derived bool both ways. Idempotent: writing the same value is a no-op
+// success. Players may flip their own character; ST may flip any.
+//
+// Mounted under /api/attendance (player-accessible) rather than
+// /api/game_sessions (ST/coordinator-only) so players can run their own
+// soft-submit lifecycle. ST attendance edits still go through the existing
+// PUT /api/game_sessions/:id (whole-document overwrite) for compat.
+//
+// Path: PATCH /api/attendance/:session_id/:character_id
+// Body: { downtime: true | false }
+// Returns: 200 + the updated attendance entry, or 404 if no match.
+router.patch('/:session_id/:character_id', async (req, res) => {
+  const sessionId = req.params.session_id;
+  const charId = String(req.params.character_id || '');
+  const downtime = req.body?.downtime;
+  if (typeof downtime !== 'boolean') {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'Body field `downtime` must be boolean',
+    });
+  }
+
+  let sessOid;
+  try { sessOid = new ObjectId(sessionId); }
+  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid session ID format' }); }
+
+  // Player auth: only flip their own character.
+  if (req.user.role === 'player') {
+    const owned = (req.user.character_ids || []).map(id => String(id));
+    if (!owned.includes(charId)) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+    }
+  }
+
+  const result = await col().findOneAndUpdate(
+    { _id: sessOid, 'attendance.character_id': charId },
+    {
+      $set: {
+        'attendance.$.downtime': downtime,
+        updated_at: new Date().toISOString(),
+      },
+    },
+    { returnDocument: 'after', projection: { attendance: 1 } }
+  );
+  if (!result) {
+    return res.status(404).json({
+      error: 'NOT_FOUND',
+      message: 'No attendance entry for that character on that session',
+    });
+  }
+  const entry = (result.attendance || []).find(a => String(a.character_id) === charId);
+  res.json({ ok: true, entry });
 });
 
 export default router;

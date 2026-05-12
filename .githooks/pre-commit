@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit
+#
+# Parse-check every staged public/js/**/*.js file as an ES module.
+# Catches smart-quote-as-syntax (U+2018 / U+2019 / U+201C / U+201D used as
+# string delimiters) and other parse-time regressions per issue #34.
+#
+# Scope is intentionally narrow:
+#   - Only public/js/ — server/ JS is covered by vitest already.
+#   - Only added/modified files — deletes are skipped via --diff-filter=ACM.
+#   - Smart quotes inside string content (HTML body text, prose copy in
+#     dev-fixtures, rules text) parse cleanly and pass; the hook only fails
+#     when smart quotes break the JS grammar.
+#
+# Bypass: `git commit --no-verify`. Reserved for genuine WIP-on-personal-branch
+# cases. See .githooks/README.md.
+
+set -e
+
+# Find staged JS files under public/js/ (added or modified, not deleted).
+staged=$(git diff --cached --name-only --diff-filter=ACM -z | tr '\0' '\n' | grep -E '^public/js/.*\.js$' || true)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+failed=0
+errfile=$(mktemp)
+trap 'rm -f "$errfile"' EXIT
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # Pipe the file content into node so the input-type=module flag applies
+  # without needing a .mjs extension or a package.json `type: module`.
+  if ! node --input-type=module --check < "$f" >"$errfile" 2>&1; then
+    echo "✗ Parse error in $f:"
+    cat "$errfile"
+    echo
+    failed=1
+  fi
+done <<< "$staged"
+
+if [ $failed -ne 0 ]; then
+  echo "Pre-commit aborted: staged JS files do not parse as ES modules."
+  echo "Often caused by smart quotes (U+2018 / U+2019) used as string delimiters."
+  echo "See .githooks/README.md for context. Bypass with --no-verify only when intentional."
+  exit 1
+fi
+
+exit 0

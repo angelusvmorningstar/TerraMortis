@@ -382,7 +382,7 @@ export const characterSchema = {
         spheres:       { type: 'array', items: { type: 'string' } },
         granted_by:    { type: 'string' },
         active:        { type: 'boolean' },
-        narrow:        { type: 'boolean' },
+        narrow:        { type: ['string', 'boolean', 'null'] },
         ghoul:         { type: 'boolean' },
         derived:       { type: 'boolean' },
         // MCI per-dot choices
