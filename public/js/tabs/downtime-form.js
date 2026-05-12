@@ -18,7 +18,7 @@ import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, skNineAgain, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -588,9 +588,7 @@ function collectResponses() {
       if (attrName || skillName || discName) {
         const validSpec = !!(specName && skillName
           && (currentChar.skills?.[skillName]?.specs || []).includes(specName));
-        const specBonus = validSpec
-          ? ((skNineAgain(currentChar, skillName) || hasAoE(currentChar, specName)) ? 2 : 1)
-          : 0;
+        const specBonus = validSpec ? (hasAoE(currentChar, specName) ? 2 : 1) : 0;
         let total = 0;
         if (attrName)  total += getAttrEffective(currentChar, attrName);
         if (skillName) total += skTotal(currentChar, skillName);
@@ -3788,8 +3786,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   if (savedSkill) total += skTotal(currentChar, savedSkill);
   if (savedDisc) total += discDots(currentChar, savedDisc);
   if (savedSpec && bestSpecs.includes(savedSpec)) {
-    const na = skNineAgain(currentChar, savedSkill);
-    total += (na || hasAoE(currentChar, savedSpec)) ? 2 : 1;
+    total += hasAoE(currentChar, savedSpec) ? 2 : 1;
   }
 
   let h = '<div class="qf-field">';
@@ -3841,8 +3838,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
     h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
     for (const sp of bestSpecs) {
       const on = savedSpec === sp ? ' dt-feed-spec-on' : '';
-      const na = skNineAgain(currentChar, savedSkill);
-      const bonus = (na || hasAoE(currentChar, sp)) ? 2 : 1;
+      const bonus = hasAoE(currentChar, sp) ? 2 : 1;
       h += `<button type="button" class="dt-feed-spec-chip${on}" data-pool-spec="${esc(prefix)}" data-spec-name="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${bonus}</span></button>`;
     }
     h += '</div>';
@@ -4846,8 +4842,7 @@ function updatePoolTotal(prefix) {
   if (specEl?.value && skillEl?.value) {
     const specs = currentChar.skills?.[skillEl.value]?.specs || [];
     if (specs.includes(specEl.value)) {
-      const na = skNineAgain(currentChar, skillEl.value);
-      total += (na || hasAoE(currentChar, specEl.value)) ? 2 : 1;
+      total += hasAoE(currentChar, specEl.value) ? 2 : 1;
     }
   }
 

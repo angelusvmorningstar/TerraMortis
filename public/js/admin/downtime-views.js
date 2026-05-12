@@ -744,14 +744,14 @@ function _resolveNineAgainState(rev, poolValidated, char) {
  * @param {object|null} char
  * @returns {string|null}
  */
-function _augmentPoolWithSpecs(poolValidated, activeSpecs, char, nineAgain) {
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
   if (!poolValidated || !activeSpecs.length) return poolValidated;
   const eqIdx = poolValidated.lastIndexOf('=');
   if (eqIdx === -1) return poolValidated;
   const base     = poolValidated.slice(0, eqIdx).trim();
   const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
-  const specTotal = activeSpecs.reduce((s, sp) => s + ((nineAgain || (char && hasAoE(char, sp))) ? 2 : 1), 0);
-  const specLabel = activeSpecs.map(sp => `${sp} +${(nineAgain || (char && hasAoE(char, sp))) ? 2 : 1}`).join(', ');
+  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
   return `${base} + ${specLabel} = ${tot + specTotal}`;
 }
 
@@ -943,15 +943,13 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
     }
   }
 
-  // Spec bonus: +2 if Area-of-Expertise / nine-again, +1 otherwise. Only
-  // counts when the player's picked spec is on the method-derived best
-  // skill (matches feeding-pool.js).
+  // Spec bonus: +2 with Area of Expertise; +1 otherwise.
   let specBonus = 0;
   const playerSpec = picks.spec || '';
   if (playerSpec && bestSkillName) {
     const sk = char.skills?.[bestSkillName];
     if (sk?.specs?.includes(playerSpec)) {
-      specBonus = (sk.nine_again || hasAoE(char, playerSpec)) ? 2 : 1;
+      specBonus = hasAoE(char, playerSpec) ? 2 : 1;
     }
   }
 
@@ -5207,8 +5205,7 @@ function renderProcessingMode(container) {
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
       const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
-      const skillNa = char && skillSel ? skNineAgain(char, skillSel.value) : false;
-      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + ((skillNa || (char && hasAoE(char, sp))) ? 2 : 1), 0);
+      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
       // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
     });
@@ -7161,7 +7158,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainState);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -7409,7 +7406,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainStateFeed);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];

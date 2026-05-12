@@ -767,3 +767,4 @@ development_status:
   issue-272-ambience-overhaul: review                           # Fix entropy (per-rating), overfeeding (×2), project values (2/4), step thresholds (per-territory); rename AMBIENCE_CAP → AMBIENCE_FEEDING_TOLERANCE; personal projects deferred
   issue-273-feeding-matrix-feed-count: review                   # Four-state matrix O/OO/X/XX; _getSubFedTerrs Set→Map; _computeMatrixFeederCounts unified source; overfeeding display feeders/cap
   issue-271-city-st-notes-padding: review                     # fix.53: proc-amb-notes-block missing horizontal padding; label/textarea flush to left edge; padding: 12px 16px 0
+  issue-267-dt-spec-bonus-aoe-only: review                   # fix.54: remove skNineAgain from spec-bonus predicate at 8 sites (3 files); AoE-only; supersedes #207
