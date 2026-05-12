@@ -771,3 +771,4 @@ development_status:
   issue-267-dt-spec-bonus-aoe-only: review                      # fix.54: remove skNineAgain from spec-bonus predicate at 8 sites (3 files); AoE-only; supersedes #207
   issue-207-179-spec-predicate-target-type: review              # #207: remove stale sk?.nine_again branch from feeding-pool.js:127 (AoE-only post-#267); #179: target_type ternary → if-guard for silent-leave symmetry (downtime-form.js:668)
   issue-285-feeding-pool-prepopulate: review                    # DT Processing Step 3: pool builder dropdowns + territory pills pre-populate from player's form submission
+  issue-269-cleanup-stale-benefit-grants: review                # detectMerits() prefer tier_grants over benefit_grants; DB script removes stale benefit_grants from MCI merits that have tier_grants
