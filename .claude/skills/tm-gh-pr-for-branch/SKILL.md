@@ -33,10 +33,30 @@ Do **not** invoke for:
 
 ## Steps
 
+0. **Pre-flight sync (always runs first, before any other step):**
+
+   a. `git fetch origin`
+
+   b. Check whether `origin/dev` has commits the current branch doesn't:
+      ```
+      git log HEAD..origin/dev --oneline
+      ```
+      - If **behind**: merge dev in automatically — `git merge origin/dev --no-edit`.
+        - If the merge succeeds cleanly, commit the result and push the branch to origin before continuing.
+        - If there are conflicts, resolve them (sprint-status.yaml is the only typical conflict site — keep all entries from both sides), commit the resolution, and push.
+      - If **already up to date**: skip to step 0c.
+
+   c. Check whether local `Morningstar` is ahead of `origin/Morningstar`:
+      ```
+      git rev-list origin/Morningstar..Morningstar --count
+      ```
+      - If ahead by any commits: note it. Push `Morningstar` to origin **after** the PR is opened (step 9b below).
+      - If in sync: nothing to do.
+
 1. **Verify prerequisites:**
    - `gh auth status` succeeds. If not, abort with "run `gh auth login`".
    - Current branch is not `main` and not the base branch. If on the base, abort.
-   - Branch is pushed (`git rev-parse --verify origin/<branch>` succeeds). If not, ask user whether to push first.
+   - Branch is pushed (`git rev-parse --verify origin/<branch>` succeeds). If not, push it now (pre-flight already merged dev in; pushing is a required part of opening a PR).
 2. **Determine base branch.** Default `dev` unless overridden. If user requested `--base main`:
    - Check the user's current message text for explicit authorisation: must contain a phrase like "merge to main", "PR to main", "ship", or "deploy".
    - If absent, refuse with: "PRs to main require explicit per-message authorisation per CLAUDE.md hard rule."
@@ -103,6 +123,18 @@ Do **not** invoke for:
    )"
    ```
 9. **Capture the PR URL** from `gh`'s output and report: "Opened PR #<n> at <url>". If `gh` returns non-zero (e.g. PR already exists), surface the error and do not retry.
+
+   a. **Close linked issues on GitHub.** Because PRs merge into `dev` (not `main`), GitHub's auto-close on PR merge never fires. For every `Closes #N` / `Fixes #N` in the PR body, run:
+      ```
+      gh issue close <N> --repo angelusvmorningstar/TerraMortis --comment "Fixed in dev via PR #<pr-number>."
+      ```
+      Report each closed issue.
+
+   b. **Push `Morningstar` if it was ahead** (noted in step 0c):
+      ```
+      git checkout Morningstar && git push origin Morningstar && git checkout <original-branch>
+      ```
+      Report: "`Morningstar` pushed to origin (was N commits ahead)."
 
 ## Boundaries
 
