@@ -5,7 +5,7 @@
 **Issue:** 272
 **Issue URL:** https://github.com/angelusvmorningstar/TerraMortis/issues/272
 **Branch:** morningstar-issue-272-ambience-overhaul
-**Status:** ready-for-dev
+**Status:** review
 **Date:** 2026-05-12
 
 ---

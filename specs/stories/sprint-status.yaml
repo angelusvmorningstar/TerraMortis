@@ -763,4 +763,4 @@ development_status:
   issue-236-archive-nav-tile-carver: review                     # Archive nav tile gated on dead `_has_archive` flag (never set anywhere); dropped the condition entirely — tab self-handles empty state via existing "Nothing archived yet." placeholder; ST view unchanged via existing role bypass
   issue-270-admin-sortname-display: done                        # Replace displayName with dropdownName at all display call sites in downtime-views.js + downtime-story.js; 27 call sites changed
   issue-271-spheres-grid-padding: done                          # padding: 8px 0 → 8px 16px on .spheres-grid; DT City + standalone Spheres domain view
-  issue-272-ambience-overhaul: in-progress                      # Fix entropy (per-rating), overfeeding (×2), project values (2/4), step thresholds (per-territory); rename AMBIENCE_CAP → AMBIENCE_FEEDING_TOLERANCE; personal projects deferred
+  issue-272-ambience-overhaul: review                           # Fix entropy (per-rating), overfeeding (×2), project values (2/4), step thresholds (per-territory); rename AMBIENCE_CAP → AMBIENCE_FEEDING_TOLERANCE; personal projects deferred
