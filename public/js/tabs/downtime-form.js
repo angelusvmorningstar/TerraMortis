@@ -264,12 +264,14 @@ function detectMerits() {
   );
   const expandedInfluence = [...merits];
   for (const m of merits) {
-    if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
-      for (const g of m.benefit_grants) {
-        if (g.category !== 'influence') continue;
-        if (directInfluenceNames.has(g.name)) continue;
-        expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
-      }
+    if (m.category !== 'standing') continue;
+    const grants = Array.isArray(m.tier_grants) ? m.tier_grants
+                 : Array.isArray(m.benefit_grants) ? m.benefit_grants
+                 : [];
+    for (const g of grants) {
+      if (g.category !== 'influence') continue;
+      if (directInfluenceNames.has(g.name)) continue;
+      expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
     }
   }
 

@@ -423,7 +423,7 @@ export function renderOutcomeWithCards(sub, opts = {}) {
         if (rev.roll.dice_string) cardHtml += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
       }
 
-      const note = rev.player_facing_note || rev.player_feedback || '';
+      const note = rev.player_facing_note || '';
       if (note) cardHtml += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
 
       cardHtml += '</div>';
@@ -677,7 +677,7 @@ function renderMeritActionCards(sub) {
       if (rev.roll.dice_string) h += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
     }
 
-    const note = rev.player_facing_note || rev.player_feedback || '';
+    const note = rev.player_facing_note || '';
     if (note) {
       h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
     }
