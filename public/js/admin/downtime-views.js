@@ -3604,35 +3604,19 @@ function _computeMatrixFeederCounts() {
   const byCsvKey = {};
   for (const mt of MATRIX_TERRS) byCsvKey[mt.csvKey] = 0;
   const byTerrId = {};
-
-  // subByCharId still needed for _buildFeedingMatrixHtml body rendering
   const subByCharId = new Map();
+
+  // Use _getSubFedTerrs as single source of truth — matrix cells and overfeeding counts
+  // share the same feed-count Map, including ST overrides and legacy format fallback.
   for (const s of submissions) {
     const c = findCharacter(s.character_name, s.player_name);
-    if (c && !c.retired) subByCharId.set(String(c._id), s);
-  }
-
-  // Build terrId → csvKey lookup from MATRIX_TERRS (handles legacy key variants via resolveTerrId)
-  const terrIdToCsvKey = {};
-  for (const mt of MATRIX_TERRS) {
-    if (mt.ambienceKey === null) continue; // skip Barrens
-    const tid = resolveTerrId(mt.csvKey);
-    if (tid) terrIdToCsvKey[tid] = mt.csvKey;
-  }
-
-  // Count from queue feeding entries — same source as Actions in Territories FEEDING row
-  // so matrix footer, ambience overfeeding, and TAAG chip counts all stay consistent.
-  const queue = buildProcessingQueue(submissions);
-  for (const entry of queue) {
-    if (entry.source !== 'feeding') continue;
-    for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
-      if (!val || val === 'none') continue;
-      const tid = resolveTerrId(terrKey);
-      if (!tid) continue; // null = Barrens or unmapped
-      const csvKey = terrIdToCsvKey[tid];
-      if (!csvKey) continue;
-      byCsvKey[csvKey]++;
-      byTerrId[tid] = (byTerrId[tid] || 0) + 1;
+    if (!c || c.retired) continue;
+    subByCharId.set(String(c._id), s);
+    const fedMap = _getSubFedTerrs(s);
+    for (const [csvKey, count] of fedMap) {
+      if (byCsvKey[csvKey] !== undefined) byCsvKey[csvKey] += count;
+      const tid = resolveTerrId(csvKey);
+      if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + count;
     }
   }
   return { byCsvKey, byTerrId, subByCharId };
@@ -7282,11 +7266,11 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Ambience: use best (highest ambienceMod) territory the character actually fed in
   const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
   const feedSub = submissions.find(s => s._id === entry.subId);
-  const fedTerrKeys = feedSub ? _getSubFedTerrs(feedSub) : new Set();
+  const fedTerrKeys = feedSub ? _getSubFedTerrs(feedSub) : new Map();
 
   let bestTerrLabel = null;
   let ambienceVitae = null;
-  for (const csvKey of fedTerrKeys) {
+  for (const [csvKey] of fedTerrKeys) {
     const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
     if (!mt || !mt.ambienceKey) continue;
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
@@ -9919,18 +9903,19 @@ function _playerFeedTerrsText(sub) {
   return labels.length > 0 ? labels.join(', ') : null;
 }
 
-/** Return a Set of MATRIX_TERRS csvKeys where this submission's character actually fed. */
+/** Return a Map<csvKey, feedCount> for territories where this submission's character fed. */
 function _getSubFedTerrs(sub) {
-  const fed = new Set();
+  const fed = new Map(); // csvKey → count (0–2; currently max 1 until Feed Action follow-up)
   let grid = null;
 
   // ST override takes priority: array of TERRITORY_DATA ids set via feeding pills
+  // Repeated IDs count as additional feeds (e.g., two overrides for same territory = 2).
   const overrideArr = sub.st_review?.territory_overrides?.feeding;
   if (Array.isArray(overrideArr) && overrideArr.length > 0) {
     for (const tid of overrideArr) {
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-      if (mt) fed.add(mt.csvKey);
+      if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
     }
     return fed;
   }
@@ -9947,20 +9932,23 @@ function _getSubFedTerrs(sub) {
         ? TERRITORY_SLUG_MAP[slug] : undefined;
       if (tid === undefined) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-      if (mt) fed.add(mt.csvKey);
+      if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
     }
   } else {
     // Fallback: _raw.feeding.territories (display-name keys, legacy)
     const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
     for (const [csvKey, status] of Object.entries(rawTerrs)) {
       if (!status || status === 'Not feeding here' || status === 'none') continue;
-      fed.add(csvKey);
+      fed.set(csvKey, (fed.get(csvKey) || 0) + 1);
     }
   }
 
+  // TODO(Feed-Action follow-up): add +1 per Feed Action targeting each territory
+  // (capped at 2 total per territory). Awaiting field identification from follow-up issue.
+
   // Default: if feeding method declared but no territory selected, character feeds from Barrens
   if (fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
-    fed.add('The Barrens (No Territory)');
+    fed.set('The Barrens (No Territory)', 1);
   }
 
   return fed;
@@ -9982,28 +9970,48 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
   }
   h += '</tr></thead><tbody>';
+
+  const footerCounts = {};
+  for (const t of cols) footerCounts[t.csvKey] = 0;
+
   for (const char of chars) {
     const charId = String(char._id);
     const sub = subByCharId.get(charId) || null;
     const hasSub = !!sub;
-    const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+    const fedMap = hasSub ? _getSubFedTerrs(sub) : new Map();
+
+    // Accumulate totals for tfoot
+    for (const [csvKey, count] of fedMap) {
+      if (csvKey in footerCounts) footerCounts[csvKey] += count;
+    }
+
     h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}"${hasSub ? ` data-sub-id="${esc(sub._id)}"` : ''}>`;
     h += `<td class="dt-matrix-char">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
     for (const t of cols) {
       const isBarrens = t.ambienceKey === null;
-      const fed = fedTerrs.has(t.csvKey);
-      if (!fed) {
+      const count = fedMap.get(t.csvKey) || 0;
+      if (count === 0) {
         h += '<td class="dt-matrix-empty">\u2014</td>';
       } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
-        h += '<td class="dt-matrix-resident">O</td>';
+        h += count >= 2
+          ? '<td class="dt-matrix-resident">O O</td>'
+          : '<td class="dt-matrix-resident">O</td>';
       } else {
-        h += '<td class="dt-matrix-poach">X</td>';
+        h += count >= 2
+          ? '<td class="dt-matrix-poach">X X</td>'
+          : '<td class="dt-matrix-poach">X</td>';
       }
     }
     h += '</tr>';
   }
-  h += '</tbody></table>';
-  h += '<p class="dt-matrix-note">O = feeding rights. X = poaching. Rights set via City tab.</p>';
+
+  h += '</tbody><tfoot><tr><td class="dt-matrix-char">Total Feeds</td>';
+  for (const t of cols) {
+    const n = footerCounts[t.csvKey];
+    h += n > 0 ? `<td class="dt-matrix-feed-count">${n}</td>` : '<td class="dt-matrix-empty">\u2014</td>';
+  }
+  h += '</tr></tfoot></table>';
+  h += '<p class="dt-matrix-note">O = fed with rights. O O = fed twice with rights. X = poached. X X = poached twice. Rights set via City tab.</p>';
   return h;
 }
 
@@ -10112,9 +10120,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
     const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
     const netStr = _fmtMod(r.net);
-    const gap = r.cap - r.feeders;
-    const gapStr = gap >= 0 ? `+${gap}` : String(gap);
-    const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+    const ovStr = r.feeders > r.cap ? ` | <span class="proc-amb-neg">${r.overfeed}</span>` : '';
     const infNet = r.inf_pos - r.inf_neg;
     const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
@@ -10141,7 +10147,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
     h += `<td>${esc(r.ambience)}</td>`;
     h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-    h += `<td>${r.cap}/${r.feeders} | <span class="${gapClass}">${gapStr}</span></td>`;
+    h += `<td>${r.feeders}/${r.cap}${ovStr}</td>`;
     h += `<td>${infDisplay}</td>`;
     h += `<td>${projDisplay}</td>`;
     h += `<td>${alliesDisplay}</td>`;
@@ -10250,7 +10256,7 @@ function _exportCityOverview(matrix) {
     const fedTerrs = _getSubFedTerrs(sub);
     if (!fedTerrs.size) continue;
     const entries = [];
-    for (const csvKey of fedTerrs) {
+    for (const [csvKey] of fedTerrs) {
       const mt  = MATRIX_TERRS.find(t => t.csvKey === csvKey);
       const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
       const td  = (cachedTerritories || TERRITORY_DATA).find(t => t.slug === tid);
