@@ -7479,7 +7479,17 @@ function _renderActionTypeRow(entry, rev, char) {
     if (!isMerit) {
       const _ambiSub = submissions.find(s => s._id === entry.subId);
       const _ambiCtx = String(entry.actionIdx);
-      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
+      let _ambiTid;
+      if (_stOvrTid) {
+        _ambiTid = _stOvrTid;
+      } else {
+        // No ST override — pre-select from player's submitted territory (visual only)
+        const _slot = entry.projSlot;
+        const _resp = _ambiSub?.responses || {};
+        const _raw = _resp[`project_${_slot}_ambience_target`] || _resp[`project_${_slot}_territory`] || '';
+        _ambiTid = resolveTerrId(_raw) || '';
+      }
       h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     // merit ambience: territory handled via isAlliesAction pills below

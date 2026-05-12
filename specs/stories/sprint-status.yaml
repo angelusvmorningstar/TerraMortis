@@ -774,3 +774,4 @@ development_status:
   issue-269-cleanup-stale-benefit-grants: review                # detectMerits() prefer tier_grants over benefit_grants; DB script removes stale benefit_grants from MCI merits that have tier_grants
   issue-205-admin-feeding-interdisc-spec: review                 # Admin buildFeedingPool spec guard narrower than canonical: add isSpecs() interdisc check + remove nine_again term (mirrors feeding-pool.js post-PR #267)
   issue-168-regency-feeding-rights-cap: review                   # Default 10 feeding-right slots + "+ Add" button; MAX_FEEDING_POSITION 12→20; DOM-append pattern to preserve unsaved picker values
+  issue-289-ambience-pill-preselect: review                    # DT Processing Step 5: ambience pill pre-selects from player's project_${slot}_ambience_target when no ST override; parallel to #285 feeding pill fix
