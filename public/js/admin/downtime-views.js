@@ -942,12 +942,16 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
     }
   }
 
-  // Spec bonus: +2 with Area of Expertise; +1 otherwise.
+  // Spec bonus: +2 if Area-of-Expertise spec, +1 otherwise. Accepts native,
+  // interdisciplinary, or AoE specs (mirrors feeding-pool.js post-PR #267).
   let specBonus = 0;
   const playerSpec = picks.spec || '';
   if (playerSpec && bestSkillName) {
     const sk = char.skills?.[bestSkillName];
-    if (sk?.specs?.includes(playerSpec)) {
+    const interdisc = isSpecs(char).some(({ spec: s }) =>
+      String(s).toLowerCase() === String(playerSpec).toLowerCase()
+    );
+    if (sk?.specs?.includes(playerSpec) || interdisc || hasAoE(char, playerSpec)) {
       specBonus = hasAoE(char, playerSpec) ? 2 : 1;
     }
   }
