@@ -6,10 +6,10 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
-import { displayName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
+import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -43,7 +43,6 @@ let matrixCollapsed = true;    // collapse state for the Feeding Matrix section 
 let ovAmbienceCollapsed = true; // City Overview: ambience section collapse state
 let ovSpheresCollapsed = true;  // City Overview: spheres section collapse state
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
-const preReadExpanded = new Set();   // subIds with pre-read body expanded in processing mode
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
 const xpReviewExpanded  = new Set(); // subIds with XP review body expanded in processing mode
 const signOffExpanded   = new Set(); // subIds with sign-off body expanded in processing mode
@@ -744,14 +743,14 @@ function _resolveNineAgainState(rev, poolValidated, char) {
  * @param {object|null} char
  * @returns {string|null}
  */
-function _augmentPoolWithSpecs(poolValidated, activeSpecs, char, nineAgain) {
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
   if (!poolValidated || !activeSpecs.length) return poolValidated;
   const eqIdx = poolValidated.lastIndexOf('=');
   if (eqIdx === -1) return poolValidated;
   const base     = poolValidated.slice(0, eqIdx).trim();
   const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
-  const specTotal = activeSpecs.reduce((s, sp) => s + ((nineAgain || (char && hasAoE(char, sp))) ? 2 : 1), 0);
-  const specLabel = activeSpecs.map(sp => `${sp} +${(nineAgain || (char && hasAoE(char, sp))) ? 2 : 1}`).join(', ');
+  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
   return `${base} + ${specLabel} = ${tot + specTotal}`;
 }
 
@@ -799,7 +798,7 @@ function renderJointGroup(joint, entries) {
       } catch { ids = [joint.target_value]; }
       const names = ids.map(id => {
         const c = characters.find(ch => String(ch._id) === String(id));
-        return c ? displayName(c) : id;
+        return c ? dropdownName(c) : id;
       });
       targetLine = `Target: ${names.join(', ')}`;
     } else if (joint.target_type === 'territory') {
@@ -943,20 +942,36 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
     }
   }
 
-  // Spec bonus: +2 if Area-of-Expertise / nine-again, +1 otherwise. Only
-  // counts when the player's picked spec is on the method-derived best
-  // skill (matches feeding-pool.js).
+  // Spec bonus: +2 with Area of Expertise; +1 otherwise.
   let specBonus = 0;
   const playerSpec = picks.spec || '';
   if (playerSpec && bestSkillName) {
     const sk = char.skills?.[bestSkillName];
     if (sk?.specs?.includes(playerSpec)) {
-      specBonus = (sk.nine_again || hasAoE(char, playerSpec)) ? 2 : 1;
+      specBonus = hasAoE(char, playerSpec) ? 2 : 1;
     }
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
+  // The `ambienceMod` parameter is misleadingly named. Three callers
+  // exist; only one passes actual territory ambience, and that one is
+  // a bug:
+  //   - renderFeedingDetail (line 1327): passes `stMod`
+  //     (st_review.feeding_modifier — ST manual adjudication lever for
+  //     cover / difficulty / etc.). Legitimately a dice modifier;
+  //     stays in `total` here.
+  //   - bestGenericPool (line 9716): passes `0`. Neutral.
+  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
+  //     Ma'at flagged the original `ambienceMod` (territory) here as a
+  //     dice double-count. Territory ambience is surfaced separately in
+  //     that table's 'Ambience' column.
+  //
+  // Net effect: `ambienceMod` here is now exclusively the ST manual
+  // modifier path; territory ambience is handled in feeding-pool.js
+  // (player-side) and surfaced separately in admin display surfaces.
+  // A follow-up tech-debt issue should rename this parameter to `stMod`
+  // to remove the lurking ambiguity.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -990,7 +1005,7 @@ export async function takeSnapshot(cycleId) {
   // Per-character: prestige = clan status + covenant status, plus influence budget
   const charData = activeChars.map(c => ({
     character_id: String(c._id),
-    name: displayName(c),
+    name: dropdownName(c),
     clan: c.clan || '',
     covenant: c.covenant || '',
     prestige: (c.status?.clan || 0) + (c.status?.covenant?.[c.covenant] || 0),
@@ -1049,7 +1064,7 @@ export async function applyInfluenceIncome() {
       });
       c.influence_balance = newBalance;
     } catch (err) {
-      errors.push({ name: displayName(c), error: err.message });
+      errors.push({ name: dropdownName(c), error: err.message });
     }
   }
 
@@ -1965,7 +1980,7 @@ function renderMaintenanceAuditPanel(cycle) {
         mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
       }
     }
-    html += `<tr><td>${esc(displayName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+    html += `<tr><td>${esc(dropdownName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
   }
   html += '</tbody></table></section>';
   return html;
@@ -2011,7 +2026,7 @@ function _buildCourtPulsePromptText(cycle, subs, chars) {
       count += 1;
       lines.push(`  ${count}. ${txt}`);
     }
-    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     blocks.push(`Highlights from ${name}:\n${lines.join('\n')}`);
   }
 
@@ -2125,7 +2140,7 @@ function _buildActionQueueItems(cycle, subs, chars) {
         text,
         state: ACTION_QUEUE_STATES.includes(entry.state) ? entry.state : 'unread',
         note: entry.note || '',
-        charName: (char ? displayName(char) : null) || sub.character_name || 'Unknown',
+        charName: (char ? dropdownName(char) : null) || sub.character_name || 'Unknown',
         sortKey: char ? sortName(char) : (sub.character_name || ''),
         submittedAt: sub.submitted_at || sub.created_at || '',
       });
@@ -2345,7 +2360,7 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
     // TERRITORY_DATA slug too. Slug-to-slug comparison is correct here.
     if (!_feedTerrIdsForSub(sub).includes(territory.slug)) continue;
     const char = charById.get(String(sub.character_id));
-    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
     feeders.push({ name, method, sortKey: char ? sortName(char) : (sub.character_name || '') });
   }
@@ -2507,7 +2522,7 @@ function renderPrepPanel(cycle) {
     const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${esc(displayName(c))}</span>
+      <span class="dt-early-name">${esc(dropdownName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
@@ -2654,7 +2669,7 @@ function _composeTargetString(resp, prefix, chars) {
     if (!ids.length) return '';
     const names = ids.map(id => {
       const c = chars.find(ch => String(ch._id) === String(id));
-      return c ? displayName(c) : `${id} (unresolved)`;
+      return c ? dropdownName(c) : `${id} (unresolved)`;
     });
     return `Character${ids.length > 1 ? 's' : ''}: ${names.join(', ')}`;
   } else if (tType === 'territory' && tTerr) {
@@ -2851,7 +2866,7 @@ function buildProcessingQueue(subs) {
         if (Array.isArray(castArr) && castArr.length) {
           projCastResolved = castArr.map(id => {
             const c = characters.find(ch => String(ch._id) === String(id));
-            return c ? displayName(c) : id;
+            return c ? dropdownName(c) : id;
           }).join(', ');
         } else {
           projCastResolved = resp[`project_${slot}_cast`] || '';
@@ -3126,7 +3141,7 @@ function buildProcessingQueue(subs) {
           if (Array.isArray(ids) && ids.length) {
             meritCast = ids.map(id => {
               const c = characters.find(ch => String(ch._id) === String(id));
-              return c ? displayName(c) : `${id} (unresolved)`;
+              return c ? dropdownName(c) : `${id} (unresolved)`;
             }).join(', ');
           }
         } catch { meritCast = String(castRaw); }
@@ -3206,7 +3221,7 @@ function buildProcessingQueue(subs) {
     const _resolveTargetName = (id) => {
       if (!id) return '';
       const c = characters.find(ch => String(ch._id) === String(id));
-      return c ? displayName(c) : '';
+      return c ? dropdownName(c) : '';
     };
     const _composeDirectedDesc = (meritLabel, targetName, task) => {
       const head = [meritLabel, targetName].filter(Boolean).join(' — ');
@@ -3586,35 +3601,19 @@ function _computeMatrixFeederCounts() {
   const byCsvKey = {};
   for (const mt of MATRIX_TERRS) byCsvKey[mt.csvKey] = 0;
   const byTerrId = {};
-
-  // subByCharId still needed for _buildFeedingMatrixHtml body rendering
   const subByCharId = new Map();
+
+  // Use _getSubFedTerrs as single source of truth — matrix cells and overfeeding counts
+  // share the same feed-count Map, including ST overrides and legacy format fallback.
   for (const s of submissions) {
     const c = findCharacter(s.character_name, s.player_name);
-    if (c && !c.retired) subByCharId.set(String(c._id), s);
-  }
-
-  // Build terrId → csvKey lookup from MATRIX_TERRS (handles legacy key variants via resolveTerrId)
-  const terrIdToCsvKey = {};
-  for (const mt of MATRIX_TERRS) {
-    if (mt.ambienceKey === null) continue; // skip Barrens
-    const tid = resolveTerrId(mt.csvKey);
-    if (tid) terrIdToCsvKey[tid] = mt.csvKey;
-  }
-
-  // Count from queue feeding entries — same source as Actions in Territories FEEDING row
-  // so matrix footer, ambience overfeeding, and TAAG chip counts all stay consistent.
-  const queue = buildProcessingQueue(submissions);
-  for (const entry of queue) {
-    if (entry.source !== 'feeding') continue;
-    for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
-      if (!val || val === 'none') continue;
-      const tid = resolveTerrId(terrKey);
-      if (!tid) continue; // null = Barrens or unmapped
-      const csvKey = terrIdToCsvKey[tid];
-      if (!csvKey) continue;
-      byCsvKey[csvKey]++;
-      byTerrId[tid] = (byTerrId[tid] || 0) + 1;
+    if (!c || c.retired) continue;
+    subByCharId.set(String(c._id), s);
+    const fedMap = _getSubFedTerrs(s);
+    for (const [csvKey, count] of fedMap) {
+      if (byCsvKey[csvKey] !== undefined) byCsvKey[csvKey] += count;
+      const tid = resolveTerrId(csvKey);
+      if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + count;
     }
   }
   return { byCsvKey, byTerrId, subByCharId };
@@ -3700,7 +3699,7 @@ function _gatherProjectAmbience(subs) {
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = resolved.roll.successes ?? 0;
-      const contrib = successes >= 5 ? 2 : successes > 0 ? 1 : 0;
+      const contrib = successes >= 5 ? 4 : successes > 0 ? 2 : 0;
       if (isIncrease) projPos[tid] = (projPos[tid] || 0) + contrib;
       else            projNeg[tid] = (projNeg[tid] || 0) + contrib;
     }
@@ -3810,10 +3809,10 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   const rows = TERRITORY_DATA.map(td => {
     const id = td.slug;
     const ambience = startingAmbience[id] || td.ambience;
-    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const cap = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
-    const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
-    const entropy = -3;
+    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : 0;
+    const entropy = AMBIENCE_ENTROPY[ambience] ?? -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
     const influence = inf_pos - inf_neg;
@@ -3827,119 +3826,21 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
-      let delta = 0;
-      if (net >= 3) delta = 1;
-      else if (net <= -5) delta = -2;
-      else if (net < 0) delta = -1;
-      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
-      projStep = AMBIENCE_STEPS_LIST[newIdx];
+      const thresh = AMBIENCE_THRESHOLDS[ambience];
+      if (thresh) {
+        let delta = 0;
+        if (thresh.negThresh2 !== null && net <= -thresh.negThresh2)        delta = -2;
+        else if (thresh.negThresh1 !== null && net <= -thresh.negThresh1)   delta = -1;
+        else if (thresh.posThreshold !== null && net >= thresh.posThreshold) delta = 1;
+        const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+        projStep = AMBIENCE_STEPS_LIST[newIdx];
+      }
+      // Barrens (thresh === null): projStep stays as ambience — no step calculation
     }
     const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
     return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, allies_pos, allies_neg, allies, net, projStep };
   });
   return { rows, pendingAmbienceCount };
-}
-
-// ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
-
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
-const COURT_LABELS = {
-  travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X',
-};
-
-function renderPreReadSection() {
-  const readable = submissions
-    .filter(s => {
-      const r = s.responses || {};
-      const hasAsp = [1,2,3].some(n => r[`aspiration_${n}_text`]?.trim?.()) || r.aspirations?.trim?.();
-      return COURT_KEYS.some(k => r[k]?.trim?.()) || hasAsp || r.vamping?.trim?.() || r.lore_request?.trim?.();
-    })
-    .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
-
-  if (!readable.length) return '';
-
-  const isExpanded = expandedPhases.has('preread');
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('preread', 'Step 0 \u2014 Pre-read', readable.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of readable) {
-      const r = s.responses || {};
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = preReadExpanded.has(s._id);
-      const hasLore = !!r.lore_request?.trim?.();
-      const loreResponded = !!s.st_review?.lore_responded;
-      const loreBadge = hasLore && !loreResponded
-        ? '<span class="proc-preread-lore-badge">Lore ?</span>'
-        : '';
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-preread-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}</span>`;
-      h += `<span class="proc-preread-char-right">${loreBadge}<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span></span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Court section
-        const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
-        const preReadAspLines = [1,2,3].map(n => {
-          const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
-          return (t && v) ? `${t}: ${v}` : null;
-        }).filter(Boolean);
-        if (courtVals.length || preReadAspLines.length || r.aspirations) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Court</div>`;
-          for (const k of courtVals) {
-            let val = r[k];
-            if (k === 'rp_shoutout') {
-              try {
-                val = JSON.parse(val).filter(Boolean).map(id => {
-                  const ch = characters.find(c => String(c._id) === String(id));
-                  return ch ? (ch.moniker || ch.name) : id;
-                }).join(', ');
-              } catch { /* ignore */ }
-            }
-            if (!val?.trim?.()) continue;
-            h += `<div class="dt-resp-row">`;
-            h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
-            h += `<span class="dt-resp-val">${esc(val)}</span>`;
-            h += `</div>`;
-          }
-          if (preReadAspLines.length) {
-            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${preReadAspLines.map(esc).join('<br>')}</span></div>`;
-          } else if (r.aspirations) {
-            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${esc(r.aspirations)}</span></div>`;
-          }
-          h += `</div>`;
-        }
-
-        // Vamping
-        if (r.vamping?.trim?.()) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Vamping</div>`;
-          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.vamping)}</span></div>`;
-          h += `</div>`;
-        }
-
-        // Lore request
-        if (hasLore) {
-          h += `<div class="dt-resp-section">`;
-          h += `<div class="dt-resp-section-title">Lore Request</div>`;
-          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.lore_request)}</span></div>`;
-          h += `<button class="dt-btn dt-btn-sm proc-lore-btn${loreResponded ? ' active' : ''}" data-sub-id="${esc(s._id)}">${loreResponded ? '\u2713 Responded' : 'Mark responded'}</button>`;
-          h += `</div>`;
-        }
-
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
 }
 
 // ── Sign-off Step (Epic 4 — Stories 4.1 + 4.2 + 4.3) ────────────────────────
@@ -4499,9 +4400,6 @@ function renderProcessingMode(container) {
 
   // Character status strip — at-a-glance state + jump-to navigation
   h += renderCharacterStrip(queue);
-
-  // Pre-read — Step 0, player questionnaire responses
-  h += renderPreReadSection();
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
@@ -5201,8 +5099,7 @@ function renderProcessingMode(container) {
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
       const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
-      const skillNa = char && skillSel ? skNineAgain(char, skillSel.value) : false;
-      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + ((skillNa || (char && hasAoE(char, sp))) ? 2 : 1), 0);
+      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
       // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
     });
@@ -5793,36 +5690,6 @@ function renderProcessingMode(container) {
       if (expandedPhases.has(key)) expandedPhases.delete(key);
       else expandedPhases.add(key);
       renderProcessingMode(container);
-    });
-  });
-
-  // Wire pre-read character block toggles
-  container.querySelectorAll('.proc-preread-char').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.prereadId;
-      if (preReadExpanded.has(id)) preReadExpanded.delete(id);
-      else preReadExpanded.add(id);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire lore responded button — update in-place without full re-render
-  container.querySelectorAll('.proc-lore-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const newVal = !sub.st_review?.lore_responded;
-      try {
-        await updateSubmission(subId, { 'st_review.lore_responded': newVal });
-        if (!sub.st_review) sub.st_review = {};
-        sub.st_review.lore_responded = newVal;
-        btn.textContent = newVal ? '\u2713 Responded' : 'Mark responded';
-        btn.classList.toggle('active', newVal);
-        const charRow = container.querySelector(`.proc-preread-char[data-preread-id="${subId}"]`);
-        if (charRow) charRow.querySelector('.proc-preread-lore-badge')?.remove();
-      } catch (err) { console.error('Lore responded error:', err.message); }
     });
   });
 
@@ -7155,7 +7022,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainState);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -7260,11 +7127,11 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Ambience: use best (highest ambienceMod) territory the character actually fed in
   const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
   const feedSub = submissions.find(s => s._id === entry.subId);
-  const fedTerrKeys = feedSub ? _getSubFedTerrs(feedSub) : new Set();
+  const fedTerrKeys = feedSub ? _getSubFedTerrs(feedSub) : new Map();
 
   let bestTerrLabel = null;
   let ambienceVitae = null;
-  for (const csvKey of fedTerrKeys) {
+  for (const [csvKey] of fedTerrKeys) {
     const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
     if (!mt || !mt.ambienceKey) continue;
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
@@ -7403,7 +7270,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainStateFeed);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
@@ -8870,7 +8737,7 @@ async function buildExportMd(sub, char, questResp) {
   const meritResolved = sub.merit_actions_resolved || [];
   const feed = raw.feeding || {};
 
-  const name = char ? displayName(char) : (sub.character_name || 'Unknown');
+  const name = char ? dropdownName(char) : (sub.character_name || 'Unknown');
   let md = `# ${name}\n`;
 
   // Identity
@@ -9805,7 +9672,17 @@ function renderFeedingScene() {
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, ambienceMod);
+        // Issue #176 (fix loop 2 — Ma'at catch): pre-fix this passed
+        // `ambienceMod` (territory ambience from `terrRec.ambienceMod`)
+        // through `buildFeedingPool`'s misleadingly-named third parameter,
+        // which summed it into the dice total. Per Damnation City §158
+        // ambience is a Vitae yield modifier, not a dice pool component.
+        // The summary table already surfaces ambience separately via
+        // `ambModStr` rendered as a dedicated 'Ambience' column at line
+        // 9773 + downstream, so there is no display regression — passing
+        // `0` here just stops the dice double-count. Matches the
+        // neutral-call pattern bestGenericPool uses at line 9716.
+        const pool = buildFeedingPool(char, methodId, 0);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);
@@ -9817,7 +9694,7 @@ function renderFeedingScene() {
       const rowClass = hasSub ? '' : ' dt-scene-nosub';
 
       h += `<tr class="dt-scene-row${rowClass}" data-char-id="${esc(charId)}">`;
-      h += `<td class="dt-scene-name">${esc(displayName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
+      h += `<td class="dt-scene-name">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
       h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)} <span class="dt-scene-mod">(${ambModStr})</span></span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
@@ -9924,18 +9801,19 @@ function _playerFeedTerrsText(sub) {
   return labels.length > 0 ? labels.join(', ') : null;
 }
 
-/** Return a Set of MATRIX_TERRS csvKeys where this submission's character actually fed. */
+/** Return a Map<csvKey, feedCount> for territories where this submission's character fed. */
 function _getSubFedTerrs(sub) {
-  const fed = new Set();
+  const fed = new Map(); // csvKey → count (0–2; currently max 1 until Feed Action follow-up)
   let grid = null;
 
   // ST override takes priority: array of TERRITORY_DATA ids set via feeding pills
+  // Repeated IDs count as additional feeds (e.g., two overrides for same territory = 2).
   const overrideArr = sub.st_review?.territory_overrides?.feeding;
   if (Array.isArray(overrideArr) && overrideArr.length > 0) {
     for (const tid of overrideArr) {
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-      if (mt) fed.add(mt.csvKey);
+      if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
     }
     return fed;
   }
@@ -9952,20 +9830,23 @@ function _getSubFedTerrs(sub) {
         ? TERRITORY_SLUG_MAP[slug] : undefined;
       if (tid === undefined) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-      if (mt) fed.add(mt.csvKey);
+      if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
     }
   } else {
     // Fallback: _raw.feeding.territories (display-name keys, legacy)
     const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
     for (const [csvKey, status] of Object.entries(rawTerrs)) {
       if (!status || status === 'Not feeding here' || status === 'none') continue;
-      fed.add(csvKey);
+      fed.set(csvKey, (fed.get(csvKey) || 0) + 1);
     }
   }
 
+  // TODO(Feed-Action follow-up): add +1 per Feed Action targeting each territory
+  // (capped at 2 total per territory). Awaiting field identification from follow-up issue.
+
   // Default: if feeding method declared but no territory selected, character feeds from Barrens
   if (fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
-    fed.add('The Barrens (No Territory)');
+    fed.set('The Barrens (No Territory)', 1);
   }
 
   return fed;
@@ -9987,28 +9868,48 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
   }
   h += '</tr></thead><tbody>';
+
+  const footerCounts = {};
+  for (const t of cols) footerCounts[t.csvKey] = 0;
+
   for (const char of chars) {
     const charId = String(char._id);
     const sub = subByCharId.get(charId) || null;
     const hasSub = !!sub;
-    const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+    const fedMap = hasSub ? _getSubFedTerrs(sub) : new Map();
+
+    // Accumulate totals for tfoot
+    for (const [csvKey, count] of fedMap) {
+      if (csvKey in footerCounts) footerCounts[csvKey] += count;
+    }
+
     h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}"${hasSub ? ` data-sub-id="${esc(sub._id)}"` : ''}>`;
-    h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+    h += `<td class="dt-matrix-char">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
     for (const t of cols) {
       const isBarrens = t.ambienceKey === null;
-      const fed = fedTerrs.has(t.csvKey);
-      if (!fed) {
+      const count = fedMap.get(t.csvKey) || 0;
+      if (count === 0) {
         h += '<td class="dt-matrix-empty">\u2014</td>';
       } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
-        h += '<td class="dt-matrix-resident">O</td>';
+        h += count >= 2
+          ? '<td class="dt-matrix-resident">O O</td>'
+          : '<td class="dt-matrix-resident">O</td>';
       } else {
-        h += '<td class="dt-matrix-poach">X</td>';
+        h += count >= 2
+          ? '<td class="dt-matrix-poach">X X</td>'
+          : '<td class="dt-matrix-poach">X</td>';
       }
     }
     h += '</tr>';
   }
-  h += '</tbody></table>';
-  h += '<p class="dt-matrix-note">O = feeding rights. X = poaching. Rights set via City tab.</p>';
+
+  h += '</tbody><tfoot><tr><td class="dt-matrix-char">Total Feeds</td>';
+  for (const t of cols) {
+    const n = footerCounts[t.csvKey];
+    h += n > 0 ? `<td class="dt-matrix-feed-count">${n}</td>` : '<td class="dt-matrix-empty">\u2014</td>';
+  }
+  h += '</tr></tfoot></table>';
+  h += '<p class="dt-matrix-note">O = fed with rights. O O = fed twice with rights. X = poached. X X = poached twice. Rights set via City tab.</p>';
   return h;
 }
 
@@ -10104,10 +10005,10 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
   h += `<thead><tr>
     <th>Territory</th>
     <th title="Current ambience step">Starting</th>
-    <th title="Fixed -3 entropy per cycle">Entropy</th>
-    <th title="Feeders vs cap">Overfeeding</th>
+    <th title="Per-territory entropy (Hostile/Settled/Untended/Neglected −3; Tended −5; Curated −6; Verdant −7; The Rack −8)">Entropy</th>
+    <th title="Feeders vs Feeding Tolerance (−2 per feed over tolerance)">Overfeeding</th>
     <th title="Influence spend: +positive / -negative / net">Influence</th>
-    <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
+    <th title="Ambience project contributions: 1–4 successes = ±2, 5+ = ±4; step thresholds are territory-specific">Projects</th>
     <th title="Allies / Status / Retainer automatic actions">Allies</th>
     <th title="Sum of all columns">Net Change</th>
     <th title="Projected new ambience step">Projected</th>
@@ -10117,9 +10018,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
     const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
     const netStr = _fmtMod(r.net);
-    const gap = r.cap - r.feeders;
-    const gapStr = gap >= 0 ? `+${gap}` : String(gap);
-    const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+    const ovStr = r.feeders > r.cap ? ` | <span class="proc-amb-neg">${r.overfeed}</span>` : '';
     const infNet = r.inf_pos - r.inf_neg;
     const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
@@ -10146,7 +10045,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
     h += `<td>${esc(r.ambience)}</td>`;
     h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-    h += `<td>${r.cap}/${r.feeders} | <span class="${gapClass}">${gapStr}</span></td>`;
+    h += `<td>${r.feeders}/${r.cap}${ovStr}</td>`;
     h += `<td>${infDisplay}</td>`;
     h += `<td>${projDisplay}</td>`;
     h += `<td>${alliesDisplay}</td>`;
@@ -10156,7 +10055,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     h += `</tr>`;
   }
   h += `</tbody></table></div>`;
-  h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
+  h += `<p class="proc-amb-note">Step thresholds are territory-specific (hover column headers for details). Projects: 1\u20134 successes = \u00b12, 5+ = \u00b14. Overfeeding: \u22122 per feed over Feeding Tolerance.</p>`;
   return h;
 }
 
@@ -10194,7 +10093,7 @@ function _buildSpheresHtml() {
       if (!raw) continue;
       const ensureRow = key => {
         if (!spheres[key]) spheres[key] = {};
-        if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, status: 0, hasContacts: false };
+        if (!spheres[key][cid]) spheres[key][cid] = { name: dropdownName(c), allies: 0, status: 0, hasContacts: false };
         return spheres[key][cid];
       };
       if (m.name === 'Contacts') {
@@ -10255,7 +10154,7 @@ function _exportCityOverview(matrix) {
     const fedTerrs = _getSubFedTerrs(sub);
     if (!fedTerrs.size) continue;
     const entries = [];
-    for (const csvKey of fedTerrs) {
+    for (const [csvKey] of fedTerrs) {
       const mt  = MATRIX_TERRS.find(t => t.csvKey === csvKey);
       const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
       const td  = (cachedTerritories || TERRITORY_DATA).find(t => t.slug === tid);
@@ -10265,7 +10164,7 @@ function _exportCityOverview(matrix) {
       const resident = (!mt || mt.ambienceKey === null) ? null : res.has(String(char._id));
       entries.push({ territory: mt?.label || csvKey, resident });
     }
-    feeding[displayName(char)] = entries;
+    feeding[dropdownName(char)] = entries;
   }
 
   // Actions matrix
@@ -10328,7 +10227,7 @@ function _exportCityOverview(matrix) {
     const amb = td.ambienceKey ? getTerritoryAmbience(td.ambienceKey) : null;
     territories[td.name] = {
       ambience_state: amb || 'Unknown',
-      regent:         regentChar ? displayName(regentChar) : null,
+      regent:         regentChar ? dropdownName(regentChar) : null,
       residents:      residents.size,
       poachers,
     };
@@ -10351,7 +10250,7 @@ function _exportCityOverview(matrix) {
         const key = _ns(part);
         if (!key || !CANONICAL_SPHERES.has(key)) continue;
         if (!spheres[key]) spheres[key] = {};
-        const cn = displayName(c);
+        const cn = dropdownName(c);
         if (!spheres[key][cn]) spheres[key][cn] = { allies: 0, status: 0, contacts: false };
         if (m.name === 'Allies')         spheres[key][cn].allies   += m.rating || 0;
         else if (m.name === 'Status')    spheres[key][cn].status   += m.rating || 0;

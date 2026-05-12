@@ -569,6 +569,72 @@ submissionsRouter.post('/', validate(downtimeSubmissionSchema), async (req, res)
   res.status(201).json(created);
 });
 
+// GET /api/downtime_submissions/hold-flags?cycle_id=<id>
+// Returns { <character_id>: bool } — true == on hold (below-minimum or
+// missing submission). ST sees every character in the cycle; player sees
+// only their own characters' entries.
+//
+// Issue #257 (perf): replaces the prior N-char client loop in
+// `public/js/data/dt-hold-flag.js` (one /api/downtime_submissions GET
+// per character) with a single round-trip + one indexed `find` on the
+// submissions collection. Biggest MongoDB-cost reduction on ST/dev
+// boot (~30 calls → 1).
+//
+// Note: returns entries ONLY for characters that have a submission for
+// the cycle. The client defaults to `true` (on hold) for any character
+// absent from the map — matches the existing fallback semantics at
+// dt-hold-flag.js line 39 ('No submission yet for this cycle ⇒
+// definitely below-minimum.'). Keeping the absence-as-true contract
+// server-side too would require knowing every character ID in scope,
+// which is unnecessary work.
+//
+// Registered BEFORE `GET /` so Express routes `/hold-flags` to this
+// handler rather than treating it as a query of the list endpoint.
+submissionsRouter.get('/hold-flags', async (req, res) => {
+  if (!req.query.cycle_id) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'cycle_id required' });
+  }
+  const cycleOid = parseId(req.query.cycle_id);
+  if (!cycleOid) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle_id format' });
+  }
+
+  // Accept both ObjectId and legacy string representations of cycle_id
+  // (mirrors `GET /` filter shape below for CSV-imported docs).
+  const filter = { $or: [{ cycle_id: cycleOid }, { cycle_id: req.query.cycle_id }] };
+
+  // Player: restrict to their characters (mirrors `GET /` scoping).
+  if (req.user.role === 'player') {
+    const charIdOids = (req.user.character_ids || []).map(id =>
+      id instanceof ObjectId ? id : new ObjectId(id)
+    );
+    const charIdStrs = charIdOids.map(id => id.toString());
+    filter.character_id = { $in: [...charIdOids, ...charIdStrs] };
+  }
+
+  // Project only fields needed for the flag derivation — keeps the
+  // wire size small even on ST cohorts of 30+ chars.
+  const docs = await submissions()
+    .find(filter, { projection: { character_id: 1, status: 1, 'responses._has_minimum': 1 } })
+    .toArray();
+
+  const map = {};
+  for (const doc of docs) {
+    const key = String(doc.character_id);
+    const hasMin = doc.responses?._has_minimum;
+    // Derivation mirrors the pre-fix client logic at
+    // dt-hold-flag.js:43-50 exactly: trust the persisted derived bool
+    // when present; otherwise fall back to the submission's coarse
+    // status (status !== 'submitted' ⇒ on hold).
+    if (typeof hasMin === 'boolean') {
+      map[key] = !hasMin;
+    } else {
+      map[key] = doc.status !== 'submitted';
+    }
+  }
+  res.json(map);
+});
+
 // GET /api/downtime_submissions — ST gets all, player gets only their own (st_review stripped)
 submissionsRouter.get('/', async (req, res) => {
   const filter = {};
