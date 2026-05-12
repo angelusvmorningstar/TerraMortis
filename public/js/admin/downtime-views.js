@@ -6,10 +6,10 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
-import { displayName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
+import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -799,7 +799,7 @@ function renderJointGroup(joint, entries) {
       } catch { ids = [joint.target_value]; }
       const names = ids.map(id => {
         const c = characters.find(ch => String(ch._id) === String(id));
-        return c ? displayName(c) : id;
+        return c ? dropdownName(c) : id;
       });
       targetLine = `Target: ${names.join(', ')}`;
     } else if (joint.target_type === 'territory') {
@@ -957,6 +957,24 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
+  // The `ambienceMod` parameter is misleadingly named. Three callers
+  // exist; only one passes actual territory ambience, and that one is
+  // a bug:
+  //   - renderFeedingDetail (line 1327): passes `stMod`
+  //     (st_review.feeding_modifier — ST manual adjudication lever for
+  //     cover / difficulty / etc.). Legitimately a dice modifier;
+  //     stays in `total` here.
+  //   - bestGenericPool (line 9716): passes `0`. Neutral.
+  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
+  //     Ma'at flagged the original `ambienceMod` (territory) here as a
+  //     dice double-count. Territory ambience is surfaced separately in
+  //     that table's 'Ambience' column.
+  //
+  // Net effect: `ambienceMod` here is now exclusively the ST manual
+  // modifier path; territory ambience is handled in feeding-pool.js
+  // (player-side) and surfaced separately in admin display surfaces.
+  // A follow-up tech-debt issue should rename this parameter to `stMod`
+  // to remove the lurking ambiguity.
   const amb = ambienceMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -990,7 +1008,7 @@ export async function takeSnapshot(cycleId) {
   // Per-character: prestige = clan status + covenant status, plus influence budget
   const charData = activeChars.map(c => ({
     character_id: String(c._id),
-    name: displayName(c),
+    name: dropdownName(c),
     clan: c.clan || '',
     covenant: c.covenant || '',
     prestige: (c.status?.clan || 0) + (c.status?.covenant?.[c.covenant] || 0),
@@ -1049,7 +1067,7 @@ export async function applyInfluenceIncome() {
       });
       c.influence_balance = newBalance;
     } catch (err) {
-      errors.push({ name: displayName(c), error: err.message });
+      errors.push({ name: dropdownName(c), error: err.message });
     }
   }
 
@@ -1965,7 +1983,7 @@ function renderMaintenanceAuditPanel(cycle) {
         mciCell += `<div class="dt-maintenance-cults">${esc(h.mciCults.join(', '))}</div>`;
       }
     }
-    html += `<tr><td>${esc(displayName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
+    html += `<tr><td>${esc(dropdownName(c))}</td><td class="dt-maintenance-cell">${ptCell}</td><td class="dt-maintenance-cell">${mciCell}</td></tr>`;
   }
   html += '</tbody></table></section>';
   return html;
@@ -2011,7 +2029,7 @@ function _buildCourtPulsePromptText(cycle, subs, chars) {
       count += 1;
       lines.push(`  ${count}. ${txt}`);
     }
-    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     blocks.push(`Highlights from ${name}:\n${lines.join('\n')}`);
   }
 
@@ -2125,7 +2143,7 @@ function _buildActionQueueItems(cycle, subs, chars) {
         text,
         state: ACTION_QUEUE_STATES.includes(entry.state) ? entry.state : 'unread',
         note: entry.note || '',
-        charName: (char ? displayName(char) : null) || sub.character_name || 'Unknown',
+        charName: (char ? dropdownName(char) : null) || sub.character_name || 'Unknown',
         sortKey: char ? sortName(char) : (sub.character_name || ''),
         submittedAt: sub.submitted_at || sub.created_at || '',
       });
@@ -2345,7 +2363,7 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
     // TERRITORY_DATA slug too. Slug-to-slug comparison is correct here.
     if (!_feedTerrIdsForSub(sub).includes(territory.slug)) continue;
     const char = charById.get(String(sub.character_id));
-    const name = (char ? displayName(char) : null) || sub.character_name || 'Unknown';
+    const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
     const method = sub.responses?._feed_method || sub.responses?.feed_method || '';
     feeders.push({ name, method, sortKey: char ? sortName(char) : (sub.character_name || '') });
   }
@@ -2507,7 +2525,7 @@ function renderPrepPanel(cycle) {
     const id = String(c._id);
     const checked = earlyIds.has(id) ? ' checked' : '';
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${esc(displayName(c))}</span>
+      <span class="dt-early-name">${esc(dropdownName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
     </label>`;
   }).join('');
@@ -2654,7 +2672,7 @@ function _composeTargetString(resp, prefix, chars) {
     if (!ids.length) return '';
     const names = ids.map(id => {
       const c = chars.find(ch => String(ch._id) === String(id));
-      return c ? displayName(c) : `${id} (unresolved)`;
+      return c ? dropdownName(c) : `${id} (unresolved)`;
     });
     return `Character${ids.length > 1 ? 's' : ''}: ${names.join(', ')}`;
   } else if (tType === 'territory' && tTerr) {
@@ -2851,7 +2869,7 @@ function buildProcessingQueue(subs) {
         if (Array.isArray(castArr) && castArr.length) {
           projCastResolved = castArr.map(id => {
             const c = characters.find(ch => String(ch._id) === String(id));
-            return c ? displayName(c) : id;
+            return c ? dropdownName(c) : id;
           }).join(', ');
         } else {
           projCastResolved = resp[`project_${slot}_cast`] || '';
@@ -3126,7 +3144,7 @@ function buildProcessingQueue(subs) {
           if (Array.isArray(ids) && ids.length) {
             meritCast = ids.map(id => {
               const c = characters.find(ch => String(ch._id) === String(id));
-              return c ? displayName(c) : `${id} (unresolved)`;
+              return c ? dropdownName(c) : `${id} (unresolved)`;
             }).join(', ');
           }
         } catch { meritCast = String(castRaw); }
@@ -3206,7 +3224,7 @@ function buildProcessingQueue(subs) {
     const _resolveTargetName = (id) => {
       if (!id) return '';
       const c = characters.find(ch => String(ch._id) === String(id));
-      return c ? displayName(c) : '';
+      return c ? dropdownName(c) : '';
     };
     const _composeDirectedDesc = (meritLabel, targetName, task) => {
       const head = [meritLabel, targetName].filter(Boolean).join(' — ');
@@ -3684,7 +3702,7 @@ function _gatherProjectAmbience(subs) {
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = resolved.roll.successes ?? 0;
-      const contrib = successes >= 5 ? 2 : successes > 0 ? 1 : 0;
+      const contrib = successes >= 5 ? 4 : successes > 0 ? 2 : 0;
       if (isIncrease) projPos[tid] = (projPos[tid] || 0) + contrib;
       else            projNeg[tid] = (projNeg[tid] || 0) + contrib;
     }
@@ -3794,10 +3812,10 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   const rows = TERRITORY_DATA.map(td => {
     const id = td.slug;
     const ambience = startingAmbience[id] || td.ambience;
-    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const cap = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
     const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : 0;
-    const entropy = -3;
+    const entropy = AMBIENCE_ENTROPY[ambience] ?? -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
     const influence = inf_pos - inf_neg;
@@ -3811,12 +3829,16 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
-      let delta = 0;
-      if (net >= 3) delta = 1;
-      else if (net <= -5) delta = -2;
-      else if (net < 0) delta = -1;
-      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
-      projStep = AMBIENCE_STEPS_LIST[newIdx];
+      const thresh = AMBIENCE_THRESHOLDS[ambience];
+      if (thresh) {
+        let delta = 0;
+        if (thresh.negThresh2 !== null && net <= -thresh.negThresh2)        delta = -2;
+        else if (thresh.negThresh1 !== null && net <= -thresh.negThresh1)   delta = -1;
+        else if (thresh.posThreshold !== null && net >= thresh.posThreshold) delta = 1;
+        const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+        projStep = AMBIENCE_STEPS_LIST[newIdx];
+      }
+      // Barrens (thresh === null): projStep stays as ambience — no step calculation
     }
     const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
     return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, allies_pos, allies_neg, allies, net, projStep };
@@ -8817,7 +8839,7 @@ async function buildExportMd(sub, char, questResp) {
   const meritResolved = sub.merit_actions_resolved || [];
   const feed = raw.feeding || {};
 
-  const name = char ? displayName(char) : (sub.character_name || 'Unknown');
+  const name = char ? dropdownName(char) : (sub.character_name || 'Unknown');
   let md = `# ${name}\n`;
 
   // Identity
@@ -9752,7 +9774,17 @@ function renderFeedingScene() {
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, ambienceMod);
+        // Issue #176 (fix loop 2 — Ma'at catch): pre-fix this passed
+        // `ambienceMod` (territory ambience from `terrRec.ambienceMod`)
+        // through `buildFeedingPool`'s misleadingly-named third parameter,
+        // which summed it into the dice total. Per Damnation City §158
+        // ambience is a Vitae yield modifier, not a dice pool component.
+        // The summary table already surfaces ambience separately via
+        // `ambModStr` rendered as a dedicated 'Ambience' column at line
+        // 9773 + downstream, so there is no display regression — passing
+        // `0` here just stops the dice double-count. Matches the
+        // neutral-call pattern bestGenericPool uses at line 9716.
+        const pool = buildFeedingPool(char, methodId, 0);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);
@@ -9764,7 +9796,7 @@ function renderFeedingScene() {
       const rowClass = hasSub ? '' : ' dt-scene-nosub';
 
       h += `<tr class="dt-scene-row${rowClass}" data-char-id="${esc(charId)}">`;
-      h += `<td class="dt-scene-name">${esc(displayName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
+      h += `<td class="dt-scene-name">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
       h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)} <span class="dt-scene-mod">(${ambModStr})</span></span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
@@ -9954,7 +9986,7 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     }
 
     h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}"${hasSub ? ` data-sub-id="${esc(sub._id)}"` : ''}>`;
-    h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+    h += `<td class="dt-matrix-char">${esc(dropdownName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
     for (const t of cols) {
       const isBarrens = t.ambienceKey === null;
       const count = fedMap.get(t.csvKey) || 0;
@@ -10075,10 +10107,10 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
   h += `<thead><tr>
     <th>Territory</th>
     <th title="Current ambience step">Starting</th>
-    <th title="Fixed -3 entropy per cycle">Entropy</th>
-    <th title="Feeders vs cap">Overfeeding</th>
+    <th title="Per-territory entropy (Hostile/Settled/Untended/Neglected −3; Tended −5; Curated −6; Verdant −7; The Rack −8)">Entropy</th>
+    <th title="Feeders vs Feeding Tolerance (−2 per feed over tolerance)">Overfeeding</th>
     <th title="Influence spend: +positive / -negative / net">Influence</th>
-    <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
+    <th title="Ambience project contributions: 1–4 successes = ±2, 5+ = ±4; step thresholds are territory-specific">Projects</th>
     <th title="Allies / Status / Retainer automatic actions">Allies</th>
     <th title="Sum of all columns">Net Change</th>
     <th title="Projected new ambience step">Projected</th>
@@ -10125,7 +10157,7 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     h += `</tr>`;
   }
   h += `</tbody></table></div>`;
-  h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
+  h += `<p class="proc-amb-note">Step thresholds are territory-specific (hover column headers for details). Projects: 1\u20134 successes = \u00b12, 5+ = \u00b14. Overfeeding: \u22122 per feed over Feeding Tolerance.</p>`;
   return h;
 }
 
@@ -10163,7 +10195,7 @@ function _buildSpheresHtml() {
       if (!raw) continue;
       const ensureRow = key => {
         if (!spheres[key]) spheres[key] = {};
-        if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, status: 0, hasContacts: false };
+        if (!spheres[key][cid]) spheres[key][cid] = { name: dropdownName(c), allies: 0, status: 0, hasContacts: false };
         return spheres[key][cid];
       };
       if (m.name === 'Contacts') {
@@ -10234,7 +10266,7 @@ function _exportCityOverview(matrix) {
       const resident = (!mt || mt.ambienceKey === null) ? null : res.has(String(char._id));
       entries.push({ territory: mt?.label || csvKey, resident });
     }
-    feeding[displayName(char)] = entries;
+    feeding[dropdownName(char)] = entries;
   }
 
   // Actions matrix
@@ -10297,7 +10329,7 @@ function _exportCityOverview(matrix) {
     const amb = td.ambienceKey ? getTerritoryAmbience(td.ambienceKey) : null;
     territories[td.name] = {
       ambience_state: amb || 'Unknown',
-      regent:         regentChar ? displayName(regentChar) : null,
+      regent:         regentChar ? dropdownName(regentChar) : null,
       residents:      residents.size,
       poachers,
     };
@@ -10320,7 +10352,7 @@ function _exportCityOverview(matrix) {
         const key = _ns(part);
         if (!key || !CANONICAL_SPHERES.has(key)) continue;
         if (!spheres[key]) spheres[key] = {};
-        const cn = displayName(c);
+        const cn = dropdownName(c);
         if (!spheres[key][cn]) spheres[key][cn] = { allies: 0, status: 0, contacts: false };
         if (m.name === 'Allies')         spheres[key][cn].allies   += m.rating || 0;
         else if (m.name === 'Status')    spheres[key][cn].status   += m.rating || 0;
