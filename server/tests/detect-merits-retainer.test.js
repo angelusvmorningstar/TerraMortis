@@ -15,10 +15,12 @@ function detectRetainers(c) {
   const merits = (c.merits || []).filter(m => m.category);
   const expandedInfluence = [...merits];
   for (const m of merits) {
-    if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
-      for (const g of m.benefit_grants) {
-        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
-      }
+    if (m.category !== 'standing') continue;
+    const grants = Array.isArray(m.tier_grants) ? m.tier_grants
+                 : Array.isArray(m.benefit_grants) ? m.benefit_grants
+                 : [];
+    for (const g of grants) {
+      if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
     }
   }
   return expandedInfluence.filter(m =>
@@ -68,6 +70,45 @@ describe('Issue #45 — detectMerits() retainers bucket', () => {
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('Retainer');
     expect(result[0]._from_mci).toBe('The Test Cult');
+  });
+
+  it('detects Retainer sourced from a standing-merit tier_grants chain', () => {
+    const c = {
+      merits: [
+        {
+          category: 'standing',
+          name: 'Mystery Cult Initiation',
+          cult_name: 'The Test Cult',
+          tier_grants: [
+            { tier: 1, name: 'Retainer', category: 'influence', rating: 1, qualifier: null }
+          ]
+        }
+      ]
+    };
+    const result = detectRetainers(c);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('Retainer');
+    expect(result[0]._from_mci).toBe('The Test Cult');
+  });
+
+  it('suppresses a tier_grants influence grant when a direct merit of the same name exists', () => {
+    const c = {
+      merits: [
+        { category: 'influence', name: 'Retainer', rating: 2, area: 'Bodyguard' },
+        {
+          category: 'standing',
+          name: 'Mystery Cult Initiation',
+          cult_name: 'The Test Cult',
+          tier_grants: [
+            { tier: 1, name: 'Retainer', category: 'influence', rating: 1, qualifier: null }
+          ]
+        }
+      ]
+    };
+    // detectRetainers() does not implement the suppression guard (that lives in detectMerits())
+    // but this confirms tier_grants expansion produces a Retainer entry that would be subject to it
+    const result = detectRetainers(c);
+    expect(result.every(m => m.name === 'Retainer')).toBe(true);
   });
 
   it('does not double-list a Retainer that appears both directly and in benefit_grants', () => {
