@@ -761,3 +761,7 @@ development_status:
   issue-232-hide-player-npc-chip: review                        # Relationships tab: gate "New NPC (pending)" chip on isSTRole(); default npc_mode='pc' for non-ST; sweep dead hint copy
   issue-233-status-mci-merit-actions: review                    # B1 from DT data-flow audit: status loop added to buildMeritActions; MCI promoted to 'status' category in deriveMeritCategory + _parseMeritType (both duplicated functions per NFR-DS-01); admin-only scope; player Story tab gap noted as follow-up
   issue-236-archive-nav-tile-carver: review                     # Archive nav tile gated on dead `_has_archive` flag (never set anywhere); dropped the condition entirely — tab self-handles empty state via existing "Nothing archived yet." placeholder; ST view unchanged via existing role bypass
+  issue-270-dt-admin-sortname-display: review                   # Replace displayName/sortName with dropdownName at all 27 ST-facing call sites in downtime-views.js and downtime-story.js; PR #274 open
+  issue-271-spheres-grid-padding: done                          # .spheres-grid padding 8px 0 → 8px 16px in admin-layout.css; PR #275 open
+  issue-272-ambience-overhaul: review                           # Per-territory entropy, ×2 overfeeding, corrected project values, per-territory step thresholds; AMBIENCE_CAP renamed; PR #276 open
+  issue-273-feeding-matrix-feed-count: review                   # Four-state matrix O/OO/X/XX; _getSubFedTerrs Set→Map; _computeMatrixFeederCounts unified source; overfeeding display feeders/cap
