@@ -10,7 +10,7 @@
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
-import { AMBIENCE_CAP } from './downtime-data.js';
+import { AMBIENCE_FEEDING_TOLERANCE } from './downtime-data.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
@@ -116,7 +116,7 @@ async function _computeLocked() {
 
 function getRegentCap() {
   const td = _terrDoc();
-  return td ? (AMBIENCE_CAP[td.ambience] || 5) : 5;
+  return td ? (AMBIENCE_FEEDING_TOLERANCE[td.ambience] || 5) : 5;
 }
 
 function render(container) {
