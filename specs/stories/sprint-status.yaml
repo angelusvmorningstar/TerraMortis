@@ -772,3 +772,5 @@ development_status:
   issue-207-179-spec-predicate-target-type: review              # #207: remove stale sk?.nine_again branch from feeding-pool.js:127 (AoE-only post-#267); #179: target_type ternary → if-guard for silent-leave symmetry (downtime-form.js:668)
   issue-285-feeding-pool-prepopulate: review                    # DT Processing Step 3: pool builder dropdowns + territory pills pre-populate from player's form submission
   issue-269-cleanup-stale-benefit-grants: review                # detectMerits() prefer tier_grants over benefit_grants; DB script removes stale benefit_grants from MCI merits that have tier_grants
+  issue-205-admin-feeding-interdisc-spec: review                 # Admin buildFeedingPool spec guard narrower than canonical: add isSpecs() interdisc check + remove nine_again term (mirrors feeding-pool.js post-PR #267)
+  issue-168-regency-feeding-rights-cap: review                   # Default 10 feeding-right slots + "+ Add" button; MAX_FEEDING_POSITION 12→20; DOM-append pattern to preserve unsaved picker values
