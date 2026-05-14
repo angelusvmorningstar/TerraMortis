@@ -8409,10 +8409,10 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>';
 
-  // Story Context (ST-written; fed into AI prompts — not shown directly to player)
+  // Narrative Constraint (ST-written; injected as "do not contradict" directive — not shown to player)
   h += '<div class="proc-section proc-feedback-section">';
-  h += '<div class="proc-detail-label">Story Context <span class="proc-label-sub">— Claude narrative constraint</span></div>';
-  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Context for AI prompt (not sent directly to player)...">`;
+  h += '<div class="proc-detail-label">Narrative Constraint <span class="proc-label-sub">— Claude must not contradict this</span></div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Hard constraint injected into AI prompt (not sent to player)...">`;
   h += '</div>';
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)
