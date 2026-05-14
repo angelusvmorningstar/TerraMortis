@@ -5307,6 +5307,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
     if (gridVals[terrKey] === undefined && !isBarrens) {
       savedVal = hasFeedingRights ? 'feeding_rights' : 'none';
     }
+    if (savedVal === 'poaching' && hasFeedingRights && !isBarrens) savedVal = 'feeding_rights';
 
     const isActive = savedVal !== 'none';
     const statusVal = isBarrens ? 'barrens' : (hasFeedingRights ? 'feeding_rights' : 'poaching');
