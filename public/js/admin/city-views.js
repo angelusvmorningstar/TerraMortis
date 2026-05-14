@@ -607,6 +607,7 @@ async function saveFeedingRights(terrId) {
     // Update local cache
     const idx = terrDocs.findIndex(d => d.slug === terrId);
     if (idx >= 0) terrDocs[idx] = { ...terrDocs[idx], feeding_rights: rights };
+    invalidateCachedTerritories();
     if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
