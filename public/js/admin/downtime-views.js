@@ -3465,7 +3465,7 @@ async function saveEntryReview(entry, patch) {
   }
 
   if (entry.source === 'feeding') {
-    const current = sub.feeding_review || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = sub.feeding_review || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     const updated = { ...current, ...patch };
     await updateSubmission(entry.subId, { feeding_review: updated });
     sub.feeding_review = updated;
@@ -3476,7 +3476,7 @@ async function saveEntryReview(entry, patch) {
   } else if (entry.source === 'project') {
     const resolved = [...(sub.projects_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '', resolved_at: null };
+    const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '', resolved_at: null };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { projects_resolved: resolved });
     sub.projects_resolved = resolved;
@@ -3488,27 +3488,27 @@ async function saveEntryReview(entry, patch) {
   } else if (entry.source === 'merit') {
     const resolved = [...(sub.merit_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
     sub.merit_actions_resolved = resolved;
   } else if (entry.source === 'sorcery') {
     const sorcReview = { ...(sub.sorcery_review || {}) };
-    const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], story_context: '' };
     sorcReview[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { sorcery_review: sorcReview });
     sub.sorcery_review = sorcReview;
   } else if (entry.source === 'st_created') {
     const resolved = [...(sub.st_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { st_actions_resolved: resolved });
     sub.st_actions_resolved = resolved;
   } else if (entry.source === 'acquisition') {
     const resolved = [...(sub.acquisitions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: '', pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { pool_player: '', pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { acquisitions_resolved: resolved });
     sub.acquisitions_resolved = resolved;
@@ -5090,14 +5090,14 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire player_feedback input (save on blur)
+  // Wire story_context input (save on blur)
   container.querySelectorAll('.proc-feedback-input').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       const key = inp.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { player_feedback: inp.value.trim() });
+      await saveEntryReview(entry, { story_context: inp.value.trim() });
     });
   });
 
@@ -7702,7 +7702,7 @@ function renderActionPanel(entry, review) {
   const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
   const poolValidated = rev.pool_validated || '';
   const thread            = rev.notes_thread        || [];
-  const feedback          = rev.player_feedback     || '';
+  const feedback          = rev.story_context        || '';
   const playerFacingNote  = rev.player_facing_note  || '';
   const isSorcery        = entry.source === 'sorcery'
                         || (entry.source === 'st_created' && entry.actionType === 'sorcery');
@@ -8485,10 +8485,10 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>';
 
-  // Story Context (ST-written; fed into AI prompts — not shown directly to player)
+  // Narrative Constraint (ST-written; injected as "do not contradict" directive — not shown to player)
   h += '<div class="proc-section proc-feedback-section">';
-  h += '<div class="proc-detail-label">Story Context</div>';
-  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Context for AI prompt (not sent directly to player)...">`;
+  h += '<div class="proc-detail-label">Narrative Constraint <span class="proc-label-sub">— Claude must not contradict this</span></div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Hard constraint injected into AI prompt (not sent to player)...">`;
   h += '</div>';
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)

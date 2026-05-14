@@ -550,9 +550,9 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   }
 
   // Story context (ST-written context for AI prompt)
-  if (rev.player_feedback) {
+  if (rev.story_context) {
     lines.push('');
-    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.story_context}`);
   }
   if (rev.player_facing_note) {
     lines.push('');
@@ -764,9 +764,9 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   lines.push(`Discipline activity: ${discProfileStr}`);
 
   // Story context (ST-written context for AI prompt)
-  if (rev.player_feedback) {
+  if (rev.story_context) {
     lines.push('');
-    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.story_context}`);
   }
   if (rev.player_facing_note) {
     lines.push('');
@@ -1201,9 +1201,9 @@ function renderFeedingValidation(char, sub, stNarrative) {
       h += `<div class="dt-feed-val-row"><dt>Declaration</dt><dd>${esc(fvLbl)}${overrideTag}</dd></div>`;
     }
 
-    // Player feedback
-    const feedback = fr.player_feedback || '';
-    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Player Feedback</dt>`;
+    // Narrative Constraint (ST-written; injected as "do not contradict" directive — not player-facing)
+    const feedback = fr.story_context || '';
+    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Narrative Constraint</dt>`;
     h += feedback
       ? `<dd>${esc(feedback)}</dd>`
       : `<dd class="dt-story-section-empty">None recorded</dd>`;
@@ -2185,9 +2185,9 @@ function buildActionContext(char, sub, idx) {
     notes.forEach(n => lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`));
   }
 
-  if (rev.player_feedback) {
+  if (rev.story_context) {
     lines.push('');
-    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.story_context}`);
   }
   if (rev.player_facing_note) {
     lines.push('');
