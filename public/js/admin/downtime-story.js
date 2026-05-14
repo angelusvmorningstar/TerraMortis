@@ -11,7 +11,7 @@
  */
 
 import { apiGet, apiPut, apiPatch } from '../data/api.js';
-import { displayName, esc } from '../data/helpers.js';
+import { displayName, dropdownName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
 import { effectiveFeedViolence } from '../tabs/downtime-data.js';
@@ -397,7 +397,7 @@ function resolveCast(castJson) {
     if (!Array.isArray(ids) || !ids.length) return '';
     return ids.map(id => {
       const c = _allCharacters.find(ch => ch._id === id);
-      return c ? displayName(c) : id;
+      return c ? dropdownName(c) : id;
     }).join(', ');
   } catch {
     return castJson;
@@ -700,7 +700,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       const val = terrs[terrSlug];
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
-      const fName = fChar ? displayName(fChar) : (s.character_name || 'Unknown');
+      const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
       const isResident = val === 'resident';
       if (isResident) residentCount++; else poacherCount++;
       // Feeding method: scan pool_validated for discipline names; fallback to territory value
@@ -1080,7 +1080,7 @@ function renderCharacterView(char, sub) {
   let h = `<div class="dt-story-char-content"${collapseAttr}>`;
 
   h += `<div class="dt-story-char-header">`;
-  h += `<h3 class="dt-story-char-name">${char ? displayName(char) : 'Unknown'}</h3>`;
+  h += `<h3 class="dt-story-char-name">${char ? dropdownName(char) : 'Unknown'}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
   h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${charId}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
   h += `</div>`;
@@ -1979,7 +1979,7 @@ function getHideProtectCover(sub, terrId) {
  * Checks both projects_resolved and merit_actions_resolved on other submissions.
  */
 function getContestingActions(sub, char, allSubmissions) {
-  const charName = char ? displayName(char) : '';
+  const charName = char ? dropdownName(char) : '';
   const contesters = [];
   for (const s of allSubmissions) {
     if (s._id === sub._id) continue;
@@ -2462,7 +2462,7 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
       if (TERRITORY_SLUG_MAP[slug] !== terrId) continue;
       if (val && val !== 'none' && val !== 'resident') {
         const c = allChars.find(ch => String(ch._id) === String(s.character_id)) || null;
-        const name = c ? displayName(c) : (s.character_name || 'Unknown');
+        const name = c ? dropdownName(c) : (s.character_name || 'Unknown');
         const tags = [c?.clan, c?.covenant].filter(Boolean).join(', ');
         poachers.push({ name, tags });
       }
@@ -2645,7 +2645,7 @@ function _homeTerrActivity(territoryName, thisSub, allSubmissions) {
   for (const s of allSubmissions) {
     if (String(s._id) === String(thisSub._id)) continue;
     const char = _allCharacters.find(c => String(c._id) === String(s.character_id));
-    const charName = char ? displayName(char) : (s.character_name || 'Unknown');
+    const charName = char ? dropdownName(char) : (s.character_name || 'Unknown');
     const resolved = s.projects_resolved || [];
 
     resolved.forEach((rev, pIdx) => {
@@ -2669,7 +2669,7 @@ export function buildHomeReportContext(char, sub, allSubmissions) {
   const territory = char?.home_territory || '';
   if (!territory) return '';
 
-  const charName  = displayName(char);
+  const charName  = dropdownName(char);
   const activity  = _homeTerrActivity(territory, sub, allSubmissions);
 
   let ctx = `Home Report — ${charName}\n`;
@@ -4046,7 +4046,7 @@ function renderFlagInbox(subs) {
   for (const flag of flags) {
     const sub = _allSubmissions.find(s => String(s._id) === flag._sub_id);
     const char = _allCharacters.find(c => String(c._id) === String(sub?.character_id));
-    const charName = char ? displayName(char) : (sub?.character_name || 'Unknown');
+    const charName = char ? dropdownName(char) : (sub?.character_name || 'Unknown');
     const label = _flagInboxSectionLabel(flag, sub, char);
     const cat = FLAG_CATEGORY_LABELS[flag.category] || 'Flagged';
     const reasonShort = (flag.reason || '').length > 120

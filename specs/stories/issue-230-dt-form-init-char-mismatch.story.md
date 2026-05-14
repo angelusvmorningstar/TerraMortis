@@ -1,6 +1,6 @@
 # Story issue-230: DT form shows wrong character's regency on hard refresh
 
-Status: ready-for-dev
+Status: review
 
 issue: 230
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/230
@@ -38,9 +38,9 @@ Then the rendered DT form matches the dropdown selection without any extra inter
 
 ## Tasks
 
-- [ ] **Task 1 — Call `_buildCharMenu()` after `openChar` in the boot sequence**
-  - [ ] In `public/js/app.js`, add a `_buildCharMenu()` call inside the `if (charIdx >= 0)` block (lines 1261-1265), immediately after `openChar(charIdx)` and `pickChar(...)`, so the sidebar dropdown selection reflects the now-active `sheetChar`
-  - [ ] Verify the call is inside the guard (`if (charIdx >= 0)`) — no change needed for the no-saved-char path
+- [x] **Task 1 — Call `_buildCharMenu()` after `openChar` in the boot sequence**
+  - [x] In `public/js/app.js`, add a `_buildCharMenu()` call inside the `if (charIdx >= 0)` block (lines 1261-1265), immediately after `openChar(charIdx)` and `pickChar(...)`, so the sidebar dropdown selection reflects the now-active `sheetChar`
+  - [x] Verify the call is inside the guard (`if (charIdx >= 0)`) — no change needed for the no-saved-char path
 
 - [ ] **Task 2 — Manual verification**
   - [ ] Hard-refresh the suite app while Jack is in `localStorage.tm_active_char`
@@ -122,8 +122,17 @@ This is a DOM ordering / render-sequence fix with no business logic. Manual veri
 
 ### Debug Log
 
+- `node --input-type=module --check < public/js/app.js` passes.
+
 ### Completion Notes
+
+Added one `_buildCharMenu()` call at `app.js:1265`, inside the `if (charIdx >= 0)` boot guard, immediately after `openChar(charIdx)` and `pickChar(...)`. The first `_buildCharMenu()` at L1243 is unchanged (sets up the phone-header icon handler before sheetChar is known). The second call runs after `openChar` sets `suiteState.sheetChar`, so the sidebar dropdown renders with the correct character selected.
 
 ### File List
 
+Modified:
+- `public/js/app.js` — added `_buildCharMenu()` after boot-sequence `openChar`/`pickChar` (closes #230)
+
 ### Change Log
+
+- 2026-05-11 — Implemented Task 1. One-line fix; parse-check clean. Task 2 (manual browser verify) deferred to QA / user.

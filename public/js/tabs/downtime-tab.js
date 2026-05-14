@@ -35,8 +35,17 @@ export async function initDowntimeTab(el, char, territories = []) {
     .filter(c => LIVE_STATUSES.includes(c.status))
     .sort((a, b) => LIVE_STATUSES.indexOf(a.status) - LIVE_STATUSES.indexOf(b.status))[0] || null;
 
-  // Access gate: STs always pass; players need early access or auto_open_at reached or cycle is open
-  const inEarlyAccess = charId && (activeCycle?.early_access_player_ids || []).includes(charId);
+  // Most recently closed cycle — used for out-of-window access check when no live cycle exists
+  const recentClosedCycle = cycles
+    .filter(c => c.status === 'closed')
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
+
+  // Access gate: STs always pass; players need out-of-window access flag, auto_open_at reached, or cycle open.
+  // Use one cycle for the access check: the live cycle if one exists, otherwise the most recently
+  // closed one. This prevents membership in a previous cycle's early-access list from granting
+  // unintended access to a new cycle that's in prep.
+  const cycleForAccessCheck = activeCycle || recentClosedCycle;
+  const inEarlyAccess = charId && (cycleForAccessCheck?.early_access_player_ids || []).includes(charId);
   const autoOpenPassed = activeCycle?.auto_open_at && new Date(activeCycle.auto_open_at) <= new Date();
   const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
   const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
@@ -72,20 +81,23 @@ export async function initDowntimeTab(el, char, territories = []) {
         <p class="dt-state-body">Your ST will open downtime submissions soon.</p>
       </div>`;
     }
-  } else if (activeCycle) {
-    // Always render the form, regardless of submission status. A submitted
-    // record is editable until the deadline; the form itself surfaces the
-    // submitted/draft state via in-form badges and changes its submit button
-    // to "Update Submission". The mobile notice still applies for non-ST,
-    // non-localhost on small screens.
+  } else if (activeCycle || inEarlyAccess) {
+    // Always render the form when there is a live cycle or the player has out-of-window access.
+    // For the closed-cycle case (activeCycle null, inEarlyAccess true), downtime-form.js falls
+    // back to the most recently closed cycle internally; the server gate is bypassed for ticked
+    // characters. A submitted record is editable until the deadline; the form itself surfaces the
+    // submitted/draft state via in-form badges and changes its submit button to "Update Submission".
+    // The mobile notice still applies for non-ST, non-localhost on small screens.
     const forceForm = location.hostname === 'localhost' || isST;
     if (!forceForm && window.innerWidth <= 600) {
       currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
     } else {
-      renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
+      // Issue #259 (perf): char + territories come from suiteState which
+      // was loaded at boot — skip the redundant fresh-fetch pair.
+      renderDowntimeTab(currentZone, char, territories, { singleColumn: true, skipFreshFetch: true });
     }
   } else if (isST) {
-    renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
+    renderDowntimeTab(currentZone, char, territories, { singleColumn: true, skipFreshFetch: true });
   } else {
     const closedCycles = cycles
       .filter(c => c.status === 'closed' || c.status === 'complete')

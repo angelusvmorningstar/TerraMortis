@@ -5,6 +5,7 @@
 
 import { INFLUENCE_SPHERES } from '../data/constants.js';
 import state from '../data/state.js';
+import { getRulesCache } from './rule_engine/load-rules.js';
 
 /* ══════════════════════════════════════════════════════
    Multi-instance domain type sets
@@ -214,6 +215,19 @@ export function syncMeritRating(m) {
 export function pruneContactsSpheres(m) {
   if (!m || m.name !== 'Contacts') return;
   if (!Array.isArray(m.spheres)) return;
+  // Issue #249 (HOTFIX 2026-05-09): belt-and-braces guard — bail if the
+  // rules cache is null. The primary guard lives at the top of
+  // applyDerivedMerits (mci.js), so under normal call patterns this
+  // branch is dead code. It exists to protect any future caller of
+  // pruneContactsSpheres that bypasses applyDerivedMerits — without it,
+  // a null-cache call would compute `r` with PT/free_* contributions
+  // missing and physically truncate the spheres array (permanent data
+  // loss on next save). Truncate-only never silently destroys data
+  // again from this path.
+  if (!getRulesCache()) {
+    console.warn('pruneContactsSpheres: rules cache not loaded — skipping prune to avoid sphere data loss (issue #249)');
+    return;
+  }
   const r = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
   if (m.spheres.length > r) m.spheres.length = r;
 }

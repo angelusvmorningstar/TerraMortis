@@ -10,10 +10,11 @@
 
 import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, dropdownName, findRegentTerritory } from '../data/helpers.js';
-import { AMBIENCE_CAP } from './downtime-data.js';
+import { AMBIENCE_FEEDING_TOLERANCE } from './downtime-data.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 
-const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
+const MAX_FEEDING_POSITION = 20; // maximum position index to scan (regent=1, lt=2, additional 3+)
+const DEFAULT_MIN_SLOTS = 10;   // minimum visible feeding-right rows at initial render
 
 // Mirrors server/utils/territory-slugs.js — maps submission feeding_territories
 // slug variants to canonical territory.slug values.
@@ -42,6 +43,8 @@ let _lockedCharIds = new Set();  // character IDs that cannot be removed this cy
 // charPicker components are uncontrolled DOM, so we mirror their state here
 // for cross-slot exclusion + save collection.
 const _slotValues = new Map();
+// issue-293: mirrors the lieutenant charPicker selection. Reset on each render.
+let _ltPickerValue = null;
 
 function _regInfo() { return findRegentTerritory(_territories, currentChar); }
 
@@ -116,7 +119,7 @@ async function _computeLocked() {
 
 function getRegentCap() {
   const td = _terrDoc();
-  return td ? (AMBIENCE_CAP[td.ambience] || 5) : 5;
+  return td ? (AMBIENCE_FEEDING_TOLERANCE[td.ambience] || 5) : 5;
 }
 
 function render(container) {
@@ -130,11 +133,11 @@ function render(container) {
   const rawFeedingRights = _terrDoc()?.feeding_rights || [];
   const terrId = ri?.territoryId || '';
 
-  // Regent is always slot 1; lieutenant is slot 2 if present
+  // Regent is always slot 1; lieutenant is slot 2 (editable by regent)
   const ltId = ri?.lieutenantId || '';
-  const ltChar = ltId ? allCharNames.find(c => String(c._id) === ltId) : null;
-  const ltName = ltChar ? displayName(ltChar) : (ltId ? ltId : '— None —');
   const loopStart = ltId ? 3 : 2; // feeding right dropdowns begin at this position
+  // Reset lt picker mirror so it reflects saved state after re-render
+  _ltPickerValue = ltId || null;
 
   // Strip regent and lieutenant IDs from saved array (handles legacy data that included them)
   const additionalRights = rawFeedingRights.filter(
@@ -151,7 +154,7 @@ function render(container) {
   // unfilled cap slots even before any rights are added).
   const filledCount = additionalRights.length;
   const minWithinCap = Math.max(0, cap - (loopStart - 1));
-  const desiredAdditionals = Math.max(minWithinCap, filledCount + 1);
+  const desiredAdditionals = Math.max(DEFAULT_MIN_SLOTS, minWithinCap, filledCount + 1);
   const loopEnd = Math.min(loopStart + desiredAdditionals - 1, MAX_FEEDING_POSITION);
 
   // dt-form.16: publish source list to the universal char picker (ADR-003 §Q6).
@@ -195,13 +198,15 @@ function render(container) {
   h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
   h += '</div>';
 
-  // Slot 2 — Lieutenant (locked, implicit; hidden if none)
-  if (ltId) {
-    h += '<div class="dt-residency-row">';
-    h += '<span class="dt-residency-label">Lieutenant</span>';
-    h += `<span class="dt-residency-locked">${esc(ltName)}</span>`;
-    h += '</div>';
-  }
+  // Slot 2 — Lieutenant (editable by regent; always rendered so they can appoint one)
+  const ltInitialJson = esc(JSON.stringify(ltId || ''));
+  h += '<div class="dt-residency-row" id="reg-lt-row">';
+  h += '<span class="dt-residency-label">Lieutenant</span>';
+  h += `<div data-cp-mount data-cp-site="reg-lt" data-cp-scope="all" data-cp-cardinality="single"`
+     + ` data-cp-initial="${ltInitialJson}" data-cp-placeholder="Appoint a Lieutenant"></div>`;
+  h += '<button id="reg-save-lt" class="qf-btn qf-btn-secondary">Save Lieutenant</button>';
+  h += '<span id="reg-lt-save-status" class="qf-save-status"></span>';
+  h += '</div>';
 
   // Additional feeding right slots — start at loopStart (3 with lt, 2 without)
   for (let i = loopStart; i <= loopEnd; i++) {
@@ -241,6 +246,10 @@ function render(container) {
 
   // Action buttons
   h += '<div class="regency-actions">';
+  const canAdd = !cycleConfirmed && !myConfirmation;
+  if (canAdd && loopEnd < MAX_FEEDING_POSITION) {
+    h += '<button id="reg-add-right" class="qf-btn qf-btn-secondary">+ Add Feeding Right</button>';
+  }
   h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
   if (_activeCycle && !cycleConfirmed) {
     h += '<button id="reg-confirm" class="qf-btn qf-btn-secondary">Confirm Feeding Rights</button>';
@@ -256,9 +265,103 @@ function render(container) {
 }
 
 function wireEvents(container) {
+  _mountLtPicker(container);
   _mountRegSlotPickers(container);
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
+  container.querySelector('#reg-save-lt')?.addEventListener('click', () => saveLieutenant(container));
   container.querySelector('#reg-confirm')?.addEventListener('click', () => confirmFeeding(container));
+  container.querySelector('#reg-add-right')?.addEventListener('click', () => _addFeedingRightSlot(container));
+}
+
+function _addFeedingRightSlot(container) {
+  const grid = container.querySelector('.dt-residency-grid');
+  if (!grid) return;
+  const cap = getRegentCap();
+
+  const rows = grid.querySelectorAll('[data-reg-slot-row]');
+  if (!rows.length) return;
+  const lastSlot = parseInt(rows[rows.length - 1].dataset.regSlotRow, 10);
+  const nextSlot = lastSlot + 1;
+  if (nextSlot > MAX_FEEDING_POSITION) return;
+
+  const overCap = nextSlot > cap;
+  const row = document.createElement('div');
+  row.className = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
+  row.dataset.regSlotRow = String(nextSlot);
+
+  const label = document.createElement('span');
+  label.className = 'dt-residency-label';
+  label.textContent = `Feeding Right ${nextSlot}`;
+  row.appendChild(label);
+
+  const ph = document.createElement('div');
+  ph.dataset.cpMount = '';
+  ph.dataset.cpSite = 'reg-slot';
+  ph.dataset.cpScope = 'all';
+  ph.dataset.cpCardinality = 'single';
+  ph.dataset.regSlot = String(nextSlot);
+  ph.dataset.cpInitial = JSON.stringify('');
+  ph.dataset.cpPlaceholder = 'Pick a feeding right';
+  row.appendChild(ph);
+
+  if (overCap) {
+    const warn = document.createElement('span');
+    warn.className = 'dt-over-cap-warn';
+    warn.title = 'This slot exceeds the territory feeding-rights cap. The resident feeds under a mechanical penalty (ST adjudicates).';
+    warn.textContent = 'Over cap — penalty applies';
+    row.appendChild(warn);
+  }
+
+  grid.appendChild(row);
+  _mountOneRegSlotPicker(ph, container);
+
+  if (nextSlot >= MAX_FEEDING_POSITION) {
+    container.querySelector('#reg-add-right')?.remove();
+  }
+}
+
+function _mountLtPicker(container) {
+  const ph = container.querySelector('[data-cp-mount][data-cp-site="reg-lt"]');
+  if (!ph) return;
+  let initial = '';
+  try { initial = JSON.parse(ph.dataset.cpInitial || '""'); } catch { initial = ''; }
+
+  const el = charPicker({
+    scope: 'all',
+    cardinality: 'single',
+    initial,
+    onChange: (next) => {
+      _ltPickerValue = (typeof next === 'string' && next) ? next : null;
+    },
+    placeholder: ph.dataset.cpPlaceholder || 'Appoint a Lieutenant',
+    excludeIds: [String(currentChar._id)],
+  });
+  el.dataset.cpMountedSite = 'reg-lt';
+  ph.replaceWith(el);
+}
+
+async function saveLieutenant(container) {
+  const statusEl = container.querySelector('#reg-lt-save-status');
+  const ri = _regInfo();
+  if (!ri?.territoryId) {
+    if (statusEl) statusEl.textContent = 'Error: territory not found';
+    return;
+  }
+
+  try {
+    await apiPatch(`/api/territories/${encodeURIComponent(ri.territoryId)}/lieutenant`, {
+      lieutenant_id: _ltPickerValue || null,
+    });
+
+    // Update local territory doc so re-render reflects new state
+    const td = _territories.find(t => String(t._id) === String(ri.territoryId));
+    if (td) td.lieutenant_id = _ltPickerValue || null;
+
+    if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+    render(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed: ' + (err.message || 'unknown error');
+  }
 }
 
 function _mountRegSlotPickers(container) {
