@@ -2515,7 +2515,7 @@ function renderPrepPanel(cycle) {
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
   const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
-  const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
+  const oowIds = new Set((cycle.out_of_window_player_ids || []).map(String));
 
   // Active (non-retired) characters, sorted by display name
   const activeChars = (characters || [])
@@ -2524,7 +2524,7 @@ function renderPrepPanel(cycle) {
 
   const toggleHtml = activeChars.map(c => {
     const id = String(c._id);
-    const checked = earlyIds.has(id) ? ' checked' : '';
+    const checked = oowIds.has(id) ? ' checked' : '';
     return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
       <span class="dt-early-name">${esc(dropdownName(c))}</span>
       <input type="checkbox" class="dt-early-toggle"${checked}>
@@ -2599,13 +2599,13 @@ function renderPrepPanel(cycle) {
       const row = cb.closest('.dt-early-toggle-row');
       const pid = row?.dataset.playerId;
       if (!pid) return;
-      const current = new Set((cycle.early_access_player_ids || []).map(String));
+      const current = new Set((cycle.out_of_window_player_ids || []).map(String));
       if (cb.checked) current.add(pid); else current.delete(pid);
       const updated = [...current];
-      await updateCycle(cycle._id, { early_access_player_ids: updated });
+      await updateCycle(cycle._id, { out_of_window_player_ids: updated });
       const idx = allCycles.findIndex(c => c._id === cycle._id);
-      if (idx >= 0) allCycles[idx].early_access_player_ids = updated;
-      cycle.early_access_player_ids = updated;
+      if (idx >= 0) allCycles[idx].out_of_window_player_ids = updated;
+      cycle.out_of_window_player_ids = updated;
     });
   });
 

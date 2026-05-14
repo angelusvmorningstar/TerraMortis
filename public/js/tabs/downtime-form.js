@@ -1461,7 +1461,9 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   // STs can preview the form for active or prep cycles; players only for active
   const _isST = isSTRole();
   const _formStatuses = _isST ? ['active', 'prep'] : ['active'];
-  const _gateBlocks = !currentCycle || !_formStatuses.includes(currentCycle.status);
+  const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
+    .map(String).includes(String(currentChar._id));
+  const _gateBlocks = !currentCycle || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess);
 
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
