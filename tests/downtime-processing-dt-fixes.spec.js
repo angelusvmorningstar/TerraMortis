@@ -72,7 +72,7 @@ const CHAR_NON_SUBMITTER = {
 };
 
 const TEST_CYCLE = {
-  _id: 'cycle-001', cycle_number: 2, status: 'open',
+  _id: 'cycle-001', cycle_number: 2, status: 'active',
   confirmed_ambience: {}, narrative_notes: '',
 };
 
@@ -554,8 +554,8 @@ test.describe('DT-Fix-22: Roll button available on Committed status', () => {
     await expect(rollBtn).toContainText('Roll');
   });
 
-  test('Roll button is absent when pool_status is pending and no prior roll', async ({ page }) => {
-    // Submission with no pool_validated and pending status
+  test('Roll button IS visible when pool_status is pending (feature.96: no longer requires Committed first)', async ({ page }) => {
+    // feature.96 made Roll visible from pending — this test was previously asserting absence
     const subPending = {
       ...SUBMISSION_PROJECT_COMMITTED,
       _id: 'sub-proj-pending',
@@ -566,7 +566,8 @@ test.describe('DT-Fix-22: Roll button available on Committed status', () => {
     await setupDowntimeProcessing(page, [subPending]);
     await openFirstAction(page, 'Ambience');
 
-    await expect(page.locator('.proc-proj-roll-btn')).toHaveCount(0);
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
   });
 
   test('Roll button still renders when pool_status is validated (no regression)', async ({ page }) => {

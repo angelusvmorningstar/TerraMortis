@@ -59,7 +59,7 @@ const CHAR_OTHER = {
 };
 
 const TEST_CYCLE = {
-  _id: 'cycle-001', cycle_number: 2, status: 'open',
+  _id: 'cycle-001', cycle_number: 2, status: 'active',
   confirmed_ambience: {}, narrative_notes: '',
 };
 
