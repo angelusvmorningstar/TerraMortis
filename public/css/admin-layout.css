@@ -4960,6 +4960,23 @@ body {
 .proc-val-status button.active.committed   { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.15); }
 .proc-val-status button.active.rolled      { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.2); }
 
+.proc-status-ribbon {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 6px; font-size: 0.75rem;
+}
+.proc-ribbon-step {
+  padding: 2px 8px; border-radius: 10px;
+  border: 1px solid transparent; color: var(--txt3);
+  white-space: nowrap;
+}
+.proc-ribbon-step.ribbon-past   { color: var(--txt2); border-color: var(--surf3); }
+.proc-ribbon-step.ribbon-active { font-weight: 600; }
+.proc-ribbon-step.ribbon-active.pending   { border-color: var(--result-pend); color: var(--result-pend); }
+.proc-ribbon-step.ribbon-active.committed { border-color: var(--gold2); color: var(--gold2); }
+.proc-ribbon-step.ribbon-active.rolled    { border-color: var(--gold2); color: var(--gold2); }
+.proc-ribbon-step.ribbon-future { opacity: 0.35; }
+.proc-ribbon-arrow { color: var(--txt3); font-size: 0.7rem; }
+
 .proc-notes-thread {
   display: flex;
   flex-direction: column;
@@ -6203,6 +6220,9 @@ html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { bord
 html:not([data-theme="dark"]) .proc-val-status button.active.committed    { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 html:not([data-theme="dark"]) .proc-val-status button.active.rolled       { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
+html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.pending     { border-color: var(--crim); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.committed   { border-color: var(--story-compl); color: var(--story-compl); }
+html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.rolled      { border-color: var(--story-compl); color: var(--story-compl); }
 html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
 html:not([data-theme="dark"]) .proc-row-status.resolved                   { background: var(--green-a15); color: var(--green3); }
 html:not([data-theme="dark"]) .proc-row-status.no_effect                  { background: var(--gold-a10); color: var(--txt2); }
