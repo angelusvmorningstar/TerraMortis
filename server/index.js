@@ -5,6 +5,7 @@ import { connectDb, closeDb, isConnected, getDb } from './db.js';
 import { verifyRulesEngine, formatMissingReport, formatPassReport } from './scripts/rules-verify/verify-rules-engine.js';
 import authRouter from './routes/auth.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
+import { cacheControl, noCache } from './middleware/cache-control.js';
 import charactersRouter from './routes/characters.js';
 import territoriesRouter from './routes/territories.js';
 import trackerRouter from './routes/tracker.js';
@@ -26,7 +27,7 @@ import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
 import {
-  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter,
+  grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
 } from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
@@ -70,31 +71,55 @@ app.use('/api/auth', authRouter);
 
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)
-app.use('/api/characters', requireAuth, charactersRouter);
-app.use('/api/downtime_cycles', requireAuth, cyclesRouter);
-app.use('/api/downtime_submissions', requireAuth, submissionsRouter);
-app.use('/api/project_invitations', requireAuth, projectInvitationsRouter);
-app.use('/api/players', requireAuth, playersRouter);
-app.use('/api/questionnaire', requireAuth, questionnaireRouter);
-app.use('/api/history', requireAuth, historyRouter);
-app.use('/api/ordeal-responses', requireAuth, ordealResponsesRouter);
-app.use('/api/ordeal_submissions', requireAuth, ordealSubmissionsRouter);
-app.use('/api/ordeal_rubrics', requireAuth, ordealRubricsRouter);
-app.use('/api/attendance', requireAuth, attendanceRouter);
-app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
-app.use('/api/tickets', requireAuth, ticketsRouter);
+//
+// Issue #255 (perf, 2026-05-11): explicit Cache-Control discipline.
+// Endpoints whose data varies per user (mine=1 vs ST sees all) or
+// mutates frequently are marked `no-cache` so browsers always
+// revalidate. Read-only / slowly-changing endpoints (rule docs,
+// territory list) get `private, max-age=300` for in-session reuse.
+app.use('/api/characters', requireAuth, noCache(), charactersRouter);
+app.use('/api/downtime_cycles', requireAuth, noCache(), cyclesRouter);
+app.use('/api/downtime_submissions', requireAuth, noCache(), submissionsRouter);
+app.use('/api/project_invitations', requireAuth, noCache(), projectInvitationsRouter);
+app.use('/api/players', requireAuth, noCache(), playersRouter);
+app.use('/api/questionnaire', requireAuth, noCache(), questionnaireRouter);
+app.use('/api/history', requireAuth, noCache(), historyRouter);
+app.use('/api/ordeal-responses', requireAuth, noCache(), ordealResponsesRouter);
+app.use('/api/ordeal_submissions', requireAuth, noCache(), ordealSubmissionsRouter);
+app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
+app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
+app.use('/api/archive_documents', requireAuth, noCache(), archiveDocumentsRouter);
+app.use('/api/tickets', requireAuth, noCache(), ticketsRouter);
 // Rules engine — must mount before /api/rules (purchasable_powers) so Express
 // routes /api/rules/grant etc. to the engine, not the /:key wildcard.
+//
+// Issue #255: rule docs change rarely (only via ST writes in the admin
+// Rules Data view, which calls invalidateRulesCache() to flush the
+// client-side cache on update). Safe to mark cacheable for 5 minutes
+// — STs editing rules see their own writes via the client's in-memory
+// cache invalidation; other users see new values within one max-age
+// window after a server-side change.
 const RE_ST = [requireAuth, requireRole('st')];
-app.use('/api/rules/grant',                  ...RE_ST, grantRouter);
-app.use('/api/rules/speciality_grant',       ...RE_ST, specialityGrantRouter);
-app.use('/api/rules/skill_bonus',            ...RE_ST, skillBonusRouter);
-app.use('/api/rules/nine_again',             ...RE_ST, nineAgainRouter);
-app.use('/api/rules/disc_attr',              ...RE_ST, discAttrRouter);
-app.use('/api/rules/derived_stat_modifier',  ...RE_ST, derivedStatModRouter);
-app.use('/api/rules/tier_budget',            ...RE_ST, tierBudgetRouter);
-app.use('/api/rules/status_floor',           ...RE_ST, statusFloorRouter);
-app.use('/api/rules', requireAuth, rulesRouter);
+const CACHE_5MIN = cacheControl(300);
+app.use('/api/rules/grant',                  ...RE_ST, CACHE_5MIN, grantRouter);
+app.use('/api/rules/speciality_grant',       ...RE_ST, CACHE_5MIN, specialityGrantRouter);
+app.use('/api/rules/skill_bonus',            ...RE_ST, CACHE_5MIN, skillBonusRouter);
+app.use('/api/rules/nine_again',             ...RE_ST, CACHE_5MIN, nineAgainRouter);
+app.use('/api/rules/disc_attr',              ...RE_ST, CACHE_5MIN, discAttrRouter);
+app.use('/api/rules/derived_stat_modifier',  ...RE_ST, CACHE_5MIN, derivedStatModRouter);
+app.use('/api/rules/tier_budget',            ...RE_ST, CACHE_5MIN, tierBudgetRouter);
+app.use('/api/rules/status_floor',           ...RE_ST, CACHE_5MIN, statusFloorRouter);
+// Issue #256 (perf): aggregated rules-engine endpoint — coalesces the
+// 7 per-category endpoints into a single round-trip for `preloadRules`.
+// Mounted before `/api/rules` (purchasable powers) so Express routes
+// `/api/rules/aggregate` to this router, not the wildcard.
+//
+// Issue #265 (rebase-resolution): the aggregate endpoint serves the
+// same rule-doc content the 7 per-category endpoints do, just merged
+// into one response — so it gets the same CACHE_5MIN treatment.
+// Closes #265's one-line follow-up as part of this rebase.
+app.use('/api/rules/aggregate',              ...RE_ST, CACHE_5MIN, rulesAggregateRouter);
+app.use('/api/rules', requireAuth, CACHE_5MIN, rulesRouter);
 app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
@@ -109,19 +134,24 @@ app.all('/api/pdf/*path', (req, res) => {
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);
 
-// Territories — GET open to all authenticated users; writes are ST-only (enforced in router)
-app.use('/api/territories', requireAuth, territoriesRouter);
-// Tracker — auth required; players can only read/write own characters (enforced in router)
-app.use('/api/tracker_state', requireAuth, trackerRouter);
-app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
+// Territories — GET open to all authenticated users; writes are ST-only (enforced in router).
+// Issue #255: same data for every reader (no per-user filtering) and
+// changes rarely. Cacheable for 5 minutes. ST writes invalidate the
+// client cache on save.
+app.use('/api/territories', requireAuth, CACHE_5MIN, territoriesRouter);
+// Tracker — auth required; players can only read/write own characters (enforced in router).
+// Issue #255: per-user state (own characters) and mutates on every roll → no-cache.
+app.use('/api/tracker_state', requireAuth, noCache(), trackerRouter);
+app.use('/api/session_logs', requireAuth, requireRole('st'), noCache(), sessionsRouter);
 // Coordinator tier: needs read/write for check-in (fin.3) and finance (fin.4).
 // requireRole('coordinator') implicitly allows st/dev too.
-app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), gameSessionsRouter);
-app.use('/api/downtime_investigations', requireAuth, investigationsRouter);
-app.use('/api/npcs', requireAuth, npcsRouter);
-app.use('/api/relationships', requireAuth, relationshipsRouter);
-app.use('/api/npc-flags', requireAuth, npcFlagsRouter);
-app.use('/api/admin', requireAuth, requireRole('st'), adminMigrationsRouter);
+// Issue #255: live session state → no-cache.
+app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);
+app.use('/api/downtime_investigations', requireAuth, noCache(), investigationsRouter);
+app.use('/api/npcs', requireAuth, noCache(), npcsRouter);
+app.use('/api/relationships', requireAuth, noCache(), relationshipsRouter);
+app.use('/api/npc-flags', requireAuth, noCache(), npcFlagsRouter);
+app.use('/api/admin', requireAuth, requireRole('st'), noCache(), adminMigrationsRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

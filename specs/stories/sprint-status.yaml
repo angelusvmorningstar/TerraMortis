@@ -756,9 +756,25 @@ development_status:
   issue-12-domain-multi-instance-descriptors: review            # Domain: multi-instance SP/FG, Haven/MG cap system
   issue-216-alice-regent-territory: done                        # findRegentTerritory canonical-slug guard; PR #223 merged
   issue-224-dt-stale-territory: review                          # renderDowntimeTab territory fresh-fetch + saveTerritory invalidation
-  issue-230-dt-form-init-char-mismatch: ready-for-dev           # _buildCharMenu before openChar: sidebar shows wrong char; DT form renders for sheetChar not visual selection
+  issue-230-dt-form-init-char-mismatch: review                  # _buildCharMenu before openChar: sidebar shows wrong char; DT form renders for sheetChar not visual selection
   issue-231-dt-prep-open-override: review                       # DT Prep: manual override flag latches cycle.status to active; deriveCycleStatus + setManualOpen + UI button + banner
   issue-232-hide-player-npc-chip: review                        # Relationships tab: gate "New NPC (pending)" chip on isSTRole(); default npc_mode='pc' for non-ST; sweep dead hint copy
   issue-233-status-mci-merit-actions: review                    # B1 from DT data-flow audit: status loop added to buildMeritActions; MCI promoted to 'status' category in deriveMeritCategory + _parseMeritType (both duplicated functions per NFR-DS-01); admin-only scope; player Story tab gap noted as follow-up
   issue-236-archive-nav-tile-carver: review                     # Archive nav tile gated on dead `_has_archive` flag (never set anywhere); dropped the condition entirely — tab self-handles empty state via existing "Nothing archived yet." placeholder; ST view unchanged via existing role bypass
+  issue-234-feed-rote-maintenance-enum: review                  # Bundled B2+B3 from DT audit: feeding-tab.js outer gate replaced + inner slot loop matches rote||feed; schema's projectActionEnum accepts 'maintenance'. Two-file change, both parse-check clean
+  issue-286-story-context-label-rename: review                  # DB field player_feedback → story_context; label clarity + destination sub-labels; DT Story tab + player story-tab.js fixes; migration script
+  issue-270-admin-sortname-display: done                        # Replace displayName with dropdownName at all display call sites in downtime-views.js + downtime-story.js; 27 call sites changed
+  issue-271-spheres-grid-padding: done                          # padding: 8px 0 → 8px 16px on .spheres-grid; DT City + standalone Spheres domain view
+  issue-272-ambience-overhaul: review                           # Fix entropy (per-rating), overfeeding (×2), project values (2/4), step thresholds (per-territory); rename AMBIENCE_CAP → AMBIENCE_FEEDING_TOLERANCE; personal projects deferred
+  issue-273-feeding-matrix-feed-count: review                   # Four-state matrix O/OO/X/XX; _getSubFedTerrs Set→Map; _computeMatrixFeederCounts unified source; overfeeding display feeders/cap
+  issue-271-city-st-notes-padding: review                       # fix.53: proc-amb-notes-block missing horizontal padding; label/textarea flush to left edge; padding: 12px 16px 0
+  issue-267-dt-spec-bonus-aoe-only: review                      # fix.54: remove skNineAgain from spec-bonus predicate at 8 sites (3 files); AoE-only; supersedes #207
+  issue-207-179-spec-predicate-target-type: review              # #207: remove stale sk?.nine_again branch from feeding-pool.js:127 (AoE-only post-#267); #179: target_type ternary → if-guard for silent-leave symmetry (downtime-form.js:668)
+  issue-285-feeding-pool-prepopulate: review                    # DT Processing Step 3: pool builder dropdowns + territory pills pre-populate from player's form submission
+  issue-269-cleanup-stale-benefit-grants: review                # detectMerits() prefer tier_grants over benefit_grants; DB script removes stale benefit_grants from MCI merits that have tier_grants
+  issue-205-admin-feeding-interdisc-spec: review                 # Admin buildFeedingPool spec guard narrower than canonical: add isSpecs() interdisc check + remove nine_again term (mirrors feeding-pool.js post-PR #267)
+  issue-168-regency-feeding-rights-cap: review                   # Default 10 feeding-right slots + "+ Add" button; MAX_FEEDING_POSITION 12→20; DOM-append pattern to preserve unsaved picker values
+  issue-289-ambience-pill-preselect: review                    # DT Processing Step 5: ambience pill pre-selects from player's project_${slot}_ambience_target when no ST override; parallel to #285 feeding pill fix
+  issue-293-regent-appoint-lieutenant: review                   # Regent can set/change their own Lieutenant from Regency tab; new PATCH /api/territories/:id/lieutenant; charPicker replaces locked span; re-render on save
+  issue-295-dt-early-access-out-of-window: review               # DT Prep: early_access tick grants out-of-window access (pre-open + post-close); client gate + server requireOpenCycle bypass + label rename
   issue-251-contacts-spheres-audit-recover: review              # Data-recovery: audit production Contacts merits for spheres.length < rating-source sum; re-add missing spheres via admin sheet UI; optional recovery script if cohort > 2

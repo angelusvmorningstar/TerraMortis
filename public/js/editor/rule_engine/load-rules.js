@@ -11,26 +11,36 @@ let _cache = null; // { rule_grant, rule_nine_again, rule_skill_bonus, rule_spec
 /**
  * Fetch all rule docs from the server and populate the module cache.
  * Idempotent — subsequent calls return the cached promise.
+ *
+ * Issue #256 (perf, 2026-05-11): single aggregated round-trip instead
+ * of 7 parallel ones. Server route at /api/rules/aggregate accepts
+ * a `categories` query param and returns `{ rule_<category>: [...] }`.
+ * Cuts the wire overhead from 7 TLS+auth handshakes to 1.
  */
+const RULE_CATEGORIES = [
+  'grant',
+  'nine_again',
+  'skill_bonus',
+  'speciality_grant',
+  'tier_budget',
+  'disc_attr',
+  'derived_stat_modifier',
+];
+
 export async function preloadRules() {
   if (_cache) return _cache;
-  const [grant, nineAgain, skillBonus, specialityGrant, tierBudget, discAttr, derivedStatMod] = await Promise.all([
-    apiGet('/api/rules/grant'),
-    apiGet('/api/rules/nine_again'),
-    apiGet('/api/rules/skill_bonus'),
-    apiGet('/api/rules/speciality_grant'),
-    apiGet('/api/rules/tier_budget'),
-    apiGet('/api/rules/disc_attr'),
-    apiGet('/api/rules/derived_stat_modifier'),
-  ]);
+  const data = await apiGet(`/api/rules/aggregate?categories=${RULE_CATEGORIES.join(',')}`);
+  // Guard each field — keeps the cache shape contract stable even if the
+  // server response is missing or malformed for any category. Consumers
+  // downstream (getRulesBySource) expect arrays only.
   _cache = {
-    rule_grant:                   Array.isArray(grant)          ? grant          : [],
-    rule_nine_again:              Array.isArray(nineAgain)      ? nineAgain      : [],
-    rule_skill_bonus:             Array.isArray(skillBonus)     ? skillBonus     : [],
-    rule_speciality_grant:        Array.isArray(specialityGrant)? specialityGrant: [],
-    rule_tier_budget:             Array.isArray(tierBudget)     ? tierBudget     : [],
-    rule_disc_attr:               Array.isArray(discAttr)       ? discAttr       : [],
-    rule_derived_stat_modifier:   Array.isArray(derivedStatMod) ? derivedStatMod : [],
+    rule_grant:                 Array.isArray(data?.rule_grant)                 ? data.rule_grant                 : [],
+    rule_nine_again:            Array.isArray(data?.rule_nine_again)            ? data.rule_nine_again            : [],
+    rule_skill_bonus:           Array.isArray(data?.rule_skill_bonus)           ? data.rule_skill_bonus           : [],
+    rule_speciality_grant:      Array.isArray(data?.rule_speciality_grant)      ? data.rule_speciality_grant      : [],
+    rule_tier_budget:           Array.isArray(data?.rule_tier_budget)           ? data.rule_tier_budget           : [],
+    rule_disc_attr:             Array.isArray(data?.rule_disc_attr)             ? data.rule_disc_attr             : [],
+    rule_derived_stat_modifier: Array.isArray(data?.rule_derived_stat_modifier) ? data.rule_derived_stat_modifier : [],
   };
   return _cache;
 }

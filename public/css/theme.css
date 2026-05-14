@@ -274,7 +274,7 @@
      rather than forcing parchment. Used by archive detail, questionnaire,
      downtime doc cards. */
   --rp-bg:var(--surf);--rp-surf:var(--surf2);--rp-surf2:var(--surf3);
-  --rp-txt:var(--txt);--rp-txt2:var(--txt2);--rp-txt3:var(--txt3);
+  --rp-txt:var(--txt);--rp-txt2:var(--txt2);--rp-txt3:var(--txt3);--rp-strong:var(--txt);
   --rp-head:var(--gold2);--rp-accent:var(--accent);--rp-placeholder:var(--txt3);
   --rp-bdr:var(--bdr);--rp-bdr2:var(--bdr2);
 }
