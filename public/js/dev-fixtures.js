@@ -54,6 +54,7 @@ window.fetch=function devFix(url,opts){
   // JDT-3: dev-mode echo handlers for accept / decline.
   if(method==='POST'&&seg[0]==='project_invitations'&&seg[1]&&seg[2]==='accept'){var nowA=new Date().toISOString();return _mock({invitation:{_id:seg[1],status:'accepted',responded_at:nowA},joint:{_id:'joint_dev',participants:[]},slot:1,submission:{_id:'sub_dev',responses:{project_1_action:'investigate',project_1_joint_id:'joint_dev',project_1_joint_role:'support',project_1_description:'(dev)'}}});}
   if(method==='POST'&&seg[0]==='project_invitations'&&seg[1]&&seg[2]==='decline'){var nowD=new Date().toISOString();return _mock({_id:seg[1],status:'declined',responded_at:nowD});}
+  if(method==='PATCH'&&seg[0]==='territories'&&seg[2]==='lieutenant'){var ltb=opts.body?JSON.parse(opts.body):{};var ltd=TERRITORIES.find(function(t){return String(t._id)===seg[1];});if(ltd)ltd.lieutenant_id=ltb.lieutenant_id||null;return _mock(ltd||{});}
   return _orig(url,opts);
 };
 console.info('[dev-fixtures] active — '+CHARS.length+' chars, '+TERRITORIES.length+' territories');

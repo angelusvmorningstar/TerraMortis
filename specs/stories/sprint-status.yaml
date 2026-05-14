@@ -775,4 +775,5 @@ development_status:
   issue-205-admin-feeding-interdisc-spec: review                 # Admin buildFeedingPool spec guard narrower than canonical: add isSpecs() interdisc check + remove nine_again term (mirrors feeding-pool.js post-PR #267)
   issue-168-regency-feeding-rights-cap: review                   # Default 10 feeding-right slots + "+ Add" button; MAX_FEEDING_POSITION 12→20; DOM-append pattern to preserve unsaved picker values
   issue-289-ambience-pill-preselect: review                    # DT Processing Step 5: ambience pill pre-selects from player's project_${slot}_ambience_target when no ST override; parallel to #285 feeding pill fix
+  issue-293-regent-appoint-lieutenant: review                   # Regent can set/change their own Lieutenant from Regency tab; new PATCH /api/territories/:id/lieutenant; charPicker replaces locked span; re-render on save
   issue-295-dt-early-access-out-of-window: review               # DT Prep: early_access tick grants out-of-window access (pre-open + post-close); client gate + server requireOpenCycle bypass + label rename
