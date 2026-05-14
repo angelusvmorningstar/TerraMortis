@@ -158,6 +158,21 @@ const SUBMISSION_AUTO_MERIT_PENDING = {
   st_review: { territory_overrides: {} },
 };
 
+// Project in 'rolled' state (for AC 4 / AC 8 tests)
+const SUBMISSION_PROJECT_ROLLED = {
+  _id: 'sub-f310-proj-rolled',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'rolled', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
 // ── Setup helpers ──────────────────────────────────────────────────────────────
 
 async function setupDowntimeProcessing(page, submissions, chars = [CHAR_PT4]) {
@@ -602,6 +617,193 @@ test.describe('F96-7: Confirm Dice Pool button visible from pending; absent once
 
     const rollBtn = page.locator('.proc-proj-roll-btn').first();
     await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+});
+
+// ── F310-1: Pending button absent on all 4 action types ──────────────────────
+
+test.describe('F310-1: Pending button absent from feeding, sorcery, and merit action types', () => {
+
+  test('feeding panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openFirstAction(page, 'Feeding');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+  test('sorcery panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_SORCERY_PENDING]);
+    await openFirstAction(page, 'Sorcery');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+  test('non-auto merit panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_MERIT_INVEST_PENDING]);
+    await openFirstAction(page, 'Investigative');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+});
+
+// ── F310-2: Confirm button absent in rolled and terminal states ───────────────
+
+test.describe('F310-2: Confirm Dice Pool button absent when rolled or terminal', () => {
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is rolled', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is terminal (validated)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_VALIDATED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+});
+
+// ── F310-3: Confirm button click triggers API write ───────────────────────────
+
+test.describe('F310-3: Confirm Dice Pool click triggers pool_status save', () => {
+
+  test('clicking Confirm Dice Pool on pending project triggers at least one API write', async ({ page }) => {
+    const writes = [];
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+        writes.push({ method, url });
+        return ok({ ok: true });
+      }
+
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_PENDING]);
+      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
+      if (url.includes('/api/territories'))             return ok([]);
+      if (url.includes('/api/game_sessions'))           return ok([]);
+      if (url.includes('/api/session_logs'))            return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openFirstAction(page, 'Ambience');
+
+    writes.length = 0;
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
+    await page.waitForTimeout(600);
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── F310-4: Clear Pool click triggers API write ───────────────────────────────
+
+test.describe('F310-4: Clear Pool click triggers API write resetting pool_status', () => {
+
+  test('clicking Clear Pool on confirmed project triggers at least one API write', async ({ page }) => {
+    const writes = [];
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+        writes.push({ method, url });
+        return ok({ ok: true });
+      }
+
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_CONFIRMED]);
+      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
+      if (url.includes('/api/territories'))             return ok([]);
+      if (url.includes('/api/game_sessions'))           return ok([]);
+      if (url.includes('/api/session_logs'))            return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openFirstAction(page, 'Ambience');
+
+    writes.length = 0;
+
+    const clearBtn = page.locator('.proc-pool-clear-btn').first();
+    await expect(clearBtn).toBeVisible({ timeout: 5000 });
+    await clearBtn.click();
+    await page.waitForTimeout(600);
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── F310-5: Additional label and state coverage ───────────────────────────────
+
+test.describe('F310-5: Label text, Re-roll label, and rolled-state roll button', () => {
+
+  test('confirmed ribbon step contains text "Confirmed"', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
+    await openFirstAction(page, 'Ambience');
+
+    const activeStep = page.locator('.proc-ribbon-step.ribbon-active.confirmed').first();
+    await expect(activeStep).toContainText('Confirmed');
+  });
+
+  test('feeding Roll Dice Pool button label is correct (first roll, no prior roll)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openFirstAction(page, 'Feeding');
+
+    const rollBtn = page.locator('.proc-feed-roll-btn').first();
+    await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+  test('project Roll button label is Re-roll when a prior roll exists', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toHaveText('Re-roll');
+  });
+
+  test('project Roll Dice Pool button visible from rolled state', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
   });
 
 });
