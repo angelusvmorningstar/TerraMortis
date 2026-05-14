@@ -92,10 +92,12 @@ export async function initDowntimeTab(el, char, territories = []) {
     if (!forceForm && window.innerWidth <= 600) {
       currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
     } else {
-      renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
+      // Issue #259 (perf): char + territories come from suiteState which
+      // was loaded at boot — skip the redundant fresh-fetch pair.
+      renderDowntimeTab(currentZone, char, territories, { singleColumn: true, skipFreshFetch: true });
     }
   } else if (isST) {
-    renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
+    renderDowntimeTab(currentZone, char, territories, { singleColumn: true, skipFreshFetch: true });
   } else {
     const closedCycles = cycles
       .filter(c => c.status === 'closed' || c.status === 'complete')
