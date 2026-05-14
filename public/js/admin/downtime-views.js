@@ -9861,8 +9861,29 @@ function _getSubFedTerrs(sub) {
     }
   }
 
-  // TODO(Feed-Action follow-up): add +1 per Feed Action targeting each territory
-  // (capped at 2 total per territory). Awaiting field identification from follow-up issue.
+  // Issue #300: count additional feeds from rote-hunt project slots.
+  // The territory for 'rote' action slots is stored in feeding_territories_rote
+  // (same slug-key format as feeding_territories), not in project_N_territory.
+  const hasRoteSlot = [1, 2, 3, 4].some(n => {
+    const a = sub.responses?.[`project_${n}_action`];
+    return a === 'rote' || a === 'feed';
+  });
+  if (hasRoteSlot && sub.responses?.feeding_territories_rote) {
+    let roteGrid = null;
+    try { roteGrid = JSON.parse(sub.responses.feeding_territories_rote); } catch { roteGrid = null; }
+    if (roteGrid) {
+      for (const [slug, status] of Object.entries(roteGrid)) {
+        if (!status || status === 'none' || status === 'Not feeding here') continue;
+        const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
+          ? TERRITORY_SLUG_MAP[slug] : undefined;
+        if (tid === undefined) continue;
+        const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+        if (!mt) continue;
+        const current = fed.get(mt.csvKey) || 0;
+        if (current < 2) fed.set(mt.csvKey, current + 1);
+      }
+    }
+  }
 
   // Default: if feeding method declared but no territory selected, character feeds from Barrens
   if (fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
