@@ -556,7 +556,7 @@ export const downtimeCycleSchema = {
     game_number:      { type: 'integer', minimum: 1 },
     status:           { type: 'string', enum: ['prep', 'game', 'active', 'open', 'closed'] },
     submission_count: { type: 'integer', minimum: 0 },
-    early_access_player_ids: { type: 'array', items: { type: 'string' } },
+    out_of_window_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
 
     // Issue #231 — Manual "open downtimes" override (DT Prep tab).

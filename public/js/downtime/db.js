@@ -23,7 +23,7 @@ export async function createCycle(gameNumber, { status = 'prep', deadlineAt = nu
     status,
     loaded_at: new Date().toISOString(),
     submission_count: 0,
-    early_access_player_ids: [],
+    out_of_window_player_ids: [],
   };
   if (deadlineAt) body.deadline_at = deadlineAt;
   return apiPost('/api/downtime_cycles', body);

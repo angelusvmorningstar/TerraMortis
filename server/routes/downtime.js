@@ -49,14 +49,14 @@ async function requireOpenCycle(req, res, next) {
   if (!cycleOid) return next();
   const cycle = await getCollection('downtime_cycles').findOne(
     { _id: cycleOid },
-    { projection: { status: 1, early_access_player_ids: 1 } }
+    { projection: { status: 1, out_of_window_player_ids: 1 } }
   );
   if (cycle?.status === 'closed') {
-    // Out-of-window access: characters ticked in early_access_player_ids may save
+    // Out-of-window access: characters ticked in out_of_window_player_ids may save
     // to a closed cycle (covers both early and late submissions — issue #295).
     const charIdStr = String(sub.character_id || '');
-    const earlyIds = (cycle.early_access_player_ids || []).map(String);
-    if (charIdStr && earlyIds.includes(charIdStr)) return next();
+    const oowIds = (cycle.out_of_window_player_ids || []).map(String);
+    if (charIdStr && oowIds.includes(charIdStr)) return next();
     return res.status(423).json({
       error: 'CYCLE_CLOSED',
       message: 'Cycle is closed; submissions are locked',
