@@ -210,7 +210,7 @@ export function serialiseForPrint(c, territories) {
       spheres: Array.isArray(m.spheres) ? m.spheres.slice() : null,
       granted_by: m.granted_by || null,
       shared_with: m.shared_with || [],
-      is_shared: isShared,
+      is_shared: (m.shared_with || []).length > 0,
       bonuses,
       cult_name: m.cult_name || null,
       asset_skills: m.asset_skills || [],
