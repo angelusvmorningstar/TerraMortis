@@ -1201,9 +1201,9 @@ function renderFeedingValidation(char, sub, stNarrative) {
       h += `<div class="dt-feed-val-row"><dt>Declaration</dt><dd>${esc(fvLbl)}${overrideTag}</dd></div>`;
     }
 
-    // Story Context (ST-written narrative constraint for Claude — not player-facing)
+    // Narrative Constraint (ST-written; injected as "do not contradict" directive — not player-facing)
     const feedback = fr.story_context || '';
-    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Story Context</dt>`;
+    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Narrative Constraint</dt>`;
     h += feedback
       ? `<dd>${esc(feedback)}</dd>`
       : `<dd class="dt-story-section-empty">None recorded</dd>`;
