@@ -158,4 +158,53 @@ router.patch('/:id/feeding-rights', async (req, res) => {
   res.json(result);
 });
 
+// PATCH /api/territories/:id/lieutenant — Regent (or ST) may appoint or clear
+// their territory's Lieutenant. Body: { lieutenant_id: string | null }
+// Validation: lieutenant_id must be a non-retired character that is not the
+// territory's own Regent.
+router.patch('/:id/lieutenant', async (req, res) => {
+  const { id } = req.params;
+  const { lieutenant_id } = req.body;
+
+  if (lieutenant_id !== null && typeof lieutenant_id !== 'string') {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'lieutenant_id must be a string or null',
+    });
+  }
+
+  const oid = parseId(id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory ID format' });
+
+  const territory = await col().findOne({ _id: oid });
+  if (!territory) return res.status(404).json({ error: 'NOT_FOUND', message: 'Territory not found' });
+
+  if (!isRegentOfTerritory(req.user, territory)) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'You are not the Regent of this territory' });
+  }
+
+  if (lieutenant_id) {
+    if (String(lieutenant_id) === String(territory.regent_id)) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A Regent cannot appoint themselves as Lieutenant' });
+    }
+
+    const charOid = (() => { try { return new ObjectId(lieutenant_id); } catch { return null; } })();
+    if (!charOid) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+    }
+    const char = await getCollection('characters').findOne({ _id: charOid });
+    if (!char || char.retired) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Character not found or retired' });
+    }
+  }
+
+  const result = await col().findOneAndUpdate(
+    { _id: territory._id },
+    { $set: { lieutenant_id: lieutenant_id || null, updated_at: new Date().toISOString() } },
+    { returnDocument: 'after' }
+  );
+
+  res.json(result);
+});
+
 export default router;

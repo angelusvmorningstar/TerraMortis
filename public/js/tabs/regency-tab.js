@@ -42,6 +42,8 @@ let _lockedCharIds = new Set();  // character IDs that cannot be removed this cy
 // charPicker components are uncontrolled DOM, so we mirror their state here
 // for cross-slot exclusion + save collection.
 const _slotValues = new Map();
+// issue-293: mirrors the lieutenant charPicker selection. Reset on each render.
+let _ltPickerValue = null;
 
 function _regInfo() { return findRegentTerritory(_territories, currentChar); }
 
@@ -130,11 +132,11 @@ function render(container) {
   const rawFeedingRights = _terrDoc()?.feeding_rights || [];
   const terrId = ri?.territoryId || '';
 
-  // Regent is always slot 1; lieutenant is slot 2 if present
+  // Regent is always slot 1; lieutenant is slot 2 (editable by regent)
   const ltId = ri?.lieutenantId || '';
-  const ltChar = ltId ? allCharNames.find(c => String(c._id) === ltId) : null;
-  const ltName = ltChar ? displayName(ltChar) : (ltId ? ltId : '— None —');
   const loopStart = ltId ? 3 : 2; // feeding right dropdowns begin at this position
+  // Reset lt picker mirror so it reflects saved state after re-render
+  _ltPickerValue = ltId || null;
 
   // Strip regent and lieutenant IDs from saved array (handles legacy data that included them)
   const additionalRights = rawFeedingRights.filter(
@@ -195,13 +197,15 @@ function render(container) {
   h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
   h += '</div>';
 
-  // Slot 2 — Lieutenant (locked, implicit; hidden if none)
-  if (ltId) {
-    h += '<div class="dt-residency-row">';
-    h += '<span class="dt-residency-label">Lieutenant</span>';
-    h += `<span class="dt-residency-locked">${esc(ltName)}</span>`;
-    h += '</div>';
-  }
+  // Slot 2 — Lieutenant (editable by regent; always rendered so they can appoint one)
+  const ltInitialJson = esc(JSON.stringify(ltId || ''));
+  h += '<div class="dt-residency-row" id="reg-lt-row">';
+  h += '<span class="dt-residency-label">Lieutenant</span>';
+  h += `<div data-cp-mount data-cp-site="reg-lt" data-cp-scope="all" data-cp-cardinality="single"`
+     + ` data-cp-initial="${ltInitialJson}" data-cp-placeholder="Appoint a Lieutenant"></div>`;
+  h += '<button id="reg-save-lt" class="qf-btn qf-btn-secondary">Save Lieutenant</button>';
+  h += '<span id="reg-lt-save-status" class="qf-save-status"></span>';
+  h += '</div>';
 
   // Additional feeding right slots — start at loopStart (3 with lt, 2 without)
   for (let i = loopStart; i <= loopEnd; i++) {
@@ -256,9 +260,55 @@ function render(container) {
 }
 
 function wireEvents(container) {
+  _mountLtPicker(container);
   _mountRegSlotPickers(container);
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
+  container.querySelector('#reg-save-lt')?.addEventListener('click', () => saveLieutenant(container));
   container.querySelector('#reg-confirm')?.addEventListener('click', () => confirmFeeding(container));
+}
+
+function _mountLtPicker(container) {
+  const ph = container.querySelector('[data-cp-mount][data-cp-site="reg-lt"]');
+  if (!ph) return;
+  let initial = '';
+  try { initial = JSON.parse(ph.dataset.cpInitial || '""'); } catch { initial = ''; }
+
+  const el = charPicker({
+    scope: 'all',
+    cardinality: 'single',
+    initial,
+    onChange: (next) => {
+      _ltPickerValue = (typeof next === 'string' && next) ? next : null;
+    },
+    placeholder: ph.dataset.cpPlaceholder || 'Appoint a Lieutenant',
+    excludeIds: [String(currentChar._id)],
+  });
+  el.dataset.cpMountedSite = 'reg-lt';
+  ph.replaceWith(el);
+}
+
+async function saveLieutenant(container) {
+  const statusEl = container.querySelector('#reg-lt-save-status');
+  const ri = _regInfo();
+  if (!ri?.territoryId) {
+    if (statusEl) statusEl.textContent = 'Error: territory not found';
+    return;
+  }
+
+  try {
+    await apiPatch(`/api/territories/${encodeURIComponent(ri.territoryId)}/lieutenant`, {
+      lieutenant_id: _ltPickerValue || null,
+    });
+
+    // Update local territory doc so re-render reflects new state
+    const td = _territories.find(t => String(t._id) === String(ri.territoryId));
+    if (td) td.lieutenant_id = _ltPickerValue || null;
+
+    if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+    render(container);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed: ' + (err.message || 'unknown error');
+  }
 }
 
 function _mountRegSlotPickers(container) {
