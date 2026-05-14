@@ -127,7 +127,8 @@ export const TERRITORY_SLUG_MAP = {
   the_north_shore:              'northshore',
   the_northern_shore:           'northshore',  // legacy
   the_barrens:                  null,
-  the_barrens__no_territory_:   null,          // no territory
+  the_barrens_no_territory_:    null,          // form slug (single underscore)
+  the_barrens__no_territory_:   null,          // legacy slug (double underscore)
   // Display-name variants (from _raw.feeding.territories)
   'The Academy':                'academy',
   'The City Harbour':           'harbour',
