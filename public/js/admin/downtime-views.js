@@ -2527,7 +2527,7 @@ function renderPrepPanel(cycle) {
     `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
     `</div>` +
     `<div class="dt-prep-early">` +
-    `<div class="dt-prep-early-title">Early Access Players</div>` +
+    `<div class="dt-prep-early-title">Out-of-Window Access</div>` +
     `<div class="dt-early-list">${earlyContent}</div>` +
     `</div>` +
     `<div class="dt-prep-actions">` +

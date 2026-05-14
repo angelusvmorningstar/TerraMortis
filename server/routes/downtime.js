@@ -39,7 +39,7 @@ async function requireOpenCycle(req, res, next) {
   if (!oid) return next(); // existing handler returns 400 for the format error
   const sub = await getCollection('downtime_submissions').findOne(
     { _id: oid },
-    { projection: { cycle_id: 1 } }
+    { projection: { cycle_id: 1, character_id: 1 } }
   );
   if (!sub) return next(); // existing handler returns 404
   if (!sub.cycle_id) return next();
@@ -49,9 +49,14 @@ async function requireOpenCycle(req, res, next) {
   if (!cycleOid) return next();
   const cycle = await getCollection('downtime_cycles').findOne(
     { _id: cycleOid },
-    { projection: { status: 1 } }
+    { projection: { status: 1, early_access_player_ids: 1 } }
   );
   if (cycle?.status === 'closed') {
+    // Out-of-window access: characters ticked in early_access_player_ids may save
+    // to a closed cycle (covers both early and late submissions — issue #295).
+    const charIdStr = String(sub.character_id || '');
+    const earlyIds = (cycle.early_access_player_ids || []).map(String);
+    if (charIdStr && earlyIds.includes(charIdStr)) return next();
     return res.status(423).json({
       error: 'CYCLE_CLOSED',
       message: 'Cycle is closed; submissions are locked',
