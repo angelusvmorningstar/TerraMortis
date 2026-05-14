@@ -229,7 +229,7 @@ function _computeMeritPoolSize(category, dots) {
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
-  committed:   'Committed',
+  confirmed:   'Confirmed',
   rolled:      'Rolled',
   validated:   'Validated',
   no_roll:     'No Roll',
@@ -844,7 +844,7 @@ function renderJointGroup(joint, entries) {
     h += `<span class="proc-row-desc" title="${esc(entry.description || '')}">${esc(shortDesc || '—')}</span>`;
     const _attributedName =
       (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
-      (status === 'committed' && review?.pool_committed_by) ? review.pool_committed_by :
+      (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
       (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
     h += `<span class="proc-row-status-cell">`;
     if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
@@ -957,7 +957,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? (fg.rating || 0) : 0;
+  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -2897,7 +2897,7 @@ function buildProcessingQueue(subs) {
       }
 
       // ── Rote feed project — render in Feed phase (phaseNum 1), after standard feeding ──
-      if (actionType === 'feed') {
+      if (actionType === 'feed' || actionType === 'rote') {
         const feedMethod2 = resp[`project_${slot}_feed_method2`] || '';
         const method2Label = feedMethod2 ? `Secondary method: ${feedMethod2}` : '';
         const descWithMethod = [projDescription, method2Label].filter(Boolean).join(' \u2014 ');
@@ -2908,7 +2908,7 @@ function buildProcessingQueue(subs) {
           phase: PHASE_NUM_TO_LABEL[1],
           phaseNum: 1,
           actionType: 'feed',
-          originalActionType: 'feed',
+          originalActionType: actionType,
           label: 'Rote Feed',
           description: descWithMethod || proj.desired_outcome || '',
           source: 'project',
@@ -2977,14 +2977,17 @@ function buildProcessingQueue(subs) {
       // legacy single-row keys.
       const _projInvestigateLead = resp[`project_${slot}_investigate_lead`] || '';
       let _projXpBreakdown = '';
+      let _projXpRows = [];
+      let _projXpBudgetSnapshot = null;
       if (effectiveActionType === 'xp_spend') {
         const _rj = resp[`project_${slot}_xp_rows`] || '';
         if (_rj) {
           try {
-            const _xpRows = JSON.parse(_rj);
-            if (Array.isArray(_xpRows) && _xpRows.length) {
-              _projXpBreakdown = _xpRows
-                .filter(r => r && (r.category || r.item))
+            const _parsed = JSON.parse(_rj);
+            if (Array.isArray(_parsed) && _parsed.length) {
+              _projXpRows = _parsed.filter(r => r && (r.category || r.item));
+              // Legacy flat string kept as fallback for submissions pre-dating feature.97
+              _projXpBreakdown = _projXpRows
                 .map(r => {
                   const _dots = r.dotsBuying ? ` (${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})` : '';
                   return `${r.category || ''}: ${r.item || ''}${_dots}`;
@@ -3000,6 +3003,9 @@ function buildProcessingQueue(subs) {
           const _item = resp[`project_${slot}_xp_item`]     || '';
           if (_cat && _item) _projXpBreakdown = `${_cat}: ${_item}`;
         }
+        // feature.97: budget snapshot stored at submit time
+        const _snap = resp.xp_budget_snapshot;
+        if (typeof _snap === 'number') _projXpBudgetSnapshot = _snap;
       }
 
       queue.push({
@@ -3024,7 +3030,9 @@ function buildProcessingQueue(subs) {
         projTerritory:   _projTerritory,
         projTarget:      _projTarget,
         projInvestigateLead: _projInvestigateLead,
-        projXpBreakdown: _projXpBreakdown,
+        projXpBreakdown:      _projXpBreakdown,
+        projXpRows:           _projXpRows,
+        projXpBudgetSnapshot: _projXpBudgetSnapshot,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -4454,7 +4462,7 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         const _attributedName =
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
-          (status === 'committed' && review?.pool_committed_by) ? review.pool_committed_by :
+          (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
           (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
         h += `<span class="proc-row-status-cell">`;
         if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
@@ -4675,16 +4683,16 @@ function renderProcessingMode(container) {
           }
         }
       }
-      // Implicit committed side-effects when a terminal button is clicked before pool is committed
+      // Implicit confirm side-effects when a terminal button is clicked before pool is confirmed
       const _TERMINAL = new Set(['validated', 'resolved', 'no_roll', 'no_feed', 'no_effect', 'skipped', 'maintenance']);
       if (_TERMINAL.has(status)) {
         const _rev = getEntryReview(entry) || {};
         const _cur = _rev.pool_status || 'pending';
-        if (_cur === 'pending' || _cur === 'committed') {
-          if (!_rev.pool_committed_by) {
+        if (_cur === 'pending' || _cur === 'confirmed') {
+          if (!_rev.pool_confirmed_by) {
             const _u = getUser();
             const _stn = _u?.global_name || _u?.username || 'ST';
-            await saveEntryReview(entry, { pool_committed_by: _stn });
+            await saveEntryReview(entry, { pool_confirmed_by: _stn });
           }
           if (entry.source === 'feeding') {
             const _sub = submissions.find(s => s._id === entry.subId);
@@ -4710,18 +4718,60 @@ function renderProcessingMode(container) {
       }
 
       const statusPatch = { pool_status: status };
-      if (['validated', 'committed', 'resolved'].includes(status)) {
+      if (['validated', 'resolved'].includes(status)) {
         const user = getUser();
         const stName = user?.global_name || user?.username || 'ST';
         if (status === 'validated')  statusPatch.pool_validated_by  = stName;
-        if (status === 'committed')  statusPatch.pool_committed_by  = stName;
         if (status === 'resolved')   statusPatch.pool_resolved_by   = stName;
       }
       await saveEntryReview(entry, statusPatch);
 
-      // When committing a feeding pool, persist the vitae tally so the player
-      // portal can show correct values in the ready state (before they roll).
-      if (status === 'committed' && entry.source === 'feeding') {
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire clear pool button — clears pool_validated so ST can rebuild from scratch
+  container.querySelectorAll('.proc-pool-clear-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_validated: '', pool_status: 'pending', pool_confirmed_by: '' });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire confirm pool button — saves pool expr and advances pool_status to confirmed
+  container.querySelectorAll('.proc-confirm-pool-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+
+      const user   = getUser();
+      const stName = user?.global_name || user?.username || 'ST';
+      const patch  = { pool_status: 'confirmed', pool_confirmed_by: stName };
+
+      let poolExpr = getEntryReview(entry)?.pool_validated || '';
+      if (!poolExpr) {
+        const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+        if (builderEl) poolExpr = _readBuilderExpr(builderEl) || '';
+      }
+      if (poolExpr) {
+        const rpanel  = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+        const _naV    = rpanel?.querySelector('.proc-proj-9a')?.checked  || false;
+        const _8aV    = rpanel?.querySelector('.proc-proj-8a')?.checked  || false;
+        patch.pool_validated = poolExpr;
+        patch.nine_again     = _naV;
+        patch.eight_again    = _8aV;
+        if (entry.source === 'project') {
+          patch.rote = rpanel?.querySelector('.proc-pool-rote')?.checked || false;
+        }
+      }
+
+      if (entry.source === 'feeding') {
         const vitaePanel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
         if (vitaePanel) {
           const vitateTally = {
@@ -4740,18 +4790,7 @@ function renderProcessingMode(container) {
         }
       }
 
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire clear pool button — clears pool_validated so ST can rebuild from scratch
-  container.querySelectorAll('.proc-pool-clear-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      await saveEntryReview(entry, { pool_validated: '' });
+      await saveEntryReview(entry, patch);
       renderProcessingMode(container);
     });
   });
@@ -5163,7 +5202,7 @@ function renderProcessingMode(container) {
             const _8aV = rpanel?.querySelector('.proc-proj-8a')?.checked  || false;
             const _user = getUser();
             const _stName = _user?.global_name || _user?.username || 'ST';
-            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, eight_again: _8aV, pool_committed_by: _stName });
+            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, eight_again: _8aV, pool_confirmed_by: _stName });
             poolValidated = builtExpr;
           }
         }
@@ -5207,7 +5246,7 @@ function renderProcessingMode(container) {
           await updateSubmission(subId, { feeding_roll: result, feeding_vitae_tally: vitateTally });
           if (sub) { sub.feeding_roll = result; sub.feeding_vitae_tally = vitateTally; }
           const cur = getEntryReview(entry)?.pool_status || 'pending';
-          if (cur === 'pending' || cur === 'committed') {
+          if (cur === 'pending' || cur === 'confirmed') {
             await saveEntryReview(entry, { pool_status: 'rolled' });
           }
           renderProcessingMode(container);
@@ -5269,7 +5308,7 @@ function renderProcessingMode(container) {
             const _8aV   = rpanel?.querySelector('.proc-proj-8a')?.checked    || false;
             const _user = getUser();
             const _stName = _user?.global_name || _user?.username || 'ST';
-            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, rote: _roteV, eight_again: _8aV, pool_committed_by: _stName });
+            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, rote: _roteV, eight_again: _8aV, pool_confirmed_by: _stName });
             poolValidated = builtExpr;
           }
         }
@@ -5296,7 +5335,7 @@ function renderProcessingMode(container) {
           pool: { expression: poolValidated, total: diceCount },
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
-        if (cur === 'pending' || cur === 'committed') {
+        if (cur === 'pending' || cur === 'confirmed') {
           await saveEntryReview(entry, { pool_status: 'rolled' });
         }
         renderProcessingMode(container);
@@ -5325,7 +5364,7 @@ function renderProcessingMode(container) {
           pool: { expression: meritExpr, total: diceCount },
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
-        if (cur === 'pending' || cur === 'committed') {
+        if (cur === 'pending' || cur === 'confirmed') {
           await saveEntryReview(entry, { pool_status: 'rolled' });
         }
         renderProcessingMode(container);
@@ -6639,7 +6678,7 @@ function _renderValStatusButtons(key, poolStatus, buttons) {
 }
 
 function _renderStatusRibbon(key, poolStatus) {
-  const steps = [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled']];
+  const steps = [['pending', 'Pending'], ['confirmed', 'Confirmed'], ['rolled', 'Rolled']];
   const activeIdx = steps.findIndex(([val]) => val === poolStatus);
   let h = '<div class="proc-status-ribbon">';
   steps.forEach(([val, label], i) => {
@@ -6898,12 +6937,12 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
-  if (!isAuto && ['pending', 'committed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
+  const meritBtns = [['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+  if (!isAuto && ['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet confirmed</span>'}</div>`;
   if (poolValidatedMerit) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   const _isSO_merit = !!rev.second_opinion;
   h += `<button class="proc-second-opinion-btn${_isSO_merit ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_merit ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
@@ -6927,14 +6966,14 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
-  const _sorcCommitted = poolStatus === 'committed';
+  const _sorcCommitted = poolStatus === 'confirmed';
   const _sorcDis = _sorcCommitted ? ' disabled' : '';
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Dice Pool Modifiers ──
   h += `<div class="proc-feed-mod-panel${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
 
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
@@ -6964,8 +7003,8 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'committed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
+  h += _renderValStatusButtons(key, poolStatus, [['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
     const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
@@ -7105,11 +7144,11 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'committed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
+  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
+  h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet confirmed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
     const notes = [];
@@ -7130,7 +7169,7 @@ function _renderProjRightPanel(entry, char, rev) {
 
   // ── Roll card ──
   const projRoll    = rev.roll || null;
-  const showRollBtn = poolStatus === 'pending' || poolStatus === 'committed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!projRoll;
+  const showRollBtn = poolStatus === 'pending' || poolStatus === 'confirmed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!projRoll;
   h += _renderRollCard(key, projRoll, null, {
     btnClass:        'proc-proj-roll-btn',
     btnDataAttrs:    ` data-pool-validated="${esc(poolValidated)}"`,
@@ -7138,6 +7177,7 @@ function _renderProjRightPanel(entry, char, rev) {
     noRollMsg:       'Validate pool first',
     successModifier:  succMod,
     contestedRoll:    rev.contested_roll || null,
+    showConfirm:      poolStatus === 'pending',
   });
 
   h += `</div>`; // proc-feed-right
@@ -7155,7 +7195,7 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Pool modifier panel data ──
   const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgDice = fg ? (fg.rating || 0) : null; // null = char not loaded
+  const fgDice = fg ? Math.min(fg.rating || 0, 5) : null; // null = char not loaded; cap at merit max
 
   // Always derive pool expression from current effective character stats (dots + bonus)
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
@@ -7354,11 +7394,11 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'committed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
+  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
+  h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet confirmed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
     if (isRote) feedNotes.push('Rote');
@@ -7377,12 +7417,13 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Roll card ──
   const feedRollObj = feedSub?.feeding_roll || null;
-  const showFeedRollBtn = poolStatus === 'pending' || poolStatus === 'committed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!feedRollObj;
+  const showFeedRollBtn = poolStatus === 'pending' || poolStatus === 'confirmed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!feedRollObj;
   h += _renderRollCard(key, feedRollObj, null, {
-    btnClass:  'proc-feed-roll-btn',
+    btnClass:     'proc-feed-roll-btn',
     btnDataAttrs: ` data-sub-id="${esc(entry.subId)}" data-rote="${isRote}"`,
-    canRoll:   showFeedRollBtn,
-    noRollMsg: 'Commit pool first',
+    canRoll:      showFeedRollBtn,
+    noRollMsg:    'Confirm pool first',
+    showConfirm:  poolStatus === 'pending',
   });
 
   // ── DTFP-5: feed-violence ST override ──
@@ -7439,6 +7480,7 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
     targetSuccesses = null,
     successModifier = 0,   // DTR-1: succ_mod_manual from rev
     contestedRoll   = null, // DTR-2: defender roll object
+    showConfirm     = false,
   } = opts;
 
   const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
@@ -7448,7 +7490,10 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
   h += `<div class="proc-mod-panel-title">Roll${poolLabel}${targetLabel}</div>`;
 
   if (canRoll) {
-    const btnLabel = roll ? 'Re-roll' : 'Roll';
+    if (showConfirm) {
+      h += `<button class="dt-btn proc-confirm-pool-btn" data-proc-key="${esc(key)}">Confirm Dice Pool</button>`;
+    }
+    const btnLabel = roll ? 'Re-roll' : 'Roll Dice Pool';
     h += `<button class="dt-btn ${esc(btnClass)}" data-proc-key="${esc(key)}"${btnDataAttrs}>${btnLabel}</button>`;
     if (roll) {
       const dStr   = _formatDiceString(roll.dice_string);
@@ -7493,6 +7538,64 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
  * @param {object} rev    - review object for the entry
  * @param {object|null} char - resolved character (used for hide_protect merit list and merit-link)
  */
+// feature.97: structured XP-spend breakdown table for ST processing card.
+// Replaces the flat category:item string when structured row data is available.
+function _renderXpSpendBreakdown(rows, budget) {
+  const CAT_LABELS = {
+    attribute: 'Attribute', skill: 'Skill', discipline: 'Discipline',
+    merit: 'Merit', devotion: 'Devotion', rite: 'Rite',
+  };
+
+  let tbody = '';
+  let totalCost = 0;
+  let hasCosts = false;
+
+  for (const r of rows) {
+    const catLabel  = CAT_LABELS[r.category] || (r.category || '');
+    const rawItem   = r.item || '';
+    const parts     = rawItem.split('|');
+    const traitName = parts[0] || rawItem;
+
+    // Dot transition: merits encode current dots in parts[2]; others show +N dots
+    let transition = '';
+    if (r.dotsBuying) {
+      if (r.category === 'merit' && parts[1] === 'grad' && parts[2] !== undefined) {
+        const cur = parseInt(parts[2], 10) || 0;
+        transition = ` (${cur} → ${cur + r.dotsBuying})`;
+      } else {
+        transition = ` (+${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})`;
+      }
+    }
+
+    const costCell = (typeof r.xpCost === 'number' && r.xpCost > 0)
+      ? `${r.xpCost} XP`
+      : '';
+    if (typeof r.xpCost === 'number') { totalCost += r.xpCost; hasCosts = true; }
+
+    tbody += `<tr>`;
+    tbody += `<td class="proc-xp-cat">${esc(catLabel)}</td>`;
+    tbody += `<td class="proc-xp-trait">${esc(traitName)}${esc(transition)}</td>`;
+    tbody += `<td class="proc-xp-cost">${esc(costCell)}</td>`;
+    tbody += `</tr>`;
+  }
+
+  let tfoot = '';
+  if (hasCosts && typeof budget === 'number') {
+    const remaining = budget - totalCost;
+    const overClass = remaining < 0 ? ' proc-xp-remaining--over' : '';
+    tfoot  = `<tfoot class="proc-xp-totals">`;
+    tfoot += `<tr><td colspan="2">Total</td><td class="proc-xp-cost">${totalCost} XP</td></tr>`;
+    tfoot += `<tr><td colspan="2">Budget</td><td class="proc-xp-cost">${budget} XP available</td></tr>`;
+    tfoot += `<tr><td colspan="2">Remaining</td><td class="proc-xp-cost${overClass}">${remaining} XP</td></tr>`;
+    tfoot += `</tfoot>`;
+  }
+
+  return `<div class="proc-proj-field proc-xp-breakdown">` +
+    `<span class="proc-feed-lbl">XP Spend</span>` +
+    `<table class="proc-xp-table"><tbody>${tbody}</tbody>${tfoot}</table>` +
+    `</div>`;
+}
+
 function _renderActionTypeRow(entry, rev, char) {
   const key        = entry.key;
   const actionType = entry.actionType;
@@ -7785,7 +7888,12 @@ function renderActionPanel(entry, review) {
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (entry.projTarget) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.projTarget)}</div>`;
       if (entry.projInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.projInvestigateLead)}</div>`;
-      if (entry.projXpBreakdown) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+      // feature.97: structured table when row data available; flat string fallback for legacy submissions
+      if (entry.projXpRows && entry.projXpRows.length) {
+        h += _renderXpSpendBreakdown(entry.projXpRows, entry.projXpBudgetSnapshot);
+      } else if (entry.projXpBreakdown) {
+        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+      }
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
       if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
@@ -8187,7 +8295,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? (fg0.rating || 0) : 0;
+      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
@@ -8200,10 +8308,10 @@ function renderActionPanel(entry, review) {
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
-      const _feedCommitted = poolStatus === 'committed';
+      const _feedCommitted = poolStatus === 'confirmed';
       const _feedDis = _feedCommitted ? ' disabled' : '';
       h += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
+      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
@@ -8285,10 +8393,10 @@ function renderActionPanel(entry, review) {
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
     const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
 
-    const _projCommitted = poolStatus === 'committed';
+    const _projCommitted = poolStatus === 'confirmed';
     const _projDis = _projCommitted ? ' disabled' : '';
     h += `<div class="proc-pool-builder${_projCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
+    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
     if (showParseRef) {
       h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
     }
