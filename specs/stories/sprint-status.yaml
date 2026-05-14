@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-14 (issue-302 done; 5 Playwright tests passing)
+# last_updated: 2026-05-14 (issue-297 + issue-300 marked done; Barrens slug fix committed to dev; issue-302 + issue-303 done)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -780,4 +780,5 @@ development_status:
   issue-297-feeding-rights-stale-poaching: done                 # renderFeedingTerritoryPills: upgrade stale 'poaching' → 'feeding_rights' when rights granted post-submission; 1-line fix at downtime-form.js:5310; merged PR #298
   issue-251-contacts-spheres-audit-recover: review              # Data-recovery: audit production Contacts merits for spheres.length < rating-source sum; re-add missing spheres via admin sheet UI; optional recovery script if cohort > 2
   issue-300-feeding-matrix-feed-action: done                    # _getSubFedTerrs never reads feeding_territories_rote; rote-slot second feeds never counted → matrix never shows OO/XX; merged PR #301; follow-up: single-underscore Barrens slug added to TERRITORY_SLUG_MAP in downtime-constants.js (committed to dev 2026-05-14)
-  issue-302-feeding-matrix-stale-rights: done           # saveFeedingRights() missing invalidateCachedTerritories() call; matrix + mismatch warning read stale cachedTerritories after regent grants access
+  issue-302-feeding-matrix-stale-rights: done                  # invalidateCachedTerritories() added to saveFeedingRights() in city-views.js; matrix re-renders with fresh territory data after rights save; 5 Playwright tests pass
+  issue-303-remove-dead-renderfeedingmatrix: done              # Deleted dead renderFeedingMatrix() (54 lines) from downtime-views.js; #dt-matrix element was never in DOM; no external callers
