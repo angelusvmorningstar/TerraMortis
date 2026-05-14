@@ -645,7 +645,7 @@ function collectResponses() {
           const category = catEl ? catEl.value : '';
           const item     = itemEl ? itemEl.value : '';
           const dotsBuying = dotsEl ? (parseInt(dotsEl.value, 10) || 0) : 0;
-          if (category) rows.push({ category, item, dotsBuying });
+          if (category) rows.push({ category, item, dotsBuying, xpCost: getRowCost({ category, item, dotsBuying }) });
         });
         responses[`project_${n}_xp_rows`] = JSON.stringify(rows);
       }
@@ -1028,6 +1028,7 @@ function collectResponses() {
   }
   if (_hasAnyXpRows) {
     responses['xp_spend'] = JSON.stringify(_topLevelMirror);
+    responses['xp_budget_snapshot'] = xpLeft(currentChar);
   }
 
   return responses;

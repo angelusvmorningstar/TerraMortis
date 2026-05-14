@@ -2977,14 +2977,17 @@ function buildProcessingQueue(subs) {
       // legacy single-row keys.
       const _projInvestigateLead = resp[`project_${slot}_investigate_lead`] || '';
       let _projXpBreakdown = '';
+      let _projXpRows = [];
+      let _projXpBudgetSnapshot = null;
       if (effectiveActionType === 'xp_spend') {
         const _rj = resp[`project_${slot}_xp_rows`] || '';
         if (_rj) {
           try {
-            const _xpRows = JSON.parse(_rj);
-            if (Array.isArray(_xpRows) && _xpRows.length) {
-              _projXpBreakdown = _xpRows
-                .filter(r => r && (r.category || r.item))
+            const _parsed = JSON.parse(_rj);
+            if (Array.isArray(_parsed) && _parsed.length) {
+              _projXpRows = _parsed.filter(r => r && (r.category || r.item));
+              // Legacy flat string kept as fallback for submissions pre-dating feature.97
+              _projXpBreakdown = _projXpRows
                 .map(r => {
                   const _dots = r.dotsBuying ? ` (${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})` : '';
                   return `${r.category || ''}: ${r.item || ''}${_dots}`;
@@ -3000,6 +3003,9 @@ function buildProcessingQueue(subs) {
           const _item = resp[`project_${slot}_xp_item`]     || '';
           if (_cat && _item) _projXpBreakdown = `${_cat}: ${_item}`;
         }
+        // feature.97: budget snapshot stored at submit time
+        const _snap = resp.xp_budget_snapshot;
+        if (typeof _snap === 'number') _projXpBudgetSnapshot = _snap;
       }
 
       queue.push({
@@ -3024,7 +3030,9 @@ function buildProcessingQueue(subs) {
         projTerritory:   _projTerritory,
         projTarget:      _projTarget,
         projInvestigateLead: _projInvestigateLead,
-        projXpBreakdown: _projXpBreakdown,
+        projXpBreakdown:      _projXpBreakdown,
+        projXpRows:           _projXpRows,
+        projXpBudgetSnapshot: _projXpBudgetSnapshot,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -7530,6 +7538,64 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
  * @param {object} rev    - review object for the entry
  * @param {object|null} char - resolved character (used for hide_protect merit list and merit-link)
  */
+// feature.97: structured XP-spend breakdown table for ST processing card.
+// Replaces the flat category:item string when structured row data is available.
+function _renderXpSpendBreakdown(rows, budget) {
+  const CAT_LABELS = {
+    attribute: 'Attribute', skill: 'Skill', discipline: 'Discipline',
+    merit: 'Merit', devotion: 'Devotion', rite: 'Rite',
+  };
+
+  let tbody = '';
+  let totalCost = 0;
+  let hasCosts = false;
+
+  for (const r of rows) {
+    const catLabel  = CAT_LABELS[r.category] || (r.category || '');
+    const rawItem   = r.item || '';
+    const parts     = rawItem.split('|');
+    const traitName = parts[0] || rawItem;
+
+    // Dot transition: merits encode current dots in parts[2]; others show +N dots
+    let transition = '';
+    if (r.dotsBuying) {
+      if (r.category === 'merit' && parts[1] === 'grad' && parts[2] !== undefined) {
+        const cur = parseInt(parts[2], 10) || 0;
+        transition = ` (${cur} → ${cur + r.dotsBuying})`;
+      } else {
+        transition = ` (+${r.dotsBuying} dot${r.dotsBuying === 1 ? '' : 's'})`;
+      }
+    }
+
+    const costCell = (typeof r.xpCost === 'number' && r.xpCost > 0)
+      ? `${r.xpCost} XP`
+      : '';
+    if (typeof r.xpCost === 'number') { totalCost += r.xpCost; hasCosts = true; }
+
+    tbody += `<tr>`;
+    tbody += `<td class="proc-xp-cat">${esc(catLabel)}</td>`;
+    tbody += `<td class="proc-xp-trait">${esc(traitName)}${esc(transition)}</td>`;
+    tbody += `<td class="proc-xp-cost">${esc(costCell)}</td>`;
+    tbody += `</tr>`;
+  }
+
+  let tfoot = '';
+  if (hasCosts && typeof budget === 'number') {
+    const remaining = budget - totalCost;
+    const overClass = remaining < 0 ? ' proc-xp-remaining--over' : '';
+    tfoot  = `<tfoot class="proc-xp-totals">`;
+    tfoot += `<tr><td colspan="2">Total</td><td class="proc-xp-cost">${totalCost} XP</td></tr>`;
+    tfoot += `<tr><td colspan="2">Budget</td><td class="proc-xp-cost">${budget} XP available</td></tr>`;
+    tfoot += `<tr><td colspan="2">Remaining</td><td class="proc-xp-cost${overClass}">${remaining} XP</td></tr>`;
+    tfoot += `</tfoot>`;
+  }
+
+  return `<div class="proc-proj-field proc-xp-breakdown">` +
+    `<span class="proc-feed-lbl">XP Spend</span>` +
+    `<table class="proc-xp-table"><tbody>${tbody}</tbody>${tfoot}</table>` +
+    `</div>`;
+}
+
 function _renderActionTypeRow(entry, rev, char) {
   const key        = entry.key;
   const actionType = entry.actionType;
@@ -7822,7 +7888,12 @@ function renderActionPanel(entry, review) {
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (entry.projTarget) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(entry.projTarget)}</div>`;
       if (entry.projInvestigateLead) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(entry.projInvestigateLead)}</div>`;
-      if (entry.projXpBreakdown) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+      // feature.97: structured table when row data available; flat string fallback for legacy submissions
+      if (entry.projXpRows && entry.projXpRows.length) {
+        h += _renderXpSpendBreakdown(entry.projXpRows, entry.projXpBudgetSnapshot);
+      } else if (entry.projXpBreakdown) {
+        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+      }
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
       if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;

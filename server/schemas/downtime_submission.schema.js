@@ -370,7 +370,8 @@ export const downtimeSubmissionSchema = {
         // XP spend grid: JSON array of { category, item, dotsBuying }
         // category: "attribute" | "skill" | "discipline" | "merit" | "devotion" | "rite"
         // item: attribute/skill/discipline name, or "MeritName|flat|rating|0" / "MeritName|grad|currentDots|maxTarget"
-        xp_spend:      { type: 'string' },
+        xp_spend:           { type: 'string' },
+        xp_budget_snapshot: { type: 'number', nullable: true },
         lore_request:  { type: 'string' },   // Rules/lore questions for STs
         form_rating:   { type: 'string' },   // "1"–"10" (half-star widget)
         form_feedback: { type: 'string' },   // Form UX feedback
