@@ -778,3 +778,4 @@ development_status:
   issue-293-regent-appoint-lieutenant: review                   # Regent can set/change their own Lieutenant from Regency tab; new PATCH /api/territories/:id/lieutenant; charPicker replaces locked span; re-render on save
   issue-295-dt-early-access-out-of-window: review               # DT Prep: early_access tick grants out-of-window access (pre-open + post-close); client gate + server requireOpenCycle bypass + label rename
   issue-297-feeding-rights-stale-poaching: review               # renderFeedingTerritoryPills: upgrade stale 'poaching' → 'feeding_rights' when rights granted post-submission; 1-line fix at downtime-form.js:5310
+  issue-251-contacts-spheres-audit-recover: review              # Data-recovery: audit production Contacts merits for spheres.length < rating-source sum; re-add missing spheres via admin sheet UI; optional recovery script if cohort > 2
