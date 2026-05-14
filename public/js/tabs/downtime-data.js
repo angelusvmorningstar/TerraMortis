@@ -66,17 +66,47 @@ export const FEEDING_TERRITORIES = [
   'The Barrens (No Territory)',
 ];
 
-// Ambience rating → PC feeding cap (from Damnation City rules)
-export const AMBIENCE_CAP = {
+// Ambience rating → Feeding Tolerance (from Damnation City rules)
+export const AMBIENCE_FEEDING_TOLERANCE = {
   'Hostile':   0,
   'Barrens':   0,
-  'Neglected': 6,
-  'Untended':  6,
+  'Neglected': 4,
+  'Untended':  5,
   'Settled':   6,
   'Tended':    6,
   'Curated':   7,
   'Verdant':   7,
   'The Rack':  8,
+};
+
+// Ambience rating → entropy per cycle (from Damnation City rules)
+export const AMBIENCE_ENTROPY = {
+  'The Rack':  -8,
+  'Verdant':   -7,
+  'Curated':   -6,
+  'Tended':    -5,
+  'Settled':   -3,
+  'Untended':  -3,
+  'Neglected': -3,
+  'Hostile':   -3,
+  'Barrens':   null,
+};
+
+// Ambience rating → step-change thresholds (from Damnation City rules)
+// posThreshold: net must be >= this to step up (null = cannot step up)
+// negThresh1: net <= -(this) triggers -1 step (null = cannot step down)
+// negThresh2: net <= -(this) triggers -2 steps (null = cannot step down 2)
+// null entry (Barrens) = uninhabitable; skip step calculation entirely
+export const AMBIENCE_THRESHOLDS = {
+  'The Rack':  { posThreshold: null, negThresh1: 0,    negThresh2: 5    },
+  'Verdant':   { posThreshold: 15,   negThresh1: 1,    negThresh2: 6    },
+  'Curated':   { posThreshold: 13,   negThresh1: 2,    negThresh2: 7    },
+  'Tended':    { posThreshold: 11,   negThresh1: 3,    negThresh2: 8    },
+  'Settled':   { posThreshold: 9,    negThresh1: 4,    negThresh2: 9    },
+  'Untended':  { posThreshold: 5,    negThresh1: 5,    negThresh2: 10   },
+  'Neglected': { posThreshold: 5,    negThresh1: 6,    negThresh2: 11   },
+  'Hostile':   { posThreshold: 5,    negThresh1: null, negThresh2: null },
+  'Barrens':   null,
 };
 
 // Ambience level → default dice modifier

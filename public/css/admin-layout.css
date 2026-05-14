@@ -1011,7 +1011,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
-  padding: 8px 0;
+  padding: 8px 16px;
 }
 .sphere-card {
   background: var(--surf);
@@ -4156,7 +4156,7 @@ body {
   font-weight: 400;
 }
 
-/* ── Pre-read panel (Step 0) ── */
+/* ── Shared submission-row styles (sign-off, XP review, narrative, etc.) ── */
 .proc-preread-char {
   display: flex;
   align-items: center;
@@ -4168,36 +4168,11 @@ body {
 }
 .proc-preread-char:hover { background: var(--surf3); }
 .proc-preread-char.expanded { background: var(--accent-a8); }
-.proc-preread-char-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.proc-preread-lore-badge {
-  font-family: var(--fl);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  background: var(--accent-a25);
-  color: var(--accent);
-  border: 1px solid var(--accent-a40);
-  padding: 2px 8px;
-  border-radius: 3px;
-}
 
 .proc-preread-body {
   padding: 10px 16px 14px;
   border-bottom: 1px solid var(--bdr);
   background: var(--surf);
-}
-
-.proc-lore-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-a8);
 }
 
 
@@ -6084,8 +6059,7 @@ body {
 }
 
 .proc-amb-notes-block {
-  margin-top: 16px;
-  padding-top: 12px;
+  padding: 14px;
   border-top: 1px solid var(--bdr);
 }
 
