@@ -957,7 +957,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? (fg.rating || 0) : 0;
+  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -7073,7 +7073,7 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Pool modifier panel data ──
   const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgDice = fg ? (fg.rating || 0) : null; // null = char not loaded
+  const fgDice = fg ? Math.min(fg.rating || 0, 5) : null; // null = char not loaded; cap at merit max
 
   // Always derive pool expression from current effective character stats (dots + bonus)
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
@@ -8104,7 +8104,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? (fg0.rating || 0) : 0;
+      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
