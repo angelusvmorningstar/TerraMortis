@@ -925,7 +925,14 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCapped = ['Haven', 'Mandragora Garden'].includes(m.name);
       const _capEff = _isCapped ? meritEffectiveRating(c, m) : null;
       const _capStored = _isCapped ? ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) : null;
-      const _capTotalDots = _isCapped ? shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))) : _totalDots;
+      const _spM = _isCapped && m.attached_to ? (c.merits || []).find(sp => sp.category === 'domain' && sp.name === 'Safe Place' && domKey(sp) === m.attached_to) : null;
+      const _spCap = _spM ? meritEffectiveRating(c, _spM) : 0;
+      const _capSharedEff = (parts.length > 0 && _spCap > 0) ? Math.min(eT, _spCap) : null;
+      const _capTotalDots = _isCapped
+        ? (_capSharedEff !== null
+            ? shDotsMixed(Math.min(_capSharedEff, _dPurch), Math.max(0, _capSharedEff - Math.min(_capSharedEff, _dPurch)))
+            : shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))))
+        : _totalDots;
       h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -957,9 +964,9 @@ export function shRenderDomainMerits(c, editMode) {
       // Removed from _noShare here. The attached-to-Safe-Place cap stays
       // (CAP_DOMAIN in editor/domain.js); per-instance shared_with sums
       // partner contributions through the existing domMeritShareable path.
-      // Haven still excluded — its shared treatment is via the Safe Place
-      // it attaches to, NOT a direct shared quality on the Haven itself.
-      const _noShare = ['Herd', 'Feeding Grounds', 'Haven'];
+      // Issue #313 (2026-05-15): Haven also gains direct shared quality --
+      // same mechanism as Mandragora Garden above.
+      const _noShare = ['Herd', 'Feeding Grounds'];
       if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
