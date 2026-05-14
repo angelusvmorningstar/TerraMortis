@@ -5781,6 +5781,17 @@ body {
 }
 .proc-proj-field:last-child { margin-bottom: 0; }
 
+/* ── feature.97: XP Spend structured breakdown table ── */
+.proc-xp-breakdown { align-items: flex-start; }
+.proc-xp-table { border-collapse: collapse; margin-top: 4px; font-size: 0.85em; }
+.proc-xp-table td { padding: 2px 8px 2px 0; vertical-align: top; }
+.proc-xp-cat { color: var(--txt3, #999); min-width: 76px; }
+.proc-xp-trait { color: var(--txt2); }
+.proc-xp-cost { text-align: right; padding-left: 12px; color: var(--txt2); }
+.proc-xp-totals { border-top: 1px solid var(--surf3, #333); font-weight: 600; }
+.proc-xp-totals td { padding-top: 4px; }
+.proc-xp-remaining--over { color: var(--crim, #8B0000); }
+
 /* ── feature.68: Merit action validator ── */
 .proc-merit-header {
   display: flex;
