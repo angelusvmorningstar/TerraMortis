@@ -2897,7 +2897,7 @@ function buildProcessingQueue(subs) {
       }
 
       // ── Rote feed project — render in Feed phase (phaseNum 1), after standard feeding ──
-      if (actionType === 'feed') {
+      if (actionType === 'feed' || actionType === 'rote') {
         const feedMethod2 = resp[`project_${slot}_feed_method2`] || '';
         const method2Label = feedMethod2 ? `Secondary method: ${feedMethod2}` : '';
         const descWithMethod = [projDescription, method2Label].filter(Boolean).join(' \u2014 ');
@@ -2908,7 +2908,7 @@ function buildProcessingQueue(subs) {
           phase: PHASE_NUM_TO_LABEL[1],
           phaseNum: 1,
           actionType: 'feed',
-          originalActionType: 'feed',
+          originalActionType: actionType,
           label: 'Rote Feed',
           description: descWithMethod || proj.desired_outcome || '',
           source: 'project',
