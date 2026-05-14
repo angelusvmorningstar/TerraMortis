@@ -1,12 +1,13 @@
 /**
- * Downtime Processing — Feature 96: Committed/Rolled Progress Ribbon
- * Covers changes from 2026-05-14:
- *   F96-1: Progress ribbon renders for intermediate pool states (pending/committed)
- *   F96-2: Committed and Rolled removed as clickable buttons for pool-builder action types
- *   F96-3: Terminal buttons and Pending reset remain clickable
+ * Downtime Processing — Feature 96/310: Confirmed/Rolled Progress Ribbon
+ * Covers changes from 2026-05-14 (f96) and 2026-05-14 (f310):
+ *   F96-1: Progress ribbon renders for intermediate pool states (pending/confirmed)
+ *   F96-2: Committed/Confirmed and Rolled removed as clickable buttons for pool-builder action types
+ *   F96-3: Terminal buttons remain clickable; Pending button absent (removed in f310)
  *   F96-4: Auto-merit action type unaffected (no ribbon, compact panel unchanged)
- *   F96-5: Roll button visible from pending state (no longer requires Committed first)
- *   F96-6: Terminal button click on pending entry triggers implicit commit API write
+ *   F96-5: Roll Dice Pool button visible from pending state
+ *   F96-6: Terminal button click triggers pool_validated save + status save API writes
+ *   F96-7: Confirm Dice Pool button visible from pending; absent once confirmed
  */
 
 const { test, expect } = require('@playwright/test');
@@ -53,9 +54,9 @@ const SUBMISSION_PROJECT_PENDING = {
   feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
 };
 
-// Project in 'committed' state (ribbon should show Committed as active step)
-const SUBMISSION_PROJECT_COMMITTED = {
-  _id: 'sub-f96-proj-committed',
+// Project in 'confirmed' state (ribbon should show Confirmed as active step)
+const SUBMISSION_PROJECT_CONFIRMED = {
+  _id: 'sub-f96-proj-confirmed',
   cycle_id: 'cycle-001',
   character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
   submitted_at: '2026-05-14T00:00:00Z',
@@ -64,7 +65,7 @@ const SUBMISSION_PROJECT_COMMITTED = {
     feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
   },
   responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
-  projects_resolved: [{ pool_status: 'committed', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_committed_by: 'Test ST' }],
+  projects_resolved: [{ pool_status: 'confirmed', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST' }],
   feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
 };
 
@@ -79,7 +80,7 @@ const SUBMISSION_PROJECT_VALIDATED = {
     feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
   },
   responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
-  projects_resolved: [{ pool_status: 'validated', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_committed_by: 'Test ST', pool_validated_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
+  projects_resolved: [{ pool_status: 'validated', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST', pool_validated_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
   feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
 };
 
@@ -157,6 +158,21 @@ const SUBMISSION_AUTO_MERIT_PENDING = {
   st_review: { territory_overrides: {} },
 };
 
+// Project in 'rolled' state (for AC 4 / AC 8 tests)
+const SUBMISSION_PROJECT_ROLLED = {
+  _id: 'sub-f310-proj-rolled',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'rolled', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
 // ── Setup helpers ──────────────────────────────────────────────────────────────
 
 async function setupDowntimeProcessing(page, submissions, chars = [CHAR_PT4]) {
@@ -220,7 +236,7 @@ test.describe('F96-1: Progress ribbon renders for intermediate pool states', () 
     await expect(page.locator('.proc-ribbon-step.ribbon-active.pending').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('project ribbon shows Committed and Rolled as future steps when pool_status is pending', async ({ page }) => {
+  test('project ribbon shows Confirmed and Rolled as future steps when pool_status is pending', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
     await openFirstAction(page, 'Ambience');
 
@@ -228,15 +244,15 @@ test.describe('F96-1: Progress ribbon renders for intermediate pool states', () 
     await expect(future).toHaveCount(2);
   });
 
-  test('project ribbon highlights Committed step as active when pool_status is committed', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+  test('project ribbon highlights Confirmed step as active when pool_status is confirmed', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
     await openFirstAction(page, 'Ambience');
 
-    await expect(page.locator('.proc-ribbon-step.ribbon-active.committed').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-ribbon-step.ribbon-active.confirmed').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('project ribbon shows Pending as past step when pool_status is committed', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+  test('project ribbon shows Pending as past step when pool_status is confirmed', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
     await openFirstAction(page, 'Ambience');
 
     const past = page.locator('.proc-ribbon-step.ribbon-past');
@@ -367,11 +383,11 @@ test.describe('F96-3: Terminal buttons and Pending reset remain clickable', () =
     await expect(page.locator('.proc-val-btn[data-status="skipped"]').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('project panel still has Pending reset button', async ({ page }) => {
+  test('project panel has NO Pending reset button (removed in f310 — Clear Pool is the reset path)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
     await openFirstAction(page, 'Ambience');
 
-    await expect(page.locator('.proc-val-btn[data-status="pending"]').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
   });
 
   test('feeding panel still has Validated button', async ({ page }) => {
@@ -453,8 +469,8 @@ test.describe('F96-5: Roll button visible from pending (no longer requires Commi
     await expect(rollBtn).toBeVisible({ timeout: 5000 });
   });
 
-  test('project Roll button remains visible after pool_status advances to committed (no regression)', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+  test('project Roll Dice Pool button remains visible after pool_status advances to confirmed (no regression)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
     await openFirstAction(page, 'Ambience');
 
     const rollBtn = page.locator('.proc-proj-roll-btn').first();
@@ -509,11 +525,11 @@ test.describe('F96-6: Terminal button click triggers implicit commit API write',
     await validatedBtn.click();
     await page.waitForTimeout(600);
 
-    // Implicit commit (pool_committed_by) + normal status save = at least 2 writes
+    // pool_validated save + statusPatch save = at least 2 writes
     expect(writes.length).toBeGreaterThanOrEqual(2);
   });
 
-  test('clicking a terminal button on already-committed entry makes one status save (no duplicate implicit commit)', async ({ page }) => {
+  test('clicking a terminal button on already-confirmed entry makes at least one status save', async ({ page }) => {
     const writes = [];
 
     await page.addInitScript(({ user }) => {
@@ -532,7 +548,7 @@ test.describe('F96-6: Terminal button click triggers implicit commit API write',
         return ok({ ok: true });
       }
 
-      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_COMMITTED]);
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_CONFIRMED]);
       if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
       if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
       if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
@@ -555,9 +571,239 @@ test.describe('F96-6: Terminal button click triggers implicit commit API write',
     await validatedBtn.click();
     await page.waitForTimeout(600);
 
-    // Already-committed entry (pool_committed_by is set): only the main status save fires
-    // The implicit commit block skips pool_committed_by because it's already set
     expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── F96-7: Confirm Dice Pool button (feature.310) ─────────────────────────────
+
+test.describe('F96-7: Confirm Dice Pool button visible from pending; absent once confirmed', () => {
+
+  test('project panel shows Confirm Dice Pool button when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openFirstAction(page, 'Ambience');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project Confirm Dice Pool button is labelled correctly', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openFirstAction(page, 'Ambience');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toHaveText('Confirm Dice Pool');
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is confirmed', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+  test('feeding panel shows Confirm Dice Pool button when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openFirstAction(page, 'Feeding');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project Roll Dice Pool button label is correct (first roll, no prior roll)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+});
+
+// ── F310-1: Pending button absent on all 4 action types ──────────────────────
+
+test.describe('F310-1: Pending button absent from feeding, sorcery, and merit action types', () => {
+
+  test('feeding panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openFirstAction(page, 'Feeding');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+  test('sorcery panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_SORCERY_PENDING]);
+    await openFirstAction(page, 'Sorcery');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+  test('non-auto merit panel has NO Pending button', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_MERIT_INVEST_PENDING]);
+    await openFirstAction(page, 'Investigative');
+
+    await expect(page.locator('.proc-val-btn[data-status="pending"]')).toHaveCount(0);
+  });
+
+});
+
+// ── F310-2: Confirm button absent in rolled and terminal states ───────────────
+
+test.describe('F310-2: Confirm Dice Pool button absent when rolled or terminal', () => {
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is rolled', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is terminal (validated)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_VALIDATED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+});
+
+// ── F310-3: Confirm button click triggers API write ───────────────────────────
+
+test.describe('F310-3: Confirm Dice Pool click triggers pool_status save', () => {
+
+  test('clicking Confirm Dice Pool on pending project triggers at least one API write', async ({ page }) => {
+    const writes = [];
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+        writes.push({ method, url });
+        return ok({ ok: true });
+      }
+
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_PENDING]);
+      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
+      if (url.includes('/api/territories'))             return ok([]);
+      if (url.includes('/api/game_sessions'))           return ok([]);
+      if (url.includes('/api/session_logs'))            return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openFirstAction(page, 'Ambience');
+
+    writes.length = 0;
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
+    await page.waitForTimeout(600);
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── F310-4: Clear Pool click triggers API write ───────────────────────────────
+
+test.describe('F310-4: Clear Pool click triggers API write resetting pool_status', () => {
+
+  test('clicking Clear Pool on confirmed project triggers at least one API write', async ({ page }) => {
+    const writes = [];
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+        writes.push({ method, url });
+        return ok({ ok: true });
+      }
+
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_CONFIRMED]);
+      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
+      if (url.includes('/api/territories'))             return ok([]);
+      if (url.includes('/api/game_sessions'))           return ok([]);
+      if (url.includes('/api/session_logs'))            return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openFirstAction(page, 'Ambience');
+
+    writes.length = 0;
+
+    const clearBtn = page.locator('.proc-pool-clear-btn').first();
+    await expect(clearBtn).toBeVisible({ timeout: 5000 });
+    await clearBtn.click();
+    await page.waitForTimeout(600);
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── F310-5: Additional label and state coverage ───────────────────────────────
+
+test.describe('F310-5: Label text, Re-roll label, and rolled-state roll button', () => {
+
+  test('confirmed ribbon step contains text "Confirmed"', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
+    await openFirstAction(page, 'Ambience');
+
+    const activeStep = page.locator('.proc-ribbon-step.ribbon-active.confirmed').first();
+    await expect(activeStep).toContainText('Confirmed');
+  });
+
+  test('feeding Roll Dice Pool button label is correct (first roll, no prior roll)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openFirstAction(page, 'Feeding');
+
+    const rollBtn = page.locator('.proc-feed-roll-btn').first();
+    await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+  test('project Roll button label is Re-roll when a prior roll exists', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toHaveText('Re-roll');
+  });
+
+  test('project Roll Dice Pool button visible from rolled state', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
   });
 
 });

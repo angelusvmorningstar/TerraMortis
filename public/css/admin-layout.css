@@ -4719,7 +4719,7 @@ body {
 }
 .proc-row-status.pending     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.validated   { background: rgba(60,140,60,.25); color: var(--result-succ); }
-.proc-row-status.committed   { background: rgba(180,140,60,0.18); color: var(--gold2); }
+.proc-row-status.confirmed   { background: rgba(180,140,60,0.18); color: var(--gold2); }
 .proc-row-status.rolled      { background: rgba(180,140,60,0.28); color: var(--gold2); }
 .proc-row-status.no_roll     { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_feed     { background: var(--crim-a25); color: var(--result-pend); }
@@ -4957,7 +4957,7 @@ body {
 .proc-val-status button.active.resolved    { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
 .proc-val-status button.active.no_effect   { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 .proc-val-status button.active.skipped     { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
-.proc-val-status button.active.committed   { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.15); }
+.proc-val-status button.active.confirmed   { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.15); }
 .proc-val-status button.active.rolled      { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.2); }
 
 .proc-status-ribbon {
@@ -4972,7 +4972,7 @@ body {
 .proc-ribbon-step.ribbon-past   { color: var(--txt2); border-color: var(--surf3); }
 .proc-ribbon-step.ribbon-active { font-weight: 600; }
 .proc-ribbon-step.ribbon-active.pending   { border-color: var(--result-pend); color: var(--result-pend); }
-.proc-ribbon-step.ribbon-active.committed { border-color: var(--gold2); color: var(--gold2); }
+.proc-ribbon-step.ribbon-active.confirmed { border-color: var(--gold2); color: var(--gold2); }
 .proc-ribbon-step.ribbon-active.rolled    { border-color: var(--gold2); color: var(--gold2); }
 .proc-ribbon-step.ribbon-future { opacity: 0.35; }
 .proc-ribbon-arrow { color: var(--txt3); font-size: 0.7rem; }
@@ -6167,7 +6167,7 @@ body {
 /* Status row badges — dark-mode colours (#ff9090 / #90d090) are unreadable on cream */
 html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
 html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
-html:not([data-theme="dark"]) .proc-row-status.committed { background: rgba(180,140,60,0.12); color: var(--gold2); }
+html:not([data-theme="dark"]) .proc-row-status.confirmed { background: rgba(180,140,60,0.12); color: var(--gold2); }
 html:not([data-theme="dark"]) .proc-row-status.rolled   { background: rgba(180,140,60,0.18); color: var(--gold2); }
 html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
 html:not([data-theme="dark"]) .proc-row-status.no_feed  { background: var(--crim-a15); color: var(--crim); }
@@ -6206,11 +6206,11 @@ html:not([data-theme="dark"]) .proc-val-status button.active.resolved     { bord
 html:not([data-theme="dark"]) .proc-val-status button.active.no_effect    { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.skipped      { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { border-color: var(--accent); color: var(--accent); background: var(--accent-a12); }
-html:not([data-theme="dark"]) .proc-val-status button.active.committed    { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
+html:not([data-theme="dark"]) .proc-val-status button.active.confirmed    { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 html:not([data-theme="dark"]) .proc-val-status button.active.rolled       { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
 html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.pending     { border-color: var(--crim); color: var(--crim); }
-html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.committed   { border-color: var(--story-compl); color: var(--story-compl); }
+html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.confirmed   { border-color: var(--story-compl); color: var(--story-compl); }
 html:not([data-theme="dark"]) .proc-ribbon-step.ribbon-active.rolled      { border-color: var(--story-compl); color: var(--story-compl); }
 html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
 html:not([data-theme="dark"]) .proc-row-status.resolved                   { background: var(--green-a15); color: var(--green3); }
