@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -9954,60 +9954,6 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
   return h;
 }
 
-function renderFeedingMatrix() {
-  const el = document.getElementById('dt-matrix');
-  if (!el) return;
-
-  const activeChars = characters.filter(c => !c.retired)
-    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
-
-  if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
-
-  // Build residency lookup: feeding_rights + regent + lieutenant always count as residents.
-  // tid is a TERRITORY_DATA-style slug; Mongo docs key the same value as `slug`.
-  const residentsByTerrKey = {};
-  for (const mt of MATRIX_TERRS) {
-    const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-    const td = (cachedTerritories || []).find(t => t.slug === tid);
-    const residents = new Set(td?.feeding_rights || []);
-    if (td?.regent_id) residents.add(String(td.regent_id));
-    if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
-    residentsByTerrKey[mt.csvKey] = residents;
-  }
-
-  // Map submission by character id for quick lookup
-  const subByCharId = new Map();
-  for (const s of submissions) {
-    const char = findCharacter(s.character_name, s.player_name);
-    if (char) subByCharId.set(String(char._id), s);
-  }
-
-  const isOpen = el.dataset.open !== 'false';
-
-  let h = `<div class="dt-matrix-panel">`;
-  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${activeChars.length} characters</span></div>`;
-
-  if (isOpen) {
-    h += `<div class="dt-matrix-wrap">`;
-    h += _buildMatrixTableHtml(activeChars, subByCharId, residentsByTerrKey);
-    h += `</div>`;
-  }
-
-  h += '</div>';
-  el.innerHTML = h;
-
-  document.getElementById('dt-matrix-toggle')?.addEventListener('click', () => {
-    el.dataset.open = isOpen ? 'false' : 'true';
-    renderFeedingMatrix();
-  });
-
-  el.querySelectorAll('.dt-matrix-row[data-sub-id]').forEach(row => {
-    row.addEventListener('click', () => {
-      renderSubmissions();
-      row.closest('.dt-matrix-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  });
-}
 
 // ── Cross-Character Conflicts (Story 1.11) ───────────────────────────────────
 
