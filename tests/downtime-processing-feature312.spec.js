@@ -237,6 +237,74 @@ test.describe('F312-3: data-fg attribute holds the capped value', () => {
 
 });
 
+// ── AC2 boundary: FG at exactly 5 shows +5 (cap does not bite legitimate 5-dot rating) ──
+
+test.describe('F312-5: FG at exactly 5 displays correctly without over-capping', () => {
+
+  test('FG row displays "+5" when character FG rating is exactly 5', async ({ page }) => {
+    const CHAR_FG_5 = {
+      ...CHAR_FG_NORMAL,
+      _id: 'char-312-fg5', name: 'FG Five Test',
+      merits: [{ name: 'Feeding Grounds', category: 'general', rating: 5 }],
+    };
+    const SUB_FG_5 = makeSubmission('sub-312-fg5', 'char-312-fg5', 'FG Five Test');
+    await setup(page, [SUB_FG_5], [CHAR_FG_5]);
+    await openFeedingPanel(page);
+    const fgRow = page.locator('.proc-mod-row').filter({ hasText: 'Feeding Grounds' }).first();
+    await expect(fgRow).toBeVisible({ timeout: 5000 });
+    await expect(fgRow.locator('.proc-mod-val')).toHaveText('+5');
+  });
+
+  test('data-fg is "5" when FG rating is exactly 5', async ({ page }) => {
+    const CHAR_FG_5 = {
+      ...CHAR_FG_NORMAL,
+      _id: 'char-312-fg5b', name: 'FG Five Test B',
+      merits: [{ name: 'Feeding Grounds', category: 'general', rating: 5 }],
+    };
+    const SUB_FG_5 = makeSubmission('sub-312-fg5b', 'char-312-fg5b', 'FG Five Test B');
+    await setup(page, [SUB_FG_5], [CHAR_FG_5]);
+    await openFeedingPanel(page);
+    const modPanel = page.locator('.proc-feed-mod-panel').first();
+    await expect(modPanel).toBeVisible({ timeout: 5000 });
+    await expect(modPanel).toHaveAttribute('data-fg', '5');
+  });
+
+});
+
+// ── AC5: Live-update path uses capped data-fg value when equipment ticker is adjusted ──
+
+test.describe('F312-6: Live modifier recalculation uses capped FG, not raw rating', () => {
+
+  test('clicking equipment + updates total to FG(5) + equip(1) = +6, not FG(20) + equip(1) = +21', async ({ page }) => {
+    await setup(page, [SUBMISSION_FG_INFLATED], [CHAR_FG_INFLATED]);
+    await openFeedingPanel(page);
+    const modPanel = page.locator('.proc-feed-mod-panel').first();
+    await expect(modPanel).toBeVisible({ timeout: 5000 });
+    // Confirm starting total is +5 (FG capped, no equipment)
+    const totalVal = modPanel.locator('.proc-mod-total-val');
+    await expect(totalVal).toHaveText('+5');
+    // Click equipment + once
+    const incBtn = modPanel.locator('.proc-equip-mod-inc');
+    await incBtn.click();
+    await page.waitForTimeout(200);
+    // Total must be +6 (FG 5 capped + equipment 1), not +21 (FG 20 raw + equipment 1)
+    await expect(totalVal).toHaveText('+6');
+  });
+
+  test('clicking equipment + on FG=3 character updates total to +4', async ({ page }) => {
+    await setup(page, [SUBMISSION_FG_NORMAL], [CHAR_FG_NORMAL]);
+    await openFeedingPanel(page);
+    const modPanel = page.locator('.proc-feed-mod-panel').first();
+    await expect(modPanel).toBeVisible({ timeout: 5000 });
+    const totalVal = modPanel.locator('.proc-mod-total-val');
+    await expect(totalVal).toHaveText('+3');
+    await modPanel.locator('.proc-equip-mod-inc').click();
+    await page.waitForTimeout(200);
+    await expect(totalVal).toHaveText('+4');
+  });
+
+});
+
 // ── AC3: Pool builder init total respects the cap (fgDice0 path) ──────────────
 
 test.describe('F312-4: Pool builder initial modifier total respects the FG cap', () => {
