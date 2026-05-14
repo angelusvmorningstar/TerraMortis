@@ -42,13 +42,13 @@ export async function initDowntimeTab(el, char, territories = []) {
 
   // Access gate: STs always pass; players need out-of-window access flag, auto_open_at reached, or cycle open.
   // Use one cycle for the access check: the live cycle if one exists, otherwise the most recently
-  // closed one. This prevents membership in a previous cycle's early-access list from granting
+  // closed one. This prevents membership in a previous cycle's out-of-window list from granting
   // unintended access to a new cycle that's in prep.
   const cycleForAccessCheck = activeCycle || recentClosedCycle;
-  const inEarlyAccess = charId && (cycleForAccessCheck?.early_access_player_ids || []).includes(charId);
+  const hasWindowAccess = charId && (cycleForAccessCheck?.out_of_window_player_ids || []).includes(charId);
   const autoOpenPassed = activeCycle?.auto_open_at && new Date(activeCycle.auto_open_at) <= new Date();
   const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
-  const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
+  const canAccess = isST || hasWindowAccess || autoOpenPassed || cycleIsOpen;
   const mySubs = subs.filter(s => String(s.character_id) === charId);
 
   const cycleMap = {};
@@ -81,9 +81,9 @@ export async function initDowntimeTab(el, char, territories = []) {
         <p class="dt-state-body">Your ST will open downtime submissions soon.</p>
       </div>`;
     }
-  } else if (activeCycle || inEarlyAccess) {
+  } else if (activeCycle || hasWindowAccess) {
     // Always render the form when there is a live cycle or the player has out-of-window access.
-    // For the closed-cycle case (activeCycle null, inEarlyAccess true), downtime-form.js falls
+    // For the closed-cycle case (activeCycle null, hasWindowAccess true), downtime-form.js falls
     // back to the most recently closed cycle internally; the server gate is bypassed for ticked
     // characters. A submitted record is editable until the deadline; the form itself surfaces the
     // submitted/draft state via in-form badges and changes its submit button to "Update Submission".
