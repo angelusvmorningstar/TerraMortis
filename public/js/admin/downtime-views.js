@@ -348,8 +348,10 @@ let _dtuxStoryInited = false;
 async function _initDtStoryFromRibbon() {
   // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
   // anyway, so the module-state coupling is fine.
+  // Issue #321: pass the dropdown's current cycle so DT Story shows the cycle
+  // the ST is actually viewing, not whatever the internal resolver picks.
   const { initDtStory } = await import('./downtime-story.js');
-  initDtStory(null);
+  initDtStory(currentCycle?._id || null);
 }
 
 async function _handleSignoffClick(btn) {
@@ -1193,6 +1195,10 @@ async function loadCycleById(cycleId) {
   currentCycle = cycle;
   cycleReminders = cycle.processing_reminders || [];
   cachedTerritories = null; // refresh territory ambience on next processing render
+  // Issue #321: invalidate DT Story's lazy-init cache so the next tab-show
+  // re-fetches submissions for the newly-selected cycle. Without this,
+  // switching the dropdown leaves DT Story showing the previous cycle's data.
+  _dtuxStoryInited = false;
 
   const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
