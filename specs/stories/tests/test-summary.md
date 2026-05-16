@@ -61,3 +61,94 @@ cd server && npx vitest run tests/compile-push-outcome-joint.test.js
 - Run on CI alongside the existing vitest sweep.
 - Triage the pre-existing `npcs/directory` failure separately.
 - (Optional) Add lead-name lookup test once a setter is exposed.
+
+---
+
+# Test Automation Summary — feature.98 Rote Feed Phase Routing Fix
+
+**Date:** 2026-05-15
+**Author:** Quinn (QA)
+**Scope:** E2E coverage for issue #317 — `action_type: 'rote'` project submissions routing to Step 10 — Miscellaneous instead of Step 3 — Feeding.
+
+## Generated Tests
+
+### E2E Tests (Playwright)
+- [x] `tests/issue-317-rote-feed-phase-routing.spec.js` — 7 tests covering all 5 ACs
+
+## Coverage
+
+| AC | Behaviour | Tests |
+|---|---|---|
+| AC1 | `'rote'` action type routes to Step 3, not Step 10 | Tests 1 & 2 |
+| AC2 | Legacy `'feed'` type still routes to Step 3 (no regression) | Tests 4 & 5 |
+| AC3 | Both `'rote'` and `'feed'` produce label "Rote Feed" in the card | Tests 3 & 6 |
+| AC4 | Non-rote action (`patrol_scout`) stays in Step 9 — Support & Patrol | Test 7 |
+| AC5 | Standard feeding (`source: 'feeding'`) unaffected | Implicitly covered — standard feeding block (line 2780) is architecturally separate from the project routing fix (line 2900) |
+
+## Test Pattern
+
+Playwright page-level route mocking on `http://localhost:3000/**`. Auth injected via `localStorage` in `addInitScript`. Navigation: click `[data-domain="downtime"]` → wait for `#dt-phase-ribbon` → click `[data-phase="projects"]` tab. Phase headers targeted by `[data-toggle-phase="<key>"]`.
+
+Key finding during development: every submission always gets a standard feeding entry (per `buildProcessingQueue` line 2780 comment "all submissions get an entry"). Test 7 was revised to expand the feeding section and assert no "Rote Feed" row appears, rather than asserting the section header is absent.
+
+## Run
+
+```bash
+npx playwright test tests/issue-317-rote-feed-phase-routing.spec.js --reporter=line
+```
+
+7/7 passed (16s).
+
+## Notes
+
+- Fix is a 2-line change at `downtime-views.js:2900`: condition expanded from `actionType === 'feed'` to `actionType === 'feed' || actionType === 'rote'`; `originalActionType` changed from hardcoded `'feed'` to the raw `actionType` value.
+- All downstream rendering checks (`entry.actionType === 'feed'` at line 7731, `isRoteFeed` at line 3436, `ACTION_TYPE_LABELS['feed']` at line 134) work without modification because the queue entry is normalised to `actionType: 'feed'`.
+
+## Next Steps
+
+- Open PR from `morningstar-issue-317-rote-feed-phase-routing` into `dev`.
+
+---
+
+# Test Automation Summary — issue #321 DT Story Cycle Resolver
+
+**Date:** 2026-05-17
+**Author:** Quinn (QA)
+**Scope:** E2E regression coverage for issue #321 — DT Story tab loading wrong cycle due to three compounding defects (missing `created_at`, no server sort, wrong status filter).
+
+## Generated Tests
+
+### E2E Tests (Playwright)
+- [x] `tests/issue-321-dt-story-cycle-resolver.spec.js` — 3 integration tests covering AC 1, 2, and 5
+
+## Coverage
+
+| AC | Behaviour | Tests |
+|---|---|---|
+| AC1 | Dropdown drives DT Story init — opening tab shows dropdown cycle's submissions | Test 1 |
+| AC2 | Cycle switch refreshes DT Story — A→B updates the rail in-place | Test 2 |
+| AC3 | Internal resolver fallback (null path) | Code review only — dormant in normal flow after Task 1 |
+| AC4 | Cross-cycle save guard throws on mismatch | Code review only — all three save paths wired, contrivance too high for integration test |
+| AC5 | No regression — single cycle case still works | Test 3 |
+| AC6 | Server sorts `/api/downtime_cycles` by `_id` desc | Implicitly covered — mocked route returns sorted order; server change is one-line `.sort({ _id: -1 })` |
+
+## Test Pattern
+
+Playwright page-level route mocking on `http://localhost:3000/**`. Auth injected via `localStorage` in `addInitScript`. Two distinct cycles (CYCLE\_OLD: closed, CYCLE\_NEW: prep) with one unique character submission each — rail name used as assertion target. `switchCycle()` helper sets `<select>` value + dispatches `change` event to exercise the full `loadCycleById` → `_dtuxStoryInited = false` → `showDtuxPhase` refresh path.
+
+## Run
+
+```bash
+npx playwright test tests/issue-321-dt-story-cycle-resolver.spec.js tests/issue-320-autosave-st-notes.spec.js --reporter=list
+```
+
+7/7 passed (20.0s) — 3 #321 + 4 #320 regression.
+
+## Notes
+
+- Task 3 (resolver fallback) and Task 4 (save guard) are verified by code review, not integration test. Both require artificially bypassing admin's normal init flow, which adds more test-seam risk than value. The guard's `_normaliseCycleId` handles both `string` and `{$oid}` shapes — confirmed by MCP inspection of live DT2/DT3 submissions.
+- Cross-cycle save guard is fail-loud: throws `Refusing cross-cycle save: …` at all three save sites (`saveNarrativeField`, `_publishAllSubmissions`, single-push handler). Error surfaces via existing try/catch or bubbles to caller.
+
+## Next Steps
+
+- Manual ST verification on `terramortis-dev.netlify.app` per Task 7 matrix (hard-refresh, cycle-switch-while-open, save-and-spot-check).
