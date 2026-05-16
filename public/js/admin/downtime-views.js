@@ -521,9 +521,28 @@ export async function initDowntimeView(passedChars) {
       if (aqSelect) { _handleActionQueueStateChange(aqSelect); return; }
     });
     // DTIL-2: Action Queue note input save on blur (focusout bubbles)
+    // Issue #320: same delegation root also catches the four unwired ST-input
+    // textareas in DT Processing — branches in order, each returns after handling.
     document.addEventListener('focusout', e => {
       const aqNote = e.target.closest('.dt-action-queue-note-input');
       if (aqNote) { _handleActionQueueNoteSave(aqNote); return; }
+      const projNote = e.target.closest('.dt-proj-note');
+      if (projNote) { _handleProjNoteBlur(projNote); return; }
+      const projWriteup = e.target.closest('.dt-proj-writeup');
+      if (projWriteup) { _handleProjWriteupBlur(projWriteup); return; }
+      const meritNote = e.target.closest('.dt-merit-note');
+      if (meritNote) { _handleMeritNoteBlur(meritNote); return; }
+      const narrTa = e.target.closest('.dt-narr-textarea');
+      if (narrTa) { _handleNarrBlur(narrTa); return; }
+      // Issue #320 (third pass): live processing-queue description textareas.
+      // The cards have Save buttons that bundle these fields with others — blur-save
+      // covers the high-risk long-text fields so a re-render mid-typing can't wipe them.
+      const procFeedDesc = e.target.closest('.proc-feed-desc-ta');
+      if (procFeedDesc) { _handleProcFieldBlur(procFeedDesc, 'description'); return; }
+      const procMeritDesc = e.target.closest('.proc-merit-desc-ta');
+      if (procMeritDesc) { _handleProcFieldBlur(procMeritDesc, 'description'); return; }
+      const procSorcNotes = e.target.closest('.proc-sorc-notes-input');
+      if (procSorcNotes) { _handleProcFieldBlur(procSorcNotes, 'sorc_notes'); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -2265,6 +2284,133 @@ async function _handleActionQueueNoteSave(input) {
     console.warn('Action Queue note save failed:', err);
   }
 }
+
+// ── Issue #320: Autosave ST inputs ──────────────────────────────────────────
+// Four DT-Processing textareas previously had no save handler. Each blur-saves
+// via partial-update merge so a Roll/approval/re-render can no longer wipe
+// typed content. Status indicators reflect Saving/Saved/error state.
+
+function _setAutosaveStatus(statusEl, state) {
+  if (!statusEl) return;
+  if (state === 'saving') { statusEl.dataset.state = 'saving'; statusEl.textContent = 'Saving…'; return; }
+  if (state === 'saved')  { statusEl.dataset.state = 'saved';  statusEl.textContent = 'Saved ✓';
+                            setTimeout(() => { if (statusEl.dataset.state === 'saved') { statusEl.textContent = ''; delete statusEl.dataset.state; } }, 1500); return; }
+  if (state === 'error')  { statusEl.dataset.state = 'error';  statusEl.textContent = 'Save failed'; return; }
+}
+
+function _findProjStatusEl(subId, projIdx, field) {
+  const sel = field === 'writeup'
+    ? `.dt-autosave-status[data-sub-id="${subId}"][data-proj-idx="${projIdx}"][data-field="writeup"]`
+    : `.dt-autosave-status[data-sub-id="${subId}"][data-proj-idx="${projIdx}"]:not([data-field])`;
+  return document.querySelector(sel);
+}
+
+async function _handleProjNoteBlur(ta)    { return _saveProjField(ta, 'st_note'); }
+async function _handleProjWriteupBlur(ta) { return _saveProjField(ta, 'writeup'); }
+
+async function _saveProjField(ta, field) {
+  const subId = ta.dataset.subId;
+  const projIdx = parseInt(ta.dataset.projIdx, 10);
+  if (!subId || Number.isNaN(projIdx)) return;
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const newVal = field === 'writeup' ? ta.value : ta.value.trim();
+  const resolved = [...(sub.projects_resolved || [])];
+  while (resolved.length <= projIdx) resolved.push(null);
+  const existing = resolved[projIdx] || {
+    action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
+    pool: null,
+    roll: null,
+    st_note: '',
+    writeup: '',
+    resolved_at: null,
+  };
+  if ((existing[field] || '') === newVal) return; // no-op
+  resolved[projIdx] = { ...existing, [field]: newVal };
+  const statusEl = _findProjStatusEl(subId, projIdx, field);
+  _setAutosaveStatus(statusEl, 'saving');
+  try {
+    await updateSubmission(subId, { projects_resolved: resolved });
+    sub.projects_resolved = resolved;
+    _setAutosaveStatus(statusEl, 'saved');
+  } catch (err) {
+    console.warn('Project ' + field + ' autosave failed:', err);
+    _setAutosaveStatus(statusEl, 'error');
+  }
+}
+
+async function _handleMeritNoteBlur(ta) {
+  const subId = ta.dataset.subId;
+  const meritIdx = parseInt(ta.dataset.meritIdx, 10);
+  if (!subId || Number.isNaN(meritIdx)) return;
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const newVal = ta.value.trim();
+  const resolved = [...(sub.merit_actions_resolved || [])];
+  while (resolved.length <= meritIdx) resolved.push(null);
+  const existing = resolved[meritIdx] || {
+    action_type: '',
+    pool: null,
+    roll: null,
+    st_note: '',
+    resolved_at: null,
+  };
+  if ((existing.st_note || '') === newVal) return;
+  resolved[meritIdx] = { ...existing, st_note: newVal };
+  const statusEl = document.querySelector(`.dt-autosave-status[data-sub-id="${subId}"][data-merit-idx="${meritIdx}"]`);
+  _setAutosaveStatus(statusEl, 'saving');
+  try {
+    await updateSubmission(subId, { merit_actions_resolved: resolved });
+    sub.merit_actions_resolved = resolved;
+    _setAutosaveStatus(statusEl, 'saved');
+  } catch (err) {
+    console.warn('Merit ST-note autosave failed:', err);
+    _setAutosaveStatus(statusEl, 'error');
+  }
+}
+
+async function _handleNarrBlur(ta) {
+  const subId = ta.dataset.subId;
+  const blockKey = ta.dataset.blockKey;
+  if (!subId || !blockKey) return;
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const newText = ta.value; // narrative blocks may have trailing whitespace; do not trim
+  const currentText = sub.st_narrative?.[blockKey]?.text;
+  if ((currentText || '') === newText) return;
+  const statusEl = document.querySelector(`.dt-autosave-status[data-sub-id="${subId}"][data-block-key="${blockKey}"]`);
+  _setAutosaveStatus(statusEl, 'saving');
+  try {
+    await updateSubmission(subId, { ['st_narrative.' + blockKey + '.text']: newText });
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative[blockKey] = { ...(sub.st_narrative[blockKey] || {}), text: newText };
+    _setAutosaveStatus(statusEl, 'saved');
+  } catch (err) {
+    console.warn('Narrative-block autosave failed:', err);
+    _setAutosaveStatus(statusEl, 'error');
+  }
+}
+async function _handleProcFieldBlur(ta, field) {
+  const key = ta.dataset.procKey;
+  if (!key) return;
+  const entry = _getQueueEntry(key);
+  if (!entry) return;
+  const newVal = ta.value.trim();
+  const review = getEntryReview(entry) || {};
+  if ((review[field] || '') === newVal) return;
+  // Status span lives in the same .proc-proj-field wrapper as the textarea;
+  // queried by proc-key + field so multiple cards on a page don't collide.
+  const statusEl = document.querySelector(`.dt-autosave-status[data-proc-key="${CSS.escape(key)}"][data-field="${field}"]`);
+  _setAutosaveStatus(statusEl, 'saving');
+  try {
+    await saveEntryReview(entry, { [field]: newVal });
+    _setAutosaveStatus(statusEl, 'saved');
+  } catch (err) {
+    console.warn('Proc ' + field + ' autosave failed:', err);
+    _setAutosaveStatus(statusEl, 'error');
+  }
+}
+// ── /Issue #320 ──────────────────────────────────────────────────────────────
 
 function _handleActionQueueFilter(btn) {
   const filter = btn.dataset.filter;
@@ -7857,7 +8003,7 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-merit-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -7903,7 +8049,7 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-detail-input proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-detail-input proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
@@ -8044,7 +8190,7 @@ function renderActionPanel(entry, review) {
       }
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
     }
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="sorc_notes"></span></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
     h += `</div>`;
@@ -8131,7 +8277,7 @@ function renderActionPanel(entry, review) {
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="e.g. The Thirsty Blade, quiet back alley\u2026"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="How does the character typically feed? What\u2019s the cover story?">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="How does the character typically feed? What\u2019s the cover story?">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       const _btOpts = ['Human', 'Animal', 'Kindred', 'Ghoul'];
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><select class="proc-recat-select proc-feed-blood-sel" data-proc-key="${esc(entry.key)}">${_btOpts.map(o => `<option value="${o}"${bloodTypeVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
@@ -8891,6 +9037,7 @@ function renderNarrativePanel(s) {
     h += '</div></div>';
     h += `<textarea class="dt-narr-textarea" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"
       placeholder="${esc(block.label)}...">${esc(text)}</textarea>`;
+    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"></span>`;
     h += '</div>';
   }
 
@@ -10970,10 +11117,12 @@ function renderProjectsPanel(s, raw, char) {
     // ST note (internal only)
     const note = res?.st_note || pen.st_note || '';
     h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project (internal)...">${esc(note)}</textarea>`;
+    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"></span>`;
 
     // Player-visible writeup
     const writeup = res?.writeup || '';
     h += `<textarea class="dt-proj-writeup" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="Player-visible writeup for this project...">${esc(writeup)}</textarea>`;
+    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" data-field="writeup"></span>`;
 
     h += '</div>';
   });
@@ -10989,11 +11138,16 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   const pending = (sub._proj_pending || [])[projIdx] || {};
   const resolved = [...(sub.projects_resolved || [])];
   while (resolved.length <= projIdx) resolved.push(null);
+  // Issue #320: preserve existing fields (st_note, writeup) saved via blur autosave
+  // before this Roll. Prefer existing.st_note over pending.st_note since blur-save
+  // writes directly to the resolved entry, not to _proj_pending.
+  const existing = resolved[projIdx] || {};
   resolved[projIdx] = {
+    ...existing,
     action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
     pool: { ...pool },
     roll: rollResult,
-    st_note: pending.st_note || '',
+    st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),
   };
 
@@ -11084,6 +11238,7 @@ function renderMeritActionsPanel(s, raw, char) {
 
     const note = res?.st_note || pen.st_note || '';
     h += `<textarea class="dt-merit-note" data-sub-id="${esc(s._id)}" data-merit-idx="${i}" placeholder="ST note for this action...">${esc(note)}</textarea>`;
+    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"></span>`;
 
     h += '</div>';
   });
@@ -11112,12 +11267,17 @@ async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {
   ];
   const resolved = [...(sub.merit_actions_resolved || [])];
   while (resolved.length <= meritIdx) resolved.push(null);
+  // Issue #320: preserve existing fields (st_note) saved via blur autosave
+  // before this Roll. Prefer existing.st_note over pending.st_note since
+  // blur-save writes directly to the resolved entry.
+  const existing = resolved[meritIdx] || {};
   resolved[meritIdx] = {
+    ...existing,
     merit_type: allActions[meritIdx]?.merit_type || '',
     action_type: allActions[meritIdx]?.action_type || '',
     pool: { ...pool },
     roll: rollResult,
-    st_note: pending.st_note || '',
+    st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),
   };
 
