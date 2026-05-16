@@ -1,6 +1,6 @@
 # Issue #321: DT Story tab loads wrong cycle (resolver picks first non-complete)
 
-Status: review
+Status: done
 
 issue: 321
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/321
