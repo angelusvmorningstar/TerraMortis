@@ -71,8 +71,10 @@ export const cyclesRouter = Router();
 const cycles = () => getCollection('downtime_cycles');
 
 // GET /api/downtime_cycles — list all (both roles can see cycles)
+// Issue #321: sort by _id desc (creation-order proxy since cycle docs lack
+// created_at) so clients get a meaningful order even without their own sort.
 cyclesRouter.get('/', async (req, res) => {
-  const docs = await cycles().find().toArray();
+  const docs = await cycles().find().sort({ _id: -1 }).toArray();
   res.json(docs);
 });
 
