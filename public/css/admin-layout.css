@@ -2372,6 +2372,17 @@ body {
   margin-top: 8px;
 }
 
+/* Issue #320: autosave status indicator for DT-Processing ST-input textareas */
+.dt-autosave-status {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: 6px;
+  font-style: italic;
+}
+.dt-autosave-status[data-state="saving"] { color: var(--txt2); }
+.dt-autosave-status[data-state="saved"]  { color: var(--gold3); }
+.dt-autosave-status[data-state="error"]  { color: var(--crim); }
+
 /* ── Attendance & Finance ── */
 
 .att-toolbar {
