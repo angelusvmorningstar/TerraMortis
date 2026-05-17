@@ -3886,7 +3886,17 @@ function _gatherMeritAmbience(subs) {
   for (const sub of subs) {
     const raw       = sub._raw || {};
     const resp      = sub.responses || {};
-    const spheres   = raw.sphere_actions || [];
+    let spheres     = raw.sphere_actions || [];
+    if (!spheres.length) {
+      for (let n = 1; n <= 5; n++) {
+        const meritType = resp[`sphere_${n}_merit`];
+        if (!meritType) continue;
+        spheres = [...spheres, {
+          merit_type:  meritType,
+          action_type: resp[`sphere_${n}_action`] || 'misc',
+        }];
+      }
+    }
     let contacts = raw.contact_actions?.requests || [];
     if (!contacts.length) {
       const cl = [];
