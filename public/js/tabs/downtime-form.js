@@ -4754,12 +4754,12 @@ function renderAcquisitionsSection(saved) {
   const skillRows = _readSkillRows(saved);
 
   let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
-  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<h4 class="qf-section-title">Asset Acquisitions<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
 
   // ── Resources sub-table ──
   h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
-  h += '<h5 class="dt-acq-subtitle">Resources Acquisitions</h5>';
+  h += '<h5 class="dt-acq-subtitle">Resource-Based Asset Acquisition</h5>';
   h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
   h += `<span class="dt-acq-label">Resources Level:</span>`;
   h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
@@ -4783,7 +4783,8 @@ function renderAcquisitionsSection(saved) {
   // legacy data on the spread base prunes to row 0 on next save (per
   // A1 silent-leave; no real users have submitted skill multi-rows).
   h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
-  h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
+  h += '<h5 class="dt-acq-subtitle">Skill-Based Asset Acquisition</h5>';
+  h += '<p class="qf-section-intro">Use this section if you are using a skill to make, create, or directly obtain an asset or piece of equipment.</p>';
   const skillRow0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
   h += _renderSkillRow(0, skillRow0, charMerits, c, skSkills, true);
   h += '</div>';
