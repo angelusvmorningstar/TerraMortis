@@ -1,6 +1,6 @@
 # Issue #330: Ambience Matrix -- Underfeeding Bonus Not Calculated
 
-Status: review
+Status: done
 
 issue: 330
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/330
