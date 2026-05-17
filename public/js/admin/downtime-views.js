@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -535,19 +535,9 @@ export async function initDowntimeView(passedChars) {
       if (aqSelect) { _handleActionQueueStateChange(aqSelect); return; }
     });
     // DTIL-2: Action Queue note input save on blur (focusout bubbles)
-    // Issue #320: same delegation root also catches the four unwired ST-input
-    // textareas in DT Processing — branches in order, each returns after handling.
     document.addEventListener('focusout', e => {
       const aqNote = e.target.closest('.dt-action-queue-note-input');
       if (aqNote) { _handleActionQueueNoteSave(aqNote); return; }
-      const projNote = e.target.closest('.dt-proj-note');
-      if (projNote) { _handleProjNoteBlur(projNote); return; }
-      const projWriteup = e.target.closest('.dt-proj-writeup');
-      if (projWriteup) { _handleProjWriteupBlur(projWriteup); return; }
-      const meritNote = e.target.closest('.dt-merit-note');
-      if (meritNote) { _handleMeritNoteBlur(meritNote); return; }
-      const narrTa = e.target.closest('.dt-narr-textarea');
-      if (narrTa) { _handleNarrBlur(narrTa); return; }
       // Issue #320 (third pass): live processing-queue description textareas.
       // The cards have Save buttons that bundle these fields with others — blur-save
       // covers the high-risk long-text fields so a re-render mid-typing can't wipe them.
@@ -1700,60 +1690,6 @@ function renderPlayerResponses(s) {
   return h;
 }
 
-// ── ST Notes ────────────────────────────────────────────────────────────────
-
-function renderStNotes(s, raw) {
-  const csvNotes = raw.meta?.st_notes || '';
-  const savedNotes = s.st_notes || '';
-  const currentNotes = savedNotes || csvNotes;
-  const xpSpend = raw.meta?.xp_spend || '';
-
-  let h = '<div class="dt-notes-detail">';
-  h += '<div class="dt-feed-header">ST Notes</div>';
-
-  if (csvNotes && !savedNotes) {
-    h += `<div class="dt-notes-csv"><span class="dt-feed-lbl">From CSV</span> ${esc(csvNotes)}</div>`;
-  }
-
-  h += `<textarea class="dt-notes-input" data-sub-id="${s._id}" placeholder="ST notes (hidden from players)">${esc(currentNotes)}</textarea>`;
-  h += `<div class="dt-notes-actions">
-    <button class="dt-btn dt-notes-save" data-sub-id="${s._id}">Save Notes</button>
-    <span class="dt-notes-vis">Visibility: ST only</span>
-  </div>`;
-
-  if (xpSpend) {
-    h += `<div class="dt-notes-xp"><span class="dt-feed-lbl">XP Spend</span> ${esc(xpSpend)}</div>`;
-  }
-
-  h += '</div>';
-  return h;
-}
-
-async function handleSaveNotes(subId) {
-  const textarea = document.querySelector(`.dt-notes-input[data-sub-id="${subId}"]`);
-  if (!textarea) return;
-
-  const notes = textarea.value.trim();
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-
-  try {
-    await updateSubmission(subId, {
-      st_notes: notes,
-      st_notes_visibility: 'st_only',
-      st_notes_updated: new Date().toISOString(),
-    });
-    sub.st_notes = notes;
-
-    const btn = document.querySelector(`.dt-notes-save[data-sub-id="${subId}"]`);
-    if (btn) { btn.textContent = 'Saved \u2713'; setTimeout(() => { btn.textContent = 'Save Notes'; }, 1500); }
-  } catch (err) {
-    console.error('Failed to save notes:', err.message);
-  }
-}
-
-// ── Approval ────────────────────────────────────────────────────────────────
-
 // ── Expenditure Tracking (GC-3) ─────────────────────────────────────────────
 
 function renderExpenditurePanel(s) {
@@ -1777,46 +1713,6 @@ function renderExpenditurePanel(s) {
   h += '</div>';
   h += '</div>';
   return h;
-}
-
-const APPROVAL_STATUSES = ['pending', 'approved', 'modified', 'rejected'];
-
-function renderApproval(s) {
-  const status = s.approval_status || 'pending';
-  const resolution = s.resolution_note || '';
-
-  let h = '<div class="dt-approval-detail">';
-  h += '<div class="dt-feed-header">Outcome</div>';
-  h += '<div class="dt-approval-btns">';
-  for (const st of APPROVAL_STATUSES) {
-    h += `<button class="dt-approval-btn dt-appr-${st}${status === st ? ' active' : ''}" data-sub-id="${s._id}" data-status="${st}">${st}</button>`;
-  }
-  h += '</div>';
-  h += `<textarea class="dt-notes-input dt-resolution-input" data-sub-id="${s._id}" placeholder="Resolution note (visible to player when approved)">${esc(resolution)}</textarea>`;
-  h += '</div>';
-  return h;
-}
-
-async function handleApproval(subId, newStatus) {
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-
-  const textarea = document.querySelector(`.dt-resolution-input[data-sub-id="${subId}"]`);
-  const resolution = textarea ? textarea.value.trim() : '';
-
-  try {
-    await updateSubmission(subId, {
-      approval_status: newStatus,
-      resolution_note: resolution,
-      approval_updated: new Date().toISOString(),
-    });
-    sub.approval_status = newStatus;
-    sub.resolution_note = resolution;
-    renderMatchSummary();
-    renderSubmissions();
-  } catch (err) {
-    console.error('Failed to save approval:', err.message);
-  }
 }
 
 // ── File handling ───────────────────────────────────────────────────────────
@@ -2320,98 +2216,6 @@ function _setAutosaveStatus(statusEl, state) {
   if (state === 'error')  { statusEl.dataset.state = 'error';  statusEl.textContent = 'Save failed'; return; }
 }
 
-function _findProjStatusEl(subId, projIdx, field) {
-  const sel = field === 'writeup'
-    ? `.dt-autosave-status[data-sub-id="${subId}"][data-proj-idx="${projIdx}"][data-field="writeup"]`
-    : `.dt-autosave-status[data-sub-id="${subId}"][data-proj-idx="${projIdx}"]:not([data-field])`;
-  return document.querySelector(sel);
-}
-
-async function _handleProjNoteBlur(ta)    { return _saveProjField(ta, 'st_note'); }
-async function _handleProjWriteupBlur(ta) { return _saveProjField(ta, 'writeup'); }
-
-async function _saveProjField(ta, field) {
-  const subId = ta.dataset.subId;
-  const projIdx = parseInt(ta.dataset.projIdx, 10);
-  if (!subId || Number.isNaN(projIdx)) return;
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-  const newVal = field === 'writeup' ? ta.value : ta.value.trim();
-  const resolved = [...(sub.projects_resolved || [])];
-  while (resolved.length <= projIdx) resolved.push(null);
-  const existing = resolved[projIdx] || {
-    action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
-    pool: null,
-    roll: null,
-    st_note: '',
-    writeup: '',
-    resolved_at: null,
-  };
-  if ((existing[field] || '') === newVal) return; // no-op
-  resolved[projIdx] = { ...existing, [field]: newVal };
-  const statusEl = _findProjStatusEl(subId, projIdx, field);
-  _setAutosaveStatus(statusEl, 'saving');
-  try {
-    await updateSubmission(subId, { projects_resolved: resolved });
-    sub.projects_resolved = resolved;
-    _setAutosaveStatus(statusEl, 'saved');
-  } catch (err) {
-    console.warn('Project ' + field + ' autosave failed:', err);
-    _setAutosaveStatus(statusEl, 'error');
-  }
-}
-
-async function _handleMeritNoteBlur(ta) {
-  const subId = ta.dataset.subId;
-  const meritIdx = parseInt(ta.dataset.meritIdx, 10);
-  if (!subId || Number.isNaN(meritIdx)) return;
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-  const newVal = ta.value.trim();
-  const resolved = [...(sub.merit_actions_resolved || [])];
-  while (resolved.length <= meritIdx) resolved.push(null);
-  const existing = resolved[meritIdx] || {
-    action_type: '',
-    pool: null,
-    roll: null,
-    st_note: '',
-    resolved_at: null,
-  };
-  if ((existing.st_note || '') === newVal) return;
-  resolved[meritIdx] = { ...existing, st_note: newVal };
-  const statusEl = document.querySelector(`.dt-autosave-status[data-sub-id="${subId}"][data-merit-idx="${meritIdx}"]`);
-  _setAutosaveStatus(statusEl, 'saving');
-  try {
-    await updateSubmission(subId, { merit_actions_resolved: resolved });
-    sub.merit_actions_resolved = resolved;
-    _setAutosaveStatus(statusEl, 'saved');
-  } catch (err) {
-    console.warn('Merit ST-note autosave failed:', err);
-    _setAutosaveStatus(statusEl, 'error');
-  }
-}
-
-async function _handleNarrBlur(ta) {
-  const subId = ta.dataset.subId;
-  const blockKey = ta.dataset.blockKey;
-  if (!subId || !blockKey) return;
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-  const newText = ta.value; // narrative blocks may have trailing whitespace; do not trim
-  const currentText = sub.st_narrative?.[blockKey]?.text;
-  if ((currentText || '') === newText) return;
-  const statusEl = document.querySelector(`.dt-autosave-status[data-sub-id="${subId}"][data-block-key="${blockKey}"]`);
-  _setAutosaveStatus(statusEl, 'saving');
-  try {
-    await updateSubmission(subId, { ['st_narrative.' + blockKey + '.text']: newText });
-    if (!sub.st_narrative) sub.st_narrative = {};
-    sub.st_narrative[blockKey] = { ...(sub.st_narrative[blockKey] || {}), text: newText };
-    _setAutosaveStatus(statusEl, 'saved');
-  } catch (err) {
-    console.warn('Narrative-block autosave failed:', err);
-    _setAutosaveStatus(statusEl, 'error');
-  }
-}
 async function _handleProcFieldBlur(ta, field) {
   const key = ta.dataset.procKey;
   if (!key) return;
@@ -4109,80 +3913,6 @@ function _signOffStatus(s) {
   return { ready: reasons.length === 0, reasons };
 }
 
-function renderSignOffStep() {
-  if (!submissions.length) return '';
-
-  const isExpanded = expandedPhases.has('sign_off');
-  const doneCount = submissions.filter(s => ['ready', 'published'].includes(s.st_review?.outcome_visibility)).length;
-  const stepBadge = _progressBadge(doneCount, submissions.length, 'All staged');
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('sign_off', `Step 11 \u2014 Sign-off${stepBadge}`, submissions.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of submissions) {
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = signOffExpanded.has(s._id);
-      const approval = s.approval_status || 'pending';
-      const visibility = s.st_review?.outcome_visibility || '';
-      const isReady     = visibility === 'ready';
-      const isPublished = visibility === 'published';
-
-      let charBadge = '';
-      if (isPublished)          charBadge = ' <span class="dt-pub-badge">\u2713 Published</span>';
-      else if (isReady)         charBadge = ' <span class="dt-ready-badge">\u23F3 Ready</span>';
-      else if (approval === 'approved')  charBadge = ' <span class="dt-narr-badge">\u2713 Approved</span>';
-      else if (approval === 'modified')  charBadge = ' <span class="proc-narr-progress">Modified</span>';
-      else if (approval === 'rejected')  charBadge = ' <span class="proc-signoff-rejected">Rejected</span>';
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-signoff-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}${charBadge}</span>`;
-      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Approval buttons + resolution note (Story 4.1)
-        h += `<div class="proc-signoff-approval">`;
-        h += `<div class="proc-detail-label">Outcome</div>`;
-        h += `<div class="proc-signoff-btns">`;
-        for (const st of ['pending', 'approved', 'modified', 'rejected']) {
-          h += `<button class="dt-btn dt-approval-btn dt-appr-${st}${approval === st ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-status="${st}">${st}</button>`;
-        }
-        h += `</div>`;
-        h += `<textarea class="dt-notes-input dt-resolution-input proc-signoff-note" data-sub-id="${esc(s._id)}" rows="2" placeholder="Resolution note (visible to player when released)">${esc(s.resolution_note || '')}</textarea>`;
-        h += `</div>`;
-
-        // Mark ready / ready state / published state (Story 4.2)
-        h += `<div class="proc-signoff-ready-row">`;
-        if (isPublished) {
-          h += `<span class="dt-pub-badge">\u2713 Published \u2014 released to player</span>`;
-        } else if (isReady) {
-          h += `<span class="dt-ready-badge">\u23F3 Staged for release</span>`;
-          h += `<button class="dt-btn dt-btn-sm dt-btn-dim proc-signoff-revert" data-sub-id="${esc(s._id)}">Revert to draft</button>`;
-        } else {
-          const { ready, reasons } = _signOffStatus(s);
-          if (ready) {
-            h += `<button class="dt-btn dt-btn-gold proc-signoff-ready-btn" data-sub-id="${esc(s._id)}">Mark ready for release</button>`;
-          } else {
-            h += `<button class="dt-btn proc-signoff-ready-btn" disabled title="${esc(reasons.join('\n'))}">Mark ready for release</button>`;
-            h += `<ul class="proc-signoff-blockers">`;
-            for (const r of reasons) h += `<li>${esc(r)}</li>`;
-            h += `</ul>`;
-          }
-        }
-        h += `</div>`;
-
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
-}
-
 // ── Deleted Actions Recovery ─────────────────────────────────────────────────
 
 let procDeletedOpen = false;
@@ -4400,64 +4130,6 @@ function renderXpReviewStep() {
         }
 
         h += `</tbody></table>`;
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
-}
-
-// ── Narrative Step (Epic 2 — Stories 2.1 + 2.2 + 2.3) ───────────────────────
-
-function renderNarrativeStep() {
-  if (!submissions.length) return '';
-
-
-  const isExpanded = expandedPhases.has('narrative');
-  const queue = buildProcessingQueue(submissions);
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('narrative', 'Step 9 \u2014 Narrative Output', submissions.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of submissions) {
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = narrativeExpanded.has(s._id);
-      const narr = s.st_review?.narrative || {};
-      const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
-      const statusBadge = _progressBadge(doneCount, NARR_KEYS.length, 'All ready');
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-narrative-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}${statusBadge}</span>`;
-      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Story 2.2 — Action responses as read-only reference
-        const actionEntries = queue.filter(e => e.subId === s._id && e.source === 'project');
-        const respondedEntries = actionEntries.filter(e => getEntryReview(e)?.st_response?.trim?.());
-        if (respondedEntries.length) {
-          h += `<details class="dt-style-guide proc-narr-action-ref">`;
-          h += `<summary>Action responses (${respondedEntries.length})</summary>`;
-          for (const entry of respondedEntries) {
-            const rev = getEntryReview(entry);
-            h += `<div class="proc-narr-action-ref-row">`;
-            h += `<div class="proc-narr-action-ref-title">${esc(entry.label)}`;
-            if (entry.description) h += ` \u2014 <span class="proc-narr-action-ref-desc">${esc(entry.description.slice(0, 100))}</span>`;
-            h += `</div>`;
-            h += `<div class="proc-narr-action-ref-text">${esc(rev.st_response)}</div>`;
-            h += `</div>`;
-          }
-          h += `</details>`;
-        }
-
-        // Story 2.1 — Narrative panel (existing renderNarrativePanel, reused)
-        h += renderNarrativePanel(s);
-
         h += `</div>`; // proc-preread-body
       }
     }
@@ -9118,43 +8790,6 @@ const STYLE_RULES = [
   'Never dictate what a player has chosen, felt, or done.',
 ];
 
-function renderNarrativePanel(s) {
-  const narr = s.st_review?.narrative || {};
-
-  const allReady = NARR_KEYS.every(k => narr[k]?.status === 'ready');
-
-  let h = '<div class="dt-narr-detail">';
-  h += `<div class="dt-feed-header">Narrative Output ${allReady ? '<span class="dt-narr-badge">&#x2713; All ready</span>' : ''}</div>`;
-
-  // Style guide (collapsed by default)
-  h += `<details class="dt-style-guide"><summary>Writing Rules</summary><ul class="dt-style-list">`;
-  for (const rule of STYLE_RULES) h += `<li>${esc(rule)}</li>`;
-  h += '</ul></details>';
-
-  for (const block of NARR_BLOCKS) {
-    const saved = narr[block.key] || {};
-    const text = saved.text || '';
-    const status = saved.status || 'draft';
-    const isReady = status === 'ready';
-
-    h += `<div class="dt-narr-block">`;
-    h += `<div class="dt-narr-block-header">`;
-    h += `<span class="dt-narr-label">${esc(block.label)}</span>`;
-    h += `<span class="dt-narr-hint">${esc(block.hint)}</span>`;
-    h += `<div class="dt-narr-status-row">`;
-    h += `<button class="dt-narr-status-btn${!isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="draft">Draft</button>`;
-    h += `<button class="dt-narr-status-btn${isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="ready">Ready</button>`;
-    h += '</div></div>';
-    h += `<textarea class="dt-narr-textarea" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"
-      placeholder="${esc(block.label)}...">${esc(text)}</textarea>`;
-    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"></span>`;
-    h += '</div>';
-  }
-
-  h += '</div>';
-  return h;
-}
-
 // ── DT-1: Downtime Export Packet ─────────────────────────────────────────────
 
 function renderExportRow(s) {
@@ -11170,91 +10805,6 @@ function renderResolveBadge(roll) {
   return `<span class="dt-resolve-badge ${rc}">${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}</span>`;
 }
 
-// ── Project Resolution Panel (Story 1.2) ────────────────────────────────────
-
-function renderProjectsPanel(s, raw, char) {
-  let projects = raw.projects || [];
-  // Fallback: construct project list from responses when _raw.projects is absent
-  // (happens when CSV data was mapped to responses but _raw wasn't restructured)
-  if (!projects.length && s.responses) {
-    for (let n = 1; n <= 4; n++) {
-      const action = s.responses[`project_${n}_action`];
-      if (!action) continue;
-      projects.push({
-        action_type: action,
-        action_type_raw: action,
-        project_name: s.responses[`project_${n}_title`] || null,
-        desired_outcome: s.responses[`project_${n}_outcome`] || '',
-        primary_pool: s.responses[`project_${n}_pool_expr`] ? { expression: s.responses[`project_${n}_pool_expr`] } : null,
-        secondary_pool: s.responses[`project_${n}_pool2_expr`] ? { expression: s.responses[`project_${n}_pool2_expr`] } : null,
-        characters: s.responses[`project_${n}_cast`] || null,
-        merits: s.responses[`project_${n}_merits`] || null,
-        xp_spend: s.responses[`project_${n}_xp`] || null,
-        detail: s.responses[`project_${n}_description`] || null,
-      });
-    }
-  }
-  if (!projects.length) return '';
-
-  const resolved = s.projects_resolved || [];
-  const pending = s._proj_pending || [];
-
-  let h = '<div class="dt-proj-detail">';
-  h += '<div class="dt-feed-header">Projects</div>';
-
-  projects.forEach((proj, i) => {
-    const res = resolved[i];
-    const pen = pending[i] || {};
-    const rote = pen.rote ?? res?.roll?.params?.rote ?? false;
-    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-    const isResolved = !!res?.roll;
-
-    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : ' dt-proj-unresolved'}">`;
-    h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(proj.action_type_raw || proj.action_type)}</span>`;
-    h += isResolved
-      ? ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`
-      : ` <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>`;
-    h += '</div>';
-
-    // Structured fields extracted from description
-    if (proj.project_name) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Name:</span> ${esc(proj.project_name)}</div>`;
-    if (proj.desired_outcome) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Desired:</span> ${esc(proj.desired_outcome)}</div>`;
-    if (proj.characters) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Characters:</span> ${esc(proj.characters)}</div>`;
-    if (proj.primary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Primary Pool:</span> ${esc(proj.primary_pool.expression)}</div>`;
-    if (proj.secondary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Secondary Pool:</span> ${esc(proj.secondary_pool.expression)}</div>`;
-    if (proj.xp_spend != null) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">XP Spend:</span> ${esc(String(proj.xp_spend))}</div>`;
-    if (proj.merits) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Merits:</span> ${esc(proj.merits)}</div>`;
-    if (proj.bonuses) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Bonuses:</span> ${esc(proj.bonuses)}</div>`;
-    if (proj.detail) h += `<div class="dt-proj-desc">${esc(proj.detail)}</div>`;
-
-    // Pool builder
-    if (char) {
-      h += poolBuilderUI(s._id, 'proj-idx', i, char, pen, pool);
-      h += `<label class="dt-proj-rote-lbl"><input type="checkbox" class="dt-proj-rote" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" ${rote ? 'checked' : ''}>Rote</label>`;
-      h += `<button class="dt-btn dt-proj-roll-btn" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"
-        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
-    }
-
-    if (isResolved) h += renderResolveBadge(res.roll);
-
-    // ST note (internal only)
-    const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project (internal)...">${esc(note)}</textarea>`;
-    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"></span>`;
-
-    // Player-visible writeup
-    const writeup = res?.writeup || '';
-    h += `<textarea class="dt-proj-writeup" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="Player-visible writeup for this project...">${esc(writeup)}</textarea>`;
-    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" data-field="writeup"></span>`;
-
-    h += '</div>';
-  });
-
-  h += '</div>';
-  return h;
-}
-
 async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
@@ -11282,93 +10832,6 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   } catch (err) {
     console.error('Failed to save project roll:', err.message);
   }
-}
-
-// ── Merit Actions Panel (Story 1.3) ─────────────────────────────────────────
-
-const PASSIVE_MERIT_ACTIONS = ['no action taken', 'passive', 'none'];
-const MERIT_NO_ROLL = ['allies within favour', 'allies_favour'];
-const INVESTIGATE_WARNING_TYPES = ['investigate', 'investigation', 'gather info', 'gather information'];
-
-function renderMeritActionsPanel(s, raw, char) {
-  const resp = s.responses || {};
-  const spheres = raw.sphere_actions || [];
-  const contacts = raw.contact_actions || {};
-  const retainers = raw.retainer_actions || {};
-
-  let contactRequests = contacts.requests || [];
-  if (!contactRequests.length) {
-    const cl = [];
-    for (let n = 1; n <= 5; n++) { const r = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
-    contactRequests = cl;
-  }
-
-  const allMeritActions = [
-    ...spheres,
-    ...contactRequests.map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
-    ...(retainers.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r })),
-  ];
-
-  if (!allMeritActions.length) return '';
-
-  const resolved = s.merit_actions_resolved || [];
-  const pending = s._merit_pending || [];
-
-  let h = '<div class="dt-merit-detail">';
-  h += '<div class="dt-feed-header">Merit Actions</div>';
-
-  allMeritActions.forEach((action, i) => {
-    const res = resolved[i];
-    const pen = pending[i] || {};
-    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-    const isResolved = !!res?.roll || res?.no_roll;
-    const actionLower = (action.action_type || '').toLowerCase();
-    const isPassive = PASSIVE_MERIT_ACTIONS.some(p => actionLower.includes(p));
-    const isInvestigate = INVESTIGATE_WARNING_TYPES.some(p => actionLower.includes(p));
-
-    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : (isPassive ? '' : ' dt-proj-unresolved')}">`;
-    h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(action.merit_type)}</span>`;
-    h += ` <span class="dt-merit-action-type">${esc(action.action_type)}</span>`;
-    if (isResolved) {
-      h += res.no_roll
-        ? ' <span class="dt-proj-done-badge">\u2713 No roll needed</span>'
-        : ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`;
-    } else if (isPassive) {
-      h += ' <span class="dt-merit-passive">Passive — no action</span>';
-    } else {
-      h += ' <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>';
-    }
-    h += '</div>';
-
-    if (action.description) h += `<div class="dt-proj-desc">${esc(action.description)}</div>`;
-    if (action.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(action.desired_outcome)}</div>`;
-
-    if (isInvestigate) {
-      h += `<div class="dt-merit-warn">\u26A0 Contacts/Allies cannot surface Kindred identities or investigation-threshold intel.</div>`;
-    }
-
-    if (!isPassive && char) {
-      h += poolBuilderUI(s._id, 'merit-idx', i, char, pen, pool, 'dt-merit-sel', 'dt-merit-mod');
-      h += `<button class="dt-btn dt-merit-roll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
-        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
-      if (!isResolved) {
-        h += `<button class="dt-btn dt-btn-muted dt-merit-noroll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
-          style="margin-left:8px">No roll needed</button>`;
-      }
-    }
-
-    if (isResolved && res.roll) h += renderResolveBadge(res.roll);
-
-    const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-merit-note" data-sub-id="${esc(s._id)}" data-merit-idx="${i}" placeholder="ST note for this action...">${esc(note)}</textarea>`;
-    h += `<span class="dt-autosave-status" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"></span>`;
-
-    h += '</div>';
-  });
-
-  h += '</div>';
-  return h;
 }
 
 async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {

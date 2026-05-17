@@ -1,6 +1,6 @@
 # Story Feature.325: Delete Dead Render Functions in downtime-views.js
 
-## Status: ready-for-dev
+## Status: done
 
 ## Metadata
 - issue: 325
@@ -36,16 +36,16 @@ unreachable dead code too.
 
 ## Acceptance Criteria
 
-- [ ] All nine dead functions listed below are removed from `public/js/admin/downtime-views.js`.
-- [ ] The six dormant #320 handlers (`_findProjStatusEl`, `_handleProjNoteBlur`, `_handleProjWriteupBlur`, `_saveProjField`, `_handleMeritNoteBlur`, `_handleNarrBlur`) are removed.
-- [ ] The four matching focusout delegation branches (`.dt-proj-note`, `.dt-proj-writeup`, `.dt-merit-note`, `.dt-narr-textarea`) at lines ~544–551 are removed.
-- [ ] `_setAutosaveStatus` is **kept** — it is called by the live `_handleProcFieldBlur`.
-- [ ] `_handleProcFieldBlur` is **kept** — it handles live `.proc-feed-desc-ta`, `.proc-merit-desc-ta`, `.proc-sorc-notes-input` textareas.
-- [ ] The three live focusout branches for `_handleProcFieldBlur` (`.proc-feed-desc-ta`, `.proc-merit-desc-ta`, `.proc-sorc-notes-input`) are **kept**.
-- [ ] CSS `.dt-autosave-status` in `public/css/admin-layout.css` is **kept** — still used by the live `_handleProcFieldBlur` flow.
-- [ ] `node --input-type=module --check < public/js/admin/downtime-views.js` passes (no parse errors).
-- [ ] `tests/issue-320-autosave-st-notes.spec.js` still passes (4 tests).
-- [ ] `specs/stories/issue-320-autosave-st-notes.story.md` updated to note dormant handlers removed.
+- [x] All nine dead functions listed below are removed from `public/js/admin/downtime-views.js`.
+- [x] The six dormant #320 handlers (`_findProjStatusEl`, `_handleProjNoteBlur`, `_handleProjWriteupBlur`, `_saveProjField`, `_handleMeritNoteBlur`, `_handleNarrBlur`) are removed.
+- [x] The four matching focusout delegation branches (`.dt-proj-note`, `.dt-proj-writeup`, `.dt-merit-note`, `.dt-narr-textarea`) at lines ~544–551 are removed.
+- [x] `_setAutosaveStatus` is **kept** — it is called by the live `_handleProcFieldBlur`.
+- [x] `_handleProcFieldBlur` is **kept** — it handles live `.proc-feed-desc-ta`, `.proc-merit-desc-ta`, `.proc-sorc-notes-input` textareas.
+- [x] The three live focusout branches for `_handleProcFieldBlur` (`.proc-feed-desc-ta`, `.proc-merit-desc-ta`, `.proc-sorc-notes-input`) are **kept**.
+- [x] CSS `.dt-autosave-status` in `public/css/admin-layout.css` is **kept** — still used by the live `_handleProcFieldBlur` flow.
+- [x] `node --input-type=module --check < public/js/admin/downtime-views.js` passes (no parse errors).
+- [x] `tests/issue-320-autosave-st-notes.spec.js` still passes (4 tests).
+- [x] `specs/stories/issue-320-autosave-st-notes.story.md` updated to note dormant handlers removed.
 
 ---
 
@@ -247,3 +247,4 @@ _(empty — fill during implementation)_
 ## Change Log
 
 - feat(#325): story created 2026-05-17
+- feat(#325): delete 9 dead render functions, 6 dormant handlers, 4 dead focusout branches (2026-05-17)
