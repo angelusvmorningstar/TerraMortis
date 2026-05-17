@@ -3572,19 +3572,28 @@ function buildProcessingQueue(subs) {
  * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
  */
 async function recomputeDisciplineProfile() {
+  await ensureTerritories();
+  const slugToOid = new Map();
+  for (const t of (cachedTerritories || [])) {
+    if (t.slug) slugToOid.set(t.slug, String(t._id));
+  }
+
   const profile = {};
   for (const sub of submissions) {
     const rev = sub.feeding_review || {};
     if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
     let feedTerrs = {};
     try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
-    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => resolveTerrId(k)).filter(Boolean);
+    const active = Object.entries(feedTerrs)
+      .filter(([, v]) => v && v !== 'none')
+      .map(([k]) => slugToOid.get(resolveTerrId(k)))
+      .filter(Boolean);
     if (!active.length) continue;
     const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
-    for (const territory of active) {
-      if (!profile[territory]) profile[territory] = {};
+    for (const terrOid of active) {
+      if (!profile[terrOid]) profile[terrOid] = {};
       for (const disc of foundDiscs) {
-        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+        profile[terrOid][disc] = (profile[terrOid][disc] || 0) + 1;
       }
     }
   }
@@ -3599,14 +3608,15 @@ async function recomputeDisciplineProfile() {
       const isAmbience = _isAmbienceAction(actionType);
       const isRoteFeed = actionType === 'feed';
       if (!isAmbience && !isRoteFeed) continue;
-      const territory = _resolveProjectTerritory(sub, pIdx);
-      if (!territory) continue;
+      const slug = _resolveProjectTerritory(sub, pIdx);
+      const terrOid = slug ? slugToOid.get(slug) : null;
+      if (!terrOid) continue;
       const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
       if (!foundDiscs.length) continue;
       const points = proj.roll?.exceptional ? 2 : 1;
-      if (!profile[territory]) profile[territory] = {};
+      if (!profile[terrOid]) profile[terrOid] = {};
       for (const disc of foundDiscs) {
-        profile[territory][disc] = (profile[territory][disc] || 0) + points;
+        profile[terrOid][disc] = (profile[terrOid][disc] || 0) + points;
       }
     }
   }
