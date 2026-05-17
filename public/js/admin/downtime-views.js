@@ -3979,7 +3979,7 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
     const ambience = startingAmbience[id] || td.ambience;
     const cap = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
-    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : 0;
+    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : feeders < cap ? (cap - feeders) : 0;
     const entropy = AMBIENCE_ENTROPY[ambience] ?? -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
@@ -10353,7 +10353,9 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
     const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
     const netStr = _fmtMod(r.net);
-    const ovStr = r.feeders > r.cap ? ` | <span class="proc-amb-neg">${r.overfeed}</span>` : '';
+    const ovStr = r.overfeed !== 0
+      ? ` | <span class="${r.overfeed > 0 ? 'proc-amb-pos' : 'proc-amb-neg'}">${_fmtMod(r.overfeed)}</span>`
+      : '';
     const infNet = r.inf_pos - r.inf_neg;
     const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
