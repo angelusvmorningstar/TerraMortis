@@ -35,7 +35,7 @@ import {
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
-  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shAddEquip, shEditEquip, shRemoveEquip,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -1082,6 +1082,7 @@ Object.assign(window, {
   shEditAttrPt,
   shAdjAttrBonus,
   shAdjMeritBonus,
+  shAdjSkillBonus,
   shSetSkillPriority,
   shEditSkillPt,
   shEditSpec,
