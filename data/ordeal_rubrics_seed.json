@@ -1,0 +1,39 @@
+{
+  "_note": "Fill in all PLACEHOLDER values before running import-ordeals.js against production. This file seeds ordeal_rubrics only when the collection is empty.",
+  "lore_mastery": [
+    { "index": 0, "question": "[Lore Q1 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" },
+    { "index": 1, "question": "[Lore Q2 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" },
+    { "index": 2, "question": "[Lore Q3 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" }
+  ],
+  "rules_mastery": [
+    { "index": 0, "question": "[Rules Q1 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" },
+    { "index": 1, "question": "[Rules Q2 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" },
+    { "index": 2, "question": "[Rules Q3 — fill in]", "expected_answer": "[PLACEHOLDER — ST to complete]", "marking_notes": "" }
+  ],
+  "covenant_questionnaire": [
+    {
+      "covenant": "Carthian Movement",
+      "questions": [
+        { "index": 0, "question": "[Carthian Q1 — fill in]", "expected_answer": "[PLACEHOLDER]", "marking_notes": "" }
+      ]
+    },
+    {
+      "covenant": "Circle of the Crone",
+      "questions": [
+        { "index": 0, "question": "[Crone Q1 — fill in]", "expected_answer": "[PLACEHOLDER]", "marking_notes": "" }
+      ]
+    },
+    {
+      "covenant": "Invictus",
+      "questions": [
+        { "index": 0, "question": "[Invictus Q1 — fill in]", "expected_answer": "[PLACEHOLDER]", "marking_notes": "" }
+      ]
+    },
+    {
+      "covenant": "Lancea et Sanctum",
+      "questions": [
+        { "index": 0, "question": "[Lancea Q1 — fill in]", "expected_answer": "[PLACEHOLDER]", "marking_notes": "" }
+      ]
+    }
+  ]
+}

@@ -51,8 +51,20 @@ export async function initOrdeals(char, chars, containerEl) {
   if (!el) return;
   currentChar = char;
 
-  const [pDoc, qDoc, hDoc, rulesDoc, loreDoc, covDoc, subDocs] = await Promise.all([
-    playerDoc ? Promise.resolve(playerDoc) : apiGet('/api/players/me').catch(() => ({ ordeals: {} })),
+  // Fetch player doc separately so we can detect a missing player record (403)
+  // before firing the remaining parallel calls.
+  if (!playerDoc) {
+    try {
+      playerDoc = await apiGet('/api/players/me');
+    } catch {
+      el.innerHTML = `<div class="ordeal-col"><div class="ordeals-container"><div class="ordeals-section">
+        <p class="ordeal-setup-msg">Your account is not set up yet. Contact an ST to get your player record created.</p>
+      </div></div></div>`;
+      return;
+    }
+  }
+
+  const [qDoc, hDoc, rulesDoc, loreDoc, covDoc, subDocs] = await Promise.all([
     apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
     apiGet(`/api/history?character_id=${char._id}`).catch(() => null),
     apiGet('/api/ordeal-responses?type=rules').catch(() => null),
@@ -61,7 +73,6 @@ export async function initOrdeals(char, chars, containerEl) {
     apiGet('/api/ordeal_submissions/mine').catch(() => []),
   ]);
 
-  playerDoc = pDoc;
   statusCache = {
     questionnaire: qDoc?.status || null,
     history:       hDoc?.status || null,

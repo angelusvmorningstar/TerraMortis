@@ -8,10 +8,20 @@
 
 const ordealTypeEnum = ['lore_mastery', 'rules_mastery', 'covenant_questionnaire', 'character_history'];
 
+// ordeal_type naming conventions differ by pipeline:
+//   Pipeline A (ordeal_submissions — historical Google Forms import):
+//     lore_mastery | rules_mastery | covenant_questionnaire | character_history
+//     → Marked in admin panel; cascade uses ORDEAL_NAME_MAP to translate to short names
+//   Pipeline B (ordeal_responses — web form submissions):
+//     rules | lore | covenant
+//     → Approved by ST in player-facing ordeal form; cascade in ordeal-responses.js
+// Do not attempt to unify these enums — both pipelines are active.
+
 export const ordealRubricSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'TM Ordeal Rubric',
   type: 'object',
+  required: ['ordeal_type', 'title', 'questions'],
   additionalProperties: true,
 
   properties: {
@@ -29,6 +39,7 @@ export const ordealSubmissionSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'TM Ordeal Submission',
   type: 'object',
+  required: ['ordeal_type', 'submitted_at', 'source', 'responses'],
   additionalProperties: true,
 
   properties: {

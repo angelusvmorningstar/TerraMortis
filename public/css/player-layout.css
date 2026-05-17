@@ -765,6 +765,13 @@ body {
   line-height: 1.5;
 }
 
+.ordeal-setup-msg {
+  font-size: 14px;
+  color: var(--txt2);
+  line-height: 1.6;
+  padding: 12px 0;
+}
+
 /* .qf-back-btn rule lives in components.css (shared with game app) */
 
 /* Downtime form component CSS moved to components.css */
