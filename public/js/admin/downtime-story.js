@@ -1478,7 +1478,7 @@ function buildLetterContext(char, sub, opts = {}) {
   }
 
   lines.push('');
-  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -1489,7 +1489,8 @@ function buildLetterContext(char, sub, opts = {}) {
  * Assembles the Copy Context prompt for the Touchstone Vignette section.
  * Pure function — no side effects, no DOM access.
  */
-function buildTouchstoneContext(char, sub) {
+function buildTouchstoneContext(char, sub, opts = {}) {
+  const { prevVignette = null, prevCycleNumber = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
@@ -1510,8 +1511,14 @@ function buildTouchstoneContext(char, sub) {
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
+  if (prevVignette) {
+    lines.push('');
+    lines.push(`Previous vignette with this touchstone (Downtime ${prevCycleNumber ?? '?'}):`);
+    lines.push(prevVignette.trim());
+  }
+
   lines.push('');
-  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -3417,15 +3424,9 @@ async function handleCopyStoryMomentContext(btn) {
   const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
   const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
-  if (format === 'vignette') {
-    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
-    return;
-  }
-
-  // Letter format: assemble previous-cycle correspondence + story-moment target,
-  // same as the pre-DTSR-2 handleCopyLetterContext logic.
-  let prevCorrespondence = null;
-  let prevCycleNumber    = null;
+  // Fetch previous-cycle story moment output for both letter and vignette formats.
+  let prevOutput      = null;
+  let prevCycleNumber = null;
   try {
     const cycleId   = _currentSub.cycle_id;
     const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
@@ -3439,13 +3440,22 @@ async function handleCopyStoryMomentContext(btn) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
           .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
+        prevOutput = prevSub?.st_narrative?.story_moment?.response
           || prevSub?.st_narrative?.letter_from_home?.response
+          || prevSub?.st_narrative?.touchstone?.response
           || null;
         prevCycleNumber = prevCycle.game_number;
       }
     }
   } catch { /* leave nulls */ }
+
+  if (format === 'vignette') {
+    copyToClipboard(
+      buildTouchstoneContext(char, _currentSub, { prevVignette: prevOutput, prevCycleNumber }),
+      btn
+    );
+    return;
+  }
 
   const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
     || _currentSub.st_narrative?.letter_from_home?.voice_note
@@ -3478,7 +3488,7 @@ async function handleCopyStoryMomentContext(btn) {
   }
 
   const text = buildLetterContext(char, _currentSub, {
-    prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
+    prevCorrespondence: prevOutput, prevCycleNumber, stVoiceNote, storyMomentTarget,
   });
   copyToClipboard(text, btn);
 }
