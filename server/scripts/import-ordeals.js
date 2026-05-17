@@ -599,6 +599,13 @@ async function run() {
         continue;
       }
 
+      // Skip if a form submission already covers this character's history
+      if (allDocs.some(d => d.ordeal_type === 'character_history' && d.character_id.toString() === char._id.toString())) {
+        console.log(`  [skip] ${charName} already has a form submission — word doc not added`);
+        summary.word_doc.skipped = (summary.word_doc.skipped || 0) + 1;
+        continue;
+      }
+
       try {
         const result = await mammoth.convertToHtml({ path: filePath });
         // Strip empty paragraphs from mammoth output
