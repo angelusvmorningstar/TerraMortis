@@ -1240,6 +1240,10 @@ async function loadCycleById(cycleId) {
   renderPrepPanel(cycle);
   renderReadyPanel(cycle, []);
   showDtuxPhase(_dtuxActiveTab);
+  // Issue #321 AC2: if the story tab is already visible, drive a direct refresh
+  // rather than relying solely on the lazy-init flag. The flag path is correct but
+  // the async microtask chain in the rest of loadCycleById can race with it.
+  if (_dtuxActiveTab === 'story') _initDtStoryFromRibbon();
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
