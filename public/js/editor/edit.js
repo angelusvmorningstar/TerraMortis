@@ -579,6 +579,17 @@ export function shAdjAttrBonus(attr, delta) {
   _renderSheet(c);
 }
 
+export function shAdjMeritBonus(realIdx, delta) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  ensureMeritSync(c);
+  const m = c.merits[realIdx];
+  if (!m) return;
+  m.bonus = Math.max(0, (m.bonus || 0) + delta);
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shSetClanAttr(val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
