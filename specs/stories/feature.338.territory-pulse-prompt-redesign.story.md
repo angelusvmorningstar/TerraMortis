@@ -1,6 +1,6 @@
 # Story Feature.338: Territory Pulse — Prompt Structure and Filtering Redesign
 
-## Status: ready-for-dev
+## Status: review
 
 ## Metadata
 - issue: 338
@@ -33,21 +33,21 @@ Issue #332 (already shipped) added influence contributors and exceptional ambien
 
 ## Acceptance Criteria
 
-- [ ] `_buildTerritoryPulsePromptText` passes `feeder_cap`, `feeder_count`, and `crowding_gap` as explicit labelled lines in the prompt.
-- [ ] Disciplines are filtered to 2+ uses before prompt assembly; the discipline section is omitted entirely if none qualify.
-- [ ] Influence spend is aggregated by covenant with a weight label (Enormous/Significant/Modest/Light); raw per-character lists are not sent to the model.
-- [ ] Positive contributors below +10 are folded into their covenant aggregate without a name.
-- [ ] Negative contributor names are never present in the prompt — covenant total + weight only.
-- [ ] The "any rumours running through it" phrase is removed from the framing string.
-- [ ] The discipline weaving instruction is replaced with the threshold-only version.
-- [ ] Positive exceptional ambience successes are named in the prompt; negative exceptional successes appear as a count only with no names.
-- [ ] "Show prompt" output in the ST UI reflects all new fields correctly (no new UI work needed — same copy-to-clipboard path).
+- [x] `_buildTerritoryPulsePromptText` passes `feeder_cap`, `feeder_count`, and `crowding_gap` as explicit labelled lines in the prompt.
+- [x] Disciplines are filtered to 2+ uses before prompt assembly; the discipline section is omitted entirely if none qualify.
+- [x] Influence spend is aggregated by covenant with a weight label (Enormous/Significant/Modest/Light); raw per-character lists are not sent to the model.
+- [x] Positive contributors below +10 are folded into their covenant aggregate without a name.
+- [x] Negative contributor names are never present in the prompt — covenant total + weight only.
+- [x] The "any rumours running through it" phrase is removed from the framing string.
+- [x] The discipline weaving instruction is replaced with the threshold-only version.
+- [x] Positive exceptional ambience successes are named in the prompt; negative exceptional successes appear as a count only with no names.
+- [x] "Show prompt" output in the ST UI reflects all new fields correctly (no new UI work needed — same copy-to-clipboard path).
 
 ---
 
 ## Tasks
 
-### Task 1 — Add `feeder_cap` to TERRITORY_DATA
+### Task 1 — Add `feeder_cap` to TERRITORY_DATA ✓
 
 **File:** `public/js/tabs/downtime-data.js`
 
@@ -343,10 +343,29 @@ The new framing string encodes the beat order but not the specific language. The
 
 ---
 
+## Dev Agent Record
+
+### Completion Notes
+
+All 6 tasks implemented in a single full replacement of `_buildTerritoryPulsePromptText`:
+
+- **Task 1:** `feeder_cap` added to all 5 TERRITORY_DATA entries in `downtime-data.js` with placeholder values (4/4/3/4/4) and a TODO comment for ST to confirm.
+- **Task 2:** Discipline threshold changed from `c > 0` to `c >= 2`; weaving instruction updated; discipline block conditionally omitted when no disciplines qualify.
+- **Task 3:** `feederCap`, `feederCount`, `crowdingGap`, `crowdingStr` computed after feeder list is built; appended as labelled lines immediately after `Current ambience`.
+- **Task 4:** Framing replaced in full — "any rumours" phrase removed; beat order (blood quality → discipline residue → covenant fingerprints/direct hands) encoded as numbered list.
+- **Task 5:** `covenantPos`/`covenantNeg` objects replace flat `infPos`/`infNeg` arrays; `_influenceWeight` as local arrow function; individuals named only at +10 or more positive; negative side always covenant-only.
+- **Task 6:** `exceptionalAmbPos` array and `exceptionalAmbNegCount` integer replace flat `exceptionalAmb`; `_ambienceDirection(actionType, pIdx + 1, sub.responses)` used for direction detection.
+
+E2E tests: 21 tests in `tests/issue-338-territory-pulse-prompt-redesign.spec.js` + 22 tests in updated `tests/issue-332-territory-pulse-influence-exceptional.spec.js` — all 43 pass.
+
+Note: `feeder_cap` values are placeholders. ST must confirm per-territory caps before the next cycle's pulses are generated.
+
 ## File List
 
 - `public/js/tabs/downtime-data.js` (Task 1 — add `feeder_cap` to TERRITORY_DATA)
-- `public/js/admin/downtime-views.js` (Tasks 2–6 — all prompt changes in `_buildTerritoryPulsePromptText`)
+- `public/js/admin/downtime-views.js` (Tasks 2–6 — full replacement of `_buildTerritoryPulsePromptText`)
+- `tests/issue-338-territory-pulse-prompt-redesign.spec.js` (21 E2E tests, new)
+- `tests/issue-332-territory-pulse-influence-exceptional.spec.js` (22 E2E tests, updated to match new section headings)
 
 ## Change Log
 

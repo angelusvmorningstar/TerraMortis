@@ -1,17 +1,17 @@
 /**
  * Issue #332 — Territory Pulse: Influence Contributors and Exceptional Project Successes
  *
- * _buildTerritoryPulsePromptText now appends three new sections to every
- * territory's AI prompt:
- *   - Positive influence contributors this cycle
- *   - Negative influence contributors this cycle
- *   - Exceptional ambience project successes this cycle
+ * _buildTerritoryPulsePromptText appends influence and exceptional-ambience sections.
+ * Updated in #338: influence is now aggregated by covenant (not per-character), negative
+ * contributor names are suppressed, and the exceptional section is split into
+ * "Direct hands — Positive (named)" and "Direct hands — Negative (unnamed — count only)".
  *
- * AC1 — Positive influence contributor appears with name, clan, covenant, and +amount
- * AC2 — Negative influence contributor appears with name, clan, covenant, and -amount
- * AC3 — Validated exceptional ambience project contributor appears with name, clan, covenant
+ * AC1 — Positive influence contributor appears with covenant name and weight;
+ *        contributor below +10 is NOT named individually
+ * AC2 — Negative influence contributor appears as covenant + weight; name is suppressed
+ * AC3 — Validated exceptional positive ambience project contributor appears with name/clan/cov
  * AC4 — Sections with no data render "None this cycle."
- * AC5 — Non-exceptional ambience project does NOT appear in the exceptional section
+ * AC5 — Non-exceptional ambience project does NOT appear in Direct hands section
  */
 
 const { test, expect } = require('@playwright/test');
@@ -92,7 +92,7 @@ function makeNegInfluenceSub() {
   };
 }
 
-/** AC3: Validated exceptional ambience project on The North Shore. */
+/** AC3: Validated exceptional positive ambience project on The North Shore. */
 function makeExceptionalAmbSub() {
   return {
     _id: 'sub-exc-amb-332',
@@ -119,7 +119,7 @@ function makeExceptionalAmbSub() {
   };
 }
 
-/** AC5: Non-exceptional ambience project on The North Shore — should NOT appear in exceptional section. */
+/** AC5: Non-exceptional ambience project on The North Shore — should NOT appear in Direct hands section. */
 function makeNonExceptionalAmbSub() {
   return {
     _id: 'sub-nonexc-amb-332',
@@ -203,36 +203,46 @@ async function openPulsePrompt(page, territoryName) {
 
 test.describe('Issue #332 — AC1: Positive influence contributor in prompt', () => {
 
-  test('Academy prompt section heading present', async ({ page }) => {
+  test('Academy prompt covenant fingerprint positive heading present', async ({ page }) => {
     await setup(page, makePosInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
-    expect(text).toContain('Positive influence contributors this cycle:');
+    expect(text).toContain('Covenant fingerprints — Positive:');
   });
 
-  test('Academy prompt includes contributor identity (name, clan, covenant)', async ({ page }) => {
+  test('Academy prompt positive section includes covenant name', async ({ page }) => {
     await setup(page, makePosInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
-    expect(text).toContain('Yusuf al-Khatib');
-    expect(text).toContain('Mehket');
-    expect(text).toContain('Circle of the Crone');
+    const posIdx = text.indexOf('Covenant fingerprints — Positive:');
+    const posSection = text.slice(posIdx, posIdx + 500);
+    expect(posSection).toContain('Circle of the Crone');
   });
 
-  test('Academy prompt shows positive spend amount (+2)', async ({ page }) => {
+  test('Academy prompt positive section does NOT name contributor below +10', async ({ page }) => {
+    // makePosInfluenceSub gives +2 — below the +10 individual naming threshold
     await setup(page, makePosInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
-    expect(text).toContain('(+2)');
+    const posIdx = text.indexOf('Covenant fingerprints — Positive:');
+    const posSection = text.slice(posIdx, posIdx + 500);
+    expect(posSection).not.toContain('Yusuf al-Khatib');
+  });
+
+  test('Academy prompt positive section shows spend total', async ({ page }) => {
+    await setup(page, makePosInfluenceSub());
+    const ta = await openPulsePrompt(page, 'The Academy');
+    const text = await ta.inputValue();
+    expect(text).toContain('total +2');
   });
 
   test('Academy prompt negative section shows None this cycle. when only positive spend exists', async ({ page }) => {
     await setup(page, makePosInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
-    const negIdx = text.indexOf('Negative influence contributors this cycle:');
+    const negIdx = text.indexOf('Covenant fingerprints — Negative (no names — covenant only):');
     expect(negIdx).toBeGreaterThan(-1);
-    const negSection = text.slice(negIdx);
+    const negSection = text.slice(negIdx, negIdx + 200);
     expect(negSection).toContain('None this cycle.');
   });
 
@@ -242,36 +252,45 @@ test.describe('Issue #332 — AC1: Positive influence contributor in prompt', ()
 
 test.describe('Issue #332 — AC2: Negative influence contributor in prompt', () => {
 
-  test('Harbour prompt section heading present', async ({ page }) => {
+  test('Harbour prompt covenant fingerprint negative heading present', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
-    expect(text).toContain('Negative influence contributors this cycle:');
+    expect(text).toContain('Covenant fingerprints — Negative (no names — covenant only):');
   });
 
-  test('Harbour prompt includes contributor identity (name, clan, covenant)', async ({ page }) => {
+  test('Harbour prompt negative section includes covenant name', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
-    expect(text).toContain('Yusuf al-Khatib');
-    expect(text).toContain('Mehket');
-    expect(text).toContain('Circle of the Crone');
+    const negIdx = text.indexOf('Covenant fingerprints — Negative (no names — covenant only):');
+    const negSection = text.slice(negIdx, negIdx + 500);
+    expect(negSection).toContain('Circle of the Crone');
   });
 
-  test('Harbour prompt shows negative spend amount (-1)', async ({ page }) => {
+  test('Harbour prompt negative section does NOT include contributor name', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
-    expect(text).toContain('(-1)');
+    const negIdx = text.indexOf('Covenant fingerprints — Negative (no names — covenant only):');
+    const negSection = text.slice(negIdx, negIdx + 500);
+    expect(negSection).not.toContain('Yusuf al-Khatib');
+  });
+
+  test('Harbour prompt negative section shows spend total', async ({ page }) => {
+    await setup(page, makeNegInfluenceSub());
+    const ta = await openPulsePrompt(page, 'The Harbour');
+    const text = await ta.inputValue();
+    expect(text).toContain('total -1');
   });
 
   test('Harbour prompt positive section shows None this cycle. when only negative spend exists', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
-    const posIdx = text.indexOf('Positive influence contributors this cycle:');
+    const posIdx = text.indexOf('Covenant fingerprints — Positive:');
     expect(posIdx).toBeGreaterThan(-1);
-    const posToNeg = text.slice(posIdx, text.indexOf('Negative influence contributors'));
+    const posToNeg = text.slice(posIdx, text.indexOf('Covenant fingerprints — Negative'));
     expect(posToNeg).toContain('None this cycle.');
   });
 
@@ -279,34 +298,36 @@ test.describe('Issue #332 — AC2: Negative influence contributor in prompt', ()
 
 // ── AC3: Exceptional ambience project success ──────────────────────────────────
 
-test.describe('Issue #332 — AC3: Exceptional ambience project appears in prompt', () => {
+test.describe('Issue #332 — AC3: Exceptional ambience project appears in Direct hands section', () => {
 
-  test('North Shore prompt exceptional section heading present', async ({ page }) => {
+  test('North Shore prompt Direct hands positive heading present', async ({ page }) => {
     await setup(page, makeExceptionalAmbSub());
     const ta = await openPulsePrompt(page, 'The North Shore');
     const text = await ta.inputValue();
-    expect(text).toContain('Exceptional ambience project successes this cycle:');
+    expect(text).toContain('Direct hands — Positive (named):');
   });
 
   test('North Shore prompt lists exceptional contributor by identity', async ({ page }) => {
     await setup(page, makeExceptionalAmbSub());
     const ta = await openPulsePrompt(page, 'The North Shore');
     const text = await ta.inputValue();
-    const excIdx = text.indexOf('Exceptional ambience project successes this cycle:');
+    const excIdx = text.indexOf('Direct hands — Positive (named):');
     expect(excIdx).toBeGreaterThan(-1);
-    const excSection = text.slice(excIdx);
+    const excSection = text.slice(excIdx, excIdx + 300);
     expect(excSection).toContain('Yusuf al-Khatib');
     expect(excSection).toContain('Mehket');
     expect(excSection).toContain('Circle of the Crone');
   });
 
-  test('North Shore exceptional section does NOT show None this cycle.', async ({ page }) => {
+  test('North Shore Direct hands positive section does NOT show None this cycle.', async ({ page }) => {
     await setup(page, makeExceptionalAmbSub());
     const ta = await openPulsePrompt(page, 'The North Shore');
     const text = await ta.inputValue();
-    const excIdx = text.indexOf('Exceptional ambience project successes this cycle:');
-    const excSection = text.slice(excIdx);
-    expect(excSection.trim()).not.toContain('None this cycle.');
+    const excIdx = text.indexOf('Direct hands — Positive (named):');
+    // Slice only up to the start of the Negative section to avoid its "None this cycle."
+    const negIdx = text.indexOf('Direct hands — Negative (unnamed — count only):', excIdx);
+    const excSection = text.slice(excIdx, negIdx > -1 ? negIdx : excIdx + 200);
+    expect(excSection).not.toContain('None this cycle.');
   });
 
 });
@@ -315,64 +336,67 @@ test.describe('Issue #332 — AC3: Exceptional ambience project appears in promp
 
 test.describe('Issue #332 — AC4: Sections with no activity show "None this cycle."', () => {
 
-  test('All three new sections present in prompt for every territory', async ({ page }) => {
+  test('All four new sections present in prompt for every territory', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
-    expect(text).toContain('Positive influence contributors this cycle:');
-    expect(text).toContain('Negative influence contributors this cycle:');
-    expect(text).toContain('Exceptional ambience project successes this cycle:');
+    expect(text).toContain('Covenant fingerprints — Positive:');
+    expect(text).toContain('Covenant fingerprints — Negative (no names — covenant only):');
+    expect(text).toContain('Direct hands — Positive (named):');
+    expect(text).toContain('Direct hands — Negative (unnamed — count only):');
   });
 
-  test('Academy shows None this cycle. in all three sections when only Harbour has spend', async ({ page }) => {
+  test('Academy shows None this cycle. in all four sections when only Harbour has spend', async ({ page }) => {
     // makeNegInfluenceSub puts spend on Harbour; Academy has none
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
     const noneMatches = text.match(/None this cycle\./g) || [];
-    expect(noneMatches.length).toBeGreaterThanOrEqual(3);
+    expect(noneMatches.length).toBeGreaterThanOrEqual(4);
   });
 
-  test('Harbour shows None this cycle. in positive and exceptional sections', async ({ page }) => {
+  test('Harbour shows None this cycle. in positive section when only negative spend exists', async ({ page }) => {
     await setup(page, makeNegInfluenceSub());
     const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
-
-    const posIdx  = text.indexOf('Positive influence contributors this cycle:');
-    const negIdx  = text.indexOf('Negative influence contributors this cycle:');
-    const excIdx  = text.indexOf('Exceptional ambience project successes this cycle:');
-
-    // Between positive heading and negative heading: should contain None
+    const posIdx  = text.indexOf('Covenant fingerprints — Positive:');
+    const negIdx  = text.indexOf('Covenant fingerprints — Negative (no names — covenant only):');
     const posSection = text.slice(posIdx, negIdx);
     expect(posSection).toContain('None this cycle.');
+  });
 
-    // After exceptional heading: should contain None
-    const excSection = text.slice(excIdx);
-    expect(excSection).toContain('None this cycle.');
+  test('Harbour shows None this cycle. in Direct hands negative when no negative exceptional exists', async ({ page }) => {
+    await setup(page, makeNegInfluenceSub());
+    const ta = await openPulsePrompt(page, 'The Harbour');
+    const text = await ta.inputValue();
+    const negDHIdx = text.indexOf('Direct hands — Negative (unnamed — count only):');
+    expect(negDHIdx).toBeGreaterThan(-1);
+    const negDHSection = text.slice(negDHIdx, negDHIdx + 200);
+    expect(negDHSection).toContain('None this cycle.');
   });
 
 });
 
-// ── AC5: Non-exceptional project excluded from exceptional section ──────────────
+// ── AC5: Non-exceptional project excluded from Direct hands section ──────────────
 
-test.describe('Issue #332 — AC5: Non-exceptional ambience project excluded from exceptional section', () => {
+test.describe('Issue #332 — AC5: Non-exceptional ambience project excluded from Direct hands section', () => {
 
-  test('North Shore with non-exceptional project shows None this cycle. in exceptional section', async ({ page }) => {
+  test('North Shore with non-exceptional project shows None this cycle. in Direct hands positive section', async ({ page }) => {
     await setup(page, makeNonExceptionalAmbSub());
     const ta = await openPulsePrompt(page, 'The North Shore');
     const text = await ta.inputValue();
-    const excIdx = text.indexOf('Exceptional ambience project successes this cycle:');
+    const excIdx = text.indexOf('Direct hands — Positive (named):');
     expect(excIdx).toBeGreaterThan(-1);
-    const excSection = text.slice(excIdx);
-    expect(excSection.trim().startsWith('Exceptional ambience project successes this cycle:\n  None this cycle.')).toBe(true);
+    const excSection = text.slice(excIdx, excIdx + 100);
+    expect(excSection).toContain('None this cycle.');
   });
 
-  test('Non-exceptional project contributor does NOT appear in exceptional section', async ({ page }) => {
+  test('Non-exceptional project contributor does NOT appear in Direct hands positive section', async ({ page }) => {
     await setup(page, makeNonExceptionalAmbSub());
     const ta = await openPulsePrompt(page, 'The North Shore');
     const text = await ta.inputValue();
-    const excIdx = text.indexOf('Exceptional ambience project successes this cycle:');
-    const excSection = text.slice(excIdx);
+    const excIdx = text.indexOf('Direct hands — Positive (named):');
+    const excSection = text.slice(excIdx, excIdx + 300);
     expect(excSection).not.toContain('Yusuf al-Khatib');
   });
 

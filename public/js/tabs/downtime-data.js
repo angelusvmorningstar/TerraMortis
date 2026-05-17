@@ -120,12 +120,13 @@ export const AMBIENCE_MODS = {
 // (renamed from `id` in ADR-002 / story #3c). TERRITORY_DATA is reference
 // data only — never used as a foreign key.
 export const TERRITORY_DATA = [
-  { slug: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
-  { slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
-  { slug: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
-  { slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
-  { slug: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3, feeder_cap: 4 },
+  { slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0, feeder_cap: 4 },
+  { slug: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2, feeder_cap: 3 },
+  { slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2, feeder_cap: 4 },
+  { slug: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2, feeder_cap: 4 },
 ];
+// TODO ST: confirm feeder_cap per territory (placeholder values above)
 
 // Helper: generate select options for a numeric range (inclusive)
 function numRange(min, max) {
