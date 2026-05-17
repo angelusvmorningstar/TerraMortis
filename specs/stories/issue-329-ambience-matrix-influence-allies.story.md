@@ -1,6 +1,6 @@
 # Issue #329: Ambience Matrix -- Influence and Allies Columns Always Zero
 
-Status: review
+Status: done
 
 issue: 329
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/329
@@ -39,10 +39,10 @@ so that the projected ambience step per territory is accurate before I confirm a
   - [x] Change `tid` resolution to: ST override first, fall back to `resolveTerrId(linkedQual)`
   - [x] Preserve all existing value / dot / HWV calculation logic unchanged
 
-- [ ] Task 3 -- Smoke test in admin DT City panel (AC: 1, 2, 3, 4)
-  - [ ] Confirm Influence column populates for a submission with non-zero `influence_spend`
-  - [ ] Confirm Allies column populates for a resolved allies ambience_increase action
-  - [ ] Confirm ST override still wins when set
+- [x] Task 3 -- Smoke test in admin DT City panel (AC: 1, 2, 3, 4)
+  - [x] Confirm Influence column populates for a submission with non-zero `influence_spend`
+  - [x] Confirm Allies column populates for a resolved allies ambience_increase action
+  - [x] Confirm ST override still wins when set
 
 ## Dev Notes
 
