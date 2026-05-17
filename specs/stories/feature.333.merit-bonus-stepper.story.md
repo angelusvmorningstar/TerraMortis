@@ -1,6 +1,6 @@
 # Story Feature.333: Merit Manual Bonus Dot Stepper
 
-## Status: review
+## Status: done
 
 ## Metadata
 - issue: 333
@@ -224,7 +224,9 @@ Merits with `m.granted_by` render a different row (`gen-granted-row`). The bonus
 - `public/js/editor/sheet.js`
 - `public/js/admin.js`
 - `public/js/app.js`
+- `tests/issue-333-merit-skill-bonus-stepper.spec.js`
 
 ## Change Log
 
 - feat(#333): add manual bonus dot stepper to general merits (2026-05-17)
+- test(#333): 9 Playwright E2E tests for merit and skill bonus stepper (2026-05-17)
