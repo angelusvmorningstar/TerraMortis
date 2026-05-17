@@ -1549,6 +1549,11 @@ function renderStoryMoment(char, sub, stNarrative) {
     legacyNote     = 'Loaded from Touchstone Vignette';
   }
 
+  // Seed from player's format preference when no ST narrative exists yet
+  if (!sm && !legacyLetter?.response && !legacyTouchstone?.response) {
+    initialFormat = sub.responses?.personal_story_kind === 'touchstone' ? 'vignette' : 'letter';
+  }
+
   const complete   = initialStatus === 'complete';
   const isRevision = initialStatus === 'needs_revision';
   const dotClass   = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
