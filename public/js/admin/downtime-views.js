@@ -2345,12 +2345,11 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   // Task 3: feeder cap / count / crowding gap
-  const feederCap   = territory.feeder_cap ?? '?';
+  // Cap is ambience-derived — same source as the Overfeeding column in buildAmbienceData.
+  const feederCap   = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
   const feederCount = feeders.length;
-  const crowdingGap = typeof feederCap === 'number' ? feederCount - feederCap : '?';
-  const crowdingStr = typeof crowdingGap === 'number'
-    ? (crowdingGap > 0 ? `+${crowdingGap}` : String(crowdingGap))
-    : '?';
+  const crowdingGap = feederCount - feederCap;
+  const crowdingStr = crowdingGap > 0 ? `+${crowdingGap}` : String(crowdingGap);
 
   // Task 5: aggregate influence by covenant; suppress negative names at assembly time
   const covenantPos = {}, covenantNeg = {};

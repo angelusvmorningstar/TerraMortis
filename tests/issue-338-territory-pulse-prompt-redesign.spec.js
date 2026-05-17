@@ -218,13 +218,13 @@ async function openPulsePrompt(page, territoryName) {
 test.describe('Issue #338 — AC1: Feeder cap, count, and crowding gap in prompt', () => {
 
   test('AC1a — Academy prompt includes Feeder cap line', async ({ page }) => {
+    // Academy is Curated → AMBIENCE_FEEDING_TOLERANCE['Curated'] = 7
     await setup(page, { subs: [makeFeedingSub('char-338-yusuf', 'Yusuf al-Khatib', 'the_academy')] });
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
     expect(text).toContain('Feeder cap:');
-    // Academy feeder_cap = 4 in TERRITORY_DATA
     const capLine = text.split('\n').find(l => l.trim().startsWith('Feeder cap:'));
-    expect(capLine).toContain('4');
+    expect(capLine).toContain('7');
   });
 
   test('AC1b — Academy prompt Feeder count matches actual feeder count', async ({ page }) => {
@@ -237,22 +237,22 @@ test.describe('Issue #338 — AC1: Feeder cap, count, and crowding gap in prompt
   });
 
   test('AC1c — Academy prompt Crowding gap is negative when under cap', async ({ page }) => {
-    // 1 feeder, cap 4 → gap −3
+    // 1 feeder, cap 7 (Curated) → gap −6
     await setup(page, { subs: [makeFeedingSub('char-338-yusuf', 'Yusuf al-Khatib', 'the_academy')] });
     const ta = await openPulsePrompt(page, 'The Academy');
     const text = await ta.inputValue();
     const gapLine = text.split('\n').find(l => l.trim().startsWith('Crowding gap:'));
     expect(gapLine).toBeTruthy();
-    expect(gapLine).toContain('-3');
+    expect(gapLine).toContain('-6');
   });
 
-  test('AC1d — Academy prompt Crowding gap is positive when overcrowded (5 feeders, cap 4)', async ({ page }) => {
-    // Five subs with the same character_id — counts as 5 feeders for the crowding calc
-    const subs = [1, 2, 3, 4, 5].map(i =>
-      makeFeedingSub('char-338-yusuf', 'Yusuf al-Khatib', 'the_academy', `-oc${i}`)
+  test('AC1d — Harbour prompt Crowding gap is positive when overcrowded (6 feeders, cap 5)', async ({ page }) => {
+    // Harbour is Untended → AMBIENCE_FEEDING_TOLERANCE['Untended'] = 5; 6 feeders → gap +1
+    const subs = [1, 2, 3, 4, 5, 6].map(i =>
+      makeFeedingSub('char-338-yusuf', 'Yusuf al-Khatib', 'the_harbour', `-oc${i}`)
     );
     await setup(page, { subs });
-    const ta = await openPulsePrompt(page, 'The Academy');
+    const ta = await openPulsePrompt(page, 'The Harbour');
     const text = await ta.inputValue();
     const gapLine = text.split('\n').find(l => l.trim().startsWith('Crowding gap:'));
     expect(gapLine).toBeTruthy();
