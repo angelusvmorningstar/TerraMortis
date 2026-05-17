@@ -2326,8 +2326,10 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   const ambience = _territoryAmbienceLabel(territory);
   const oid = _terrOidForSlug(territory.slug);
   const profile  = (oid && cycle?.discipline_profile?.[oid]) || {};
+
+  // Task 2: threshold filter — only disciplines used 2+ times reach the prompt
   const discsUsed = Object.entries(profile)
-    .filter(([, c]) => c > 0)
+    .filter(([, c]) => c >= 2)
     .sort(([a], [b]) => a.localeCompare(b));
 
   const feeders = [];
@@ -2342,8 +2344,15 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   }
   feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
-  // Influence contributors for this territory
-  const infPos = [], infNeg = [];
+  // Task 3: feeder cap / count / crowding gap
+  // Cap is ambience-derived — same source as the Overfeeding column in buildAmbienceData.
+  const feederCap   = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
+  const feederCount = feeders.length;
+  const crowdingGap = feederCount - feederCap;
+  const crowdingStr = crowdingGap > 0 ? `+${crowdingGap}` : String(crowdingGap);
+
+  // Task 5: aggregate influence by covenant; suppress negative names at assembly time
+  const covenantPos = {}, covenantNeg = {};
   for (const sub of subs || []) {
     let infObj = {};
     try { infObj = JSON.parse(sub.responses?.influence_spend || '{}'); } catch { infObj = {}; }
@@ -2352,15 +2361,34 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
       const val = Number(v) || 0;
       if (!val) continue;
       const char = charById.get(String(sub.character_id));
-      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
-      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
-      if (val > 0) infPos.push(`  - ${identity} (+${val})`);
-      else         infNeg.push(`  - ${identity} (${val})`);
+      const cov = char?.covenant || 'Unknown';
+      if (val > 0) {
+        if (!covenantPos[cov]) covenantPos[cov] = { total: 0, named: [] };
+        covenantPos[cov].total += val;
+        if (val >= 10) {
+          const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+          covenantPos[cov].named.push(`${name}${char?.clan ? ', ' + char.clan : ''} (+${val})`);
+        }
+      } else {
+        if (!covenantNeg[cov]) covenantNeg[cov] = { total: 0 };
+        covenantNeg[cov].total += val;
+      }
     }
   }
 
-  // Exceptional ambience project successes for this territory
-  const exceptionalAmb = [];
+  const _influenceWeight = absTotal => absTotal >= 40 ? 'enormous' : absTotal >= 15 ? 'significant' : absTotal >= 5 ? 'modest' : 'light';
+
+  const infPosLines = Object.entries(covenantPos).map(([cov, { total, named }]) => {
+    const base = `  - ${cov}: total +${total} (weight: ${_influenceWeight(total)})`;
+    return named.length ? base + '\n    Named individuals (10+): ' + named.join('; ') : base;
+  });
+  const infNegLines = Object.entries(covenantNeg).map(([cov, { total }]) =>
+    `  - ${cov}: total ${total} (weight: ${_influenceWeight(Math.abs(total))})`
+  );
+
+  // Task 6: split exceptional ambience by direction — positive named, negative count only
+  const exceptionalAmbPos = [];
+  let exceptionalAmbNegCount = 0;
   for (const sub of subs || []) {
     for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
       if (proj?.pool_status !== 'validated') continue;
@@ -2368,45 +2396,58 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
       const actionType = proj.action_type_override || proj.action_type;
       if (!_isAmbienceAction(actionType)) continue;
       if (_resolveProjectTerritory(sub, pIdx) !== territory.slug) continue;
-      const char = charById.get(String(sub.character_id));
-      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
-      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
-      exceptionalAmb.push(`  - ${identity}`);
+      const direction = _ambienceDirection(actionType, pIdx + 1, sub.responses);
+      if (direction === 'increase') {
+        const char = charById.get(String(sub.character_id));
+        const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+        exceptionalAmbPos.push(`  - ${[name, char?.clan, char?.covenant].filter(Boolean).join(', ')}`);
+      } else {
+        exceptionalAmbNegCount++;
+      }
     }
   }
 
-  const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2nd Edition LARP. The pulse describes the current atmosphere of the territory after a cycle of activity. Write 100 to 200 words of atmospheric prose covering what the place feels like right now, any rumours running through it, and how the recent activity has shaped its mood. Use British English. Do not invent specific characters or events not present in the inputs.`;
+  // Task 4: new framing — rumours directive removed; beat order encoded
+  const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2e LARP.\n\nThe pulse is written to the vampires who fed in this territory this cycle. It gives them the lived sense of the place after a month of activity. Use British English. Do not use em-dashes. Do not invent specific characters or events not present in the inputs. 100 to 200 words.\n\nCover, in order:\n1. Blood quality and feeding pressure. Use the ambience state and the crowding gap to calibrate how the blood tastes and how crowded the hunting felt.\n2. Discipline residue in mortal behaviour, only for disciplines that crossed the threshold (used twice or more). If none crossed, skip this beat entirely.\n3. Covenant fingerprints and direct hands. Describe each contributing covenant by overall weight (enormous, significant, modest, light). Name named-positive-individuals directly as visible points of their covenant's effort. The negative side is described by covenant only, never named. Direct hands (exceptional ambience project successes) on the positive side are named openly as seen doing the work. Direct hands on the negative side are not named; the territory feels the damage without knowing the hand.`;
 
   const lines = [
     framing,
     '',
     `Territory: ${territory.name}`,
     `Current ambience: ${ambience}`,
+    `Feeder cap:    ${feederCap}`,
+    `Feeder count:  ${feederCount}`,
+    `Crowding gap:  ${crowdingStr} (positive = overcrowded, negative = underfed, zero = at capacity)`,
     '',
-    'Disciplines used in this territory this cycle:',
+    discsUsed.length ? 'Disciplines used twice or more this cycle:' : null,
     discsUsed.length
-      ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} time${c === 1 ? '' : 's'})`).join('\n')
-      : '  None recorded this cycle.',
-    '',
-    'Territorial vibe effects of disciplines used (weave these into the prose where disciplines were recorded above):',
+      ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} times)`).join('\n')
+      : null,
+    discsUsed.length ? '' : null,
+    discsUsed.length ? 'Territorial vibe effects (disciplines used twice or more — weave these into the prose; ignore disciplines used only once):' : null,
     discsUsed.length
       ? discsUsed.map(([d]) => _DISCIPLINE_TERRITORIAL_EFFECTS[d] ? `  - ${d}: ${_DISCIPLINE_TERRITORIAL_EFFECTS[d]}` : null).filter(Boolean).join('\n') || '  None with known territorial effects.'
-      : '  None recorded this cycle.',
+      : null,
     '',
     'Players who fed here this cycle:',
     feeders.length
       ? feeders.map(f => `  - ${f.name}${f.method ? ` (${f.method})` : ''}`).join('\n')
       : '  None recorded this cycle.',
     '',
-    'Positive influence contributors this cycle:',
-    infPos.length ? infPos.join('\n') : '  None this cycle.',
+    'Covenant fingerprints — Positive:',
+    infPosLines.length ? infPosLines.join('\n') : '  None this cycle.',
     '',
-    'Negative influence contributors this cycle:',
-    infNeg.length ? infNeg.join('\n') : '  None this cycle.',
+    'Covenant fingerprints — Negative (no names — covenant only):',
+    infNegLines.length ? infNegLines.join('\n') : '  None this cycle.',
     '',
-    'Exceptional ambience project successes this cycle:',
-    exceptionalAmb.length ? exceptionalAmb.join('\n') : '  None this cycle.',
-  ];
+    'Direct hands — Positive (named):',
+    exceptionalAmbPos.length ? exceptionalAmbPos.join('\n') : '  None this cycle.',
+    '',
+    'Direct hands — Negative (unnamed — count only):',
+    exceptionalAmbNegCount > 0
+      ? `  ${exceptionalAmbNegCount} negative exceptional ambience success${exceptionalAmbNegCount === 1 ? '' : 'es'} — the territory carries the damage without a visible hand.`
+      : '  None this cycle.',
+  ].filter(l => l != null);
   return lines.join('\n');
 }
 
