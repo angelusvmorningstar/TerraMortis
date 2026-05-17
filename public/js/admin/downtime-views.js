@@ -2526,6 +2526,39 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   }
   feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
+  // Influence contributors for this territory
+  const infPos = [], infNeg = [];
+  for (const sub of subs || []) {
+    let infObj = {};
+    try { infObj = JSON.parse(sub.responses?.influence_spend || '{}'); } catch { infObj = {}; }
+    for (const [k, v] of Object.entries(infObj)) {
+      if (resolveTerrId(k) !== territory.slug) continue;
+      const val = Number(v) || 0;
+      if (!val) continue;
+      const char = charById.get(String(sub.character_id));
+      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
+      if (val > 0) infPos.push(`  - ${identity} (+${val})`);
+      else         infNeg.push(`  - ${identity} (${val})`);
+    }
+  }
+
+  // Exceptional ambience project successes for this territory
+  const exceptionalAmb = [];
+  for (const sub of subs || []) {
+    for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
+      if (proj?.pool_status !== 'validated') continue;
+      if (!proj?.roll?.exceptional) continue;
+      const actionType = proj.action_type_override || proj.action_type;
+      if (!_isAmbienceAction(actionType)) continue;
+      if (_resolveProjectTerritory(sub, pIdx) !== territory.slug) continue;
+      const char = charById.get(String(sub.character_id));
+      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
+      exceptionalAmb.push(`  - ${identity}`);
+    }
+  }
+
   const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2nd Edition LARP. The pulse describes the current atmosphere of the territory after a cycle of activity. Write 100 to 200 words of atmospheric prose covering what the place feels like right now, any rumours running through it, and how the recent activity has shaped its mood. Use British English. Do not invent specific characters or events not present in the inputs.`;
 
   const lines = [
@@ -2543,6 +2576,15 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
     feeders.length
       ? feeders.map(f => `  - ${f.name}${f.method ? ` (${f.method})` : ''}`).join('\n')
       : '  None recorded this cycle.',
+    '',
+    'Positive influence contributors this cycle:',
+    infPos.length ? infPos.join('\n') : '  None this cycle.',
+    '',
+    'Negative influence contributors this cycle:',
+    infNeg.length ? infNeg.join('\n') : '  None this cycle.',
+    '',
+    'Exceptional ambience project successes this cycle:',
+    exceptionalAmb.length ? exceptionalAmb.join('\n') : '  None this cycle.',
   ];
   return lines.join('\n');
 }
