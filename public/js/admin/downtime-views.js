@@ -3796,7 +3796,7 @@ function _gatherInfluence(subs) {
   const infPos = {}, infNeg = {};
   for (const sub of subs) {
     let infObj = {};
-    try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
+    try { infObj = JSON.parse(sub.responses?.influence_spend || '{}'); } catch { infObj = {}; }
     // Handle legacy format (array of names from old uploads) — treat each as +1
     if (Array.isArray(infObj)) {
       for (const k of infObj) {
@@ -3907,10 +3907,11 @@ function _gatherMeritAmbience(subs) {
         const parsed = _parseMeritType(action.merit_type || '');
         if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
           if (resolvedAct?.pool_status === 'resolved') {
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '');
+            // Prefer ST-linked qualifier over parsed submission text; used for territory fallback too
+            const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
+            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '')
+                     || resolveTerrId(linkedQual || '');
             if (tid) {
-              // Prefer ST-linked qualifier over parsed submission text
-              const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
                 (m.qualifier || m.area || '').toLowerCase() === linkedQual.toLowerCase()
