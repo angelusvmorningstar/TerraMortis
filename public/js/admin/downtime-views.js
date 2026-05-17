@@ -7836,11 +7836,31 @@ function _renderActionTypeRow(entry, rev, char) {
     }
     // merit ambience: territory handled via isAlliesAction pills below
   } else if (!isMerit) {
-    // All other project action types get territory pills inline
-    const _projCtx = String(entry.actionIdx);
-    const _projSub = submissions.find(s => s._id === entry.subId);
-    const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
-    h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+    if (entry.originalActionType === 'rote') {
+      // Rote feed: single row writing to feeding_rote (what the matrix reads)
+      const _roteSub = submissions.find(s => s._id === entry.subId);
+      const _roteOvrArr = _roteSub?.st_review?.territory_overrides?.feeding_rote;
+      let _rotePillSet;
+      if (Array.isArray(_roteOvrArr)) {
+        _rotePillSet = new Set(_roteOvrArr);
+      } else {
+        _rotePillSet = new Set();
+        try {
+          const _roteGrid = JSON.parse(_roteSub?.responses?.feeding_territories_rote || '{}');
+          for (const [slug, status] of Object.entries(_roteGrid)) {
+            if (!status || status === 'none' || status === 'Not feeding here') continue;
+            const tid = TERRITORY_SLUG_MAP[slug];
+            if (tid) _rotePillSet.add(tid);
+          }
+        } catch { /* ignore */ }
+      }
+      h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
+    } else {
+      const _projCtx = String(entry.actionIdx);
+      const _projSub = submissions.find(s => s._id === entry.subId);
+      const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+    }
   }
 
   // Merit: merit-link dropdown (allies/status/retainer/contacts/staff) + territory pills
@@ -8078,29 +8098,6 @@ function renderActionPanel(entry, review) {
       if (entry.actionType === 'feed') {
         const _nomText = _playerFeedTerrsText(projSub2);
         if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
-      }
-      // For rote feed projects, also show rote territory + ST override pills
-      if (entry.actionType === 'feed' && entry.originalActionType === 'rote') {
-        const _roteNomText = _playerRoteFeedTerrsText(projSub2);
-        if (_roteNomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rote territories (player)</span> ${esc(_roteNomText)}</div>`;
-        const _roteOvrArr = projSub2?.st_review?.territory_overrides?.feeding_rote;
-        let _rotePillSet;
-        if (Array.isArray(_roteOvrArr)) {
-          _rotePillSet = new Set(_roteOvrArr);
-        } else {
-          _rotePillSet = new Set();
-          try {
-            const _roteGrid = JSON.parse(projSub2?.responses?.feeding_territories_rote || '{}');
-            for (const [slug, status] of Object.entries(_roteGrid)) {
-              if (!status || status === 'none' || status === 'Not feeding here') continue;
-              const tid = TERRITORY_SLUG_MAP[slug];
-              if (tid) _rotePillSet.add(tid);
-            }
-          } catch { /* ignore */ }
-        }
-        h += `<div class="proc-recat-row">`;
-        h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
-        h += `</div>`;
       }
       // Characters Involved (read-only — structural, not editable here)
       if (entry.projCast) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
@@ -10188,24 +10185,6 @@ function _playerFeedTerrsText(sub) {
       const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
       if (mt) labels.push(mt.label);
     }
-  }
-  return labels.length > 0 ? labels.join(', ') : null;
-}
-
-/** Return a display string of the player's nominated rote feeding territories (feeding_territories_rote grid). */
-function _playerRoteFeedTerrsText(sub) {
-  let roteGrid = null;
-  if (sub?.responses?.feeding_territories_rote) {
-    try { roteGrid = JSON.parse(sub.responses.feeding_territories_rote); } catch { roteGrid = null; }
-  }
-  if (!roteGrid) return null;
-  const labels = [];
-  for (const [slug, status] of Object.entries(roteGrid)) {
-    if (!status || status === 'none' || status === 'Not feeding here') continue;
-    const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
-    if (!tid) continue;
-    const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-    if (mt) labels.push(mt.label);
   }
   return labels.length > 0 ? labels.join(', ') : null;
 }
