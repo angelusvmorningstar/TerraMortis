@@ -213,6 +213,10 @@ Contacts has its own separate render block (not in `nonContacts.forEach`). Its d
 
 All 4 tasks implemented and verified. E2E test file written covering AC1 (influence edit hollow dot increment), AC1b (two up, one down), AC3 (domain edit hollow dot increment), AC5 (influence total unchanged), AC6 (PUT payload includes bonus).
 
+### QA Findings (addressed)
+
+**Bug found during QA (AC4 failure):** Task 4b incorrectly added `mBon` to `_dRaw`, which is used as the filled-dot count in `shDotsMixed`. This caused `de - dPurch` to go negative (clamped to 0), so no hollow dots appeared in view mode for plain domain merits. Fixed by removing `mBon` from `_dRaw` and instead adding it to the hollow side: `shDotsMixed(dPurch, Math.max(0, de - dPurch) + mBon)`. `_viewStored` retains `mBon` as capped merits (Haven/MG) use a different formula. Added AC2 and AC4 view-mode tests which caught this regression.
+
 ## File List
 
 - `public/js/editor/sheet.js` (Tasks 1–4)
@@ -222,3 +226,5 @@ All 4 tasks implemented and verified. E2E test file written covering AC1 (influe
 
 - fix(#335): include m.bonus in influence and domain merit dot display (2026-05-17)
 - test(#335): E2E Playwright tests for influence/domain merit bonus dot display (2026-05-17)
+- fix(#335): correct domain view-mode hollow-dot formula; mBon on hollow side not filled side (2026-05-17)
+- test(#335): add AC2/AC4 view-mode tests that caught the formula regression (2026-05-17)
