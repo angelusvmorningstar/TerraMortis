@@ -58,6 +58,15 @@ const TEST_CHAR = {
   powers: [], ordeals: [],
 };
 
+// Character variant with bonus pre-set to 1 on both merits (for view-mode tests)
+const TEST_CHAR_BON = {
+  ...TEST_CHAR,
+  merits: [
+    { name: 'Allies', category: 'influence', cp: 2, xp: 0, bonus: 1, area: 'Academic' },
+    { name: 'Safe Place', category: 'domain', cp: 2, xp: 0, bonus: 1, qualifier: 'Penthouse' },
+  ],
+};
+
 // ── Setup helpers ─────────────────────────────────────────────────────────────
 
 let lastPutBody = null;
@@ -91,6 +100,41 @@ async function setup(page) {
     if (url.includes('/api/players'))                     return ok([]);
     return ok([]);
   });
+}
+
+async function setupWithBonus(page) {
+  lastPutBody = null;
+  await page.addInitScript(({ user }) => {
+    localStorage.setItem('tm_auth_token', 'local-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, { user: ST_USER });
+
+  await page.route('http://localhost:3000/**', route => {
+    const url    = route.request().url();
+    const method = route.request().method();
+    const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+    if (method === 'PUT') { lastPutBody = route.request().postDataJSON(); return ok({ ok: true }); }
+    if (method === 'PATCH' || method === 'POST') return ok({ ok: true });
+    if (url.match(/\/api\/characters\/char-335-001$/))   return ok(TEST_CHAR_BON);
+    if (url.includes('/api/characters/names'))            return ok([{ _id: TEST_CHAR_BON._id, name: TEST_CHAR_BON.name, moniker: null, honorific: null }]);
+    if (url.includes('/api/characters'))                  return ok([TEST_CHAR_BON]);
+    if (url.includes('/api/territories'))                 return ok([]);
+    if (url.includes('/api/game_sessions'))               return ok([]);
+    if (url.includes('/api/session_logs'))                return ok([]);
+    if (url.includes('/api/downtime_cycles'))             return ok([]);
+    if (url.includes('/api/downtime_submissions'))        return ok([]);
+    if (url.includes('/api/players'))                     return ok([]);
+    return ok([]);
+  });
+}
+
+async function openSheet(page) {
+  await page.goto('http://localhost:8080/admin.html');
+  await page.waitForSelector('.char-card', { timeout: 10000 });
+  await page.locator('.char-card').first().click();
+  await page.waitForSelector('.sh-sec-title', { timeout: 8000 });
 }
 
 async function openEditor(page) {
@@ -204,6 +248,33 @@ test.describe('Issue #335 — Influence and Domain merit bonus dot display', () 
       expect(allies).toBeTruthy();
       expect(allies.bonus).toBe(1);
     }
+  });
+
+});
+
+// ── View-mode tests ───────────────────────────────────────────────────────────
+
+test.describe('Issue #335 — View-mode hollow dot display (bonus pre-set)', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await setupWithBonus(page);
+    await openSheet(page);
+  });
+
+  // ── AC2: Influence merit view mode ─────────────────────────────────────────
+  test('AC2 — Influence merit view mode: hollow dot visible when bonus = 1', async ({ page }) => {
+    const inflSection = page.locator('.sh-sec').filter({ hasText: 'Influence Merits' });
+    await inflSection.waitFor({ timeout: 5000 });
+    const sectionText = await inflSection.textContent();
+    expect((sectionText.match(/○/g) || []).length).toBeGreaterThan(0);
+  });
+
+  // ── AC4: Domain merit view mode ────────────────────────────────────────────
+  test('AC4 — Domain merit view mode: hollow dot visible when bonus = 1', async ({ page }) => {
+    const domSection = page.locator('.sh-sec').filter({ hasText: 'Domain Merits' });
+    await domSection.waitFor({ timeout: 5000 });
+    const sectionText = await domSection.textContent();
+    expect((sectionText.match(/○/g) || []).length).toBeGreaterThan(0);
   });
 
 });
