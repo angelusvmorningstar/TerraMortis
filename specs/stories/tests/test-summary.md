@@ -1,3 +1,32 @@
+# Test Automation Summary — Issue #327 Feeding matrix rote+normal double-feed
+
+**Date:** 2026-05-17
+**Author:** Quinn (QA)
+**Scope:** Playwright E2E coverage for the _getSubFedTerrs early-return fix, the
+feeding_rote override priority, and the rote feed territory pill row (AC1–AC5).
+
+## Generated Tests
+
+### E2E (Playwright)
+- [x] `tests/issue-327-feeding-matrix-rote-double-feed.spec.js` — 8 tests
+
+## Coverage
+
+| Behaviour | Test |
+|---|---|
+| ST override array + rote grid both count → OO (AC1, Ivana pattern) | `Ivana: ST override array + rote grid → NShore shows "O O"` |
+| Override+rote produces exactly "O O" not "O" (AC1 exact) | `Ivana: ST override + rote grid → NShore is NOT showing single "O"` |
+| No override, both grids match → OO regression (AC2, Keeper/Tegan) | `No override, both grids match → NShore shows "O O"` |
+| Override without rote slot → single O only (AC3) | `ST override present, no rote project action → NShore shows single "O"` |
+| feeding_rote override replaces player all-none rote grid (AC4) | `Player rote grid all-none + feeding_rote override → NShore shows "O O"` |
+| Rote feed entry has feeding_rote pill row (AC5) | `Rote feed entry expansion shows territory pill row with context feeding_rote` |
+| N. Shore pill present in feeding_rote row (AC5) | `Rote feed pills include North Shore pill` |
+| N. Shore pill pre-selected from player rote grid (AC5) | `Rote feed pills pre-select NShore when player rote grid declares it` |
+
+## All 8 tests pass.
+
+---
+
 # Test Automation Summary — JDT-5 compilePushOutcome joint injection
 
 **Date:** 2026-04-27
