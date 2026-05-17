@@ -431,7 +431,8 @@ export const characterSchema = {
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },
         attached_to:    { type: ['string', 'null'] },
-        rule_key: { type: ['string', 'null'] }
+        rule_key: { type: ['string', 'null'] },
+        bonus:    { type: 'integer', minimum: 0 }
       },
       additionalProperties: false
     },
