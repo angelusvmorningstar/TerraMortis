@@ -468,6 +468,14 @@ function formatPool(pool) {
 
 // ── Copy context header helpers ───────────────────────────────────────────────
 
+/** Case-insensitive substring check for previous-artefact NPC validation.
+ *  Returns content if targetName is absent or found; null otherwise. */
+function _storyMomentNameCheck(content, targetName) {
+  if (!content) return null;
+  if (!targetName) return content;
+  return content.toLowerCase().includes(targetName.toLowerCase()) ? content : null;
+}
+
 /** "Lord Marcus — Ventrue / Invictus — The Politician" */
 function _compactCharHeader(char) {
   const name  = [char?.honorific, char ? displayName(char) : 'Unknown'].filter(Boolean).join(' ');
@@ -1478,7 +1486,7 @@ function buildLetterContext(char, sub, opts = {}) {
   }
 
   lines.push('');
-  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -1489,7 +1497,8 @@ function buildLetterContext(char, sub, opts = {}) {
  * Assembles the Copy Context prompt for the Touchstone Vignette section.
  * Pure function — no side effects, no DOM access.
  */
-function buildTouchstoneContext(char, sub) {
+function buildTouchstoneContext(char, sub, opts = {}) {
+  const { prevVignette = null, prevCycleNumber = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
@@ -1510,8 +1519,14 @@ function buildTouchstoneContext(char, sub) {
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
+  if (prevVignette) {
+    lines.push('');
+    lines.push(`Previous vignette with this touchstone (Downtime ${prevCycleNumber ?? '?'}):`);
+    lines.push(prevVignette.trim());
+  }
+
   lines.push('');
-  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -3417,14 +3432,10 @@ async function handleCopyStoryMomentContext(btn) {
   const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
   const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
-  if (format === 'vignette') {
-    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
-    return;
-  }
-
-  // Letter format: assemble previous-cycle correspondence + story-moment target,
-  // same as the pre-DTSR-2 handleCopyLetterContext logic.
-  let prevCorrespondence = null;
+  // ── Previous-cycle fetch (shared by both paths) ───────────────────────────
+  let prevStoryMoment    = null;
+  let prevLegacyLetter   = null;
+  let prevLegacyVignette = null;
   let prevCycleNumber    = null;
   try {
     const cycleId   = _currentSub.cycle_id;
@@ -3439,19 +3450,17 @@ async function handleCopyStoryMomentContext(btn) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
           .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
-          || prevSub?.st_narrative?.letter_from_home?.response
-          || null;
-        prevCycleNumber = prevCycle.game_number;
+        if (prevSub) {
+          prevStoryMoment    = prevSub.st_narrative?.story_moment || null;
+          prevLegacyLetter   = prevSub.st_narrative?.letter_from_home?.response || null;
+          prevLegacyVignette = prevSub.st_narrative?.touchstone?.response || null;
+          prevCycleNumber    = prevCycle.game_number;
+        }
       }
     }
   } catch { /* leave nulls */ }
 
-  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
-    || _currentSub.st_narrative?.letter_from_home?.voice_note
-    || null;
-
-  // NPCR.12: resolve story-moment relationship target name for the prompt.
+  // ── NPCR.12: resolve story-moment relationship target name ────────────────
   let storyMomentTarget = null;
   const relId = _currentSub.responses?.story_moment_relationship_id;
   if (relId) {
@@ -3477,8 +3486,41 @@ async function handleCopyStoryMomentContext(btn) {
     } catch { /* leave null */ }
   }
 
+  // ── Format-gated previous content ────────────────────────────────────────
+  // story_moment.format is 'letter' or 'vignette'. Legacy fields are
+  // unambiguous by name (letter_from_home / touchstone).
+  // If story_moment exists but has no format field (old data), neither
+  // gated path fires — legacy fallbacks cover that case.
+  const prevLetterText = (prevStoryMoment?.format === 'letter' && prevStoryMoment.response)
+    ? prevStoryMoment.response
+    : prevLegacyLetter;
+
+  const prevVignetteText = (prevStoryMoment?.format === 'vignette' && prevStoryMoment.response)
+    ? prevStoryMoment.response
+    : prevLegacyVignette;
+
+  const targetName = storyMomentTarget?.name || null;
+  const prevCorrespondenceValidated = _storyMomentNameCheck(prevLetterText, targetName);
+  const prevVignetteValidated       = _storyMomentNameCheck(prevVignetteText, targetName);
+
+  // ── Branch on format ──────────────────────────────────────────────────────
+  if (format === 'vignette') {
+    copyToClipboard(buildTouchstoneContext(char, _currentSub, {
+      prevVignette: prevVignetteValidated,
+      prevCycleNumber,
+    }), btn);
+    return;
+  }
+
+  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
+    || _currentSub.st_narrative?.letter_from_home?.voice_note
+    || null;
+
   const text = buildLetterContext(char, _currentSub, {
-    prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
+    prevCorrespondence: prevCorrespondenceValidated,
+    prevCycleNumber,
+    stVoiceNote,
+    storyMomentTarget,
   });
   copyToClipboard(text, btn);
 }
