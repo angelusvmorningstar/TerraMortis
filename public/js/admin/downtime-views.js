@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -148,6 +148,18 @@ const ALL_ACTION_TYPES = [
 // type strings; direction is derived from the type itself for legacy or
 // from the responses bag for canonical.
 const _AMBIENCE_ACTION_TYPES = new Set(['ambience_change', 'ambience_increase', 'ambience_decrease']);
+
+const _DISCIPLINE_TERRITORIAL_EFFECTS = {
+  Animalism:  'Feral edge, heightened animal activity, lower inhibitions, territoriality',
+  Auspex:     'Feeling of being watched, paranoia, superstition, ghost sightings, out of body experiences',
+  Dominate:   'Forgetfulness, complacency, compliance, passivity, docility, confusion, rigidity',
+  Majesty:    'Salacious activity, lasciviousness, obsessive behaviour, stalking, adultery, jealousy, heightened passions',
+  Nightmare:  'Fear, dread, paranoia, nightmares, delusions, insomnia, restlessness',
+  Obfuscate:  'Long shadows, things seen in peripheral vision, losing things, getting lost, disconnectedness, isolation, quietude, false identity, loneliness, vagrancy',
+  Protean:    'Desire for body modification, dysphoria, outlandishness, provocative fashion, counter-cultural, hyper fitness, dysmorphia, rebelliousness',
+  Cruac:      'Dionysian excess, wantonness, rebelliousness, corruption, primal energy, ecstasis, frenzy, debauchery',
+  Theban:     'Judgmental atmosphere, righteousness, prideful piety, rapture, guilt, sternness, rigidity, certitude',
+};
 function _isAmbienceAction(actionType) {
   return _AMBIENCE_ACTION_TYPES.has(actionType);
 }
@@ -348,8 +360,10 @@ let _dtuxStoryInited = false;
 async function _initDtStoryFromRibbon() {
   // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
   // anyway, so the module-state coupling is fine.
+  // Issue #321: pass the dropdown's current cycle so DT Story shows the cycle
+  // the ST is actually viewing, not whatever the internal resolver picks.
   const { initDtStory } = await import('./downtime-story.js');
-  initDtStory(null);
+  initDtStory(currentCycle?._id || null);
 }
 
 async function _handleSignoffClick(btn) {
@@ -524,6 +538,15 @@ export async function initDowntimeView(passedChars) {
     document.addEventListener('focusout', e => {
       const aqNote = e.target.closest('.dt-action-queue-note-input');
       if (aqNote) { _handleActionQueueNoteSave(aqNote); return; }
+      // Issue #320 (third pass): live processing-queue description textareas.
+      // The cards have Save buttons that bundle these fields with others — blur-save
+      // covers the high-risk long-text fields so a re-render mid-typing can't wipe them.
+      const procFeedDesc = e.target.closest('.proc-feed-desc-ta');
+      if (procFeedDesc) { _handleProcFieldBlur(procFeedDesc, 'description'); return; }
+      const procMeritDesc = e.target.closest('.proc-merit-desc-ta');
+      if (procMeritDesc) { _handleProcFieldBlur(procMeritDesc, 'description'); return; }
+      const procSorcNotes = e.target.closest('.proc-sorc-notes-input');
+      if (procSorcNotes) { _handleProcFieldBlur(procSorcNotes, 'sorc_notes'); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -1174,6 +1197,10 @@ async function loadCycleById(cycleId) {
   currentCycle = cycle;
   cycleReminders = cycle.processing_reminders || [];
   cachedTerritories = null; // refresh territory ambience on next processing render
+  // Issue #321: invalidate DT Story's lazy-init cache so the next tab-show
+  // re-fetches submissions for the newly-selected cycle. Without this,
+  // switching the dropdown leaves DT Story showing the previous cycle's data.
+  _dtuxStoryInited = false;
 
   const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
@@ -1215,6 +1242,10 @@ async function loadCycleById(cycleId) {
   renderPrepPanel(cycle);
   renderReadyPanel(cycle, []);
   showDtuxPhase(_dtuxActiveTab);
+  // Issue #321 AC2: if the story tab is already visible, drive a direct refresh
+  // rather than relying solely on the lazy-init flag. The flag path is correct but
+  // the async microtask chain in the rest of loadCycleById can race with it.
+  if (_dtuxActiveTab === 'story') _initDtStoryFromRibbon();
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
@@ -1659,60 +1690,6 @@ function renderPlayerResponses(s) {
   return h;
 }
 
-// ── ST Notes ────────────────────────────────────────────────────────────────
-
-function renderStNotes(s, raw) {
-  const csvNotes = raw.meta?.st_notes || '';
-  const savedNotes = s.st_notes || '';
-  const currentNotes = savedNotes || csvNotes;
-  const xpSpend = raw.meta?.xp_spend || '';
-
-  let h = '<div class="dt-notes-detail">';
-  h += '<div class="dt-feed-header">ST Notes</div>';
-
-  if (csvNotes && !savedNotes) {
-    h += `<div class="dt-notes-csv"><span class="dt-feed-lbl">From CSV</span> ${esc(csvNotes)}</div>`;
-  }
-
-  h += `<textarea class="dt-notes-input" data-sub-id="${s._id}" placeholder="ST notes (hidden from players)">${esc(currentNotes)}</textarea>`;
-  h += `<div class="dt-notes-actions">
-    <button class="dt-btn dt-notes-save" data-sub-id="${s._id}">Save Notes</button>
-    <span class="dt-notes-vis">Visibility: ST only</span>
-  </div>`;
-
-  if (xpSpend) {
-    h += `<div class="dt-notes-xp"><span class="dt-feed-lbl">XP Spend</span> ${esc(xpSpend)}</div>`;
-  }
-
-  h += '</div>';
-  return h;
-}
-
-async function handleSaveNotes(subId) {
-  const textarea = document.querySelector(`.dt-notes-input[data-sub-id="${subId}"]`);
-  if (!textarea) return;
-
-  const notes = textarea.value.trim();
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-
-  try {
-    await updateSubmission(subId, {
-      st_notes: notes,
-      st_notes_visibility: 'st_only',
-      st_notes_updated: new Date().toISOString(),
-    });
-    sub.st_notes = notes;
-
-    const btn = document.querySelector(`.dt-notes-save[data-sub-id="${subId}"]`);
-    if (btn) { btn.textContent = 'Saved \u2713'; setTimeout(() => { btn.textContent = 'Save Notes'; }, 1500); }
-  } catch (err) {
-    console.error('Failed to save notes:', err.message);
-  }
-}
-
-// ── Approval ────────────────────────────────────────────────────────────────
-
 // ── Expenditure Tracking (GC-3) ─────────────────────────────────────────────
 
 function renderExpenditurePanel(s) {
@@ -1736,46 +1713,6 @@ function renderExpenditurePanel(s) {
   h += '</div>';
   h += '</div>';
   return h;
-}
-
-const APPROVAL_STATUSES = ['pending', 'approved', 'modified', 'rejected'];
-
-function renderApproval(s) {
-  const status = s.approval_status || 'pending';
-  const resolution = s.resolution_note || '';
-
-  let h = '<div class="dt-approval-detail">';
-  h += '<div class="dt-feed-header">Outcome</div>';
-  h += '<div class="dt-approval-btns">';
-  for (const st of APPROVAL_STATUSES) {
-    h += `<button class="dt-approval-btn dt-appr-${st}${status === st ? ' active' : ''}" data-sub-id="${s._id}" data-status="${st}">${st}</button>`;
-  }
-  h += '</div>';
-  h += `<textarea class="dt-notes-input dt-resolution-input" data-sub-id="${s._id}" placeholder="Resolution note (visible to player when approved)">${esc(resolution)}</textarea>`;
-  h += '</div>';
-  return h;
-}
-
-async function handleApproval(subId, newStatus) {
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-
-  const textarea = document.querySelector(`.dt-resolution-input[data-sub-id="${subId}"]`);
-  const resolution = textarea ? textarea.value.trim() : '';
-
-  try {
-    await updateSubmission(subId, {
-      approval_status: newStatus,
-      resolution_note: resolution,
-      approval_updated: new Date().toISOString(),
-    });
-    sub.approval_status = newStatus;
-    sub.resolution_note = resolution;
-    renderMatchSummary();
-    renderSubmissions();
-  } catch (err) {
-    console.error('Failed to save approval:', err.message);
-  }
 }
 
 // ── File handling ───────────────────────────────────────────────────────────
@@ -2266,6 +2203,41 @@ async function _handleActionQueueNoteSave(input) {
   }
 }
 
+// ── Issue #320: Autosave ST inputs ──────────────────────────────────────────
+// Four DT-Processing textareas previously had no save handler. Each blur-saves
+// via partial-update merge so a Roll/approval/re-render can no longer wipe
+// typed content. Status indicators reflect Saving/Saved/error state.
+
+function _setAutosaveStatus(statusEl, state) {
+  if (!statusEl) return;
+  if (state === 'saving') { statusEl.dataset.state = 'saving'; statusEl.textContent = 'Saving…'; return; }
+  if (state === 'saved')  { statusEl.dataset.state = 'saved';  statusEl.textContent = 'Saved ✓';
+                            setTimeout(() => { if (statusEl.dataset.state === 'saved') { statusEl.textContent = ''; delete statusEl.dataset.state; } }, 1500); return; }
+  if (state === 'error')  { statusEl.dataset.state = 'error';  statusEl.textContent = 'Save failed'; return; }
+}
+
+async function _handleProcFieldBlur(ta, field) {
+  const key = ta.dataset.procKey;
+  if (!key) return;
+  const entry = _getQueueEntry(key);
+  if (!entry) return;
+  const newVal = ta.value.trim();
+  const review = getEntryReview(entry) || {};
+  if ((review[field] || '') === newVal) return;
+  // Status span lives in the same .proc-proj-field wrapper as the textarea;
+  // queried by proc-key + field so multiple cards on a page don't collide.
+  const statusEl = document.querySelector(`.dt-autosave-status[data-proc-key="${CSS.escape(key)}"][data-field="${field}"]`);
+  _setAutosaveStatus(statusEl, 'saving');
+  try {
+    await saveEntryReview(entry, { [field]: newVal });
+    _setAutosaveStatus(statusEl, 'saved');
+  } catch (err) {
+    console.warn('Proc ' + field + ' autosave failed:', err);
+    _setAutosaveStatus(statusEl, 'error');
+  }
+}
+// ── /Issue #320 ──────────────────────────────────────────────────────────────
+
 function _handleActionQueueFilter(btn) {
   const filter = btn.dataset.filter;
   if (!filter) return;
@@ -2370,6 +2342,39 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
   }
   feeders.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
+  // Influence contributors for this territory
+  const infPos = [], infNeg = [];
+  for (const sub of subs || []) {
+    let infObj = {};
+    try { infObj = JSON.parse(sub.responses?.influence_spend || '{}'); } catch { infObj = {}; }
+    for (const [k, v] of Object.entries(infObj)) {
+      if (resolveTerrId(k) !== territory.slug) continue;
+      const val = Number(v) || 0;
+      if (!val) continue;
+      const char = charById.get(String(sub.character_id));
+      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
+      if (val > 0) infPos.push(`  - ${identity} (+${val})`);
+      else         infNeg.push(`  - ${identity} (${val})`);
+    }
+  }
+
+  // Exceptional ambience project successes for this territory
+  const exceptionalAmb = [];
+  for (const sub of subs || []) {
+    for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
+      if (proj?.pool_status !== 'validated') continue;
+      if (!proj?.roll?.exceptional) continue;
+      const actionType = proj.action_type_override || proj.action_type;
+      if (!_isAmbienceAction(actionType)) continue;
+      if (_resolveProjectTerritory(sub, pIdx) !== territory.slug) continue;
+      const char = charById.get(String(sub.character_id));
+      const name = (char ? dropdownName(char) : null) || sub.character_name || 'Unknown';
+      const identity = [name, char?.clan, char?.covenant].filter(Boolean).join(', ');
+      exceptionalAmb.push(`  - ${identity}`);
+    }
+  }
+
   const framing = `You are writing a Territory Pulse for ${territory.name} in a Vampire: The Requiem 2nd Edition LARP. The pulse describes the current atmosphere of the territory after a cycle of activity. Write 100 to 200 words of atmospheric prose covering what the place feels like right now, any rumours running through it, and how the recent activity has shaped its mood. Use British English. Do not invent specific characters or events not present in the inputs.`;
 
   const lines = [
@@ -2383,10 +2388,24 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
       ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} time${c === 1 ? '' : 's'})`).join('\n')
       : '  None recorded this cycle.',
     '',
+    'Territorial vibe effects of disciplines used (weave these into the prose where disciplines were recorded above):',
+    discsUsed.length
+      ? discsUsed.map(([d]) => _DISCIPLINE_TERRITORIAL_EFFECTS[d] ? `  - ${d}: ${_DISCIPLINE_TERRITORIAL_EFFECTS[d]}` : null).filter(Boolean).join('\n') || '  None with known territorial effects.'
+      : '  None recorded this cycle.',
+    '',
     'Players who fed here this cycle:',
     feeders.length
       ? feeders.map(f => `  - ${f.name}${f.method ? ` (${f.method})` : ''}`).join('\n')
       : '  None recorded this cycle.',
+    '',
+    'Positive influence contributors this cycle:',
+    infPos.length ? infPos.join('\n') : '  None this cycle.',
+    '',
+    'Negative influence contributors this cycle:',
+    infNeg.length ? infNeg.join('\n') : '  None this cycle.',
+    '',
+    'Exceptional ambience project successes this cycle:',
+    exceptionalAmb.length ? exceptionalAmb.join('\n') : '  None this cycle.',
   ];
   return lines.join('\n');
 }
@@ -3416,19 +3435,28 @@ function buildProcessingQueue(subs) {
  * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
  */
 async function recomputeDisciplineProfile() {
+  await ensureTerritories();
+  const slugToOid = new Map();
+  for (const t of (cachedTerritories || [])) {
+    if (t.slug) slugToOid.set(t.slug, String(t._id));
+  }
+
   const profile = {};
   for (const sub of submissions) {
     const rev = sub.feeding_review || {};
     if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
     let feedTerrs = {};
     try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
-    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => resolveTerrId(k)).filter(Boolean);
+    const active = Object.entries(feedTerrs)
+      .filter(([, v]) => v && v !== 'none')
+      .map(([k]) => slugToOid.get(resolveTerrId(k)))
+      .filter(Boolean);
     if (!active.length) continue;
     const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
-    for (const territory of active) {
-      if (!profile[territory]) profile[territory] = {};
+    for (const terrOid of active) {
+      if (!profile[terrOid]) profile[terrOid] = {};
       for (const disc of foundDiscs) {
-        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+        profile[terrOid][disc] = (profile[terrOid][disc] || 0) + 1;
       }
     }
   }
@@ -3443,14 +3471,15 @@ async function recomputeDisciplineProfile() {
       const isAmbience = _isAmbienceAction(actionType);
       const isRoteFeed = actionType === 'feed';
       if (!isAmbience && !isRoteFeed) continue;
-      const territory = _resolveProjectTerritory(sub, pIdx);
-      if (!territory) continue;
+      const slug = _resolveProjectTerritory(sub, pIdx);
+      const terrOid = slug ? slugToOid.get(slug) : null;
+      if (!terrOid) continue;
       const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
       if (!foundDiscs.length) continue;
       const points = proj.roll?.exceptional ? 2 : 1;
-      if (!profile[territory]) profile[territory] = {};
+      if (!profile[terrOid]) profile[terrOid] = {};
       for (const disc of foundDiscs) {
-        profile[territory][disc] = (profile[territory][disc] || 0) + points;
+        profile[terrOid][disc] = (profile[terrOid][disc] || 0) + points;
       }
     }
   }
@@ -3640,7 +3669,7 @@ function _gatherInfluence(subs) {
   const infPos = {}, infNeg = {};
   for (const sub of subs) {
     let infObj = {};
-    try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
+    try { infObj = JSON.parse(sub.responses?.influence_spend || '{}'); } catch { infObj = {}; }
     // Handle legacy format (array of names from old uploads) — treat each as +1
     if (Array.isArray(infObj)) {
       for (const k of infObj) {
@@ -3730,7 +3759,17 @@ function _gatherMeritAmbience(subs) {
   for (const sub of subs) {
     const raw       = sub._raw || {};
     const resp      = sub.responses || {};
-    const spheres   = raw.sphere_actions || [];
+    let spheres     = raw.sphere_actions || [];
+    if (!spheres.length) {
+      for (let n = 1; n <= 5; n++) {
+        const meritType = resp[`sphere_${n}_merit`];
+        if (!meritType) continue;
+        spheres = [...spheres, {
+          merit_type:  meritType,
+          action_type: resp[`sphere_${n}_action`] || 'misc',
+        }];
+      }
+    }
     let contacts = raw.contact_actions?.requests || [];
     if (!contacts.length) {
       const cl = [];
@@ -3751,10 +3790,11 @@ function _gatherMeritAmbience(subs) {
         const parsed = _parseMeritType(action.merit_type || '');
         if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
           if (resolvedAct?.pool_status === 'resolved') {
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '');
+            // Prefer ST-linked qualifier over parsed submission text; used for territory fallback too
+            const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
+            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '')
+                     || resolveTerrId(linkedQual || '');
             if (tid) {
-              // Prefer ST-linked qualifier over parsed submission text
-              const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
                 (m.qualifier || m.area || '').toLowerCase() === linkedQual.toLowerCase()
@@ -3823,7 +3863,7 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
     const ambience = startingAmbience[id] || td.ambience;
     const cap = AMBIENCE_FEEDING_TOLERANCE[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
-    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : 0;
+    const overfeedVal = feeders > cap ? -(feeders - cap) * 2 : feeders < cap ? (cap - feeders) : 0;
     const entropy = AMBIENCE_ENTROPY[ambience] ?? -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
@@ -3871,80 +3911,6 @@ function _signOffStatus(s) {
   const flaggedXp = Object.values(s.st_review?.xp_approvals || {}).filter(a => a?.status === 'flagged').length;
   if (flaggedXp) reasons.push(`${flaggedXp} flagged XP row${flaggedXp !== 1 ? 's' : ''} outstanding`);
   return { ready: reasons.length === 0, reasons };
-}
-
-function renderSignOffStep() {
-  if (!submissions.length) return '';
-
-  const isExpanded = expandedPhases.has('sign_off');
-  const doneCount = submissions.filter(s => ['ready', 'published'].includes(s.st_review?.outcome_visibility)).length;
-  const stepBadge = _progressBadge(doneCount, submissions.length, 'All staged');
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('sign_off', `Step 11 \u2014 Sign-off${stepBadge}`, submissions.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of submissions) {
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = signOffExpanded.has(s._id);
-      const approval = s.approval_status || 'pending';
-      const visibility = s.st_review?.outcome_visibility || '';
-      const isReady     = visibility === 'ready';
-      const isPublished = visibility === 'published';
-
-      let charBadge = '';
-      if (isPublished)          charBadge = ' <span class="dt-pub-badge">\u2713 Published</span>';
-      else if (isReady)         charBadge = ' <span class="dt-ready-badge">\u23F3 Ready</span>';
-      else if (approval === 'approved')  charBadge = ' <span class="dt-narr-badge">\u2713 Approved</span>';
-      else if (approval === 'modified')  charBadge = ' <span class="proc-narr-progress">Modified</span>';
-      else if (approval === 'rejected')  charBadge = ' <span class="proc-signoff-rejected">Rejected</span>';
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-signoff-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}${charBadge}</span>`;
-      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Approval buttons + resolution note (Story 4.1)
-        h += `<div class="proc-signoff-approval">`;
-        h += `<div class="proc-detail-label">Outcome</div>`;
-        h += `<div class="proc-signoff-btns">`;
-        for (const st of ['pending', 'approved', 'modified', 'rejected']) {
-          h += `<button class="dt-btn dt-approval-btn dt-appr-${st}${approval === st ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-status="${st}">${st}</button>`;
-        }
-        h += `</div>`;
-        h += `<textarea class="dt-notes-input dt-resolution-input proc-signoff-note" data-sub-id="${esc(s._id)}" rows="2" placeholder="Resolution note (visible to player when released)">${esc(s.resolution_note || '')}</textarea>`;
-        h += `</div>`;
-
-        // Mark ready / ready state / published state (Story 4.2)
-        h += `<div class="proc-signoff-ready-row">`;
-        if (isPublished) {
-          h += `<span class="dt-pub-badge">\u2713 Published \u2014 released to player</span>`;
-        } else if (isReady) {
-          h += `<span class="dt-ready-badge">\u23F3 Staged for release</span>`;
-          h += `<button class="dt-btn dt-btn-sm dt-btn-dim proc-signoff-revert" data-sub-id="${esc(s._id)}">Revert to draft</button>`;
-        } else {
-          const { ready, reasons } = _signOffStatus(s);
-          if (ready) {
-            h += `<button class="dt-btn dt-btn-gold proc-signoff-ready-btn" data-sub-id="${esc(s._id)}">Mark ready for release</button>`;
-          } else {
-            h += `<button class="dt-btn proc-signoff-ready-btn" disabled title="${esc(reasons.join('\n'))}">Mark ready for release</button>`;
-            h += `<ul class="proc-signoff-blockers">`;
-            for (const r of reasons) h += `<li>${esc(r)}</li>`;
-            h += `</ul>`;
-          }
-        }
-        h += `</div>`;
-
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
 }
 
 // ── Deleted Actions Recovery ─────────────────────────────────────────────────
@@ -4164,64 +4130,6 @@ function renderXpReviewStep() {
         }
 
         h += `</tbody></table>`;
-        h += `</div>`; // proc-preread-body
-      }
-    }
-  }
-
-  h += `</div>`; // proc-phase-section
-  return h;
-}
-
-// ── Narrative Step (Epic 2 — Stories 2.1 + 2.2 + 2.3) ───────────────────────
-
-function renderNarrativeStep() {
-  if (!submissions.length) return '';
-
-
-  const isExpanded = expandedPhases.has('narrative');
-  const queue = buildProcessingQueue(submissions);
-
-  let h = '<div class="proc-phase-section">';
-  h += _renderPhaseHeader('narrative', 'Step 9 \u2014 Narrative Output', submissions.length, 'submission', isExpanded);
-
-  if (isExpanded) {
-    for (const s of submissions) {
-      const { char, charName } = resolveSubChar(s);
-      const isBlockExpanded = narrativeExpanded.has(s._id);
-      const narr = s.st_review?.narrative || {};
-      const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
-      const statusBadge = _progressBadge(doneCount, NARR_KEYS.length, 'All ready');
-
-      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-narrative-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}${statusBadge}</span>`;
-      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
-      h += `</div>`;
-
-      if (isBlockExpanded) {
-        h += `<div class="proc-preread-body">`;
-
-        // Story 2.2 — Action responses as read-only reference
-        const actionEntries = queue.filter(e => e.subId === s._id && e.source === 'project');
-        const respondedEntries = actionEntries.filter(e => getEntryReview(e)?.st_response?.trim?.());
-        if (respondedEntries.length) {
-          h += `<details class="dt-style-guide proc-narr-action-ref">`;
-          h += `<summary>Action responses (${respondedEntries.length})</summary>`;
-          for (const entry of respondedEntries) {
-            const rev = getEntryReview(entry);
-            h += `<div class="proc-narr-action-ref-row">`;
-            h += `<div class="proc-narr-action-ref-title">${esc(entry.label)}`;
-            if (entry.description) h += ` \u2014 <span class="proc-narr-action-ref-desc">${esc(entry.description.slice(0, 100))}</span>`;
-            h += `</div>`;
-            h += `<div class="proc-narr-action-ref-text">${esc(rev.st_response)}</div>`;
-            h += `</div>`;
-          }
-          h += `</details>`;
-        }
-
-        // Story 2.1 — Narrative panel (existing renderNarrativePanel, reused)
-        h += renderNarrativePanel(s);
-
         h += `</div>`; // proc-preread-body
       }
     }
@@ -4603,10 +4511,10 @@ function renderProcessingMode(container) {
       if (!sub.st_review) sub.st_review = {};
       if (!sub.st_review.territory_overrides) sub.st_review.territory_overrides = {};
 
-      if (context === 'feeding') {
+      if (context === 'feeding' || context === 'feeding_rote') {
         // Multi-select: toggle id in/out of array; em-dash clears all
-        let arr = Array.isArray(sub.st_review.territory_overrides.feeding)
-          ? [...sub.st_review.territory_overrides.feeding] : [];
+        let arr = Array.isArray(sub.st_review.territory_overrides[context])
+          ? [...sub.st_review.territory_overrides[context]] : [];
         if (!terrId) {
           arr = []; // clear all
         } else {
@@ -4614,15 +4522,15 @@ function renderProcessingMode(container) {
           if (idx >= 0) arr.splice(idx, 1); else arr.push(terrId);
         }
         if (arr.length) {
-          sub.st_review.territory_overrides.feeding = arr;
-          await updateSubmission(subId, { 'st_review.territory_overrides.feeding': arr });
+          sub.st_review.territory_overrides[context] = arr;
+          await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: arr });
         } else {
-          delete sub.st_review.territory_overrides.feeding;
-          await updateSubmission(subId, { 'st_review.territory_overrides.feeding': null });
+          delete sub.st_review.territory_overrides[context];
+          await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: null });
         }
         // Update pill active states in-place
-        const newSet = new Set(sub.st_review.territory_overrides?.feeding || []);
-        const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="feeding"]`);
+        const newSet = new Set(sub.st_review.territory_overrides?.[context] || []);
+        const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="${context}"]`);
         if (pillRow) {
           pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
             const pid = p.dataset.terrId;
@@ -7680,11 +7588,31 @@ function _renderActionTypeRow(entry, rev, char) {
     }
     // merit ambience: territory handled via isAlliesAction pills below
   } else if (!isMerit) {
-    // All other project action types get territory pills inline
-    const _projCtx = String(entry.actionIdx);
-    const _projSub = submissions.find(s => s._id === entry.subId);
-    const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
-    h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+    if (entry.originalActionType === 'rote') {
+      // Rote feed: single row writing to feeding_rote (what the matrix reads)
+      const _roteSub = submissions.find(s => s._id === entry.subId);
+      const _roteOvrArr = _roteSub?.st_review?.territory_overrides?.feeding_rote;
+      let _rotePillSet;
+      if (Array.isArray(_roteOvrArr)) {
+        _rotePillSet = new Set(_roteOvrArr);
+      } else {
+        _rotePillSet = new Set();
+        try {
+          const _roteGrid = JSON.parse(_roteSub?.responses?.feeding_territories_rote || '{}');
+          for (const [slug, status] of Object.entries(_roteGrid)) {
+            if (!status || status === 'none' || status === 'Not feeding here') continue;
+            const tid = TERRITORY_SLUG_MAP[slug];
+            if (tid) _rotePillSet.add(tid);
+          }
+        } catch { /* ignore */ }
+      }
+      h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
+    } else {
+      const _projCtx = String(entry.actionIdx);
+      const _projSub = submissions.find(s => s._id === entry.subId);
+      const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+    }
   }
 
   // Merit: merit-link dropdown (allies/status/retainer/contacts/staff) + territory pills
@@ -7857,7 +7785,7 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-merit-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -7903,7 +7831,7 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-detail-input proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-detail-input proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
@@ -7918,7 +7846,7 @@ function renderActionPanel(entry, review) {
 
       // Territory (read-only — set via territory pills elsewhere)
       if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
-      // For rote feed projects, show player's nominated feeding territories
+      // For feed projects, show player's nominated main feeding territories
       if (entry.actionType === 'feed') {
         const _nomText = _playerFeedTerrsText(projSub2);
         if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
@@ -8044,7 +7972,7 @@ function renderActionPanel(entry, review) {
       }
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
     }
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="sorc_notes"></span></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
     h += `</div>`;
@@ -8131,7 +8059,7 @@ function renderActionPanel(entry, review) {
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="e.g. The Thirsty Blade, quiet back alley\u2026"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="How does the character typically feed? What\u2019s the cover story?">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="How does the character typically feed? What\u2019s the cover story?">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
       const _btOpts = ['Human', 'Animal', 'Kindred', 'Ghoul'];
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><select class="proc-recat-select proc-feed-blood-sel" data-proc-key="${esc(entry.key)}">${_btOpts.map(o => `<option value="${o}"${bloodTypeVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
@@ -8861,42 +8789,6 @@ const STYLE_RULES = [
   'No negative framing openers — start with what the character found, not what they didn\'t.',
   'Never dictate what a player has chosen, felt, or done.',
 ];
-
-function renderNarrativePanel(s) {
-  const narr = s.st_review?.narrative || {};
-
-  const allReady = NARR_KEYS.every(k => narr[k]?.status === 'ready');
-
-  let h = '<div class="dt-narr-detail">';
-  h += `<div class="dt-feed-header">Narrative Output ${allReady ? '<span class="dt-narr-badge">&#x2713; All ready</span>' : ''}</div>`;
-
-  // Style guide (collapsed by default)
-  h += `<details class="dt-style-guide"><summary>Writing Rules</summary><ul class="dt-style-list">`;
-  for (const rule of STYLE_RULES) h += `<li>${esc(rule)}</li>`;
-  h += '</ul></details>';
-
-  for (const block of NARR_BLOCKS) {
-    const saved = narr[block.key] || {};
-    const text = saved.text || '';
-    const status = saved.status || 'draft';
-    const isReady = status === 'ready';
-
-    h += `<div class="dt-narr-block">`;
-    h += `<div class="dt-narr-block-header">`;
-    h += `<span class="dt-narr-label">${esc(block.label)}</span>`;
-    h += `<span class="dt-narr-hint">${esc(block.hint)}</span>`;
-    h += `<div class="dt-narr-status-row">`;
-    h += `<button class="dt-narr-status-btn${!isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="draft">Draft</button>`;
-    h += `<button class="dt-narr-status-btn${isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="ready">Ready</button>`;
-    h += '</div></div>';
-    h += `<textarea class="dt-narr-textarea" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"
-      placeholder="${esc(block.label)}...">${esc(text)}</textarea>`;
-    h += '</div>';
-  }
-
-  h += '</div>';
-  return h;
-}
 
 // ── DT-1: Downtime Export Packet ─────────────────────────────────────────────
 
@@ -10017,67 +9909,79 @@ function _getSubFedTerrs(sub) {
   const fed = new Map(); // csvKey → count (0–2; currently max 1 until Feed Action follow-up)
   let grid = null;
 
-  // ST override takes priority: array of TERRITORY_DATA ids set via feeding pills
-  // Repeated IDs count as additional feeds (e.g., two overrides for same territory = 2).
+  // ST override takes priority: array of TERRITORY_DATA ids set via feeding pills.
+  // Replaces the main feeding grid only — the rote grid still runs below.
   const overrideArr = sub.st_review?.territory_overrides?.feeding;
-  if (Array.isArray(overrideArr) && overrideArr.length > 0) {
+  const hasOverride = Array.isArray(overrideArr) && overrideArr.length > 0;
+  if (hasOverride) {
     for (const tid of overrideArr) {
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
       if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
     }
-    return fed;
   }
 
-  // Prefer responses.feeding_territories (slug keys — new form format)
-  if (sub.responses?.feeding_territories) {
-    try { grid = JSON.parse(sub.responses.feeding_territories); } catch { grid = null; }
-  }
-
-  if (grid) {
-    for (const [slug, status] of Object.entries(grid)) {
-      if (!status || status === 'none' || status === 'Not feeding here') continue;
-      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-        ? TERRITORY_SLUG_MAP[slug] : undefined;
-      if (tid === undefined) continue;
-      const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-      if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
+  if (!hasOverride) {
+    // Prefer responses.feeding_territories (slug keys — new form format)
+    if (sub.responses?.feeding_territories) {
+      try { grid = JSON.parse(sub.responses.feeding_territories); } catch { grid = null; }
     }
-  } else {
-    // Fallback: _raw.feeding.territories (display-name keys, legacy)
-    const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
-    for (const [csvKey, status] of Object.entries(rawTerrs)) {
-      if (!status || status === 'Not feeding here' || status === 'none') continue;
-      fed.set(csvKey, (fed.get(csvKey) || 0) + 1);
-    }
-  }
 
-  // Issue #300: count additional feeds from rote-hunt project slots.
-  // The territory for 'rote' action slots is stored in feeding_territories_rote
-  // (same slug-key format as feeding_territories), not in project_N_territory.
-  const hasRoteSlot = [1, 2, 3, 4].some(n => {
-    const a = sub.responses?.[`project_${n}_action`];
-    return a === 'rote' || a === 'feed';
-  });
-  if (hasRoteSlot && sub.responses?.feeding_territories_rote) {
-    let roteGrid = null;
-    try { roteGrid = JSON.parse(sub.responses.feeding_territories_rote); } catch { roteGrid = null; }
-    if (roteGrid) {
-      for (const [slug, status] of Object.entries(roteGrid)) {
+    if (grid) {
+      for (const [slug, status] of Object.entries(grid)) {
         if (!status || status === 'none' || status === 'Not feeding here') continue;
         const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
           ? TERRITORY_SLUG_MAP[slug] : undefined;
         if (tid === undefined) continue;
         const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
-        if (!mt) continue;
-        const current = fed.get(mt.csvKey) || 0;
-        if (current < 2) fed.set(mt.csvKey, current + 1);
+        if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
+      }
+    } else {
+      // Fallback: _raw.feeding.territories (display-name keys, legacy)
+      const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
+      for (const [csvKey, status] of Object.entries(rawTerrs)) {
+        if (!status || status === 'Not feeding here' || status === 'none') continue;
+        fed.set(csvKey, (fed.get(csvKey) || 0) + 1);
       }
     }
   }
 
-  // Default: if feeding method declared but no territory selected, character feeds from Barrens
-  if (fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
+  // Issue #300 + #327: count additional feeds from rote-hunt project slots.
+  // ST rote-feed override takes priority over player's submitted rote territory grid.
+  const hasRoteSlot = [1, 2, 3, 4].some(n => {
+    const a = sub.responses?.[`project_${n}_action`];
+    return a === 'rote' || a === 'feed';
+  });
+  if (hasRoteSlot) {
+    const roteOvrArr = sub.st_review?.territory_overrides?.feeding_rote;
+    if (Array.isArray(roteOvrArr) && roteOvrArr.length > 0) {
+      for (const tid of roteOvrArr) {
+        if (!tid) continue;
+        const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+        if (!mt) continue;
+        const current = fed.get(mt.csvKey) || 0;
+        if (current < 2) fed.set(mt.csvKey, current + 1);
+      }
+    } else if (sub.responses?.feeding_territories_rote) {
+      let roteGrid = null;
+      try { roteGrid = JSON.parse(sub.responses.feeding_territories_rote); } catch { roteGrid = null; }
+      if (roteGrid) {
+        for (const [slug, status] of Object.entries(roteGrid)) {
+          if (!status || status === 'none' || status === 'Not feeding here') continue;
+          const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
+            ? TERRITORY_SLUG_MAP[slug] : undefined;
+          if (tid === undefined) continue;
+          const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+          if (!mt) continue;
+          const current = fed.get(mt.csvKey) || 0;
+          if (current < 2) fed.set(mt.csvKey, current + 1);
+        }
+      }
+    }
+  }
+
+  // Default: Barrens fallback — only when no ST override and no territory selected
+  if (!hasOverride && fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
     fed.set('The Barrens (No Territory)', 1);
   }
 
@@ -10196,7 +10100,9 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
     const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
     const netStr = _fmtMod(r.net);
-    const ovStr = r.feeders > r.cap ? ` | <span class="proc-amb-neg">${r.overfeed}</span>` : '';
+    const ovStr = r.overfeed !== 0
+      ? ` | <span class="${r.overfeed > 0 ? 'proc-amb-pos' : 'proc-amb-neg'}">${_fmtMod(r.overfeed)}</span>`
+      : '';
     const infNet = r.inf_pos - r.inf_neg;
     const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
@@ -10899,89 +10805,6 @@ function renderResolveBadge(roll) {
   return `<span class="dt-resolve-badge ${rc}">${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}</span>`;
 }
 
-// ── Project Resolution Panel (Story 1.2) ────────────────────────────────────
-
-function renderProjectsPanel(s, raw, char) {
-  let projects = raw.projects || [];
-  // Fallback: construct project list from responses when _raw.projects is absent
-  // (happens when CSV data was mapped to responses but _raw wasn't restructured)
-  if (!projects.length && s.responses) {
-    for (let n = 1; n <= 4; n++) {
-      const action = s.responses[`project_${n}_action`];
-      if (!action) continue;
-      projects.push({
-        action_type: action,
-        action_type_raw: action,
-        project_name: s.responses[`project_${n}_title`] || null,
-        desired_outcome: s.responses[`project_${n}_outcome`] || '',
-        primary_pool: s.responses[`project_${n}_pool_expr`] ? { expression: s.responses[`project_${n}_pool_expr`] } : null,
-        secondary_pool: s.responses[`project_${n}_pool2_expr`] ? { expression: s.responses[`project_${n}_pool2_expr`] } : null,
-        characters: s.responses[`project_${n}_cast`] || null,
-        merits: s.responses[`project_${n}_merits`] || null,
-        xp_spend: s.responses[`project_${n}_xp`] || null,
-        detail: s.responses[`project_${n}_description`] || null,
-      });
-    }
-  }
-  if (!projects.length) return '';
-
-  const resolved = s.projects_resolved || [];
-  const pending = s._proj_pending || [];
-
-  let h = '<div class="dt-proj-detail">';
-  h += '<div class="dt-feed-header">Projects</div>';
-
-  projects.forEach((proj, i) => {
-    const res = resolved[i];
-    const pen = pending[i] || {};
-    const rote = pen.rote ?? res?.roll?.params?.rote ?? false;
-    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-    const isResolved = !!res?.roll;
-
-    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : ' dt-proj-unresolved'}">`;
-    h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(proj.action_type_raw || proj.action_type)}</span>`;
-    h += isResolved
-      ? ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`
-      : ` <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>`;
-    h += '</div>';
-
-    // Structured fields extracted from description
-    if (proj.project_name) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Name:</span> ${esc(proj.project_name)}</div>`;
-    if (proj.desired_outcome) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Desired:</span> ${esc(proj.desired_outcome)}</div>`;
-    if (proj.characters) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Characters:</span> ${esc(proj.characters)}</div>`;
-    if (proj.primary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Primary Pool:</span> ${esc(proj.primary_pool.expression)}</div>`;
-    if (proj.secondary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Secondary Pool:</span> ${esc(proj.secondary_pool.expression)}</div>`;
-    if (proj.xp_spend != null) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">XP Spend:</span> ${esc(String(proj.xp_spend))}</div>`;
-    if (proj.merits) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Merits:</span> ${esc(proj.merits)}</div>`;
-    if (proj.bonuses) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Bonuses:</span> ${esc(proj.bonuses)}</div>`;
-    if (proj.detail) h += `<div class="dt-proj-desc">${esc(proj.detail)}</div>`;
-
-    // Pool builder
-    if (char) {
-      h += poolBuilderUI(s._id, 'proj-idx', i, char, pen, pool);
-      h += `<label class="dt-proj-rote-lbl"><input type="checkbox" class="dt-proj-rote" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" ${rote ? 'checked' : ''}>Rote</label>`;
-      h += `<button class="dt-btn dt-proj-roll-btn" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"
-        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
-    }
-
-    if (isResolved) h += renderResolveBadge(res.roll);
-
-    // ST note (internal only)
-    const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project (internal)...">${esc(note)}</textarea>`;
-
-    // Player-visible writeup
-    const writeup = res?.writeup || '';
-    h += `<textarea class="dt-proj-writeup" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="Player-visible writeup for this project...">${esc(writeup)}</textarea>`;
-
-    h += '</div>';
-  });
-
-  h += '</div>';
-  return h;
-}
-
 async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
@@ -10989,11 +10812,16 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   const pending = (sub._proj_pending || [])[projIdx] || {};
   const resolved = [...(sub.projects_resolved || [])];
   while (resolved.length <= projIdx) resolved.push(null);
+  // Issue #320: preserve existing fields (st_note, writeup) saved via blur autosave
+  // before this Roll. Prefer existing.st_note over pending.st_note since blur-save
+  // writes directly to the resolved entry, not to _proj_pending.
+  const existing = resolved[projIdx] || {};
   resolved[projIdx] = {
+    ...existing,
     action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
     pool: { ...pool },
     roll: rollResult,
-    st_note: pending.st_note || '',
+    st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),
   };
 
@@ -11004,92 +10832,6 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   } catch (err) {
     console.error('Failed to save project roll:', err.message);
   }
-}
-
-// ── Merit Actions Panel (Story 1.3) ─────────────────────────────────────────
-
-const PASSIVE_MERIT_ACTIONS = ['no action taken', 'passive', 'none'];
-const MERIT_NO_ROLL = ['allies within favour', 'allies_favour'];
-const INVESTIGATE_WARNING_TYPES = ['investigate', 'investigation', 'gather info', 'gather information'];
-
-function renderMeritActionsPanel(s, raw, char) {
-  const resp = s.responses || {};
-  const spheres = raw.sphere_actions || [];
-  const contacts = raw.contact_actions || {};
-  const retainers = raw.retainer_actions || {};
-
-  let contactRequests = contacts.requests || [];
-  if (!contactRequests.length) {
-    const cl = [];
-    for (let n = 1; n <= 5; n++) { const r = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
-    contactRequests = cl;
-  }
-
-  const allMeritActions = [
-    ...spheres,
-    ...contactRequests.map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
-    ...(retainers.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r })),
-  ];
-
-  if (!allMeritActions.length) return '';
-
-  const resolved = s.merit_actions_resolved || [];
-  const pending = s._merit_pending || [];
-
-  let h = '<div class="dt-merit-detail">';
-  h += '<div class="dt-feed-header">Merit Actions</div>';
-
-  allMeritActions.forEach((action, i) => {
-    const res = resolved[i];
-    const pen = pending[i] || {};
-    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-    const isResolved = !!res?.roll || res?.no_roll;
-    const actionLower = (action.action_type || '').toLowerCase();
-    const isPassive = PASSIVE_MERIT_ACTIONS.some(p => actionLower.includes(p));
-    const isInvestigate = INVESTIGATE_WARNING_TYPES.some(p => actionLower.includes(p));
-
-    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : (isPassive ? '' : ' dt-proj-unresolved')}">`;
-    h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(action.merit_type)}</span>`;
-    h += ` <span class="dt-merit-action-type">${esc(action.action_type)}</span>`;
-    if (isResolved) {
-      h += res.no_roll
-        ? ' <span class="dt-proj-done-badge">\u2713 No roll needed</span>'
-        : ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`;
-    } else if (isPassive) {
-      h += ' <span class="dt-merit-passive">Passive — no action</span>';
-    } else {
-      h += ' <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>';
-    }
-    h += '</div>';
-
-    if (action.description) h += `<div class="dt-proj-desc">${esc(action.description)}</div>`;
-    if (action.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(action.desired_outcome)}</div>`;
-
-    if (isInvestigate) {
-      h += `<div class="dt-merit-warn">\u26A0 Contacts/Allies cannot surface Kindred identities or investigation-threshold intel.</div>`;
-    }
-
-    if (!isPassive && char) {
-      h += poolBuilderUI(s._id, 'merit-idx', i, char, pen, pool, 'dt-merit-sel', 'dt-merit-mod');
-      h += `<button class="dt-btn dt-merit-roll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
-        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
-      if (!isResolved) {
-        h += `<button class="dt-btn dt-btn-muted dt-merit-noroll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
-          style="margin-left:8px">No roll needed</button>`;
-      }
-    }
-
-    if (isResolved && res.roll) h += renderResolveBadge(res.roll);
-
-    const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-merit-note" data-sub-id="${esc(s._id)}" data-merit-idx="${i}" placeholder="ST note for this action...">${esc(note)}</textarea>`;
-
-    h += '</div>';
-  });
-
-  h += '</div>';
-  return h;
 }
 
 async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {
@@ -11112,12 +10854,17 @@ async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {
   ];
   const resolved = [...(sub.merit_actions_resolved || [])];
   while (resolved.length <= meritIdx) resolved.push(null);
+  // Issue #320: preserve existing fields (st_note) saved via blur autosave
+  // before this Roll. Prefer existing.st_note over pending.st_note since
+  // blur-save writes directly to the resolved entry.
+  const existing = resolved[meritIdx] || {};
   resolved[meritIdx] = {
+    ...existing,
     merit_type: allActions[meritIdx]?.merit_type || '',
     action_type: allActions[meritIdx]?.action_type || '',
     pool: { ...pool },
     roll: rollResult,
-    st_note: pending.st_note || '',
+    st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),
   };
 

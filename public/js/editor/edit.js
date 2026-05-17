@@ -579,6 +579,28 @@ export function shAdjAttrBonus(attr, delta) {
   _renderSheet(c);
 }
 
+export function shAdjSkillBonus(skill, delta) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.skills) c.skills = {};
+  if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
+  const so = c.skills[skill];
+  so.bonus = Math.max(0, (so.bonus || 0) + delta);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shAdjMeritBonus(realIdx, delta) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  ensureMeritSync(c);
+  const m = c.merits[realIdx];
+  if (!m) return;
+  m.bonus = Math.max(0, (m.bonus || 0) + delta);
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shSetClanAttr(val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];

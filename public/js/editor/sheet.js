@@ -491,7 +491,8 @@ export function shRenderSkills(c, editMode) {
         const sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
         h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
         const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd;
-        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>';
+        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>'
+          + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',-1)"' + (bn === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',1)">&#x25B2;</button></div>';
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
         specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
@@ -1226,7 +1227,9 @@ export function shRenderGeneralMerits(c, editMode) {
             h += '<select class="gen-qual-input" disabled><option value="">\u2014 add a specialisation first \u2014</option></select>';
           }
         } else if (_FREE_TEXT_QUAL.has(m.name) || m.qualifier) h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
-        h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
+        const _mBonus = m.bonus || 0;
+        h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
+          + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
@@ -1237,7 +1240,7 @@ export function shRenderGeneralMerits(c, editMode) {
     oM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
-      const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m);
+      const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m) + (m.bonus || 0);
       const dotH = shDotsMixed(purch, bon);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;

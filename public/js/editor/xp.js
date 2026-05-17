@@ -217,5 +217,7 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
+  const bon = mc.bonus || 0;
+  h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',-1)"' + (bon === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bon > 0 ? '+' + bon : '0') + '</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',1)">&#x25B2;</button></div>';
   return h;
 }

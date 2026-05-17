@@ -96,6 +96,34 @@ let _currentCharId  = null;
 let _currentSub     = null;
 const _pushErrors   = new Map(); // charId → error message for failed pushes
 
+// ── Issue #321: Cross-cycle save guard ───────────────────────────────────────
+// Defence-in-depth against the bug class that motivated #321 — DT Story
+// loading the wrong cycle's submissions and silently saving against them.
+// Even if module state ever drifts from the dropdown, these guards make
+// cross-cycle writes throw loudly instead of corrupting data.
+
+function _normaliseCycleId(id) {
+  // Schema drift: cycle_id is sometimes a string, sometimes {$oid: "..."}.
+  // DT2 submissions store as string, DT3+ as ObjectId (confirmed live 2026-05-17).
+  if (id == null) return null;
+  if (typeof id === 'string') return id;
+  if (typeof id === 'object' && '$oid' in id) return id.$oid;
+  return String(id);
+}
+
+function _assertCurrentCycle(submissionId) {
+  const sub = _allSubmissions.find(s => s._id === submissionId);
+  if (!sub || !_currentCycle) return;
+  const subCycle = _normaliseCycleId(sub.cycle_id);
+  const viewCycle = _normaliseCycleId(_currentCycle._id);
+  if (subCycle && viewCycle && subCycle !== viewCycle) {
+    throw new Error(
+      `Refusing cross-cycle save: submission ${submissionId} is in cycle ${subCycle}, ` +
+      `view is on cycle ${viewCycle}.`,
+    );
+  }
+}
+
 // ── Public exports ────────────────────────────────────────────────────────────
 
 /**
@@ -113,9 +141,14 @@ export async function initDtStory(cycleId) {
     try {
       const cycles = await apiGet('/api/downtime_cycles');
       if (Array.isArray(cycles) && cycles.length) {
-        const sorted = cycles.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-        const preferred = sorted.find(c => c.status !== 'complete');
-        resolvedCycleId = preferred?._id || null;
+        // Issue #321: created_at is absent on existing cycle docs, so use _id
+        // as a creation-order proxy (Mongo ObjectIds encode a timestamp).
+        // The previous status filter compared against 'complete' which the
+        // system never produces — actual finished cycles use 'closed'.
+        // String() normalises against the ObjectId/string schema drift.
+        const sorted = cycles.slice().sort((a, b) => String(b._id).localeCompare(String(a._id)));
+        const closedish = new Set(['closed', 'complete']);
+        resolvedCycleId = (sorted.find(c => !closedish.has(c.status)) || sorted[0])?._id || null;
       }
     } catch {
       resolvedCycleId = null;
@@ -310,6 +343,7 @@ export async function initDtStory(cycleId) {
  *   { 'st_narrative.letter_from_home': { response: '...', author: '...', status: 'draft' } }
  */
 export async function saveNarrativeField(submissionId, patch) {
+  _assertCurrentCycle(submissionId); // Issue #321: throws if submission is in a different cycle
   return apiPut('/api/downtime_submissions/' + submissionId, patch);
 }
 
@@ -3235,6 +3269,7 @@ async function _publishAllSubmissions(submissions) {
       'st_review.published_at':       now,
     };
     try {
+      _assertCurrentCycle(sub._id); // Issue #321
       await apiPut('/api/downtime_submissions/' + sub._id, patch);
       if (!sub.st_review) sub.st_review = {};
       sub.st_review.outcome_text       = md;
@@ -3321,6 +3356,7 @@ async function handlePushCharacter(subId, charId) {
       'st_review.outcome_visibility':  'published',
       'st_review.published_at':        new Date().toISOString(),
     };
+    _assertCurrentCycle(subId); // Issue #321
     await apiPut('/api/downtime_submissions/' + subId, patch);
 
     if (!sub.st_review) sub.st_review = {};
