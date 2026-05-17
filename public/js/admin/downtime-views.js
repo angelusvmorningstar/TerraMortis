@@ -148,6 +148,18 @@ const ALL_ACTION_TYPES = [
 // type strings; direction is derived from the type itself for legacy or
 // from the responses bag for canonical.
 const _AMBIENCE_ACTION_TYPES = new Set(['ambience_change', 'ambience_increase', 'ambience_decrease']);
+
+const _DISCIPLINE_TERRITORIAL_EFFECTS = {
+  Animalism:  'Feral edge, heightened animal activity, lower inhibitions, territoriality',
+  Auspex:     'Feeling of being watched, paranoia, superstition, ghost sightings, out of body experiences',
+  Dominate:   'Forgetfulness, complacency, compliance, passivity, docility, confusion, rigidity',
+  Majesty:    'Salacious activity, lasciviousness, obsessive behaviour, stalking, adultery, jealousy, heightened passions',
+  Nightmare:  'Fear, dread, paranoia, nightmares, delusions, insomnia, restlessness',
+  Obfuscate:  'Long shadows, things seen in peripheral vision, losing things, getting lost, disconnectedness, isolation, quietude, false identity, loneliness, vagrancy',
+  Protean:    'Desire for body modification, dysphoria, outlandishness, provocative fashion, counter-cultural, hyper fitness, dysmorphia, rebelliousness',
+  Cruac:      'Dionysian excess, wantonness, rebelliousness, corruption, primal energy, ecstasis, frenzy, debauchery',
+  Theban:     'Judgmental atmosphere, righteousness, prideful piety, rapture, guilt, sternness, rigidity, certitude',
+};
 function _isAmbienceAction(actionType) {
   return _AMBIENCE_ACTION_TYPES.has(actionType);
 }
@@ -2570,6 +2582,11 @@ function _buildTerritoryPulsePromptText(cycle, territory, subs, charById) {
     'Disciplines used in this territory this cycle:',
     discsUsed.length
       ? discsUsed.map(([d, c]) => `  - ${d} (used ${c} time${c === 1 ? '' : 's'})`).join('\n')
+      : '  None recorded this cycle.',
+    '',
+    'Territorial vibe effects of disciplines used (weave these into the prose where disciplines were recorded above):',
+    discsUsed.length
+      ? discsUsed.map(([d]) => _DISCIPLINE_TERRITORIAL_EFFECTS[d] ? `  - ${d}: ${_DISCIPLINE_TERRITORIAL_EFFECTS[d]}` : null).filter(Boolean).join('\n') || '  None with known territorial effects.'
       : '  None recorded this cycle.',
     '',
     'Players who fed here this cycle:',
