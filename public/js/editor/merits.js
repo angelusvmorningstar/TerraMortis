@@ -117,6 +117,7 @@ export function ensureMeritSync(c) {
     if (m.free_pt === undefined) m.free_pt = 0;
     if (m.free_mdb === undefined) m.free_mdb = 0;
     if (m.free_sw === undefined) m.free_sw = 0;
+    if (m.bonus === undefined) m.bonus = 0;
   }
 }
 
@@ -134,6 +135,7 @@ export function addMerit(c, merit) {
   if (merit.free_pt === undefined) merit.free_pt = 0;
   if (merit.free_mdb === undefined) merit.free_mdb = 0;
   if (merit.free_sw === undefined) merit.free_sw = 0;
+  if (merit.bonus === undefined) merit.bonus = 0;
   if (merit.rule_key === undefined) merit.rule_key = null;
   c.merits.push(merit);
 }
