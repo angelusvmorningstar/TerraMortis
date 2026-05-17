@@ -799,7 +799,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       } else {
         _areaHtml = _inflArea(m, idx, false);
       }
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       const _isAttacheVariant = m.name?.startsWith('Attach\u00e9 (');
@@ -843,7 +843,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       const narrow = m.name === 'Status' && m.narrow && typeof m.narrow === 'string' ? m.narrow.trim() : '';
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
       h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
@@ -934,7 +934,7 @@ export function shRenderDomainMerits(c, editMode) {
             ? shDotsMixed(Math.min(_capSharedEff, _dPurch), Math.max(0, _capSharedEff - Math.min(_capSharedEff, _dPurch)))
             : shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))))
         : _totalDots;
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
         const _qErr = c._domQualError && !m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : (c._domQualError && m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : '');
@@ -978,15 +978,16 @@ export function shRenderDomainMerits(c, editMode) {
       const dp = m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
-      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
-      const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+      const mBon = m.bonus || 0;
+      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0) + mBon, ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
+      const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + mBon;
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
       let dotHtml;
       if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
-      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0) {
+      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0) {
         const dPurch = _dRaw;
         dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch));
       } else {
