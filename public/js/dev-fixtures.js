@@ -46,6 +46,11 @@ window.fetch=function devFix(url,opts){
   if(method==='POST'&&seg[0]==='tickets')return _mock({_id:'tk_dev',status:'open'},201);
   if(method==='GET'&&seg[0]==='archive_documents')return _mock([]);
   if(method==='GET'&&seg[0]==='health')return _mock({ok:true});
+  if(method==='GET'&&seg[0]==='ordeal_submissions')return _mock([]);
+  if(method==='GET'&&seg[0]==='ordeal_rubrics')return _mock([]);
+  if(method==='GET'&&seg[0]==='ordeal-responses')return _mock(null);
+  if(method==='POST'&&seg[0]==='ordeal-responses')return _mock({_id:'ord_dev',status:'draft'},201);
+  if(method==='PUT'&&seg[0]==='ordeal-responses'&&seg[1])return _mock({_id:seg[1],status:'submitted'});
   if(method==='GET'&&seg[0]==='players'&&seg[1]==='display-names'){return _mock(CHARS.filter(function(c){return c.player;}).map(function(c){return{character_id:String(c._id),display_name:c.player};}));}
   if(method==='GET'&&seg[0]==='players')return _mock([]);
   // JDT-2: dev-mode echo handlers for joint projects + invitations.

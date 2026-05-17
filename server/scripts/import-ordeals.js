@@ -290,6 +290,7 @@ function importSimpleOrdeal({ rows, allHeaders, questions, emailLookup, charLook
 
     docs.push({
       character_id: char._id,
+      character_name: char.moniker || char.name || '',
       player_id: null, // populated when Epic 5 players collection is built
       ordeal_type: ordealType,
       covenant: null,
@@ -330,6 +331,7 @@ function importSimpleOrdeal({ rows, allHeaders, questions, emailLookup, charLook
 
     docs.push({
       character_id: char._id,
+      character_name: char.moniker || char.name || '',
       player_id: null,
       ordeal_type: ordealType,
       covenant: null,
@@ -462,6 +464,7 @@ async function run() {
 
       docs.push({
         character_id: char._id,
+        character_name: char.moniker || char.name || '',
         player_id: null,
         ordeal_type: 'covenant_questionnaire',
         covenant,
@@ -491,6 +494,7 @@ async function run() {
       const responses = entries.map(e => ({ question: e.question, answer: e.answer }));
       docs.push({
         character_id: char._id,
+        character_name: char.moniker || char.name || '',
         player_id: null,
         ordeal_type: 'covenant_questionnaire',
         covenant: char.covenant,
@@ -545,6 +549,7 @@ async function run() {
 
       docs.push({
         character_id: char._id,
+        character_name: char.moniker || char.name || '',
         player_id: null,
         ordeal_type: 'character_history',
         covenant: null,
@@ -600,6 +605,7 @@ async function run() {
         const html = result.value.replace(/<p><\/p>/g, '').trim();
         allDocs.push({
           character_id: char._id,
+          character_name: char.moniker || char.name || '',
           player_id: null,
           ordeal_type: 'character_history',
           covenant: null,
