@@ -76,6 +76,7 @@ export const characterSchema = {
     court_title:    { type: ['string', 'null'] },
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
     home_territory: { type: ['string', 'null'] },
+    dt_story_calibration: { type: ['string', 'null'] },
 
     // NPC stub register — placeholder until full NPC Register epic
     npcs: {

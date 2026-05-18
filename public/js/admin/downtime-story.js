@@ -260,6 +260,14 @@ export async function initDtStory(cycleId) {
     const toggleLink = e.target.closest('.dt-story-context-toggle');
     if (toggleLink) { handleContextToggle(toggleLink); return; }
 
+    // Calibration panel toggle
+    const calHeader = e.target.closest('.dt-story-calibration-header[data-toggle="calibration"]');
+    if (calHeader) { handleCalibrationToggle(calHeader); return; }
+
+    // Calibration save
+    const calSaveBtn = e.target.closest('.dt-story-calibration-save-btn');
+    if (calSaveBtn && !calSaveBtn.disabled) { handleCalibrationSave(calSaveBtn); return; }
+
     // Determine which section the clicked element belongs to
     const sectionKey = e.target.closest('.dt-story-section')?.dataset.section;
 
@@ -475,6 +483,13 @@ function _compactCharHeader(char) {
   return [name, ident, char?.concept || null].filter(Boolean).join(' \u2014 ');
 }
 
+/** Returns lines to inject per-character calibration notes into a context prompt. */
+function _calibrationBlock(char) {
+  const cal = char?.dt_story_calibration?.trim();
+  if (!cal) return [];
+  return ['', 'Voice calibration (apply throughout):', cal];
+}
+
 /** "Mask: Bon Vivant | Dirge: Martyr | Humanity: 6" */
 function _charIdentLine(char) {
   const parts = [];
@@ -521,6 +536,28 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   const lines = ['Draft a project response for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // XP spend this cycle (player-written justification, if any)
+  const xpRows = sub.responses?.xp_rows;
+  const xpItem = sub.responses?.xp_item;
+  const xpNote = sub.responses?.xp_spend_note || sub.responses?.xp_note || '';
+  let xpSummary = '';
+  if (xpRows) {
+    try {
+      const rows = typeof xpRows === 'string' ? JSON.parse(xpRows) : xpRows;
+      if (Array.isArray(rows) && rows.length) {
+        xpSummary = rows.map(r => `${r.item || r.name || '?'} (${r.cost ?? r.xp ?? '?'} XP)`).join(', ');
+      }
+    } catch { /* skip */ }
+  } else if (xpItem) {
+    xpSummary = xpItem;
+  }
+  if (xpSummary) {
+    lines.push('');
+    lines.push(`XP spend this cycle: ${xpSummary}`);
+    if (xpNote) lines.push(`Player note: ${xpNote}`);
+  }
 
   lines.push('');
   lines.push(`Action: ${actionLabel}`);
@@ -529,6 +566,11 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   if (description) lines.push(`Description: ${description}`);
   if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
   if (cast)    lines.push(`Connected Characters: ${cast}`);
+
+  if (isAmbience) {
+    lines.push('');
+    lines.push('Framing: An ambience action represents covenant investment in or destabilisation of a feeding ground. Ground the narrative in the territorial politics of the city \u2014 acknowledge the covenant pressure being applied or resisted where the fiction allows it.');
+  }
 
   if (poolStatus === 'no_roll' || poolStatus === 'maintenance') {
     lines.push('No roll required');
@@ -539,6 +581,10 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
       const successes = roll.successes ?? 0;
       const exc       = roll.exceptional ? ', Exceptional' : '';
       lines.push(`Roll Result: ${successes} success${successes !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+    }
+    if (isInvestigation && pool) {
+      const foundDisc = _PATROL_DISCS.find(d => pool.includes(d));
+      if (foundDisc) lines.push(`Discipline: ${foundDisc}`);
     }
   }
 
@@ -606,7 +652,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
-  // ST directives
+  // Existing draft
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  // ST directives — placed immediately before the rubric so the AI weights them highest
   const hasDirectives = rev.st_note || notes.length;
   if (hasDirectives) {
     lines.push('');
@@ -615,20 +668,13 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
 
-  // Existing draft
-  if (existingDraft) {
-    lines.push('');
-    lines.push('Existing draft (revise unless told to rewrite):');
-    lines.push(existingDraft);
-  }
-
   lines.push('');
   const isInvestigation = actionType === 'investigate';
   const isFeed = actionType === 'feed';
   const rubric = [
     isInvestigation ? 'Apply INVESTIGATION_THRESHOLDS.' : null,
     isFeed ? 'Apply FEEDING_CONSTRAINTS.' : null,
-    'One paragraph, 80-120 words. Use house style.',
+    'No more than 120 words; shorter is better. Do not open with atmosphere or mood-setting — begin on action or consequence. Use house style.',
   ].filter(Boolean).join(' ');
   lines.push(rubric);
 
@@ -661,6 +707,7 @@ function buildMaintenanceContext(char, sub, idx) {
 
   const lines = ['Draft a maintenance response for:', '', _compactCharHeader(char)];
   if (char?.humanity != null) lines.push(`Humanity: ${char.humanity}`);
+  lines.push(..._calibrationBlock(char));
 
   lines.push('');
   if (meritType) lines.push(`Merit maintained: ${meritName} (${meritType})`);
@@ -674,7 +721,7 @@ function buildMaintenanceContext(char, sub, idx) {
   }
 
   lines.push('');
-  lines.push('No roll required. 50-80 words. Use house style.');
+  lines.push('No roll required. No more than 80 words; shorter is better. No scene-setting opener. Use house style.');
 
   return lines.join('\n');
 }
@@ -709,6 +756,28 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const lines = ['Draft a Patrol response for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // XP spend this cycle (player-written justification, if any)
+  const xpRowsP = sub.responses?.xp_rows;
+  const xpItemP = sub.responses?.xp_item;
+  const xpNoteP = sub.responses?.xp_spend_note || sub.responses?.xp_note || '';
+  let xpSummaryP = '';
+  if (xpRowsP) {
+    try {
+      const rows = typeof xpRowsP === 'string' ? JSON.parse(xpRowsP) : xpRowsP;
+      if (Array.isArray(rows) && rows.length) {
+        xpSummaryP = rows.map(r => `${r.item || r.name || '?'} (${r.cost ?? r.xp ?? '?'} XP)`).join(', ');
+      }
+    } catch { /* skip */ }
+  } else if (xpItemP) {
+    xpSummaryP = xpItemP;
+  }
+  if (xpSummaryP) {
+    lines.push('');
+    lines.push(`XP spend this cycle: ${xpSummaryP}`);
+    if (xpNoteP) lines.push(`Player note: ${xpNoteP}`);
+  }
 
   lines.push('');
   lines.push('Action: Patrol / Scout');
@@ -804,7 +873,16 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     const netStr = netChange != null ? `, net ${netChange > 0 ? '+' : ''}${netChange}` : '';
     lines.push(`Ambience: ${ambLine}${wasStr}${netStr}`);
   }
-  lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount}`);
+  // Patrolling character's own feed status in this territory
+  let selfFeedStatus = 'Not feeding here';
+  if (terrSlug) {
+    let selfTerrs = {};
+    try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
+    const selfVal = selfTerrs[terrSlug];
+    if (selfVal === 'resident') selfFeedStatus = 'Resident';
+    else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
+  }
+  lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount} | Self: ${selfFeedStatus}`);
 
   if (feeders.length) {
     lines.push('');
@@ -828,7 +906,13 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
-  // ST directives
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  // ST directives — placed immediately before the rubric so the AI weights them highest
   if (rev.st_note || notes.length) {
     lines.push('');
     lines.push('ST directives (must reflect):');
@@ -836,14 +920,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
 
-  if (existingDraft) {
-    lines.push('');
-    lines.push('Existing draft (revise unless told to rewrite):');
-    lines.push(existingDraft);
-  }
-
   lines.push('');
-  lines.push('Apply PATROL_SCALE. One paragraph, 80-120 words. Use house style.');
+  lines.push('Apply PATROL_SCALE. No more than 120 words; shorter is better. Do not open with atmosphere or mood-setting — begin on action or consequence. Use house style.');
 
   return lines.join('\n');
 }
@@ -1141,6 +1219,22 @@ function renderCharacterView(char, sub) {
   h += `</div>`;
 
   h += renderProgressTracker(char, sub);
+
+  // Voice calibration panel — per-character ST notes injected into all prompts
+  const calText = char?.dt_story_calibration || '';
+  h += `<div class="dt-story-calibration-panel">`;
+  h += `<div class="dt-story-calibration-header" data-toggle="calibration" role="button">`;
+  h += `<span class="dt-story-section-label">Voice calibration</span>`;
+  h += `<span class="dt-story-calibration-hint">${calText ? '(saved)' : '(none — prompts use defaults)'}</span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-calibration-body${calText ? '' : ' hidden'}" data-char-id="${charId}">`;
+  h += `<textarea class="dt-story-calibration-ta" rows="3" placeholder="Voice, tone, recurring motifs for this character — injected into every prompt…">${esc(calText)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-calibration-save-btn" data-char-id="${charId}">Save Calibration</button>`;
+  h += `<span class="dt-story-calibration-status"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+  h += `</div>`;
 
   for (const section of sections) {
     h += renderSection(section, char, sub, stNarrative);
@@ -1462,6 +1556,15 @@ function buildLetterContext(char, sub, opts = {}) {
   const lines = ['Draft a Letter from Home for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // NPCR.12: correspondent near the top so the AI's persona is set before reading the player letter
+  if (storyMomentTarget?.name) {
+    const kindLabel = storyMomentTarget.custom_label || storyMomentTarget.kind || '';
+    lines.push('');
+    lines.push(`Correspondent: ${storyMomentTarget.name}${kindLabel ? ` (${kindLabel})` : ''}`);
+    lines.push('Write in this correspondent\'s voice.');
+  }
 
   if (touchstones.length) {
     lines.push('');
@@ -1474,14 +1577,6 @@ function buildLetterContext(char, sub, opts = {}) {
 
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
-
-  // NPCR.12: player's chosen story-moment target (if any). Surfaces name +
-  // kind as prompt context so the letter can acknowledge that focus.
-  if (storyMomentTarget?.name) {
-    const kindLabel = storyMomentTarget.custom_label || storyMomentTarget.kind || '';
-    lines.push('');
-    lines.push(`Story-moment target: ${storyMomentTarget.name} (${kindLabel})`);
-  }
 
   lines.push('');
   lines.push('Player-submitted letter:');
@@ -1499,7 +1594,7 @@ function buildLetterContext(char, sub, opts = {}) {
   }
 
   lines.push('');
-  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. No more than 300 words. Do not open with pleasantries or greetings — begin with the letter\'s substance. Use house style.');
 
   return lines.join('\n');
 }
@@ -1528,6 +1623,7 @@ function buildTouchstoneContext(char, sub) {
   const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
 
   if (touchstones.length) {
     lines.push('');
@@ -1541,12 +1637,22 @@ function buildTouchstoneContext(char, sub) {
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
+  // Attendance gate — determines whether in-person scenes are valid in the vignette
+  const attendedGame = sub.responses?.attended_game;
+  const wasPresent   = attendedGame === 'yes' || attendedGame === true;
+  lines.push('');
+  if (wasPresent) {
+    lines.push('Attendance: Character was present at game this cycle.');
+  } else {
+    lines.push('Attendance: Character was not physically present at game this cycle. Vignette must not depict in-person encounters — use remote contact, memory, or received information only.');
+  }
+
   lines.push('');
   lines.push('Player-submitted narrative:');
   lines.push(playerLetter ? playerLetter.trim() : '[No player narrative submitted this cycle]');
 
   lines.push('');
-  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. No more than 200 words; shorter is better. Begin in scene — no mood-setting preamble. Use house style.');
 
   return lines.join('\n');
 }
@@ -2997,6 +3103,8 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   lines.push('');
   lines.push(`Character: ${char ? displayName(char) : 'Unknown'}`);
   lines.push(`Cacophony Savvy: ${csDots} dots (slot ${slotIdx + 1} of ${csDots})`);
+  lines.push(`Covenant filter: ${char?.covenant || 'Unaligned'} — calibrate the rumour channel and language to this covenant's social register.`);
+  lines.push(..._calibrationBlock(char));
   lines.push('');
   lines.push('This slot covers a noisy event that filtered through the Cacophony this cycle:');
   lines.push('');
@@ -3005,7 +3113,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   if (noisyAction.territory) lines.push(`Territory: ${noisyAction.territory}`);
   if (noisyAction.outcome)   lines.push(`Declared intent: ${noisyAction.outcome}`);
   lines.push('');
-  lines.push(`Write a short vignette (~75 words) of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event.`);
+  lines.push(`Write a vignette of no more than 80 words of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event. Begin with the rumour itself, not with the character receiving it.`);
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Third person \u2014 the character hears about someone else, not about themselves');
@@ -3627,6 +3735,37 @@ function handleContextToggle(toggleEl) {
   if (!block) return;
   const collapsed = block.classList.toggle('collapsed');
   toggleEl.textContent = collapsed ? 'Show context' : 'Hide context';
+}
+
+function handleCalibrationToggle(headerEl) {
+  const body = headerEl.closest('.dt-story-calibration-panel')?.querySelector('.dt-story-calibration-body');
+  if (!body) return;
+  body.classList.toggle('hidden');
+}
+
+async function handleCalibrationSave(btn) {
+  const charId = btn.dataset.charId;
+  if (!charId) return;
+  const panel  = btn.closest('.dt-story-calibration-body');
+  const ta     = panel?.querySelector('.dt-story-calibration-ta');
+  const text   = ta?.value || '';
+  const status = panel?.querySelector('.dt-story-calibration-status');
+
+  btn.disabled = true;
+  if (status) status.textContent = 'Saving…';
+  try {
+    await apiPatch(`/api/characters/${charId}`, { dt_story_calibration: text });
+    // Update in-memory record so subsequent Copy Context picks up the new value immediately
+    const c = _allCharacters.find(c => String(c._id) === charId);
+    if (c) c.dt_story_calibration = text;
+    if (status) status.textContent = 'Saved';
+    btn.disabled = false;
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  } catch (err) {
+    if (status) status.textContent = 'Error';
+    btn.disabled = false;
+    console.error('Calibration save failed:', err);
+  }
 }
 
 async function handleProjectSave(btn, status) {
