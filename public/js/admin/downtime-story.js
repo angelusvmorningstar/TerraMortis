@@ -13,7 +13,7 @@
 import { apiGet, apiPut, apiPatch } from '../data/api.js';
 import { displayName, dropdownName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { effectiveFeedViolence } from '../tabs/downtime-data.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
@@ -1192,6 +1192,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Feeding</span>`;
+  h += `<span class="proc-row-status ${poolStatus}">${POOL_STATUS_LABELS[poolStatus] || poolStatus}</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
   h += `</div>`;
   h += `<div class="dt-story-section-body">`;
@@ -1357,6 +1358,8 @@ function renderProjectCard(char, sub, idx) {
   // Header row
   h += `<div class="dt-story-proj-header">`;
   h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  const projStatus = rev.pool_status || 'pending';
+  h += `<span class="proc-row-status ${projStatus}">${POOL_STATUS_LABELS[projStatus] || projStatus}</span>`;
   h += `<span class="dt-story-proj-title">${title}</span>`;
   h += `<button class="dt-story-copy-ctx-btn" data-proj-idx="${idx}">Copy Context</button>`;
   h += `</div>`;
@@ -2298,6 +2301,8 @@ function renderActionCard(char, sub, idx) {
   const chipLabel = meritCat === 'resources' ? 'Request' : modeLabel;
   const chipClass = (meritCat === 'resources' || isAuto) ? 'auto' : 'rolled';
   h += `<span class="dt-story-mode-chip ${chipClass}">${chipLabel}</span>`;
+  const procStatus = rev.pool_status || 'pending';
+  h += `<span class="proc-row-status ${procStatus}">${POOL_STATUS_LABELS[procStatus] || procStatus}</span>`;
   h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
   h += `<button class="dt-story-copy-ctx-btn" data-action-idx="${idx}">Copy Context</button>`;
   h += `</div>`;

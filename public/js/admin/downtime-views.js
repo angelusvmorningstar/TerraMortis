@@ -14,7 +14,7 @@ import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effe
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { publishAllForCycle } from './downtime-story.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
@@ -238,21 +238,7 @@ function _computeMeritPoolSize(category, dots) {
   return null; // staff = fixed; contacts = char pool (not auto-computed)
 }
 
-// Human-readable labels for pool_status values across all action types
-const POOL_STATUS_LABELS = {
-  pending:     'Pending',
-  confirmed:   'Confirmed',
-  rolled:      'Rolled',
-  validated:   'Validated',
-  no_roll:     'No Roll',
-  no_feed:     'No Valid Feeding',
-  maintenance: 'Maintenance',
-  resolved:    'Resolved',
-  no_effect:   'No Effect',
-  obvious:     'Obvious',
-  neutral:     'Neutral',
-  subtle:      'Subtle',
-};
+// POOL_STATUS_LABELS imported from downtime-constants.js
 
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
 const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped', 'obvious', 'neutral', 'subtle']);
