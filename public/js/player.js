@@ -8,6 +8,7 @@ import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/acc
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -55,6 +56,9 @@ async function renderSheetWithOverlay(c) {
   const settings = getGlobalSettings();
   const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
   applyStMods(c, mods, overlayEnabled);
+  // Epic STM (issue #385): expose the active character so the popover's
+  // delegated handler can resolve overlay entries when a marker is clicked.
+  window.__activeChar = c;
   renderSheet(c);
 }
 
@@ -95,6 +99,12 @@ async function boot() {
           renderSheetWithOverlay(activeChar);
         },
       });
+
+      // Epic STM (issue #385): install delegated click handler for the
+      // ST mod marker popover. Markers carry data-stm-marker-path attributes;
+      // the popover resolves the active character via window.__activeChar
+      // (set by renderSheetWithOverlay above).
+      installStModPopover(document.body);
       return;
     }
   }
