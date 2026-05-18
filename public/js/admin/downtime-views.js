@@ -533,6 +533,9 @@ export async function initDowntimeView(passedChars) {
       if (procMeritDesc) { _handleProcFieldBlur(procMeritDesc, 'description'); return; }
       const procSorcNotes = e.target.closest('.proc-sorc-notes-input');
       if (procSorcNotes) { _handleProcFieldBlur(procSorcNotes, 'sorc_notes'); return; }
+      // Issue #324: Court Pulse synthesis autosave on blur
+      const cpSynthTa = e.target.closest('.dt-court-pulse-synthesis-ta');
+      if (cpSynthTa) { _handleCourtPulseBlur(cpSynthTa); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -2032,6 +2035,27 @@ async function _handleCourtPulseSave(btn) {
     }
   } catch {
     if (status) status.textContent = 'Save failed';
+  }
+}
+
+async function _handleCourtPulseBlur(ta) {
+  const panel = ta.closest('.dt-court-pulse-panel');
+  const cycleId = panel?.dataset.cycleId;
+  if (!cycleId) return;
+  const text = ta.value;
+  if (text === (currentCycle?.st_court_synthesis_draft ?? '')) return;
+  const status = panel?.querySelector('.dt-court-pulse-save-status');
+  _setAutosaveStatus(status, 'saving');
+  try {
+    await updateCycle(cycleId, { st_court_synthesis_draft: text });
+    if (currentCycle && String(currentCycle._id) === cycleId) {
+      currentCycle.st_court_synthesis_draft = text;
+    }
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].st_court_synthesis_draft = text;
+    _setAutosaveStatus(status, 'saved');
+  } catch {
+    _setAutosaveStatus(status, 'error');
   }
 }
 
