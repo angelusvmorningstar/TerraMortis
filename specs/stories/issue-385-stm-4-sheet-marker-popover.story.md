@@ -1,6 +1,6 @@
 # Issue #385: STM-4 — Player sheet marker + click-to-expand breakdown popover
 
-Status: Ready for Review
+Status: Done
 
 issue: 385
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/385
