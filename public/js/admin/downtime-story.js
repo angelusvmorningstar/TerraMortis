@@ -1503,6 +1503,17 @@ function buildTouchstoneContext(char, sub, opts = {}) {
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
 
+  // Same field priority chain as buildLetterContext — personal_story_text is canonical
+  // post-dt-form.18 (issue #208); legacy keys remain for pre-redesign submissions.
+  const playerVignette =
+    sub.responses?.personal_story_text ||
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
+
   const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
@@ -1518,6 +1529,10 @@ function buildTouchstoneContext(char, sub, opts = {}) {
 
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
+
+  lines.push('');
+  lines.push('Player\'s vignette:');
+  lines.push(playerVignette ? playerVignette.trim() : '[No player vignette submitted]');
 
   if (prevVignette) {
     lines.push('');
@@ -3487,16 +3502,17 @@ async function handleCopyStoryMomentContext(btn) {
   }
 
   // ── Format-gated previous content ────────────────────────────────────────
-  // story_moment.format is 'letter' or 'vignette'. Legacy fields are
-  // unambiguous by name (letter_from_home / touchstone).
-  // If story_moment exists but has no format field (old data), neither
-  // gated path fires — legacy fallbacks cover that case.
-  const prevLetterText = (prevStoryMoment?.format === 'letter' && prevStoryMoment.response)
-    ? prevStoryMoment.response
+  // If prevStoryMoment exists it is authoritative — use format-gated value,
+  // null if the wrong format. Legacy fallbacks only activate when prevStoryMoment
+  // is entirely absent (pre-consolidation DT1 data where story_moment was never
+  // written). Without this gate, a DT2 letter's format mismatch fell through to
+  // st_narrative.touchstone.response, causing letter content in the vignette slot.
+  const prevLetterText = prevStoryMoment
+    ? (prevStoryMoment.format === 'letter' && prevStoryMoment.response ? prevStoryMoment.response : null)
     : prevLegacyLetter;
 
-  const prevVignetteText = (prevStoryMoment?.format === 'vignette' && prevStoryMoment.response)
-    ? prevStoryMoment.response
+  const prevVignetteText = prevStoryMoment
+    ? (prevStoryMoment.format === 'vignette' && prevStoryMoment.response ? prevStoryMoment.response : null)
     : prevLegacyVignette;
 
   const targetName = storyMomentTarget?.name || null;
