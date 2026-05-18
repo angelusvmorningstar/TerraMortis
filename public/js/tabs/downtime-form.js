@@ -3948,12 +3948,6 @@ function getItemsForCategory(category) {
     case 'merit': {
       const items = [];
       const charMerits = c.merits || [];
-      function currentMeritDots(meritName) {
-        const found = charMerits.filter(m =>
-          m.name && m.name.toLowerCase() === meritName.toLowerCase()
-        );
-        return found.length ? Math.max(...found.map(m => meritEffectiveRating(c, m))) : 0;
-      }
 
       // Try rules cache first, fallback to MERITS_DB.
       // Issue #188 (2026-05-08): harmonised with the sheet's Merit Add
@@ -3982,25 +3976,54 @@ function getItemsForCategory(category) {
           const rr = rule.rating_range;
           const min = rr ? rr[0] : 1;
           const max = rr ? rr[1] : 1;
-          const currentDots = currentMeritDots(name);
-          if (currentDots >= max) continue;
-          // Skip clan/covenant-excluded merits UNLESS the character already
-          // owns the merit (allow raising existing legacy dots).
-          if (isMeritExcluded(c, name) && currentDots === 0) continue;
 
-          if (min === max) {
-            items.push({
-              value: `${name}|flat|${max}|0`,
-              label: `${name} (${max} dots, ${max} XP) — all at once`,
-            });
+          // Issue #347: find all owned instances to handle multi-qualifier merits
+          // (Allies, Status, Contacts etc. where a character may own Finance + Media etc.)
+          const ownedInstances = charMerits.filter(m =>
+            m.name && m.name.toLowerCase() === name.toLowerCase()
+          );
+          const isMultiInstance = ownedInstances.length > 1 ||
+            (ownedInstances.length === 1 && !!(ownedInstances[0].qualifier || ownedInstances[0].area));
+
+          if (isMultiInstance) {
+            for (const m of ownedInstances) {
+              const qual = m.qualifier || m.area || '';
+              const dots = meritEffectiveRating(c, m);
+              if (dots >= max) continue;
+              const encodedName = qual ? `${name} (${qual})` : name;
+              const maxTarget = dots < 3 ? Math.min(3, max) : Math.min(dots + 1, max);
+              items.push({
+                value: `${encodedName}|grad|${dots}|${maxTarget}`,
+                label: `${name}${qual ? ` — ${qual}` : ''} (currently ${dots} dot${dots !== 1 ? 's' : ''})`,
+              });
+            }
+            if (!isMeritExcluded(c, name)) {
+              items.push({
+                value: `${name} (new qualifier)|grad|0|${Math.min(3, max)}`,
+                label: `${name} — new qualifier (purchase new instance)`,
+              });
+            }
           } else {
-            const maxTarget = currentDots < 3
-              ? Math.min(3, max)
-              : Math.min(currentDots + 1, max);
-            items.push({
-              value: `${name}|grad|${currentDots}|${maxTarget}`,
-              label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
-            });
+            const currentDots = ownedInstances.length ? meritEffectiveRating(c, ownedInstances[0]) : 0;
+            if (currentDots >= max) continue;
+            // Skip clan/covenant-excluded merits UNLESS the character already
+            // owns the merit (allow raising existing legacy dots).
+            if (isMeritExcluded(c, name) && currentDots === 0) continue;
+
+            if (min === max) {
+              items.push({
+                value: `${name}|flat|${max}|0`,
+                label: `${name} (${max} dots, ${max} XP) — all at once`,
+              });
+            } else {
+              const maxTarget = currentDots < 3
+                ? Math.min(3, max)
+                : Math.min(currentDots + 1, max);
+              items.push({
+                value: `${name}|grad|${currentDots}|${maxTarget}`,
+                label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
+              });
+            }
           }
         }
       }
@@ -4754,12 +4777,12 @@ function renderAcquisitionsSection(saved) {
   const skillRows = _readSkillRows(saved);
 
   let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
-  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<h4 class="qf-section-title">Asset Acquisitions<span class="qf-section-tick">✔</span></h4>';
   h += '<div class="qf-section-body">';
 
   // ── Resources sub-table ──
   h += '<div class="dt-acq-subtable" data-acq-subtable="resource">';
-  h += '<h5 class="dt-acq-subtitle">Resources Acquisitions</h5>';
+  h += '<h5 class="dt-acq-subtitle">Resource-Based Asset Acquisition</h5>';
   h += '<div class="dt-acq-resources-row dt-acq-resources-header">';
   h += `<span class="dt-acq-label">Resources Level:</span>`;
   h += `<span class="dt-acq-dots">${resourcesRating ? '●'.repeat(resourcesRating) : 'None'}</span>`;
@@ -4783,7 +4806,8 @@ function renderAcquisitionsSection(saved) {
   // legacy data on the spread base prunes to row 0 on next save (per
   // A1 silent-leave; no real users have submitted skill multi-rows).
   h += '<div class="dt-acq-subtable" data-acq-subtable="skill" style="margin-top:18px;">';
-  h += '<h5 class="dt-acq-subtitle">Skill Acquisitions</h5>';
+  h += '<h5 class="dt-acq-subtitle">Skill-Based Asset Acquisition</h5>';
+  h += '<p class="qf-section-intro">Use this section if you are using a skill to make, create, or directly obtain an asset or piece of equipment.</p>';
   const skillRow0 = skillRows[0] || { skill: '', spec: '', description: '', availability: '', merits: [] };
   h += _renderSkillRow(0, skillRow0, charMerits, c, skSkills, true);
   h += '</div>';

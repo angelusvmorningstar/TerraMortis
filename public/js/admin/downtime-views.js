@@ -3146,6 +3146,27 @@ function buildProcessingQueue(subs) {
       }
       contacts = contactList;
     }
+    // Issue #344 — Status merit actions write status_${n}_* keys (not sphere_${n}_*),
+    // so they are never picked up by the sphere fallback above. Append them to
+    // `spheres` so they flow through the same forEach with correct meritFlatIdx
+    // accounting and _parseMeritType returning category:'status' automatically.
+    for (let n = 1; n <= 5; n++) {
+      const meritType = resp[`status_${n}_merit`];
+      if (!meritType) continue;
+      spheres = [...spheres, {
+        merit_type:       meritType,
+        action_type:      resp[`status_${n}_action`]           || 'misc',
+        desired_outcome:  resp[`status_${n}_outcome`]          || '',
+        description:      resp[`status_${n}_description`]      || '',
+        territory:        resp[`status_${n}_territory`]        || '',
+        target_type:      resp[`status_${n}_target_type`]      || '',
+        target_value:     resp[`status_${n}_target_value`]     || '',
+        target_other:     resp[`status_${n}_target_other`]     || '',
+        investigate_lead: resp[`status_${n}_investigate_lead`] || '',
+        primary_pool:     null,
+        cast:             '',
+      }];
+    }
     const retainers = raw.retainer_actions?.actions || [];
 
     // merit_actions_resolved uses a flat index: spheres, then contacts, then retainers
@@ -3336,6 +3357,30 @@ function buildProcessingQueue(subs) {
         description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
         source: 'merit',
         meritCategory: 'staff',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+    // Issue #344 — Retainer actions write retainer_${n}_type/task/merit for
+    // app-form submissions. The block above reads raw.retainer_actions?.actions
+    // which is always [] for app-form subs. Mirror the Mentor pattern.
+    for (let n = 1; n <= 10; n++) {
+      const task    = resp[`retainer_${n}_task`];
+      const type    = resp[`retainer_${n}_type`];
+      const meritLb = resp[`retainer_${n}_merit`];
+      if (!task && !type) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
+        actionType: 'resources_retainers',
+        label: meritLb ? `${meritLb}: Directed Action` : 'Retainer: Directed Action',
+        description: _composeDirectedDesc(meritLb, type || '', task || ''),
+        source: 'merit',
+        meritCategory: 'retainer',
         actionIdx: meritFlatIdx,
         poolPlayer: '',
       });
