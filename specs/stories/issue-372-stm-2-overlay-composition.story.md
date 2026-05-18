@@ -1,6 +1,6 @@
 # Issue #372: STM-2 — Client-side overlay composition + tracker_state splice
 
-Status: Ready for Review
+Status: Done
 
 issue: 372
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/372
