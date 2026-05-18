@@ -12,6 +12,7 @@ import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/acc
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent, stripOverlay } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
@@ -185,6 +186,13 @@ async function boot() {
           renderSheetWithOverlay(c);
         },
       });
+
+      // Epic STM (issue #385): install delegated click handler for the
+      // ST mod marker popover. Single listener at document.body — survives
+      // sheet re-renders. Markers carry data-stm-marker-path attributes;
+      // the popover resolves the active character via window.chars + window.editIdx
+      // (already exposed below for the inline-onclick sheet handlers).
+      installStModPopover(document.body);
       return;
     }
   }

@@ -5486,3 +5486,81 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   font-size: 0.9em;
   font-style: italic;
 }
+
+/* ── Epic STM (issue #385): mod marker + popover ── */
+.stm-marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+  background: var(--gold2);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 4px var(--gold2-a25, rgba(122,82,8,.25));
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.stm-marker:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 8px var(--gold);
+}
+
+.stm-pop-host { pointer-events: auto; }
+.stm-pop {
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--gold2);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt);
+}
+.stm-pop-head {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--bdr);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.stm-pop-base, .stm-pop-final {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-weight: 600;
+}
+.stm-pop-final {
+  border-top: 1px solid var(--bdr);
+  margin-top: 6px;
+  padding-top: 6px;
+  color: var(--gold2);
+}
+.stm-pop-base-src { color: var(--txt3); font-weight: 400; font-style: italic; }
+.stm-pop-val { font-family: var(--fh); font-size: 14px; }
+.stm-pop-mods { margin: 4px 0; }
+.stm-pop-mod {
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--bdr);
+}
+.stm-pop-mod:last-child { border-bottom: 0; }
+.stm-pop-mod-delta {
+  display: inline-block;
+  min-width: 32px;
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+}
+.stm-pop-mod-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--txt2);
+}
+.stm-pop-mod-when {
+  color: var(--txt3);
+  font-size: 10px;
+}
