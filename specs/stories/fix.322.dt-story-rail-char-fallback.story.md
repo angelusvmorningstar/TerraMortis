@@ -2,7 +2,7 @@
 
 **Story ID:** fix.322
 **Epic:** DT Story tab improvements
-**Status:** review
+**Status:** done
 **Date:** 2026-05-18
 **Issue:** [#322](https://github.com/angelusvmorningstar/TerraMortis/issues/322)
 **Branch:** ms/issue-322-dt-story-rail-char-fallback
