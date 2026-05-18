@@ -1,6 +1,6 @@
 # Issue #386: STM-5 — ST Mods admin panel (create / list / revoke + toggles)
 
-Status: Ready for Review
+Status: Done
 
 issue: 386
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/386
