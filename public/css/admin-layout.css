@@ -2373,15 +2373,16 @@ body {
 }
 
 /* Issue #320: autosave status indicator for DT-Processing ST-input textareas */
-.dt-autosave-status {
+/* Issue #354: extended to DT Story narrative textareas */
+.dt-autosave-status, .dt-story-autosave-status {
   font-size: 11px;
   color: var(--txt3);
   margin-left: 6px;
   font-style: italic;
 }
-.dt-autosave-status[data-state="saving"] { color: var(--txt2); }
-.dt-autosave-status[data-state="saved"]  { color: var(--gold3); }
-.dt-autosave-status[data-state="error"]  { color: var(--crim); }
+.dt-autosave-status[data-state="saving"], .dt-story-autosave-status[data-state="saving"] { color: var(--txt2); }
+.dt-autosave-status[data-state="saved"],  .dt-story-autosave-status[data-state="saved"]  { color: var(--gold3); }
+.dt-autosave-status[data-state="error"],  .dt-story-autosave-status[data-state="error"]  { color: var(--crim); }
 
 /* ── Attendance & Finance ── */
 

@@ -335,6 +335,12 @@ export async function initDtStory(cycleId) {
       if (statusEl) statusEl.textContent = 'Save failed';
     }
   });
+
+  // Issue #354: blur-autosave for narrative response and revision-note textareas
+  panel.addEventListener('focusout', async e => {
+    const ta = e.target.closest('.dt-story-response-ta, .dt-feed-narrative-ta, .dt-story-revision-ta');
+    if (ta) await _handleStoryTaBlur(ta);
+  });
 }
 
 /**
@@ -346,6 +352,96 @@ export async function saveNarrativeField(submissionId, patch) {
   _assertCurrentCycle(submissionId); // Issue #321: throws if submission is in a different cycle
   return apiPut('/api/downtime_submissions/' + submissionId, patch);
 }
+
+// ── Issue #354: DT Story blur-autosave ────────────────────────────────────────
+
+function _showStoryAutosaveStatus(el, state) {
+  if (!el) return;
+  el.dataset.state = state;
+  if (state === 'saving') { el.textContent = 'Saving…'; return; }
+  if (state === 'saved') {
+    el.textContent = 'Saved';
+    setTimeout(() => { if (el.dataset.state === 'saved') { el.textContent = ''; delete el.dataset.state; } }, 2000);
+    return;
+  }
+  if (state === 'error') { el.textContent = 'Save failed'; }
+}
+
+async function _handleStoryTaBlur(ta) {
+  if (!_currentSub) return;
+  const isRevision = ta.classList.contains('dt-story-revision-ta');
+  const field      = isRevision ? 'revision_note' : 'response';
+  const newVal     = ta.value.trim();
+
+  let patch     = null;
+  let memUpdate = null;
+
+  const projCard = ta.closest('.dt-story-proj-card');
+  if (projCard) {
+    const idx      = parseInt(projCard.dataset.projIdx, 10);
+    const existing = _currentSub.st_narrative?.project_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedProjectResponses(_currentSub, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.project_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).project_responses = updated; };
+  } else if (ta.closest('.dt-story-merit-card')) {
+    const card     = ta.closest('.dt-story-merit-card');
+    const idx      = parseInt(card.dataset.actionIdx, 10);
+    const existing = _currentSub.st_narrative?.action_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.action_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).action_responses = updated; };
+  } else if (ta.closest('.dt-story-terr-section')) {
+    const terrSec  = ta.closest('.dt-story-terr-section');
+    const idx      = parseInt(terrSec.dataset.terrIdx, 10);
+    const existing = _currentSub.st_narrative?.territory_reports || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.territory_reports': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).territory_reports = updated; };
+  } else if (ta.closest('[data-slot-idx]')) {
+    const slot     = ta.closest('[data-slot-idx]');
+    const idx      = parseInt(slot.dataset.slotIdx, 10);
+    const existing = _currentSub.st_narrative?.cacophony_savvy || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.cacophony_savvy': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).cacophony_savvy = updated; };
+  } else {
+    const section    = ta.closest('.dt-story-section');
+    const sectionKey = section?.dataset.section;
+    const narrativeKeyMap = {
+      story_moment:       'story_moment',
+      feeding_validation: 'feeding_narrative',
+      home_report:        'home_report',
+    };
+    const narrativeKey = narrativeKeyMap[sectionKey];
+    if (!narrativeKey) return;
+    const curr = _currentSub.st_narrative?.[narrativeKey] || {};
+    if ((curr[field] || '') === newVal) return;
+    const merged = { ...curr, [field]: newVal };
+    patch        = { [`st_narrative.${narrativeKey}`]: merged };
+    memUpdate    = () => { (_currentSub.st_narrative ??= {})[narrativeKey] = merged; };
+  }
+
+  if (!patch) return;
+  const statusEl = ta.parentElement?.querySelector('.dt-story-autosave-status');
+  _showStoryAutosaveStatus(statusEl, 'saving');
+  try {
+    await saveNarrativeField(_currentSub._id, patch);
+    memUpdate();
+    _showStoryAutosaveStatus(statusEl, 'saved');
+  } catch {
+    _showStoryAutosaveStatus(statusEl, 'error');
+  }
+}
+
+// ── /Issue #354 ───────────────────────────────────────────────────────────────
 
 // ── Completion helpers ─────────────────────────────────────────────────────────
 
@@ -1261,7 +1357,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `<div class="dt-feed-val-narrative-block">`;
   h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
   h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
-  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea>`;
+  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
   h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
@@ -1270,7 +1366,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -1386,7 +1482,7 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1398,7 +1494,7 @@ function renderProjectCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -1643,7 +1739,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   h += `<div class="dt-story-card-actions">`;
@@ -1654,7 +1750,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || initialRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
   h += `</div>`;
@@ -2328,7 +2424,7 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
@@ -2339,7 +2435,7 @@ function renderActionCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-action-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -2760,7 +2856,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `<a class="dt-story-context-toggle" role="button">${savedTxt ? 'Show context' : 'Hide context'}</a>`;
   h += `</div>`; // context-block
 
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
@@ -2770,7 +2866,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `</button></div>`;
 
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -2894,7 +2990,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
@@ -2905,7 +3001,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</button>`;
     h += `</div>`;
     h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
     h += `<div class="dt-story-card-actions">`;
     h += `<button class="dt-story-revision-save-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Revision</button>`;
     h += `</div>`;
@@ -3047,7 +3143,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
@@ -3058,7 +3154,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</button>`;
       h += `</div>`;
       h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
       h += `<div class="dt-story-card-actions">`;
       h += `<button class="dt-story-revision-save-btn" data-slot-idx="${slotIdx}">Save Revision</button>`;
       h += `</div>`;

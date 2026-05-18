@@ -5,7 +5,7 @@
 **Issue URL:** https://github.com/angelusvmorningstar/TerraMortis/issues/354
 **Branch:** ms/issue-354-blur-autosave-dt-story
 **Epic:** Fixes
-**Status:** ready-for-dev
+**Status:** review
 **Date:** 2026-05-18
 
 ---
@@ -294,11 +294,11 @@ Manual test cases (no automated test framework for this story):
 
 ## Tasks
 
-- [ ] T1: Add `_showStoryAutosaveStatus(el, state)` helper function
-- [ ] T2: Implement `_handleStoryTaBlur(ta)` dispatcher covering all 7 section types
-- [ ] T3: Wire `focusout` listener in `initStoryPanel` for response/feed/revision textareas
-- [ ] T4: Add `.dt-story-autosave-status` span to all render functions (7 section types × 2 textareas each)
-- [ ] T5: CSS check — extend `.dt-autosave-status` rule or add `.dt-story-autosave-status` standalone
+- [x] T1: Add `_showStoryAutosaveStatus(el, state)` helper function
+- [x] T2: Implement `_handleStoryTaBlur(ta)` dispatcher covering all 7 section types
+- [x] T3: Wire `focusout` listener in `initStoryPanel` for response/feed/revision textareas
+- [x] T4: Add `.dt-story-autosave-status` span to all render functions (7 section types × 2 textareas each)
+- [x] T5: CSS check — extend `.dt-autosave-status` rule or add `.dt-story-autosave-status` standalone
 - [ ] T6: Manual smoke test all 13 cases above on dev deploy
 
 ---
@@ -307,13 +307,21 @@ Manual test cases (no automated test framework for this story):
 
 ### Completion Notes
 
-_To be filled by dev agent._
+T1: Added `_showStoryAutosaveStatus(el, state)` — shows `Saving…` / `Saved` (clears after 2 s) / `Save failed` on the `.dt-story-autosave-status` span adjacent to the textarea. Guards against stale state via `el.dataset.state` check in the timeout.
+
+T2: Added `_handleStoryTaBlur(ta)` dispatcher. Determines section type by walking up the DOM: `.dt-story-proj-card` → project_responses; `.dt-story-merit-card` → action_responses; `.dt-story-terr-section` → territory_reports; `[data-slot-idx]` → cacophony_savvy; `.dt-story-section[data-section]` → story_moment / feeding_narrative / home_report. Field is `revision_note` for `.dt-story-revision-ta`, `response` otherwise. No-op guard compares trimmed value against last-saved. Spreads over existing saved object so `status`, `author`, `format` survive.
+
+T3: Added second `focusout` listener in `initStoryPanel` after the notes-ta listener. Matches `.dt-story-response-ta, .dt-feed-narrative-ta, .dt-story-revision-ta`.
+
+T4: Added `<span class="dt-story-autosave-status"></span>` inline after each textarea in 14 locations across 7 render functions. Span is inside the same `parentElement` so `ta.parentElement.querySelector('.dt-story-autosave-status')` resolves correctly.
+
+T5: Extended `.dt-autosave-status` CSS rule in `admin-layout.css` to include `.dt-story-autosave-status` on all four declarations (base + 3 state variants).
 
 ### File List
 
 - `public/js/admin/downtime-story.js` (modified)
-- `public/css/admin.css` (modified if CSS rule needed)
+- `public/css/admin-layout.css` (modified)
 
 ### Change Log
 
-_To be filled by dev agent._
+- 2026-05-18: fix.55 — DT Story blur-autosave. Added `_showStoryAutosaveStatus` + `_handleStoryTaBlur` dispatcher covering 7 section types. Delegated `focusout` listener wired in `initStoryPanel`. Status spans added to all 14 render-function textareas. CSS rule extended. Parse-check clean.
