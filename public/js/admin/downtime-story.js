@@ -621,7 +621,9 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
   // Ambience actions use a dedicated territory field; patrol uses another.
   // Read the action-type-appropriate field so territory is never 'Unknown'.
-  const isAmbience = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isAmbience      = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isInvestigation = actionType === 'investigate';
+  const isFeed          = actionType === 'feed';
   const terrRaw    = isAmbience
     ? (sub.responses?.[`project_${slot}_ambience_target`] || sub.responses?.[`project_${slot}_territory`] || '')
     : (sub.responses?.[`project_${slot}_territory`] || '');
@@ -791,8 +793,6 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   }
 
   lines.push('');
-  const isInvestigation = actionType === 'investigate';
-  const isFeed = actionType === 'feed';
   const rubric = [
     isInvestigation ? 'Apply INVESTIGATION_THRESHOLDS.' : null,
     isFeed ? 'Apply FEEDING_CONSTRAINTS.' : null,
