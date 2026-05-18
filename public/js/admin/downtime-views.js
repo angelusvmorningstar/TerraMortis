@@ -14,7 +14,7 @@ import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effe
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { publishAllForCycle } from './downtime-story.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
@@ -238,21 +238,7 @@ function _computeMeritPoolSize(category, dots) {
   return null; // staff = fixed; contacts = char pool (not auto-computed)
 }
 
-// Human-readable labels for pool_status values across all action types
-const POOL_STATUS_LABELS = {
-  pending:     'Pending',
-  confirmed:   'Confirmed',
-  rolled:      'Rolled',
-  validated:   'Validated',
-  no_roll:     'No Roll',
-  no_feed:     'No Valid Feeding',
-  maintenance: 'Maintenance',
-  resolved:    'Resolved',
-  no_effect:   'No Effect',
-  obvious:     'Obvious',
-  neutral:     'Neutral',
-  subtle:      'Subtle',
-};
+// POOL_STATUS_LABELS imported from downtime-constants.js
 
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
 const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped', 'obvious', 'neutral', 'subtle']);
@@ -547,6 +533,9 @@ export async function initDowntimeView(passedChars) {
       if (procMeritDesc) { _handleProcFieldBlur(procMeritDesc, 'description'); return; }
       const procSorcNotes = e.target.closest('.proc-sorc-notes-input');
       if (procSorcNotes) { _handleProcFieldBlur(procSorcNotes, 'sorc_notes'); return; }
+      // Issue #324: Court Pulse synthesis autosave on blur
+      const cpSynthTa = e.target.closest('.dt-court-pulse-synthesis-ta');
+      if (cpSynthTa) { _handleCourtPulseBlur(cpSynthTa); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -2049,6 +2038,27 @@ async function _handleCourtPulseSave(btn) {
   }
 }
 
+async function _handleCourtPulseBlur(ta) {
+  const panel = ta.closest('.dt-court-pulse-panel');
+  const cycleId = panel?.dataset.cycleId;
+  if (!cycleId) return;
+  const text = ta.value;
+  if (text === (currentCycle?.st_court_synthesis_draft ?? '')) return;
+  const status = panel?.querySelector('.dt-court-pulse-save-status');
+  _setAutosaveStatus(status, 'saving');
+  try {
+    await updateCycle(cycleId, { st_court_synthesis_draft: text });
+    if (currentCycle && String(currentCycle._id) === cycleId) {
+      currentCycle.st_court_synthesis_draft = text;
+    }
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].st_court_synthesis_draft = text;
+    _setAutosaveStatus(status, 'saved');
+  } catch {
+    _setAutosaveStatus(status, 'error');
+  }
+}
+
 // ── DTIL-2: Action Queue ─────────────────────────────────────────────────────
 
 const ACTION_QUEUE_STATES = ['unread', 'acknowledged', 'action_needed', 'resolved', 'ignored'];
@@ -3146,6 +3156,27 @@ function buildProcessingQueue(subs) {
       }
       contacts = contactList;
     }
+    // Issue #344 — Status merit actions write status_${n}_* keys (not sphere_${n}_*),
+    // so they are never picked up by the sphere fallback above. Append them to
+    // `spheres` so they flow through the same forEach with correct meritFlatIdx
+    // accounting and _parseMeritType returning category:'status' automatically.
+    for (let n = 1; n <= 5; n++) {
+      const meritType = resp[`status_${n}_merit`];
+      if (!meritType) continue;
+      spheres = [...spheres, {
+        merit_type:       meritType,
+        action_type:      resp[`status_${n}_action`]           || 'misc',
+        desired_outcome:  resp[`status_${n}_outcome`]          || '',
+        description:      resp[`status_${n}_description`]      || '',
+        territory:        resp[`status_${n}_territory`]        || '',
+        target_type:      resp[`status_${n}_target_type`]      || '',
+        target_value:     resp[`status_${n}_target_value`]     || '',
+        target_other:     resp[`status_${n}_target_other`]     || '',
+        investigate_lead: resp[`status_${n}_investigate_lead`] || '',
+        primary_pool:     null,
+        cast:             '',
+      }];
+    }
     const retainers = raw.retainer_actions?.actions || [];
 
     // merit_actions_resolved uses a flat index: spheres, then contacts, then retainers
@@ -3336,6 +3367,30 @@ function buildProcessingQueue(subs) {
         description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
         source: 'merit',
         meritCategory: 'staff',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+    // Issue #344 — Retainer actions write retainer_${n}_type/task/merit for
+    // app-form submissions. The block above reads raw.retainer_actions?.actions
+    // which is always [] for app-form subs. Mirror the Mentor pattern.
+    for (let n = 1; n <= 10; n++) {
+      const task    = resp[`retainer_${n}_task`];
+      const type    = resp[`retainer_${n}_type`];
+      const meritLb = resp[`retainer_${n}_merit`];
+      if (!task && !type) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
+        actionType: 'resources_retainers',
+        label: meritLb ? `${meritLb}: Directed Action` : 'Retainer: Directed Action',
+        description: _composeDirectedDesc(meritLb, type || '', task || ''),
+        source: 'merit',
+        meritCategory: 'retainer',
         actionIdx: meritFlatIdx,
         poolPlayer: '',
       });

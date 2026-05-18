@@ -9,7 +9,7 @@ This document maps every data domain to its authoritative source: the MongoDB co
 | Domain | Collection | API | Managed in UI |
 |--------|-----------|-----|---------------|
 | Characters (schema, stats, merits) | `characters` | `GET/PUT /api/characters` | admin.html → Player tab (character grid + sheet editor) |
-| Character tracker state (vitae/WP/health) | `tracker_state` | `GET/PUT /api/tracker_state` *(ST-auth only)* | game app → Tracker tab |
+| Character tracker state (vitae/WP/health) | `tracker_state` | `GET/PUT /api/tracker_state` *(ST cross-character; players read+write their own per `server/routes/tracker.js:9-15` `canAccess()`)* | game app → Tracker tab |
 | Questionnaire responses | `questionnaire` | `GET/PUT /api/questionnaire` | player.html → questionnaire flow |
 | Character history | `history` | `GET/PUT /api/history` | admin.html → Player tab |
 
@@ -109,4 +109,6 @@ These are always calculated at render time from character data:
 |---|---|---|
 | `/api/auth` | No | — |
 | `/api/characters`, `/api/territories`, `/api/downtime_*`, `/api/players`, `/api/questionnaire`, `/api/history`, `/api/ordeal*`, `/api/rules`, `/api/npcs`, `/api/tickets` | Yes (any authenticated) | — |
-| `/api/tracker_state`, `/api/session_logs`, `/api/game_sessions` | Yes | ST only |
+| `/api/tracker_state` | Yes | ST (cross-character) or owning player (`req.user.character_ids` per `server/routes/tracker.js:9-15`) |
+| `/api/session_logs`, `/api/game_sessions` | Yes | ST only |
+| `/api/st_mods`, `/api/st_mod_audit` | Yes | ST only |
