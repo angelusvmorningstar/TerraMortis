@@ -470,7 +470,7 @@ function formatPool(pool) {
 
 /** "Lord Marcus — Ventrue / Invictus — The Politician" */
 function _compactCharHeader(char) {
-  const name  = [char?.honorific, char ? displayName(char) : 'Unknown'].filter(Boolean).join(' ');
+  const name  = char ? displayName(char) : 'Unknown';  // displayName already includes honorific
   const ident = [char?.clan, char?.covenant].filter(Boolean).join(' / ');
   return [name, ident, char?.concept || null].filter(Boolean).join(' \u2014 ');
 }
@@ -494,12 +494,18 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   const title       = sub.responses?.[`project_${slot}_title`]       || '';
   const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
   const description = sub.responses?.[`project_${slot}_description`] || '';
-  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
   const castRaw     = sub.responses?.[`project_${slot}_cast`]        || '';
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
   const actionType = rev.action_type_override || rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+
+  // Ambience actions use a dedicated territory field; patrol uses another.
+  // Read the action-type-appropriate field so territory is never 'Unknown'.
+  const isAmbience = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const terrRaw    = isAmbience
+    ? (sub.responses?.[`project_${slot}_ambience_target`] || sub.responses?.[`project_${slot}_territory`] || '')
+    : (sub.responses?.[`project_${slot}_territory`] || '');
   const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
   const roll       = rev.roll || null;
   const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
@@ -569,7 +575,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
       (s.projects_resolved || []).forEach((r, i) => {
         if (!r || r.pool_status === 'skipped') return;
         const sl = i + 1;
-        if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
+        const otherType = r.action_type_override || r.action_type || '';
+        const otherIsAmb = otherType === 'ambience_increase' || otherType === 'ambience_decrease';
+        const otherTerrRaw = otherIsAmb
+          ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
+          : otherType === 'patrol_scout'
+            ? (s.responses?.[`project_${sl}_target_terr`] || s.responses?.[`project_${sl}_territory`] || '')
+            : (s.responses?.[`project_${sl}_territory`] || '');
+        if (resolveTerrId(otherTerrRaw) !== terrId) return;
         const aType = ACTION_TYPE_LABELS[r.action_type] || r.action_type || 'Action';
         otherActions.push(`${s.character_name || 'Unknown'} (${aType})`);
       });
@@ -682,7 +695,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const title       = sub.responses?.[`project_${slot}_title`]       || '';
   const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
   const description = sub.responses?.[`project_${slot}_description`] || '';
-  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
+  // Patrol uses _target_terr (modern DT form); fall back to _territory for legacy submissions.
+  const terrRaw     = sub.responses?.[`project_${slot}_target_terr`] || sub.responses?.[`project_${slot}_territory`] || '';
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
@@ -757,11 +771,18 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     (s.projects_resolved || []).forEach((r, i) => {
       if (!r || r.pool_status === 'skipped') return;
       const sl = i + 1;
-      if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
       const aType = r.action_type_override || r.action_type || '';
+      const otherIsAmb = aType === 'ambience_increase' || aType === 'ambience_decrease';
+      const otherIsPatrol = aType === 'patrol_scout' || aType === 'support';
+      const otherTerrRaw = otherIsAmb
+        ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
+        : otherIsPatrol
+          ? (s.responses?.[`project_${sl}_target_terr`] || s.responses?.[`project_${sl}_territory`] || '')
+          : (s.responses?.[`project_${sl}_territory`] || '');
+      if (resolveTerrId(otherTerrRaw) !== terrId) return;
       const cName = s.character_name || 'Unknown';
-      if (aType === 'ambience_increase' || aType === 'ambience_decrease') ambienceChars.push(cName);
-      else if (aType === 'patrol_scout' || aType === 'support') patrolChars.push(cName);
+      if (otherIsAmb) ambienceChars.push(cName);
+      else if (otherIsPatrol) patrolChars.push(cName);
       else if (aType === 'investigate') investigateChars.push(cName);
       else miscChars.push(cName);
     });
@@ -1494,6 +1515,16 @@ function buildTouchstoneContext(char, sub) {
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
 
+  // Player's submitted narrative — same priority chain as buildLetterContext
+  const playerLetter =
+    sub.responses?.personal_story_text ||
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
+
   const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
@@ -1509,6 +1540,10 @@ function buildTouchstoneContext(char, sub) {
 
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
+
+  lines.push('');
+  lines.push('Player-submitted narrative:');
+  lines.push(playerLetter ? playerLetter.trim() : '[No player narrative submitted this cycle]');
 
   lines.push('');
   lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
@@ -3412,22 +3447,22 @@ async function handleSignOff(btn) {
 
 async function handleCopyStoryMomentContext(btn) {
   if (!_currentSub) return;
-  const char = getCharForSub(_currentSub);
+  const sub  = _currentSub;                              // snapshot — prevents stale read if ST switches characters during fetch
+  const char = getCharForSub(sub);
 
   const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
   const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
   if (format === 'vignette') {
-    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
+    copyToClipboard(buildTouchstoneContext(char, sub), btn);
     return;
   }
 
-  // Letter format: assemble previous-cycle correspondence + story-moment target,
-  // same as the pre-DTSR-2 handleCopyLetterContext logic.
+  // Letter format: assemble previous-cycle correspondence + story-moment target.
   let prevCorrespondence = null;
   let prevCycleNumber    = null;
   try {
-    const cycleId   = _currentSub.cycle_id;
+    const cycleId   = sub.cycle_id;
     const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
     const cycles    = Array.isArray(allCycles) ? allCycles : [];
     const currentCycle   = cycles.find(c => String(c._id) === String(cycleId));
@@ -3438,22 +3473,26 @@ async function handleCopyStoryMomentContext(btn) {
       if (prevCycle) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
-          .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
-          || prevSub?.st_narrative?.letter_from_home?.response
-          || null;
-        prevCycleNumber = prevCycle.game_number;
+          .find(s => String(s.character_id) === String(sub.character_id));
+        if (prevSub) {
+          prevCorrespondence =
+            prevSub.st_narrative?.story_moment?.response
+            || prevSub.st_narrative?.letter_from_home?.response
+            || prevSub.st_narrative?.touchstone?.response   // legacy vignette field
+            || null;
+          prevCycleNumber = prevCycle.game_number;
+        }
       }
     }
   } catch { /* leave nulls */ }
 
-  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
-    || _currentSub.st_narrative?.letter_from_home?.voice_note
+  const stVoiceNote = sub.st_narrative?.story_moment?.voice_note
+    || sub.st_narrative?.letter_from_home?.voice_note
     || null;
 
   // NPCR.12: resolve story-moment relationship target name for the prompt.
   let storyMomentTarget = null;
-  const relId = _currentSub.responses?.story_moment_relationship_id;
+  const relId = sub.responses?.story_moment_relationship_id;
   if (relId) {
     try {
       const edge = await apiGet(`/api/relationships/${encodeURIComponent(relId)}`);
@@ -3463,7 +3502,7 @@ async function handleCopyStoryMomentContext(btn) {
           custom_label: edge.custom_label || null,
           name: null,
         };
-        const charId = String(_currentSub.character_id);
+        const charId = String(sub.character_id);
         const other  = String(edge.a?.id) === charId ? edge.b : edge.a;
         if (other?.type === 'npc' && other.id) {
           const npcs = await apiGet('/api/npcs').catch(() => []);
@@ -3477,7 +3516,7 @@ async function handleCopyStoryMomentContext(btn) {
     } catch { /* leave null */ }
   }
 
-  const text = buildLetterContext(char, _currentSub, {
+  const text = buildLetterContext(char, sub, {
     prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
   });
   copyToClipboard(text, btn);
@@ -3552,19 +3591,20 @@ function _refreshProgressTracker() {
 
 async function handleCopyProjectContext(btn) {
   if (!_currentSub) return;
+  const sub  = _currentSub;                              // snapshot — prevents stale read if ST switches characters during fetch
   const card = btn.closest('.dt-story-proj-card');
   if (!card) return;
   const idx  = parseInt(card.dataset.projIdx, 10);
-  const char = getCharForSub(_currentSub);
+  const char = getCharForSub(sub);
 
-  const rev        = _currentSub.projects_resolved?.[idx] || {};
+  const rev        = sub.projects_resolved?.[idx] || {};
   const slot       = idx + 1;
   const actionType = rev.action_type_override || rev.action_type
-    || _currentSub.responses?.[`project_${slot}_action`] || '';
+    || sub.responses?.[`project_${slot}_action`] || '';
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = _currentSub.cycle_id;
+    const cycleId = sub.cycle_id;
     const [allCycles, terrs] = await Promise.all([
       apiGet('/api/downtime_cycles').catch(() => []),
       apiGet('/api/territories').catch(() => []),
@@ -3575,10 +3615,10 @@ async function handleCopyProjectContext(btn) {
 
   const isMainten = actionType === 'maintenance' || rev.pool_status === 'maintenance';
   const text = actionType === 'patrol_scout'
-    ? buildPatrolContext(char, _currentSub, idx, cycleData, territories)
+    ? buildPatrolContext(char, sub, idx, cycleData, territories)
     : isMainten
-      ? buildMaintenanceContext(char, _currentSub, idx)
-      : buildProjectContext(char, _currentSub, idx, cycleData, territories);
+      ? buildMaintenanceContext(char, sub, idx)
+      : buildProjectContext(char, sub, idx, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
@@ -3660,22 +3700,23 @@ async function handleProjectSave(btn, status) {
 
 async function handleCopyTerritoryContext(btn) {
   if (!_currentSub) return;
-  const char   = getCharForSub(_currentSub);
+  const sub    = _currentSub;                            // snapshot — prevents stale read if ST switches characters during fetch
+  const char   = getCharForSub(sub);
   const terrId = btn.dataset.terrId;
   if (!terrId) return;
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = _currentSub.cycle_id;
+    const cycleId = sub.cycle_id;
     const [allCycles, terrs] = await Promise.all([
       apiGet('/api/downtime_cycles').catch(() => []),
       apiGet('/api/territories').catch(() => []),
     ]);
-    cycleData  = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
+    cycleData   = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
     territories = Array.isArray(terrs) ? terrs : [];
   } catch { /* use nulls */ }
 
-  const text = buildTerritoryContext(char, _currentSub, terrId, _allSubmissions, _allCharacters, cycleData, territories);
+  const text = buildTerritoryContext(char, sub, terrId, _allSubmissions, _allCharacters, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
