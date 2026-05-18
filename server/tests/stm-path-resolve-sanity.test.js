@@ -40,10 +40,13 @@ function buildCharacter() {
       { name: 'Resources', dots: 3 },
       { name: 'Allies', dots: 2 },
     ],
-    disciplines: [
-      { name: 'Auspex', dots: 1 },
-      { name: 'Celerity', dots: 2 },
-    ],
+    // Object-keyed in the v2 schema (per public/js/data/accessors.js#discDots).
+    // STM-5 (issue #386) tightened the server regex to accept letter-named
+    // discipline keys; the fixture matches the actual document shape.
+    disciplines: {
+      Auspex:   { dots: 1 },
+      Celerity: { dots: 2 },
+    },
   };
 }
 
@@ -148,9 +151,10 @@ describe('STM-2 path-resolve sanity check (ADR-004 §Concerns Item 2)', () => {
       const v = getByPath(c, `merits.${i}.dots`);
       if (typeof v !== 'number') failures.push(`merits.${i}.dots -> ${v}`);
     });
-    c.disciplines.forEach((_, i) => {
-      const v = getByPath(c, `disciplines.${i}.dots`);
-      if (typeof v !== 'number') failures.push(`disciplines.${i}.dots -> ${v}`);
+    // Object-keyed disciplines: walk Object.keys (name-based path)
+    Object.keys(c.disciplines).forEach((name) => {
+      const v = getByPath(c, `disciplines.${name}.dots`);
+      if (typeof v !== 'number') failures.push(`disciplines.${name}.dots -> ${v}`);
     });
 
     expect(failures, `unresolved dynamic paths:\n  ${failures.join('\n  ')}`).toEqual([]);

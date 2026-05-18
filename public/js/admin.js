@@ -37,6 +37,7 @@ import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
+import { initStModsPanel } from './admin/st-mods-panel.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -270,6 +271,19 @@ function switchDomain(domain) {
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
+  if (domain === 'st-mods') {
+    // STM-5 (issue #386): panel works on the currently-selected character.
+    // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
+    // placeholder. onMutate triggers the STM-2 sheet re-render so mod
+    // changes and toggle flips are immediately visible on the player view.
+    const idx = editorState.editIdx;
+    const c = (idx != null && idx >= 0) ? chars[idx] : null;
+    initStModsPanel(
+      document.getElementById('st-mods-panel-content'),
+      c,
+      () => { if (c) renderSheetWithOverlay(c); },
+    );
+  }
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
