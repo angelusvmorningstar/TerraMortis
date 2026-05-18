@@ -32,6 +32,7 @@ import {
 } from './routes/rules-engine.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
+import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -152,6 +153,11 @@ app.use('/api/npcs', requireAuth, noCache(), npcsRouter);
 app.use('/api/relationships', requireAuth, noCache(), relationshipsRouter);
 app.use('/api/npc-flags', requireAuth, noCache(), npcFlagsRouter);
 app.use('/api/admin', requireAuth, requireRole('st'), noCache(), adminMigrationsRouter);
+// Epic STM (issue #358): ST mod overlay foundation. ST-auth gated at the
+// router level (requireRole('st')); requireAuth must run first to populate
+// req.user. no-cache since mods mutate frequently from the admin panel.
+app.use('/api/st_mods', requireAuth, noCache(), stModsRouter);
+app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

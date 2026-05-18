@@ -153,3 +153,19 @@ export const TERRITORY_SLUG_MAP = {
   secondcity: 'secondcity',
   northshore: 'northshore',
 };
+
+// Human-readable labels for pool_status values (shared with downtime-views.js and downtime-story.js)
+export const POOL_STATUS_LABELS = {
+  pending:     'Pending',
+  confirmed:   'Confirmed',
+  rolled:      'Rolled',
+  validated:   'Validated',
+  no_roll:     'No Roll',
+  no_feed:     'No Valid Feeding',
+  maintenance: 'Maintenance',
+  resolved:    'Resolved',
+  no_effect:   'No Effect',
+  obvious:     'Obvious',
+  neutral:     'Neutral',
+  subtle:      'Subtle',
+};

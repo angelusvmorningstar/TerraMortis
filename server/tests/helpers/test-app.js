@@ -24,6 +24,7 @@ import {
 import relationshipsRouter from '../../routes/relationships.js';
 import npcFlagsRouter from '../../routes/npc-flags.js';
 import npcsRouter from '../../routes/npcs.js';
+import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -87,6 +88,9 @@ export function createTestApp() {
   app.use('/api/relationships', mockAuth, noCache(), relationshipsRouter);
   app.use('/api/npcs', mockAuth, noCache(), npcsRouter);
   app.use('/api/npc-flags', mockAuth, noCache(), npcFlagsRouter);
+  // Epic STM (issue #358): ST mod overlay foundation
+  app.use('/api/st_mods', mockAuth, noCache(), stModsRouter);
+  app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
 
   return app;
 }
