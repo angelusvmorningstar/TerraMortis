@@ -4,7 +4,10 @@ import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
-import { setStatusTerritories } from './data/accessors.js';
+import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
+import { ensureLoaded as loadTrackerState } from './game/tracker.js';
+import { loadStMods, applyStMods, spliceCurrent } from './data/st-mods.js';
+import { initWS } from './data/ws.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
@@ -34,6 +37,27 @@ let retiredChars = [];
 window.toggleExp = toggleExp;
 window.toggleDisc = toggleDisc;
 
+// ── ST mod overlay composition (Epic STM, issue #372) ──
+//
+// Single composition site per ADR-004 §D1. Player view has no edit mode,
+// so the overlay always applies. Sequence: load tracker_state → splice
+// synthetic c.current.* (D5) → load mods → applyStMods → renderSheet.
+async function renderSheetWithOverlay(c) {
+  if (!c) return;
+  const tracker = await loadTrackerState(c).catch(() => null);
+  spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
+  const mods = await loadStMods(c._id);
+  // STM-3 hasn't landed yet — globalSettings is undefined and
+  // c.st_mods_suppressed is absent. Defensive defaults: treat as enabled
+  // and not suppressed.
+  const overlayEnabled = (globalSettings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
+  applyStMods(c, mods, overlayEnabled);
+  renderSheet(c);
+}
+
+// Placeholder until STM-3 wires the GET /api/settings cache.
+let globalSettings = undefined;
+
 // ── Auth gate ──
 
 async function boot() {
@@ -56,6 +80,17 @@ async function boot() {
       renderSidebarUser();
       renderSidebarFooter();
       await loadCharacters();
+
+      // Subscribe to remote tracker_state mutations so the active sheet
+      // re-composes (splice → overlay → render) within ~1s of a write
+      // from another tab / device (AC#7 / ADR-004 §D5). The WS client
+      // suppresses echoes of our own writes via markLocalWrite.
+      initWS({
+        onTrackerUpdate: (charId) => {
+          if (!activeChar || String(activeChar._id) !== String(charId)) return;
+          renderSheetWithOverlay(activeChar);
+        },
+      });
       return;
     }
   }
@@ -356,7 +391,7 @@ function selectCharacter(activeChars, idx) {
 
   // Sheet is the default-active tab on first paint; always render it
   // eagerly so the user has content immediately.
-  renderSheet(activeChar);
+  renderSheetWithOverlay(activeChar);
 
   // Visibility toggles for conditional tab buttons. The actual tab
   // CONTENT renders lazily when the user clicks the button. We still

@@ -21,21 +21,32 @@ const SKILLS = [
   'Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge',
 ];
 
-// Static stat_path whitelist. Sourced from ADR-004 §D3, with field-name
-// corrections per the §Concerns Item 4 hand-off:
-//   - PRD example `current.damage / current.willpower / current.vitae` does NOT
-//     resolve on the character document — those values live in the separate
-//     `tracker_state` collection, not on the character. The overlay is a
-//     character-render feature (ADR-004 §D1), so the whitelist surfaces only
-//     character-document fields. Current state slots that exist on the char doc:
-//     `blood_potency` and `humanity` (both top-level).
-//   - Damage/wp-current/vitae-current can be re-added later if a future story
-//     extends the overlay into the tracker render path.
+// Static stat_path whitelist. Sourced from ADR-004 §D3 + Rev 2 §D5.
+//
+// `current.*` paths (damage_bashing / damage_lethal / damage_aggravated /
+// willpower / vitae) resolve against a synthetic `c.current` namespace
+// that STM-2's pre-overlay splice materialises onto the in-memory
+// character from the `tracker_state` collection. The character document
+// itself does NOT carry these fields — the overlay is a render-time
+// composition, not a storage shape. Per ADR-004 §D6 the overlay is
+// strictly read-direction and never writes back to tracker_state.
+//
+// `blood_potency` and `humanity` live at the character-document root.
+// `derived.*` are render-time computed; STM-2's overlay sets them on
+// the in-memory character before renderSheet reads them.
 const STATIC_WHITELIST = new Set([
   ...ATTRS.flatMap(a => [`attributes.${a}.dots`, `attributes.${a}.bonus`]),
   ...SKILLS.flatMap(s => [`skills.${s}.dots`, `skills.${s}.bonus`]),
+  // Current state — tracker_state-resident, spliced pre-overlay (ADR-004 §D5)
+  'current.damage_bashing',
+  'current.damage_lethal',
+  'current.damage_aggravated',
+  'current.willpower',
+  'current.vitae',
+  // Character-doc root
   'blood_potency',
   'humanity',
+  // Derived
   'derived.defence',
   'derived.health_max',
   'derived.willpower_max',

@@ -198,6 +198,25 @@ describe('AC#3 — input validation', () => {
     expect(res.status).toBe(201);
     CREATED_MOD_IDS.push(res.body._id);
   });
+
+  // STM-2 (issue #372): five current.* paths re-added to STATIC_WHITELIST.
+  // Pre-STM-2 these returned 400 (per the STM-1 comment block); they must
+  // now return 201. Cover one to assert the wiring; the path-resolve
+  // sanity check covers exhaustive resolution.
+  it.each([
+    'current.damage_bashing',
+    'current.damage_lethal',
+    'current.damage_aggravated',
+    'current.willpower',
+    'current.vitae',
+  ])('accepts current.* path: %s', async (statPath) => {
+    const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
+      character_id: CHAR_ID, stat_path: statPath, delta: -1, reason: 'STM-2 whitelist re-add',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.stat_path).toBe(statPath);
+    CREATED_MOD_IDS.push(res.body._id);
+  });
   it('rejects merits.X.dots where X is not numeric', async () => {
     const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
       character_id: CHAR_ID, stat_path: 'merits.foo.dots', delta: 1, reason: 'x',
