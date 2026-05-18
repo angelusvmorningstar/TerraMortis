@@ -112,10 +112,6 @@ function _handleTrackerMsg(msg) {
   const { characterId, fields } = msg;
   if (!characterId || !fields) return;
 
-  // Check if this character is one we care about
-  const char = (suiteState.chars || []).find(c => String(c._id) === characterId);
-  if (!char) return;
-
   // Skip if all fields in this message were recently written locally (echo suppression)
   const now = Date.now();
   const allLocal = Object.keys(fields).every(key => {
@@ -124,13 +120,19 @@ function _handleTrackerMsg(msg) {
   });
   if (allLocal) return;
 
-  // Patch local cache directly (don't use trackerWriteField to avoid re-saving to API)
+  // Patch the suite app's tracker cache when the char is in suiteState.chars.
+  // The cache patch is suite-specific (admin/player don't share suiteState),
+  // so it's gated; the callback below fires regardless so admin/player WS
+  // subscribers can react to the remote change too. Issue #372 (STM-2 D5).
   const FIELD_MAP = { influence: 'inf' };
-  const current = trackerRead(characterId);
-  if (current) {
-    for (const [key, value] of Object.entries(fields)) {
-      const cacheKey = FIELD_MAP[key] || key;
-      current[cacheKey] = value;
+  const char = (suiteState.chars || []).find(c => String(c._id) === characterId);
+  if (char) {
+    const current = trackerRead(characterId);
+    if (current) {
+      for (const [key, value] of Object.entries(fields)) {
+        const cacheKey = FIELD_MAP[key] || key;
+        current[cacheKey] = value;
+      }
     }
   }
 
