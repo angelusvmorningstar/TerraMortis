@@ -623,7 +623,15 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   lines.push('');
   lines.push(`Action: ${actionLabel}`);
   if (title)   lines.push(`Title: ${title}`);
-  if (outcome) lines.push(`Desired Outcome: ${outcome}`);
+  if (outcome) {
+    lines.push(actionType === 'xp_spend'
+      ? `Desired Purchase: ${outcome}`
+      : `Desired Outcome: ${outcome}`);
+  }
+  const xpPurchase = rev.outcome_summary?.trim();
+  if (actionType === 'xp_spend' && xpPurchase) {
+    lines.push(`XP Purchase: ${xpPurchase}`);
+  }
   if (description) lines.push(`Description: ${description}`);
   if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
   if (cast)    lines.push(`Connected Characters: ${cast}`);
