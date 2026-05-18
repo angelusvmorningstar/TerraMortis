@@ -1,6 +1,6 @@
 # Issue #379: STM-6 — ST Mods audit log view (read-only admin page)
 
-Status: Ready for Review
+Status: Done
 
 issue: 379
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/379
