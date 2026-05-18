@@ -1157,7 +1157,7 @@ function renderNavRail() {
   }
   for (const sub of sorted) {
     const char = getCharForSub(sub);
-    const name = char ? (char.moniker || char.name) : 'Unknown';
+    const name = char ? (char.moniker || char.name) : (sub.character_name || 'Unknown');
     const state = getNavPillState(sub);
     const stateClass = state ? ` ${state}` : '';
     const charId = sub.character_id || sub._id;
@@ -1335,7 +1335,7 @@ function renderCharacterView(char, sub) {
   let h = `<div class="dt-story-char-content"${collapseAttr}>`;
 
   h += `<div class="dt-story-char-header">`;
-  h += `<h3 class="dt-story-char-name">${char ? dropdownName(char) : 'Unknown'}</h3>`;
+  h += `<h3 class="dt-story-char-name">${char ? dropdownName(char) : (sub?.character_name || 'Unknown')}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
   h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${charId}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
   h += `</div>`;
