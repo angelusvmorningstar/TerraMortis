@@ -7,6 +7,7 @@ import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentT
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent } from './data/st-mods.js';
+import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { initWS } from './data/ws.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -47,16 +48,15 @@ async function renderSheetWithOverlay(c) {
   const tracker = await loadTrackerState(c).catch(() => null);
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
   const mods = await loadStMods(c._id);
-  // STM-3 hasn't landed yet — globalSettings is undefined and
-  // c.st_mods_suppressed is absent. Defensive defaults: treat as enabled
-  // and not suppressed.
-  const overlayEnabled = (globalSettings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
+  // STM-3 (issue #378): real values now flow through.
+  //   - getGlobalSettings() returns null until loadGlobalSettings() resolves
+  //     (boot path primes it before any render). Null is treated as enabled.
+  //   - c.st_mods_suppressed is set per-character via PATCH; absent = not suppressed.
+  const settings = getGlobalSettings();
+  const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
   applyStMods(c, mods, overlayEnabled);
   renderSheet(c);
 }
-
-// Placeholder until STM-3 wires the GET /api/settings cache.
-let globalSettings = undefined;
 
 // ── Auth gate ──
 
@@ -79,6 +79,10 @@ async function boot() {
       app.style.display = '';
       renderSidebarUser();
       renderSidebarFooter();
+      // Prime the global settings cache before character render
+      // possibly triggers an overlay composition (STM-3 / issue #378).
+      // Non-blocking — overlay treats a null cache as enabled.
+      loadGlobalSettings();
       await loadCharacters();
 
       // Subscribe to remote tracker_state mutations so the active sheet

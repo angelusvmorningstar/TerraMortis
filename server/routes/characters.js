@@ -422,6 +422,32 @@ router.get('/:id/cascade-preview', requireRole('st'), async (req, res) => {
   }
 });
 
+// PATCH /api/characters/:id/st_mods_suppressed — ST only.
+// Epic STM (issue #378): per-character override of the overlay kill-switch.
+// Truthy → suppress; false → clear ($unset to keep characters that have
+// never been touched by STM clean of a transient false flag).
+router.patch('/:id/st_mods_suppressed', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  const { st_mods_suppressed } = req.body || {};
+  if (typeof st_mods_suppressed !== 'boolean') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'st_mods_suppressed must be boolean' });
+  }
+
+  const update = st_mods_suppressed
+    ? { $set: { st_mods_suppressed: true } }
+    : { $unset: { st_mods_suppressed: '' } };
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    update,
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
 // DELETE /api/characters/:id — ST only (hard-delete with cascade)
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
