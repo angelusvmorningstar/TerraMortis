@@ -1134,6 +1134,11 @@ body {
 .sph-floor-dots { font-size: 8px; letter-spacing: 1px; color: var(--gold2); flex-shrink: 0; }
 .sph-floor-name { font-size: 11px; color: var(--txt1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+.sph-tier-block { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
+.sph-tier-num { font-family: var(--fl); font-size: 18px; font-weight: 600; color: var(--accent); padding: 4px 8px 2px; line-height: 1; }
+.sph-tier-row { font-size: 11px; color: var(--txt1); padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sph-tier-row:nth-child(even) { background: var(--surf3); }
+
 .sph-contacts-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--bdr); }
 .sph-contacts-label { font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
 .sph-contacts-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -1144,7 +1149,7 @@ body {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 12px;
-  padding: 2px 8px 2px 3px;
+  padding: 2px 8px;
 }
 .sph-contact-avatar { width: 18px; height: 18px; border-radius: 50%; background: var(--surf3); object-fit: cover; }
 .sph-contact-name { font-size: 11px; color: var(--txt1); white-space: nowrap; }
