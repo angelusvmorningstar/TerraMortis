@@ -335,6 +335,12 @@ export async function initDtStory(cycleId) {
       if (statusEl) statusEl.textContent = 'Save failed';
     }
   });
+
+  // Issue #354: blur-autosave for narrative response and revision-note textareas
+  panel.addEventListener('focusout', async e => {
+    const ta = e.target.closest('.dt-story-response-ta, .dt-feed-narrative-ta, .dt-story-revision-ta');
+    if (ta) await _handleStoryTaBlur(ta);
+  });
 }
 
 /**
@@ -346,6 +352,96 @@ export async function saveNarrativeField(submissionId, patch) {
   _assertCurrentCycle(submissionId); // Issue #321: throws if submission is in a different cycle
   return apiPut('/api/downtime_submissions/' + submissionId, patch);
 }
+
+// ── Issue #354: DT Story blur-autosave ────────────────────────────────────────
+
+function _showStoryAutosaveStatus(el, state) {
+  if (!el) return;
+  el.dataset.state = state;
+  if (state === 'saving') { el.textContent = 'Saving…'; return; }
+  if (state === 'saved') {
+    el.textContent = 'Saved';
+    setTimeout(() => { if (el.dataset.state === 'saved') { el.textContent = ''; delete el.dataset.state; } }, 2000);
+    return;
+  }
+  if (state === 'error') { el.textContent = 'Save failed'; }
+}
+
+async function _handleStoryTaBlur(ta) {
+  if (!_currentSub) return;
+  const isRevision = ta.classList.contains('dt-story-revision-ta');
+  const field      = isRevision ? 'revision_note' : 'response';
+  const newVal     = ta.value.trim();
+
+  let patch     = null;
+  let memUpdate = null;
+
+  const projCard = ta.closest('.dt-story-proj-card');
+  if (projCard) {
+    const idx      = parseInt(projCard.dataset.projIdx, 10);
+    const existing = _currentSub.st_narrative?.project_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedProjectResponses(_currentSub, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.project_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).project_responses = updated; };
+  } else if (ta.closest('.dt-story-merit-card')) {
+    const card     = ta.closest('.dt-story-merit-card');
+    const idx      = parseInt(card.dataset.actionIdx, 10);
+    const existing = _currentSub.st_narrative?.action_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.action_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).action_responses = updated; };
+  } else if (ta.closest('.dt-story-terr-section')) {
+    const terrSec  = ta.closest('.dt-story-terr-section');
+    const idx      = parseInt(terrSec.dataset.terrIdx, 10);
+    const existing = _currentSub.st_narrative?.territory_reports || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.territory_reports': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).territory_reports = updated; };
+  } else if (ta.closest('[data-slot-idx]')) {
+    const slot     = ta.closest('[data-slot-idx]');
+    const idx      = parseInt(slot.dataset.slotIdx, 10);
+    const existing = _currentSub.st_narrative?.cacophony_savvy || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.cacophony_savvy': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).cacophony_savvy = updated; };
+  } else {
+    const section    = ta.closest('.dt-story-section');
+    const sectionKey = section?.dataset.section;
+    const narrativeKeyMap = {
+      story_moment:       'story_moment',
+      feeding_validation: 'feeding_narrative',
+      home_report:        'home_report',
+    };
+    const narrativeKey = narrativeKeyMap[sectionKey];
+    if (!narrativeKey) return;
+    const curr = _currentSub.st_narrative?.[narrativeKey] || {};
+    if ((curr[field] || '') === newVal) return;
+    const merged = { ...curr, [field]: newVal };
+    patch        = { [`st_narrative.${narrativeKey}`]: merged };
+    memUpdate    = () => { (_currentSub.st_narrative ??= {})[narrativeKey] = merged; };
+  }
+
+  if (!patch) return;
+  const statusEl = ta.parentElement?.querySelector('.dt-story-autosave-status');
+  _showStoryAutosaveStatus(statusEl, 'saving');
+  try {
+    await saveNarrativeField(_currentSub._id, patch);
+    memUpdate();
+    _showStoryAutosaveStatus(statusEl, 'saved');
+  } catch {
+    _showStoryAutosaveStatus(statusEl, 'error');
+  }
+}
+
+// ── /Issue #354 ───────────────────────────────────────────────────────────────
 
 // ── Completion helpers ─────────────────────────────────────────────────────────
 
@@ -467,6 +563,14 @@ function formatPool(pool) {
 }
 
 // ── Copy context header helpers ───────────────────────────────────────────────
+
+/** Case-insensitive substring check for previous-artefact NPC validation.
+ *  Returns content if targetName is absent or found; null otherwise. */
+function _storyMomentNameCheck(content, targetName) {
+  if (!content) return null;
+  if (!targetName) return content;
+  return content.toLowerCase().includes(targetName.toLowerCase()) ? content : null;
+}
 
 /** "Lord Marcus — Ventrue / Invictus — The Politician" */
 function _compactCharHeader(char) {
@@ -1261,7 +1365,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `<div class="dt-feed-val-narrative-block">`;
   h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
   h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
-  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea>`;
+  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
   h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
@@ -1270,7 +1374,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -1386,7 +1490,7 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1398,7 +1502,7 @@ function renderProjectCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -1478,7 +1582,7 @@ function buildLetterContext(char, sub, opts = {}) {
   }
 
   lines.push('');
-  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -1489,10 +1593,22 @@ function buildLetterContext(char, sub, opts = {}) {
  * Assembles the Copy Context prompt for the Touchstone Vignette section.
  * Pure function — no side effects, no DOM access.
  */
-function buildTouchstoneContext(char, sub) {
+function buildTouchstoneContext(char, sub, opts = {}) {
+  const { prevVignette = null, prevCycleNumber = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
+
+  // Same field priority chain as buildLetterContext — personal_story_text is canonical
+  // post-dt-form.18 (issue #208); legacy keys remain for pre-redesign submissions.
+  const playerVignette =
+    sub.responses?.personal_story_text ||
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
 
   const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
@@ -1511,7 +1627,17 @@ function buildTouchstoneContext(char, sub) {
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
   lines.push('');
-  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
+  lines.push('Player\'s vignette:');
+  lines.push(playerVignette ? playerVignette.trim() : '[No player vignette submitted]');
+
+  if (prevVignette) {
+    lines.push('');
+    lines.push(`Previous vignette with this touchstone (Downtime ${prevCycleNumber ?? '?'}):`);
+    lines.push(prevVignette.trim());
+  }
+
+  lines.push('');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. Apply HOUSE_STYLE.');
 
   return lines.join('\n');
 }
@@ -1643,7 +1769,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   h += `<div class="dt-story-card-actions">`;
@@ -1654,7 +1780,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || initialRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
   h += `</div>`;
@@ -2328,7 +2454,7 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
@@ -2339,7 +2465,7 @@ function renderActionCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-action-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -2760,7 +2886,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `<a class="dt-story-context-toggle" role="button">${savedTxt ? 'Show context' : 'Hide context'}</a>`;
   h += `</div>`; // context-block
 
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
@@ -2770,7 +2896,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `</button></div>`;
 
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -2894,7 +3020,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
@@ -2905,7 +3031,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</button>`;
     h += `</div>`;
     h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
     h += `<div class="dt-story-card-actions">`;
     h += `<button class="dt-story-revision-save-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Revision</button>`;
     h += `</div>`;
@@ -3047,7 +3173,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
@@ -3058,7 +3184,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</button>`;
       h += `</div>`;
       h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
       h += `<div class="dt-story-card-actions">`;
       h += `<button class="dt-story-revision-save-btn" data-slot-idx="${slotIdx}">Save Revision</button>`;
       h += `</div>`;
@@ -3417,14 +3543,10 @@ async function handleCopyStoryMomentContext(btn) {
   const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
   const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
-  if (format === 'vignette') {
-    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
-    return;
-  }
-
-  // Letter format: assemble previous-cycle correspondence + story-moment target,
-  // same as the pre-DTSR-2 handleCopyLetterContext logic.
-  let prevCorrespondence = null;
+  // ── Previous-cycle fetch (shared by both paths) ───────────────────────────
+  let prevStoryMoment    = null;
+  let prevLegacyLetter   = null;
+  let prevLegacyVignette = null;
   let prevCycleNumber    = null;
   try {
     const cycleId   = _currentSub.cycle_id;
@@ -3439,19 +3561,17 @@ async function handleCopyStoryMomentContext(btn) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
           .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
-          || prevSub?.st_narrative?.letter_from_home?.response
-          || null;
-        prevCycleNumber = prevCycle.game_number;
+        if (prevSub) {
+          prevStoryMoment    = prevSub.st_narrative?.story_moment || null;
+          prevLegacyLetter   = prevSub.st_narrative?.letter_from_home?.response || null;
+          prevLegacyVignette = prevSub.st_narrative?.touchstone?.response || null;
+          prevCycleNumber    = prevCycle.game_number;
+        }
       }
     }
   } catch { /* leave nulls */ }
 
-  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
-    || _currentSub.st_narrative?.letter_from_home?.voice_note
-    || null;
-
-  // NPCR.12: resolve story-moment relationship target name for the prompt.
+  // ── NPCR.12: resolve story-moment relationship target name ────────────────
   let storyMomentTarget = null;
   const relId = _currentSub.responses?.story_moment_relationship_id;
   if (relId) {
@@ -3477,8 +3597,42 @@ async function handleCopyStoryMomentContext(btn) {
     } catch { /* leave null */ }
   }
 
+  // ── Format-gated previous content ────────────────────────────────────────
+  // If prevStoryMoment exists it is authoritative — use format-gated value,
+  // null if the wrong format. Legacy fallbacks only activate when prevStoryMoment
+  // is entirely absent (pre-consolidation DT1 data where story_moment was never
+  // written). Without this gate, a DT2 letter's format mismatch fell through to
+  // st_narrative.touchstone.response, causing letter content in the vignette slot.
+  const prevLetterText = prevStoryMoment
+    ? (prevStoryMoment.format === 'letter' && prevStoryMoment.response ? prevStoryMoment.response : null)
+    : prevLegacyLetter;
+
+  const prevVignetteText = prevStoryMoment
+    ? (prevStoryMoment.format === 'vignette' && prevStoryMoment.response ? prevStoryMoment.response : null)
+    : prevLegacyVignette;
+
+  const targetName = storyMomentTarget?.name || null;
+  const prevCorrespondenceValidated = _storyMomentNameCheck(prevLetterText, targetName);
+  const prevVignetteValidated       = _storyMomentNameCheck(prevVignetteText, targetName);
+
+  // ── Branch on format ──────────────────────────────────────────────────────
+  if (format === 'vignette') {
+    copyToClipboard(buildTouchstoneContext(char, _currentSub, {
+      prevVignette: prevVignetteValidated,
+      prevCycleNumber,
+    }), btn);
+    return;
+  }
+
+  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
+    || _currentSub.st_narrative?.letter_from_home?.voice_note
+    || null;
+
   const text = buildLetterContext(char, _currentSub, {
-    prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
+    prevCorrespondence: prevCorrespondenceValidated,
+    prevCycleNumber,
+    stVoiceNote,
+    storyMomentTarget,
   });
   copyToClipboard(text, btn);
 }
