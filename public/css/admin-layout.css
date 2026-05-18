@@ -9151,3 +9151,47 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .hd-btn-delete:not(:disabled):hover { background: #a00; }
 .cd-hard-delete-btn { border-color: var(--crim, #8B0000) !important; color: var(--err, #c0392b) !important; }
 .cd-hard-delete-btn:hover { background: rgba(139,0,0,.15) !important; }
+
+/* === DT STORY: Calibration panel === */
+.dt-story-calibration-panel {
+  margin-bottom: 1rem;
+  border: 1px solid var(--surf3);
+  border-radius: 4px;
+}
+.dt-story-calibration-header {
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surf2);
+}
+.dt-story-calibration-hint {
+  font-size: 0.75rem;
+  color: var(--txt3);
+}
+.dt-story-calibration-body {
+  padding: 0.5rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dt-story-calibration-body.hidden { display: none; }
+.dt-story-calibration-ta {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 4rem;
+  background: var(--surf1);
+  color: var(--txt);
+  border: 1px solid var(--surf3);
+  border-radius: 3px;
+  padding: 0.4rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.dt-story-calibration-save-btn { align-self: flex-start; }
+.dt-story-calibration-status {
+  font-size: 0.8rem;
+  color: var(--gold2);
+}
