@@ -1,6 +1,6 @@
 # Issue #378: STM-3 — app_settings collection + global kill-switch + per-character override
 
-Status: Ready for Review
+Status: Done
 
 issue: 378
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/378
