@@ -410,8 +410,6 @@ export const characterSchema = {
             additionalProperties: false
           }
         },
-        // Legacy MCI format — tolerated but not required
-        benefits:      { type: 'array' },
         benefit_grants:{ type: 'array' },
         // v3: inline creation tracking (formerly in merit_creation parallel array)
         cp:       { type: 'integer', minimum: 0 },
