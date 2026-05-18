@@ -92,17 +92,23 @@ describe('AC#8 — end-to-end smoke (create → list → revoke → audit surviv
     expect(listAfter.body.find(m => String(m._id) === String(modId))).toBeUndefined();
 
     // 5. AUDIT SURVIVES (AC#5, AC#6)
+    // STM-6 (issue #379): response shape is now { rows, total, page, page_size }
+    // with each row decorated with { active: <bool> }. The deleted mod's audit
+    // row must have active === false.
     const auditRes = await request(app)
       .get(`/api/st_mod_audit?character_id=${CHAR_ID}`)
       .set('X-Test-User', stUser());
     expect(auditRes.status).toBe(200);
-    const auditRow = auditRes.body.find(a => String(a.st_mod_id) === String(modId));
+    expect(Array.isArray(auditRes.body.rows)).toBe(true);
+    const auditRow = auditRes.body.rows.find(a => String(a.st_mod_id) === String(modId));
     expect(auditRow).toBeTruthy();
     expect(auditRow.stat_path).toBe('attributes.Strength.dots');
     expect(auditRow.delta).toBe(1);
     expect(auditRow.reason).toBe('Smoke-test grant');
     // AC#2: audit row shape = mod minus show_reason_to_player
     expect(auditRow.show_reason_to_player).toBeUndefined();
+    // STM-6: revoked mods get active:false on the audit row
+    expect(auditRow.active).toBe(false);
     CREATED_AUDIT_IDS.push(auditRow._id);
   });
 });
@@ -306,5 +312,153 @@ describe('DELETE /:id edge cases', () => {
       .delete('/api/st_mods/not-an-objectid')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(400);
+  });
+});
+
+// ── STM-6 (issue #379): filter + pagination + active decoration ──────
+
+describe('STM-6 — GET /api/st_mod_audit filter + pagination + active decoration', () => {
+  // Use a dedicated character so the suite-level CHAR_ID rows don't leak
+  // into the assertions. beforeAll seeds a known set; afterAll cleans up.
+  const STM6_CHAR_A = new ObjectId().toHexString();
+  const STM6_CHAR_B = new ObjectId().toHexString();
+  const STM6_AUDIT_IDS = [];
+  const STM6_MOD_IDS = [];
+
+  beforeAll(async () => {
+    // Seed: 3 mods on STM6_CHAR_A (created by 'Alice'), 2 mods on STM6_CHAR_B
+    // (created by 'Bob'). Each mod creates a paired audit row.
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app)
+        .post('/api/st_mods')
+        .set('X-Test-User', JSON.stringify({
+          id: 'alice-001', global_name: 'Alice', role: 'st', player_id: 'p-alice', character_ids: [],
+        }))
+        .send({ character_id: STM6_CHAR_A, stat_path: 'attributes.Strength.dots', delta: 1, reason: `A${i}` });
+      STM6_MOD_IDS.push(res.body._id);
+      // Force created_at ordering distinctness
+      await new Promise(r => setTimeout(r, 5));
+    }
+    for (let i = 0; i < 2; i++) {
+      const res = await request(app)
+        .post('/api/st_mods')
+        .set('X-Test-User', JSON.stringify({
+          id: 'bob-001', global_name: 'Bob', role: 'st', player_id: 'p-bob', character_ids: [],
+        }))
+        .send({ character_id: STM6_CHAR_B, stat_path: 'derived.defence', delta: -1, reason: `B${i}` });
+      STM6_MOD_IDS.push(res.body._id);
+      await new Promise(r => setTimeout(r, 5));
+    }
+    // Revoke one of Alice's mods so we can verify the active:false decoration
+    const revokeId = STM6_MOD_IDS[0];
+    await request(app).delete(`/api/st_mods/${revokeId}`).set('X-Test-User', stUser());
+
+    // Track audit ids for cleanup
+    const allAuditRows = await getCollection('st_mod_audit').find({
+      character_id: { $in: [STM6_CHAR_A, STM6_CHAR_B] },
+    }).toArray();
+    allAuditRows.forEach(r => STM6_AUDIT_IDS.push(r._id));
+  });
+
+  afterAll(async () => {
+    await getCollection('st_mods').deleteMany({ character_id: { $in: [STM6_CHAR_A, STM6_CHAR_B] } });
+    await getCollection('st_mod_audit').deleteMany({ character_id: { $in: [STM6_CHAR_A, STM6_CHAR_B] } });
+  });
+
+  it('AC#9 — returns { rows, total, page, page_size } wrapper', async () => {
+    const res = await request(app).get('/api/st_mod_audit').set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('rows');
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('page');
+    expect(res.body).toHaveProperty('page_size');
+    expect(Array.isArray(res.body.rows)).toBe(true);
+    expect(typeof res.body.total).toBe('number');
+  });
+
+  it('AC#3 — filter-by-character narrows correctly', async () => {
+    const resA = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM6_CHAR_A}`)
+      .set('X-Test-User', stUser());
+    expect(resA.status).toBe(200);
+    expect(resA.body.total).toBe(3);
+    expect(resA.body.rows.every(r => r.character_id === STM6_CHAR_A)).toBe(true);
+
+    const resB = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM6_CHAR_B}`)
+      .set('X-Test-User', stUser());
+    expect(resB.body.total).toBe(2);
+    expect(resB.body.rows.every(r => r.character_id === STM6_CHAR_B)).toBe(true);
+  });
+
+  it('AC#4 — filter-by-st narrows on created_by.discord_name', async () => {
+    const res = await request(app)
+      .get('/api/st_mod_audit?st=Alice')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.rows.every(r => r.created_by?.discord_name === 'Alice')).toBe(true);
+    // Alice has 3 audit rows
+    expect(res.body.rows.filter(r => r.character_id === STM6_CHAR_A).length).toBe(3);
+  });
+
+  it('AC#6 — decorates rows with active: true/false based on st_mods presence', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM6_CHAR_A}`)
+      .set('X-Test-User', stUser());
+    // The first-seeded mod was revoked, so its audit row must be active:false.
+    // The other two must be active:true.
+    const revokedRow = res.body.rows.find(r => String(r.st_mod_id) === String(STM6_MOD_IDS[0]));
+    expect(revokedRow.active).toBe(false);
+    const aliveRows = res.body.rows.filter(r =>
+      String(r.st_mod_id) === String(STM6_MOD_IDS[1])
+      || String(r.st_mod_id) === String(STM6_MOD_IDS[2])
+    );
+    expect(aliveRows.length).toBe(2);
+    expect(aliveRows.every(r => r.active === true)).toBe(true);
+  });
+
+  it('AC#7 — pagination boundary: 51 audit rows, page_size 50 → page 1 has 50, page 2 has 1', async () => {
+    const PAGE_CHAR = new ObjectId().toHexString();
+    const created = [];
+    for (let i = 0; i < 51; i++) {
+      const res = await request(app)
+        .post('/api/st_mods')
+        .set('X-Test-User', stUser())
+        .send({ character_id: PAGE_CHAR, stat_path: 'attributes.Wits.dots', delta: 1, reason: `P${i}` });
+      created.push(res.body._id);
+    }
+    const p1 = await request(app)
+      .get(`/api/st_mod_audit?character_id=${PAGE_CHAR}&page=1&page_size=50`)
+      .set('X-Test-User', stUser());
+    expect(p1.body.total).toBe(51);
+    expect(p1.body.page).toBe(1);
+    expect(p1.body.page_size).toBe(50);
+    expect(p1.body.rows.length).toBe(50);
+
+    const p2 = await request(app)
+      .get(`/api/st_mod_audit?character_id=${PAGE_CHAR}&page=2&page_size=50`)
+      .set('X-Test-User', stUser());
+    expect(p2.body.page).toBe(2);
+    expect(p2.body.rows.length).toBe(1);
+
+    // Cleanup
+    await getCollection('st_mods').deleteMany({ character_id: PAGE_CHAR });
+    await getCollection('st_mod_audit').deleteMany({ character_id: PAGE_CHAR });
+  });
+
+  it('clamps page_size to 100', async () => {
+    const res = await request(app)
+      .get('/api/st_mod_audit?page_size=9999')
+      .set('X-Test-User', stUser());
+    expect(res.body.page_size).toBe(100);
+  });
+
+  it('sorts by created_at descending (newest first)', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM6_CHAR_A}`)
+      .set('X-Test-User', stUser());
+    const timestamps = res.body.rows.map(r => r.created_at);
+    const sorted = [...timestamps].sort().reverse();
+    expect(timestamps).toEqual(sorted);
   });
 });

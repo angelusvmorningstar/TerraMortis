@@ -165,19 +165,77 @@ router.delete('/:id', requireRole('st'), async (req, res) => {
 
 export default router;
 
-// ─── GET /api/st_mod_audit?character_id=:id ──────────────────────────
+// ─── GET /api/st_mod_audit ───────────────────────────────────────────
 // Mounted as its own router by server/index.js so the path namespace
 // stays clean (POST/GET/DELETE /api/st_mods + GET /api/st_mod_audit).
+//
+// STM-6 (issue #379): extended with optional filters + pagination.
+// Backwards-compatible breaking change in response shape: returns
+// { rows, total, page, page_size } wrapper instead of a bare array.
+// STM-2 had no consumer; the STM-6 admin page is the first consumer.
+//
+// Query params (all optional):
+//   character_id — exact match
+//   st           — match against created_by.discord_name
+//   from / to    — ISO date range, inclusive, applied to created_at
+//   page         — 1-indexed (default 1)
+//   page_size    — default 50, clamped to [1, 100]
+//
+// Each returned row is decorated with { ...auditRow, active: <bool> }
+// where active === (st_mods document with _id === auditRow.st_mod_id exists).
+// The active lookup is batched into a single $in query — explicitly NOT
+// N+1 — per ADR §"Concerns" Item 2 sibling concern about query shape.
 export const auditRouter = Router();
 
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 auditRouter.get('/', requireRole('st'), async (req, res) => {
-  const { character_id } = req.query;
-  if (!character_id || typeof character_id !== 'string') {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id is required' });
+  const { character_id, st, from, to } = req.query;
+
+  // Parse pagination — clamp to safe bounds. Bad input falls back to defaults
+  // rather than 400, matching the "filters are optional" spirit.
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, parseInt(req.query.page_size, 10) || DEFAULT_PAGE_SIZE),
+  );
+
+  // Build the Mongo filter from non-empty params
+  const filter = {};
+  if (character_id) filter.character_id = String(character_id);
+  if (st) filter['created_by.discord_name'] = String(st);
+  if (from || to) {
+    filter.created_at = {};
+    if (from) filter.created_at.$gte = String(from);
+    if (to) filter.created_at.$lte = String(to);
   }
-  const docs = await audit()
-    .find({ character_id: String(character_id) })
-    .sort({ created_at: 1 })
+
+  const total = await audit().countDocuments(filter);
+  const rows = await audit()
+    .find(filter)
+    .sort({ created_at: -1 })
+    .skip((page - 1) * pageSize)
+    .limit(pageSize)
     .toArray();
-  res.json(docs);
+
+  // Batched active-check: one $in query against st_mods regardless of
+  // page size. Collect st_mod_ids from this page, find which still exist,
+  // map back to a boolean per row. Audit rows from a future writer that
+  // didn't populate st_mod_id (none today) safely default to inactive.
+  const stModIds = rows.map(r => r.st_mod_id).filter(id => id != null);
+  let aliveSet = new Set();
+  if (stModIds.length) {
+    const alive = await mods()
+      .find({ _id: { $in: stModIds } }, { projection: { _id: 1 } })
+      .toArray();
+    aliveSet = new Set(alive.map(d => String(d._id)));
+  }
+
+  const decorated = rows.map(r => ({
+    ...r,
+    active: r.st_mod_id != null && aliveSet.has(String(r.st_mod_id)),
+  }));
+
+  res.json({ rows: decorated, total, page, page_size: pageSize });
 });
