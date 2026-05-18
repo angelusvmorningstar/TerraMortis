@@ -623,14 +623,24 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   lines.push('');
   lines.push(`Action: ${actionLabel}`);
   if (title)   lines.push(`Title: ${title}`);
-  if (outcome) {
-    lines.push(actionType === 'xp_spend'
-      ? `Desired Purchase: ${outcome}`
-      : `Desired Outcome: ${outcome}`);
-  }
-  const xpPurchase = rev.outcome_summary?.trim();
-  if (actionType === 'xp_spend' && xpPurchase) {
-    lines.push(`XP Purchase: ${xpPurchase}`);
+  if (outcome && actionType !== 'xp_spend') lines.push(`Desired Outcome: ${outcome}`);
+  if (actionType === 'xp_spend') {
+    // Read XP purchase rows from player-submitted form fields (modern → legacy chain)
+    let xpDetail = '';
+    const xpRowsRaw = sub.responses?.[`project_${slot}_xp_rows`] || '';
+    if (xpRowsRaw) {
+      try {
+        const rows = JSON.parse(xpRowsRaw).filter(r => r.item);
+        if (rows.length) xpDetail = rows.map(r => r.cost ? `${r.item} (${r.cost} XP)` : r.item).join(', ');
+      } catch { /* ignore */ }
+    }
+    if (!xpDetail) {
+      const xpItem = sub.responses?.[`project_${slot}_xp_item`] || '';
+      const xpCat  = sub.responses?.[`project_${slot}_xp_category`] || '';
+      if (xpItem) xpDetail = xpCat ? `${xpItem} (${xpCat})` : xpItem;
+    }
+    if (!xpDetail) xpDetail = sub.responses?.[`project_${slot}_xp_trait`] || sub.responses?.[`project_${slot}_xp`] || outcome || '';
+    if (xpDetail) lines.push(`XP Purchase: ${xpDetail}`);
   }
   if (description) lines.push(`Description: ${description}`);
   if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
