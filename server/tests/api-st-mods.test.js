@@ -197,12 +197,25 @@ describe('AC#3 — input validation', () => {
     expect(res.status).toBe(201);
     CREATED_MOD_IDS.push(res.body._id);
   });
-  it('accepts disciplines[N].dots regex path', async () => {
+  // STM-5 (issue #386): the original STM-1 regex accepted only numeric
+  // discipline indices, but on the v2 schema c.disciplines is object-keyed
+  // by name (see accessors.js#discDots). The regex was relaxed to accept
+  // ASCII-letter discipline names. This test now uses the actual character-
+  // doc shape; previous `disciplines.0.dots` no longer matches and would
+  // 400 — that's the intentional regression. The dropdown in STM-5 emits
+  // name-based paths, matching this regex.
+  it('accepts disciplines.<Name>.dots regex path (object-key form)', async () => {
     const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
-      character_id: CHAR_ID, stat_path: 'disciplines.0.dots', delta: 1, reason: 'discipline dot',
+      character_id: CHAR_ID, stat_path: 'disciplines.Auspex.dots', delta: 1, reason: 'discipline dot',
     });
     expect(res.status).toBe(201);
     CREATED_MOD_IDS.push(res.body._id);
+  });
+  it('rejects disciplines.<numeric>.dots (no longer matches the regex)', async () => {
+    const res = await request(app).post('/api/st_mods').set('X-Test-User', stUser()).send({
+      character_id: CHAR_ID, stat_path: 'disciplines.0.dots', delta: 1, reason: 'x',
+    });
+    expect(res.status).toBe(400);
   });
 
   // STM-2 (issue #372): five current.* paths re-added to STATIC_WHITELIST.

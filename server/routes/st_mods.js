@@ -55,7 +55,13 @@ const STATIC_WHITELIST = new Set([
   'derived.initiative',
 ]);
 
-const DYNAMIC_PATH_RE = /^(merits|disciplines)\.[0-9]+\.dots$/;
+// STM-5 (issue #386): the original STM-1 regex accepted numeric indices
+// only, which works for `c.merits[]` (an array) but NOT for `c.disciplines`
+// — that's an object keyed by discipline NAME on the v2 schema (see
+// `public/js/data/accessors.js#discDots` which reads `c.disciplines[name].dots`).
+// Splitting the regex per kind: merits stay numeric (array path); disciplines
+// accept an ASCII-letter name key to match the actual document shape.
+const DYNAMIC_PATH_RE = /^(merits\.[0-9]+|disciplines\.[A-Za-z][A-Za-z0-9]*)\.dots$/;
 
 function isValidStatPath(p) {
   return typeof p === 'string' && (STATIC_WHITELIST.has(p) || DYNAMIC_PATH_RE.test(p));

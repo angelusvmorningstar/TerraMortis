@@ -5564,3 +5564,260 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   color: var(--txt3);
   font-size: 10px;
 }
+
+/* ── Epic STM (issue #386): admin panel + (issue #379) audit polish ── */
+
+/* — Panel layout — */
+.stm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 18px 24px;
+  font-family: var(--fl);
+  color: var(--txt);
+}
+.stm-panel-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--txt2);
+  font-style: italic;
+  font-family: var(--ft);
+}
+.stm-panel-head h2 {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  margin: 0;
+}
+.stm-panel-toggles, .stm-panel-create, .stm-panel-list {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+.stm-panel-create h3, .stm-panel-list h3 {
+  font-family: var(--fh);
+  font-size: 14px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+.stm-toggle {
+  display: block;
+  margin: 6px 0;
+  cursor: pointer;
+}
+.stm-toggle-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: 24px;
+}
+.stm-toggle strong { color: var(--gold2); }
+
+/* — Create form — */
+.stm-form-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+.stm-form-row label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--txt2);
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  flex: 1;
+  min-width: 140px;
+}
+.stm-form-row input[type="text"],
+.stm-form-row input[type="number"],
+.stm-form-row select {
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 13px;
+}
+.stm-form-row select { min-width: 200px; }
+.stm-form-row input[type="number"] { width: 80px; flex: 0 0 auto; }
+.stm-form-show-reason { flex: 0 0 auto; text-transform: none; flex-direction: row; align-items: center; gap: 6px; }
+.stm-form-reason { flex: 2; }
+.stm-form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 6px;
+}
+.stm-form-actions button {
+  padding: 8px 16px;
+  background: var(--gold2);
+  color: var(--txt-on-gold, #fff);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  font-family: var(--fh);
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+}
+.stm-form-actions button:hover { filter: brightness(1.1); }
+.stm-form-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.stm-form-error { color: var(--crim, #8B0000); font-style: italic; font-size: 12px; }
+
+/* — Active mods list — */
+.stm-mod-row {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--gold2);
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.stm-mod-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stm-mod-label { font-family: var(--fh); font-size: 13px; color: var(--txt); flex: 1; }
+.stm-mod-delta {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 32px;
+  text-align: right;
+}
+.stm-mod-public {
+  font-size: 10px;
+  background: var(--gold2-a25, rgba(122,82,8,.25));
+  color: var(--gold2);
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.stm-mod-revoke {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--crim, #8B0000);
+  color: var(--crim, #8B0000);
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.stm-mod-revoke:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
+.stm-mod-reason { margin: 4px 0 2px; color: var(--txt2); font-size: 12px; }
+.stm-mod-meta { font-size: 11px; color: var(--txt3); margin: 0; }
+.stm-list-empty { color: var(--txt3); font-style: italic; }
+
+/* — STM-6 audit page polish (issue #379 styling) — */
+.stm-audit-root { padding: 18px 24px; font-family: var(--fl); color: var(--txt); }
+.stm-audit-head h2 {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  margin: 0 0 4px;
+}
+.stm-audit-sub { color: var(--txt3); font-style: italic; margin: 0 0 16px; font-size: 12px; }
+.stm-audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+.stm-audit-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--txt2);
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.stm-audit-filters select,
+.stm-audit-filters input[type="date"] {
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 13px;
+}
+.stm-audit-clear {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  color: var(--txt2);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.stm-audit-clear:hover { background: var(--surf2); color: var(--txt); }
+
+.stm-audit-row {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.stm-audit-row-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stm-audit-char { font-family: var(--fh); font-size: 13px; color: var(--gold2); min-width: 140px; }
+.stm-audit-path { font-family: var(--fh); flex: 1; }
+.stm-audit-delta {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 32px;
+  text-align: right;
+}
+.stm-audit-row-meta { display: flex; gap: 16px; font-size: 11px; color: var(--txt3); margin-top: 4px; }
+.stm-audit-row-reason { margin-top: 4px; color: var(--txt2); font-size: 12px; }
+.stm-audit-empty, .stm-audit-loading { padding: 18px; color: var(--txt3); font-style: italic; text-align: center; }
+
+.stm-badge {
+  font-size: 10px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 1px 8px;
+  border-radius: 2px;
+}
+.stm-badge--active {
+  background: var(--green2-4, rgba(110,160,90,.35));
+  color: var(--green, #6EA05A);
+  border: 1px solid var(--green, #6EA05A);
+}
+.stm-badge--revoked {
+  background: var(--crim-a25, rgba(139,0,0,.25));
+  color: var(--crim, #8B0000);
+  border: 1px solid var(--crim, #8B0000);
+}
+
+.stm-audit-pagination {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+.stm-audit-pagination button {
+  padding: 6px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  color: var(--txt);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.stm-audit-pagination button:hover:not(:disabled) { background: var(--surf3); }
+.stm-audit-pagination button:disabled { opacity: .4; cursor: not-allowed; }
