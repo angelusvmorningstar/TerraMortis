@@ -1979,9 +1979,12 @@ function buildMeritActions(sub) {
   // ── Contacts ──
   const contactRaw = raw.contact_actions?.requests || [];
   if (contactRaw.length) {
+    // Legacy CSV shape: c.detail / c.description contains the information request
     contactRaw.forEach(c => actions.push({
-      merit_type: 'Contacts', action_type: 'misc', desired_outcome: '',
-      description: c.detail || c.description || '',
+      merit_type:      'Contacts',
+      action_type:     'misc',
+      desired_outcome: c.detail || c.description || '',
+      description:     '',
     }));
   } else {
     for (let n = 1; n <= 5; n++) {
@@ -1989,22 +1992,38 @@ function buildMeritActions(sub) {
       if (!req) continue;
       // Use stored merit label (e.g. "Contacts ●●● (Crime)") so qualifier renders
       const meritLbl = resp[`contact_${n}_merit`] || 'Contacts';
-      actions.push({ merit_type: meritLbl, action_type: 'misc', desired_outcome: '', description: req });
+      const info     = resp[`contact_${n}_info`]  || '';
+      actions.push({
+        merit_type:      meritLbl,
+        action_type:     'misc',
+        desired_outcome: req,
+        description:     info,
+      });
     }
   }
 
   // ── Retainers ──
   const retainerRaw = raw.retainer_actions?.actions || [];
   if (retainerRaw.length) {
+    // Legacy CSV shape: plain objects with task/description; type field absent in old data
     retainerRaw.forEach(r => actions.push({
-      merit_type: 'Retainer', action_type: 'misc', desired_outcome: '',
-      description: r.task || r.description || '',
+      merit_type:      r.merit || 'Retainer',
+      action_type:     'misc',
+      desired_outcome: r.type || r.task_type || '',
+      description:     r.task || r.description || '',
     }));
   } else {
     for (let n = 1; n <= 4; n++) {
-      const task = resp[`retainer_${n}_task`];
-      if (!task) continue;
-      actions.push({ merit_type: 'Retainer', action_type: 'misc', desired_outcome: '', description: task });
+      const task    = resp[`retainer_${n}_task`];
+      const type    = resp[`retainer_${n}_type`] || '';
+      const meritLb = resp[`retainer_${n}_merit`] || 'Retainer';
+      if (!task && !type) continue;
+      actions.push({
+        merit_type:      meritLb,
+        action_type:     'misc',
+        desired_outcome: type,
+        description:     task || '',
+      });
     }
   }
 
