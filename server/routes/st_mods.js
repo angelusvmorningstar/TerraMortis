@@ -156,15 +156,68 @@ function canAccessMods(req, characterId) {
   return ids.includes(String(characterId));
 }
 
-// ─── GET /api/st_mods?character_id=:id ───────────────────────────────
-// Active mods for a character, oldest first (creation order — multi-mod
-// stack downstream renders top-to-bottom in this order).
+// STM-7 (issue #413): cap on the bulk character_ids CSV. Picked at 200
+// against a current campaign size of ~31 — comfortable headroom plus the
+// suite app's boot path includes retired chars, so realistic worst case
+// is ~50. 200 leaves room without inviting pathological inputs. Reject
+// 400 above; chars beyond the cap would defeat the boot-path single-RTT
+// goal anyway.
+const BULK_CHARACTER_IDS_CAP = 200;
+
+// ─── GET /api/st_mods ────────────────────────────────────────────────
+// Two shapes, dispatched on which query param is present:
+//   1. ?character_id=:id  →  returns [...mods]  (STM-1 single-char shape)
+//   2. ?character_ids=a,b,c → returns { [character_id]: [...mods] }
+//      (STM-7 bulk shape — one DB round-trip for the boot-path overlay
+//       per ADR-004 Rev 3 §D9).
+// Both shapes sort each character's mods by created_at ascending.
 //
 // Auth: any authenticated user. Ownership enforced by canAccessMods
-// inside the handler (ST any; player own-character only). POST + DELETE
-// remain ST-only below; /api/st_mod_audit also remains ST-only.
+// inside the handler — applied per-id for the bulk shape. Any non-own
+// id in the bulk CSV → 403 (atomic; we never return partial results to
+// a player who included an off-character id).
 router.get('/', async (req, res) => {
-  const { character_id } = req.query;
+  const { character_id, character_ids } = req.query;
+
+  // ── Bulk shape (STM-7) ─────────────────────────────────────────
+  if (character_ids !== undefined) {
+    if (typeof character_ids !== 'string' || character_ids.length === 0) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_ids must be a non-empty CSV string' });
+    }
+    const ids = character_ids.split(',').map(s => s.trim()).filter(Boolean);
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_ids must contain at least one id' });
+    }
+    if (ids.length > BULK_CHARACTER_IDS_CAP) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `character_ids exceeds cap of ${BULK_CHARACTER_IDS_CAP}`,
+        received: ids.length,
+        cap: BULK_CHARACTER_IDS_CAP,
+      });
+    }
+    // Per-id ownership check. Atomic: a player asking for any non-own id
+    // gets 403 with no rows returned. ST/dev pass through.
+    for (const id of ids) {
+      if (!canAccessMods(req, id)) {
+        return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character', character_id: id });
+      }
+    }
+    const docs = await mods()
+      .find({ character_id: { $in: ids } })
+      .sort({ created_at: 1 })
+      .toArray();
+    // Bucket by character_id; every requested id gets a key (empty array
+    // when no mods exist) so the client doesn't need to defend against
+    // missing keys.
+    const byChar = Object.fromEntries(ids.map(id => [id, []]));
+    for (const d of docs) {
+      if (byChar[d.character_id]) byChar[d.character_id].push(d);
+    }
+    return res.json(byChar);
+  }
+
+  // ── Single-character shape (STM-1, unchanged) ──────────────────
   if (!character_id || typeof character_id !== 'string') {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id is required' });
   }

@@ -93,6 +93,8 @@ import { loadGameXP } from './data/game-xp.js';
 import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
+import { applyOverlayToAll } from './data/st-mods.js';
+import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -567,6 +569,26 @@ async function loadAllData() {
   } else if (combatRes.status === 'rejected') {
     console.warn('Combat chars load failed:', combatRes.reason?.message);
   }
+
+  // 2c. STM-7 (ADR-004 Rev 3 §D8/D9 — issue #413): boot-time bulk overlay.
+  // Establishes the cache-entry invariant — every in-memory chars[] entry
+  // has applyStMods applied before any accessor read happens. Roll calc,
+  // DT pools, and any other accessor consumer pick up modded values
+  // transparently (no per-callsite changes; all 213 accessor reads funnel
+  // through the 6 functions in data/accessors.js, which read exactly the
+  // paths applyStMods mutates).
+  //
+  // Single bulk fetch via the new /api/st_mods?character_ids=<csv> endpoint;
+  // applied to suiteState.chars AFTER combat-only chars are merged so
+  // resist-target attribute lookups also see modded values. Failure is
+  // graceful: applyOverlayToAll bails per-character and stripOverlay
+  // restores canonical values, so the suite stays operational without mods.
+  await loadGlobalSettings();
+  const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+  await applyOverlayToAll(suiteState.chars, globalEnabled);
+  // editorState.chars is the same set of references for the player-owned
+  // subset (sortedChars came from editorState.chars.slice()). Combat-only
+  // chars are not in editorState. Nothing more to mirror.
 
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
