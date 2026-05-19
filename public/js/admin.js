@@ -12,6 +12,7 @@ import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/acc
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent, stripOverlay } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { applyOverlayToAll } from './data/st-mods.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -1222,6 +1223,19 @@ async function init() {
       const terrs = await apiGet('/api/territories');
       setStatusTerritories(terrs);
     } catch { /* territories not available — regent display will be blank */ }
+    // STM-8 (issue #415, ADR-004 Rev 3 §D8 — issue #413 admin parity):
+    // boot-time overlay for the admin chars array. STM-7 wired this for
+    // the suite app (app.js); admin.js was left out because at that point
+    // the per-sheet renderSheetWithOverlay covered the only read site.
+    // STM-8's DT resolution snapshot reads chars[i]._st_mod_overlay at
+    // resolve time — without boot-time overlay here, the snapshot would
+    // capture empty mods unless the ST happened to open the character
+    // sheet first. Apply overlay once at admin boot so the invariant
+    // holds across all admin views, mirroring app.js's pattern.
+    await loadGlobalSettings();
+    const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+    await applyOverlayToAll(chars, globalEnabled);
+
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);

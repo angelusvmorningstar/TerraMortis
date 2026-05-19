@@ -26,6 +26,42 @@ function isoToLocalInput(iso) {
 
 let submissions = [];
 let characters = [];
+
+/** Build a pool snapshot at DT resolution time per ADR-004 Rev 3 §D10 (STM-8 / issue #415).
+ *  Captures the character's active overlay state alongside the resolved
+ *  pool total so the historical record survives later mod revocation.
+ *
+ *  Always-write convention: when the character has no overlay (no mods
+ *  active), returns { base: finalPool, mods: [], final: finalPool } so
+ *  downstream consumers see a consistent shape. Math invariant
+ *  (enforced server-side): final === base + Σ mods[].delta — computed
+ *  from finalPool − Σ delta so the invariant always holds by construction.
+ *
+ *  Note on scope: captures ALL active mods on the character at resolution,
+ *  not action-aware filtering. Per STM-8 §scope the snapshot is a historical
+ *  record of mod state, not just the contributing subset. A future story
+ *  could refine to per-stat-path filtering if ST debugging surfaces a need. */
+function buildPoolSnapshot(c, finalPool) {
+  const total = Number.isFinite(finalPool) ? finalPool : 0;
+  const overlay = c?._st_mod_overlay || {};
+  const mods = [];
+  for (const entry of Object.values(overlay)) {
+    if (!entry || !Array.isArray(entry.mods)) continue;
+    for (const m of entry.mods) {
+      if (!m || !Number.isInteger(m.delta) || !m.stat_path) continue;
+      mods.push({ stat_path: m.stat_path, delta: m.delta, reason: m.reason || '' });
+    }
+  }
+  const sumDelta = mods.reduce((s, m) => s + m.delta, 0);
+  return { base: total - sumDelta, mods, final: total };
+}
+
+/** Resolve the active character for a submission, returning null if not in
+ *  the loaded characters array. */
+function _charForSub(sub) {
+  if (!sub?.character_id) return null;
+  return characters.find(c => String(c._id) === String(sub.character_id)) || null;
+}
 let charMap = new Map();
 let allCycles = [];
 let activeCycle = null;
@@ -5262,8 +5298,12 @@ function renderProcessingMode(container) {
         { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
           again, rote: isRote },
         async result => {
-          await updateSubmission(subId, { feeding_roll: result, feeding_vitae_tally: vitateTally });
-          if (sub) { sub.feeding_roll = result; sub.feeding_vitae_tally = vitateTally; }
+          // STM-8 (issue #415): snapshot the active mod state alongside
+          // the feeding roll so the historical record survives mod revocation.
+          const c = _charForSub(sub);
+          const feedingRoll = { ...result, pool_snapshot: buildPoolSnapshot(c, diceCount) };
+          await updateSubmission(subId, { feeding_roll: feedingRoll, feeding_vitae_tally: vitateTally });
+          if (sub) { sub.feeding_roll = feedingRoll; sub.feeding_vitae_tally = vitateTally; }
           const cur = getEntryReview(entry)?.pool_status || 'pending';
           if (cur === 'pending' || cur === 'confirmed') {
             await saveEntryReview(entry, { pool_status: 'rolled' });
@@ -5349,9 +5389,14 @@ function renderProcessingMode(container) {
       }, async result => {
         // Save both roll result AND pool object so the player story tab
         // can display both the expression and the outcome.
+        // STM-8 (issue #415): pool_snapshot at resolution captures the
+        // active mod state so the historical record survives revocation.
+        const sub = submissions.find(s => s._id === entry.subId);
+        const c = _charForSub(sub);
         await saveEntryReview(entry, {
           roll: result,
           pool: { expression: poolValidated, total: diceCount },
+          pool_snapshot: buildPoolSnapshot(c, diceCount),
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'confirmed') {
@@ -5378,9 +5423,17 @@ function renderProcessingMode(container) {
         existingRoll: review?.roll || null,
         again: 10, initialRote: false,
       }, async result => {
+        // STM-8 (issue #415): snapshot the mod state alongside the merit
+        // resolution. Pool composition for merit rolls = (dots \u00d7 2) + 2
+        // which doesn't read from attribute/skill values, so most mods
+        // won't contribute \u2014 but capturing the overlay state still
+        // preserves the audit record.
+        const sub = submissions.find(s => s._id === entry.subId);
+        const c = _charForSub(sub);
         await saveEntryReview(entry, {
           roll: result,
           pool: { expression: meritExpr, total: diceCount },
+          pool_snapshot: buildPoolSnapshot(c, diceCount),
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'confirmed') {
@@ -10925,10 +10978,15 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   // before this Roll. Prefer existing.st_note over pending.st_note since blur-save
   // writes directly to the resolved entry, not to _proj_pending.
   const existing = resolved[projIdx] || {};
+  // STM-8 (issue #415): pool_snapshot at resolution captures the active
+  // mod state for the historical record.
+  const c = _charForSub(sub);
+  const poolTotal = (pool && Number.isFinite(pool.total)) ? pool.total : 0;
   resolved[projIdx] = {
     ...existing,
     action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
     pool: { ...pool },
+    pool_snapshot: buildPoolSnapshot(c, poolTotal),
     roll: rollResult,
     st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),
