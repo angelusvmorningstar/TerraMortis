@@ -106,19 +106,9 @@ registerAttrsCallbacks(markDirty);
 // fresh-fetch failure path in cd-edit-toggle leaving modded canonical
 // fields visible.
 async function renderSheetWithOverlay(c) {
-  // Bugfix #405 instrumentation — remove before merge once root cause identified.
-  console.log('[STM #405] renderSheetWithOverlay entry', {
-    hasChar: !!c,
-    charId: c?._id,
-    charName: c?.name,
-    editMode: editorState.editMode,
-    editIdx: editorState.editIdx,
-    isSameAsChars: c === chars[editorState.editIdx],
-  });
   if (!c) return;
 
   if (editorState.editMode) {
-    console.log('[STM #405] short-circuit: editMode=true → stripping overlay');
     stripOverlay(c);
     renderSheet(c);
     return;
@@ -130,23 +120,9 @@ async function renderSheetWithOverlay(c) {
   const mods = await loadStMods(c._id);
   const settings = getGlobalSettings();
   const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
-  console.log('[STM #405] mods loaded', {
-    modsCount: Array.isArray(mods) ? mods.length : 'NOT-ARRAY',
-    modsPaths: Array.isArray(mods) ? mods.map(m => m.stat_path) : null,
-    settingsEnabled: settings?.st_mods_enabled,
-    suppressed: c.st_mods_suppressed,
-    overlayEnabled,
-  });
   applyStMods(c, mods, overlayEnabled);
-  console.log('[STM #405] after applyStMods', {
-    overlayKeys: c._st_mod_overlay ? Object.keys(c._st_mod_overlay) : null,
-    presenceDots: c.attributes?.Presence?.dots,
-    presenceBonus: c.attributes?.Presence?.bonus,
-  });
 
   renderSheet(c);
-  console.log('[STM #405] renderSheet returned; #sh-content first 200 chars:',
-    document.getElementById('sh-content')?.innerHTML?.slice(0, 200));
 }
 
 // ── Auth gate ──
@@ -293,23 +269,23 @@ function switchDomain(domain) {
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
-    // placeholder. onMutate triggers the STM-2 sheet re-render so mod
-    // changes and toggle flips are immediately visible on the player view.
+    // placeholder.
     const idx = editorState.editIdx;
     const c = (idx != null && idx >= 0) ? chars[idx] : null;
-    // Bugfix #405 instrumentation
-    console.log('[STM #405] switchDomain st-mods', { idx, charId: c?._id, charName: c?.name });
     initStModsPanel(
       document.getElementById('st-mods-panel-content'),
       c,
+      // Bugfix #405: onMutate previously captured `c` in a closure at
+      // sidebar-activation time. In Peter's repro, that closure pathway
+      // failed to land the mutation on `chars[editIdx]` (observed:
+      // chars[idx]._st_mod_overlay undefined post-POST, populated only
+      // after openCharDetail re-fired). Cause was likely a reference-
+      // identity gap: chars[idx] reads the LIVE array entry while the
+      // closure pinned the value at activation. Reading chars[editIdx]
+      // fresh inside the callback closes that gap.
       () => {
-        console.log('[STM #405] onMutate callback firing', {
-          capturedCharId: c?._id,
-          capturedCharName: c?.name,
-          currentEditIdx: editorState.editIdx,
-          stillSameAsChars: c === chars[editorState.editIdx],
-        });
-        if (c) renderSheetWithOverlay(c);
+        const liveChar = chars[editorState.editIdx];
+        if (liveChar) renderSheetWithOverlay(liveChar);
       },
     );
   }

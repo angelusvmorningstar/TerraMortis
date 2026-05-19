@@ -275,14 +275,6 @@ async function _onSaveClick() {
   _renderError();
 
   try {
-    // Bugfix #405 instrumentation
-    console.log('[STM #405] panel POST', {
-      character_id: String(c._id),
-      stat_path,
-      delta,
-      reason,
-      show_reason_to_player: !!state.form.show_reason_to_player,
-    });
     await apiPost('/api/st_mods', {
       character_id: String(c._id),
       stat_path,
@@ -297,10 +289,6 @@ async function _onSaveClick() {
     state.form.show_reason_to_player = false;
     state.error = null;
     await _refetchMods();
-    console.log('[STM #405] panel post-refetch', {
-      modsCount: state.mods.length,
-      firstModPath: state.mods[0]?.stat_path,
-    });
     _renderScaffold();
     if (_onMutateCallback) _onMutateCallback();
   } catch (err) {
