@@ -77,6 +77,8 @@ Key design rules:
 - Character retirement: `retired: true` flag, shown separately in admin grid
 - **Derived stats are never stored** — size, speed, defence, health, willpower_max, vitae_max calculated at render time
 
+  **Sanctioned exception: ST mod overlay (Epic STM).** The `applyStMods` function in `public/js/data/st-mods.js` mutates the in-memory character's derived (and base) fields per-render with signed-integer deltas from the `st_mods` collection, and writes a `_st_mod_overlay` breakdown for the popover. The canonical character document on the server is never written to from this path. See [ADR-004](specs/architecture/adr-004-st-mods-overlay.md) for the composition site, write-direction invariant (overlay never mutates `tracker_state`), and how the overlay is stripped on edit-mode entry so the editor always sees base values. Adding a second composition path or moving overlay computation server-side requires an ADR.
+
 ### XP system (dynamic)
 
 **Earned** — derived at render time, not stored:

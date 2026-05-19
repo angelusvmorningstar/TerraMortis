@@ -21,21 +21,32 @@ const SKILLS = [
   'Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge',
 ];
 
-// Static stat_path whitelist. Sourced from ADR-004 §D3, with field-name
-// corrections per the §Concerns Item 4 hand-off:
-//   - PRD example `current.damage / current.willpower / current.vitae` does NOT
-//     resolve on the character document — those values live in the separate
-//     `tracker_state` collection, not on the character. The overlay is a
-//     character-render feature (ADR-004 §D1), so the whitelist surfaces only
-//     character-document fields. Current state slots that exist on the char doc:
-//     `blood_potency` and `humanity` (both top-level).
-//   - Damage/wp-current/vitae-current can be re-added later if a future story
-//     extends the overlay into the tracker render path.
+// Static stat_path whitelist. Sourced from ADR-004 §D3 + Rev 2 §D5.
+//
+// `current.*` paths (damage_bashing / damage_lethal / damage_aggravated /
+// willpower / vitae) resolve against a synthetic `c.current` namespace
+// that STM-2's pre-overlay splice materialises onto the in-memory
+// character from the `tracker_state` collection. The character document
+// itself does NOT carry these fields — the overlay is a render-time
+// composition, not a storage shape. Per ADR-004 §D6 the overlay is
+// strictly read-direction and never writes back to tracker_state.
+//
+// `blood_potency` and `humanity` live at the character-document root.
+// `derived.*` are render-time computed; STM-2's overlay sets them on
+// the in-memory character before renderSheet reads them.
 const STATIC_WHITELIST = new Set([
   ...ATTRS.flatMap(a => [`attributes.${a}.dots`, `attributes.${a}.bonus`]),
   ...SKILLS.flatMap(s => [`skills.${s}.dots`, `skills.${s}.bonus`]),
+  // Current state — tracker_state-resident, spliced pre-overlay (ADR-004 §D5)
+  'current.damage_bashing',
+  'current.damage_lethal',
+  'current.damage_aggravated',
+  'current.willpower',
+  'current.vitae',
+  // Character-doc root
   'blood_potency',
   'humanity',
+  // Derived
   'derived.defence',
   'derived.health_max',
   'derived.willpower_max',
@@ -44,7 +55,13 @@ const STATIC_WHITELIST = new Set([
   'derived.initiative',
 ]);
 
-const DYNAMIC_PATH_RE = /^(merits|disciplines)\.[0-9]+\.dots$/;
+// STM-5 (issue #386): the original STM-1 regex accepted numeric indices
+// only, which works for `c.merits[]` (an array) but NOT for `c.disciplines`
+// — that's an object keyed by discipline NAME on the v2 schema (see
+// `public/js/data/accessors.js#discDots` which reads `c.disciplines[name].dots`).
+// Splitting the regex per kind: merits stay numeric (array path); disciplines
+// accept an ASCII-letter name key to match the actual document shape.
+const DYNAMIC_PATH_RE = /^(merits\.[0-9]+|disciplines\.[A-Za-z][A-Za-z0-9]*)\.dots$/;
 
 function isValidStatPath(p) {
   return typeof p === 'string' && (STATIC_WHITELIST.has(p) || DYNAMIC_PATH_RE.test(p));
@@ -154,19 +171,77 @@ router.delete('/:id', requireRole('st'), async (req, res) => {
 
 export default router;
 
-// ─── GET /api/st_mod_audit?character_id=:id ──────────────────────────
+// ─── GET /api/st_mod_audit ───────────────────────────────────────────
 // Mounted as its own router by server/index.js so the path namespace
 // stays clean (POST/GET/DELETE /api/st_mods + GET /api/st_mod_audit).
+//
+// STM-6 (issue #379): extended with optional filters + pagination.
+// Backwards-compatible breaking change in response shape: returns
+// { rows, total, page, page_size } wrapper instead of a bare array.
+// STM-2 had no consumer; the STM-6 admin page is the first consumer.
+//
+// Query params (all optional):
+//   character_id — exact match
+//   st           — match against created_by.discord_name
+//   from / to    — ISO date range, inclusive, applied to created_at
+//   page         — 1-indexed (default 1)
+//   page_size    — default 50, clamped to [1, 100]
+//
+// Each returned row is decorated with { ...auditRow, active: <bool> }
+// where active === (st_mods document with _id === auditRow.st_mod_id exists).
+// The active lookup is batched into a single $in query — explicitly NOT
+// N+1 — per ADR §"Concerns" Item 2 sibling concern about query shape.
 export const auditRouter = Router();
 
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 auditRouter.get('/', requireRole('st'), async (req, res) => {
-  const { character_id } = req.query;
-  if (!character_id || typeof character_id !== 'string') {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id is required' });
+  const { character_id, st, from, to } = req.query;
+
+  // Parse pagination — clamp to safe bounds. Bad input falls back to defaults
+  // rather than 400, matching the "filters are optional" spirit.
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, parseInt(req.query.page_size, 10) || DEFAULT_PAGE_SIZE),
+  );
+
+  // Build the Mongo filter from non-empty params
+  const filter = {};
+  if (character_id) filter.character_id = String(character_id);
+  if (st) filter['created_by.discord_name'] = String(st);
+  if (from || to) {
+    filter.created_at = {};
+    if (from) filter.created_at.$gte = String(from);
+    if (to) filter.created_at.$lte = String(to);
   }
-  const docs = await audit()
-    .find({ character_id: String(character_id) })
-    .sort({ created_at: 1 })
+
+  const total = await audit().countDocuments(filter);
+  const rows = await audit()
+    .find(filter)
+    .sort({ created_at: -1 })
+    .skip((page - 1) * pageSize)
+    .limit(pageSize)
     .toArray();
-  res.json(docs);
+
+  // Batched active-check: one $in query against st_mods regardless of
+  // page size. Collect st_mod_ids from this page, find which still exist,
+  // map back to a boolean per row. Audit rows from a future writer that
+  // didn't populate st_mod_id (none today) safely default to inactive.
+  const stModIds = rows.map(r => r.st_mod_id).filter(id => id != null);
+  let aliveSet = new Set();
+  if (stModIds.length) {
+    const alive = await mods()
+      .find({ _id: { $in: stModIds } }, { projection: { _id: 1 } })
+      .toArray();
+    aliveSet = new Set(alive.map(d => String(d._id)));
+  }
+
+  const decorated = rows.map(r => ({
+    ...r,
+    active: r.st_mod_id != null && aliveSet.has(String(r.st_mod_id)),
+  }));
+
+  res.json({ rows: decorated, total, page, page_size: pageSize });
 });
