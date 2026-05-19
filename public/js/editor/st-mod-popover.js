@@ -13,6 +13,7 @@
  */
 
 import { esc } from '../data/helpers.js';
+import { labelForPath } from '../data/st-mod-labels.js';
 import { buildPopover } from '../data/st-mod-popover-spec.js';
 
 // Re-export so existing import paths in the test (if anyone wanted to
@@ -23,7 +24,14 @@ export { buildPopover };
 const MARKER_SELECTOR = '[data-stm-marker-path]';
 
 /** Render the popover spec to HTML. Pure string-building; the caller
- *  injects the result into the DOM and positions it. */
+ *  injects the result into the DOM and positions it.
+ *
+ *  Issue #408 (Epic STM UX polish — Finding 4): clearer visual hierarchy.
+ *  Three logical sections (Base / Adjustments / Final) are emitted as
+ *  distinct rows with explicit label+value span pairs so flex layout
+ *  keeps them on a single line, plus a small "Adjustments" sub-header
+ *  before the mod rows so the popover reads as start → adjust → result
+ *  at a glance. CSS owns the separator borders + indentation. */
 export function renderPopoverHtml(spec) {
   if (!spec) return '';
   const baseSuffix = spec.baseRow.fromTracker ? ' <span class="stm-pop-base-src">(from tracker)</span>' : '';
@@ -31,19 +39,23 @@ export function renderPopoverHtml(spec) {
     const meta = (r.reason || r.creator)
       ? `<div class="stm-pop-mod-meta">${r.reason ? `<em>${esc(r.reason)}</em>` : ''}${r.reason && r.creator ? ' &mdash; ' : ''}${r.creator ? esc(r.creator) : ''}${r.when ? ` <span class="stm-pop-mod-when">${esc(r.when)}</span>` : ''}</div>`
       : '';
-    return `
-      <div class="stm-pop-mod">
-        <span class="stm-pop-mod-delta">${esc(r.deltaSigned)}</span>
-        ${meta}
-      </div>
-    `;
+    return `<div class="stm-pop-mod"><span class="stm-pop-mod-delta">${esc(r.deltaSigned)}</span>${meta}</div>`;
   }).join('');
   return `
     <div class="stm-pop">
       <div class="stm-pop-head">${esc(spec.pathLabel)}</div>
-      <div class="stm-pop-base">${esc(spec.baseRow.label)}: <span class="stm-pop-val">${esc(String(spec.baseRow.value))}</span>${baseSuffix}</div>
-      <div class="stm-pop-mods">${rows}</div>
-      <div class="stm-pop-final">${esc(spec.finalRow.label)}: <span class="stm-pop-val">${esc(String(spec.finalRow.value))}</span></div>
+      <div class="stm-pop-base">
+        <span class="stm-pop-row-lbl">${esc(spec.baseRow.label)}</span>
+        <span class="stm-pop-val">${esc(String(spec.baseRow.value))}${baseSuffix}</span>
+      </div>
+      <div class="stm-pop-mods">
+        <div class="stm-pop-mods-hdr">Adjustments</div>
+        ${rows}
+      </div>
+      <div class="stm-pop-final">
+        <span class="stm-pop-row-lbl">${esc(spec.finalRow.label)}</span>
+        <span class="stm-pop-val">${esc(String(spec.finalRow.value))}</span>
+      </div>
     </div>
   `;
 }
@@ -57,10 +69,21 @@ let _activePopover = null;
 
 /** Render a marker span for a given path, IF c._st_mod_overlay[path]
  *  exists. Otherwise returns empty string — caller can inline this
- *  next to a stat display without conditional gating. */
+ *  next to a stat display without conditional gating.
+ *
+ *  Issue #408 (Epic STM UX polish): for stat displays that are NOT
+ *  dot-runs (current.* / derived.* / blood_potency / humanity in the
+ *  stats strip), the standalone marker still applies. The title is
+ *  now enriched with the stat label + signed delta so a hover
+ *  immediately conveys what changed and by how much without the
+ *  player having to click. Dot-run paths (attributes / skills) are
+ *  marked via the dot class in shDotsWithBonus, not via this helper. */
 export function markerFor(c, path) {
-  if (!c?._st_mod_overlay || !c._st_mod_overlay[path]) return '';
-  return `<span class="stm-marker" data-stm-marker-path="${esc(path)}" title="ST adjustment"></span>`;
+  const overlay = c?._st_mod_overlay?.[path];
+  if (!overlay) return '';
+  const sign = overlay.delta >= 0 ? '+' : '';
+  const title = `ST adjustment: ${labelForPath(path)} ${sign}${overlay.delta}. Click for details.`;
+  return `<span class="stm-marker" data-stm-marker-path="${esc(path)}" title="${esc(title)}"></span>`;
 }
 
 /** Render a sequence of markers for a list of paths. Skips any path
