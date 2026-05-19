@@ -559,8 +559,63 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
 export const submissionsRouter = Router();
 const submissions = () => getCollection('downtime_submissions');
 
+/** STM-8 (issue #415, ADR-004 Rev 3 §D10): walk a request body for any
+ *  `pool_snapshot` field and enforce the math invariant
+ *  `final === base + Σ mods[].delta`. Returns an array of failure
+ *  descriptors (empty when all snapshots are well-formed).
+ *
+ *  Handles three shapes the client may send:
+ *  1. Direct key:           `pool_snapshot: { base, mods, final }`
+ *  2. Dot-notation key:     `'projects_resolved.0.pool_snapshot': { ... }`
+ *  3. Nested in array/obj:  `projects_resolved: [{ ..., pool_snapshot: {...} }]`
+ *
+ *  Validates ONLY when the key is literally `pool_snapshot` (or ends
+ *  with `.pool_snapshot`) so unrelated objects that happen to have
+ *  base/mods/final fields aren't false-positive flagged. */
+function _validatePoolSnapshots(obj, errors = []) {
+  if (obj == null || typeof obj !== 'object') return errors;
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === 'pool_snapshot' || k.endsWith('.pool_snapshot')) {
+      if (v == null) continue;            // explicit null / unset — fine
+      if (typeof v !== 'object' || Array.isArray(v)) {
+        errors.push({ key: k, reason: 'pool_snapshot must be an object' });
+        continue;
+      }
+      if (typeof v.base !== 'number' || !Array.isArray(v.mods) || typeof v.final !== 'number') {
+        errors.push({ key: k, reason: 'pool_snapshot requires { base: number, mods: array, final: number }' });
+        continue;
+      }
+      let sumDelta = 0;
+      for (const m of v.mods) {
+        if (m && Number.isInteger(m.delta)) sumDelta += m.delta;
+      }
+      if (v.final !== v.base + sumDelta) {
+        errors.push({ key: k, base: v.base, mods_sum: sumDelta, final: v.final, expected: v.base + sumDelta });
+      }
+    } else if (Array.isArray(v)) {
+      for (const e of v) _validatePoolSnapshots(e, errors);
+    } else if (v && typeof v === 'object') {
+      _validatePoolSnapshots(v, errors);
+    }
+  }
+  return errors;
+}
+
 // POST /api/downtime_submissions — both roles can create
 submissionsRouter.post('/', validate(downtimeSubmissionSchema), async (req, res) => {
+  // STM-8 (issue #415): enforce pool_snapshot invariant on create too.
+  // Resolution-time writes go via PUT so this path rarely has snapshots,
+  // but a future bulk-import flow could send them here; cheaper to guard
+  // both endpoints than to debug a corrupted historical record later.
+  const snapErrors = _validatePoolSnapshots(req.body);
+  if (snapErrors.length > 0) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'pool_snapshot math invariant violated (final must equal base + Σ delta)',
+      failures: snapErrors,
+    });
+  }
+
   const doc = { ...req.body };
   // Normalise ID fields to ObjectId so GET queries match correctly
   if (doc.cycle_id) {
@@ -714,6 +769,20 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
   const isPublishTransition =
     req.body['st_review.outcome_visibility'] === 'published' &&
     existing?.st_review?.outcome_visibility !== 'published';
+
+  // STM-8 (issue #415, ADR-004 Rev 3 §D10): enforce pool_snapshot math
+  // invariant on any pool_snapshot field present in the update. final
+  // MUST equal base + Σ mods[].delta — without this guard a buggy client
+  // could persist a snapshot whose total contradicts its breakdown,
+  // poisoning the audit record.
+  const snapErrors = _validatePoolSnapshots(req.body);
+  if (snapErrors.length > 0) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: 'pool_snapshot math invariant violated (final must equal base + Σ delta)',
+      failures: snapErrors,
+    });
+  }
 
   const { _id, ...updates } = req.body;
   const result = await submissions().findOneAndUpdate(
