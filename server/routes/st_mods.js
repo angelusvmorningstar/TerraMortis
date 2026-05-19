@@ -144,13 +144,32 @@ router.post('/', requireRole('st'), async (req, res) => {
   res.status(201).json(created);
 });
 
+// Own-character access check (mirrors server/routes/tracker.js#canAccess
+// pattern). Players can read mods only for character_ids they own;
+// ST / dev can read mods for any character. Issue #410 — pre-fix this
+// route was requireRole('st'), which broke the player-side sheet
+// (loadStMods got 401, applyStMods short-circuited, no overlay rendered).
+function canAccessMods(req, characterId) {
+  const role = req.user?.role;
+  if (role === 'st' || role === 'dev') return true;
+  const ids = (req.user?.character_ids || []).map(String);
+  return ids.includes(String(characterId));
+}
+
 // ─── GET /api/st_mods?character_id=:id ───────────────────────────────
 // Active mods for a character, oldest first (creation order — multi-mod
 // stack downstream renders top-to-bottom in this order).
-router.get('/', requireRole('st'), async (req, res) => {
+//
+// Auth: any authenticated user. Ownership enforced by canAccessMods
+// inside the handler (ST any; player own-character only). POST + DELETE
+// remain ST-only below; /api/st_mod_audit also remains ST-only.
+router.get('/', async (req, res) => {
   const { character_id } = req.query;
   if (!character_id || typeof character_id !== 'string') {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id is required' });
+  }
+  if (!canAccessMods(req, character_id)) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
   const docs = await mods()
     .find({ character_id: String(character_id) })
