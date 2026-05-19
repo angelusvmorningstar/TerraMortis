@@ -111,5 +111,5 @@ These are always calculated at render time from character data:
 | `/api/characters`, `/api/territories`, `/api/downtime_*`, `/api/players`, `/api/questionnaire`, `/api/history`, `/api/ordeal*`, `/api/rules`, `/api/npcs`, `/api/tickets` | Yes (any authenticated) | — |
 | `/api/tracker_state` | Yes | ST (cross-character) or owning player (`req.user.character_ids` per `server/routes/tracker.js:9-15`) |
 | `/api/session_logs`, `/api/game_sessions` | Yes | ST only |
-| `GET /api/st_mods` | Yes | ST (any character) or owning player (`req.user.character_ids` per `server/routes/st_mods.js#canAccessMods`) |
+| `GET /api/st_mods?character_id=<id>` (single) or `GET /api/st_mods?character_ids=<csv>` (bulk; STM-7 / issue #413) | Yes | ST (any character) or owning player (`req.user.character_ids` per `server/routes/st_mods.js#canAccessMods`, applied per-id for bulk) |
 | `POST /api/st_mods`, `DELETE /api/st_mods/:id`, `GET /api/st_mod_audit` | Yes | ST only |

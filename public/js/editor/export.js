@@ -2,6 +2,7 @@
 
 import state from '../data/state.js';
 import { CHARS_DATA } from '../data/chars-data.js';
+import { stripOverlay } from '../data/st-mods.js';
 
 let _renderList, _updDirtyBadge;
 
@@ -34,11 +35,25 @@ export function loadDB() {
 
 /**
  * Produce a clean deep copy of state.chars with derived merits stripped.
- * @returns {Array} cleaned character array
+ *
+ * STM-7 (ADR-004 Rev 3 §D13 — issue #413): the cache-entry invariant
+ * means in-memory chars carry an STM overlay (modded `.dots`/`.bonus`
+ * etc. + `_st_mod_overlay` + `_st_mod_base`). localStorage must stay
+ * base-only — otherwise on next session boot the overlay would be
+ * applied on top of an already-modded "canonical", drifting away from
+ * the real base each cycle. Strip the overlay from each clone before
+ * persisting; stripOverlay walks `_st_mod_base` and restores canonical
+ * values, then deletes the transient `_`-prefixed fields.
+ *
+ * @returns {Array} cleaned character array (base values, no STM overlay)
  */
 export function charsForSave() {
   return state.chars.map(c => {
     const copy = JSON.parse(JSON.stringify(c));
+    // Restore base values from the cloned _st_mod_base snapshot, then
+    // delete _st_mod_overlay + _st_mod_base. Pre-overlay characters
+    // have no _st_mod_base; stripOverlay no-ops cleanly in that case.
+    stripOverlay(copy);
     if (copy.merits) {
       for (let i = copy.merits.length - 1; i >= 0; i--) {
         if (copy.merits[i].derived) {

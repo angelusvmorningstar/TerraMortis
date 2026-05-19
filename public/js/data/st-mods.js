@@ -44,6 +44,26 @@ export async function loadStMods(characterId) {
   }
 }
 
+/** GET /api/st_mods?character_ids=<csv>. Returns { [character_id]: [...mods] }
+ *  in a single round-trip. STM-7 (ADR-004 Rev 3 §D9) — boot-path bulk loader
+ *  so the suite app doesn't fire N requests when populating its character cache.
+ *  Returns empty object on network failure / non-OK response so the caller's
+ *  overlay loop short-circuits gracefully on each character. */
+export async function loadStModsBulk(characterIds) {
+  if (!Array.isArray(characterIds) || characterIds.length === 0) return {};
+  try {
+    const csv = characterIds.map(id => encodeURIComponent(String(id))).join(',');
+    const res = await fetch(
+      `${API_BASE}/api/st_mods?character_ids=${csv}`,
+      { headers: authHeaders() },
+    );
+    if (!res.ok) return {};
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 /** Splice the synthetic `current.*` namespace onto the in-memory character
  *  from tracker_state (per ADR-004 §D5). Idempotent — overwrites c.current
  *  every call. Pass a falsy tracker to write sensible defaults.
@@ -141,6 +161,36 @@ export function applyStMods(c, mods, overlayEnabled) {
     c._st_mod_overlay[path] = { base, delta, final, mods: contributing };
   }
   return c;
+}
+
+/** STM-7 (ADR-004 Rev 3 §D8/D9) — boot-time bulk overlay application.
+ *  Establishes the cache-entry invariant: every chars[] entry has
+ *  applyStMods applied before any accessor read happens. Roll calc, DT
+ *  pools, and any consumer of the accessor chain (getAttrEffective,
+ *  skTotal, discAttrBonus, calcDefence/Health/Willpower) pick up modded
+ *  values transparently — no per-callsite changes needed.
+ *
+ *  One bulk fetch (single RTT) regardless of chars.length. Per-character
+ *  st_mods_suppressed is honoured at the applyStMods call (overlayEnabled
+ *  becomes globalEnabled && !c.st_mods_suppressed).
+ *
+ *  Mutates each char in place; returns chars for chainability. When the
+ *  bulk endpoint returns nothing (network failure, no mods), each char
+ *  gets stripOverlay (via applyStMods's empty-array branch) so a flipped
+ *  global toggle reverts cleanly on next boot.
+ *
+ *  Called from public/js/app.js boot after applyDerivedMerits. */
+export async function applyOverlayToAll(chars, globalEnabled) {
+  if (!Array.isArray(chars) || chars.length === 0) return chars;
+  const ids = chars.map(c => c?._id).filter(Boolean);
+  const modsByChar = await loadStModsBulk(ids);
+  for (const c of chars) {
+    if (!c) continue;
+    const overlayEnabled = !!globalEnabled && !c.st_mods_suppressed;
+    const mods = modsByChar[String(c._id)] || [];
+    applyStMods(c, mods, overlayEnabled);
+  }
+  return chars;
 }
 
 /** Restore canonical values from c._st_mod_base, then delete the overlay
