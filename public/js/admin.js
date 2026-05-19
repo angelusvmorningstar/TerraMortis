@@ -118,11 +118,6 @@ async function renderSheetWithOverlay(c) {
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
 
   const mods = await loadStMods(c._id);
-  // STM-3 (issue #378): real values now flow through.
-  //   - getGlobalSettings() returns null until loadGlobalSettings() resolves
-  //     (boot path awaits it before any render; this is a defensive fallback
-  //     in case a render races boot). Null is treated as enabled.
-  //   - c.st_mods_suppressed is set per-character via PATCH; absent = falsy = not suppressed.
   const settings = getGlobalSettings();
   const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
   applyStMods(c, mods, overlayEnabled);
@@ -274,14 +269,24 @@ function switchDomain(domain) {
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
-    // placeholder. onMutate triggers the STM-2 sheet re-render so mod
-    // changes and toggle flips are immediately visible on the player view.
+    // placeholder.
     const idx = editorState.editIdx;
     const c = (idx != null && idx >= 0) ? chars[idx] : null;
     initStModsPanel(
       document.getElementById('st-mods-panel-content'),
       c,
-      () => { if (c) renderSheetWithOverlay(c); },
+      // Bugfix #405: onMutate previously captured `c` in a closure at
+      // sidebar-activation time. In Peter's repro, that closure pathway
+      // failed to land the mutation on `chars[editIdx]` (observed:
+      // chars[idx]._st_mod_overlay undefined post-POST, populated only
+      // after openCharDetail re-fired). Cause was likely a reference-
+      // identity gap: chars[idx] reads the LIVE array entry while the
+      // closure pinned the value at activation. Reading chars[editIdx]
+      // fresh inside the callback closes that gap.
+      () => {
+        const liveChar = chars[editorState.editIdx];
+        if (liveChar) renderSheetWithOverlay(liveChar);
+      },
     );
   }
 }
