@@ -10532,7 +10532,7 @@ export function renderCityOverview() {
     // ── 2. Ambience ───────────────────────────────────────────────
     h += `<div class="proc-disc-header" data-toggle="city-ambience">`;
     h += `<span class="proc-amb-title">Ambience</span>`;
-    h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
+    h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Refresh matrix from current feeding and project data">Recalculate Territories</button>`;
     h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
     if (!ovAmbienceCollapsed) {
@@ -10673,7 +10673,7 @@ export function renderCityOverview() {
 
   el.querySelector('.city-amb-recalc-btn')?.addEventListener('click', async e => {
     e.stopPropagation();
-    await _applyProjectedAmbience(false);
+    try { cachedTerritories = await apiGet('/api/territories'); } catch { /* use cached */ }
     renderCityOverview();
   });
 
