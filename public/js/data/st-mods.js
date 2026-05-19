@@ -33,13 +33,28 @@ function authHeaders() {
  *  rather than throwing — overlay is a display enhancement, not a hard dep. */
 export async function loadStMods(characterId) {
   try {
+    // Bugfix #405 instrumentation
+    console.log('[STM #405] loadStMods called', {
+      characterId,
+      typeOf: typeof characterId,
+      stringified: String(characterId),
+    });
     const res = await fetch(
       `${API_BASE}/api/st_mods?character_id=${encodeURIComponent(characterId)}`,
       { headers: authHeaders() },
     );
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
+    if (!res.ok) {
+      console.warn('[STM #405] loadStMods non-OK', { status: res.status });
+      return [];
+    }
+    const data = await res.json();
+    console.log('[STM #405] loadStMods returned', {
+      count: Array.isArray(data) ? data.length : 'NOT-ARRAY',
+      first: data?.[0],
+    });
+    return data;
+  } catch (err) {
+    console.error('[STM #405] loadStMods threw', err);
     return [];
   }
 }

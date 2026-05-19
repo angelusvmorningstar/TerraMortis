@@ -106,9 +106,19 @@ registerAttrsCallbacks(markDirty);
 // fresh-fetch failure path in cd-edit-toggle leaving modded canonical
 // fields visible.
 async function renderSheetWithOverlay(c) {
+  // Bugfix #405 instrumentation — remove before merge once root cause identified.
+  console.log('[STM #405] renderSheetWithOverlay entry', {
+    hasChar: !!c,
+    charId: c?._id,
+    charName: c?.name,
+    editMode: editorState.editMode,
+    editIdx: editorState.editIdx,
+    isSameAsChars: c === chars[editorState.editIdx],
+  });
   if (!c) return;
 
   if (editorState.editMode) {
+    console.log('[STM #405] short-circuit: editMode=true → stripping overlay');
     stripOverlay(c);
     renderSheet(c);
     return;
@@ -118,16 +128,25 @@ async function renderSheetWithOverlay(c) {
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
 
   const mods = await loadStMods(c._id);
-  // STM-3 (issue #378): real values now flow through.
-  //   - getGlobalSettings() returns null until loadGlobalSettings() resolves
-  //     (boot path awaits it before any render; this is a defensive fallback
-  //     in case a render races boot). Null is treated as enabled.
-  //   - c.st_mods_suppressed is set per-character via PATCH; absent = falsy = not suppressed.
   const settings = getGlobalSettings();
   const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
+  console.log('[STM #405] mods loaded', {
+    modsCount: Array.isArray(mods) ? mods.length : 'NOT-ARRAY',
+    modsPaths: Array.isArray(mods) ? mods.map(m => m.stat_path) : null,
+    settingsEnabled: settings?.st_mods_enabled,
+    suppressed: c.st_mods_suppressed,
+    overlayEnabled,
+  });
   applyStMods(c, mods, overlayEnabled);
+  console.log('[STM #405] after applyStMods', {
+    overlayKeys: c._st_mod_overlay ? Object.keys(c._st_mod_overlay) : null,
+    presenceDots: c.attributes?.Presence?.dots,
+    presenceBonus: c.attributes?.Presence?.bonus,
+  });
 
   renderSheet(c);
+  console.log('[STM #405] renderSheet returned; #sh-content first 200 chars:',
+    document.getElementById('sh-content')?.innerHTML?.slice(0, 200));
 }
 
 // ── Auth gate ──
@@ -278,10 +297,20 @@ function switchDomain(domain) {
     // changes and toggle flips are immediately visible on the player view.
     const idx = editorState.editIdx;
     const c = (idx != null && idx >= 0) ? chars[idx] : null;
+    // Bugfix #405 instrumentation
+    console.log('[STM #405] switchDomain st-mods', { idx, charId: c?._id, charName: c?.name });
     initStModsPanel(
       document.getElementById('st-mods-panel-content'),
       c,
-      () => { if (c) renderSheetWithOverlay(c); },
+      () => {
+        console.log('[STM #405] onMutate callback firing', {
+          capturedCharId: c?._id,
+          capturedCharName: c?.name,
+          currentEditIdx: editorState.editIdx,
+          stillSameAsChars: c === chars[editorState.editIdx],
+        });
+        if (c) renderSheetWithOverlay(c);
+      },
     );
   }
 }
