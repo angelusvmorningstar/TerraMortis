@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { broadcastStModUpdate } from '../ws.js';
 
 const router = Router();
 const mods = () => getCollection('st_mods');
@@ -140,6 +141,13 @@ router.post('/', requireRole('st'), async (req, res) => {
     return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to write audit row' });
   }
 
+  // STM-9 (issue #416, ADR-004 Rev 3 §D11): broadcast the create event
+  // AFTER both inserts succeed. Connected clients (admin / player / suite)
+  // receive `{ type: 'st_mod', op: 'create', character_id, st_mod_id }`
+  // and refetch + re-overlay for the affected character. The originating
+  // client deduplicates via markLocalWrite (mirrors tracker.js pattern).
+  broadcastStModUpdate(String(character_id), 'create', String(modId));
+
   const created = await mods().findOne({ _id: modId });
   res.status(201).json(created);
 });
@@ -236,8 +244,16 @@ router.get('/', async (req, res) => {
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
+  // Resolve the doc BEFORE deletion so we know which character to
+  // broadcast against (the deleted row has the character_id we need).
+  // STM-9 (issue #416): the broadcast hook fires only after the delete
+  // succeeds — clients shouldn't be told a mod was revoked if it wasn't.
+  const existing = await mods().findOne({ _id: oid });
   const result = await mods().deleteOne({ _id: oid });
   if (!result.deletedCount) return res.status(404).json({ error: 'NOT_FOUND' });
+  if (existing?.character_id) {
+    broadcastStModUpdate(String(existing.character_id), 'revoke', String(oid));
+  }
   res.json({ deleted: true });
 });
 

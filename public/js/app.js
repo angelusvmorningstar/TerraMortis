@@ -1337,6 +1337,22 @@ async function boot() {
             // Repaint sheet tracker boxes if this is the current sheet char
             if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
           },
+          // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+          // create/revoke, re-apply the overlay for the affected
+          // character and refresh the sheet tracker boxes if that
+          // char is the open sheet. The roll calculator's pool
+          // values come from accessor reads on the in-memory char
+          // (post-#413 D8 cache-entry invariant), so just re-running
+          // applyOverlayToAll on the single char is enough for all
+          // downstream surfaces to see the new state on next render.
+          onStModUpdate: async (charId) => {
+            const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
+            if (!target) return;
+            await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+            if (String(suiteState.sheetChar?._id) === String(charId)) {
+              repaintSheetTrackers();
+            }
+          },
         });
         return;
       } catch (err) {
