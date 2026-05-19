@@ -3114,9 +3114,12 @@ function buildProcessingQueue(subs) {
     let spheres  = raw.sphere_actions || [];
     if (!spheres.length) {
       // App-form submissions store sphere actions as flat response keys (sphere_N_merit etc.)
+      // Guard: require both merit label AND a non-empty action so existing submissions
+      // with phantom labels (player never toggled gate) are retroactively suppressed.
       for (let n = 1; n <= 5; n++) {
         const meritType = resp[`sphere_${n}_merit`];
-        if (!meritType) continue;
+        const actionVal = resp[`sphere_${n}_action`];
+        if (!meritType || !actionVal) continue;
         spheres = [...spheres, {
           merit_type:      meritType,
           action_type:     resp[`sphere_${n}_action`]      || 'misc',
@@ -3162,7 +3165,8 @@ function buildProcessingQueue(subs) {
     // accounting and _parseMeritType returning category:'status' automatically.
     for (let n = 1; n <= 5; n++) {
       const meritType = resp[`status_${n}_merit`];
-      if (!meritType) continue;
+      const actionVal = resp[`status_${n}_action`];
+      if (!meritType || !actionVal) continue;
       spheres = [...spheres, {
         merit_type:       meritType,
         action_type:      resp[`status_${n}_action`]           || 'misc',
@@ -3859,10 +3863,11 @@ function _gatherMeritAmbience(subs) {
     if (!spheres.length) {
       for (let n = 1; n <= 5; n++) {
         const meritType = resp[`sphere_${n}_merit`];
-        if (!meritType) continue;
+        const actionVal = resp[`sphere_${n}_action`];
+        if (!meritType || !actionVal) continue;
         spheres = [...spheres, {
           merit_type:  meritType,
-          action_type: resp[`sphere_${n}_action`] || 'misc',
+          action_type: actionVal,
         }];
       }
     }
