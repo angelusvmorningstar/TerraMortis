@@ -3946,7 +3946,7 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   }
 
   // Aggregate each change source (all accumulators keyed by canonical territory id)
-  // Use passed feed counts (from TAAG matrix) when available so the numbers always match.
+  // Use passed feed counts when available (caller uses _computeMatrixFeederCounts().byTerrId).
   const feederCounts = passedFeedCounts ?? _computeMatrixFeederCounts().byTerrId;
   const { infPos, infNeg }                                    = _gatherInfluence(submissions);
   const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
@@ -10536,11 +10536,9 @@ export function renderCityOverview() {
     h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
     if (!ovAmbienceCollapsed) {
-      // Extract TAAG feeding counts so Ambience overfeeding uses the exact same numbers
-      const feedCountsByTerrId = {};
-      for (const td of TERRITORY_DATA) {
-        feedCountsByTerrId[td.slug] = (matrix['feeding'][td.slug] || []).length;
-      }
+      // Use _computeMatrixFeederCounts() — single source of truth for all feed types
+      // (feeding_rights, poaching, rote). Shared with feeding matrix footer totals.
+      const { byTerrId: feedCountsByTerrId } = _computeMatrixFeederCounts();
       h += _buildAmbienceHtml(feedCountsByTerrId);
     }
 
