@@ -850,7 +850,8 @@ function renderJointGroup(joint, entries) {
       : (entry.description || '');
     const roleBadge = entry.joint_role === 'lead' ? 'Lead' : 'Support';
 
-    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+    const isDoneJoint = DONE_STATUSES.has(status);
+    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}${isDoneJoint ? ' proc-action-done' : ''}" data-proc-key="${esc(entry.key)}">`;
     h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
     h += `<span class="proc-row-label">${esc(entry.label)} <span class="proc-joint-role-badge proc-joint-role-${esc(entry.joint_role || 'support')}">${roleBadge}</span></span>`;
     h += `<span class="proc-row-desc" title="${esc(entry.description || '')}">${esc(shortDesc || '—')}</span>`;
@@ -4417,6 +4418,14 @@ function renderProcessingMode(container) {
   // Controls bar — queue-level toggles
   h += `<div class="proc-queue-controls">`;
   h += `<button class="proc-hide-done-btn${procHideDone ? ' active' : ''}" id="proc-hide-done-toggle">${procHideDone ? 'Show all' : 'Hide done'}</button>`;
+  const _totalDone  = queue.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+  const _totalCount = queue.length;
+  if (_totalCount > 0) {
+    const _allDone = _totalDone === _totalCount;
+    h += _allDone
+      ? `<span class="proc-progress-total proc-progress-all-done">✓ All done (${_totalCount})</span>`
+      : `<span class="proc-progress-total">${_totalDone} / ${_totalCount} done</span>`;
+  }
   h += `</div>`;
 
   // Character status strip — at-a-glance state + jump-to navigation
@@ -4465,7 +4474,8 @@ function renderProcessingMode(container) {
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
-        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+        const isDone = DONE_STATUSES.has(status);
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}${isDone ? ' proc-action-done' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;

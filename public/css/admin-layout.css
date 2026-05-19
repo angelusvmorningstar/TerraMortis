@@ -4098,6 +4098,14 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
+.proc-progress-total {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: auto;
+  padding: 2px 6px;
+}
+.proc-progress-total.proc-progress-all-done { color: var(--result-succ); }
 
 /* ── Character status strip ── */
 .proc-char-strip {
@@ -4515,6 +4523,11 @@ body {
 .proc-action-row:last-child { border-bottom: none; }
 .proc-action-row:hover { background: var(--accent-a8); }
 .proc-action-row.expanded { background: var(--accent-a8); border-bottom: none; }
+.proc-action-row.proc-action-done { opacity: 0.5; }
+.proc-action-row.proc-action-done:hover { opacity: 0.8; }
+.proc-action-row.proc-action-done .proc-row-char,
+.proc-action-row.proc-action-done .proc-row-label,
+.proc-action-row.proc-action-done .proc-row-desc { color: var(--txt3); }
 
 .proc-row-char {
   font-family: var(--fl);
