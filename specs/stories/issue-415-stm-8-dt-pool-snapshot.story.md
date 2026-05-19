@@ -1,6 +1,6 @@
 # Issue #415: STM-8 — DT pool snapshot at resolution time
 
-Status: Ready for Review
+Status: Done
 
 issue: 415
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/415
