@@ -2,7 +2,7 @@
 
 **Story ID:** fix.324
 **Epic:** Downtime admin UX
-**Status:** review
+**Status:** done
 **Date:** 2026-05-18
 **Issue:** [#324](https://github.com/angelusvmorningstar/TerraMortis/issues/324)
 **Branch:** ms/issue-324-autosave-court-pulse-synthesis
