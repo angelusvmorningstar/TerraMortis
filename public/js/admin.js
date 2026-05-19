@@ -890,10 +890,11 @@ async function createNewCharacter() {
 const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creation', 'merit_creation']);
 
 function buildSaveBody(c) {
-  // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, and legacy v2 fields
+  // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
+  // and c.current (tracker-state namespace set by spliceCurrent — not a schema field).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || _LEGACY_FIELDS.has(k)) continue;
+    if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
   return body;
