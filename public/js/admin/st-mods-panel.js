@@ -97,13 +97,13 @@ function _renderScaffold() {
       <section class="stm-panel-toggles">
         <label class="stm-toggle">
           <input type="checkbox" data-stm-toggle="global" ${globalEnabled ? 'checked' : ''}>
-          Global overlay <strong>${globalEnabled ? 'ON' : 'OFF'}</strong>
-          <span class="stm-toggle-hint">Affects all characters site-wide.</span>
+          Show ST Mods on sheets <strong>${globalEnabled ? 'ON' : 'OFF'}</strong>
+          <span class="stm-toggle-hint">Master switch. When off, no character sheet shows ST mods anywhere on the site (mods stay in the DB; nothing is deleted). Off acts as an emergency hide-all kill-switch.</span>
         </label>
         <label class="stm-toggle">
           <input type="checkbox" data-stm-toggle="suppress" ${charSuppressed ? 'checked' : ''}>
-          Suppress overlay for this character
-          <span class="stm-toggle-hint">When on, this character's modded values render as base.</span>
+          Hide ST Mods for this character only
+          <span class="stm-toggle-hint">When on, just this character's modded values render as base. Other characters unaffected. Use for a quick &ldquo;reset to canonical&rdquo; on one sheet without touching the master switch.</span>
         </label>
       </section>
 
