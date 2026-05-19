@@ -6,7 +6,7 @@ import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
-import { loadStMods, applyStMods, spliceCurrent } from './data/st-mods.js';
+import { loadStMods, applyStMods, spliceCurrent, applyOverlayToAll } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
@@ -97,6 +97,21 @@ async function boot() {
         onTrackerUpdate: (charId) => {
           if (!activeChar || String(activeChar._id) !== String(charId)) return;
           renderSheetWithOverlay(activeChar);
+        },
+        // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+        // create/revoke for the player's character, refresh the
+        // overlay so the visible sheet reflects the new state within
+        // ~1s. Server only broadcasts to authenticated clients; the
+        // player only sees frames for their own characters' mods
+        // (well — frames are broadcast to all, but the player's
+        // chars[] only includes their own, so the find() filters).
+        onStModUpdate: async (charId) => {
+          const target = chars.find(c => String(c._id) === String(charId));
+          if (!target) return;
+          await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+          if (activeChar && String(activeChar._id) === String(charId)) {
+            renderSheetWithOverlay(activeChar);
+          }
         },
       });
 

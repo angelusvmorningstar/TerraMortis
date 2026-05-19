@@ -10,9 +10,8 @@ import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
-import { loadStMods, applyStMods, spliceCurrent, stripOverlay } from './data/st-mods.js';
+import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
-import { applyOverlayToAll } from './data/st-mods.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -181,6 +180,21 @@ async function boot() {
           const c = chars[idx];
           if (!c || String(c._id) !== String(charId)) return;
           renderSheetWithOverlay(c);
+        },
+        // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+        // create/revoke, refresh that character's cache entry by
+        // re-running the full overlay helper. Re-renders the active
+        // sheet only if the affected character is the open one;
+        // other characters get a silent cache update for the next
+        // time their sheet opens.
+        onStModUpdate: async (charId) => {
+          const target = chars.find(c => String(c._id) === String(charId));
+          if (!target) return;
+          await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+          const idx = editorState.editIdx;
+          if (idx != null && idx >= 0 && chars[idx] === target) {
+            renderSheetWithOverlay(target);
+          }
         },
       });
 
