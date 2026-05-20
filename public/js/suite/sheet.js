@@ -4,6 +4,7 @@
 
 import state from './data.js';
 import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
+import { markerFor } from '../editor/st-mod-popover.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   RITUAL_DISCS, CORE_DISCS,
@@ -27,6 +28,66 @@ import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
+
+// ── STM display helpers (issue #425) ──
+// Mirror the editor sheet's wiring (public/js/editor/sheet.js) so modded
+// dots/numbers in the suite renderer get the same gold-tint + marker +
+// popover treatment. STM-7's cache-entry invariant populates
+// c._st_mod_overlay at suite boot; this is the consumption side that the
+// suite renderer was missing.
+
+/** Build shDotsWithBonus opts for an attribute path. autoBonus (discipline-
+ *  derived) renders first in the hollow stream, then manual bonus — so the
+ *  modded manual-bonus sub-range is offset by autoBonus, matching the
+ *  editor convention. */
+function _stmAttrOpts(c, a, autoBonus) {
+  const ovDots = c._st_mod_overlay?.[`attributes.${a}.dots`];
+  const ovBonus = c._st_mod_overlay?.[`attributes.${a}.bonus`];
+  const opts = {};
+  if (ovDots) {
+    const sign = ovDots.delta >= 0 ? '+' : '';
+    opts.filledMod = {
+      from: ovDots.base, to: ovDots.final,
+      path: `attributes.${a}.dots`,
+      title: `ST adjustment: ${a} (dots) ${sign}${ovDots.delta}. Click for details.`,
+    };
+  }
+  if (ovBonus) {
+    const sign = ovBonus.delta >= 0 ? '+' : '';
+    opts.hollowMod = {
+      from: autoBonus + ovBonus.base, to: autoBonus + ovBonus.final,
+      path: `attributes.${a}.bonus`,
+      title: `ST adjustment: ${a} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
+    };
+  }
+  return opts;
+}
+
+/** Build shDotsWithBonus opts for a skill path. Skill hollow stream is
+ *  manual bonus first, then PT/MCI auto-bonus — so the modded skill bonus
+ *  sub-range starts at hollow position ovBonus.base (no offset). */
+function _stmSkillOpts(c, s) {
+  const ovDots = c._st_mod_overlay?.[`skills.${s}.dots`];
+  const ovBonus = c._st_mod_overlay?.[`skills.${s}.bonus`];
+  const opts = {};
+  if (ovDots) {
+    const sign = ovDots.delta >= 0 ? '+' : '';
+    opts.filledMod = {
+      from: ovDots.base, to: ovDots.final,
+      path: `skills.${s}.dots`,
+      title: `ST adjustment: ${s} (dots) ${sign}${ovDots.delta}. Click for details.`,
+    };
+  }
+  if (ovBonus) {
+    const sign = ovBonus.delta >= 0 ? '+' : '';
+    opts.hollowMod = {
+      from: ovBonus.base, to: ovBonus.final,
+      path: `skills.${s}.bonus`,
+      title: `ST adjustment: ${s} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
+    };
+  }
+  return opts;
+}
 
 // ── Surgical tracker repaint (no full sheet rebuild) ──
 
@@ -113,6 +174,13 @@ export function onSheetChar(name) {
 export function renderSheet() {
   state.openExpId = null;
   const c = state.sheetChar;
+  // Issue #425: expose the suite's active character to the STM popover's
+  // delegated handler. _resolveActiveCharacter in editor/st-mod-popover.js
+  // checks window.__activeChar (set by player.js too); the suite reuses
+  // the same global so clicking a modded dot in the suite app resolves
+  // the right character. Set on every render so it tracks sheetChar
+  // changes (including clears to null).
+  window.__activeChar = c || null;
   const el = document.getElementById('sh-content-suite');
   // Split-tab containers (phone UX — Stats / Skills / Powers)
   const statsEl  = document.getElementById('stats-content');
@@ -257,12 +325,15 @@ export function renderSheet() {
   // Covenant strip moved to Status tab
 
   // ── STATS STRIP ──
+  // Issue #425: markerFor suffix on each derived/root stat number so modded
+  // values get the gold-pip marker + tooltip + click-to-popover (mirrors
+  // public/js/editor/sheet.js stats strip).
   html += `<div class="sh-stats-strip">
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${BP_SVG}<span class="sh-stat-n">${c.blood_potency || 1}</span></div><div class="sh-stat-lbl">BP</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${HUM_SVG}<span class="sh-stat-n">${c.humanity || 0}</span></div><div class="sh-stat-lbl">Humanity</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSize(c)}</span></div><div class="sh-stat-lbl">Size</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSpeed(c)}</span></div><div class="sh-stat-lbl">Speed</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcDefence(c)}</span></div><div class="sh-stat-lbl">Defence</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${BP_SVG}<span class="sh-stat-n">${c.blood_potency || 1}${markerFor(c, 'blood_potency')}</span></div><div class="sh-stat-lbl">BP</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${HUM_SVG}<span class="sh-stat-n">${c.humanity || 0}${markerFor(c, 'humanity')}</span></div><div class="sh-stat-lbl">Humanity</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSize(c)}${markerFor(c, 'derived.size')}</span></div><div class="sh-stat-lbl">Size</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSpeed(c)}${markerFor(c, 'derived.speed')}</span></div><div class="sh-stat-lbl">Speed</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcDefence(c)}${markerFor(c, 'derived.defence')}</span></div><div class="sh-stat-lbl">Defence</div></div>
   </div>`;
 
   // ── TRACKERS ──
@@ -385,7 +456,17 @@ export function renderSheet() {
     html += `<div class="attr-cell"><div class="attr-group-hd">${cat.label} Attributes</div>`;
     cat.attrs.forEach(a => {
       const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
-      html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
+      // Issue #425: use shDotsWithBonus (the canonical opts-aware helper)
+      // so modded attribute dots/bonus get gold-tint + marker. autoBonus is
+      // the discipline-derived portion (getAttrBonus combines manual + disc);
+      // manual bonus = c.attributes[a].bonus. This also aligns the suite's
+      // attribute bonus-dot styling with the editor + skills (which already
+      // use shDotsWithBonus) — the suite-only .dots-bonus wrapper from
+      // sheet-helpers' dotsWithBonus is dropped for attributes.
+      const manualBonus = c.attributes?.[a]?.bonus || 0;
+      const autoBonus = Math.max(0, bonus - manualBonus);
+      const opts = _stmAttrOpts(c, a, autoBonus);
+      html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${shDotsWithBonus(base, bonus, opts)}</span></div>`;
     });
     html += `</div>`;
     // Skills block — matches desktop view: PT/MCI bonus dots shown hollow,
@@ -402,7 +483,8 @@ export function renderSheet() {
       const mciBn = c._mci_dot3_skills?.has(s) ? 1 : 0;
       const totalBn = bn + ptBn + mciBn;
       const hasDots = d > 0 || totalBn > 0;
-      const dotStr = hasDots ? shDotsWithBonus(d, totalBn) : '\u2013';
+      // Issue #425: opts for modded skill dots/bonus.
+      const dotStr = hasDots ? shDotsWithBonus(d, totalBn, _stmSkillOpts(c, s)) : '\u2013';
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
       const _diceBtn = (_showDice && hasDots) ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
@@ -460,11 +542,14 @@ export function renderSheet() {
         drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
       }
       const nCls = nameClass ? `trait-name ${nameClass}` : 'trait-name';
-      const dTag = r ? `<span class="trait-dots">${dots(r)}</span>` : '';
+      // Issue #425: marker on modded discipline dots. Disciplines are
+      // object-keyed (project_disciplines_object_keyed) so the path is
+      // disciplines.<Name>.dots.
+      const dTag = r ? `<span class="trait-dots">${dots(r)}${markerFor(c, `disciplines.${d}.dots`)}</span>` : '';
       const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
       const inner = `<div class="trait-row"><div class="trait-main"><span class="${nCls}">${d}</span><div class="trait-right">${dTag}${isExpandable ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div></div>`;
       if (!isExpandable) return `<div class="disc-tap-row">${inner}</div>`;
-      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="toggleDisc('${id}')">${inner}</div>
+      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="suiteToggleDisc('${id}')">${inner}</div>
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
@@ -490,7 +575,7 @@ export function renderSheet() {
         const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
         const _devDice = (_showDice && _devHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -519,7 +604,7 @@ export function renderSheet() {
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -539,7 +624,7 @@ export function renderSheet() {
         const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
         const _pactDice = (_showDice && _pactHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -608,7 +693,7 @@ export function renderSheet() {
       const qualSub = qualifier ? `<div class="trait-sub"><span class="trait-qual">${qualifier}</span></div>` : '';
       const standInner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right"><span class="trait-dots">${dots(m.rating || 0)}</span>${drawerHtml ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div>${qualSub}</div>`;
       if (drawerHtml) {
-        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">${standInner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="suiteToggleDisc('${sid}')">${standInner}</div>
           <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
       } else {
         html += `<div class="disc-tap-row" style="cursor:default">${standInner}</div>`;

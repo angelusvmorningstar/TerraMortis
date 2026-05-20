@@ -180,13 +180,6 @@ export function shEditStandMerit(idx, field, val) {
   if (field === 'cult_name') m.cult_name = val;
   else if (field === 'role') m.role = val;
   else if (field === 'dot4_skill') m.dot4_skill = val || null;
-  else if (field === 'benefit') {
-    const parts = val.split('|');
-    const dotIdx = parseInt(parts[0]);
-    const text = parts[1] || '';
-    if (!m.benefits) m.benefits = ['', '', '', '', ''];
-    m.benefits[dotIdx] = text;
-  }
   _markDirty();
   _renderSheet(c);
 }

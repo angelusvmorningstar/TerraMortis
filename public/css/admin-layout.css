@@ -1107,7 +1107,7 @@ body {
 .sph-apex-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .sph-apex-name { font-size: 11px; color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sph-apex-dots { font-size: 9px; letter-spacing: 1px; color: var(--gold2); }
-.sph-apex-val { font-family: var(--fl); font-size: 16px; color: var(--accent); flex-shrink: 0; }
+.sph-apex-val { font-family: var(--fl); font-size: 18px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
 
 .sph-high-row { display: flex; gap: 4px; }
 .sph-high {
@@ -1126,13 +1126,18 @@ body {
 .sph-high.sph-vacant { justify-content: center; border-style: dashed; opacity: .45; }
 .sph-high-avatar { width: 20px; height: 20px; border-radius: 50%; background: var(--surf3); object-fit: cover; }
 .sph-high-name { font-size: 10px; color: var(--txt1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
-.sph-high-val { font-size: 10px; color: var(--gold2); font-weight: 600; }
+.sph-high-val { font-family: var(--fl); font-size: 18px; font-weight: 600; color: var(--accent); }
 .sph-vacant-label { font-size: 10px; color: var(--txt3); }
 
 .sph-floor { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
 .sph-floor-bracket { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
 .sph-floor-dots { font-size: 8px; letter-spacing: 1px; color: var(--gold2); flex-shrink: 0; }
 .sph-floor-name { font-size: 11px; color: var(--txt1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sph-tier-block { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
+.sph-tier-num { font-family: var(--fl); font-size: 18px; font-weight: 600; color: var(--accent); padding: 4px 8px 2px; line-height: 1; }
+.sph-tier-row { font-size: 11px; color: var(--txt1); padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sph-tier-row:nth-child(even) { background: var(--surf3); }
 
 .sph-contacts-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--bdr); }
 .sph-contacts-label { font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
@@ -1144,7 +1149,7 @@ body {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 12px;
-  padding: 2px 8px 2px 3px;
+  padding: 2px 8px;
 }
 .sph-contact-avatar { width: 18px; height: 18px; border-radius: 50%; background: var(--surf3); object-fit: cover; }
 .sph-contact-name { font-size: 11px; color: var(--txt1); white-space: nowrap; }
@@ -2373,15 +2378,16 @@ body {
 }
 
 /* Issue #320: autosave status indicator for DT-Processing ST-input textareas */
-.dt-autosave-status {
+/* Issue #354: extended to DT Story narrative textareas */
+.dt-autosave-status, .dt-story-autosave-status {
   font-size: 11px;
   color: var(--txt3);
   margin-left: 6px;
   font-style: italic;
 }
-.dt-autosave-status[data-state="saving"] { color: var(--txt2); }
-.dt-autosave-status[data-state="saved"]  { color: var(--gold3); }
-.dt-autosave-status[data-state="error"]  { color: var(--crim); }
+.dt-autosave-status[data-state="saving"], .dt-story-autosave-status[data-state="saving"] { color: var(--txt2); }
+.dt-autosave-status[data-state="saved"],  .dt-story-autosave-status[data-state="saved"]  { color: var(--gold3); }
+.dt-autosave-status[data-state="error"],  .dt-story-autosave-status[data-state="error"]  { color: var(--crim); }
 
 /* ── Attendance & Finance ── */
 
@@ -4092,6 +4098,14 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
+.proc-progress-total {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: auto;
+  padding: 2px 6px;
+}
+.proc-progress-total.proc-progress-all-done { color: var(--result-succ); }
 
 /* ── Character status strip ── */
 .proc-char-strip {
@@ -4509,6 +4523,11 @@ body {
 .proc-action-row:last-child { border-bottom: none; }
 .proc-action-row:hover { background: var(--accent-a8); }
 .proc-action-row.expanded { background: var(--accent-a8); border-bottom: none; }
+.proc-action-row.proc-action-done { opacity: 0.5; }
+.proc-action-row.proc-action-done:hover { opacity: 0.8; }
+.proc-action-row.proc-action-done .proc-row-char,
+.proc-action-row.proc-action-done .proc-row-label,
+.proc-action-row.proc-action-done .proc-row-desc { color: var(--txt3); }
 
 .proc-row-char {
   font-family: var(--fl);
@@ -9145,3 +9164,64 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .hd-btn-delete:not(:disabled):hover { background: #a00; }
 .cd-hard-delete-btn { border-color: var(--crim, #8B0000) !important; color: var(--err, #c0392b) !important; }
 .cd-hard-delete-btn:hover { background: rgba(139,0,0,.15) !important; }
+
+/* === DT STORY: Calibration panel === */
+.dt-story-calibration-panel {
+  margin-bottom: 1rem;
+  border: 1px solid var(--surf3);
+  border-radius: 4px;
+}
+.dt-story-calibration-header {
+  align-items: center;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  padding: 9px 14px;
+}
+.dt-story-calibration-hint {
+  font-size: 0.75rem;
+  color: var(--txt3);
+}
+.dt-story-calibration-body {
+  padding: 8px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dt-story-calibration-body.hidden { display: none; }
+.dt-story-calibration-ta {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 4rem;
+  background: var(--surf1);
+  color: var(--txt);
+  border: 1px solid var(--surf3);
+  border-radius: 3px;
+  padding: 0.4rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.dt-story-calibration-save-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-calibration-save-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-calibration-status {
+  font-size: 0.8rem;
+  color: var(--gold2);
+}

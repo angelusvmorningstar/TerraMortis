@@ -74,10 +74,13 @@ function getSpheresData() {
       const dots = m.rating || 0;
       if (dots <= 0) continue;
       const raw = (m.area || m.qualifier || '').toString();
-      if (!raw) continue;
+      if (!raw && m.name !== 'Contacts') continue;
 
       if (m.name === 'Contacts') {
-        for (const part of raw.split(',')) {
+        const parts = [];
+        if (raw) parts.push(...raw.split(','));
+        if (Array.isArray(m.spheres)) parts.push(...m.spheres.filter(Boolean));
+        for (const part of parts) {
           const key = normaliseSphere(part);
           if (!key) continue;
           ensureRow(key, c).hasContacts = true;
@@ -139,10 +142,8 @@ function renderSpherePyramid(rows, dimension) {
   // Apex
   if (apex) {
     h += `<div class="sph-apex">`;
-    h += `<img class="sph-apex-avatar" src="${esc(avatarUrl(apex.c))}" alt="" loading="lazy">`;
     h += `<div class="sph-apex-info">`;
-    h += `<span class="sph-apex-name">${esc(displayName(apex.c))}</span>`;
-    h += `<span class="sph-apex-dots">\u25CF\u25CF\u25CF\u25CF\u25CF</span>`;
+    h += `<span class="sph-apex-name">${esc(apex.c.moniker || apex.c.name)}</span>`;
     h += `</div>`;
     h += `<span class="sph-apex-val">5</span>`;
     h += `</div>`;
@@ -155,9 +156,8 @@ function renderSpherePyramid(rows, dimension) {
   for (const r of highSlots) {
     if (r) {
       h += `<div class="sph-high">`;
-      h += `<img class="sph-high-avatar" src="${esc(avatarUrl(r.c))}" alt="" loading="lazy">`;
-      h += `<span class="sph-high-name">${esc(displayName(r.c))}</span>`;
       h += `<span class="sph-high-val">4</span>`;
+      h += `<span class="sph-high-name">${esc(r.c.moniker || r.c.name)}</span>`;
       h += `</div>`;
     } else {
       h += `<div class="sph-high sph-vacant"><span class="sph-vacant-label">\u2013</span></div>`;
@@ -165,9 +165,8 @@ function renderSpherePyramid(rows, dimension) {
   }
   h += `</div>`;
 
-  // Floor: group by value descending
+  // Floor: one tier-block container per dot value, descending
   if (floor.length) {
-    h += `<div class="sph-floor">`;
     const groups = [];
     for (const r of floor) {
       const last = groups[groups.length - 1];
@@ -175,12 +174,14 @@ function renderSpherePyramid(rows, dimension) {
       else groups.push({ val: r[dimension], items: [r] });
     }
     for (const g of groups) {
-      h += `<div class="sph-floor-bracket">`;
-      h += `<span class="sph-floor-dots">${'\u25CF'.repeat(g.val)}${'\u25CB'.repeat(5 - g.val)}</span>`;
-      for (const r of g.items) h += `<span class="sph-floor-name">${esc(displayName(r.c))}</span>`;
+      g.items.sort((a, b) => (a.c.moniker || a.c.name).localeCompare(b.c.moniker || b.c.name));
+      h += `<div class="sph-tier-block">`;
+      h += `<div class="sph-tier-num">${g.val}</div>`;
+      for (const r of g.items) {
+        h += `<div class="sph-tier-row">${esc(r.c.moniker || r.c.name)}</div>`;
+      }
       h += `</div>`;
     }
-    h += `</div>`;
   }
 
   h += `</div>`;
@@ -211,8 +212,7 @@ function renderSphereCard({ sphere, rows, total }) {
       h += `<div class="sph-contacts-chips">`;
       for (const r of contactChars) {
         h += `<div class="sph-contact-chip">`;
-        h += `<img class="sph-contact-avatar" src="${esc(avatarUrl(r.c))}" alt="" loading="lazy">`;
-        h += `<span class="sph-contact-name">${esc(displayName(r.c))}</span>`;
+        h += `<span class="sph-contact-name">${esc(r.c.moniker || r.c.name)}</span>`;
         h += `</div>`;
       }
       h += `</div>`;

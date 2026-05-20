@@ -76,6 +76,7 @@ export const characterSchema = {
     court_title:    { type: ['string', 'null'] },
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
     home_territory: { type: ['string', 'null'] },
+    dt_story_calibration: { type: ['string', 'null'] },
 
     // NPC stub register — placeholder until full NPC Register epic
     npcs: {
@@ -410,8 +411,6 @@ export const characterSchema = {
             additionalProperties: false
           }
         },
-        // Legacy MCI format — tolerated but not required
-        benefits:      { type: 'array' },
         benefit_grants:{ type: 'array' },
         // v3: inline creation tracking (formerly in merit_creation parallel array)
         cp:       { type: 'integer', minimum: 0 },

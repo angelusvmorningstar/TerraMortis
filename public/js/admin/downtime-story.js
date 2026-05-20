@@ -13,7 +13,7 @@
 import { apiGet, apiPut, apiPatch } from '../data/api.js';
 import { displayName, dropdownName, esc } from '../data/helpers.js';
 import { getUser, isSTRole } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { effectiveFeedViolence } from '../tabs/downtime-data.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
@@ -260,6 +260,14 @@ export async function initDtStory(cycleId) {
     const toggleLink = e.target.closest('.dt-story-context-toggle');
     if (toggleLink) { handleContextToggle(toggleLink); return; }
 
+    // Calibration panel toggle
+    const calHeader = e.target.closest('.dt-story-calibration-header[data-toggle="calibration"]');
+    if (calHeader) { handleCalibrationToggle(calHeader); return; }
+
+    // Calibration save
+    const calSaveBtn = e.target.closest('.dt-story-calibration-save-btn');
+    if (calSaveBtn && !calSaveBtn.disabled) { handleCalibrationSave(calSaveBtn); return; }
+
     // Determine which section the clicked element belongs to
     const sectionKey = e.target.closest('.dt-story-section')?.dataset.section;
 
@@ -271,6 +279,8 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);     return; }
       if (sectionKey === 'story_moment')        { handleCopyStoryMomentContext(copyBtn); return; }
       if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
+      if (sectionKey === 'home_report')         { handleCopyHomeReportContext(copyBtn);  return; }
+      if (sectionKey === 'feeding_validation')  { handleCopyFeedingContext(copyBtn);     return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
     }
@@ -324,16 +334,23 @@ export async function initDtStory(cycleId) {
   panel.addEventListener('focusout', async e => {
     const notesTa = e.target.closest('#dt-story-notes-ta');
     if (!notesTa || !_currentSub) return;
+    const sub = _currentSub;
     const value = notesTa.value;
     const statusEl = document.getElementById('dt-story-notes-status');
     try {
-      await saveNarrativeField(_currentSub._id, { 'st_narrative.general_notes': value });
-      if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-      _currentSub.st_narrative.general_notes = value;
+      await saveNarrativeField(sub._id, { 'st_narrative.general_notes': value });
+      if (!sub.st_narrative) sub.st_narrative = {};
+      sub.st_narrative.general_notes = value;
       if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
     } catch {
       if (statusEl) statusEl.textContent = 'Save failed';
     }
+  });
+
+  // Issue #354: blur-autosave for narrative response and revision-note textareas
+  panel.addEventListener('focusout', async e => {
+    const ta = e.target.closest('.dt-story-response-ta, .dt-feed-narrative-ta, .dt-story-revision-ta');
+    if (ta) await _handleStoryTaBlur(ta);
   });
 }
 
@@ -346,6 +363,96 @@ export async function saveNarrativeField(submissionId, patch) {
   _assertCurrentCycle(submissionId); // Issue #321: throws if submission is in a different cycle
   return apiPut('/api/downtime_submissions/' + submissionId, patch);
 }
+
+// ── Issue #354: DT Story blur-autosave ────────────────────────────────────────
+
+function _showStoryAutosaveStatus(el, state) {
+  if (!el) return;
+  el.dataset.state = state;
+  if (state === 'saving') { el.textContent = 'Saving…'; return; }
+  if (state === 'saved') {
+    el.textContent = 'Saved';
+    setTimeout(() => { if (el.dataset.state === 'saved') { el.textContent = ''; delete el.dataset.state; } }, 2000);
+    return;
+  }
+  if (state === 'error') { el.textContent = 'Save failed'; }
+}
+
+async function _handleStoryTaBlur(ta) {
+  if (!_currentSub) return;
+  const isRevision = ta.classList.contains('dt-story-revision-ta');
+  const field      = isRevision ? 'revision_note' : 'response';
+  const newVal     = ta.value.trim();
+
+  let patch     = null;
+  let memUpdate = null;
+
+  const projCard = ta.closest('.dt-story-proj-card');
+  if (projCard) {
+    const idx      = parseInt(projCard.dataset.projIdx, 10);
+    const existing = _currentSub.st_narrative?.project_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedProjectResponses(_currentSub, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.project_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).project_responses = updated; };
+  } else if (ta.closest('.dt-story-merit-card')) {
+    const card     = ta.closest('.dt-story-merit-card');
+    const idx      = parseInt(card.dataset.actionIdx, 10);
+    const existing = _currentSub.st_narrative?.action_responses || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.action_responses': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).action_responses = updated; };
+  } else if (ta.closest('.dt-story-terr-section')) {
+    const terrSec  = ta.closest('.dt-story-terr-section');
+    const idx      = parseInt(terrSec.dataset.terrIdx, 10);
+    const existing = _currentSub.st_narrative?.territory_reports || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.territory_reports': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).territory_reports = updated; };
+  } else if (ta.closest('[data-slot-idx]')) {
+    const slot     = ta.closest('[data-slot-idx]');
+    const idx      = parseInt(slot.dataset.slotIdx, 10);
+    const existing = _currentSub.st_narrative?.cacophony_savvy || [];
+    const curr     = existing[idx] || {};
+    if ((curr[field] || '') === newVal) return;
+    const updated  = buildUpdatedArray(existing, idx, { ...curr, [field]: newVal });
+    patch          = { 'st_narrative.cacophony_savvy': updated };
+    memUpdate      = () => { (_currentSub.st_narrative ??= {}).cacophony_savvy = updated; };
+  } else {
+    const section    = ta.closest('.dt-story-section');
+    const sectionKey = section?.dataset.section;
+    const narrativeKeyMap = {
+      story_moment:       'story_moment',
+      feeding_validation: 'feeding_narrative',
+      home_report:        'home_report',
+    };
+    const narrativeKey = narrativeKeyMap[sectionKey];
+    if (!narrativeKey) return;
+    const curr = _currentSub.st_narrative?.[narrativeKey] || {};
+    if ((curr[field] || '') === newVal) return;
+    const merged = { ...curr, [field]: newVal };
+    patch        = { [`st_narrative.${narrativeKey}`]: merged };
+    memUpdate    = () => { (_currentSub.st_narrative ??= {})[narrativeKey] = merged; };
+  }
+
+  if (!patch) return;
+  const statusEl = ta.parentElement?.querySelector('.dt-story-autosave-status');
+  _showStoryAutosaveStatus(statusEl, 'saving');
+  try {
+    await saveNarrativeField(_currentSub._id, patch);
+    memUpdate();
+    _showStoryAutosaveStatus(statusEl, 'saved');
+  } catch {
+    _showStoryAutosaveStatus(statusEl, 'error');
+  }
+}
+
+// ── /Issue #354 ───────────────────────────────────────────────────────────────
 
 // ── Completion helpers ─────────────────────────────────────────────────────────
 
@@ -468,11 +575,26 @@ function formatPool(pool) {
 
 // ── Copy context header helpers ───────────────────────────────────────────────
 
+/** Case-insensitive substring check for previous-artefact NPC validation.
+ *  Returns content if targetName is absent or found; null otherwise. */
+function _storyMomentNameCheck(content, targetName) {
+  if (!content) return null;
+  if (!targetName) return content;
+  return content.toLowerCase().includes(targetName.toLowerCase()) ? content : null;
+}
+
 /** "Lord Marcus — Ventrue / Invictus — The Politician" */
 function _compactCharHeader(char) {
-  const name  = [char?.honorific, char ? displayName(char) : 'Unknown'].filter(Boolean).join(' ');
+  const name  = char ? displayName(char) : 'Unknown';  // displayName already includes honorific
   const ident = [char?.clan, char?.covenant].filter(Boolean).join(' / ');
   return [name, ident, char?.concept || null].filter(Boolean).join(' \u2014 ');
+}
+
+/** Returns lines to inject per-character calibration notes into a context prompt. */
+function _calibrationBlock(char) {
+  const cal = char?.dt_story_calibration?.trim();
+  if (!cal) return [];
+  return ['', 'Voice calibration (apply throughout):', cal];
 }
 
 /** "Mask: Bon Vivant | Dirge: Martyr | Humanity: 6" */
@@ -494,12 +616,20 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   const title       = sub.responses?.[`project_${slot}_title`]       || '';
   const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
   const description = sub.responses?.[`project_${slot}_description`] || '';
-  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
   const castRaw     = sub.responses?.[`project_${slot}_cast`]        || '';
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
   const actionType = rev.action_type_override || rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+
+  // Ambience actions use a dedicated territory field; patrol uses another.
+  // Read the action-type-appropriate field so territory is never 'Unknown'.
+  const isAmbience      = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isInvestigation = actionType === 'investigate';
+  const isFeed          = actionType === 'feed';
+  const terrRaw    = isAmbience
+    ? (sub.responses?.[`project_${slot}_ambience_target`] || sub.responses?.[`project_${slot}_territory`] || '')
+    : (sub.responses?.[`project_${slot}_territory`] || '');
   const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
   const roll       = rev.roll || null;
   const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
@@ -515,14 +645,59 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   const lines = ['Draft a project response for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // XP spend this cycle (player-written justification, if any)
+  const xpRows = sub.responses?.xp_rows;
+  const xpItem = sub.responses?.xp_item;
+  const xpNote = sub.responses?.xp_spend_note || sub.responses?.xp_note || '';
+  let xpSummary = '';
+  if (xpRows) {
+    try {
+      const rows = typeof xpRows === 'string' ? JSON.parse(xpRows) : xpRows;
+      if (Array.isArray(rows) && rows.length) {
+        xpSummary = rows.map(r => `${r.item || r.name || '?'} (${r.cost ?? r.xp ?? '?'} XP)`).join(', ');
+      }
+    } catch { /* skip */ }
+  } else if (xpItem) {
+    xpSummary = xpItem;
+  }
+  if (xpSummary) {
+    lines.push('');
+    lines.push(`XP spend this cycle: ${xpSummary}`);
+    if (xpNote) lines.push(`Player note: ${xpNote}`);
+  }
 
   lines.push('');
   lines.push(`Action: ${actionLabel}`);
   if (title)   lines.push(`Title: ${title}`);
-  if (outcome) lines.push(`Desired Outcome: ${outcome}`);
+  if (outcome && actionType !== 'xp_spend') lines.push(`Desired Outcome: ${outcome}`);
+  if (actionType === 'xp_spend') {
+    // Read XP purchase rows from player-submitted form fields (modern → legacy chain)
+    let xpDetail = '';
+    const xpRowsRaw = sub.responses?.[`project_${slot}_xp_rows`] || '';
+    if (xpRowsRaw) {
+      try {
+        const rows = JSON.parse(xpRowsRaw).filter(r => r.item);
+        if (rows.length) xpDetail = rows.map(r => r.cost ? `${r.item} (${r.cost} XP)` : r.item).join(', ');
+      } catch { /* ignore */ }
+    }
+    if (!xpDetail) {
+      const xpItem = sub.responses?.[`project_${slot}_xp_item`] || '';
+      const xpCat  = sub.responses?.[`project_${slot}_xp_category`] || '';
+      if (xpItem) xpDetail = xpCat ? `${xpItem} (${xpCat})` : xpItem;
+    }
+    if (!xpDetail) xpDetail = sub.responses?.[`project_${slot}_xp_trait`] || sub.responses?.[`project_${slot}_xp`] || outcome || '';
+    if (xpDetail) lines.push(`XP Purchase: ${xpDetail}`);
+  }
   if (description) lines.push(`Description: ${description}`);
   if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
   if (cast)    lines.push(`Connected Characters: ${cast}`);
+
+  if (isAmbience) {
+    lines.push('');
+    lines.push('Framing: An ambience action represents covenant investment in or destabilisation of a feeding ground. Ground the narrative in the territorial politics of the city \u2014 acknowledge the covenant pressure being applied or resisted where the fiction allows it.');
+  }
 
   if (poolStatus === 'no_roll' || poolStatus === 'maintenance') {
     lines.push('No roll required');
@@ -533,6 +708,10 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
       const successes = roll.successes ?? 0;
       const exc       = roll.exceptional ? ', Exceptional' : '';
       lines.push(`Roll Result: ${successes} success${successes !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+    }
+    if (isInvestigation && pool) {
+      const foundDisc = _PATROL_DISCS.find(d => pool.includes(d));
+      if (foundDisc) lines.push(`Discipline: ${foundDisc}`);
     }
   }
 
@@ -569,7 +748,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
       (s.projects_resolved || []).forEach((r, i) => {
         if (!r || r.pool_status === 'skipped') return;
         const sl = i + 1;
-        if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
+        const otherType = r.action_type_override || r.action_type || '';
+        const otherIsAmb = otherType === 'ambience_increase' || otherType === 'ambience_decrease';
+        const otherTerrRaw = otherIsAmb
+          ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
+          : otherType === 'patrol_scout'
+            ? (s.responses?.[`project_${sl}_target_terr`] || s.responses?.[`project_${sl}_territory`] || '')
+            : (s.responses?.[`project_${sl}_territory`] || '');
+        if (resolveTerrId(otherTerrRaw) !== terrId) return;
         const aType = ACTION_TYPE_LABELS[r.action_type] || r.action_type || 'Action';
         otherActions.push(`${s.character_name || 'Unknown'} (${aType})`);
       });
@@ -593,7 +779,20 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
-  // ST directives
+  // Existing draft
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  const revisionNote = sub.st_narrative?.project_responses?.[idx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
+  // ST directives — placed immediately before the rubric so the AI weights them highest
   const hasDirectives = rev.st_note || notes.length;
   if (hasDirectives) {
     lines.push('');
@@ -602,20 +801,11 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
 
-  // Existing draft
-  if (existingDraft) {
-    lines.push('');
-    lines.push('Existing draft (revise unless told to rewrite):');
-    lines.push(existingDraft);
-  }
-
   lines.push('');
-  const isInvestigation = actionType === 'investigate';
-  const isFeed = actionType === 'feed';
   const rubric = [
     isInvestigation ? 'Apply INVESTIGATION_THRESHOLDS.' : null,
     isFeed ? 'Apply FEEDING_CONSTRAINTS.' : null,
-    'One paragraph, 80-120 words. Use house style.',
+    'No more than 120 words; shorter is better. Do not open with atmosphere or mood-setting — begin on action or consequence. Use house style.',
   ].filter(Boolean).join(' ');
   lines.push(rubric);
 
@@ -648,6 +838,7 @@ function buildMaintenanceContext(char, sub, idx) {
 
   const lines = ['Draft a maintenance response for:', '', _compactCharHeader(char)];
   if (char?.humanity != null) lines.push(`Humanity: ${char.humanity}`);
+  lines.push(..._calibrationBlock(char));
 
   lines.push('');
   if (meritType) lines.push(`Merit maintained: ${meritName} (${meritType})`);
@@ -661,7 +852,7 @@ function buildMaintenanceContext(char, sub, idx) {
   }
 
   lines.push('');
-  lines.push('No roll required. 50-80 words. Use house style.');
+  lines.push('No roll required. No more than 80 words; shorter is better. No scene-setting opener. Use house style.');
 
   return lines.join('\n');
 }
@@ -682,7 +873,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const title       = sub.responses?.[`project_${slot}_title`]       || '';
   const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
   const description = sub.responses?.[`project_${slot}_description`] || '';
-  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
+  // Patrol uses _target_terr (modern DT form); fall back to _territory for legacy submissions.
+  const terrRaw     = sub.responses?.[`project_${slot}_target_terr`] || sub.responses?.[`project_${slot}_territory`] || '';
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
@@ -695,6 +887,28 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const lines = ['Draft a Patrol response for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // XP spend this cycle (player-written justification, if any)
+  const xpRowsP = sub.responses?.xp_rows;
+  const xpItemP = sub.responses?.xp_item;
+  const xpNoteP = sub.responses?.xp_spend_note || sub.responses?.xp_note || '';
+  let xpSummaryP = '';
+  if (xpRowsP) {
+    try {
+      const rows = typeof xpRowsP === 'string' ? JSON.parse(xpRowsP) : xpRowsP;
+      if (Array.isArray(rows) && rows.length) {
+        xpSummaryP = rows.map(r => `${r.item || r.name || '?'} (${r.cost ?? r.xp ?? '?'} XP)`).join(', ');
+      }
+    } catch { /* skip */ }
+  } else if (xpItemP) {
+    xpSummaryP = xpItemP;
+  }
+  if (xpSummaryP) {
+    lines.push('');
+    lines.push(`XP spend this cycle: ${xpSummaryP}`);
+    if (xpNoteP) lines.push(`Player note: ${xpNoteP}`);
+  }
 
   lines.push('');
   lines.push('Action: Patrol / Scout');
@@ -735,16 +949,16 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
       const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
-      const isResident = val === 'resident';
+      const isResident = val === 'resident' || val === 'feeding_rights';
       if (isResident) residentCount++; else poacherCount++;
       // Feeding method: scan pool_validated for discipline names; fallback to territory value
       const feedRev = s.feeding_review || {};
       let feedMethod = '';
       if (feedRev.pool_validated) {
         const found = _PATROL_DISCS.filter(d => feedRev.pool_validated.includes(d));
-        feedMethod = found.length ? found.join(', ') : (val !== 'resident' ? val : 'default');
+        feedMethod = found.length ? found.join(', ') : (isResident ? 'default' : val);
       } else {
-        feedMethod = val !== 'resident' ? val : 'default';
+        feedMethod = isResident ? 'default' : val;
       }
       feeders.push({ name: fName, clan: fChar?.clan || '?', covenant: fChar?.covenant || '?', isResident, feedMethod });
     }
@@ -757,11 +971,18 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     (s.projects_resolved || []).forEach((r, i) => {
       if (!r || r.pool_status === 'skipped') return;
       const sl = i + 1;
-      if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
       const aType = r.action_type_override || r.action_type || '';
+      const otherIsAmb = aType === 'ambience_increase' || aType === 'ambience_decrease';
+      const otherIsPatrol = aType === 'patrol_scout' || aType === 'support';
+      const otherTerrRaw = otherIsAmb
+        ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
+        : otherIsPatrol
+          ? (s.responses?.[`project_${sl}_target_terr`] || s.responses?.[`project_${sl}_territory`] || '')
+          : (s.responses?.[`project_${sl}_territory`] || '');
+      if (resolveTerrId(otherTerrRaw) !== terrId) return;
       const cName = s.character_name || 'Unknown';
-      if (aType === 'ambience_increase' || aType === 'ambience_decrease') ambienceChars.push(cName);
-      else if (aType === 'patrol_scout' || aType === 'support') patrolChars.push(cName);
+      if (otherIsAmb) ambienceChars.push(cName);
+      else if (otherIsPatrol) patrolChars.push(cName);
       else if (aType === 'investigate') investigateChars.push(cName);
       else miscChars.push(cName);
     });
@@ -783,7 +1004,16 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     const netStr = netChange != null ? `, net ${netChange > 0 ? '+' : ''}${netChange}` : '';
     lines.push(`Ambience: ${ambLine}${wasStr}${netStr}`);
   }
-  lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount}`);
+  // Patrolling character's own feed status in this territory
+  let selfFeedStatus = 'Not feeding here';
+  if (terrSlug) {
+    let selfTerrs = {};
+    try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
+    const selfVal = selfTerrs[terrSlug];
+    if (selfVal === 'resident' || selfVal === 'feeding_rights') selfFeedStatus = 'Resident';
+    else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
+  }
+  lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount} | Self: ${selfFeedStatus}`);
 
   if (feeders.length) {
     lines.push('');
@@ -807,7 +1037,13 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
-  // ST directives
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  // ST directives — placed immediately before the rubric so the AI weights them highest
   if (rev.st_note || notes.length) {
     lines.push('');
     lines.push('ST directives (must reflect):');
@@ -815,14 +1051,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
 
-  if (existingDraft) {
-    lines.push('');
-    lines.push('Existing draft (revise unless told to rewrite):');
-    lines.push(existingDraft);
-  }
-
   lines.push('');
-  lines.push('Apply PATROL_SCALE. One paragraph, 80-120 words. Use house style.');
+  lines.push('Apply PATROL_SCALE. No more than 120 words; shorter is better. Do not open with atmosphere or mood-setting — begin on action or consequence. Use house style.');
 
   return lines.join('\n');
 }
@@ -936,7 +1166,7 @@ function renderNavRail() {
   }
   for (const sub of sorted) {
     const char = getCharForSub(sub);
-    const name = char ? (char.moniker || char.name) : 'Unknown';
+    const name = char ? (char.moniker || char.name) : (sub.character_name || 'Unknown');
     const state = getNavPillState(sub);
     const stateClass = state ? ` ${state}` : '';
     const charId = sub.character_id || sub._id;
@@ -1114,12 +1344,28 @@ function renderCharacterView(char, sub) {
   let h = `<div class="dt-story-char-content"${collapseAttr}>`;
 
   h += `<div class="dt-story-char-header">`;
-  h += `<h3 class="dt-story-char-name">${char ? dropdownName(char) : 'Unknown'}</h3>`;
+  h += `<h3 class="dt-story-char-name">${char ? dropdownName(char) : (sub?.character_name || 'Unknown')}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
   h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${charId}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
   h += `</div>`;
 
   h += renderProgressTracker(char, sub);
+
+  // Voice calibration panel — per-character ST notes injected into all prompts
+  const calText = char?.dt_story_calibration || '';
+  h += `<div class="dt-story-calibration-panel">`;
+  h += `<div class="dt-story-calibration-header" data-toggle="calibration" role="button">`;
+  h += `<span class="dt-story-section-label">Voice calibration</span>`;
+  h += `<span class="dt-story-calibration-hint">${calText ? '(saved)' : '(none — prompts use defaults)'}</span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-calibration-body${calText ? '' : ' hidden'}" data-char-id="${charId}">`;
+  h += `<textarea class="dt-story-calibration-ta" rows="3" placeholder="Voice, tone, recurring motifs for this character — injected into every prompt…">${esc(calText)}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-calibration-save-btn" data-char-id="${charId}">Save Calibration</button>`;
+  h += `<span class="dt-story-calibration-status"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+  h += `</div>`;
 
   for (const section of sections) {
     h += renderSection(section, char, sub, stNarrative);
@@ -1192,6 +1438,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Feeding</span>`;
+  h += `<span class="proc-row-status ${poolStatus}">${POOL_STATUS_LABELS[poolStatus] || poolStatus}</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
   h += `</div>`;
   h += `<div class="dt-story-section-body">`;
@@ -1259,9 +1506,9 @@ function renderFeedingValidation(char, sub, stNarrative) {
   const fnIsRev    = fnStatus === 'needs_revision';
 
   h += `<div class="dt-feed-val-narrative-block">`;
-  h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
+  h += `<div class="dt-story-section-subhead">Storyteller narrative <button class="dt-story-copy-ctx-btn">Copy Context</button></div>`;
   h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
-  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea>`;
+  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
   h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
@@ -1270,7 +1517,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -1357,6 +1604,8 @@ function renderProjectCard(char, sub, idx) {
   // Header row
   h += `<div class="dt-story-proj-header">`;
   h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  const projStatus = rev.pool_status || 'pending';
+  h += `<span class="proc-row-status ${projStatus}">${POOL_STATUS_LABELS[projStatus] || projStatus}</span>`;
   h += `<span class="dt-story-proj-title">${title}</span>`;
   h += `<button class="dt-story-copy-ctx-btn" data-proj-idx="${idx}">Copy Context</button>`;
   h += `</div>`;
@@ -1386,7 +1635,7 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1398,7 +1647,7 @@ function renderProjectCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -1441,6 +1690,15 @@ function buildLetterContext(char, sub, opts = {}) {
   const lines = ['Draft a Letter from Home for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  // NPCR.12: correspondent near the top so the AI's persona is set before reading the player letter
+  if (storyMomentTarget?.name) {
+    const kindLabel = storyMomentTarget.custom_label || storyMomentTarget.kind || '';
+    lines.push('');
+    lines.push(`Correspondent: ${storyMomentTarget.name}${kindLabel ? ` (${kindLabel})` : ''}`);
+    lines.push('Write in this correspondent\'s voice.');
+  }
 
   if (touchstones.length) {
     lines.push('');
@@ -1453,14 +1711,6 @@ function buildLetterContext(char, sub, opts = {}) {
 
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
-
-  // NPCR.12: player's chosen story-moment target (if any). Surfaces name +
-  // kind as prompt context so the letter can acknowledge that focus.
-  if (storyMomentTarget?.name) {
-    const kindLabel = storyMomentTarget.custom_label || storyMomentTarget.kind || '';
-    lines.push('');
-    lines.push(`Story-moment target: ${storyMomentTarget.name} (${kindLabel})`);
-  }
 
   lines.push('');
   lines.push('Player-submitted letter:');
@@ -1477,8 +1727,14 @@ function buildLetterContext(char, sub, opts = {}) {
     lines.push(`Correspondent voice note: ${stVoiceNote.trim()}`);
   }
 
+  const revisionNote = sub?.st_narrative?.story_moment?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
-  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. No more than 300 words. Do not open with pleasantries or greetings — begin with the letter\'s substance. Use house style.');
 
   return lines.join('\n');
 }
@@ -1489,14 +1745,27 @@ function buildLetterContext(char, sub, opts = {}) {
  * Assembles the Copy Context prompt for the Touchstone Vignette section.
  * Pure function — no side effects, no DOM access.
  */
-function buildTouchstoneContext(char, sub) {
+function buildTouchstoneContext(char, sub, opts = {}) {
+  const { prevVignette = null, prevCycleNumber = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
 
+  // Same field priority chain as buildLetterContext — personal_story_text is canonical
+  // post-dt-form.18 (issue #208); legacy keys remain for pre-redesign submissions.
+  const playerVignette =
+    sub.responses?.personal_story_text ||
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
+
   const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
   const identLine = _charIdentLine(char);
   if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
 
   if (touchstones.length) {
     lines.push('');
@@ -1510,8 +1779,34 @@ function buildTouchstoneContext(char, sub) {
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
+  // Attendance gate — determines whether in-person scenes are valid in the vignette
+  const attendedGame = sub.responses?.attended_game;
+  const wasPresent   = attendedGame === 'yes' || attendedGame === true;
   lines.push('');
-  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
+  if (wasPresent) {
+    lines.push('Attendance: Character was present at game this cycle.');
+  } else {
+    lines.push('Attendance: Character was not physically present at game this cycle. Vignette must not depict in-person encounters — use remote contact, memory, or received information only.');
+  }
+
+  lines.push('');
+  lines.push('Player-submitted narrative:');
+  lines.push(playerVignette ? playerVignette.trim() : '[No player narrative submitted this cycle]');
+
+  if (prevVignette) {
+    lines.push('');
+    lines.push(`Previous vignette with this touchstone (Downtime ${prevCycleNumber ?? '?'}):`);
+    lines.push(prevVignette.trim());
+  }
+
+  const revisionNote = sub?.st_narrative?.story_moment?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
+  lines.push('');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. No more than 200 words; shorter is better. Begin in scene — no mood-setting preamble. Use house style.');
 
   return lines.join('\n');
 }
@@ -1547,6 +1842,11 @@ function renderStoryMoment(char, sub, stNarrative) {
     initialStatus  = legacyTouchstone.status || 'draft';
     initialRevNote = legacyTouchstone.revision_note || '';
     legacyNote     = 'Loaded from Touchstone Vignette';
+  }
+
+  // Seed from player's format preference when no ST narrative exists yet
+  if (!sm && !legacyLetter?.response && !legacyTouchstone?.response) {
+    initialFormat = sub.responses?.personal_story_kind === 'touchstone' ? 'vignette' : 'letter';
   }
 
   const complete   = initialStatus === 'complete';
@@ -1643,7 +1943,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the story moment…">${initialText}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Action buttons
   h += `<div class="dt-story-card-actions">`;
@@ -1654,7 +1954,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || initialRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story…">${initialRevNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
   h += `</div>`;
@@ -1705,9 +2005,12 @@ function buildMeritActions(sub) {
   // ── Contacts ──
   const contactRaw = raw.contact_actions?.requests || [];
   if (contactRaw.length) {
+    // Legacy CSV shape: c.detail / c.description contains the information request
     contactRaw.forEach(c => actions.push({
-      merit_type: 'Contacts', action_type: 'misc', desired_outcome: '',
-      description: c.detail || c.description || '',
+      merit_type:      'Contacts',
+      action_type:     'misc',
+      desired_outcome: c.detail || c.description || '',
+      description:     '',
     }));
   } else {
     for (let n = 1; n <= 5; n++) {
@@ -1715,22 +2018,38 @@ function buildMeritActions(sub) {
       if (!req) continue;
       // Use stored merit label (e.g. "Contacts ●●● (Crime)") so qualifier renders
       const meritLbl = resp[`contact_${n}_merit`] || 'Contacts';
-      actions.push({ merit_type: meritLbl, action_type: 'misc', desired_outcome: '', description: req });
+      const info     = resp[`contact_${n}_info`]  || '';
+      actions.push({
+        merit_type:      meritLbl,
+        action_type:     'misc',
+        desired_outcome: req,
+        description:     info,
+      });
     }
   }
 
   // ── Retainers ──
   const retainerRaw = raw.retainer_actions?.actions || [];
   if (retainerRaw.length) {
+    // Legacy CSV shape: plain objects with task/description; type field absent in old data
     retainerRaw.forEach(r => actions.push({
-      merit_type: 'Retainer', action_type: 'misc', desired_outcome: '',
-      description: r.task || r.description || '',
+      merit_type:      r.merit || 'Retainer',
+      action_type:     'misc',
+      desired_outcome: r.type || r.task_type || '',
+      description:     r.task || r.description || '',
     }));
   } else {
     for (let n = 1; n <= 4; n++) {
-      const task = resp[`retainer_${n}_task`];
-      if (!task) continue;
-      actions.push({ merit_type: 'Retainer', action_type: 'misc', desired_outcome: '', description: task });
+      const task    = resp[`retainer_${n}_task`];
+      const type    = resp[`retainer_${n}_type`] || '';
+      const meritLb = resp[`retainer_${n}_merit`] || 'Retainer';
+      if (!task && !type) continue;
+      actions.push({
+        merit_type:      meritLb,
+        action_type:     'misc',
+        desired_outcome: type,
+        description:     task || '',
+      });
     }
   }
 
@@ -1914,9 +2233,19 @@ function actionResponsesComplete(sub, categories) {
 function meritSummaryComplete(sub) {
   const actions  = sub?.merit_actions || [];
   const resolved = sub?.merit_actions_resolved || [];
-  const applicable = actions.filter((_, i) => (resolved[i]?.pool_status || '') !== 'skipped');
-  if (!applicable.length) return true;
-  return applicable.every((_, i) => !!(resolved[i]?.outcome_summary?.trim()));
+  const acqRes   = sub?.acquisitions_resolved  || [];
+
+  for (let i = 0; i < actions.length; i++) {
+    const rev = resolved[i] || {};
+    if ((rev.pool_status || '') === 'skipped') continue;
+    if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
+      const acqStatus = acqRes[0]?.pool_status || '';
+      if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
+      continue;
+    }
+    if (!rev.outcome_summary?.trim()) return false;
+  }
+  return true;
 }
 
 const MERIT_CATEGORY_ORDER = ['allies', 'status', 'contacts', 'retainer', 'staff', 'resources', 'misc'];
@@ -1978,9 +2307,15 @@ function renderMeritSummary(char, sub) {
   if (complete) {
     h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
   } else {
-    const missing = actions.filter((_, i) => {
+    const acqRes  = sub?.acquisitions_resolved || [];
+    const missing = actions.filter((a, i) => {
       const rev = resolved[i] || {};
-      return rev.pool_status !== 'skipped' && !rev.outcome_summary?.trim();
+      if (rev.pool_status === 'skipped') return false;
+      if (deriveMeritCategory(a.merit_type) === 'resources') {
+        const acqStatus = acqRes[0]?.pool_status || '';
+        return acqStatus !== 'validated' && acqStatus !== 'skipped';
+      }
+      return !rev.outcome_summary?.trim();
     }).length;
     h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
   }
@@ -2228,6 +2563,12 @@ function buildActionContext(char, sub, idx) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
+  const revisionNote = sub.st_narrative?.action_responses?.[idx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply FEEDING_CONSTRAINTS for merit-source rules. 50-80 words. Intermediary voice businesslike, not dramatic. Use house style.');
 
@@ -2298,6 +2639,8 @@ function renderActionCard(char, sub, idx) {
   const chipLabel = meritCat === 'resources' ? 'Request' : modeLabel;
   const chipClass = (meritCat === 'resources' || isAuto) ? 'auto' : 'rolled';
   h += `<span class="dt-story-mode-chip ${chipClass}">${chipLabel}</span>`;
+  const procStatus = rev.pool_status || 'pending';
+  h += `<span class="proc-row-status ${procStatus}">${POOL_STATUS_LABELS[procStatus] || procStatus}</span>`;
   h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
   h += `<button class="dt-story-copy-ctx-btn" data-action-idx="${idx}">Copy Context</button>`;
   h += `</div>`;
@@ -2328,7 +2671,7 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
@@ -2339,7 +2682,7 @@ function renderActionCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-action-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -2612,6 +2955,14 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     lines.push(`ST notes: ${cycleData.ambience_notes}`);
   }
 
+  const terrReports  = sub.st_narrative?.territory_reports || [];
+  const terrReport   = terrReports.find(r => r?.territory_id === terrId) || {};
+  const revisionNote = terrReport.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply AMBIENCE_SIGNATURE and DISCIPLINE_TRACE. One paragraph, 80-120 words. Use house style.');
 
@@ -2720,6 +3071,9 @@ export function buildHomeReportContext(char, sub, allSubmissions) {
     ctx += `No notable activity recorded in ${territory} this cycle. This may be a quiet month.\n\n`;
   }
 
+  const revisionNote = sub.st_narrative?.home_report?.revision_note || '';
+  if (revisionNote) ctx += `\nRevision note: ${revisionNote}\n`;
+
   ctx += `Style: Second person, present tense. No mechanical terms. British English. No em-dashes. ~50–100 words.`;
   return ctx;
 }
@@ -2760,7 +3114,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `<a class="dt-story-context-toggle" role="button">${savedTxt ? 'Show context' : 'Hide context'}</a>`;
   h += `</div>`; // context-block
 
-  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
@@ -2770,7 +3124,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `</button></div>`;
 
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -2894,7 +3248,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
@@ -2905,7 +3259,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</button>`;
     h += `</div>`;
     h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
     h += `<div class="dt-story-card-actions">`;
     h += `<button class="dt-story-revision-save-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Revision</button>`;
     h += `</div>`;
@@ -2956,12 +3310,14 @@ function scanNoisyActions(allSubmissions, currentCharId, csDots) {
   return candidates.slice(0, csDots);
 }
 
-function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
+function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots, sub) {
   const lines = [];
   lines.push('You are helping a Storyteller write a Cacophony Savvy intelligence vignette for a Vampire: The Requiem 2nd Edition LARP character.');
   lines.push('');
   lines.push(`Character: ${char ? displayName(char) : 'Unknown'}`);
   lines.push(`Cacophony Savvy: ${csDots} dots (slot ${slotIdx + 1} of ${csDots})`);
+  lines.push(`Covenant filter: ${char?.covenant || 'Unaligned'} — calibrate the rumour channel and language to this covenant's social register.`);
+  lines.push(..._calibrationBlock(char));
   lines.push('');
   lines.push('This slot covers a noisy event that filtered through the Cacophony this cycle:');
   lines.push('');
@@ -2970,7 +3326,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   if (noisyAction.territory) lines.push(`Territory: ${noisyAction.territory}`);
   if (noisyAction.outcome)   lines.push(`Declared intent: ${noisyAction.outcome}`);
   lines.push('');
-  lines.push(`Write a short vignette (~75 words) of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event.`);
+  lines.push(`Write a vignette of no more than 80 words of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event. Begin with the rumour itself, not with the character receiving it.`);
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Third person \u2014 the character hears about someone else, not about themselves');
@@ -2981,6 +3337,13 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   lines.push('- Do not state what actually happened precisely; write what filtered through the rumour network');
   lines.push('- Do not editorialise about significance');
   lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
+
+  const revisionNote = sub?.st_narrative?.cacophony_savvy?.[slotIdx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -3047,7 +3410,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Rumours vignette\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
@@ -3058,7 +3421,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</button>`;
       h += `</div>`;
       h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
       h += `<div class="dt-story-card-actions">`;
       h += `<button class="dt-story-revision-save-btn" data-slot-idx="${slotIdx}">Save Revision</button>`;
       h += `</div>`;
@@ -3412,22 +3775,19 @@ async function handleSignOff(btn) {
 
 async function handleCopyStoryMomentContext(btn) {
   if (!_currentSub) return;
-  const char = getCharForSub(_currentSub);
+  const sub  = _currentSub;                              // snapshot — prevents stale read if ST switches characters during fetch
+  const char = getCharForSub(sub);
 
   const card   = btn.closest('.dt-story-section[data-section="story_moment"]');
   const format = card?.querySelector('input[name="story-moment-format"]:checked')?.value || 'letter';
 
-  if (format === 'vignette') {
-    copyToClipboard(buildTouchstoneContext(char, _currentSub), btn);
-    return;
-  }
-
-  // Letter format: assemble previous-cycle correspondence + story-moment target,
-  // same as the pre-DTSR-2 handleCopyLetterContext logic.
-  let prevCorrespondence = null;
+  // ── Previous-cycle fetch (shared by both paths) ───────────────────────────
+  let prevStoryMoment    = null;
+  let prevLegacyLetter   = null;
+  let prevLegacyVignette = null;
   let prevCycleNumber    = null;
   try {
-    const cycleId   = _currentSub.cycle_id;
+    const cycleId   = sub.cycle_id;
     const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
     const cycles    = Array.isArray(allCycles) ? allCycles : [];
     const currentCycle   = cycles.find(c => String(c._id) === String(cycleId));
@@ -3438,22 +3798,20 @@ async function handleCopyStoryMomentContext(btn) {
       if (prevCycle) {
         const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
         const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
-          .find(s => String(s.character_id) === String(_currentSub.character_id));
-        prevCorrespondence = prevSub?.st_narrative?.story_moment?.response
-          || prevSub?.st_narrative?.letter_from_home?.response
-          || null;
-        prevCycleNumber = prevCycle.game_number;
+          .find(s => String(s.character_id) === String(sub.character_id));
+        if (prevSub) {
+          prevStoryMoment    = prevSub.st_narrative?.story_moment || null;
+          prevLegacyLetter   = prevSub.st_narrative?.letter_from_home?.response || null;
+          prevLegacyVignette = prevSub.st_narrative?.touchstone?.response || null;
+          prevCycleNumber    = prevCycle.game_number;
+        }
       }
     }
   } catch { /* leave nulls */ }
 
-  const stVoiceNote = _currentSub.st_narrative?.story_moment?.voice_note
-    || _currentSub.st_narrative?.letter_from_home?.voice_note
-    || null;
-
-  // NPCR.12: resolve story-moment relationship target name for the prompt.
+  // ── NPCR.12: resolve story-moment relationship target name ────────────────
   let storyMomentTarget = null;
-  const relId = _currentSub.responses?.story_moment_relationship_id;
+  const relId = sub.responses?.story_moment_relationship_id;
   if (relId) {
     try {
       const edge = await apiGet(`/api/relationships/${encodeURIComponent(relId)}`);
@@ -3463,7 +3821,7 @@ async function handleCopyStoryMomentContext(btn) {
           custom_label: edge.custom_label || null,
           name: null,
         };
-        const charId = String(_currentSub.character_id);
+        const charId = String(sub.character_id);
         const other  = String(edge.a?.id) === charId ? edge.b : edge.a;
         if (other?.type === 'npc' && other.id) {
           const npcs = await apiGet('/api/npcs').catch(() => []);
@@ -3477,8 +3835,42 @@ async function handleCopyStoryMomentContext(btn) {
     } catch { /* leave null */ }
   }
 
-  const text = buildLetterContext(char, _currentSub, {
-    prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
+  // ── Format-gated previous content ────────────────────────────────────────
+  // If prevStoryMoment exists it is authoritative — use format-gated value,
+  // null if the wrong format. Legacy fallbacks only activate when prevStoryMoment
+  // is entirely absent (pre-consolidation DT1 data where story_moment was never
+  // written). Without this gate, a DT2 letter's format mismatch fell through to
+  // st_narrative.touchstone.response, causing letter content in the vignette slot.
+  const prevLetterText = prevStoryMoment
+    ? (prevStoryMoment.format === 'letter' && prevStoryMoment.response ? prevStoryMoment.response : null)
+    : prevLegacyLetter;
+
+  const prevVignetteText = prevStoryMoment
+    ? (prevStoryMoment.format === 'vignette' && prevStoryMoment.response ? prevStoryMoment.response : null)
+    : prevLegacyVignette;
+
+  const targetName = storyMomentTarget?.name || null;
+  const prevCorrespondenceValidated = _storyMomentNameCheck(prevLetterText, targetName);
+  const prevVignetteValidated       = _storyMomentNameCheck(prevVignetteText, targetName);
+
+  // ── Branch on format ──────────────────────────────────────────────────────
+  if (format === 'vignette') {
+    copyToClipboard(buildTouchstoneContext(char, sub, {
+      prevVignette: prevVignetteValidated,
+      prevCycleNumber,
+    }), btn);
+    return;
+  }
+
+  const stVoiceNote = sub.st_narrative?.story_moment?.voice_note
+    || sub.st_narrative?.letter_from_home?.voice_note
+    || null;
+
+  const text = buildLetterContext(char, sub, {
+    prevCorrespondence: prevCorrespondenceValidated,
+    prevCycleNumber,
+    stVoiceNote,
+    storyMomentTarget,
   });
   copyToClipboard(text, btn);
 }
@@ -3486,6 +3878,7 @@ async function handleCopyStoryMomentContext(btn) {
 async function handleStoryMomentSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="story_moment"]');
   if (!section || !_currentSub) return;
+  const sub = _currentSub;
 
   const ta      = section.querySelector('.dt-story-response-ta');
   const text    = ta?.value || '';
@@ -3501,13 +3894,13 @@ async function handleStoryMomentSave(btn, status) {
   btn.textContent = 'Saving…';
 
   try {
-    await saveNarrativeField(_currentSub._id, {
+    await saveNarrativeField(sub._id, {
       'st_narrative.story_moment': { response: text, format, author, status, revision_note: revNote },
     });
 
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.story_moment = {
-      ...(_currentSub.st_narrative.story_moment || {}),
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.story_moment = {
+      ...(sub.st_narrative.story_moment || {}),
       response: text, format, author, status, revision_note: revNote,
     };
 
@@ -3515,18 +3908,19 @@ async function handleStoryMomentSave(btn, status) {
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
-    const char    = getCharForSub(_currentSub);
-    const newHtml = renderStoryMoment(char, _currentSub, _currentSub.st_narrative);
+    const char    = getCharForSub(sub);
+    const newHtml = renderStoryMoment(char, sub, sub.st_narrative);
     const tmp     = document.createElement('div');
     tmp.innerHTML = newHtml;
     section.replaceWith(tmp.firstElementChild);
 
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      tmp2.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp2.firstElementChild);
     }
 
@@ -3552,19 +3946,20 @@ function _refreshProgressTracker() {
 
 async function handleCopyProjectContext(btn) {
   if (!_currentSub) return;
+  const sub  = _currentSub;                              // snapshot — prevents stale read if ST switches characters during fetch
   const card = btn.closest('.dt-story-proj-card');
   if (!card) return;
   const idx  = parseInt(card.dataset.projIdx, 10);
-  const char = getCharForSub(_currentSub);
+  const char = getCharForSub(sub);
 
-  const rev        = _currentSub.projects_resolved?.[idx] || {};
+  const rev        = sub.projects_resolved?.[idx] || {};
   const slot       = idx + 1;
   const actionType = rev.action_type_override || rev.action_type
-    || _currentSub.responses?.[`project_${slot}_action`] || '';
+    || sub.responses?.[`project_${slot}_action`] || '';
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = _currentSub.cycle_id;
+    const cycleId = sub.cycle_id;
     const [allCycles, terrs] = await Promise.all([
       apiGet('/api/downtime_cycles').catch(() => []),
       apiGet('/api/territories').catch(() => []),
@@ -3575,10 +3970,10 @@ async function handleCopyProjectContext(btn) {
 
   const isMainten = actionType === 'maintenance' || rev.pool_status === 'maintenance';
   const text = actionType === 'patrol_scout'
-    ? buildPatrolContext(char, _currentSub, idx, cycleData, territories)
+    ? buildPatrolContext(char, sub, idx, cycleData, territories)
     : isMainten
-      ? buildMaintenanceContext(char, _currentSub, idx)
-      : buildProjectContext(char, _currentSub, idx, cycleData, territories);
+      ? buildMaintenanceContext(char, sub, idx)
+      : buildProjectContext(char, sub, idx, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
@@ -3589,9 +3984,41 @@ function handleContextToggle(toggleEl) {
   toggleEl.textContent = collapsed ? 'Show context' : 'Hide context';
 }
 
+function handleCalibrationToggle(headerEl) {
+  const body = headerEl.closest('.dt-story-calibration-panel')?.querySelector('.dt-story-calibration-body');
+  if (!body) return;
+  body.classList.toggle('hidden');
+}
+
+async function handleCalibrationSave(btn) {
+  const charId = btn.dataset.charId;
+  if (!charId) return;
+  const panel  = btn.closest('.dt-story-calibration-body');
+  const ta     = panel?.querySelector('.dt-story-calibration-ta');
+  const text   = ta?.value || '';
+  const status = panel?.querySelector('.dt-story-calibration-status');
+
+  btn.disabled = true;
+  if (status) status.textContent = 'Saving…';
+  try {
+    await apiPatch(`/api/characters/${charId}`, { dt_story_calibration: text });
+    // Update in-memory record so subsequent Copy Context picks up the new value immediately
+    const c = _allCharacters.find(c => String(c._id) === charId);
+    if (c) c.dt_story_calibration = text;
+    if (status) status.textContent = 'Saved';
+    btn.disabled = false;
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  } catch (err) {
+    if (status) status.textContent = 'Error';
+    btn.disabled = false;
+    console.error('Calibration save failed:', err);
+  }
+}
+
 async function handleProjectSave(btn, status) {
   const card = btn.closest('.dt-story-proj-card');
   if (!card || !_currentSub) return;
+  const sub = _currentSub;
   const idx = parseInt(card.dataset.projIdx, 10);
 
   const ta      = card.querySelector('.dt-story-response-ta');
@@ -3607,31 +4034,32 @@ async function handleProjectSave(btn, status) {
   btn.textContent = 'Saving\u2026';
 
   try {
-    const updatedResponses = buildUpdatedProjectResponses(_currentSub, idx, {
+    const updatedResponses = buildUpdatedProjectResponses(sub, idx, {
       response: text,
       author,
       status,
       revision_note: revNote,
     });
 
-    await saveNarrativeField(_currentSub._id, {
+    await saveNarrativeField(sub._id, {
       'st_narrative.project_responses': updatedResponses,
     });
 
     // Update local cache
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.project_responses = updatedResponses;
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.project_responses = updatedResponses;
 
     _refreshProgressTracker();
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
     // Re-render the project section in place
-    const char = getCharForSub(_currentSub);
+    const char = getCharForSub(sub);
     const sectionEl = document.querySelector('.dt-story-section[data-section="project_responses"]');
     if (sectionEl) {
-      const newHtml = renderProjectSection(char, _currentSub);
+      const newHtml = renderProjectSection(char, sub);
       const tmp = document.createElement('div');
       tmp.innerHTML = newHtml;
       sectionEl.replaceWith(tmp.firstElementChild);
@@ -3640,10 +4068,9 @@ async function handleProjectSave(btn, status) {
     // Re-render sign-off panel (completion count may have changed)
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const stNarrative = _currentSub.st_narrative;
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp = document.createElement('div');
-      tmp.innerHTML = renderSignOffPanel(stNarrative, sections, _currentSub);
+      tmp.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp.firstElementChild);
     }
 
@@ -3660,22 +4087,23 @@ async function handleProjectSave(btn, status) {
 
 async function handleCopyTerritoryContext(btn) {
   if (!_currentSub) return;
-  const char   = getCharForSub(_currentSub);
+  const sub    = _currentSub;                            // snapshot — prevents stale read if ST switches characters during fetch
+  const char   = getCharForSub(sub);
   const terrId = btn.dataset.terrId;
   if (!terrId) return;
 
   let cycleData = null, territories = [];
   try {
-    const cycleId = _currentSub.cycle_id;
+    const cycleId = sub.cycle_id;
     const [allCycles, terrs] = await Promise.all([
       apiGet('/api/downtime_cycles').catch(() => []),
       apiGet('/api/territories').catch(() => []),
     ]);
-    cycleData  = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
+    cycleData   = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
     territories = Array.isArray(terrs) ? terrs : [];
   } catch { /* use nulls */ }
 
-  const text = buildTerritoryContext(char, _currentSub, terrId, _allSubmissions, _allCharacters, cycleData, territories);
+  const text = buildTerritoryContext(char, sub, terrId, _allSubmissions, _allCharacters, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
@@ -3755,6 +4183,7 @@ function handleCopyActionContext(btn) {
 async function handleActionSave(btn, status) {
   const card = btn.closest('.dt-story-merit-card');
   if (!card || !_currentSub) return;
+  const sub  = _currentSub;
   const idx  = parseInt(card.dataset.actionIdx, 10);
 
   const ta      = card.querySelector('.dt-story-response-ta');
@@ -3769,30 +4198,31 @@ async function handleActionSave(btn, status) {
   btn.textContent = 'Saving\u2026';
 
   try {
-    const existing   = _currentSub.st_narrative?.action_responses || [];
+    const existing   = sub.st_narrative?.action_responses || [];
     const updated    = buildUpdatedArray(existing, idx, { action_index: idx, response: text, author, status, revision_note: revNote });
 
-    await saveNarrativeField(_currentSub._id, { 'st_narrative.action_responses': updated });
+    await saveNarrativeField(sub._id, { 'st_narrative.action_responses': updated });
 
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.action_responses = updated;
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.action_responses = updated;
 
     _refreshProgressTracker();
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
-    const char       = getCharForSub(_currentSub);
+    const char       = getCharForSub(sub);
     const sectionKey = card.closest('.dt-story-section')?.dataset.section;
     const sectionEl  = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
     if (sectionEl) {
       const renderers = {
-        allies_actions:     () => renderAlliesSection(char, _currentSub),
-        status_actions:     () => renderStatusSection(char, _currentSub),
-        retainer_actions:   () => renderRetainerSection(char, _currentSub),
-        contact_requests:   () => renderContactsSection(char, _currentSub),
-        resource_approvals: () => renderResourcesSection(char, _currentSub),
-        misc_merit_actions: () => renderMiscMeritSection(char, _currentSub),
+        allies_actions:     () => renderAlliesSection(char, sub),
+        status_actions:     () => renderStatusSection(char, sub),
+        retainer_actions:   () => renderRetainerSection(char, sub),
+        contact_requests:   () => renderContactsSection(char, sub),
+        resource_approvals: () => renderResourcesSection(char, sub),
+        misc_merit_actions: () => renderMiscMeritSection(char, sub),
       };
       const render = renderers[sectionKey];
       if (render) {
@@ -3804,9 +4234,9 @@ async function handleActionSave(btn, status) {
 
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      tmp2.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp2.firstElementChild);
     }
 
@@ -3847,7 +4277,7 @@ function handleCopyCacophonyContext(btn) {
   const noisy    = scanNoisyActions(_allSubmissions, _currentSub.character_id, csDots);
   const action   = noisy[slotIdx];
   if (!action) return;
-  copyToClipboard(buildCacophonySavvyContext(char, action, slotIdx, csDots), btn);
+  copyToClipboard(buildCacophonySavvyContext(char, action, slotIdx, csDots, _currentSub), btn);
 }
 
 async function handleCacophonySave(btn, status) {
@@ -3921,6 +4351,64 @@ async function handleCacophonySave(btn, status) {
     btn.innerHTML = originalHTML;
     console.error('Cacophony save failed:', err);
   }
+}
+
+function handleCopyHomeReportContext(btn) {
+  if (!_currentSub) return;
+  const sub  = _currentSub;
+  const char = getCharForSub(sub);
+  const text = buildHomeReportContext(char, sub, _allSubmissions);
+  copyToClipboard(text, btn);
+}
+
+function handleCopyFeedingContext(btn) {
+  if (!_currentSub) return;
+  const sub  = _currentSub;
+  const char = getCharForSub(sub);
+  const fr   = sub.feeding_review || {};
+  const roll = sub.feeding_roll   || null;
+
+  const lines = [`Write a feeding narrative for:`, '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  const poolStr = fr.pool_validated || fr.pool_player || '';
+  if (poolStr) {
+    lines.push('');
+    lines.push(`Feed pool: ${poolStr}`);
+  }
+  if (roll) {
+    const vitae = roll.successes * 2;
+    lines.push(`Result: ${roll.successes} success${roll.successes === 1 ? '' : 'es'}${roll.exceptional ? ' (exceptional)' : ''} — ${vitae} Vitae`);
+  }
+
+  const fv = effectiveFeedViolence(sub);
+  if (fv === 'kiss')    lines.push('Feeding method: The Kiss (subtle, prey unaware)');
+  if (fv === 'violent') lines.push('Feeding method: Violent');
+
+  const constraint = fr.story_context || '';
+  if (constraint) {
+    lines.push('');
+    lines.push(`Narrative constraint (do not contradict): ${constraint}`);
+  }
+
+  const existingDraft = sub.st_narrative?.feeding_narrative?.response || '';
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  const revisionNote = sub.st_narrative?.feeding_narrative?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
+  lines.push('');
+  lines.push('Apply AMBIENCE_SIGNATURE. 2–3 sentences. What did others notice? What did the prey experience? British English. No em-dashes. No mechanical terms.');
+  copyToClipboard(lines.join('\n'), btn);
 }
 
 // Populate after all handlers are defined

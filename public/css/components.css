@@ -5486,3 +5486,404 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   font-size: 0.9em;
   font-style: italic;
 }
+
+/* ── Epic STM mod marker + popover (issue #385, polished by #408) ── */
+
+/* Modded-dot class: applied directly to individual <span class="pointed"> /
+   "pointed hollow" dots when they fall within an STM-modded sub-range
+   (issue #408 Finding 2). Replaces the standalone .stm-marker pip that
+   visually collided with the dot run. Static gold tint + 1px gold ring;
+   no motion per Peter's choice. The dots inherit "pointed" / "pointed hollow"
+   shapes so the differentiation is colour + ring, not shape. */
+.pointed.stm-modded-dot,
+.pointed.hollow.stm-modded-dot {
+  cursor: pointer;
+  background-color: var(--gold2);
+  outline: 1px solid var(--gold2);
+  outline-offset: 1px;
+  /* Slight glow so hover/discoverability still reads. No keyframes. */
+  box-shadow: 0 0 2px var(--gold2-a25, rgba(122,82,8,.25));
+}
+.pointed.hollow.stm-modded-dot {
+  /* Hollow modded dots: ring without solid fill so they still read as
+     "bonus" but with the gold tint. */
+  background-color: transparent;
+  border-color: var(--gold2);
+}
+.pointed.stm-modded-dot:hover,
+.pointed.hollow.stm-modded-dot:hover {
+  outline-color: var(--gold);
+  box-shadow: 0 0 6px var(--gold);
+}
+
+/* Standalone marker (still used by the stats strip for non-dot displays:
+   blood_potency, humanity, current.*, derived.*). Dot-run paths (attributes /
+   skills) use .stm-modded-dot above. */
+.stm-marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+  background: var(--gold2);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 4px var(--gold2-a25, rgba(122,82,8,.25));
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.stm-marker:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 8px var(--gold);
+}
+
+.stm-pop-host { pointer-events: auto; }
+.stm-pop {
+  min-width: 240px;
+  max-width: 340px;
+  padding: 12px 16px;
+  background: var(--surf2);
+  border: 1px solid var(--gold2);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt);
+}
+.stm-pop-head {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--bdr2);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+/* Base / Final rows: label-left, value-right, single line. Issue #408
+   Finding 4 — explicit span pair so flex always keeps them on one line. */
+.stm-pop-base, .stm-pop-final {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+  font-weight: 600;
+}
+.stm-pop-row-lbl { color: var(--txt2); font-weight: 600; }
+.stm-pop-base { border-bottom: 1px solid var(--bdr); }
+.stm-pop-final {
+  border-top: 1px solid var(--gold2);
+  margin-top: 4px;
+  padding-top: 8px;
+  color: var(--gold2);
+  font-size: 13px;
+}
+.stm-pop-base-src { color: var(--txt3); font-weight: 400; font-style: italic; font-size: 11px; }
+.stm-pop-val { font-family: var(--fh); font-size: 14px; }
+
+/* Adjustments section: small sub-header + indented mod rows so the
+   start → adjust → result hierarchy is visible at a glance. */
+.stm-pop-mods { margin: 0 0 4px 0; padding: 4px 0 0 14px; border-left: 2px solid var(--gold2-a25, rgba(122,82,8,.25)); margin-left: 4px; }
+.stm-pop-mods-hdr {
+  font-family: var(--fh);
+  font-size: 10px;
+  color: var(--txt3);
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+}
+.stm-pop-mod {
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--bdr);
+}
+.stm-pop-mod:last-child { border-bottom: 0; padding-bottom: 0; }
+.stm-pop-mod-delta {
+  display: inline-block;
+  min-width: 32px;
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+}
+.stm-pop-mod-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--txt2);
+}
+.stm-pop-mod-when {
+  color: var(--txt3);
+  font-size: 10px;
+}
+
+/* ── Epic STM (issue #386): admin panel + (issue #379) audit polish ── */
+
+/* — Panel layout — */
+.stm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 18px 24px;
+  font-family: var(--fl);
+  color: var(--txt);
+}
+.stm-panel-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--txt2);
+  font-style: italic;
+  font-family: var(--ft);
+}
+.stm-panel-head h2 {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  margin: 0;
+}
+.stm-panel-toggles, .stm-panel-create, .stm-panel-list {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+.stm-panel-create h3, .stm-panel-list h3 {
+  font-family: var(--fh);
+  font-size: 14px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+.stm-toggle {
+  display: block;
+  margin: 6px 0;
+  cursor: pointer;
+}
+.stm-toggle-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: 24px;
+}
+.stm-toggle strong { color: var(--gold2); }
+
+/* — Create form — */
+.stm-form-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+.stm-form-row label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--txt2);
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  flex: 1;
+  min-width: 140px;
+}
+.stm-form-row input[type="text"],
+.stm-form-row input[type="number"],
+.stm-form-row select {
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 13px;
+}
+.stm-form-row select { min-width: 200px; }
+.stm-form-row input[type="number"] { width: 80px; flex: 0 0 auto; }
+.stm-form-show-reason { flex: 0 0 auto; text-transform: none; flex-direction: row; align-items: center; gap: 6px; }
+.stm-form-reason { flex: 2; }
+.stm-form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 6px;
+}
+.stm-form-actions button {
+  padding: 8px 16px;
+  background: var(--gold2);
+  color: var(--txt-on-gold, #fff);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  font-family: var(--fh);
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+}
+.stm-form-actions button:hover { filter: brightness(1.1); }
+.stm-form-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.stm-form-error { color: var(--crim, #8B0000); font-style: italic; font-size: 12px; }
+
+/* — Active mods list — */
+.stm-mod-row {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--gold2);
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.stm-mod-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stm-mod-label { font-family: var(--fh); font-size: 13px; color: var(--txt); flex: 1; }
+.stm-mod-delta {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 32px;
+  text-align: right;
+}
+.stm-mod-public {
+  font-size: 10px;
+  background: var(--gold2-a25, rgba(122,82,8,.25));
+  color: var(--gold2);
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.stm-mod-revoke {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--crim, #8B0000);
+  color: var(--crim, #8B0000);
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.stm-mod-revoke:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
+.stm-mod-reason { margin: 4px 0 2px; color: var(--txt2); font-size: 12px; }
+.stm-mod-meta { font-size: 11px; color: var(--txt3); margin: 0; }
+.stm-list-empty { color: var(--txt3); font-style: italic; }
+
+/* — STM-6 audit page polish (issue #379 styling) — */
+.stm-audit-root { padding: 18px 24px; font-family: var(--fl); color: var(--txt); }
+.stm-audit-head h2 {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  letter-spacing: .5px;
+  margin: 0 0 4px;
+}
+.stm-audit-sub { color: var(--txt3); font-style: italic; margin: 0 0 16px; font-size: 12px; }
+.stm-audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+.stm-audit-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--txt2);
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.stm-audit-filters select,
+.stm-audit-filters input[type="date"] {
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 13px;
+}
+.stm-audit-clear {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  color: var(--txt2);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.stm-audit-clear:hover { background: var(--surf2); color: var(--txt); }
+
+.stm-audit-row {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.stm-audit-row-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stm-audit-char { font-family: var(--fh); font-size: 13px; color: var(--gold2); min-width: 140px; }
+.stm-audit-path { font-family: var(--fh); flex: 1; }
+.stm-audit-delta {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 32px;
+  text-align: right;
+}
+.stm-audit-row-meta { display: flex; gap: 16px; font-size: 11px; color: var(--txt3); margin-top: 4px; }
+.stm-audit-row-reason { margin-top: 4px; color: var(--txt2); font-size: 12px; }
+.stm-audit-empty, .stm-audit-loading { padding: 18px; color: var(--txt3); font-style: italic; text-align: center; }
+
+/* A deleted (tombstone) event row reads as terminal — dimmed, struck. */
+.stm-audit-row--deleted { opacity: .68; }
+.stm-audit-row--deleted .stm-audit-char,
+.stm-audit-row--deleted .stm-audit-path { text-decoration: line-through; }
+
+/* STM-11: per-event-type lifecycle badge. */
+.stm-ev-badge {
+  font-size: 10px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 1px 8px;
+  border-radius: 2px;
+  min-width: 78px;
+  text-align: center;
+}
+.stm-ev--created {
+  background: var(--surf2);
+  color: var(--txt2);
+  border: 1px solid var(--bdr2);
+}
+.stm-ev--activated {
+  background: var(--green2-4, rgba(110,160,90,.35));
+  color: var(--green, #6EA05A);
+  border: 1px solid var(--green, #6EA05A);
+}
+.stm-ev--deactivated {
+  background: var(--surf);
+  color: var(--txt3);
+  border: 1px solid var(--bdr);
+}
+.stm-ev--deleted {
+  background: var(--crim-a25, rgba(139,0,0,.25));
+  color: var(--crim, #8B0000);
+  border: 1px solid var(--crim, #8B0000);
+}
+
+.stm-audit-pagination {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+.stm-audit-pagination button {
+  padding: 6px 14px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  color: var(--txt);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.stm-audit-pagination button:hover:not(:disabled) { background: var(--surf3); }
+.stm-audit-pagination button:disabled { opacity: .4; cursor: not-allowed; }
