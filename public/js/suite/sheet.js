@@ -549,7 +549,7 @@ export function renderSheet() {
       const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
       const inner = `<div class="trait-row"><div class="trait-main"><span class="${nCls}">${d}</span><div class="trait-right">${dTag}${isExpandable ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div></div>`;
       if (!isExpandable) return `<div class="disc-tap-row">${inner}</div>`;
-      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="toggleDisc('${id}')">${inner}</div>
+      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="suiteToggleDisc('${id}')">${inner}</div>
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
@@ -575,7 +575,7 @@ export function renderSheet() {
         const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
         const _devDice = (_showDice && _devHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -604,7 +604,7 @@ export function renderSheet() {
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -624,7 +624,7 @@ export function renderSheet() {
         const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
         const _pactDice = (_showDice && _pactHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
@@ -693,7 +693,7 @@ export function renderSheet() {
       const qualSub = qualifier ? `<div class="trait-sub"><span class="trait-qual">${qualifier}</span></div>` : '';
       const standInner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right"><span class="trait-dots">${dots(m.rating || 0)}</span>${drawerHtml ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div>${qualSub}</div>`;
       if (drawerHtml) {
-        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">${standInner}</div>
+        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="suiteToggleDisc('${sid}')">${standInner}</div>
           <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
       } else {
         html += `<div class="disc-tap-row" style="cursor:default">${standInner}</div>`;

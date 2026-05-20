@@ -194,7 +194,7 @@ export function toggleDisc(id) {
 // ── Build expandable row HTML ──
 
 export function expRow(id, lbl, val, bodyHtml) {
-  return `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">
+  return `<div class="exp-row" id="exp-row-${id}" onclick="suiteToggleExp('${id}')">
     ${lbl ? `<span class="exp-lbl labeled">${lbl}</span>` : ''}
     <span class="exp-val">${val}</span>
     <span class="exp-arr">\u203A</span>
@@ -203,5 +203,10 @@ export function expRow(id, lbl, val, bodyHtml) {
 }
 
 // ── Expose to inline onclick handlers in rendered HTML ──
-window.toggleExp = toggleExp;
-window.toggleDisc = toggleDisc;
+// Issue #433: suite-namespaced globals. The suite app page also hosts the
+// editor sheet (Sheets tab); app.js binds the EDITOR toggleExp/toggleDisc to
+// the unprefixed window globals, which clobbered the suite versions formerly
+// assigned here — silently no-opping suite chevrons. Namespacing removes the
+// collision: each renderer's onclick targets its own function.
+window.suiteToggleExp = toggleExp;
+window.suiteToggleDisc = toggleDisc;
