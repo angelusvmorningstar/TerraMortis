@@ -1,6 +1,6 @@
 # Issue #425: STM bugfix — suite sheet renderer missing STM display wiring
 
-Status: Ready for Review
+Status: Done
 
 issue: 425
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/425
