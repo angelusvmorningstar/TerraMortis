@@ -9556,16 +9556,16 @@ function _chkState(sub, key) {
     else                 gIdx = map.contacts[parseInt(contactsM[1]) - 1];
     if (gIdx !== undefined) {
       const ps = resolved[gIdx]?.pool_status;
-      if (_CHK_TERMINAL_STATUSES.has(ps)) return 'no_action';
-      if (ps === 'validated')             return 'confirmed';
+      if (ps === 'skipped' || ps === 'no_action' || ps === 'no_roll' || ps === 'maintenance') return 'no_action';
+      if (ps === 'confirmed' || ps === 'rolled' || ps === 'resolved' || ps === 'no_effect')   return 'confirmed';
     }
   }
 
   // ── Resources acquisition ──
   if (key === 'resources') {
     const ps = sub.st_review?.actions?.['acq:resources']?.pool_status;
-    if (_CHK_TERMINAL_STATUSES.has(ps)) return 'no_action';
-    if (ps === 'validated')             return 'confirmed';
+    if (ps === 'skipped' || ps === 'no_action' || ps === 'no_roll' || ps === 'maintenance') return 'no_action';
+    if (ps === 'confirmed' || ps === 'rolled' || ps === 'resolved' || ps === 'no_effect')   return 'confirmed';
   }
 
   if (sub?.st_review?.sighted?.[key]) return 'sighted';

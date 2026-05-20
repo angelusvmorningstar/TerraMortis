@@ -790,3 +790,5 @@ development_status:
   issue-330-ambience-underfeeding-bonus: done                # overfeedVal only calculates penalty; add feeders < cap ? (cap-feeders) : 0 branch; update display in _buildAmbienceHtml line 10357
   issue-331-disc-profile-oid-key: done                      # recomputeDisciplineProfile writes slug-keyed profile; renderer expects OID-keyed (ADR-002); fix: ensureTerritories + slugToOid map in writer
   issue-332-territory-pulse-influence-exceptional: done      # _buildTerritoryPulsePromptText gains influence contributors (pos/neg) and exceptional ambience project sections; clan+covenant included for vibe
+  fix-430-dt-story-async-race-save: review                  # snapshot _currentSub before await in 4 save handlers; re-render guard after 900ms delay; 7 Playwright tests pass
+  fix-432-checklist-merit-star-icon: review                 # A/S/R/C cells never show ★; merit actions use 'confirmed'/'resolved' not 'validated'; two-line fix in _chkState merit slot branch
