@@ -1,6 +1,6 @@
 # Issue #416: STM-9 — WS-driven mod invalidation
 
-Status: Ready for Review
+Status: Done
 
 issue: 416
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/416
