@@ -82,16 +82,13 @@ function creatorFromUser(user) {
 }
 
 /** STM-10 (issue #434, ADR-004 Rev 4 §D17): build a lifecycle audit-event
- *  row. The audit collection is now an immutable event stream:
+ *  row. The audit collection is an immutable event stream:
  *  created / activated / deactivated / deleted.
  *
- *  Field naming: the Rev 4 schema names the actor `by` and the timestamp
- *  `at`. STM-6's existing audit reader (GET /api/st_mod_audit sort +
- *  the admin audit page) consumes `created_by` / `created_at`. To avoid
- *  breaking that surface during the STM-10 → STM-11 window (STM-11 owns
- *  the audit-view migration to the new names), this dual-stamps BOTH —
- *  same actor object + same timestamp string under both names. STM-11
- *  migrates the reader to by/at and drops the created_* aliases.
+ *  STM-11 (issue #439): `by` (actor) + `at` (timestamp) are now the ONLY
+ *  field names. The STM-10 dual-stamp aliases (`created_by`/`created_at`)
+ *  are dropped — the audit GET reader migrated to by/at (with an $ifNull
+ *  fallback to the legacy fields for pre-STM-11 rows already in the DB).
  *
  *  `mod` is the (possibly partial) mod doc: needs _id, character_id,
  *  stat_path, delta, reason. delta + reason are captured AT THE EVENT
@@ -106,9 +103,6 @@ function buildAuditEvent(mod, event, who, when) {
     event,
     by: who,
     at: when,
-    // Back-compat aliases (see JSDoc) — same values, STM-6 reader consumes these.
-    created_by: who,
-    created_at: when,
   };
 }
 
@@ -369,28 +363,37 @@ export default router;
 // stays clean (POST/GET/DELETE /api/st_mods + GET /api/st_mod_audit).
 //
 // STM-6 (issue #379): extended with optional filters + pagination.
-// Backwards-compatible breaking change in response shape: returns
-// { rows, total, page, page_size } wrapper instead of a bare array.
-// STM-2 had no consumer; the STM-6 admin page is the first consumer.
+// STM-11 (issue #439): migrated to the lifecycle event-stream shape.
+// Response: { rows, total, page, page_size }, each row carrying the
+// canonical `event` / `by` / `at` fields.
+//
+// Aggregation coalesces legacy pre-STM-11 rows (which carry
+// `created_by`/`created_at` and no `event`) into the canonical fields
+// via $ifNull, so the reader is uniform across old + new rows WITHOUT
+// depending on STM-13's backfill running first (ADR Rev 4 §D19):
+//   at    = at    ?? created_at
+//   by    = by    ?? created_by
+//   event = event ?? 'created'
 //
 // Query params (all optional):
 //   character_id — exact match
-//   st           — match against created_by.discord_name
-//   from / to    — ISO date range, inclusive, applied to created_at
+//   st           — match against by.discord_name (coalesced)
+//   event        — filter by event type (created/activated/deactivated/deleted)
+//   from / to    — ISO date range, inclusive, applied to at (coalesced)
 //   page         — 1-indexed (default 1)
 //   page_size    — default 50, clamped to [1, 100]
 //
 // Each returned row is decorated with { ...auditRow, active: <bool> }
 // where active === (st_mods document with _id === auditRow.st_mod_id exists).
-// The active lookup is batched into a single $in query — explicitly NOT
-// N+1 — per ADR §"Concerns" Item 2 sibling concern about query shape.
+// The active lookup is batched into a single $in query (not N+1).
 export const auditRouter = Router();
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
+const AUDIT_EVENT_TYPES = ['created', 'activated', 'deactivated', 'deleted'];
 
 auditRouter.get('/', requireRole('st'), async (req, res) => {
-  const { character_id, st, from, to } = req.query;
+  const { character_id, st, from, to, event } = req.query;
 
   // Parse pagination — clamp to safe bounds. Bad input falls back to defaults
   // rather than 400, matching the "filters are optional" spirit.
@@ -400,28 +403,46 @@ auditRouter.get('/', requireRole('st'), async (req, res) => {
     Math.max(1, parseInt(req.query.page_size, 10) || DEFAULT_PAGE_SIZE),
   );
 
-  // Build the Mongo filter from non-empty params
-  const filter = {};
-  if (character_id) filter.character_id = String(character_id);
-  if (st) filter['created_by.discord_name'] = String(st);
+  // Coalesce legacy fields → canonical so old + new rows filter/sort uniformly.
+  const coalesce = {
+    $addFields: {
+      at: { $ifNull: ['$at', '$created_at'] },
+      by: { $ifNull: ['$by', '$created_by'] },
+      event: { $ifNull: ['$event', 'created'] },
+    },
+  };
+
+  // Build the post-coalesce match.
+  const match = {};
+  if (character_id) match.character_id = String(character_id);
+  if (st) match['by.discord_name'] = String(st);
+  if (event && AUDIT_EVENT_TYPES.includes(String(event))) match.event = String(event);
   if (from || to) {
-    filter.created_at = {};
-    if (from) filter.created_at.$gte = String(from);
-    if (to) filter.created_at.$lte = String(to);
+    match.at = {};
+    if (from) match.at.$gte = String(from);
+    if (to) match.at.$lte = String(to);
   }
 
-  const total = await audit().countDocuments(filter);
-  const rows = await audit()
-    .find(filter)
-    .sort({ created_at: -1 })
-    .skip((page - 1) * pageSize)
-    .limit(pageSize)
-    .toArray();
+  // Single aggregation: coalesce → match → facet { rows (sort/skip/limit), total }.
+  const agg = await audit().aggregate([
+    coalesce,
+    { $match: match },
+    {
+      $facet: {
+        rows: [
+          { $sort: { at: -1 } },
+          { $skip: (page - 1) * pageSize },
+          { $limit: pageSize },
+        ],
+        total: [{ $count: 'n' }],
+      },
+    },
+  ]).toArray();
 
-  // Batched active-check: one $in query against st_mods regardless of
-  // page size. Collect st_mod_ids from this page, find which still exist,
-  // map back to a boolean per row. Audit rows from a future writer that
-  // didn't populate st_mod_id (none today) safely default to inactive.
+  const rows = agg[0]?.rows || [];
+  const total = agg[0]?.total?.[0]?.n || 0;
+
+  // Batched active-check: one $in query against st_mods regardless of page size.
   const stModIds = rows.map(r => r.st_mod_id).filter(id => id != null);
   let aliveSet = new Set();
   if (stModIds.length) {
@@ -434,9 +455,6 @@ auditRouter.get('/', requireRole('st'), async (req, res) => {
   const decorated = rows.map(r => ({
     ...r,
     active: r.st_mod_id != null && aliveSet.has(String(r.st_mod_id)),
-    // STM-10 (§D19 backfill-independence): pre-Rev 4 audit rows have no
-    // `event` field — they were all creation rows, so default to 'created'.
-    event: r.event ?? 'created',
   }));
 
   res.json({ rows: decorated, total, page, page_size: pageSize });

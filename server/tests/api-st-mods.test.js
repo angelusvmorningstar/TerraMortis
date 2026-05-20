@@ -443,13 +443,17 @@ describe('STM-6 — GET /api/st_mod_audit filter + pagination + active decoratio
     expect(resB.body.rows.every(r => r.character_id === STM6_CHAR_B)).toBe(true);
   });
 
-  it('AC#4 — filter-by-st narrows on created_by.discord_name', async () => {
+  it('AC#4 — filter-by-st narrows on by.discord_name', async () => {
     const res = await request(app)
       .get('/api/st_mod_audit?st=Alice')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body.rows.every(r => r.created_by?.discord_name === 'Alice')).toBe(true);
-    // Alice has 3 audit rows
+    // STM-11: reader migrated to canonical `by`; server coalesces legacy
+    // created_by → by, so the filter + the returned field are both `by`.
+    expect(res.body.rows.every(r => r.by?.discord_name === 'Alice')).toBe(true);
+    // Alice authored 3 'created' events plus the 'deleted' tombstone on
+    // STM6_MOD_IDS[0] (the DELETE in setup is performed as the default ST
+    // user, NOT Alice), so filter-by-Alice yields exactly the 3 creations.
     expect(res.body.rows.filter(r => r.character_id === STM6_CHAR_A).length).toBe(3);
   });
 
@@ -505,12 +509,110 @@ describe('STM-6 — GET /api/st_mod_audit filter + pagination + active decoratio
     expect(res.body.page_size).toBe(100);
   });
 
-  it('sorts by created_at descending (newest first)', async () => {
+  it('sorts by at descending (newest first)', async () => {
     const res = await request(app)
       .get(`/api/st_mod_audit?character_id=${STM6_CHAR_A}`)
       .set('X-Test-User', stUser());
-    const timestamps = res.body.rows.map(r => r.created_at);
+    const timestamps = res.body.rows.map(r => r.at);
+    expect(timestamps.every(Boolean)).toBe(true);
     const sorted = [...timestamps].sort().reverse();
     expect(timestamps).toEqual(sorted);
+  });
+});
+
+// ── STM-11: lifecycle event-stream (issue #439) ──────────────────────
+// STM-6 surfaced creation rows with a derived revoked marker. STM-11 turns
+// the audit view into a true lifecycle stream: every create / activate /
+// deactivate / delete is its own row carrying canonical `by`/`at`/`event`,
+// and the reader coalesces legacy created_by/created_at/no-event rows so the
+// stream is uniform without depending on STM-13's backfill.
+describe('STM-11 — audit lifecycle event stream', () => {
+  const STM11_CHAR = new ObjectId().toHexString();
+  let MOD_ID;
+
+  beforeAll(async () => {
+    await getCollection('st_mods').deleteMany({ character_id: STM11_CHAR });
+    await getCollection('st_mod_audit').deleteMany({ character_id: STM11_CHAR });
+    // Create → deactivate → reactivate, producing created/deactivated/activated.
+    const createRes = await request(app)
+      .post('/api/st_mods')
+      .set('X-Test-User', stUser())
+      .send({ character_id: STM11_CHAR, stat_path: 'attributes.Stamina.dots', delta: 1, reason: 'lifecycle' });
+    MOD_ID = createRes.body._id;
+    await request(app).patch(`/api/st_mods/${MOD_ID}`).set('X-Test-User', stUser()).send({ active: false });
+    await request(app).patch(`/api/st_mods/${MOD_ID}`).set('X-Test-User', stUser()).send({ active: true });
+  });
+
+  afterAll(async () => {
+    await getCollection('st_mods').deleteMany({ character_id: STM11_CHAR });
+    await getCollection('st_mod_audit').deleteMany({ character_id: STM11_CHAR });
+  });
+
+  it('records a row per lifecycle event with canonical by/at/event fields', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM11_CHAR}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(3);
+    const events = res.body.rows.map(r => r.event).sort();
+    expect(events).toEqual(['activated', 'created', 'deactivated']);
+    // Canonical fields populated on every row; legacy aliases gone.
+    expect(res.body.rows.every(r => r.by?.discord_name && r.at)).toBe(true);
+    expect(res.body.rows.every(r => r.created_by === undefined && r.created_at === undefined)).toBe(true);
+  });
+
+  it('filters by event type', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM11_CHAR}&event=deactivated`)
+      .set('X-Test-User', stUser());
+    expect(res.body.total).toBe(1);
+    expect(res.body.rows[0].event).toBe('deactivated');
+    expect(String(res.body.rows[0].st_mod_id)).toBe(String(MOD_ID));
+    // The mod was reactivated, so the live st_mods doc exists → active:true
+    // even on the historical 'deactivated' row (decoration reflects current
+    // doc state, not the event).
+    expect(res.body.rows[0].active).toBe(true);
+  });
+
+  it('ignores an unknown event filter value (returns full stream)', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${STM11_CHAR}&event=bogus`)
+      .set('X-Test-User', stUser());
+    expect(res.body.total).toBe(3);
+  });
+
+  it('coalesces legacy created_by/created_at/no-event rows into canonical fields', async () => {
+    const LEGACY_CHAR = new ObjectId().toHexString();
+    const legacyId = new ObjectId();
+    // Simulate a pre-STM-11 audit row: only created_by/created_at, no event.
+    await getCollection('st_mod_audit').insertOne({
+      st_mod_id: legacyId,
+      character_id: LEGACY_CHAR,
+      stat_path: 'attributes.Strength.dots',
+      delta: 2,
+      reason: 'legacy grant',
+      created_by: { discord_id: 'legacy-st', discord_name: 'LegacyST' },
+      created_at: '2026-01-01T00:00:00.000Z',
+    });
+    try {
+      const res = await request(app)
+        .get(`/api/st_mod_audit?character_id=${LEGACY_CHAR}`)
+        .set('X-Test-User', stUser());
+      expect(res.body.total).toBe(1);
+      const row = res.body.rows[0];
+      expect(row.event).toBe('created');
+      expect(row.by?.discord_name).toBe('LegacyST');
+      expect(row.at).toBe('2026-01-01T00:00:00.000Z');
+      // Legacy row's mod was never persisted → active:false.
+      expect(row.active).toBe(false);
+
+      // The coalesced `by` is also filterable + the coalesced `at` sortable.
+      const filtered = await request(app)
+        .get(`/api/st_mod_audit?character_id=${LEGACY_CHAR}&st=LegacyST`)
+        .set('X-Test-User', stUser());
+      expect(filtered.body.total).toBe(1);
+    } finally {
+      await getCollection('st_mod_audit').deleteMany({ character_id: LEGACY_CHAR });
+    }
   });
 });

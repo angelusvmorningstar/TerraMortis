@@ -57,16 +57,18 @@ describe('STM-10 — POST sets active:true + writes created event', () => {
     expect(mod.active).toBe(true);
   });
 
-  it('audit row has event:created (+ by/at + back-compat created_by/created_at)', async () => {
+  it('audit row has event:created with canonical by/at and no legacy aliases', async () => {
     const mod = await createMod();
     const auditRow = await getCollection('st_mod_audit').findOne({ st_mod_id: new ObjectId(mod._id), event: 'created' });
     expect(auditRow).toBeTruthy();
     expect(auditRow.event).toBe('created');
     expect(auditRow.by).toMatchObject({ discord_id: 'test-st-001' });
     expect(typeof auditRow.at).toBe('string');
-    // Back-compat aliases for STM-6 reader
-    expect(auditRow.created_by).toMatchObject({ discord_id: 'test-st-001' });
-    expect(auditRow.created_at).toBe(auditRow.at);
+    // STM-11 (issue #439) closed the dual-stamp transition window: new rows
+    // write canonical by/at ONLY. The STM-6 reader was migrated to coalesce
+    // legacy created_by/created_at, so the write-side aliases are gone.
+    expect(auditRow.created_by).toBeUndefined();
+    expect(auditRow.created_at).toBeUndefined();
   });
 
   it('POST broadcasts create op', async () => {
