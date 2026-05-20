@@ -324,12 +324,13 @@ export async function initDtStory(cycleId) {
   panel.addEventListener('focusout', async e => {
     const notesTa = e.target.closest('#dt-story-notes-ta');
     if (!notesTa || !_currentSub) return;
+    const sub = _currentSub;
     const value = notesTa.value;
     const statusEl = document.getElementById('dt-story-notes-status');
     try {
-      await saveNarrativeField(_currentSub._id, { 'st_narrative.general_notes': value });
-      if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-      _currentSub.st_narrative.general_notes = value;
+      await saveNarrativeField(sub._id, { 'st_narrative.general_notes': value });
+      if (!sub.st_narrative) sub.st_narrative = {};
+      sub.st_narrative.general_notes = value;
       if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
     } catch {
       if (statusEl) statusEl.textContent = 'Save failed';
@@ -3486,6 +3487,7 @@ async function handleCopyStoryMomentContext(btn) {
 async function handleStoryMomentSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="story_moment"]');
   if (!section || !_currentSub) return;
+  const sub = _currentSub;
 
   const ta      = section.querySelector('.dt-story-response-ta');
   const text    = ta?.value || '';
@@ -3501,13 +3503,13 @@ async function handleStoryMomentSave(btn, status) {
   btn.textContent = 'Saving…';
 
   try {
-    await saveNarrativeField(_currentSub._id, {
+    await saveNarrativeField(sub._id, {
       'st_narrative.story_moment': { response: text, format, author, status, revision_note: revNote },
     });
 
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.story_moment = {
-      ...(_currentSub.st_narrative.story_moment || {}),
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.story_moment = {
+      ...(sub.st_narrative.story_moment || {}),
       response: text, format, author, status, revision_note: revNote,
     };
 
@@ -3515,18 +3517,19 @@ async function handleStoryMomentSave(btn, status) {
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
-    const char    = getCharForSub(_currentSub);
-    const newHtml = renderStoryMoment(char, _currentSub, _currentSub.st_narrative);
+    const char    = getCharForSub(sub);
+    const newHtml = renderStoryMoment(char, sub, sub.st_narrative);
     const tmp     = document.createElement('div');
     tmp.innerHTML = newHtml;
     section.replaceWith(tmp.firstElementChild);
 
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      tmp2.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp2.firstElementChild);
     }
 
@@ -3592,6 +3595,7 @@ function handleContextToggle(toggleEl) {
 async function handleProjectSave(btn, status) {
   const card = btn.closest('.dt-story-proj-card');
   if (!card || !_currentSub) return;
+  const sub = _currentSub;
   const idx = parseInt(card.dataset.projIdx, 10);
 
   const ta      = card.querySelector('.dt-story-response-ta');
@@ -3607,31 +3611,32 @@ async function handleProjectSave(btn, status) {
   btn.textContent = 'Saving\u2026';
 
   try {
-    const updatedResponses = buildUpdatedProjectResponses(_currentSub, idx, {
+    const updatedResponses = buildUpdatedProjectResponses(sub, idx, {
       response: text,
       author,
       status,
       revision_note: revNote,
     });
 
-    await saveNarrativeField(_currentSub._id, {
+    await saveNarrativeField(sub._id, {
       'st_narrative.project_responses': updatedResponses,
     });
 
     // Update local cache
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.project_responses = updatedResponses;
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.project_responses = updatedResponses;
 
     _refreshProgressTracker();
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
     // Re-render the project section in place
-    const char = getCharForSub(_currentSub);
+    const char = getCharForSub(sub);
     const sectionEl = document.querySelector('.dt-story-section[data-section="project_responses"]');
     if (sectionEl) {
-      const newHtml = renderProjectSection(char, _currentSub);
+      const newHtml = renderProjectSection(char, sub);
       const tmp = document.createElement('div');
       tmp.innerHTML = newHtml;
       sectionEl.replaceWith(tmp.firstElementChild);
@@ -3640,10 +3645,9 @@ async function handleProjectSave(btn, status) {
     // Re-render sign-off panel (completion count may have changed)
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const stNarrative = _currentSub.st_narrative;
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp = document.createElement('div');
-      tmp.innerHTML = renderSignOffPanel(stNarrative, sections, _currentSub);
+      tmp.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp.firstElementChild);
     }
 
@@ -3755,6 +3759,7 @@ function handleCopyActionContext(btn) {
 async function handleActionSave(btn, status) {
   const card = btn.closest('.dt-story-merit-card');
   if (!card || !_currentSub) return;
+  const sub  = _currentSub;
   const idx  = parseInt(card.dataset.actionIdx, 10);
 
   const ta      = card.querySelector('.dt-story-response-ta');
@@ -3769,30 +3774,31 @@ async function handleActionSave(btn, status) {
   btn.textContent = 'Saving\u2026';
 
   try {
-    const existing   = _currentSub.st_narrative?.action_responses || [];
+    const existing   = sub.st_narrative?.action_responses || [];
     const updated    = buildUpdatedArray(existing, idx, { action_index: idx, response: text, author, status, revision_note: revNote });
 
-    await saveNarrativeField(_currentSub._id, { 'st_narrative.action_responses': updated });
+    await saveNarrativeField(sub._id, { 'st_narrative.action_responses': updated });
 
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.action_responses = updated;
+    if (!sub.st_narrative) sub.st_narrative = {};
+    sub.st_narrative.action_responses = updated;
 
     _refreshProgressTracker();
     btn.textContent = 'Saved';
     btn.disabled = false;
     await new Promise(r => setTimeout(r, 900));
+    if (_currentSub !== sub) return;
 
-    const char       = getCharForSub(_currentSub);
+    const char       = getCharForSub(sub);
     const sectionKey = card.closest('.dt-story-section')?.dataset.section;
     const sectionEl  = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
     if (sectionEl) {
       const renderers = {
-        allies_actions:     () => renderAlliesSection(char, _currentSub),
-        status_actions:     () => renderStatusSection(char, _currentSub),
-        retainer_actions:   () => renderRetainerSection(char, _currentSub),
-        contact_requests:   () => renderContactsSection(char, _currentSub),
-        resource_approvals: () => renderResourcesSection(char, _currentSub),
-        misc_merit_actions: () => renderMiscMeritSection(char, _currentSub),
+        allies_actions:     () => renderAlliesSection(char, sub),
+        status_actions:     () => renderStatusSection(char, sub),
+        retainer_actions:   () => renderRetainerSection(char, sub),
+        contact_requests:   () => renderContactsSection(char, sub),
+        resource_approvals: () => renderResourcesSection(char, sub),
+        misc_merit_actions: () => renderMiscMeritSection(char, sub),
       };
       const render = renderers[sectionKey];
       if (render) {
@@ -3804,9 +3810,9 @@ async function handleActionSave(btn, status) {
 
     const signOff = document.querySelector('.dt-story-sign-off');
     if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
+      const sections = getApplicableSections(char, sub);
       const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      tmp2.innerHTML = renderSignOffPanel(sub.st_narrative, sections, sub);
       signOff.replaceWith(tmp2.firstElementChild);
     }
 
