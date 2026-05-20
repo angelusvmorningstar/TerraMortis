@@ -1,6 +1,6 @@
 # Issue #433: Suite app chevron-expand no-ops (wrong toggleDisc wired)
 
-Status: Ready for Review
+Status: Done
 
 issue: 433
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/433
