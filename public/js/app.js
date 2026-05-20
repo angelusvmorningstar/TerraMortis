@@ -95,6 +95,7 @@ import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { applyOverlayToAll } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { installStModPopover } from './editor/st-mod-popover.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -1349,11 +1350,23 @@ async function boot() {
             const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
             if (!target) return;
             await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+            // Issue #425: full suite sheet re-render (not just tracker
+            // repaint) so the modded dots + markers refresh. STM-9
+            // originally only repainted trackers here because the suite
+            // sheet wasn't yet STM-wired; #425 wires it, so the dots/
+            // markers now need the full render to reflect a remote change.
             if (String(suiteState.sheetChar?._id) === String(charId)) {
-              repaintSheetTrackers();
+              suiteRenderSheet();
             }
           },
         });
+
+        // Issue #425: install the STM popover delegated click handler for
+        // the suite app. STM-4 wired admin + player but not the suite;
+        // without this, suite-sheet markers emit data-stm-marker-path but
+        // nothing opens the popover on click. Single listener on
+        // document.body (idempotent across re-renders).
+        installStModPopover(document.body);
         return;
       } catch (err) {
         // Mid-flight failure: leave the user on the login screen with a
