@@ -948,16 +948,16 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
       const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
-      const isResident = val === 'resident';
+      const isResident = val === 'resident' || val === 'feeding_rights';
       if (isResident) residentCount++; else poacherCount++;
       // Feeding method: scan pool_validated for discipline names; fallback to territory value
       const feedRev = s.feeding_review || {};
       let feedMethod = '';
       if (feedRev.pool_validated) {
         const found = _PATROL_DISCS.filter(d => feedRev.pool_validated.includes(d));
-        feedMethod = found.length ? found.join(', ') : (val !== 'resident' ? val : 'default');
+        feedMethod = found.length ? found.join(', ') : (isResident ? 'default' : val);
       } else {
-        feedMethod = val !== 'resident' ? val : 'default';
+        feedMethod = isResident ? 'default' : val;
       }
       feeders.push({ name: fName, clan: fChar?.clan || '?', covenant: fChar?.covenant || '?', isResident, feedMethod });
     }
@@ -1009,7 +1009,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     let selfTerrs = {};
     try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
     const selfVal = selfTerrs[terrSlug];
-    if (selfVal === 'resident') selfFeedStatus = 'Resident';
+    if (selfVal === 'resident' || selfVal === 'feeding_rights') selfFeedStatus = 'Resident';
     else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
   }
   lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount} | Self: ${selfFeedStatus}`);
