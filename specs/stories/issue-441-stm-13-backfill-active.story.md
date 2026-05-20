@@ -1,6 +1,6 @@
 # Issue #441: STM-13 — idempotent backfill (active:true on pre-Rev 4 mods, separately revertible)
 
-Status: Ready for Review
+Status: Done
 
 issue: 441
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/441
