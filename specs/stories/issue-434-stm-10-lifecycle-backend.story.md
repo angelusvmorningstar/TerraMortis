@@ -1,6 +1,6 @@
 # Issue #434: STM-10 — lifecycle backend (active + toggle + tombstone-delete + event stream)
 
-Status: Ready for Review
+Status: Done
 
 issue: 434
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/434
