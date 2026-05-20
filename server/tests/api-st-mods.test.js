@@ -140,9 +140,42 @@ describe('AC#7 — authentication', () => {
       .send({ character_id: CHAR_ID, stat_path: 'attributes.Wits.dots', delta: 1, reason: 'x' });
     expect(res.status).toBe(403);
   });
-  it('403 to non-ST callers (player) on GET', async () => {
+
+  // ── Issue #410: GET auth gate relaxed to own-character read ─────────
+  // Pre-#410: GET was requireRole('st'), so the previous "403 to player
+  // on GET" test reflected a contract that broke the player-side sheet
+  // (loadStMods got 401, applyStMods short-circuited, no overlay).
+  //
+  // Post-#410: GET allows any authenticated user but ownership is
+  // enforced inside the handler via canAccessMods. ST any character;
+  // player own-character only; player other-character → 403.
+
+  it('200 on GET for player who OWNS the character (issue #410)', async () => {
     const res = await request(app)
       .get(`/api/st_mods?character_id=${CHAR_ID}`)
+      .set('X-Test-User', playerUser([CHAR_ID]));
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('403 on GET for player who does NOT own the character (issue #410)', async () => {
+    const otherChar = new ObjectId().toHexString();
+    const res = await request(app)
+      .get(`/api/st_mods?character_id=${CHAR_ID}`)
+      .set('X-Test-User', playerUser([otherChar]));
+    expect(res.status).toBe(403);
+  });
+
+  it('403 on GET /api/st_mod_audit for player even when own character (audit stays ST-only)', async () => {
+    const res = await request(app)
+      .get(`/api/st_mod_audit?character_id=${CHAR_ID}`)
+      .set('X-Test-User', playerUser([CHAR_ID]));
+    expect(res.status).toBe(403);
+  });
+
+  it('403 on DELETE for player even when own character (revoke stays ST-only)', async () => {
+    const res = await request(app)
+      .delete(`/api/st_mods/${new ObjectId().toHexString()}`)
       .set('X-Test-User', playerUser([CHAR_ID]));
     expect(res.status).toBe(403);
   });

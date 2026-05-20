@@ -279,6 +279,8 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);     return; }
       if (sectionKey === 'story_moment')        { handleCopyStoryMomentContext(copyBtn); return; }
       if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
+      if (sectionKey === 'home_report')         { handleCopyHomeReportContext(copyBtn);  return; }
+      if (sectionKey === 'feeding_validation')  { handleCopyFeedingContext(copyBtn);     return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
     }
@@ -781,6 +783,12 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     lines.push('');
     lines.push('Existing draft (revise unless told to rewrite):');
     lines.push(existingDraft);
+  }
+
+  const revisionNote = sub.st_narrative?.project_responses?.[idx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
   }
 
   // ST directives — placed immediately before the rubric so the AI weights them highest
@@ -1497,7 +1505,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   const fnIsRev    = fnStatus === 'needs_revision';
 
   h += `<div class="dt-feed-val-narrative-block">`;
-  h += `<div class="dt-story-section-subhead">Storyteller narrative</div>`;
+  h += `<div class="dt-story-section-subhead">Storyteller narrative <button class="dt-story-copy-ctx-btn">Copy Context</button></div>`;
   h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
   h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
@@ -1508,7 +1516,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -1638,7 +1646,7 @@ function renderProjectCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
+  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -1718,6 +1726,12 @@ function buildLetterContext(char, sub, opts = {}) {
     lines.push(`Correspondent voice note: ${stVoiceNote.trim()}`);
   }
 
+  const revisionNote = sub?.st_narrative?.story_moment?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply LETTER_CORRESPONDENT_RULES. No more than 300 words. Do not open with pleasantries or greetings — begin with the letter\'s substance. Use house style.');
 
@@ -1784,6 +1798,12 @@ function buildTouchstoneContext(char, sub, opts = {}) {
     lines.push(prevVignette.trim());
   }
 
+  const revisionNote = sub?.st_narrative?.story_moment?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply TOUCHSTONE_CALIBRATION. No more than 200 words; shorter is better. Begin in scene — no mood-setting preamble. Use house style.');
 
@@ -1821,6 +1841,11 @@ function renderStoryMoment(char, sub, stNarrative) {
     initialStatus  = legacyTouchstone.status || 'draft';
     initialRevNote = legacyTouchstone.revision_note || '';
     legacyNote     = 'Loaded from Touchstone Vignette';
+  }
+
+  // Seed from player's format preference when no ST narrative exists yet
+  if (!sm && !legacyLetter?.response && !legacyTouchstone?.response) {
+    initialFormat = sub.responses?.personal_story_kind === 'touchstone' ? 'vignette' : 'letter';
   }
 
   const complete   = initialStatus === 'complete';
@@ -1928,7 +1953,7 @@ function renderStoryMoment(char, sub, stNarrative) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || initialRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player…">${initialRevNote}</textarea><span class="dt-story-autosave-status"></span>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story…">${initialRevNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
   h += `</div>`;
@@ -2521,6 +2546,12 @@ function buildActionContext(char, sub, idx) {
     lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
+  const revisionNote = sub.st_narrative?.action_responses?.[idx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply FEEDING_CONSTRAINTS for merit-source rules. 50-80 words. Intermediary voice businesslike, not dramatic. Use house style.');
 
@@ -2634,7 +2665,7 @@ function renderActionCard(char, sub, idx) {
   h += `</button>`;
   h += `</div>`;
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
+  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn" data-action-idx="${idx}">Save Revision</button>`;
   h += `</div>`;
@@ -2907,6 +2938,14 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     lines.push(`ST notes: ${cycleData.ambience_notes}`);
   }
 
+  const terrReports  = sub.st_narrative?.territory_reports || [];
+  const terrReport   = terrReports.find(r => r?.territory_id === terrId) || {};
+  const revisionNote = terrReport.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   lines.push('');
   lines.push('Apply AMBIENCE_SIGNATURE and DISCIPLINE_TRACE. One paragraph, 80-120 words. Use house style.');
 
@@ -3015,6 +3054,9 @@ export function buildHomeReportContext(char, sub, allSubmissions) {
     ctx += `No notable activity recorded in ${territory} this cycle. This may be a quiet month.\n\n`;
   }
 
+  const revisionNote = sub.st_narrative?.home_report?.revision_note || '';
+  if (revisionNote) ctx += `\nRevision note: ${revisionNote}\n`;
+
   ctx += `Style: Second person, present tense. No mechanical terms. British English. No em-dashes. ~50–100 words.`;
   return ctx;
 }
@@ -3065,7 +3107,7 @@ function renderHomeReport(char, sub, stNarrative, allSubmissions) {
   h += `</button></div>`;
 
   h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
   h += `</div></div>`;
@@ -3200,7 +3242,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</button>`;
     h += `</div>`;
     h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
+    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
     h += `<div class="dt-story-card-actions">`;
     h += `<button class="dt-story-revision-save-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Revision</button>`;
     h += `</div>`;
@@ -3251,7 +3293,7 @@ function scanNoisyActions(allSubmissions, currentCharId, csDots) {
   return candidates.slice(0, csDots);
 }
 
-function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
+function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots, sub) {
   const lines = [];
   lines.push('You are helping a Storyteller write a Cacophony Savvy intelligence vignette for a Vampire: The Requiem 2nd Edition LARP character.');
   lines.push('');
@@ -3278,6 +3320,13 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   lines.push('- Do not state what actually happened precisely; write what filtered through the rumour network');
   lines.push('- Do not editorialise about significance');
   lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
+
+  const revisionNote = sub?.st_narrative?.cacophony_savvy?.[slotIdx]?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -3355,7 +3404,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</button>`;
       h += `</div>`;
       h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
+      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
       h += `<div class="dt-story-card-actions">`;
       h += `<button class="dt-story-revision-save-btn" data-slot-idx="${slotIdx}">Save Revision</button>`;
       h += `</div>`;
@@ -4206,7 +4255,7 @@ function handleCopyCacophonyContext(btn) {
   const noisy    = scanNoisyActions(_allSubmissions, _currentSub.character_id, csDots);
   const action   = noisy[slotIdx];
   if (!action) return;
-  copyToClipboard(buildCacophonySavvyContext(char, action, slotIdx, csDots), btn);
+  copyToClipboard(buildCacophonySavvyContext(char, action, slotIdx, csDots, _currentSub), btn);
 }
 
 async function handleCacophonySave(btn, status) {
@@ -4280,6 +4329,64 @@ async function handleCacophonySave(btn, status) {
     btn.innerHTML = originalHTML;
     console.error('Cacophony save failed:', err);
   }
+}
+
+function handleCopyHomeReportContext(btn) {
+  if (!_currentSub) return;
+  const sub  = _currentSub;
+  const char = getCharForSub(sub);
+  const text = buildHomeReportContext(char, sub, _allSubmissions);
+  copyToClipboard(text, btn);
+}
+
+function handleCopyFeedingContext(btn) {
+  if (!_currentSub) return;
+  const sub  = _currentSub;
+  const char = getCharForSub(sub);
+  const fr   = sub.feeding_review || {};
+  const roll = sub.feeding_roll   || null;
+
+  const lines = [`Write a feeding narrative for:`, '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
+  lines.push(..._calibrationBlock(char));
+
+  const poolStr = fr.pool_validated || fr.pool_player || '';
+  if (poolStr) {
+    lines.push('');
+    lines.push(`Feed pool: ${poolStr}`);
+  }
+  if (roll) {
+    const vitae = roll.successes * 2;
+    lines.push(`Result: ${roll.successes} success${roll.successes === 1 ? '' : 'es'}${roll.exceptional ? ' (exceptional)' : ''} — ${vitae} Vitae`);
+  }
+
+  const fv = effectiveFeedViolence(sub);
+  if (fv === 'kiss')    lines.push('Feeding method: The Kiss (subtle, prey unaware)');
+  if (fv === 'violent') lines.push('Feeding method: Violent');
+
+  const constraint = fr.story_context || '';
+  if (constraint) {
+    lines.push('');
+    lines.push(`Narrative constraint (do not contradict): ${constraint}`);
+  }
+
+  const existingDraft = sub.st_narrative?.feeding_narrative?.response || '';
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  const revisionNote = sub.st_narrative?.feeding_narrative?.revision_note || '';
+  if (revisionNote) {
+    lines.push('');
+    lines.push(`Revision note: ${revisionNote}`);
+  }
+
+  lines.push('');
+  lines.push('Apply AMBIENCE_SIGNATURE. 2–3 sentences. What did others notice? What did the prey experience? British English. No em-dashes. No mechanical terms.');
+  copyToClipboard(lines.join('\n'), btn);
 }
 
 // Populate after all handlers are defined

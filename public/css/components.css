@@ -5487,7 +5487,38 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   font-style: italic;
 }
 
-/* ── Epic STM (issue #385): mod marker + popover ── */
+/* ── Epic STM mod marker + popover (issue #385, polished by #408) ── */
+
+/* Modded-dot class: applied directly to individual <span class="pointed"> /
+   "pointed hollow" dots when they fall within an STM-modded sub-range
+   (issue #408 Finding 2). Replaces the standalone .stm-marker pip that
+   visually collided with the dot run. Static gold tint + 1px gold ring;
+   no motion per Peter's choice. The dots inherit "pointed" / "pointed hollow"
+   shapes so the differentiation is colour + ring, not shape. */
+.pointed.stm-modded-dot,
+.pointed.hollow.stm-modded-dot {
+  cursor: pointer;
+  background-color: var(--gold2);
+  outline: 1px solid var(--gold2);
+  outline-offset: 1px;
+  /* Slight glow so hover/discoverability still reads. No keyframes. */
+  box-shadow: 0 0 2px var(--gold2-a25, rgba(122,82,8,.25));
+}
+.pointed.hollow.stm-modded-dot {
+  /* Hollow modded dots: ring without solid fill so they still read as
+     "bonus" but with the gold tint. */
+  background-color: transparent;
+  border-color: var(--gold2);
+}
+.pointed.stm-modded-dot:hover,
+.pointed.hollow.stm-modded-dot:hover {
+  outline-color: var(--gold);
+  box-shadow: 0 0 6px var(--gold);
+}
+
+/* Standalone marker (still used by the stats strip for non-dot displays:
+   blood_potency, humanity, current.*, derived.*). Dot-run paths (attributes /
+   skills) use .stm-modded-dot above. */
 .stm-marker {
   display: inline-block;
   width: 8px;
@@ -5507,9 +5538,9 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 
 .stm-pop-host { pointer-events: auto; }
 .stm-pop {
-  min-width: 220px;
-  max-width: 320px;
-  padding: 10px 14px;
+  min-width: 240px;
+  max-width: 340px;
+  padding: 12px 16px;
   background: var(--surf2);
   border: 1px solid var(--gold2);
   border-radius: 4px;
@@ -5524,30 +5555,47 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   color: var(--gold2);
   letter-spacing: .5px;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--bdr);
-  padding-bottom: 4px;
-  margin-bottom: 6px;
+  border-bottom: 1px solid var(--bdr2);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
 }
+/* Base / Final rows: label-left, value-right, single line. Issue #408
+   Finding 4 — explicit span pair so flex always keeps them on one line. */
 .stm-pop-base, .stm-pop-final {
   display: flex;
   justify-content: space-between;
-  padding: 2px 0;
+  align-items: baseline;
+  padding: 4px 0;
   font-weight: 600;
 }
+.stm-pop-row-lbl { color: var(--txt2); font-weight: 600; }
+.stm-pop-base { border-bottom: 1px solid var(--bdr); }
 .stm-pop-final {
-  border-top: 1px solid var(--bdr);
-  margin-top: 6px;
-  padding-top: 6px;
+  border-top: 1px solid var(--gold2);
+  margin-top: 4px;
+  padding-top: 8px;
   color: var(--gold2);
+  font-size: 13px;
 }
-.stm-pop-base-src { color: var(--txt3); font-weight: 400; font-style: italic; }
+.stm-pop-base-src { color: var(--txt3); font-weight: 400; font-style: italic; font-size: 11px; }
 .stm-pop-val { font-family: var(--fh); font-size: 14px; }
-.stm-pop-mods { margin: 4px 0; }
+
+/* Adjustments section: small sub-header + indented mod rows so the
+   start → adjust → result hierarchy is visible at a glance. */
+.stm-pop-mods { margin: 0 0 4px 0; padding: 4px 0 0 14px; border-left: 2px solid var(--gold2-a25, rgba(122,82,8,.25)); margin-left: 4px; }
+.stm-pop-mods-hdr {
+  font-family: var(--fh);
+  font-size: 10px;
+  color: var(--txt3);
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+}
 .stm-pop-mod {
   padding: 4px 0;
   border-bottom: 1px dotted var(--bdr);
 }
-.stm-pop-mod:last-child { border-bottom: 0; }
+.stm-pop-mod:last-child { border-bottom: 0; padding-bottom: 0; }
 .stm-pop-mod-delta {
   display: inline-block;
   min-width: 32px;

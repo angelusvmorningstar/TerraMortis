@@ -16,6 +16,7 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
 import { labelForPath, buildStatPathCategories } from '../data/st-mod-labels.js';
+import { markLocalWrite } from '../data/ws.js';
 import {
   getGlobalSettings,
   loadGlobalSettings,
@@ -97,13 +98,13 @@ function _renderScaffold() {
       <section class="stm-panel-toggles">
         <label class="stm-toggle">
           <input type="checkbox" data-stm-toggle="global" ${globalEnabled ? 'checked' : ''}>
-          Global overlay <strong>${globalEnabled ? 'ON' : 'OFF'}</strong>
-          <span class="stm-toggle-hint">Affects all characters site-wide.</span>
+          Show ST Mods on sheets <strong>${globalEnabled ? 'ON' : 'OFF'}</strong>
+          <span class="stm-toggle-hint">Master switch. When off, no character sheet shows ST mods anywhere on the site (mods stay in the DB; nothing is deleted). Off acts as an emergency hide-all kill-switch.</span>
         </label>
         <label class="stm-toggle">
           <input type="checkbox" data-stm-toggle="suppress" ${charSuppressed ? 'checked' : ''}>
-          Suppress overlay for this character
-          <span class="stm-toggle-hint">When on, this character's modded values render as base.</span>
+          Hide ST Mods for this character only
+          <span class="stm-toggle-hint">When on, just this character's modded values render as base. Other characters unaffected. Use for a quick &ldquo;reset to canonical&rdquo; on one sheet without touching the master switch.</span>
         </label>
       </section>
 
@@ -275,6 +276,13 @@ async function _onSaveClick() {
   _renderError();
 
   try {
+    // STM-9 (issue #416, ADR-004 Rev 3 §D11): mark the local write
+    // BEFORE the POST fires so the WS echo (which often arrives a few
+    // ms before the HTTP response) is suppressed. Constant 'st_mod'
+    // token keyed by character_id — the panel's own _refetchMods +
+    // onMutate chain handles the refresh on this client, so the WS
+    // handler should not redundantly fire for the originating mutation.
+    markLocalWrite(String(c._id), { st_mod: true });
     await apiPost('/api/st_mods', {
       character_id: String(c._id),
       stat_path,
@@ -305,6 +313,8 @@ async function _onRevokeClick(modId) {
   if (!modId) return;
   if (!confirm('Revoke this mod? The audit log will still record the creation event.')) return;
   try {
+    // STM-9 (issue #416): same dedupe shape as POST — mark before DELETE.
+    if (state.character?._id) markLocalWrite(String(state.character._id), { st_mod: true });
     await apiDelete(`/api/st_mods/${modId}`);
     await _refetchMods();
     _renderListBody();
