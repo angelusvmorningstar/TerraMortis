@@ -1914,9 +1914,19 @@ function actionResponsesComplete(sub, categories) {
 function meritSummaryComplete(sub) {
   const actions  = sub?.merit_actions || [];
   const resolved = sub?.merit_actions_resolved || [];
-  const applicable = actions.filter((_, i) => (resolved[i]?.pool_status || '') !== 'skipped');
-  if (!applicable.length) return true;
-  return applicable.every((_, i) => !!(resolved[i]?.outcome_summary?.trim()));
+  const acqRes   = sub?.acquisitions_resolved  || [];
+
+  for (let i = 0; i < actions.length; i++) {
+    const rev = resolved[i] || {};
+    if ((rev.pool_status || '') === 'skipped') continue;
+    if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
+      const acqStatus = acqRes[0]?.pool_status || '';
+      if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
+      continue;
+    }
+    if (!rev.outcome_summary?.trim()) return false;
+  }
+  return true;
 }
 
 const MERIT_CATEGORY_ORDER = ['allies', 'status', 'contacts', 'retainer', 'staff', 'resources', 'misc'];
@@ -1978,9 +1988,15 @@ function renderMeritSummary(char, sub) {
   if (complete) {
     h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
   } else {
-    const missing = actions.filter((_, i) => {
+    const acqRes  = sub?.acquisitions_resolved || [];
+    const missing = actions.filter((a, i) => {
       const rev = resolved[i] || {};
-      return rev.pool_status !== 'skipped' && !rev.outcome_summary?.trim();
+      if (rev.pool_status === 'skipped') return false;
+      if (deriveMeritCategory(a.merit_type) === 'resources') {
+        const acqStatus = acqRes[0]?.pool_status || '';
+        return acqStatus !== 'validated' && acqStatus !== 'skipped';
+      }
+      return !rev.outcome_summary?.trim();
     }).length;
     h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
   }
