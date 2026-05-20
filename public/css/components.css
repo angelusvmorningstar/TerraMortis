@@ -5834,19 +5834,37 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .stm-audit-row-reason { margin-top: 4px; color: var(--txt2); font-size: 12px; }
 .stm-audit-empty, .stm-audit-loading { padding: 18px; color: var(--txt3); font-style: italic; text-align: center; }
 
-.stm-badge {
+/* A deleted (tombstone) event row reads as terminal — dimmed, struck. */
+.stm-audit-row--deleted { opacity: .68; }
+.stm-audit-row--deleted .stm-audit-char,
+.stm-audit-row--deleted .stm-audit-path { text-decoration: line-through; }
+
+/* STM-11: per-event-type lifecycle badge. */
+.stm-ev-badge {
   font-size: 10px;
   letter-spacing: .5px;
   text-transform: uppercase;
   padding: 1px 8px;
   border-radius: 2px;
+  min-width: 78px;
+  text-align: center;
 }
-.stm-badge--active {
+.stm-ev--created {
+  background: var(--surf2);
+  color: var(--txt2);
+  border: 1px solid var(--bdr2);
+}
+.stm-ev--activated {
   background: var(--green2-4, rgba(110,160,90,.35));
   color: var(--green, #6EA05A);
   border: 1px solid var(--green, #6EA05A);
 }
-.stm-badge--revoked {
+.stm-ev--deactivated {
+  background: var(--surf);
+  color: var(--txt3);
+  border: 1px solid var(--bdr);
+}
+.stm-ev--deleted {
   background: var(--crim-a25, rgba(139,0,0,.25));
   color: var(--crim, #8B0000);
   border: 1px solid var(--crim, #8B0000);
