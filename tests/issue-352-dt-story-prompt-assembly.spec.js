@@ -212,9 +212,9 @@ test.describe('issue-352: DT Story prompt assembly', () => {
 
     const text = await captureCtxClick(page, 'vignette');
 
-    expect(text).toContain("Player's vignette:");
+    expect(text).toContain('Player-submitted narrative:');
     expect(text).toContain('The call connects on the second ring. You hear her voice, thin and bright.');
-    expect(text).not.toContain('[No player vignette submitted]');
+    expect(text).not.toContain('[No player narrative submitted this cycle]');
   });
 
   test('Bug 1 — vignette Copy Context shows sentinel when player has not submitted', async ({ page }) => {
@@ -223,8 +223,8 @@ test.describe('issue-352: DT Story prompt assembly', () => {
 
     const text = await captureCtxClick(page, 'vignette');
 
-    expect(text).toContain("Player's vignette:");
-    expect(text).toContain('[No player vignette submitted]');
+    expect(text).toContain('Player-submitted narrative:');
+    expect(text).toContain('[No player narrative submitted this cycle]');
   });
 
   test('Bug 1 — letter Copy Context still shows player letter (regression check)', async ({ page }) => {
