@@ -372,3 +372,70 @@ describe('POST /api/characters/wizard — player character creation', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ── PATCH /:id/st_mods_suppressed (Epic STM, issue #378) ─────────────────────
+
+describe('PATCH /api/characters/:id/st_mods_suppressed — ST per-character override', () => {
+  it('flips the field to true, GET reflects', async () => {
+    const char = await seedChar({ name: 'STM Suppress Target' });
+    const idStr = char._id.toString();
+
+    const res = await request(app)
+      .patch(`/api/characters/${idStr}/st_mods_suppressed`)
+      .set('X-Test-User', stUser())
+      .send({ st_mods_suppressed: true });
+    expect(res.status).toBe(200);
+    expect(res.body.st_mods_suppressed).toBe(true);
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    expect(stored.st_mods_suppressed).toBe(true);
+  });
+
+  it('false clears the field via $unset (absent rather than literal false)', async () => {
+    const char = await seedChar({ name: 'STM Suppress Clear Target', st_mods_suppressed: true });
+    const idStr = char._id.toString();
+
+    const res = await request(app)
+      .patch(`/api/characters/${idStr}/st_mods_suppressed`)
+      .set('X-Test-User', stUser())
+      .send({ st_mods_suppressed: false });
+    expect(res.status).toBe(200);
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    expect('st_mods_suppressed' in stored).toBe(false);
+  });
+
+  it('400 on non-boolean body', async () => {
+    const char = await seedChar({ name: 'STM Suppress 400 Target' });
+    const res = await request(app)
+      .patch(`/api/characters/${char._id.toString()}/st_mods_suppressed`)
+      .set('X-Test-User', stUser())
+      .send({ st_mods_suppressed: 'yes' });
+    expect(res.status).toBe(400);
+  });
+
+  it('404 on unknown character', async () => {
+    const res = await request(app)
+      .patch(`/api/characters/${new ObjectId().toHexString()}/st_mods_suppressed`)
+      .set('X-Test-User', stUser())
+      .send({ st_mods_suppressed: true });
+    expect(res.status).toBe(404);
+  });
+
+  it('401 without auth', async () => {
+    const char = await seedChar({ name: 'STM Suppress 401 Target' });
+    const res = await request(app)
+      .patch(`/api/characters/${char._id.toString()}/st_mods_suppressed`)
+      .send({ st_mods_suppressed: true });
+    expect(res.status).toBe(401);
+  });
+
+  it('403 as player', async () => {
+    const char = await seedChar({ name: 'STM Suppress 403 Target' });
+    const res = await request(app)
+      .patch(`/api/characters/${char._id.toString()}/st_mods_suppressed`)
+      .set('X-Test-User', playerUser([]))
+      .send({ st_mods_suppressed: true });
+    expect(res.status).toBe(403);
+  });
+});

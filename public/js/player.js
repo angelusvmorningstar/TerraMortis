@@ -4,7 +4,12 @@ import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { esc, displayName, dropdownName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
-import { setStatusTerritories } from './data/accessors.js';
+import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
+import { ensureLoaded as loadTrackerState } from './game/tracker.js';
+import { loadStMods, applyStMods, spliceCurrent, applyOverlayToAll } from './data/st-mods.js';
+import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { installStModPopover } from './editor/st-mod-popover.js';
+import { initWS } from './data/ws.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
@@ -34,6 +39,29 @@ let retiredChars = [];
 window.toggleExp = toggleExp;
 window.toggleDisc = toggleDisc;
 
+// ── ST mod overlay composition (Epic STM, issue #372) ──
+//
+// Single composition site per ADR-004 §D1. Player view has no edit mode,
+// so the overlay always applies. Sequence: load tracker_state → splice
+// synthetic c.current.* (D5) → load mods → applyStMods → renderSheet.
+async function renderSheetWithOverlay(c) {
+  if (!c) return;
+  const tracker = await loadTrackerState(c).catch(() => null);
+  spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
+  const mods = await loadStMods(c._id);
+  // STM-3 (issue #378): real values now flow through.
+  //   - getGlobalSettings() returns null until loadGlobalSettings() resolves
+  //     (boot path primes it before any render). Null is treated as enabled.
+  //   - c.st_mods_suppressed is set per-character via PATCH; absent = not suppressed.
+  const settings = getGlobalSettings();
+  const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
+  applyStMods(c, mods, overlayEnabled);
+  // Epic STM (issue #385): expose the active character so the popover's
+  // delegated handler can resolve overlay entries when a marker is clicked.
+  window.__activeChar = c;
+  renderSheet(c);
+}
+
 // ── Auth gate ──
 
 async function boot() {
@@ -55,7 +83,43 @@ async function boot() {
       app.style.display = '';
       renderSidebarUser();
       renderSidebarFooter();
+      // Prime the global settings cache before character render
+      // possibly triggers an overlay composition (STM-3 / issue #378).
+      // Non-blocking — overlay treats a null cache as enabled.
+      loadGlobalSettings();
       await loadCharacters();
+
+      // Subscribe to remote tracker_state mutations so the active sheet
+      // re-composes (splice → overlay → render) within ~1s of a write
+      // from another tab / device (AC#7 / ADR-004 §D5). The WS client
+      // suppresses echoes of our own writes via markLocalWrite.
+      initWS({
+        onTrackerUpdate: (charId) => {
+          if (!activeChar || String(activeChar._id) !== String(charId)) return;
+          renderSheetWithOverlay(activeChar);
+        },
+        // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+        // create/revoke for the player's character, refresh the
+        // overlay so the visible sheet reflects the new state within
+        // ~1s. Server only broadcasts to authenticated clients; the
+        // player only sees frames for their own characters' mods
+        // (well — frames are broadcast to all, but the player's
+        // chars[] only includes their own, so the find() filters).
+        onStModUpdate: async (charId) => {
+          const target = chars.find(c => String(c._id) === String(charId));
+          if (!target) return;
+          await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+          if (activeChar && String(activeChar._id) === String(charId)) {
+            renderSheetWithOverlay(activeChar);
+          }
+        },
+      });
+
+      // Epic STM (issue #385): install delegated click handler for the
+      // ST mod marker popover. Markers carry data-stm-marker-path attributes;
+      // the popover resolves the active character via window.__activeChar
+      // (set by renderSheetWithOverlay above).
+      installStModPopover(document.body);
       return;
     }
   }
@@ -356,7 +420,7 @@ function selectCharacter(activeChars, idx) {
 
   // Sheet is the default-active tab on first paint; always render it
   // eagerly so the user has content immediately.
-  renderSheet(activeChar);
+  renderSheetWithOverlay(activeChar);
 
   // Visibility toggles for conditional tab buttons. The actual tab
   // CONTENT renders lazily when the user clicks the button. We still
