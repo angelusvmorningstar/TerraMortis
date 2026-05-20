@@ -99,9 +99,53 @@ export function shDots(n) {
   return '<span class="pointed"></span>'.repeat(Math.max(0, n || 0));
 }
 
-export function shDotsWithBonus(base, bonus) {
-  if (!bonus) return shDots(base);
-  return '<span class="pointed"></span>'.repeat(Math.max(0, base || 0)) + '<span class="pointed hollow"></span>'.repeat(Math.max(0, bonus || 0));
+/** Render `base` filled dots followed by `bonus` hollow dots.
+ *
+ *  Issue #408 (Epic STM UX polish): optional `opts` lets callers tag
+ *  a sub-range of dots as "ST-modded" — those dots receive the
+ *  `stm-modded-dot` class + `data-stm-marker-path` attribute + a
+ *  `title` tooltip. The delegated click handler at document.body
+ *  (`installStModPopover`) dispatches on `data-stm-marker-path`, so
+ *  clicking a modded dot opens the popover. This replaces the
+ *  pre-#408 standalone `.stm-marker` pip that visually collided
+ *  with the dot run.
+ *
+ *  opts = {
+ *    filledMod: { from, to, path, title } | undefined,
+ *    hollowMod: { from, to, path, title } | undefined,
+ *  }
+ *  Indices are zero-based into the respective stream
+ *  (filled = positions [0..base-1]; hollow = positions [0..bonus-1]).
+ *  `to` is exclusive. Callers compute hollow-stream indices including
+ *  any auto-bonus offset (attributes: autoBonus dots come first in
+ *  the hollow stream; modded manual bonus starts at autoBonus + ovBonus.base).
+ *
+ *  No-opts path is byte-identical to the pre-#408 implementation. */
+export function shDotsWithBonus(base, bonus, opts) {
+  if (!opts || (!opts.filledMod && !opts.hollowMod)) {
+    if (!bonus) return shDots(base);
+    return '<span class="pointed"></span>'.repeat(Math.max(0, base || 0)) + '<span class="pointed hollow"></span>'.repeat(Math.max(0, bonus || 0));
+  }
+  const fm = opts.filledMod;
+  const hm = opts.hollowMod;
+  let out = '';
+  const baseN = Math.max(0, base || 0);
+  for (let i = 0; i < baseN; i++) {
+    if (fm && i >= fm.from && i < fm.to) {
+      out += `<span class="pointed stm-modded-dot" data-stm-marker-path="${esc(fm.path || '')}" title="${esc(fm.title || '')}"></span>`;
+    } else {
+      out += '<span class="pointed"></span>';
+    }
+  }
+  const bonusN = Math.max(0, bonus || 0);
+  for (let i = 0; i < bonusN; i++) {
+    if (hm && i >= hm.from && i < hm.to) {
+      out += `<span class="pointed hollow stm-modded-dot" data-stm-marker-path="${esc(hm.path || '')}" title="${esc(hm.title || '')}"></span>`;
+    } else {
+      out += '<span class="pointed hollow"></span>';
+    }
+  }
+  return out;
 }
 
 /** Card name: moniker || name, no honorific. Redacted in dev mode.

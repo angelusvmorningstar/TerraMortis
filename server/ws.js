@@ -70,6 +70,35 @@ export function broadcastTrackerUpdate(characterId, fields) {
   }
 }
 
+/**
+ * Broadcast an ST mod create/revoke event to all connected clients.
+ * STM-9 (issue #416, ADR-004 Rev 3 §D11) — mirrors broadcastTrackerUpdate's
+ * dispatch shape so the client's existing reconnect / heartbeat / dedupe
+ * machinery applies without extension.
+ *
+ * Frame shape: { type: 'st_mod', characterId, op, st_mod_id }. The
+ * st_mod_id is what the client's markLocalWrite dedupe uses as the
+ * unique-mutation token (mirrors how tracker frames use per-field keys).
+ *
+ * @param {string} characterId
+ * @param {'create' | 'revoke'} op
+ * @param {string} stModId — the mod doc _id (or revoked doc id)
+ */
+export function broadcastStModUpdate(characterId, op, stModId) {
+  if (!_wss) return;
+  const msg = JSON.stringify({
+    type: 'st_mod',
+    characterId: String(characterId),
+    op,
+    st_mod_id: String(stModId),
+  });
+  for (const ws of _wss.clients) {
+    if (ws.readyState === 1) { // OPEN
+      ws.send(msg);
+    }
+  }
+}
+
 // ── Token resolution (mirrors middleware/auth.js logic) ──
 
 const _tokenCache = new Map();

@@ -776,9 +776,12 @@ function collectResponses() {
       const el = document.getElementById(`dt-sphere_${n}_target_value`);
       if (el) responses[`sphere_${n}_target_value`] = el.value;
     }
-    // Merit label for this slot
+    // Merit label — only written when player opted in (gate = 'yes').
+    // Absent label means admin queue builder skips this slot entirely.
     const m = detectedMerits.spheres[n - 1];
-    if (m) responses[`sphere_${n}_merit`] = meritLabel(m);
+    if (m && gateValues[`merit_${meritKey(m)}`] === 'yes') {
+      responses[`sphere_${n}_merit`] = meritLabel(m);
+    }
     // Cast hidden inputs (legacy — kept for backwards compat)
     const castHidden = document.querySelectorAll(`input[type="hidden"][data-sphere-cast-cb="${n}"]`);
     const castIds = [];
@@ -810,8 +813,12 @@ function collectResponses() {
     if (responses[`status_${n}_action`] === 'ambience_change') {
       responses[`status_${n}_action`] = stAmbienceDir === 'degrade' ? 'ambience_decrease' : 'ambience_increase';
     }
+    // Merit label — only written when player picked an action.
+    // Absent label means admin queue builder skips this slot entirely.
     const sm = detectedMerits.status[n - 1];
-    if (sm) responses[`status_${n}_merit`] = meritLabel(sm);
+    if (sm && responses[`status_${n}_action`]) {
+      responses[`status_${n}_merit`] = meritLabel(sm);
+    }
   }
 
   // Contact fields (expandable table — up to 5)

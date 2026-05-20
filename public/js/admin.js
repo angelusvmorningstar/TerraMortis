@@ -10,7 +10,7 @@ import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
-import { loadStMods, applyStMods, spliceCurrent, stripOverlay } from './data/st-mods.js';
+import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
@@ -118,11 +118,6 @@ async function renderSheetWithOverlay(c) {
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
 
   const mods = await loadStMods(c._id);
-  // STM-3 (issue #378): real values now flow through.
-  //   - getGlobalSettings() returns null until loadGlobalSettings() resolves
-  //     (boot path awaits it before any render; this is a defensive fallback
-  //     in case a render races boot). Null is treated as enabled.
-  //   - c.st_mods_suppressed is set per-character via PATCH; absent = falsy = not suppressed.
   const settings = getGlobalSettings();
   const overlayEnabled = (settings?.st_mods_enabled !== false) && !c.st_mods_suppressed;
   applyStMods(c, mods, overlayEnabled);
@@ -185,6 +180,21 @@ async function boot() {
           const c = chars[idx];
           if (!c || String(c._id) !== String(charId)) return;
           renderSheetWithOverlay(c);
+        },
+        // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+        // create/revoke, refresh that character's cache entry by
+        // re-running the full overlay helper. Re-renders the active
+        // sheet only if the affected character is the open one;
+        // other characters get a silent cache update for the next
+        // time their sheet opens.
+        onStModUpdate: async (charId) => {
+          const target = chars.find(c => String(c._id) === String(charId));
+          if (!target) return;
+          await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+          const idx = editorState.editIdx;
+          if (idx != null && idx >= 0 && chars[idx] === target) {
+            renderSheetWithOverlay(target);
+          }
         },
       });
 
@@ -274,14 +284,24 @@ function switchDomain(domain) {
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
-    // placeholder. onMutate triggers the STM-2 sheet re-render so mod
-    // changes and toggle flips are immediately visible on the player view.
+    // placeholder.
     const idx = editorState.editIdx;
     const c = (idx != null && idx >= 0) ? chars[idx] : null;
     initStModsPanel(
       document.getElementById('st-mods-panel-content'),
       c,
-      () => { if (c) renderSheetWithOverlay(c); },
+      // Bugfix #405: onMutate previously captured `c` in a closure at
+      // sidebar-activation time. In Peter's repro, that closure pathway
+      // failed to land the mutation on `chars[editIdx]` (observed:
+      // chars[idx]._st_mod_overlay undefined post-POST, populated only
+      // after openCharDetail re-fired). Cause was likely a reference-
+      // identity gap: chars[idx] reads the LIVE array entry while the
+      // closure pinned the value at activation. Reading chars[editIdx]
+      // fresh inside the callback closes that gap.
+      () => {
+        const liveChar = chars[editorState.editIdx];
+        if (liveChar) renderSheetWithOverlay(liveChar);
+      },
     );
   }
 }
@@ -890,10 +910,11 @@ async function createNewCharacter() {
 const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creation', 'merit_creation']);
 
 function buildSaveBody(c) {
-  // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, and legacy v2 fields
+  // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
+  // and c.current (tracker-state namespace set by spliceCurrent — not a schema field).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || _LEGACY_FIELDS.has(k)) continue;
+    if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
   return body;
@@ -1216,6 +1237,19 @@ async function init() {
       const terrs = await apiGet('/api/territories');
       setStatusTerritories(terrs);
     } catch { /* territories not available — regent display will be blank */ }
+    // STM-8 (issue #415, ADR-004 Rev 3 §D8 — issue #413 admin parity):
+    // boot-time overlay for the admin chars array. STM-7 wired this for
+    // the suite app (app.js); admin.js was left out because at that point
+    // the per-sheet renderSheetWithOverlay covered the only read site.
+    // STM-8's DT resolution snapshot reads chars[i]._st_mod_overlay at
+    // resolve time — without boot-time overlay here, the snapshot would
+    // capture empty mods unless the ST happened to open the character
+    // sheet first. Apply overlay once at admin boot so the invariant
+    // holds across all admin views, mirroring app.js's pattern.
+    await loadGlobalSettings();
+    const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+    await applyOverlayToAll(chars, globalEnabled);
+
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);
