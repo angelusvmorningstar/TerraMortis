@@ -130,10 +130,16 @@ export function applyStMods(c, mods, overlayEnabled) {
     return c;
   }
 
-  // Group by path, summing deltas, retaining each contributing mod
+  // Group by path, summing deltas, retaining each contributing mod.
+  // STM-10 (issue #434, ADR-004 Rev 4 §D16): skip INACTIVE mods. The
+  // bulk/single GET returns all mods (active + inactive) so STM-11's
+  // audit view and STM-12's panel can show the full set; the overlay
+  // only composes active ones. `active !== false` treats a missing field
+  // as active (D19 backfill-independence for pre-Rev 4 docs).
   const byPath = new Map();
   for (const m of mods) {
     if (!m || typeof m.stat_path !== 'string' || !Number.isInteger(m.delta)) continue;
+    if (m.active === false) continue;
     let entry = byPath.get(m.stat_path);
     if (!entry) {
       entry = { delta: 0, mods: [] };
@@ -141,6 +147,13 @@ export function applyStMods(c, mods, overlayEnabled) {
     }
     entry.delta += m.delta;
     entry.mods.push(m);
+  }
+
+  // If every mod was inactive, byPath is empty — strip any prior overlay
+  // and return so a freshly-deactivated mod reverts the displayed value.
+  if (byPath.size === 0) {
+    stripOverlay(c);
+    return c;
   }
 
   // Restore any prior overlay before re-applying — successive renders pile

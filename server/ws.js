@@ -81,8 +81,13 @@ export function broadcastTrackerUpdate(characterId, fields) {
  * unique-mutation token (mirrors how tracker frames use per-field keys).
  *
  * @param {string} characterId
- * @param {'create' | 'revoke'} op
- * @param {string} stModId — the mod doc _id (or revoked doc id)
+ * @param {'create' | 'activate' | 'deactivate' | 'delete'} op
+ *   STM-10 (issue #434, ADR-004 Rev 4 §D18) widened the op set. The
+ *   `revoke` op from STM-9 is retired — DELETE now emits `delete`, and
+ *   the PATCH toggle emits `activate` / `deactivate`. Clients treat the
+ *   op as advisory and refetch the character's mods regardless, so an
+ *   unknown op degrades gracefully to "refetch".
+ * @param {string} stModId — the affected mod doc _id
  */
 export function broadcastStModUpdate(characterId, op, stModId) {
   if (!_wss) return;

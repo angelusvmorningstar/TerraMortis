@@ -427,8 +427,14 @@ describe('STM-6 — GET /api/st_mod_audit filter + pagination + active decoratio
       .get(`/api/st_mod_audit?character_id=${STM6_CHAR_A}`)
       .set('X-Test-User', stUser());
     expect(resA.status).toBe(200);
-    expect(resA.body.total).toBe(3);
+    // STM-10 (issue #434): the setup revokes one of CHAR_A's 3 mods, and
+    // DELETE now writes a `deleted` tombstone audit row (tombstone-before-
+    // destroy). So CHAR_A's audit stream = 3 'created' + 1 'deleted' = 4.
+    // Pre-STM-10 the revoke left only the 3 creation rows.
+    expect(resA.body.total).toBe(4);
     expect(resA.body.rows.every(r => r.character_id === STM6_CHAR_A)).toBe(true);
+    expect(resA.body.rows.filter(r => r.event === 'created').length).toBe(3);
+    expect(resA.body.rows.filter(r => r.event === 'deleted').length).toBe(1);
 
     const resB = await request(app)
       .get(`/api/st_mod_audit?character_id=${STM6_CHAR_B}`)

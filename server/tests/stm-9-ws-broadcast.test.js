@@ -118,7 +118,9 @@ describe('STM-9 — DELETE /api/st_mods/:id emits broadcastStModUpdate(revoke)',
     expect(broadcastSpy).toHaveBeenCalledTimes(1);
     const call = broadcastSpy.mock.calls[0];
     expect(call[0]).toBe(CHAR_ID);
-    expect(call[1]).toBe('revoke');
+    // STM-10 (issue #434, §D18): DELETE now emits 'delete' (the 'revoke'
+    // op string is retired). Updated from the STM-9 assertion.
+    expect(call[1]).toBe('delete');
     expect(call[2]).toBe(String(modId));
   });
 
@@ -183,7 +185,7 @@ describe('STM-9 — client dedupe blocks echo of own write', () => {
     // Multiple frames within the window — all suppressed because they
     // all match the same constant 'st_mod' key.
     handleStModMsg({ characterId: CHAR_ID, op: 'create', st_mod_id: 'id-1' }, onUpdate);
-    handleStModMsg({ characterId: CHAR_ID, op: 'revoke', st_mod_id: 'id-2' }, onUpdate);
+    handleStModMsg({ characterId: CHAR_ID, op: 'delete', st_mod_id: 'id-2' }, onUpdate);
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
