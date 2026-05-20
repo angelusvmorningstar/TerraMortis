@@ -14,7 +14,7 @@ import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effe
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { publishAllForCycle } from './downtime-story.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
@@ -26,6 +26,42 @@ function isoToLocalInput(iso) {
 
 let submissions = [];
 let characters = [];
+
+/** Build a pool snapshot at DT resolution time per ADR-004 Rev 3 §D10 (STM-8 / issue #415).
+ *  Captures the character's active overlay state alongside the resolved
+ *  pool total so the historical record survives later mod revocation.
+ *
+ *  Always-write convention: when the character has no overlay (no mods
+ *  active), returns { base: finalPool, mods: [], final: finalPool } so
+ *  downstream consumers see a consistent shape. Math invariant
+ *  (enforced server-side): final === base + Σ mods[].delta — computed
+ *  from finalPool − Σ delta so the invariant always holds by construction.
+ *
+ *  Note on scope: captures ALL active mods on the character at resolution,
+ *  not action-aware filtering. Per STM-8 §scope the snapshot is a historical
+ *  record of mod state, not just the contributing subset. A future story
+ *  could refine to per-stat-path filtering if ST debugging surfaces a need. */
+function buildPoolSnapshot(c, finalPool) {
+  const total = Number.isFinite(finalPool) ? finalPool : 0;
+  const overlay = c?._st_mod_overlay || {};
+  const mods = [];
+  for (const entry of Object.values(overlay)) {
+    if (!entry || !Array.isArray(entry.mods)) continue;
+    for (const m of entry.mods) {
+      if (!m || !Number.isInteger(m.delta) || !m.stat_path) continue;
+      mods.push({ stat_path: m.stat_path, delta: m.delta, reason: m.reason || '' });
+    }
+  }
+  const sumDelta = mods.reduce((s, m) => s + m.delta, 0);
+  return { base: total - sumDelta, mods, final: total };
+}
+
+/** Resolve the active character for a submission, returning null if not in
+ *  the loaded characters array. */
+function _charForSub(sub) {
+  if (!sub?.character_id) return null;
+  return characters.find(c => String(c._id) === String(sub.character_id)) || null;
+}
 let charMap = new Map();
 let allCycles = [];
 let activeCycle = null;
@@ -238,21 +274,7 @@ function _computeMeritPoolSize(category, dots) {
   return null; // staff = fixed; contacts = char pool (not auto-computed)
 }
 
-// Human-readable labels for pool_status values across all action types
-const POOL_STATUS_LABELS = {
-  pending:     'Pending',
-  confirmed:   'Confirmed',
-  rolled:      'Rolled',
-  validated:   'Validated',
-  no_roll:     'No Roll',
-  no_feed:     'No Valid Feeding',
-  maintenance: 'Maintenance',
-  resolved:    'Resolved',
-  no_effect:   'No Effect',
-  obvious:     'Obvious',
-  neutral:     'Neutral',
-  subtle:      'Subtle',
-};
+// POOL_STATUS_LABELS imported from downtime-constants.js
 
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
 const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped', 'obvious', 'neutral', 'subtle']);
@@ -547,6 +569,9 @@ export async function initDowntimeView(passedChars) {
       if (procMeritDesc) { _handleProcFieldBlur(procMeritDesc, 'description'); return; }
       const procSorcNotes = e.target.closest('.proc-sorc-notes-input');
       if (procSorcNotes) { _handleProcFieldBlur(procSorcNotes, 'sorc_notes'); return; }
+      // Issue #324: Court Pulse synthesis autosave on blur
+      const cpSynthTa = e.target.closest('.dt-court-pulse-synthesis-ta');
+      if (cpSynthTa) { _handleCourtPulseBlur(cpSynthTa); return; }
     });
     // Dev-only: preview CSV button (no MongoDB writes)
     if (location.hostname === 'localhost') {
@@ -861,7 +886,8 @@ function renderJointGroup(joint, entries) {
       : (entry.description || '');
     const roleBadge = entry.joint_role === 'lead' ? 'Lead' : 'Support';
 
-    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+    const isDoneJoint = DONE_STATUSES.has(status);
+    h += `<div class="proc-action-row proc-joint-row${isExpanded ? ' expanded' : ''}${isDoneJoint ? ' proc-action-done' : ''}" data-proc-key="${esc(entry.key)}">`;
     h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
     h += `<span class="proc-row-label">${esc(entry.label)} <span class="proc-joint-role-badge proc-joint-role-${esc(entry.joint_role || 'support')}">${roleBadge}</span></span>`;
     h += `<span class="proc-row-desc" title="${esc(entry.description || '')}">${esc(shortDesc || '—')}</span>`;
@@ -2049,6 +2075,27 @@ async function _handleCourtPulseSave(btn) {
   }
 }
 
+async function _handleCourtPulseBlur(ta) {
+  const panel = ta.closest('.dt-court-pulse-panel');
+  const cycleId = panel?.dataset.cycleId;
+  if (!cycleId) return;
+  const text = ta.value;
+  if (text === (currentCycle?.st_court_synthesis_draft ?? '')) return;
+  const status = panel?.querySelector('.dt-court-pulse-save-status');
+  _setAutosaveStatus(status, 'saving');
+  try {
+    await updateCycle(cycleId, { st_court_synthesis_draft: text });
+    if (currentCycle && String(currentCycle._id) === cycleId) {
+      currentCycle.st_court_synthesis_draft = text;
+    }
+    const idx = allCycles.findIndex(c => String(c._id) === cycleId);
+    if (idx >= 0) allCycles[idx].st_court_synthesis_draft = text;
+    _setAutosaveStatus(status, 'saved');
+  } catch {
+    _setAutosaveStatus(status, 'error');
+  }
+}
+
 // ── DTIL-2: Action Queue ─────────────────────────────────────────────────────
 
 const ACTION_QUEUE_STATES = ['unread', 'acknowledged', 'action_needed', 'resolved', 'ignored'];
@@ -3104,9 +3151,12 @@ function buildProcessingQueue(subs) {
     let spheres  = raw.sphere_actions || [];
     if (!spheres.length) {
       // App-form submissions store sphere actions as flat response keys (sphere_N_merit etc.)
+      // Guard: require both merit label AND a non-empty action so existing submissions
+      // with phantom labels (player never toggled gate) are retroactively suppressed.
       for (let n = 1; n <= 5; n++) {
         const meritType = resp[`sphere_${n}_merit`];
-        if (!meritType) continue;
+        const actionVal = resp[`sphere_${n}_action`];
+        if (!meritType || !actionVal) continue;
         spheres = [...spheres, {
           merit_type:      meritType,
           action_type:     resp[`sphere_${n}_action`]      || 'misc',
@@ -3145,6 +3195,28 @@ function buildProcessingQueue(subs) {
         contactList.push(req);
       }
       contacts = contactList;
+    }
+    // Issue #344 — Status merit actions write status_${n}_* keys (not sphere_${n}_*),
+    // so they are never picked up by the sphere fallback above. Append them to
+    // `spheres` so they flow through the same forEach with correct meritFlatIdx
+    // accounting and _parseMeritType returning category:'status' automatically.
+    for (let n = 1; n <= 5; n++) {
+      const meritType = resp[`status_${n}_merit`];
+      const actionVal = resp[`status_${n}_action`];
+      if (!meritType || !actionVal) continue;
+      spheres = [...spheres, {
+        merit_type:       meritType,
+        action_type:      resp[`status_${n}_action`]           || 'misc',
+        desired_outcome:  resp[`status_${n}_outcome`]          || '',
+        description:      resp[`status_${n}_description`]      || '',
+        territory:        resp[`status_${n}_territory`]        || '',
+        target_type:      resp[`status_${n}_target_type`]      || '',
+        target_value:     resp[`status_${n}_target_value`]     || '',
+        target_other:     resp[`status_${n}_target_other`]     || '',
+        investigate_lead: resp[`status_${n}_investigate_lead`] || '',
+        primary_pool:     null,
+        cast:             '',
+      }];
     }
     const retainers = raw.retainer_actions?.actions || [];
 
@@ -3336,6 +3408,30 @@ function buildProcessingQueue(subs) {
         description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
         source: 'merit',
         meritCategory: 'staff',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    }
+    // Issue #344 — Retainer actions write retainer_${n}_type/task/merit for
+    // app-form submissions. The block above reads raw.retainer_actions?.actions
+    // which is always [] for app-form subs. Mirror the Mentor pattern.
+    for (let n = 1; n <= 10; n++) {
+      const task    = resp[`retainer_${n}_task`];
+      const type    = resp[`retainer_${n}_type`];
+      const meritLb = resp[`retainer_${n}_merit`];
+      if (!task && !type) continue;
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
+        actionType: 'resources_retainers',
+        label: meritLb ? `${meritLb}: Directed Action` : 'Retainer: Directed Action',
+        description: _composeDirectedDesc(meritLb, type || '', task || ''),
+        source: 'merit',
+        meritCategory: 'retainer',
         actionIdx: meritFlatIdx,
         poolPlayer: '',
       });
@@ -3804,10 +3900,11 @@ function _gatherMeritAmbience(subs) {
     if (!spheres.length) {
       for (let n = 1; n <= 5; n++) {
         const meritType = resp[`sphere_${n}_merit`];
-        if (!meritType) continue;
+        const actionVal = resp[`sphere_${n}_action`];
+        if (!meritType || !actionVal) continue;
         spheres = [...spheres, {
           merit_type:  meritType,
-          action_type: resp[`sphere_${n}_action`] || 'misc',
+          action_type: actionVal,
         }];
       }
     }
@@ -3891,7 +3988,7 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
   }
 
   // Aggregate each change source (all accumulators keyed by canonical territory id)
-  // Use passed feed counts (from TAAG matrix) when available so the numbers always match.
+  // Use passed feed counts when available (caller uses _computeMatrixFeederCounts().byTerrId).
   const feederCounts = passedFeedCounts ?? _computeMatrixFeederCounts().byTerrId;
   const { infPos, infNeg }                                    = _gatherInfluence(submissions);
   const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
@@ -4357,6 +4454,14 @@ function renderProcessingMode(container) {
   // Controls bar — queue-level toggles
   h += `<div class="proc-queue-controls">`;
   h += `<button class="proc-hide-done-btn${procHideDone ? ' active' : ''}" id="proc-hide-done-toggle">${procHideDone ? 'Show all' : 'Hide done'}</button>`;
+  const _totalDone  = queue.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+  const _totalCount = queue.length;
+  if (_totalCount > 0) {
+    const _allDone = _totalDone === _totalCount;
+    h += _allDone
+      ? `<span class="proc-progress-total proc-progress-all-done">✓ All done (${_totalCount})</span>`
+      : `<span class="proc-progress-total">${_totalDone} / ${_totalCount} done</span>`;
+  }
   h += `</div>`;
 
   // Character status strip — at-a-glance state + jump-to navigation
@@ -4405,7 +4510,8 @@ function renderProcessingMode(container) {
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
-        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+        const isDone = DONE_STATUSES.has(status);
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}${isDone ? ' proc-action-done' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
@@ -5192,8 +5298,12 @@ function renderProcessingMode(container) {
         { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
           again, rote: isRote },
         async result => {
-          await updateSubmission(subId, { feeding_roll: result, feeding_vitae_tally: vitateTally });
-          if (sub) { sub.feeding_roll = result; sub.feeding_vitae_tally = vitateTally; }
+          // STM-8 (issue #415): snapshot the active mod state alongside
+          // the feeding roll so the historical record survives mod revocation.
+          const c = _charForSub(sub);
+          const feedingRoll = { ...result, pool_snapshot: buildPoolSnapshot(c, diceCount) };
+          await updateSubmission(subId, { feeding_roll: feedingRoll, feeding_vitae_tally: vitateTally });
+          if (sub) { sub.feeding_roll = feedingRoll; sub.feeding_vitae_tally = vitateTally; }
           const cur = getEntryReview(entry)?.pool_status || 'pending';
           if (cur === 'pending' || cur === 'confirmed') {
             await saveEntryReview(entry, { pool_status: 'rolled' });
@@ -5279,9 +5389,14 @@ function renderProcessingMode(container) {
       }, async result => {
         // Save both roll result AND pool object so the player story tab
         // can display both the expression and the outcome.
+        // STM-8 (issue #415): pool_snapshot at resolution captures the
+        // active mod state so the historical record survives revocation.
+        const sub = submissions.find(s => s._id === entry.subId);
+        const c = _charForSub(sub);
         await saveEntryReview(entry, {
           roll: result,
           pool: { expression: poolValidated, total: diceCount },
+          pool_snapshot: buildPoolSnapshot(c, diceCount),
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'confirmed') {
@@ -5308,9 +5423,17 @@ function renderProcessingMode(container) {
         existingRoll: review?.roll || null,
         again: 10, initialRote: false,
       }, async result => {
+        // STM-8 (issue #415): snapshot the mod state alongside the merit
+        // resolution. Pool composition for merit rolls = (dots \u00d7 2) + 2
+        // which doesn't read from attribute/skill values, so most mods
+        // won't contribute \u2014 but capturing the overlay state still
+        // preserves the audit record.
+        const sub = submissions.find(s => s._id === entry.subId);
+        const c = _charForSub(sub);
         await saveEntryReview(entry, {
           roll: result,
           pool: { expression: meritExpr, total: diceCount },
+          pool_snapshot: buildPoolSnapshot(c, diceCount),
         });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'confirmed') {
@@ -10477,15 +10600,13 @@ export function renderCityOverview() {
     // ── 2. Ambience ───────────────────────────────────────────────
     h += `<div class="proc-disc-header" data-toggle="city-ambience">`;
     h += `<span class="proc-amb-title">Ambience</span>`;
-    h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
+    h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Refresh matrix from current feeding and project data">Recalculate Territories</button>`;
     h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
     if (!ovAmbienceCollapsed) {
-      // Extract TAAG feeding counts so Ambience overfeeding uses the exact same numbers
-      const feedCountsByTerrId = {};
-      for (const td of TERRITORY_DATA) {
-        feedCountsByTerrId[td.slug] = (matrix['feeding'][td.slug] || []).length;
-      }
+      // Use _computeMatrixFeederCounts() — single source of truth for all feed types
+      // (feeding_rights, poaching, rote). Shared with feeding matrix footer totals.
+      const { byTerrId: feedCountsByTerrId } = _computeMatrixFeederCounts();
       h += _buildAmbienceHtml(feedCountsByTerrId);
     }
 
@@ -10618,7 +10739,7 @@ export function renderCityOverview() {
 
   el.querySelector('.city-amb-recalc-btn')?.addEventListener('click', async e => {
     e.stopPropagation();
-    await _applyProjectedAmbience(false);
+    try { cachedTerritories = await apiGet('/api/territories'); } catch { /* use cached */ }
     renderCityOverview();
   });
 
@@ -10857,10 +10978,15 @@ async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
   // before this Roll. Prefer existing.st_note over pending.st_note since blur-save
   // writes directly to the resolved entry, not to _proj_pending.
   const existing = resolved[projIdx] || {};
+  // STM-8 (issue #415): pool_snapshot at resolution captures the active
+  // mod state for the historical record.
+  const c = _charForSub(sub);
+  const poolTotal = (pool && Number.isFinite(pool.total)) ? pool.total : 0;
   resolved[projIdx] = {
     ...existing,
     action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
     pool: { ...pool },
+    pool_snapshot: buildPoolSnapshot(c, poolTotal),
     roll: rollResult,
     st_note: existing.st_note || pending.st_note || '',
     resolved_at: new Date().toISOString(),

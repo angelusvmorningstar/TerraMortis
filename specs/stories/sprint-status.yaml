@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-14 (issue-297 + issue-300 marked done; Barrens slug fix committed to dev; issue-302 + issue-303 done)
+# last_updated: 2026-05-18 (issue-352 fix.50 story created: dt-story prompt assembly — missing player vignette + wrong prev-cycle content; issue-297 + issue-300 marked done; Barrens slug fix committed to dev; issue-302 + issue-303 done)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -791,3 +791,5 @@ development_status:
   issue-331-disc-profile-oid-key: done                      # recomputeDisciplineProfile writes slug-keyed profile; renderer expects OID-keyed (ADR-002); fix: ensureTerritories + slugToOid map in writer
   issue-332-territory-pulse-influence-exceptional: done      # _buildTerritoryPulsePromptText gains influence contributors (pos/neg) and exceptional ambience project sections; clan+covenant included for vibe
   fix-430-dt-story-async-race-save: review            # cycle-blocker: snapshot _currentSub before first await in 4 DT Story save handlers; add re-render guard after 900ms delay; fixes oplog-confirmed revision note erasure on character switch
+  issue-352-dt-story-prompt-assembly: done                   # fix.50: buildTouchstoneContext missing player vignette text (personal_story_text never read); prevVignetteText falls through to legacy when prevStoryMoment exists as letter-format — causes letter content in vignette slot
+  issue-354-blur-autosave-dt-story: review                  # fix.55: add focusout autosave to dt-story-response-ta + dt-story-revision-ta across all 7 section types; _handleStoryTaBlur dispatcher + _showStoryAutosaveStatus helper; status field never touched by autosave

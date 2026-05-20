@@ -93,6 +93,9 @@ import { loadGameXP } from './data/game-xp.js';
 import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
+import { applyOverlayToAll } from './data/st-mods.js';
+import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
+import { installStModPopover } from './editor/st-mod-popover.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -567,6 +570,26 @@ async function loadAllData() {
   } else if (combatRes.status === 'rejected') {
     console.warn('Combat chars load failed:', combatRes.reason?.message);
   }
+
+  // 2c. STM-7 (ADR-004 Rev 3 §D8/D9 — issue #413): boot-time bulk overlay.
+  // Establishes the cache-entry invariant — every in-memory chars[] entry
+  // has applyStMods applied before any accessor read happens. Roll calc,
+  // DT pools, and any other accessor consumer pick up modded values
+  // transparently (no per-callsite changes; all 213 accessor reads funnel
+  // through the 6 functions in data/accessors.js, which read exactly the
+  // paths applyStMods mutates).
+  //
+  // Single bulk fetch via the new /api/st_mods?character_ids=<csv> endpoint;
+  // applied to suiteState.chars AFTER combat-only chars are merged so
+  // resist-target attribute lookups also see modded values. Failure is
+  // graceful: applyOverlayToAll bails per-character and stripOverlay
+  // restores canonical values, so the suite stays operational without mods.
+  await loadGlobalSettings();
+  const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+  await applyOverlayToAll(suiteState.chars, globalEnabled);
+  // editorState.chars is the same set of references for the player-owned
+  // subset (sortedChars came from editorState.chars.slice()). Combat-only
+  // chars are not in editorState. Nothing more to mirror.
 
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
@@ -1315,7 +1338,35 @@ async function boot() {
             // Repaint sheet tracker boxes if this is the current sheet char
             if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
           },
+          // STM-9 (issue #416, ADR-004 Rev 3 §D11): on remote st_mod
+          // create/revoke, re-apply the overlay for the affected
+          // character and refresh the sheet tracker boxes if that
+          // char is the open sheet. The roll calculator's pool
+          // values come from accessor reads on the in-memory char
+          // (post-#413 D8 cache-entry invariant), so just re-running
+          // applyOverlayToAll on the single char is enough for all
+          // downstream surfaces to see the new state on next render.
+          onStModUpdate: async (charId) => {
+            const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
+            if (!target) return;
+            await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+            // Issue #425: full suite sheet re-render (not just tracker
+            // repaint) so the modded dots + markers refresh. STM-9
+            // originally only repainted trackers here because the suite
+            // sheet wasn't yet STM-wired; #425 wires it, so the dots/
+            // markers now need the full render to reflect a remote change.
+            if (String(suiteState.sheetChar?._id) === String(charId)) {
+              suiteRenderSheet();
+            }
+          },
         });
+
+        // Issue #425: install the STM popover delegated click handler for
+        // the suite app. STM-4 wired admin + player but not the suite;
+        // without this, suite-sheet markers emit data-stm-marker-path but
+        // nothing opens the popover on click. Single listener on
+        // document.body (idempotent across re-renders).
+        installStModPopover(document.body);
         return;
       } catch (err) {
         // Mid-flight failure: leave the user on the login screen with a

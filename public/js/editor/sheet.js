@@ -18,6 +18,7 @@ import { auditCharacter } from '../data/audit.js';
 // Touchstone editor no longer needs the NPC list (DB-relational picker
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
+import { markerFor } from './st-mod-popover.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -385,8 +386,12 @@ export function shRenderStatsStrip(c) {
   const s = (i, v, l) => '<div class="sh-stat-cell"><div class="sh-stat-icon">' + i + '<span class="sh-stat-n">' + v + '</span></div><div class="sh-stat-lbl">' + l + '</div></div>';
   const sEdit = (i, v, l, fnDown, fnUp) => '<div class="sh-stat-cell sh-stat-editable"><div class="sh-stat-icon">' + i + '<span class="sh-stat-n">' + v + '</span></div><div class="sh-stat-edit-row"><button class="sh-stat-adj" onclick="' + fnDown + '">&#x25BC;</button><div class="sh-stat-lbl">' + l + '</div><button class="sh-stat-adj" onclick="' + fnUp + '">&#x25B2;</button></div></div>';
   const bp = c.blood_potency || 0, hm = c.humanity || 0;
-  const bpCell = s(BP_SVG, bp || 1, 'BP');
-  const humCell = s(HUM_SVG, hm, 'Humanity');
+  // Epic STM (issue #385): per-stat markers for the ST mod overlay.
+  // Each value renders with a trailing marker if c._st_mod_overlay[path]
+  // exists. Markers are click-targets for the popover; data-stm-marker-path
+  // identifies which overlay entry to show. Empty when overlay disabled.
+  const bpCell = s(BP_SVG, `${bp || 1}${markerFor(c, 'blood_potency')}`, 'BP');
+  const humCell = s(HUM_SVG, `${hm}${markerFor(c, 'humanity')}`, 'Humanity');
   // Safe Word: combined WP when mutually linked (both have the oath pointing to each other)
   const _swPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the safe word');
   const _swPartner = _swPact && _swPact.partner ? (state.chars || []).find(ch => ch.name === _swPact.partner) : null;
@@ -394,7 +399,19 @@ export function shRenderStatsStrip(c) {
   const _wpBase = calcWillpowerMax(c);
   const _wpVal = _swActive ? _wpBase + calcWillpowerMax(_swPartner) : _wpBase;
   const _wpLbl = _swActive ? 'WP (shared)' : 'Willpower';
-  return '<div class="sh-stats-strip">' + bpCell + humCell + s(HEALTH_SVG, calcHealth(c), 'Health') + s(WP_SVG, _wpVal, _wpLbl) + s(STAT_SVG, calcSize(c), 'Size') + s(STAT_SVG, calcSpeed(c), 'Speed') + s(STAT_SVG, calcDefence(c), 'Defence') + '</div>';
+  // Epic STM (issue #385): if c.current.* has been spliced by STM-2, show
+  // current/max for willpower and vitae. Markers attach to both the current
+  // value (current.willpower / current.vitae from tracker_state) and the
+  // max value (derived.willpower_max etc.) so an ST can mod either side.
+  const hasCurrent = c.current && typeof c.current.willpower === 'number';
+  const wpDisplay = hasCurrent
+    ? `${c.current.willpower}${markerFor(c, 'current.willpower')}/${_wpVal}${markerFor(c, 'derived.willpower_max')}`
+    : `${_wpVal}${markerFor(c, 'derived.willpower_max')}`;
+  const healthDisplay = `${calcHealth(c)}${markerFor(c, 'derived.health_max')}`;
+  const sizeDisplay = `${calcSize(c)}${markerFor(c, 'derived.size')}`;
+  const speedDisplay = `${calcSpeed(c)}${markerFor(c, 'derived.speed')}`;
+  const defDisplay = `${calcDefence(c)}${markerFor(c, 'derived.defence')}`;
+  return '<div class="sh-stats-strip">' + bpCell + humCell + s(HEALTH_SVG, healthDisplay, 'Health') + s(WP_SVG, wpDisplay, _wpLbl) + s(STAT_SVG, sizeDisplay, 'Size') + s(STAT_SVG, speedDisplay, 'Speed') + s(STAT_SVG, defDisplay, 'Defence') + '</div>';
 }
 
 export function shRenderAttributes(c, editMode) {
@@ -437,7 +454,32 @@ export function shRenderAttributes(c, editMode) {
     ATTR_ROWS.forEach(row => row.forEach(a => {
       const base = getAttrVal(c, a), bonus = getAttrBonus(c, a);
       const autoBonus = (c.disciplines?.[BONUS_SOURCE[a]]?.dots || 0);
-      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
+      // Epic STM #408: modded sub-ranges tagged on the dots themselves via
+      // shDotsWithBonus opts (replaces the standalone .stm-marker pip that
+      // visually collided with the dot run). Hollow-stream layout convention:
+      // autoBonus first, then manual bonus — so the modded bonus sub-range
+      // is offset by autoBonus. Edit mode strips _st_mod_overlay (STM-2
+      // stripOverlay) so opts is empty there → backwards-compatible.
+      const ovDots = c._st_mod_overlay?.[`attributes.${a}.dots`];
+      const ovBonus = c._st_mod_overlay?.[`attributes.${a}.bonus`];
+      const opts = {};
+      if (ovDots) {
+        const sign = ovDots.delta >= 0 ? '+' : '';
+        opts.filledMod = {
+          from: ovDots.base, to: ovDots.final,
+          path: `attributes.${a}.dots`,
+          title: `ST adjustment: ${a} (dots) ${sign}${ovDots.delta}. Click for details.`,
+        };
+      }
+      if (ovBonus) {
+        const sign = ovBonus.delta >= 0 ? '+' : '';
+        opts.hollowMod = {
+          from: autoBonus + ovBonus.base, to: autoBonus + ovBonus.final,
+          path: `attributes.${a}.bonus`,
+          title: `ST adjustment: ${a} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
+        };
+      }
+      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus, opts) + '</div></div>';
     }));
   }
   h += '</div></div>';
@@ -502,7 +544,31 @@ export function shRenderSkills(c, editMode) {
   } else {
     for (let ri = 0; ri < 8; ri++) {
       SKILL_COLS.forEach(col => {
-        const s = col[ri], sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
+        const s = col[ri], sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0;
+        // Epic STM #408: modded sub-ranges tagged on the dots themselves.
+        // Skill hollow-stream layout: bn first, then ptBn / mciBn \u2014 so modded
+        // skills.X.bonus sub-range starts at hollow position ovBonus.base
+        // (no offset; bn is at the head of the hollow stream).
+        const ovDots = c._st_mod_overlay?.[`skills.${s}.dots`];
+        const ovBonus = c._st_mod_overlay?.[`skills.${s}.bonus`];
+        const opts = {};
+        if (ovDots) {
+          const sign = ovDots.delta >= 0 ? '+' : '';
+          opts.filledMod = {
+            from: ovDots.base, to: ovDots.final,
+            path: `skills.${s}.dots`,
+            title: `ST adjustment: ${s} (dots) ${sign}${ovDots.delta}. Click for details.`,
+          };
+        }
+        if (ovBonus) {
+          const sign = ovBonus.delta >= 0 ? '+' : '';
+          opts.hollowMod = {
+            from: ovBonus.base, to: ovBonus.final,
+            path: `skills.${s}.bonus`,
+            title: `ST adjustment: ${s} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
+          };
+        }
+        const dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn, opts) : '\u2013';
         h += '<div class="sh-skill-row' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
       });
     }
