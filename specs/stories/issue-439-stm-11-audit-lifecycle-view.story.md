@@ -1,6 +1,6 @@
 # Issue #439: STM-11 — audit view migrates to lifecycle event stream (by/at canonical, drop dual-stamp aliases)
 
-Status: Ready for Review
+Status: Done
 
 issue: 439
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/439
