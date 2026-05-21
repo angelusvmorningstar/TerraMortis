@@ -17,6 +17,8 @@
  * AC-2: slot with merit name but empty action → silently excluded from output
  * AC-3: _raw.sphere_actions path unaffected (DT2+ submissions with raw array)
  * AC-4: all 5 sphere slots with action set → all 5 rows rendered (regression guard)
+ * QA-1: AC-1 content check — activated merit names present, phantom names absent
+ * QA-2: non-contiguous activation (slot 2 active, slots 1 and 3 phantom) → 1 row
  */
 
 const { test, expect } = require('@playwright/test');
@@ -132,6 +134,23 @@ const SUB_RAW_PATH = {
   },
   merit_actions_resolved: [
     { pool_status: 'pending' },
+    { pool_status: 'pending' },
+  ],
+};
+
+// Slot 2 activated, slots 1 and 3 phantom — non-contiguous index verification.
+const SUB_NONCONTIGUOUS = {
+  ...baseSub('sub-452-noncontiguous'),
+  responses: {
+    sphere_1_merit:  'Allies (Police)',
+    sphere_1_action: '',
+    sphere_2_merit:  'Allies (Media)',
+    sphere_2_action: 'investigate',
+    sphere_2_outcome: 'Track media narrative',
+    sphere_3_merit:  'Allies (Legal)',
+    sphere_3_action: '',
+  },
+  merit_actions_resolved: [
     { pool_status: 'pending' },
   ],
 };
@@ -262,6 +281,38 @@ test.describe('fix.452: buildMeritActions skips phantom sphere slots', () => {
     expect(html).not.toBeNull();
     const rowCount = await getMeritRowCount(page);
     expect(rowCount).toBe(5);
+  });
+
+  // QA-1 ──────────────────────────────────────────────────────────────────────
+
+  test('QA-1: activated slot outcomes present; phantom slot outcomes absent', async ({ page }) => {
+    await setup(page, [SUB_TWO_ACTIVATED]);
+    const html = await getMeritSummaryHtml(page);
+    expect(html).not.toBeNull();
+    // Activated slot desired_outcomes must appear.
+    expect(html).toContain('Map police patrol routes');
+    expect(html).toContain('Suppress story leak');
+    // The phantom slots have no outcome text and no sphere_N_action — the
+    // merit names (Legal/Medical/Academic) are not rendered at all.
+    expect(html).not.toContain('Legal');
+    expect(html).not.toContain('Medical');
+    expect(html).not.toContain('Academic');
+  });
+
+  // QA-2 ──────────────────────────────────────────────────────────────────────
+
+  test('QA-2: non-contiguous activation (slot 2 active, slots 1+3 phantom) → 1 row', async ({ page }) => {
+    await setup(page, [SUB_NONCONTIGUOUS]);
+    const html = await getMeritSummaryHtml(page);
+    expect(html).not.toBeNull();
+    const rowCount = await getMeritRowCount(page);
+    expect(rowCount).toBe(1);
+    // Activated slot outcome must appear.
+    expect(html).toContain('Track media narrative');
+    // Phantom slot names have no rendered content — confirm absence via their
+    // fixture-unique outcome text which was never set.
+    expect(html).not.toContain('Police');
+    expect(html).not.toContain('Legal');
   });
 
 });
