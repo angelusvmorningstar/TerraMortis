@@ -371,6 +371,10 @@ function showDtuxPhase(phase) {
   document.querySelectorAll('#dt-phase-ribbon .pr-tab').forEach(btn => {
     btn.classList.toggle('pr-tab-active', btn.dataset.phase === phase);
   });
+  // Show city export button only on the city tab
+  const cityExportBtn = document.getElementById('dt-city-export-btn');
+  if (cityExportBtn) cityExportBtn.style.display = phase === 'city' ? '' : 'none';
+
   // Lazy-init city/story tabs the first time they're shown.
   if (phase === 'city' && !_dtuxCityInited) { _dtuxCityInited = true; renderCityOverview(); }
   if (phase === 'story' && !_dtuxStoryInited) { _dtuxStoryInited = true; _initDtStoryFromRibbon(); }
@@ -378,6 +382,7 @@ function showDtuxPhase(phase) {
 
 let _dtuxCityInited = false;
 let _dtuxStoryInited = false;
+let _cityMatrix = null;
 
 async function _initDtStoryFromRibbon() {
   // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
@@ -504,6 +509,9 @@ export async function initDowntimeView(passedChars) {
     document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
     document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
     document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
+    document.getElementById('dt-city-export-btn')?.addEventListener('click', () => {
+      if (_cityMatrix) _exportCityOverview(_cityMatrix);
+    });
     document.getElementById('dt-import-csv').addEventListener('click', () => {
       document.getElementById('dt-import-csv-input').click();
     });
@@ -10538,7 +10546,6 @@ export function renderCityOverview() {
     return;
   }
 
-  const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};
   const notes   = currentCycle?.ambience_notes    || '';
 
@@ -10578,19 +10585,12 @@ export function renderCityOverview() {
   const activePhases = TAAG_PHASES.filter(p =>
     TERRITORY_DATA.some(t => (matrix[p.key][t.slug] || []).length > 0)
   );
+  _cityMatrix = matrix;
 
   // ── HTML ──
   let h = `<div class="dt-conflict-panel">`;
 
-  // Header row: title toggle + export button
-  h += `<div class="dt-city-panel-head">`;
-  h += `<div class="dt-matrix-toggle dt-city-title" id="dt-city-toggle">${isOpen ? '\u25BC' : '\u25BA'} City Overview</div>`;
-  h += `<button class="dt-city-export-btn" id="dt-city-export-btn">\u2193 Export JSON</button>`;
-  h += `</div>`;
-
-  if (isOpen) {
-
-    // ── 1. Feeding Matrix ─────────────────────────────────────────
+  // ── 1. Feeding Matrix ─────────────────────────────────────────
     h += `<div class="proc-disc-header" data-toggle="city-feed-matrix">`;
     h += `<span class="proc-amb-title">Feeding Matrix</span>`;
     h += `<span class="proc-amb-toggle">${matrixCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
@@ -10698,22 +10698,11 @@ export function renderCityOverview() {
 
     // ── 6. Territory Pulse (DTIL-4) ───────────────────────────────
     h += renderTerritoryPulsePanel(currentCycle, submissions, characters);
-  }
-
   h += `</div>`; // dt-conflict-panel
   el.innerHTML = h;
 
   // ── Event wiring ──
 
-  document.getElementById('dt-city-toggle')?.addEventListener('click', () => {
-    el.dataset.open = isOpen ? 'false' : 'true';
-    renderCityOverview();
-  });
-
-  document.getElementById('dt-city-export-btn')?.addEventListener('click', e => {
-    e.stopPropagation();
-    _exportCityOverview(matrix);
-  });
 
   el.querySelector('[data-toggle="city-feed-matrix"]')?.addEventListener('click', () => {
     matrixCollapsed = !matrixCollapsed;

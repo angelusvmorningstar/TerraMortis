@@ -17,6 +17,8 @@ const [submissions, cycles, territories, chars] = await Promise.all([
 
 document.getElementById('proto-loading').remove();
 
+console.info('[dt-proto] data loaded — subs:', submissions.length, '| cycles:', cycles.length, '| chars:', chars.length);
+
 // ── 2. Fetch shim — intercepts /api/ calls, returns static data ─────────────
 const _realFetch = window.fetch.bind(window);
 
@@ -40,6 +42,8 @@ window.fetch = function shimFetch(url, opts = {}) {
     return ok(body, status);
   };
 
+  console.debug(`[shim] ${method} ${apiPath}`);
+
   if (method === 'GET') {
     if (seg[0] === 'downtime_cycles') return ok(cycles);
 
@@ -48,6 +52,7 @@ window.fetch = function shimFetch(url, opts = {}) {
       const result = cycleId
         ? submissions.filter(s => String(s.cycle_id) === String(cycleId))
         : submissions;
+      console.debug(`[shim] downtime_submissions → ${result.length} results (cycle_id=${cycleId})`);
       return ok(result);
     }
 

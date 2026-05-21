@@ -173,7 +173,7 @@ export function displayNameRaw(c) {
 /** Sort key: moniker || name (no honorific). Not redacted — used only for
  *  internal sort order, never rendered to the DOM. */
 export function sortName(c) {
-  return (c.moniker || c.name).toLowerCase();
+  return (c.moniker || c.name || '').toLowerCase();
 }
 
 /** Dropdown option label: moniker || name (no honorific, no redaction).

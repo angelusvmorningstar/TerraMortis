@@ -44,7 +44,7 @@
   <div id="proto-banner">DT Prototype — local only — data is static</div>
 
   <!-- DT domain — mirrors admin.html #d-downtime exactly -->
-  <section id="d-downtime" class="domain active" style="display:flex;flex-direction:column;flex:1">
+  <section id="d-downtime" class="domain active" style="display:flex;flex-direction:column;flex:1;overflow-y:auto">
     <div class="domain-header">
       <h2>Downtime</h2>
     </div>
@@ -54,6 +54,7 @@
         <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
         <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
         <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
+        <button class="dt-btn dt-btn-export" id="dt-city-export-btn" style="display:none">Export City JSON</button>
         <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
         <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
       </div>
