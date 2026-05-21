@@ -5602,6 +5602,28 @@ body {
   font-style: italic;
   font-size: 12px;
 }
+/* ── Ambience direction badge (▲/▼) in action-type row ── */
+.proc-ambience-dir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 1px 7px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+.proc-ambience-dir-increase {
+  background: color-mix(in srgb, var(--green, #3a7d44) 18%, transparent);
+  color: var(--green, #5cb85c);
+  border: 1px solid color-mix(in srgb, var(--green, #3a7d44) 35%, transparent);
+}
+.proc-ambience-dir-decrease {
+  background: color-mix(in srgb, var(--crim) 18%, transparent);
+  color: #c06060;
+  border: 1px solid color-mix(in srgb, var(--crim) 35%, transparent);
+}
 /* ── Detail card shared input styles (feeding / project / sorcery / merit) ── */
 .proc-detail-input,
 .proc-detail-ta {

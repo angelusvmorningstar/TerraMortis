@@ -111,7 +111,7 @@ const PHASE_ORDER = {
   resolve_first: 0,
   feeding: 1,
   feed: 1,
-  ambience_increase: 2, ambience_decrease: 2,
+  ambience_increase: 2, ambience_decrease: 2, ambience_change: 2,
   hide_protect: 3,
   investigate: 4,
   attack: 5,
@@ -125,6 +125,7 @@ const PHASE_LABELS = {
   feeding: 'Step 3 — Feeding',
   joint: 'Step 4 — Joint Projects',
   ambience: 'Step 5 — Ambience',
+  ambience_change: 'Step 5 — Ambience',
   hide_protect: 'Step 6 — Defensive',
   investigate: 'Step 7 — Investigative',
   attack: 'Step 8 — Hostile',
@@ -170,7 +171,7 @@ const ST_ACTION_PHASE_MAP = {
 const ACTION_TYPE_LABELS = { ..._ACTION_TYPE_LABELS_BASE, feed: 'Rote Feed' };
 
 const ALL_ACTION_TYPES = [
-  'ambience_increase', 'ambience_decrease', 'feed', 'attack', 'hide_protect',
+  'ambience_change', 'feed', 'attack', 'hide_protect',
   'investigate', 'patrol_scout', 'support', 'misc', 'maintenance', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
@@ -3044,16 +3045,17 @@ function buildProcessingQueue(subs) {
       const projReview = (sub.projects_resolved || [])[idx] || {};
       let effectiveActionType = projReview.action_type_override || actionType;
 
-      // Issue #196 — dt-form.25's project ambience redesign keeps action
-      // = 'ambience_change' and persists direction in `_ambience_direction`
-      // ('up' | 'down'). Normalise to the canonical enum so phase routing,
-      // ACTION_TYPE_LABELS, and downstream tally + render code match. The
-      // ST override (if set) was already applied above, so this only
-      // touches the player-submitted shape.
-      if (effectiveActionType === 'ambience_change') {
+      // Canonical ambience normalisation: all ambience project entries use
+      // actionType='ambience_change'; direction is stamped as ambienceDir.
+      // Legacy DB entries stored the split types directly — normalise those too.
+      let ambienceDir = null;
+      if (_AMBIENCE_ACTION_TYPES.has(effectiveActionType)) {
         const projDir = resp[`project_${slot}_ambience_direction`] || resp[`project_${slot}_ambience_dir`] || '';
-        if (projDir === 'up' || projDir === 'improve') effectiveActionType = 'ambience_increase';
-        else if (projDir === 'down' || projDir === 'degrade') effectiveActionType = 'ambience_decrease';
+        if (effectiveActionType === 'ambience_increase')      ambienceDir = 'increase';
+        else if (effectiveActionType === 'ambience_decrease') ambienceDir = 'decrease';
+        else if (projDir === 'up'   || projDir === 'improve') ambienceDir = 'increase';
+        else if (projDir === 'down' || projDir === 'degrade') ambienceDir = 'decrease';
+        effectiveActionType = 'ambience_change';
       }
 
       let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
@@ -3067,11 +3069,9 @@ function buildProcessingQueue(subs) {
         phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
       }
 
-      // Issue #196 — for ambience-change projects, dt-form.25 writes the
-      // territory to `_ambience_target` instead of `_territory`. Prefer
-      // the new key, fall back to legacy for pre-redesign drafts.
-      const _isProjAmb = effectiveActionType === 'ambience_increase'
-                      || effectiveActionType === 'ambience_decrease';
+      // For ambience-change projects, dt-form.25 writes the territory to
+      // `_ambience_target` instead of `_territory`. Prefer new key, fall back.
+      const _isProjAmb = effectiveActionType === 'ambience_change';
       const _projTerritory = _isProjAmb
         ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
         : (resp[`project_${slot}_territory`] || '');
@@ -3148,6 +3148,7 @@ function buildProcessingQueue(subs) {
         projXpBreakdown:      _projXpBreakdown,
         projXpRows:           _projXpRows,
         projXpBudgetSnapshot: _projXpBudgetSnapshot,
+        ambienceDir,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -3858,18 +3859,10 @@ function _gatherProjectAmbience(subs) {
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
       let effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
-      // Issue #196 — dt-form.25's project ambience redesign keeps the raw
-      // action `'ambience_change'` and persists direction in
-      // `_ambience_direction` ('up' | 'down'). Sphere-side normalises to
-      // ambience_increase / _decrease at form-write time; project-side does
-      // not. Map at admin read so the existing tally branches still match.
-      if (effectiveType === 'ambience_change') {
-        const dir = resp[`project_${n}_ambience_direction`] || resp[`project_${n}_ambience_dir`] || '';
-        if (dir === 'up' || dir === 'improve') effectiveType = 'ambience_increase';
-        else if (dir === 'down' || dir === 'degrade') effectiveType = 'ambience_decrease';
-      }
-      const isIncrease = effectiveType === 'ambience_increase';
-      const isDecrease = effectiveType === 'ambience_decrease';
+      if (!_AMBIENCE_ACTION_TYPES.has(effectiveType)) continue;
+      const _ambiDir = _ambienceDirection(effectiveType, n, resp);
+      const isIncrease = _ambiDir === 'increase';
+      const isDecrease = _ambiDir === 'decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
@@ -6941,7 +6934,7 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-merit-mode-row">`;
   h += `<span class="proc-mod-label">Action Mode</span>`;
   h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
-  if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+  if (_isAmbienceAction(actionType)) {
     const mLbl = entry.meritLabel || '';
     const mQual = entry.meritQualifier || '';
     h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(category)}">${esc(mLbl.toUpperCase())}</span>`;
@@ -7741,8 +7734,13 @@ function _renderActionTypeRow(entry, rev, char) {
       h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
     }
     h += `</select>`;
-  } else if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+  } else if (_isAmbienceAction(actionType)) {
     if (!isMerit) {
+      // Direction badge (increase ↑ / decrease ↓)
+      if (entry.ambienceDir) {
+        const _dirLabel = entry.ambienceDir === 'increase' ? '▲ Increase' : '▼ Decrease';
+        h += `<span class="proc-ambience-dir-badge proc-ambience-dir-${esc(entry.ambienceDir)}">${_dirLabel}</span>`;
+      }
       const _ambiSub = submissions.find(s => s._id === entry.subId);
       const _ambiCtx = String(entry.actionIdx);
       const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
@@ -7798,7 +7796,7 @@ function _renderActionTypeRow(entry, rev, char) {
           return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
         })
         .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-      const _isAmb = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      const _isAmb = _isAmbienceAction(actionType);
       const _hasHWV = _isAmb && (char?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
       h += `<span class="proc-feed-lbl">Merit</span>`;
       h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(key)}">`;
@@ -7847,6 +7845,251 @@ function _renderActionTypeRow(entry, rev, char) {
   return h;
 }
 
+/**
+ * Normalised project card — Step 0 template.
+ * Details card: title + outcome + description + player pool (always) + merits/bonuses + XP spend.
+ * Target/lead/cast are removed from Details; target is handled interactively by _renderActionTypeRow.
+ */
+function renderNormalisedCard(entry, review) {
+  const rev               = review || {};
+  const poolStatus        = rev.pool_status       || 'pending';
+  const poolPlayer        = rev.pool_player       || entry.poolPlayer || '';
+  const poolValidated     = rev.pool_validated    || '';
+  const thread            = rev.notes_thread      || [];
+  const feedback          = rev.story_context     || '';
+  const playerFacingNote  = rev.player_facing_note || '';
+
+  const projSub  = submissions.find(s => s._id === entry.subId) || null;
+  const projChar = _findCharForSub(projSub);
+
+  const xpTrait  = projSub?.responses?.[`project_${entry.projSlot}_xp_trait`] || '';
+  const xpAmount = projSub?.responses?.[`project_${entry.projSlot}_xp`]       || '';
+
+  let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // ── Reminder badges ──
+  const actionKey = entryActionKey(entry);
+  if (actionKey) {
+    const badges = cycleReminders.filter(r =>
+      r.targets && r.targets.some(t => t.sub_id === entry.subId && t.action_key === actionKey)
+    );
+    for (const r of badges) {
+      h += `<div class="proc-reminder-badge">⚑ ${esc(r.source_rite)} (${esc(r.source_tradition)}) — ${esc(r.text)}</div>`;
+    }
+  }
+
+  // ── Two-column layout ──
+  h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
+  // ── Details card ──
+  {
+    const titleVal      = rev.title           ?? entry.projTitle   ?? '';
+    const outcomeVal    = rev.desired_outcome ?? entry.projOutcome ?? '';
+    const descVal       = rev.description     ?? entry.description ?? '';
+    const _meritsRaw    = rev.merits_bonuses  ?? entry.projMerits  ?? '';
+    const meritsVal     = Array.isArray(_meritsRaw) ? (_meritsRaw.length ? _meritsRaw.join(', ') : '') : String(_meritsRaw || '');
+    const playerPoolVal = poolPlayer || '';
+    const showOutcome   = entry.actionType === 'misc';
+
+    h += `<div class="proc-feed-desc-card">`;
+    h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+
+    // View mode
+    h += `<div class="proc-feed-desc-view">`;
+    if (titleVal)                  h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
+    if (showOutcome && outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+    if (descVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+    if (entry.projXpRows && entry.projXpRows.length) {
+      h += _renderXpSpendBreakdown(entry.projXpRows, entry.projXpBudgetSnapshot);
+    } else if (entry.projXpBreakdown) {
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+    }
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player’s Pool</span> ${playerPoolVal ? esc(playerPoolVal) : '<span class="proc-feed-desc-empty">—</span>'}</div>`;
+    if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
+    if (!titleVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
+    h += `</div>`;
+
+    // Edit mode
+    h += `<div class="proc-feed-desc-edit" style="display:none">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-detail-input proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
+    if (showOutcome) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player’s Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-detail-input proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
+    h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+    h += `</div>`;
+    h += `</div>`; // proc-feed-desc-card
+
+    // XP spend approval row (outside card)
+    if (xpTrait) {
+      const xpLabel = xpAmount ? `XP Spend (${esc(String(xpAmount))} XP)` : 'XP Spend';
+      h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
+    }
+
+    // Territory (read-only)
+    if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+    if (entry.actionType === 'feed') {
+      const _nomText = _playerFeedTerrsText(projSub);
+      if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
+    }
+  }
+
+  // ── Action Type row (includes interactive target for investigate/attack + territory pills) ──
+  h += _renderActionTypeRow(entry, rev, projChar);
+
+  // ── Connected Characters ──
+  {
+    const connectedChars = rev.connected_chars || [];
+    const otherChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
+      .filter(({ key }) => key !== entry.charName.toLowerCase())
+      .sort((a, b) => a.key.localeCompare(b.key));
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-connected-list">`;
+      for (const { key, label } of otherChars) {
+        const chk = connectedChars.includes(key) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(key)}"${chk}> ${esc(label)}</label>`;
+      }
+      h += `</div></div>`;
+    }
+  }
+
+  // ── ST Pool Builder ──
+  {
+    const char = projChar;
+    const charDiscs    = _charDiscsArray(char).filter(d => d.dots > 0);
+    const allDiscNames = char ? charDiscs.map(d => d.name) : KNOWN_DISCIPLINES;
+
+    let preAttr = '', preSkill = '', preDisc = 'none', showParseRef = false;
+    if (poolValidated) {
+      const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
+      if (parsed) { preAttr = parsed.attr || ''; preSkill = parsed.skill || ''; preDisc = parsed.disc || 'none'; }
+      else { showParseRef = true; }
+    } else if (projSub) {
+      const resp2 = projSub.responses || {};
+      preAttr  = resp2[`project_${entry.projSlot}_pool_attr`]  || '';
+      preSkill = resp2[`project_${entry.projSlot}_pool_skill`] || '';
+      preDisc  = resp2[`project_${entry.projSlot}_pool_disc`]  || 'none';
+    }
+
+    const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
+      ...ALL_ATTRS.map(a => {
+        const dots = char ? (getAttrVal(char, a) || 0) : null;
+        return `<option value="${esc(a)}" data-dots="${dots ?? 0}"${a === preAttr ? ' selected' : ''}>${dots !== null ? `${esc(a)} (${dots})` : esc(a)}</option>`;
+      })
+    ].join('');
+
+    const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
+      ...ALL_SKILLS.map(s => {
+        const dots = char ? (skTotal(char, s) || 0) : null;
+        return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${s === preSkill ? ' selected' : ''}>${dots !== null ? `${esc(s)} (${dots})` : esc(s)}</option>`;
+      })
+    ].join('');
+
+    const discOptHtml = ['<option value="none" data-dots="0">None</option>',
+      ...allDiscNames.map(name => {
+        const d = charDiscs.find(cd => cd.name === name);
+        const dots = d ? d.dots : null;
+        return `<option value="${esc(name)}" data-dots="${dots ?? 0}"${name === preDisc ? ' selected' : ''}>${dots !== null ? `${esc(name)} (${dots})` : esc(name)}</option>`;
+      })
+    ].join('');
+
+    const eqMod0        = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+    const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr)  || 0) : 0) : 0;
+    const initSkillDots = preSkill ? (char ? (skTotal(char, preSkill)     || 0) : 0) : 0;
+    const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
+    const _pnA          = char && preSkill ? skNineAgain(char, preSkill) : false;
+    const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, eqMod0, preSkill, _pnA);
+
+    const _committed = poolStatus === 'confirmed';
+    const _dis = _committed ? ' disabled' : '';
+    h += `<div class="proc-pool-builder${_committed ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable — character not loaded)</span>' : ''}${_committed ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+    if (showParseRef) h += `<div class="proc-pool-parse-ref">Could not restore selection — previous: "${esc(poolValidated)}"</div>`;
+    h += '<div class="proc-pool-builder-selects">';
+    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_dis}>${attrOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_dis}>${skillOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_dis}>${discOptHtml}</select>`;
+    h += '</div>';
+    h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${eqMod0}">`;
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+    h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _dis);
+    h += '</div>';
+    h += '</div>'; // proc-pool-builder
+  }
+
+  // ── ST Notes thread ──
+  h += '<div class="proc-section proc-notes-panel proc-notes-primary">';
+  h += '<div class="proc-detail-label">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>';
+  if (thread.length) {
+    h += '<div class="proc-notes-thread">';
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += '<div class="proc-note-entry">';
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  ·  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(entry.key)}" data-note-idx="${noteIdx}" title="Delete note">×</button></div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  h += '<div class="proc-note-add">';
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="3"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
+  h += '</div>';
+  h += '</div>'; // proc-notes-panel
+
+  // ── Narrative Constraint ──
+  h += '<div class="proc-section proc-feedback-section">';
+  h += '<div class="proc-detail-label">Narrative Constraint <span class="proc-label-sub">— Claude must not contradict this</span></div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Hard constraint injected into AI prompt (not sent to player)...">`;
+  h += '</div>';
+
+  // ── Player Feedback ──
+  h += '<div class="proc-section proc-player-note-section">';
+  h += '<div class="proc-detail-label">Player Feedback <span class="proc-label-sub">— sent to player</span></div>';
+  h += `<textarea class="proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Plain-language note included verbatim in player outcome...">${esc(playerFacingNote)}</textarea>`;
+  h += '</div>';
+
+  // ── XRef callout ──
+  {
+    const xrefLines = [];
+    if (entry.projTerritory) {
+      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || []).filter(r => r.charName !== entry.charName);
+      if (others.length) xrefLines.push(`Also in ${entry.projTerritory}: ${others.map(r => `${r.charName} (${r.label})`).join(', ')}`);
+    }
+    if (entry.actionType === 'investigate' && rev.investigate_target_char) {
+      const target = rev.investigate_target_char;
+      const others = (_xrefIndex.get(`inv-target:${target}`) || []).filter(r => r.charName !== entry.charName);
+      if (others.length) xrefLines.push(`Also investigating ${target}: ${others.map(r => r.charName).join(', ')}`);
+      if ([..._procQueueMap.values()].some(e => e.actionType === 'hide_protect' && e.charName.toLowerCase() === target)) {
+        xrefLines.push(`${target} has an active hide/protect action this cycle`);
+      }
+    }
+    if (xrefLines.length) {
+      h += `<div class="proc-xref-callout">`;
+      for (const line of xrefLines) h += `<div class="proc-xref-line">${esc(line)}</div>`;
+      h += `</div>`;
+    }
+  }
+
+  // ── Close left + right panel ──
+  h += '</div>'; // proc-feed-left
+  h += _renderProjRightPanel(entry, projChar, rev);
+  h += '</div>'; // proc-feed-layout
+
+  h += '</div>'; // proc-action-detail
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -7865,6 +8108,9 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
     return h;
   }
+
+  // Project entries use the normalised card template (Step 0)
+  if (entry.source === 'project') return renderNormalisedCard(entry, review);
 
   const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
   const poolValidated = rev.pool_validated || '';

@@ -50,8 +50,7 @@ const CS_ACTION_PRIORITY = [
   'attack',
   'patrol_scout',
   'investigate',
-  'ambience_increase',
-  'ambience_decrease',
+  'ambience_change',
   'support',
   'misc',
   'rumour',
@@ -664,7 +663,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
   // Ambience actions use a dedicated territory field; patrol uses another.
   // Read the action-type-appropriate field so territory is never 'Unknown'.
-  const isAmbience      = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isAmbience      = actionType === 'ambience_change' || actionType === 'ambience_increase' || actionType === 'ambience_decrease';
   const isInvestigation = actionType === 'investigate';
   const isFeed          = actionType === 'feed';
   const terrRaw    = isAmbience
@@ -789,7 +788,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
         if (!r || r.pool_status === 'skipped') return;
         const sl = i + 1;
         const otherType = r.action_type_override || r.action_type || '';
-        const otherIsAmb = otherType === 'ambience_increase' || otherType === 'ambience_decrease';
+        const otherIsAmb = otherType === 'ambience_change' || otherType === 'ambience_increase' || otherType === 'ambience_decrease';
         const otherTerrRaw = otherIsAmb
           ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
           : otherType === 'patrol_scout'
@@ -1012,7 +1011,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       if (!r || r.pool_status === 'skipped') return;
       const sl = i + 1;
       const aType = r.action_type_override || r.action_type || '';
-      const otherIsAmb = aType === 'ambience_increase' || aType === 'ambience_decrease';
+      const otherIsAmb = aType === 'ambience_change' || aType === 'ambience_increase' || aType === 'ambience_decrease';
       const otherIsPatrol = aType === 'patrol_scout' || aType === 'support';
       const otherTerrRaw = otherIsAmb
         ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')

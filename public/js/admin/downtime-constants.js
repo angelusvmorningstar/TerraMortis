@@ -16,6 +16,7 @@
 export const ACTION_TYPE_LABELS = {
   ambience_increase: 'Ambience Increase',
   ambience_decrease: 'Ambience Decrease',
+  ambience_change:   'Ambience Change',
   feed:              'Feed',
   attack:            'Attack',
   hide_protect:      'Hide / Protect',
