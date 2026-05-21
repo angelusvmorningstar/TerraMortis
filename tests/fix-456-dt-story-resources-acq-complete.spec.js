@@ -121,6 +121,37 @@ const SUB_PENDING_ACQ = {
   acquisitions_resolved: [],
 };
 
+// AC-5: Carver shape — note is ONLY in acquisitions_resolved[0].notes_thread.
+// merit_actions_resolved has no entry for the acquisition (sparse array — real DT3
+// submissions populated acquisitions_resolved but not merit_actions_resolved for acqs).
+// T3 fix must fall back to acquisitions_resolved[0].notes_thread.
+// Sphere action at index 0 has outcome_summary set so meritSummaryComplete can pass.
+const SUB_ACQ_RES_FALLBACK = {
+  ...baseSub('sub-456-acqres'),
+  responses: {
+    sphere_1_merit:         'Allies 2 (Police)',
+    sphere_1_action:        'misc',
+    sphere_1_outcome:       'Police allies maintained',
+    resources_acquisitions: 'Audiophile gear',
+  },
+  _raw: {
+    sphere_actions:   [{ action_type: 'misc', desired_outcome: 'Police network' }],
+    contact_actions:  { requests: [] },
+    retainer_actions: { actions: [] },
+    acquisitions: { resource_acquisitions: 'Audiophile gear' },
+  },
+  merit_actions_resolved: [
+    { pool_status: 'confirmed', outcome_summary: 'Police allies maintained' },
+    // No entry at index 1 — acquisition resolved via acquisitions_resolved only
+  ],
+  acquisitions_resolved: [
+    {
+      pool_status:  'validated',
+      notes_thread: [{ author_name: 'Von Vagabond', text: 'Sydney audiophile snobbery note.' }],
+    },
+  ],
+};
+
 // AC-4: validated acquisition (index 1) alongside resolved sphere merit (index 0).
 // buildMeritActions appends acquisitions AFTER sphere actions, so:
 //   merit_actions[0] = Allies sphere action → merit_actions_resolved[0]
@@ -252,12 +283,25 @@ test.describe('fix.456: Resources acquisition completion check', () => {
     await setup(page, [SUB_MIXED]);
     const html = await getMeritSectionHtml(page, 'merit_summary');
     expect(html).not.toBeNull();
-    // Both actions complete.
     expect(html).toContain('All outcomes recorded');
-    // Sphere outcome present.
     expect(html).toContain('Police allies maintained');
-    // Acquisition ST note present.
     expect(html).toContain('Amplifier acquired without complications.');
+    const pillGreen = await page.evaluate(() => !!document.querySelector('.dt-story-pill.green'));
+    expect(pillGreen).toBe(true);
+  });
+
+  // AC-5 ──────────────────────────────────────────────────────────────────────
+
+  test('AC-5: note only in acquisitions_resolved (Carver shape) → row shows note, not placeholder', async ({ page }) => {
+    await setup(page, [SUB_ACQ_RES_FALLBACK]);
+    const html = await getMeritSectionHtml(page, 'merit_summary');
+    expect(html).not.toBeNull();
+    // T3 fallback: note from acquisitions_resolved[0].notes_thread must appear.
+    expect(html).toContain('Sydney audiophile snobbery note.');
+    // Must NOT show placeholder.
+    expect(html).not.toContain('Outcome not yet recorded');
+    // T1 fallback: acquisitions_resolved[0].pool_status = 'validated' → section complete.
+    expect(html).toContain('All outcomes recorded');
     const pillGreen = await page.evaluate(() => !!document.querySelector('.dt-story-pill.green'));
     expect(pillGreen).toBe(true);
   });

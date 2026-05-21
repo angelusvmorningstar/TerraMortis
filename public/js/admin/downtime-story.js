@@ -2286,12 +2286,17 @@ function renderMeritSummary(char, sub) {
     if (!groups[cat]) groups[cat] = [];
     const { label: meritLabel, qualifier } = getMeritDetails(char, a);
     const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
+    let outcome = rev.outcome_summary?.trim() || '';
+    if (cat === 'resources') {
+      const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
+        || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
+          ? sub.acquisitions_resolved[0].notes_thread : null);
+      if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
+    }
     groups[cat].push({
       meritLabel: displayLabel || a.merit_type || 'Merit',
       desiredOutcome: a.desired_outcome?.trim() || '',
-      outcome: (cat === 'resources' && Array.isArray(rev.notes_thread) && rev.notes_thread.length)
-        ? rev.notes_thread[rev.notes_thread.length - 1]?.text?.trim() || ''
-        : rev.outcome_summary?.trim() || '',
+      outcome,
     });
   });
 
