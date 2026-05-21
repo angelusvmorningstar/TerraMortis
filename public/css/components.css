@@ -5750,19 +5750,95 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   letter-spacing: .5px;
   text-transform: uppercase;
 }
-.stm-mod-revoke {
+.stm-mod-glyph { color: var(--gold2); font-size: 12px; line-height: 1; }
+.stm-mod-actions { display: flex; gap: 6px; }
+.stm-mod-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid var(--crim, #8B0000);
-  color: var(--crim, #8B0000);
+  border: 1px solid var(--bdr2);
+  color: var(--txt2);
   border-radius: 3px;
   font-size: 11px;
   cursor: pointer;
 }
-.stm-mod-revoke:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
+.stm-mod-btn:hover { background: var(--surf3, var(--surf2)); color: var(--txt); }
+.stm-mod-btn--reactivate { border-color: var(--green, #6EA05A); color: var(--green, #6EA05A); }
+.stm-mod-btn--reactivate:hover { background: var(--green, #6EA05A); color: var(--txt-on-dark, #fff); }
+.stm-mod-btn--delete { border-color: var(--crim, #8B0000); color: var(--crim, #8B0000); }
+.stm-mod-btn--delete:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
 .stm-mod-reason { margin: 4px 0 2px; color: var(--txt2); font-size: 12px; }
 .stm-mod-meta { font-size: 11px; color: var(--txt3); margin: 0; }
 .stm-list-empty { color: var(--txt3); font-style: italic; }
+
+/* — STM-12 lifecycle: filter bar, inactive (muted) group, modal, banner — */
+.stm-list-group { margin-bottom: 14px; }
+.stm-list-group h3 { margin: 6px 0; }
+.stm-list-filters { display: flex; gap: 8px; margin: 4px 0 10px; }
+.stm-view-btn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  color: var(--txt3);
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.stm-view-btn:hover { color: var(--txt); }
+.stm-view-btn.is-active { background: var(--gold2-a25, rgba(122,82,8,.25)); color: var(--gold2); border-color: var(--gold2); }
+
+/* Inactive rows render muted: no gold border-glow, dimmed, outline glyph. */
+.stm-mod-row--inactive {
+  border-left-color: var(--bdr2);
+  opacity: .6;
+}
+.stm-mod-row--inactive .stm-mod-glyph,
+.stm-mod-row--inactive .stm-mod-delta { color: var(--txt3); }
+.stm-list-group--inactive > h3 { color: var(--txt3); }
+
+/* Soft-duplicate (dormant) warning banner. */
+.stm-dormant-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--gold2-a25, rgba(122,82,8,.18));
+  border: 1px solid var(--gold2);
+  border-radius: 3px;
+}
+.stm-dormant-text { flex: 1; color: var(--txt); font-size: 12px; }
+.stm-dormant-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--txt3);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.stm-dormant-dismiss:hover { color: var(--txt); }
+
+/* Delete confirmation modal. */
+.stm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.stm-modal {
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  padding: 20px 24px;
+  max-width: 440px;
+  width: calc(100% - 48px);
+}
+.stm-modal h3 { margin: 0 0 10px; color: var(--crim, #8B0000); font-family: var(--fh); }
+.stm-modal p { color: var(--txt2); font-size: 13px; margin: 6px 0; }
+.stm-modal-note { color: var(--txt3); font-size: 12px; }
+.stm-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 
 /* — STM-6 audit page polish (issue #379 styling) — */
 .stm-audit-root { padding: 18px 24px; font-family: var(--fl); color: var(--txt); }
