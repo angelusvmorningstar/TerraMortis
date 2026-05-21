@@ -464,16 +464,26 @@ export function isSectionComplete(stNarrative, sectionKey) {
   return stNarrative?.[sectionKey]?.status === 'complete';
 }
 
+function _isDeletedMeritAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
+}
+
+function _isDeletedProjectAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
+}
+
 /**
- * Project responses complete: all non-skipped project entries have status 'complete'.
+ * Project responses complete: all non-skipped, non-deleted project entries have status 'complete'.
  * Used by the sign-off counter and pill rail in place of generic isSectionComplete.
  */
 function projectResponsesComplete(sub) {
   const resolved = sub?.projects_resolved || [];
   const responses = sub?.st_narrative?.project_responses || [];
-  const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+  const applicable = resolved
+    .map((r, idx) => ({ r, idx }))
+    .filter(({ r, idx }) => r?.pool_status !== 'skipped' && !_isDeletedProjectAction(sub, idx));
   if (!applicable.length) return false;
-  return applicable.every((_, i) => responses[i]?.status === 'complete');
+  return applicable.every(({ idx }) => responses[idx]?.status === 'complete');
 }
 
 /**
@@ -1107,11 +1117,12 @@ function getApplicableSections(char, sub) {
 
   sections.push({ key: 'feeding_validation', label: 'Feeding' });
 
-  if (sub?.projects_resolved?.length) {
+  if ((sub?.projects_resolved || []).some((_, idx) => !_isDeletedProjectAction(sub, idx))) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
   }
 
   const hasCategory = (cats) => (sub?.merit_actions || []).some((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return false;
     const cat = deriveMeritCategory(a.merit_type);
     if (!cats.includes(cat)) return false;
     const rev = sub?.merit_actions_resolved?.[i] || {};
@@ -2236,6 +2247,7 @@ function meritSummaryComplete(sub) {
   const acqRes   = sub?.acquisitions_resolved  || [];
 
   for (let i = 0; i < actions.length; i++) {
+    if (_isDeletedMeritAction(sub, i)) continue;
     const rev = resolved[i] || {};
     if ((rev.pool_status || '') === 'skipped') continue;
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
@@ -2263,13 +2275,15 @@ function renderMeritSummary(char, sub) {
   // Group non-skipped actions by category
   const groups = {};
   actions.forEach((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return;
     const rev = resolved[i] || {};
     if (rev.pool_status === 'skipped') return;
     const cat = deriveMeritCategory(a.merit_type);
     if (!groups[cat]) groups[cat] = [];
-    const { label: meritLabel } = getMeritDetails(char, a);
+    const { label: meritLabel, qualifier } = getMeritDetails(char, a);
+    const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
     groups[cat].push({
-      meritLabel: meritLabel || a.merit_type || 'Merit',
+      meritLabel: displayLabel || a.merit_type || 'Merit',
       desiredOutcome: a.desired_outcome?.trim() || '',
       outcome: rev.outcome_summary?.trim() || '',
     });
@@ -2703,7 +2717,11 @@ function renderMeritSection(char, sub, sectionKey, sectionLabel, categories) {
 
   const applicable = actions
     .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
-    .filter(({ a, rev }) => categories.includes(deriveMeritCategory(a.merit_type)) && rev.pool_status !== 'skipped');
+    .filter(({ a, i, rev }) =>
+      !_isDeletedMeritAction(sub, i) &&
+      categories.includes(deriveMeritCategory(a.merit_type)) &&
+      rev.pool_status !== 'skipped'
+    );
 
   const complete = actionResponsesComplete(sub, categories);
   const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
