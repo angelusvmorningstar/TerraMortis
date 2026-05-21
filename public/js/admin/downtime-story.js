@@ -289,6 +289,10 @@ export async function initDtStory(cycleId) {
     const feedApproveBtn = e.target.closest('.dt-feed-val-approve-btn');
     if (feedApproveBtn) { handleFeedingApproval(feedApproveBtn); return; }
 
+    // Merit summary dismiss / undismiss
+    const dismissBtn = e.target.closest('.dt-merit-dismiss-btn');
+    if (dismissBtn) { _handleMeritSummaryDismiss(dismissBtn); return; }
+
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
@@ -376,6 +380,32 @@ function _showStoryAutosaveStatus(el, state) {
     return;
   }
   if (state === 'error') { el.textContent = 'Save failed'; }
+}
+
+async function _handleMeritSummaryDismiss(btn) {
+  if (!_currentSub) return;
+  const sub = _currentSub;
+  const idx = parseInt(btn.dataset.actionIdx, 10);
+  if (isNaN(idx)) return;
+
+  const current = Array.isArray(sub.st_narrative?.merit_summary_overrides)
+    ? [...sub.st_narrative.merit_summary_overrides]
+    : [];
+
+  const updated = current.includes(idx)
+    ? current.filter(i => i !== idx)
+    : [...current, idx].sort((a, b) => a - b);
+
+  try {
+    await saveNarrativeField(sub._id, { 'st_narrative.merit_summary_overrides': updated });
+  } catch (err) {
+    return;
+  }
+  (sub.st_narrative ??= {}).merit_summary_overrides = updated;
+
+  const char = getCharForSub(sub);
+  const view = document.getElementById('dt-story-char-view');
+  if (view) view.innerHTML = renderCharacterView(char, sub);
 }
 
 async function _handleStoryTaBlur(ta) {
@@ -2244,12 +2274,14 @@ function actionResponsesComplete(sub, categories) {
 }
 
 function meritSummaryComplete(sub) {
-  const actions  = sub?.merit_actions || [];
-  const resolved = sub?.merit_actions_resolved || [];
-  const acqRes   = sub?.acquisitions_resolved  || [];
+  const actions   = sub?.merit_actions || [];
+  const resolved  = sub?.merit_actions_resolved || [];
+  const acqRes    = sub?.acquisitions_resolved  || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
 
   for (let i = 0; i < actions.length; i++) {
     if (_isDeletedMeritAction(sub, i)) continue;
+    if (overrides.has(i)) continue;
     const rev = resolved[i] || {};
     if ((rev.pool_status || '') === 'skipped') continue;
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
@@ -2328,24 +2360,63 @@ function renderMeritSummary(char, sub) {
     }
   }
 
+  // Build the list of all blocking items (ignoring overrides — overrides determine display only)
+  const acqRes    = sub?.acquisitions_resolved || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
+
+  const blockingItems = [];
+  actions.forEach((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return;
+    const rev = resolved[i] || {};
+    if ((rev.pool_status || '') === 'skipped') return;
+    const cat = deriveMeritCategory(a.merit_type);
+    if (cat === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') return;
+      const acqStatus = acqRes[0]?.pool_status || '';
+      if (acqStatus === 'validated' || acqStatus === 'skipped') return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
+    } else {
+      if (rev.outcome_summary?.trim()) return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || a.merit_type || 'Merit', reason: 'outcome not yet recorded' });
+    }
+  });
+
+  const remainingBlocks = blockingItems.filter(item => !overrides.has(item.idx));
+  const dismissedBlocks = blockingItems.filter(item =>  overrides.has(item.idx));
+  const genuinelyComplete = blockingItems.length === 0;
+
   h += `<div class="dt-story-section-actions">`;
-  if (complete) {
+  if (genuinelyComplete) {
     h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
+  } else if (remainingBlocks.length === 0) {
+    const n = dismissedBlocks.length;
+    h += `<span class="dt-story-complete-badge dt-story-complete-overridden">&#10003; Overridden (${n} dismissed)</span>`;
   } else {
-    const acqRes  = sub?.acquisitions_resolved || [];
-    const missing = actions.filter((a, i) => {
-      const rev = resolved[i] || {};
-      if (rev.pool_status === 'skipped') return false;
-      if (deriveMeritCategory(a.merit_type) === 'resources') {
-        const revStatus = resolved[i]?.pool_status || '';
-        if (revStatus === 'validated' || revStatus === 'skipped') return false;
-        const acqStatus = acqRes[0]?.pool_status || '';
-        return acqStatus !== 'validated' && acqStatus !== 'skipped';
-      }
-      return !rev.outcome_summary?.trim();
-    }).length;
-    h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
+    const n = remainingBlocks.length;
+    h += `<span class="dt-story-pending-note">${n} outcome${n !== 1 ? 's' : ''} still to record in DT Processing</span>`;
   }
+
+  const allDisplayed = [...remainingBlocks, ...dismissedBlocks];
+  if (allDisplayed.length) {
+    h += `<div class="dt-merit-blocking-list">`;
+    for (const item of allDisplayed) {
+      const isDismissed = overrides.has(item.idx);
+      const btnClass = isDismissed ? 'dt-merit-dismiss-btn dt-merit-dismiss-btn--active' : 'dt-merit-dismiss-btn';
+      const btnLabel = isDismissed ? 'Undismiss' : 'Dismiss';
+      h += `<div class="dt-merit-blocking-item">`;
+      h += `<span class="dt-merit-blocking-item-label">${esc(item.label)}</span>`;
+      h += `<span class="dt-merit-blocking-reason">— ${esc(item.reason)}</span>`;
+      h += `<button class="${btnClass}" data-action-idx="${item.idx}">${btnLabel}</button>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
   h += `</div>`;
   h += `</div></div>`;
   return h;
