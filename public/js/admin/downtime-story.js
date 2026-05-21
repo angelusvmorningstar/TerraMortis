@@ -2134,11 +2134,12 @@ function buildMeritActions(sub) {
   // retainers / acquisitions above are not disturbed. MCI labels route to
   // the 'status' category via the regex in deriveMeritCategory (Task 2).
   for (let n = 1; n <= 5; n++) {
-    const mt = resp[`status_${n}_merit`];
-    if (!mt) continue;
+    const mt        = resp[`status_${n}_merit`];
+    const actionVal = resp[`status_${n}_action`];
+    if (!mt || !actionVal) continue;
     actions.push({
       merit_type:      mt,
-      action_type:     resp[`status_${n}_action`]      || 'misc',
+      action_type:     actionVal,
       desired_outcome: resp[`status_${n}_outcome`]     || '',
       description:     resp[`status_${n}_description`] || '',
     });
@@ -2155,7 +2156,7 @@ function deriveMeritCategory(meritTypeStr) {
   const s = (meritTypeStr || '').toLowerCase();
   if (/allies/.test(s))                  return 'allies';
   if (/status/.test(s))                  return 'status';
-  if (/mystery cult initiate/.test(s))   return 'status';  // #233 — MCI grouped with Status
+  if (/mystery cult initiat/.test(s))    return 'status';  // #233 — MCI grouped with Status; stem matches both "Initiate" and "Initiation"
   if (/retainer/.test(s))                return 'retainer';
   if (/staff/.test(s))                   return 'staff';
   if (/contacts?/.test(s))               return 'contacts';
