@@ -272,6 +272,7 @@ Open DT Story tab → DT3 → Reed Justice. Confirm:
 
 ### File List
 - `public/js/admin/downtime-story.js` — `buildMeritActions`: Status/MCI block moved after spheres, before contacts
+- `tests/fix-460-dt-processing-status-action-missing.spec.js` — 6 Playwright tests (AC-1..4, QA-1..2); all passing
 
 ### Change Log
-- 2026-05-22: fix(#460) — `buildMeritActions` Status ordering aligned with `buildProcessingQueue`; Status/MCI now inserted after spheres, before contacts, matching the flat-index write order. Resolves cross-wired outcomes and missing Underworld row for Reed's DT3.
+- 2026-05-22: fix(#460) — `buildMeritActions` Status ordering aligned with `buildProcessingQueue`; Status/MCI now inserted after spheres, before contacts, matching the flat-index write order. Resolves cross-wired outcomes and missing Underworld row for Reed's DT3. 6 Playwright tests added.
