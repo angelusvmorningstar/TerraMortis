@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DT Proto — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;600;700;900&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/admin-layout.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+  // Prevent theme flash
+  (function(){
+    var t = localStorage.getItem('tm-theme');
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+  // Fake ST auth — no Discord needed in proto
+  localStorage.setItem('tm_auth_token', 'local-test-token');
+  localStorage.setItem('tm_auth_user', JSON.stringify({
+    role: 'st', username: 'Proto ST', global_name: 'Proto ST', _localTest: true
+  }));
+  localStorage.setItem('tm_auth_player', JSON.stringify({ role: 'st' }));
+</script>
+<style>
+  body { margin: 0; background: var(--bg); color: var(--text); }
+  #proto-app { display: flex; flex-direction: column; min-height: 100vh; padding: 16px; box-sizing: border-box; }
+  #proto-banner {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--gold2);
+    opacity: .6;
+    margin-bottom: 8px;
+  }
+  #proto-loading { padding: 32px; text-align: center; opacity: .6; }
+</style>
+</head>
+<body>
+<div id="proto-app">
+  <div id="proto-banner">DT Prototype — local only — data is static</div>
+
+  <!-- DT domain — mirrors admin.html #d-downtime exactly -->
+  <section id="d-downtime" class="domain active" style="display:flex;flex-direction:column;flex:1">
+    <div class="domain-header">
+      <h2>Downtime</h2>
+    </div>
+    <div id="dt-ctrl-bar">
+      <div class="dt-toolbar">
+        <button class="dt-btn dt-btn-new" id="dt-new-cycle">+ New Cycle</button>
+        <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
+        <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
+        <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
+        <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
+        <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
+      </div>
+      <div id="dt-cycle-bar" class="dt-cycle-bar">
+        <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
+        <span id="dt-cycle-status" class="dt-cycle-status"></span>
+      </div>
+    </div>
+    <div id="dt-phase-ribbon" style="display:none"></div>
+    <div id="dt-sub-ribbon" style="display:none"></div>
+    <div id="dt-prep-panel" class="dt-prep-panel" style="display:none"></div>
+    <div id="dt-processing-panel" class="dt-panel" style="display:none">
+      <div id="downtime-content"></div>
+    </div>
+    <div id="dt-city-panel" class="dt-panel" style="display:none"></div>
+    <div id="dt-story-panel" class="dt-panel" style="display:none"></div>
+    <div id="dt-ready-panel" class="dt-panel" style="display:none"></div>
+  </section>
+
+  <div id="proto-loading">Loading prototype data…</div>
+</div>
+<script type="module" src="js/dt-proto-boot.js"></script>
+</body>
+</html>
