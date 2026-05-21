@@ -302,6 +302,79 @@ test.describe('feat.458: merit summary dismiss/override', () => {
     await expect(page.locator('.dt-merit-dismiss-btn').first()).toHaveText('Dismiss');
   });
 
+  // QA-1 ─────────────────────────────────────────────────────────────────────
+
+  test('QA-1: clicking Dismiss fires PUT with index in overrides and re-renders overridden badge', async ({ page }) => {
+    await setup(page, [SUB_ONE_MISSING]);
+
+    // Initial state: Dismiss button (not active)
+    const dismissBtn = page.locator('.dt-merit-dismiss-btn').first();
+    await expect(dismissBtn).toBeVisible();
+    await expect(dismissBtn).toHaveText('Dismiss');
+
+    const putPromise = page.waitForRequest(
+      req => req.url().includes('/api/downtime_submissions/') && req.method() === 'PUT',
+      { timeout: 5000 }
+    );
+
+    await dismissBtn.click();
+
+    const putRequest = await putPromise;
+    const body = JSON.parse(putRequest.postData());
+    expect(body['st_narrative.merit_summary_overrides']).toEqual([0]);
+
+    await page.waitForTimeout(1000);
+
+    // After re-render: overridden badge shown, no pending note
+    const html = await getMeritSectionHtml(page, 'merit_summary');
+    expect(html).toContain('Overridden (1 dismissed)');
+    expect(html).not.toContain('still to record in DT Processing');
+
+    // Dot turns green
+    const dot = page.locator('[data-section="merit_summary"] .dt-story-completion-dot');
+    await expect(dot).toHaveClass(/dt-story-dot-complete/);
+
+    // Button flips to Undismiss
+    await expect(page.locator('.dt-merit-dismiss-btn--active')).toHaveText('Undismiss');
+  });
+
+  // QA-2 ─────────────────────────────────────────────────────────────────────
+
+  test('QA-2: partial dismiss (2 items, dismiss 1) — dot stays pending, one Dismiss one Undismiss', async ({ page }) => {
+    await setup(page, [SUB_TWO_MISSING]);
+
+    // Both Dismiss buttons present; click the first (Allies, idx=0)
+    const btns = page.locator('.dt-merit-dismiss-btn');
+    await expect(btns).toHaveCount(2);
+
+    const putPromise = page.waitForRequest(
+      req => req.url().includes('/api/downtime_submissions/') && req.method() === 'PUT',
+      { timeout: 5000 }
+    );
+
+    await btns.first().click();
+
+    const putRequest = await putPromise;
+    const body = JSON.parse(putRequest.postData());
+    expect(body['st_narrative.merit_summary_overrides']).toEqual([0]);
+
+    await page.waitForTimeout(1000);
+
+    // Still one remaining block → "1 outcome still to record"
+    const html = await getMeritSectionHtml(page, 'merit_summary');
+    expect(html).toContain('1 outcome still to record in DT Processing');
+    expect(html).not.toContain('Overridden');
+
+    // Dot stays pending because one un-dismissed block remains
+    const dot = page.locator('[data-section="merit_summary"] .dt-story-completion-dot');
+    await expect(dot).toHaveClass(/dt-story-dot-pending/);
+
+    // One Dismiss (remaining) + one Undismiss (dismissed) visible
+    await expect(page.locator('.dt-merit-dismiss-btn')).toHaveCount(2);
+    await expect(page.locator('.dt-merit-dismiss-btn--active')).toHaveCount(1);
+    await expect(page.locator('.dt-merit-dismiss-btn--active')).toHaveText('Undismiss');
+  });
+
   // AC-6 ──────────────────────────────────────────────────────────────────────
 
   test('AC-6: all outcomes present → green check badge, no blocking list', async ({ page }) => {
