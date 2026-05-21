@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-18 (issue-352 fix.50 story created: dt-story prompt assembly — missing player vignette + wrong prev-cycle content; issue-297 + issue-300 marked done; Barrens slug fix committed to dev; issue-302 + issue-303 done)
+# last_updated: 2026-05-21 (fix-452: buildMeritActions actionVal guard implemented + 4 Playwright tests)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -794,4 +794,8 @@ development_status:
   fix-432-checklist-merit-star-icon: review                 # A/S/R/C cells never show ★; merit actions use 'confirmed'/'resolved' not 'validated'; two-line fix in _chkState merit slot branch
   issue-352-dt-story-prompt-assembly: done                   # fix.50: buildTouchstoneContext missing player vignette text (personal_story_text never read); prevVignetteText falls through to legacy when prevStoryMoment exists as letter-format — causes letter content in vignette slot
   issue-354-blur-autosave-dt-story: review                  # fix.55: add focusout autosave to dt-story-response-ta + dt-story-revision-ta across all 7 section types; _handleStoryTaBlur dispatcher + _showStoryAutosaveStatus helper; status field never touched by autosave
+  issue-429-dt-story-skip-deleted-actions: in-progress   # downtime-story.js has zero awareness of deleted_action_keys; deleted merit actions still render cards, block completion checks, and appear in published report; 2 helpers + 5 call-site guards + Playwright spec
+  feature-448-dt-story-merit-qualifier: review    # renderMeritSummary discards qualifier from getMeritDetails; label column shows bare "Allies"/"Contacts" for all rows; fix: capture qualifier at line 2283, build displayLabel with "(qualifier)" suffix when present
+  fix-452-dt-story-actionval-guard: review                  # buildMeritActions flat-response loop: add actionVal guard — phantom sphere slots (merit set, action empty) now silently excluded; 6 Playwright tests pass
+  fix-454-dt-story-status-loop-guard: review                # status loop missing actionVal guard (same phantom-slot bug as #452 sphere loop); deriveMeritCategory regex /mystery cult initiate/ misses "Mystery Cult Initiation" — fix: /mystery cult initiat/; 6 Playwright tests passing
   fix-456-dt-story-resources-acq-complete: review   # meritSummaryComplete checks acquisitions_resolved[0] but DT Processing writes to merit_actions_resolved[i]; resources acquisition validated in Processing stays pending in Story; fix: check resolved[i].pool_status first; T3: row shows notes_thread as outcome

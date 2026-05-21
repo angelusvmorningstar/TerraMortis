@@ -90,7 +90,20 @@ export async function initDowntimeTab(el, char, territories = []) {
     // The mobile notice still applies for non-ST, non-localhost on small screens.
     const forceForm = location.hostname === 'localhost' || isST;
     if (!forceForm && window.innerWidth <= 600) {
-      currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
+      // Small-screen heads-up. The previous "Open Player Portal" link pointed
+      // at /player, which is now a legacy stub that redirects back to / — so
+      // mobile players were bounced in a loop with no way to reach the form.
+      // Offer an explicit escape hatch instead: render the form in place.
+      currentZone.innerHTML = `<div class="dt-mobile-notice">
+        <p class="dt-mobile-notice-text">This form is designed for desktop and may be awkward on a small screen.</p>
+        <button type="button" class="dt-mobile-show-anyway" data-dt-show-form>Show the form anyway</button>
+      </div>`;
+      const showBtn = currentZone.querySelector('[data-dt-show-form]');
+      if (showBtn) {
+        showBtn.addEventListener('click', () => {
+          renderDowntimeTab(currentZone, char, territories, { singleColumn: true, skipFreshFetch: true });
+        });
+      }
     } else {
       // Issue #259 (perf): char + territories come from suiteState which
       // was loaded at boot — skip the redundant fresh-fetch pair.
