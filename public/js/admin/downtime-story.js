@@ -2002,11 +2002,12 @@ function buildMeritActions(sub) {
     });
   } else {
     for (let n = 1; n <= 5; n++) {
-      const mt = resp[`sphere_${n}_merit`];
-      if (!mt) continue;
+      const mt        = resp[`sphere_${n}_merit`];
+      const actionVal = resp[`sphere_${n}_action`];
+      if (!mt || !actionVal) continue;
       actions.push({
         merit_type:      mt,
-        action_type:     resp[`sphere_${n}_action`]      || 'misc',
+        action_type:     actionVal,
         desired_outcome: resp[`sphere_${n}_outcome`]     || '',
         description:     resp[`sphere_${n}_description`] || '',
       });
