@@ -1,6 +1,6 @@
 # Issue #440: STM-12 — panel UI for persistent toggleable mods (filter / muted-inactive / reactivate / soft-warn)
 
-Status: Ready for Review
+Status: Done
 
 issue: 440
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/440
