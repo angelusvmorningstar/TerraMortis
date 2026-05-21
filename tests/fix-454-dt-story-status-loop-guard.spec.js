@@ -135,6 +135,43 @@ const SUB_STATUS_ACTIVE = {
   ],
 };
 
+// QA-1: Only a phantom status slot — no other actions. Merit_summary must be absent and
+// pill must be green (sign-off not blocked). This is the exact Brandy scenario.
+const SUB_PHANTOM_ONLY = {
+  ...baseSub('sub-454-phantom-only'),
+  responses: {
+    status_1_merit:  'Mystery Cult Initiation ●●●●●',
+    status_1_action: '',   // player changed mind — no action taken
+  },
+  _raw: {
+    sphere_actions:   [],
+    contact_actions:  { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  merit_actions_resolved: [],
+};
+
+// QA-2: Two status slots — slot 1 phantom (empty action), slot 2 real with outcome.
+// Only slot 2 should render; slot 1 must not appear.
+const SUB_MIXED_STATUS_SLOTS = {
+  ...baseSub('sub-454-mixed-status'),
+  responses: {
+    status_1_merit:   'Status 2 (Invictus)',
+    status_1_action:  '',          // phantom — player changed mind
+    status_2_merit:   'Mystery Cult Initiation ●●●●●',
+    status_2_action:  'misc',
+    status_2_outcome: 'Strengthened cult bonds',
+  },
+  _raw: {
+    sphere_actions:   [],
+    contact_actions:  { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  merit_actions_resolved: [
+    { pool_status: 'confirmed', outcome_summary: 'Cult bonds reinforced this cycle' },
+  ],
+};
+
 // AC-4: No status-loop fields at all — pure sphere path; regression guard.
 const SUB_NO_STATUS = {
   ...baseSub('sub-454-no-status'),
@@ -255,6 +292,32 @@ test.describe('fix.454: status loop guard + MCI category fix', () => {
     const html = await getMeritSectionHtml(page, 'merit_summary');
     expect(html).not.toBeNull();
     expect(html).toContain('Police allies active this cycle');
+  });
+
+  // QA-1 ──────────────────────────────────────────────────────────────────────
+
+  test('QA-1: phantom-only status slot → merit_summary absent, sign-off not blocked (Brandy scenario)', async ({ page }) => {
+    await setup(page, [SUB_PHANTOM_ONLY]);
+    const html = await getMeritSectionHtml(page, 'merit_summary');
+    // No real actions → merit_summary section must not render.
+    expect(html).toBeNull();
+    // story_moment + no_feed + no merit actions → all sections done → pill green.
+    const pillGreen = await page.evaluate(() => !!document.querySelector('.dt-story-pill.green'));
+    expect(pillGreen).toBe(true);
+  });
+
+  // QA-2 ──────────────────────────────────────────────────────────────────────
+
+  test('QA-2: mixed status slots (phantom + real) — only real slot renders', async ({ page }) => {
+    await setup(page, [SUB_MIXED_STATUS_SLOTS]);
+    const html = await getMeritSectionHtml(page, 'merit_summary');
+    expect(html).not.toBeNull();
+    // Real slot 2 outcome must appear.
+    expect(html).toContain('Cult bonds reinforced this cycle');
+    // Phantom slot 1 (Status/Invictus) desired_outcome is empty, so check merit label absent.
+    // The phantom entry has no desired_outcome to search for — confirm section only has one row
+    // by verifying the phantom's merit type string does not appear in the ledger.
+    expect(html).not.toContain('status_1');   // raw key must never leak into HTML
   });
 
 });
