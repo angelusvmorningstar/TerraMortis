@@ -2239,6 +2239,8 @@ function meritSummaryComplete(sub) {
     const rev = resolved[i] || {};
     if ((rev.pool_status || '') === 'skipped') continue;
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') continue;
       const acqStatus = acqRes[0]?.pool_status || '';
       if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
       continue;
@@ -2271,7 +2273,9 @@ function renderMeritSummary(char, sub) {
     groups[cat].push({
       meritLabel: meritLabel || a.merit_type || 'Merit',
       desiredOutcome: a.desired_outcome?.trim() || '',
-      outcome: rev.outcome_summary?.trim() || '',
+      outcome: (cat === 'resources' && Array.isArray(rev.notes_thread) && rev.notes_thread.length)
+        ? rev.notes_thread[rev.notes_thread.length - 1]?.text?.trim() || ''
+        : rev.outcome_summary?.trim() || '',
     });
   });
 
@@ -2312,6 +2316,8 @@ function renderMeritSummary(char, sub) {
       const rev = resolved[i] || {};
       if (rev.pool_status === 'skipped') return false;
       if (deriveMeritCategory(a.merit_type) === 'resources') {
+        const revStatus = resolved[i]?.pool_status || '';
+        if (revStatus === 'validated' || revStatus === 'skipped') return false;
         const acqStatus = acqRes[0]?.pool_status || '';
         return acqStatus !== 'validated' && acqStatus !== 'skipped';
       }
