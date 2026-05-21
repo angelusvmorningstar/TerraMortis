@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-21 (feat-458: merit summary dismiss/override — 6 Playwright tests, all passing)
+# last_updated: 2026-05-22 (fix-460: buildMeritActions Status ordering aligned with buildProcessingQueue — code fix only, manual T5 verification pending)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -800,3 +800,4 @@ development_status:
   fix-454-dt-story-status-loop-guard: review                # status loop missing actionVal guard (same phantom-slot bug as #452 sphere loop); deriveMeritCategory regex /mystery cult initiate/ misses "Mystery Cult Initiation" — fix: /mystery cult initiat/; 6 Playwright tests passing
   fix-456-dt-story-resources-acq-complete: review   # meritSummaryComplete checks acquisitions_resolved[0] but DT Processing writes to merit_actions_resolved[i]; resources acquisition validated in Processing stays pending in Story; fix: check resolved[i].pool_status first; T3: row shows notes_thread as outcome
   feat-458-dt-story-merit-summary-dismiss: review   # expand merit summary blocking message: list each incomplete action by name+reason; per-action Dismiss button; overrides persist to st_narrative.merit_summary_overrides; amber Overridden badge when all dismissed
+  fix-460-dt-processing-status-action-missing: review  # buildMeritActions Status/MCI block moved after spheres (before contacts) to match buildProcessingQueue flat-index ordering; fixes cross-wired outcomes + Reed DT3 Underworld "not yet recorded"

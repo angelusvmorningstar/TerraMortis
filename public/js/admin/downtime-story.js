@@ -2011,7 +2011,7 @@ function renderStoryMoment(char, sub, stNarrative) {
 /**
  * Builds a flat merit_actions array from a submission's raw/response fields.
  * Called at load time for submissions that don't already have merit_actions populated.
- * Ordering: spheres → contacts → retainers (matches downtime-views.js flat index).
+ * Ordering: spheres → Status/MCI → contacts → retainers → acquisitions (matches downtime-views.js flat index).
  */
 function buildMeritActions(sub) {
   const resp = sub.responses || {};
@@ -2042,6 +2042,25 @@ function buildMeritActions(sub) {
         description:     resp[`sphere_${n}_description`] || '',
       });
     }
+  }
+
+  // ── Status / MCI ──
+  // Issue #460 — must follow spheres immediately, matching buildProcessingQueue
+  // (downtime-views.js:3199) which appends Status into the spheres array before
+  // contacts. The original issue #233 placement (after acquisitions) caused a
+  // flat-index mismatch: outcomes written by the processing panel at indices
+  // N+1..N+M ended up at different story indices, cross-wiring resolved outcomes
+  // and leaving Status Underworld at a slot beyond merit_actions_resolved length.
+  for (let n = 1; n <= 5; n++) {
+    const mt        = resp[`status_${n}_merit`];
+    const actionVal = resp[`status_${n}_action`];
+    if (!mt || !actionVal) continue;
+    actions.push({
+      merit_type:      mt,
+      action_type:     actionVal,
+      desired_outcome: resp[`status_${n}_outcome`]     || '',
+      description:     resp[`status_${n}_description`] || '',
+    });
   }
 
   // ── Contacts ──
@@ -2166,24 +2185,6 @@ function buildMeritActions(sub) {
       action_type:     'acquisition',
       desired_outcome: '',
       description:     skillAcqBlob,
-    });
-  }
-
-  // ── Status / MCI ──
-  // Issue #233 — form writes status_${n}_* for Status influence merits and
-  // MCI standing merits (downtime-form.js:789-815) but no consumer was
-  // normalising them. Appended last so flat indices for spheres / contacts /
-  // retainers / acquisitions above are not disturbed. MCI labels route to
-  // the 'status' category via the regex in deriveMeritCategory (Task 2).
-  for (let n = 1; n <= 5; n++) {
-    const mt        = resp[`status_${n}_merit`];
-    const actionVal = resp[`status_${n}_action`];
-    if (!mt || !actionVal) continue;
-    actions.push({
-      merit_type:      mt,
-      action_type:     actionVal,
-      desired_outcome: resp[`status_${n}_outcome`]     || '',
-      description:     resp[`status_${n}_description`] || '',
     });
   }
 
