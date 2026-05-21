@@ -6957,6 +6957,38 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 }
 .dt-story-complete-badge { color: var(--result-succ); }
 .dt-story-pending-note { color: var(--txt3); font-style: italic; }
+/* ── Issue #458: merit summary dismiss/override ──────────────────── */
+.dt-story-complete-badge.dt-story-complete-overridden { color: var(--gold2); }
+.dt-merit-blocking-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dt-merit-blocking-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.dt-merit-blocking-item-label { color: var(--txt2); font-weight: 500; }
+.dt-merit-blocking-reason { color: var(--txt3); font-style: italic; flex: 1; }
+.dt-merit-dismiss-btn {
+  font-size: 11px;
+  padding: 2px 7px;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  background: var(--surf2);
+  color: var(--txt2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dt-merit-dismiss-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-merit-dismiss-btn--active {
+  border-color: var(--gold2);
+  color: var(--gold2);
+  background: var(--surf3);
+}
 
 /* Sign-off panel */
 .dt-story-sign-off {

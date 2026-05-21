@@ -1,10 +1,10 @@
 ---
 id: ADR-004
-title: 'ST Mods overlay - composition, settings, enumeration, stacking, tracker_state, multi-read-site propagation'
+title: 'ST Mods overlay - composition, settings, enumeration, stacking, tracker_state, multi-read-site propagation, persistent toggleable lifecycle'
 status: approved
 date: 2026-05-20
 author: Imhotep (Architect)
-revision: 3
+revision: 4
 supersedes: null
 related:
   - specs/epic-stm-st-mods.md (PRD this ADR backs)
@@ -34,6 +34,7 @@ related:
 | 1 | 2026-05-17 | Initial. Resolved four open questions raised by Thoth (PM) in PRD §Open Questions: D1 client-side post-derivation overlay, D2 minimal new `app_settings` collection, D3 hybrid stat-path enumeration (static + character-derived), D4 list-each-mod popover (no v1 collapse). Watch-items: CLAUDE.md amendment, write-time path whitelist, delegated listener routing, `_st_mod_overlay` save-path strip. | Imhotep (Architect) |
 | 2 | 2026-05-18 | STM-1 (PR #359) landed and exposed that `current.damage / current.willpower / current.vitae` — used as the canonical example in Rev 1 §D3 — do not resolve on the character document; those values live in the separate `tracker_state` collection. Ptah pruned them from the whitelist for the v1 ship; Peter has now reasserted "every controllable number is moddable in v1," locking damage/willpower/vitae back into scope. Rev 2 adds D5 (synthetic `current.*` namespace spliced into the character object pre-overlay), D6 (overlay never writes back to tracker_state), D7 (per-track damage paths). Critical finding: the SSOT note that says players cannot read tracker_state is stale — `server/routes/tracker.js:9-15` already grants player own-character access and `public/js/game/tracker.js:68` already exercises it. No auth-boundary change is required. Also corrects Rev 1 §D3's lowercase attribute/skill examples to match Ptah's normative capitalised keying. | Imhotep (Architect) |
 | 3 | 2026-05-20 | Epic STM v1 shipped (STM-1..6 + polish #408 + auth-relax #410). Smoke test surfaced the punt Rev 1 §D1 made: roll calculator, DT player form pool display, and DT admin resolution all read attribute/skill/discipline values via the same `accessors.js` chokepoint as `renderSheet`, but `applyStMods` was only being called at the sheet-render entry point. Suite app's `editorState.chars` and `suiteState.chars` populate at `public/js/app.js:533/556` without overlay application, so the dice modal and roll calc see base values. Peter has removed the punt. Rev 3 adds D8 (multi-read-site contract — applyStMods is still the only composition function, but any in-memory character cache that feeds the accessor chokepoint must have applyStMods applied to its entries), D9 (boot-time bulk overlay via new `applyOverlayToAll` helper + new `GET /api/st_mods?character_ids=...` bulk endpoint), D10 (DT resolution-time pool snapshot `{ base, mods, final, expression }` — per Thoth's pre-loaded prior), D11 (WS-driven mod-change invalidation mirroring `broadcastTrackerUpdate`), D12 (single kill-switch; no rolls-vs-sheet split — per Thoth), D13 (localStorage cache stores base only; overlay applied in-memory at boot), D14 (CLAUDE.md carve-out expanded to name the new read sites). Architectural surprise of Rev 3: there are **no new accessor surface changes required** — `applyStMods` already mutates the in-memory character's attribute/skill/discipline fields, and every calc-site read (per survey of 213 accessor callsites across the codebase) goes through `getAttrEffective` / `skTotal` / `discAttrBonus` / `calcDefence` etc., all of which read those exact mutated fields. The work in Rev 3 is concentrated at the boot path and at one new submission-schema field. | Imhotep (Architect) |
+| 4 | 2026-05-20 | Pivot from ephemeral mods (create → active → revoke = hard-delete) to **persistent toggleable mods** (create → active ↔ inactive → permanent-delete), a per-character template-library-ish model Peter asked for ("a collection of mods kept with the character and toggled on/off as required"). This reverses the Rev 1 PRD §Non-Goals "No revoke history / audit never deleted" guarantee — but only on the *list-cleanliness* axis, not the *accountability* axis. The collection-split reframe (Imhotep) dissolved the apparent A/B/C product tension: `st_mods` becomes the toggleable **library** (working set), `st_mod_audit` stays the immutable **ledger**. Thoth locked the retention contract with Peter as **Position B — keep history, clean the list**. Rev 4 adds D15 (mod lifecycle `active: boolean` + two distinct delete semantics), D16 (audit becomes an immutable lifecycle event stream with `event` discriminator), D17 (per-toggle reason optional, who/when mandatory), D18 (WS op-set expansion `{create, activate, deactivate, delete}`, `revoke` retires), D19 (hybrid migration — `active !== false` query guard makes correctness independent of backfill timing), D20 (cross-character/global template library explicitly OUT of scope — future epic). D10 reaffirmed unaffected (snapshot is point-in-time; post-snapshot lifecycle changes do not retroactively alter it). | Imhotep (Architect) |
 
 ## Context
 
@@ -303,6 +304,70 @@ The Rev 1 carve-out paragraph under "Derived stats are never stored" in `CLAUDE.
 
 **Pinned as acceptance criterion** on whichever Rev 3 story covers the shared boot helper (likely the first one: "boot-time overlay propagation"). Without the carve-out, a future agent will see modded values flowing into pool computation and treat it as a violation of the never-store-derived rule.
 
+### D15 — Mod lifecycle: `active: boolean`, two distinct delete semantics. (Rev 4)
+
+The `st_mods` document gains a single lifecycle field: `active: boolean` (default `true`). No enum, no soft-delete tombstone state — Peter did not ask for a recover-recently-deleted window, and a three-state machine would add surface for no named use case.
+
+Two operations, deliberately distinct:
+
+1. **Toggle off / on** (deactivate / reactivate). Flips `active`. The mod definition persists in `st_mods`. This is the template-library behaviour: a collection of mods kept on the character, switched on or off as the scene demands. A deactivated mod still appears in the panel (in the inactive group), ready to be reactivated.
+2. **Permanent-delete.** Hard-removes the mod definition from `st_mods` (the panel clears it). This is the list-cleanliness affordance. It does **not** erase history — see D16.
+
+**Overlay application filter:** `applyStMods` (and the boot/sheet load paths feeding it) apply only mods where `active !== false`. Using `!== false` rather than `=== true` is the migration-safety guard (D19): a pre-Rev-4 mod document with no `active` field is treated as active, which matches its pre-Rev-4 always-on behaviour. Correctness does not depend on the backfill having run.
+
+**API surface:**
+- `PATCH /api/st_mods/:id` `{ active: boolean, reason?: string }` — flips `active`, writes an `activated` / `deactivated` audit event. ST-only.
+- `DELETE /api/st_mods/:id` — now means **permanent-delete**. Writes a `deleted` audit tombstone *before* removing the definition (see D16). ST-only. (Pre-Rev-4 this route was the revoke=hard-delete path and wrote no audit row; Rev 4 adds the tombstone write.)
+- `POST /api/st_mods` — unchanged except the created mod doc now carries `active: true` and the audit row carries `event: 'created'`.
+
+### D16 — Audit becomes an immutable lifecycle event stream. (Rev 4, reverses PRD §Non-Goals)
+
+`st_mod_audit` rows gain an `event` discriminator: `created | activated | deactivated | deleted`. Each row captures `{ by: { discord_id, discord_name }, at: ISODate }` (the actor and time of *that* state change), alongside the existing `st_mod_id`, `character_id`, `stat_path`, `delta`, `reason`.
+
+**The collection stays append-only and is NEVER deleted — including on permanent-delete.** This is the load-bearing reversal: the Rev 1 PRD §Non-Goals said "No revoke history. Revoking hard-deletes." Rev 4 keeps the *definition* deletable (D15) but makes the *history* permanent. The net accountability guarantee from the original PRD §Auditability is preserved: you can always answer "why was Marcus's Defence 2 last session?" from the ledger, even after the mod was toggled off or permanently deleted.
+
+**Permanent-delete sequence** (ordering matters):
+1. Resolve the mod doc (need `character_id` for the WS broadcast and the snapshot fields for the tombstone).
+2. Write the `deleted` audit event row.
+3. Hard-delete the `st_mods` definition.
+4. Broadcast `delete` WS frame.
+
+If step 3 fails after step 2 succeeds, the result is a `deleted` event with the definition still present — self-healing on retry, and the overlay still applies the (still-active) mod until the retry lands. The reverse ordering (delete then audit) would risk a definition gone with no tombstone, which violates the guarantee. Audit-before-destroy is the safe order, the mirror of the create handler's mod-before-audit-with-rollback (which optimises for the opposite failure: never a mod with no creation record).
+
+**Why event-stream over a mutable single-row `lifecycle_log[]` array:** the event-stream shape mirrors the existing one-doc-per-mod / one-row-per-creation grain, keeps every row immutable (no in-place updates to an "append-only" collection — a contradiction the array shape would introduce), and makes the STM-6 audit view a straight chronological read. The compactness win of the array shape is not worth re-introducing mutation into the ledger.
+
+**Existing audit rows** (created under v1, creation-only, no `event` field) default to `event: 'created'` on read (`row.event ?? 'created'`). The D19 backfill sets it explicitly for uniformity. Same no-timing-dependency shape as `active`.
+
+### D17 — Per-toggle reason optional; who/when mandatory. (Rev 4, per Thoth)
+
+On a toggle (`PATCH`), the `reason` text is **optional** — if omitted, the audit event inherits the original creation reason so the row is never reasonless. But the `by` / `at` capture is **mandatory** on every state change; it is the spine of the accountability guarantee and is populated server-side from `req.user`, never trusted from the client.
+
+This keeps the lifecycle accountable (who flipped this, and when) without forcing an ST to type a justification on every flip during fast-moving scene play.
+
+### D18 — WS op-set expansion; `revoke` retires. (Rev 4)
+
+The Rev 3 §D11 op set `{create, revoke}` becomes `{create, activate, deactivate, delete}`. The `revoke` op is removed: it conflated "stop applying" (now `deactivate`) with "destroy" (now `delete`).
+
+- `broadcastStModUpdate(characterId, op, stModId)` signature is unchanged; only the `op` vocabulary widens.
+- **Dedupe is op-agnostic.** The client's `markLocalWrite` echo-suppression keys on `characterId + ':st_mod'` (constant token), not on op, so the broader op set rides free — no dedupe change needed. (Confirmed against `public/js/data/ws.js` — the `_handleStModMsg` suppression check ignores `op`.)
+- **Unknown-op defensiveness is free.** The client handler already refetches the affected character's mods and re-applies the overlay regardless of which op arrived; an unrecognised op falls through to the same refetch. No per-op client branching is required for correctness. (A future client *may* branch on op for finer UX, e.g. a toast, but that is not load-bearing.)
+
+### D19 — Migration: hybrid, correctness independent of backfill timing. (Rev 4)
+
+Two schema additions need to reach existing data: `active` on `st_mods` docs, `event` on `st_mod_audit` rows. Both follow the Rev 3 §D9 / Q7 hybrid pattern:
+
+- **Runtime guards make correctness migration-independent.** Overlay filter uses `active !== false`. Audit read uses `event ?? 'created'`. Existing prod/dev data is correct with zero migration.
+- **An idempotent backfill (STM-13) sets the fields explicitly** for uniformity and queryability (`active: true` on every `st_mods` doc lacking the field; `event: 'created'` on every `st_mod_audit` row lacking it). Light enough to run in-place during a Render deploy. Idempotent: re-running is a no-op.
+- **Do NOT gate any logic on "has the backfill run."** That would be a brittle dependency. The guards are the contract; the backfill is cosmetic.
+
+**Orphan audit rows** (mods hard-deleted under the pre-Rev-4 revoke=delete semantics) have a creation row but no `deleted` event — pre-Rev-4 deletes were not recorded. They display in the STM-6 view as inactive (the existing presence-check decoration already handles this: `active: false` because the `st_mod_id` no longer resolves). They cannot retroactively gain a `deleted` event because we do not know who deleted them or when. The view should label this state honestly (e.g. "removed — pre-lifecycle record"). This is the cheap, correct path; do not attempt to synthesise fake `deleted` events.
+
+### D20 — Cross-character / global template library is out of scope. (Rev 4, per Thoth)
+
+Peter's framing was mods "kept *with the character*." Rev 4 delivers per-character attached + toggleable mods, which satisfies that ask. A **global template library** — a separate entity STs pick from to apply common buffs (Vigour of the Lion, Stunned, Coffin-stuffer BP cap) across many characters in one action — is a larger storage and UX change (a new collection, a cross-character apply flow) and is explicitly **not** built in Rev 4.
+
+Flag it as a clean future epic if Peter later wants menu-driven cross-character application. The Rev 4 per-character model does not foreclose it: a future global-template entity would instantiate per-character `st_mods` docs, reusing the entire Rev 4 lifecycle unchanged.
+
 ## Story impact map
 
 | Open Q | Decision | Affected stories | Required change vs PRD |
@@ -321,12 +386,21 @@ The Rev 1 carve-out paragraph under "Derived stats are never stored" in `CLAUDE.
 | Rev 3: kill-switch shape | D12: single global + single per-character | None | Reaffirms Rev 1 §D2 / per-character override pattern. No code change. |
 | Rev 3: cache shape | D13: localStorage base-only | None | Reaffirms existing `_`-prefix strip pattern. Verify no regression during STM-7 review. |
 | Rev 3: docs | D14: CLAUDE.md carve-out expanded | STM-7 (acceptance) | Single-paragraph edit to CLAUDE.md naming roll calc + DT pools alongside the existing sheet exception. Pinned as STM-7 acceptance criterion. |
+| Rev 4: lifecycle | D15: `active: boolean` + toggle/permanent-delete split | STM-10 | `st_mods` gains `active` (default true). New `PATCH /api/st_mods/:id {active, reason?}`. `DELETE` becomes permanent-delete (writes tombstone first). Overlay filter `active !== false`. |
+| Rev 4: audit stream | D16: immutable lifecycle event stream | STM-11 (+ STM-6 view) | `st_mod_audit` rows gain `event` discriminator (created/activated/deactivated/deleted) + per-event `by`/`at`. Append-only, never deleted. STM-6 view shifts from derived-from-absence to event display. |
+| Rev 4: toggle reason | D17: reason optional, who/when mandatory | STM-10 (endpoint), STM-12 (panel form) | PATCH accepts optional `reason` (inherits creation reason if omitted); `by`/`at` always server-stamped from `req.user`. |
+| Rev 4: WS op-set | D18: `{create, activate, deactivate, delete}`; `revoke` retires | STM-10 | `broadcastStModUpdate` op vocabulary widens; signature unchanged. Dedupe op-agnostic (no client dedupe change). Unknown-op = refetch (already the behaviour). |
+| Rev 4: migration | D19: hybrid, no timing dependency | STM-13 (backfill) | Runtime guards (`active !== false`, `event ?? 'created'`) make correctness migration-free. Idempotent backfill rides any Render deploy. Do NOT gate logic on backfill having run. |
+| Rev 4: scope guard | D20: no global template library | None (future epic) | Per-character toggleable mods only. Cross-character menu-apply is a separate future epic; Rev 4 does not foreclose it. |
 
 ## Non-decisions (explicitly out of scope)
 
 - **Roll calculator integration.** ~~STM-1..6 do not mod the dice engine. `_st_mod_overlay` is sheet-display only. Future ADR if requested.~~ **Lifted in Rev 3.** Roll calc, DT player form pool display, and DT admin resolution are now in scope via D8/D9. Snapshot at resolution time per D10.
-- **Auto-expiry.** Already non-goal per PRD; reaffirmed.
-- **Per-mod locking.** Already rejected per PRD; reaffirmed.
+- **Auto-expiry.** Already non-goal per PRD; reaffirmed. (Note: Rev 4 makes mods persistent + toggleable, which is the manual analogue — an ST deactivates rather than the system auto-expiring. Still no time-based expiry.)
+- **Per-mod locking.** Already rejected per PRD; reaffirmed. Any ST can toggle or permanent-delete any mod; the audit ledger (D16) is the accountability mechanism, not access control.
+- **No-revoke-history / immutable-by-deletion.** ~~PRD §Non-Goals: "Revoking hard-deletes; no revoke history."~~ **Reversed in Rev 4 (D15/D16).** Mods are now persistent + toggleable; the audit ledger is append-only and survives permanent-delete. Thoth folds the PRD §Non-Goals reversal once this ADR wording is canonical.
+- **Global / cross-character template library.** Per D20, out of scope. Future epic.
+- **Soft-delete recovery window.** Per D15, permanent-delete is a hard delete of the definition. No "recently deleted, restorable" state — not asked for. The audit tombstone records the deletion; it does not restore the definition.
 - **Split kill-switch (rolls vs sheet).** Per D12, do not split. Single global flag + single per-character override. Raise to Thoth with a named scenario if you think the split is justified.
 - **Mid-session WebSocket push of kill-switch flips.** Reload-driven for v1; revisit if STs report needing it. **D11 covers mod create/revoke**, which is the higher-frequency case; kill-switch is rare-flip and stays reload-driven.
 - **Bulk operations on mods.** No "revoke all on this character" button in v1 — per-character override (`st_mods_suppressed`) achieves the same effect without data loss, which is the better default.
@@ -353,6 +427,14 @@ The Rev 1 carve-out paragraph under "Derived stats are never stored" in `CLAUDE.
 
 9. **Rev 3: DT snapshot read of `_st_mod_overlay`.** The resolver in `admin/downtime-views.js` reads from `c._st_mod_overlay[stat_path]` to build the snapshot. If the resolver opens with a character that has not had overlay applied (e.g. opened from a cold cache state), the overlay rows are absent and the snapshot mods array would be empty even when mods actually exist. STM-8 acceptance must verify: open resolver on a character with active mods + cold cache → snapshot still captures the mod entries. D8 (cache-entry invariant) is the precondition; STM-8's acceptance is the test.
 
+10. **Rev 4: permanent-delete ordering is audit-before-destroy.** STM-10 must write the `deleted` audit event row *before* hard-deleting the `st_mods` definition (D16). The reverse order risks a definition gone with no tombstone if the second write fails — violating the accountability guarantee. This is the mirror of the create handler's mod-before-audit-with-rollback ordering (which optimises for the opposite failure mode). Acceptance: simulate a delete where the definition-removal step fails after the tombstone write → tombstone exists, definition still present, overlay still applies the mod; retry is safe.
+
+11. **Rev 4: `active !== false`, not `=== true`.** The overlay filter and any "is this mod live" check must use `active !== false` so a pre-Rev-4 doc with no `active` field reads as active (its pre-Rev-4 behaviour). Using `=== true` would silently disable every existing mod the instant Rev 4 ships, before the backfill runs — a regression that the D19 guard exists specifically to prevent. Code review on STM-10 must flag any `=== true` lifecycle check.
+
+12. **Rev 4: toggle does not touch the DT snapshot.** D10 snapshots are frozen at resolution time. Toggling a mod off (or permanent-deleting it) after a resolution must NOT alter the stored `projects_resolved[i].pool` / `feeding_roll.pool` snapshot. The snapshot and the live mod state are independent by design (Thoth confirmed). STM-11/STM-12 must not add any "sync snapshot to current mod state" logic — that would defeat the point of freezing.
+
+13. **Rev 4: WS `op` widening must not break existing STM-9 clients.** Clients deployed before STM-10 only know `{create, revoke}`. After STM-10 they receive `{create, activate, deactivate, delete}`. Because the client refetches-on-any-frame (D18), an old client receiving a `deactivate` frame still refetches and re-applies correctly — it just doesn't recognise the op name, which is harmless. Verify no client code does a strict `op === 'revoke'` switch that would silently drop the new ops. (Grep `public/js/data/ws.js` and the boot subscribers for `=== 'revoke'` before STM-10 ships.)
+
 ## Resolutions table
 
 | Decision | Status | Resolution |
@@ -371,13 +453,19 @@ The Rev 1 carve-out paragraph under "Derived stats are never stored" in `CLAUDE.
 | D12 | resolved (Rev 3) | single global kill-switch + single per-character override; no rolls-vs-sheet split |
 | D13 | resolved (Rev 3) | localStorage cache stores base only; overlay is per-session in-memory |
 | D14 | resolved (Rev 3) | CLAUDE.md carve-out expanded to name roll calc + DT pools; pinned as STM-7 acceptance |
+| D15 | resolved (Rev 4) | mod lifecycle `active: boolean` (default true); toggle (PATCH) flips it, permanent-delete (DELETE) hard-removes the definition; overlay filter `active !== false` |
+| D16 | resolved (Rev 4) | `st_mod_audit` becomes immutable lifecycle event stream with `event` discriminator + per-event `by`/`at`; never deleted, including on permanent-delete; tombstone written before definition removal |
+| D17 | resolved (Rev 4) | per-toggle `reason` optional (inherits creation reason); `by`/`at` mandatory, server-stamped |
+| D18 | resolved (Rev 4) | WS op-set `{create, activate, deactivate, delete}`; `revoke` retires; dedupe op-agnostic; unknown-op = refetch |
+| D19 | resolved (Rev 4) | hybrid migration; runtime guards (`active !== false`, `event ?? 'created'`) make correctness backfill-independent; idempotent backfill is cosmetic |
+| D20 | resolved (Rev 4) | cross-character/global template library out of scope; per-character toggleable only; future epic does not require Rev 4 rework |
 
 ## Auth amendments after STM-1..6
 
 Post-epic adjustments to the route auth boundaries, recorded here as
-small inline amendments. Not a Rev — too local to warrant one. A full
-Rev (3 or ADR-005) is reserved for the multi-read-site overlay
-propagation work (roll calc / DT pools).
+small inline amendments. Not a Rev — too local to warrant one. (The
+substantive design work landed in Rev 3 — multi-read-site propagation
+— and Rev 4 — persistent toggleable lifecycle.)
 
 - **Issue #410 (2026-05-19): `GET /api/st_mods` relaxed to own-character read.**
   Originally gated `requireRole('st')` in STM-1; that broke the
@@ -427,3 +515,39 @@ propagation work (roll calc / DT pools).
 **Open dissent window:**
 
 If Angelus has architectural dissent on **D8** (cache-entry invariant) or **D9** (boot-time bulk endpoint vs alternative shape), comment here or open a Rev 4 before STM-7 dispatches. D10/D11/D12/D13/D14 are local enough that disagreement can be raised inside the affected story without re-opening this ADR.
+
+---
+
+## Sign-off — Rev 4
+
+**Rev 4 approved.** The retention contract is locked with Peter as **Position B (keep history, clean the list)** via Thoth. Rev 4 pivots STM from ephemeral to persistent toggleable mods. It is independent of the Rev 3 D8/D9 dissent window — the lifecycle work does not depend on the boot-overlay or bulk-endpoint shape, only on the existing `st_mods` / `st_mod_audit` collections and WS plumbing.
+
+Four new stories:
+
+- **STM-10 — Lifecycle backend** (D15/D17/D18). Foundation; STM-11 and STM-12 depend on its schema + WS shape.
+  - `st_mods` schema: add `active: boolean` (default true).
+  - `PATCH /api/st_mods/:id {active, reason?}` — flips `active`, writes `activated`/`deactivated` audit event (server-stamped `by`/`at`; reason inherits creation reason if omitted).
+  - `DELETE /api/st_mods/:id` — permanent-delete: write `deleted` audit tombstone *before* hard-removing the definition (Concerns #10).
+  - `POST` — created doc carries `active: true`; creation audit row carries `event: 'created'`.
+  - WS op-set widens to `{create, activate, deactivate, delete}`; `revoke` retires (Concerns #13 — grep for `=== 'revoke'` first).
+  - Overlay filter uses `active !== false` (Concerns #11).
+  - **PROCEED.** Backend-only, additive schema, no migration dependency.
+
+- **STM-11 — Audit lifecycle events + STM-6 view update** (D16).
+  - `st_mod_audit` rows gain `event` discriminator + per-event `by`/`at`.
+  - STM-6 view shifts from derived-from-absence to event-stream display. Orphan pre-Rev-4 rows display as "removed — pre-lifecycle record" (Concerns, D19).
+  - **Depends on STM-10** (event-writing endpoints must exist first). **PROCEED.**
+
+- **STM-12 — STM-5 panel UI: toggle, permanent-delete, filter, reactivate** (D15/D17 UI).
+  - Panel lists all mods (active + inactive groups). Per-row toggle, per-row permanent-delete (confirmation flow — destructive), active/inactive/all filter, "reactivate existing inactive mod" workflow alongside "create new".
+  - **Depends on STM-10**. **PROCEED.** (UI; delegated event routing per Concerns #3.)
+
+- **STM-13 — Backfill migration** (D19).
+  - Idempotent script: `active: true` on `st_mods` docs lacking it; `event: 'created'` on `st_mod_audit` rows lacking it. Light enough for in-place Render run.
+  - **Independent of STM-11/STM-12** (correctness does not depend on it per the runtime guards). Can run in parallel. Keep separate from STM-10 for independent revertibility.
+
+**Dispatch order:** STM-10 first (foundation). STM-11, STM-12, STM-13 all parallelisable after STM-10 merges.
+
+**HALT-DAR vs PROCEED:** all four PROCEED. No decision in Rev 4 touches Angelus's WS-infrastructure ownership beyond the op-vocabulary widening, which is additive and dedupe-agnostic (D18). If any story surfaces a reason the op widening disturbs the existing `markLocalWrite` contract, that single point is HALT-DAR; the rest proceed.
+
+**Open dissent window:** **D16** (audit-as-immutable-event-stream — the reversal of the original PRD §Non-Goals) is the consequential decision, and it is already locked with Peter via Thoth, so the window is for *implementation-shape* dissent (event-stream vs mutable array), not the product call. If Angelus prefers the mutable-array audit shape, raise here before STM-11 dispatches; D15/D17/D18/D19/D20 are local enough to argue inside their stories.

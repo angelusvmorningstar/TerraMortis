@@ -1,9 +1,12 @@
-/* ST Mods audit view (Epic STM, issue #379).
+/* ST Mods audit view (Epic STM, issue #379; lifecycle migration #439).
  *
- * Read-only paginated list of every st_mod_audit row, sorted newest first.
- * Filterable by character, ST (creator), and date range. Active/revoked
- * badge per row decided server-side via the GET /api/st_mod_audit
- * { active: bool } decoration.
+ * Read-only paginated lifecycle event stream, sorted newest first. Each
+ * row is an event — created / activated / deactivated / deleted — rendered
+ * with a distinct badge. STM-11 (issue #439) migrated this from the STM-6
+ * creation-rows-with-derived-revoked-marker model to the true event stream:
+ * reads canonical `by`/`at`/`event` fields (the server coalesces legacy
+ * created_by/created_at/missing-event for pre-STM-11 rows, so no dependence
+ * on STM-13's backfill). Filterable by character, ST, date range, and event.
  *
  * Delegated routing (per memory feedback_listener_routing_static_blind_spot):
  * filter dropdowns, date inputs, pagination buttons all listen via a single
@@ -19,13 +22,21 @@ import { esc, displayName, sortName } from '../data/helpers.js';
 
 const PAGE_SIZE = 50;
 
+// STM-11: per-event-type visual treatment + human label.
+const EVENT_META = {
+  created:     { label: 'Created',     cls: 'stm-ev--created' },
+  activated:   { label: 'Activated',   cls: 'stm-ev--activated' },
+  deactivated: { label: 'Deactivated', cls: 'stm-ev--deactivated' },
+  deleted:     { label: 'Deleted',     cls: 'stm-ev--deleted' },
+};
+
 // ── Module-level state ───────────────────────────────────────────────
 // Single render pass owns the displayed slice; filters mutate state then
 // trigger a refetch + repaint.
 const state = {
   characters: [], // {_id, name} pairs for the dropdown — populated lazily
   initialized: false,
-  filters: { character_id: '', st: '', from: '', to: '' },
+  filters: { character_id: '', st: '', from: '', to: '', event: '' },
   page: 1,
   total: 0,
   rows: [],
@@ -66,7 +77,7 @@ function renderScaffold() {
     <div class="stm-audit-root">
       <header class="stm-audit-head">
         <h2>ST Mods — Audit Log</h2>
-        <p class="stm-audit-sub">Every mod creation event, including revoked mods. Sorted newest first.</p>
+        <p class="stm-audit-sub">Full lifecycle event stream: creations, activations, deactivations, and deletions. Sorted newest first.</p>
       </header>
       <div class="stm-audit-filters" data-stm-filters>
         <label>Character
@@ -77,6 +88,15 @@ function renderScaffold() {
         <label>ST
           <select data-stm-filter="st">
             <option value="">All STs</option>
+          </select>
+        </label>
+        <label>Event
+          <select data-stm-filter="event">
+            <option value="">All events</option>
+            <option value="created">Created</option>
+            <option value="activated">Activated</option>
+            <option value="deactivated">Deactivated</option>
+            <option value="deleted">Deleted</option>
           </select>
         </label>
         <label>From
@@ -136,7 +156,7 @@ function _attachDelegatedHandlers(root) {
     if (!(t instanceof HTMLElement)) return;
     const action = t.dataset.stmAction;
     if (action === 'clear') {
-      state.filters = { character_id: '', st: '', from: '', to: '' };
+      state.filters = { character_id: '', st: '', from: '', to: '', event: '' };
       state.page = 1;
       // Reset the visible controls
       root.querySelectorAll('[data-stm-filter]').forEach(el => { el.value = ''; });
@@ -164,6 +184,7 @@ async function _refetchAndRender() {
   const qs = new URLSearchParams();
   if (state.filters.character_id) qs.set('character_id', state.filters.character_id);
   if (state.filters.st) qs.set('st', state.filters.st);
+  if (state.filters.event) qs.set('event', state.filters.event);
   if (state.filters.from) qs.set('from', state.filters.from);
   if (state.filters.to) qs.set('to', state.filters.to);
   qs.set('page', String(state.page));
@@ -178,7 +199,7 @@ async function _refetchAndRender() {
     // doesn't make the option disappear mid-session.
     const seen = new Set(state.stOptions);
     for (const r of state.rows) {
-      const n = r?.created_by?.discord_name;
+      const n = r?.by?.discord_name;
       if (n && !seen.has(n)) { seen.add(n); state.stOptions.push(n); }
     }
     state.stOptions.sort();
@@ -213,17 +234,19 @@ function _renderBody() {
   const rowsHtml = state.rows.map(r => {
     const charName = charNameMap.get(String(r.character_id)) || `Character ${r.character_id}`;
     const deltaSign = r.delta > 0 ? '+' : '';
-    const stName = r?.created_by?.discord_name || 'unknown';
-    const when = r.created_at ? r.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
-    const badgeClass = r.active ? 'stm-badge--active' : 'stm-badge--revoked';
-    const badgeText = r.active ? 'active' : 'revoked';
+    const stName = r?.by?.discord_name || 'unknown';
+    const when = r.at ? r.at.replace('T', ' ').replace(/\..*$/, '') : '';
+    const meta = EVENT_META[r.event] || { label: r.event || 'event', cls: 'stm-ev--created' };
+    // A 'deleted' event is terminal — the mod no longer exists, so the
+    // current-active state of the doc is irrelevant; the row is the gravestone.
+    const eventClass = r.event === 'deleted' ? 'stm-audit-row--deleted' : '';
     return `
-      <article class="stm-audit-row">
+      <article class="stm-audit-row ${eventClass}">
         <div class="stm-audit-row-head">
+          <span class="stm-ev-badge ${meta.cls}">${esc(meta.label)}</span>
           <span class="stm-audit-char">${esc(charName)}</span>
           <span class="stm-audit-path">${esc(labelForPath(r.stat_path))}</span>
           <span class="stm-audit-delta">${esc(deltaSign + String(r.delta))}</span>
-          <span class="stm-badge ${badgeClass}">${badgeText}</span>
         </div>
         <div class="stm-audit-row-meta">
           <span>by ${esc(stName)}</span>

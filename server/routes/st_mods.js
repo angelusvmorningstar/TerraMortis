@@ -81,6 +81,31 @@ function creatorFromUser(user) {
   };
 }
 
+/** STM-10 (issue #434, ADR-004 Rev 4 §D17): build a lifecycle audit-event
+ *  row. The audit collection is an immutable event stream:
+ *  created / activated / deactivated / deleted.
+ *
+ *  STM-11 (issue #439): `by` (actor) + `at` (timestamp) are now the ONLY
+ *  field names. The STM-10 dual-stamp aliases (`created_by`/`created_at`)
+ *  are dropped — the audit GET reader migrated to by/at (with an $ifNull
+ *  fallback to the legacy fields for pre-STM-11 rows already in the DB).
+ *
+ *  `mod` is the (possibly partial) mod doc: needs _id, character_id,
+ *  stat_path, delta, reason. delta + reason are captured AT THE EVENT
+ *  so a later edit/revoke can't rewrite history. */
+function buildAuditEvent(mod, event, who, when) {
+  return {
+    st_mod_id: mod._id,
+    character_id: String(mod.character_id),
+    stat_path: mod.stat_path,
+    delta: mod.delta,
+    reason: mod.reason,
+    event,
+    by: who,
+    at: when,
+  };
+}
+
 // ─── POST /api/st_mods ───────────────────────────────────────────────
 // Creates an st_mod and a paired st_mod_audit row in the same handler.
 // Sequential write with best-effort rollback on audit failure (no Mongo
@@ -111,6 +136,9 @@ router.post('/', requireRole('st'), async (req, res) => {
     delta,
     reason: trimmedReason,
     show_reason_to_player: !!show_reason_to_player,
+    // STM-10 (issue #434, ADR-004 Rev 4 §D15): lifecycle field. Mods are
+    // now persistent + toggleable; `active` defaults true on create.
+    active: true,
     created_by: createdBy,
     created_at: createdAt,
   };
@@ -118,17 +146,9 @@ router.post('/', requireRole('st'), async (req, res) => {
   const modResult = await mods().insertOne(modDoc);
   const modId = modResult.insertedId;
 
-  // Audit row mirrors the mod (minus show_reason_to_player, per AC#2) and
-  // references the mod by st_mod_id so revoke-time matching is trivial.
-  const auditDoc = {
-    st_mod_id: modId,
-    character_id: String(character_id),
-    stat_path,
-    delta,
-    reason: trimmedReason,
-    created_by: createdBy,
-    created_at: createdAt,
-  };
+  // STM-10 (§D17): the audit row is now a lifecycle EVENT (event: 'created')
+  // rather than the implicit creation-only row from STM-1.
+  const auditDoc = buildAuditEvent({ _id: modId, character_id, stat_path, delta, reason: trimmedReason }, 'created', createdBy, createdAt);
 
   try {
     await audit().insertOne(auditDoc);
@@ -142,10 +162,9 @@ router.post('/', requireRole('st'), async (req, res) => {
   }
 
   // STM-9 (issue #416, ADR-004 Rev 3 §D11): broadcast the create event
-  // AFTER both inserts succeed. Connected clients (admin / player / suite)
-  // receive `{ type: 'st_mod', op: 'create', character_id, st_mod_id }`
-  // and refetch + re-overlay for the affected character. The originating
-  // client deduplicates via markLocalWrite (mirrors tracker.js pattern).
+  // AFTER both inserts succeed. STM-10 (§D18) widened the op set; 'create'
+  // unchanged. Connected clients refetch + re-overlay for the affected
+  // character; the originating client deduplicates via markLocalWrite.
   broadcastStModUpdate(String(character_id), 'create', String(modId));
 
   const created = await mods().findOne({ _id: modId });
@@ -239,21 +258,101 @@ router.get('/', async (req, res) => {
   res.json(docs);
 });
 
+// ─── PATCH /api/st_mods/:id ──────────────────────────────────────────
+// STM-10 (issue #434, ADR-004 Rev 4 §D16): toggle a mod's active state.
+// Body { active: boolean }. Writes an `activated` / `deactivated` audit
+// event and broadcasts the matching WS op. Reason is captured from the
+// mod's current reason (optional override via body.reason); by + at are
+// always server-stamped. Returns the updated mod doc.
+router.patch('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
+
+  const { active } = req.body || {};
+  if (typeof active !== 'boolean') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'active must be boolean' });
+  }
+
+  const existing = await mods().findOne({ _id: oid });
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND' });
+
+  // Flip the active flag, then write the lifecycle event. Reason captured
+  // at the event (override allowed; defaults to the mod's creation reason).
+  const overrideReason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+    ? req.body.reason.trim()
+    : existing.reason;
+  const who = creatorFromUser(req.user);
+  const when = nowIso();
+  const event = active ? 'activated' : 'deactivated';
+
+  await mods().updateOne({ _id: oid }, { $set: { active } });
+
+  const auditDoc = buildAuditEvent(
+    { _id: oid, character_id: existing.character_id, stat_path: existing.stat_path, delta: existing.delta, reason: overrideReason },
+    event, who, when,
+  );
+  try {
+    await audit().insertOne(auditDoc);
+  } catch (err) {
+    // Roll back the flag so the audit ledger and mod state stay consistent
+    // (mirrors STM-1's create rollback). The ledger is the source of truth
+    // for "what happened"; a flag change with no audit row would lie.
+    try { await mods().updateOne({ _id: oid }, { $set: { active: existing.active !== false } }); } catch { /* best-effort */ }
+    console.error('[st_mods] PATCH audit insert failed, rolled back active flag:', err);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to write audit row' });
+  }
+
+  // STM-10 (§D18): op set widened. activate / deactivate are new ops.
+  broadcastStModUpdate(String(existing.character_id), active ? 'activate' : 'deactivate', String(oid));
+
+  const updated = await mods().findOne({ _id: oid });
+  res.json(updated);
+});
+
 // ─── DELETE /api/st_mods/:id ─────────────────────────────────────────
-// Hard-delete the mod. Audit row is intentionally LEFT IN PLACE.
+// STM-10 (issue #434, ADR-004 Rev 4 §D17 — HALT-DAR LOAD-BEARING):
+// tombstone-before-destroy. The `deleted` audit event MUST be written
+// BEFORE the mod doc is removed. If the tombstone insert fails, the
+// delete does NOT proceed (return 500). The audit ledger is immutable
+// and outlives the mod doc — Position B retention contract: mod
+// definitions are deletable for list cleanliness; the accountability
+// ledger is permanent.
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID' });
-  // Resolve the doc BEFORE deletion so we know which character to
-  // broadcast against (the deleted row has the character_id we need).
-  // STM-9 (issue #416): the broadcast hook fires only after the delete
-  // succeeds — clients shouldn't be told a mod was revoked if it wasn't.
+
+  // Resolve the doc first — its fields populate the tombstone, and we need
+  // the character_id for the broadcast.
   const existing = await mods().findOne({ _id: oid });
-  const result = await mods().deleteOne({ _id: oid });
-  if (!result.deletedCount) return res.status(404).json({ error: 'NOT_FOUND' });
-  if (existing?.character_id) {
-    broadcastStModUpdate(String(existing.character_id), 'revoke', String(oid));
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND' });
+
+  // 1. Write the tombstone BEFORE destroying the mod doc.
+  const who = creatorFromUser(req.user);
+  const when = nowIso();
+  const tombstone = buildAuditEvent(
+    { _id: oid, character_id: existing.character_id, stat_path: existing.stat_path, delta: existing.delta, reason: existing.reason },
+    'deleted', who, when,
+  );
+  try {
+    await audit().insertOne(tombstone);
+  } catch (err) {
+    // Tombstone failed → do NOT delete. The mod survives, no ledger entry.
+    // This is the HALT-DAR contract: never destroy without the tombstone.
+    console.error('[st_mods] DELETE tombstone insert failed, aborting delete:', err);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to write tombstone; delete aborted' });
   }
+
+  // 2. Tombstone is durable — now destroy the mod doc.
+  const result = await mods().deleteOne({ _id: oid });
+  if (!result.deletedCount) {
+    // Extremely rare (doc vanished between findOne and deleteOne). The
+    // tombstone stays (immutable ledger); report the inconsistency.
+    console.warn('[st_mods] DELETE: tombstone written but deleteOne removed 0 docs for', String(oid));
+    return res.status(404).json({ error: 'NOT_FOUND' });
+  }
+
+  // STM-10 (§D18): 'revoke' op retired → 'delete'.
+  broadcastStModUpdate(String(existing.character_id), 'delete', String(oid));
   res.json({ deleted: true });
 });
 
@@ -264,28 +363,37 @@ export default router;
 // stays clean (POST/GET/DELETE /api/st_mods + GET /api/st_mod_audit).
 //
 // STM-6 (issue #379): extended with optional filters + pagination.
-// Backwards-compatible breaking change in response shape: returns
-// { rows, total, page, page_size } wrapper instead of a bare array.
-// STM-2 had no consumer; the STM-6 admin page is the first consumer.
+// STM-11 (issue #439): migrated to the lifecycle event-stream shape.
+// Response: { rows, total, page, page_size }, each row carrying the
+// canonical `event` / `by` / `at` fields.
+//
+// Aggregation coalesces legacy pre-STM-11 rows (which carry
+// `created_by`/`created_at` and no `event`) into the canonical fields
+// via $ifNull, so the reader is uniform across old + new rows WITHOUT
+// depending on STM-13's backfill running first (ADR Rev 4 §D19):
+//   at    = at    ?? created_at
+//   by    = by    ?? created_by
+//   event = event ?? 'created'
 //
 // Query params (all optional):
 //   character_id — exact match
-//   st           — match against created_by.discord_name
-//   from / to    — ISO date range, inclusive, applied to created_at
+//   st           — match against by.discord_name (coalesced)
+//   event        — filter by event type (created/activated/deactivated/deleted)
+//   from / to    — ISO date range, inclusive, applied to at (coalesced)
 //   page         — 1-indexed (default 1)
 //   page_size    — default 50, clamped to [1, 100]
 //
 // Each returned row is decorated with { ...auditRow, active: <bool> }
 // where active === (st_mods document with _id === auditRow.st_mod_id exists).
-// The active lookup is batched into a single $in query — explicitly NOT
-// N+1 — per ADR §"Concerns" Item 2 sibling concern about query shape.
+// The active lookup is batched into a single $in query (not N+1).
 export const auditRouter = Router();
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
+const AUDIT_EVENT_TYPES = ['created', 'activated', 'deactivated', 'deleted'];
 
 auditRouter.get('/', requireRole('st'), async (req, res) => {
-  const { character_id, st, from, to } = req.query;
+  const { character_id, st, from, to, event } = req.query;
 
   // Parse pagination — clamp to safe bounds. Bad input falls back to defaults
   // rather than 400, matching the "filters are optional" spirit.
@@ -295,28 +403,46 @@ auditRouter.get('/', requireRole('st'), async (req, res) => {
     Math.max(1, parseInt(req.query.page_size, 10) || DEFAULT_PAGE_SIZE),
   );
 
-  // Build the Mongo filter from non-empty params
-  const filter = {};
-  if (character_id) filter.character_id = String(character_id);
-  if (st) filter['created_by.discord_name'] = String(st);
+  // Coalesce legacy fields → canonical so old + new rows filter/sort uniformly.
+  const coalesce = {
+    $addFields: {
+      at: { $ifNull: ['$at', '$created_at'] },
+      by: { $ifNull: ['$by', '$created_by'] },
+      event: { $ifNull: ['$event', 'created'] },
+    },
+  };
+
+  // Build the post-coalesce match.
+  const match = {};
+  if (character_id) match.character_id = String(character_id);
+  if (st) match['by.discord_name'] = String(st);
+  if (event && AUDIT_EVENT_TYPES.includes(String(event))) match.event = String(event);
   if (from || to) {
-    filter.created_at = {};
-    if (from) filter.created_at.$gte = String(from);
-    if (to) filter.created_at.$lte = String(to);
+    match.at = {};
+    if (from) match.at.$gte = String(from);
+    if (to) match.at.$lte = String(to);
   }
 
-  const total = await audit().countDocuments(filter);
-  const rows = await audit()
-    .find(filter)
-    .sort({ created_at: -1 })
-    .skip((page - 1) * pageSize)
-    .limit(pageSize)
-    .toArray();
+  // Single aggregation: coalesce → match → facet { rows (sort/skip/limit), total }.
+  const agg = await audit().aggregate([
+    coalesce,
+    { $match: match },
+    {
+      $facet: {
+        rows: [
+          { $sort: { at: -1 } },
+          { $skip: (page - 1) * pageSize },
+          { $limit: pageSize },
+        ],
+        total: [{ $count: 'n' }],
+      },
+    },
+  ]).toArray();
 
-  // Batched active-check: one $in query against st_mods regardless of
-  // page size. Collect st_mod_ids from this page, find which still exist,
-  // map back to a boolean per row. Audit rows from a future writer that
-  // didn't populate st_mod_id (none today) safely default to inactive.
+  const rows = agg[0]?.rows || [];
+  const total = agg[0]?.total?.[0]?.n || 0;
+
+  // Batched active-check: one $in query against st_mods regardless of page size.
   const stModIds = rows.map(r => r.st_mod_id).filter(id => id != null);
   let aliveSet = new Set();
   if (stModIds.length) {
