@@ -5494,17 +5494,82 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire connected character checkboxes
-  container.querySelectorAll('.proc-conn-char-chk').forEach(cb => {
-    cb.addEventListener('click', e => e.stopPropagation());
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key   = cb.dataset.procKey;
+  // Wire connected character typeahead widgets
+  container.querySelectorAll('.proc-conn-typeahead').forEach(wrap => {
+    const key      = wrap.dataset.procKey;
+    const allChars = JSON.parse(wrap.dataset.allChars || '[]');
+    const input    = wrap.querySelector('.proc-conn-input');
+    const dropdown = wrap.querySelector('.proc-conn-dropdown');
+    const chipsEl  = wrap.querySelector('.proc-conn-chips');
+
+    function getSelectedKeys() {
+      return new Set([...chipsEl.querySelectorAll('.proc-conn-chip')].map(c => c.dataset.charName));
+    }
+
+    function showDropdown(query) {
+      const selected = getSelectedKeys();
+      const q = query.trim().toLowerCase();
+      const matches = allChars.filter(c =>
+        !selected.has(c.key) && (!q || c.label.toLowerCase().includes(q))
+      );
+      if (!matches.length) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = '';
+      for (const { key: cKey, label } of matches.slice(0, 10)) {
+        const item = document.createElement('div');
+        item.className = 'proc-conn-dd-item';
+        item.dataset.charName = cKey;
+        item.textContent = label;
+        dropdown.appendChild(item);
+      }
+      dropdown.style.display = '';
+    }
+
+    function addChip(charKey, label) {
+      const chip = document.createElement('span');
+      chip.className = 'proc-conn-chip';
+      chip.dataset.charName = charKey;
+      chip.appendChild(document.createTextNode(label));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'proc-conn-chip-x';
+      btn.title = 'Remove';
+      btn.textContent = '×';
+      chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    }
+
+    async function saveConnected() {
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
-      const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
+      const connected = [...chipsEl.querySelectorAll('.proc-conn-chip')].map(c => c.dataset.charName);
       await saveEntryReview(entry, { connected_chars: connected });
+    }
+
+    input.addEventListener('focus', () => showDropdown(input.value));
+    input.addEventListener('input', () => showDropdown(input.value));
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { dropdown.style.display = 'none'; input.value = ''; }
+    });
+    input.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+
+    wrap.addEventListener('click', async e => {
+      const ddItem = e.target.closest('.proc-conn-dd-item');
+      if (ddItem) {
+        const charKey = ddItem.dataset.charName;
+        const charObj = allChars.find(c => c.key === charKey);
+        if (charObj && !getSelectedKeys().has(charKey)) {
+          addChip(charKey, charObj.label);
+          input.value = '';
+          dropdown.style.display = 'none';
+          await saveConnected();
+        }
+        return;
+      }
+      const chipX = e.target.closest('.proc-conn-chip-x');
+      if (chipX) {
+        chipX.closest('.proc-conn-chip')?.remove();
+        await saveConnected();
+      }
     });
   });
 
@@ -7995,19 +8060,24 @@ function renderNormalisedCard(entry, review) {
   // ── Connected Characters ──
   {
     const connectedChars = rev.connected_chars || [];
+    const connectedSet   = new Set(connectedChars);
     const otherChars = characters
       .filter(c => !c.retired)
       .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
       .filter(({ key }) => key !== entry.charName.toLowerCase())
       .sort((a, b) => a.key.localeCompare(b.key));
     if (otherChars.length > 0) {
+      const allCharsJson = esc(JSON.stringify(otherChars));
       h += `<div class="proc-connected-section">`;
       h += `<div class="proc-detail-label">Connected Characters</div>`;
-      h += `<div class="proc-connected-list">`;
-      for (const { key, label } of otherChars) {
-        const chk = connectedChars.includes(key) ? ' checked' : '';
-        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(key)}"${chk}> ${esc(label)}</label>`;
+      h += `<div class="proc-conn-typeahead" data-proc-key="${esc(entry.key)}" data-all-chars="${allCharsJson}">`;
+      h += `<div class="proc-conn-chips">`;
+      for (const { key: cKey, label } of otherChars.filter(c => connectedSet.has(c.key))) {
+        h += `<span class="proc-conn-chip" data-char-name="${esc(cKey)}">${esc(label)}<button type="button" class="proc-conn-chip-x" title="Remove">×</button></span>`;
       }
+      h += `</div>`;
+      h += `<input type="text" class="proc-conn-input" data-proc-key="${esc(entry.key)}" placeholder="Add character…" autocomplete="off">`;
+      h += `<div class="proc-conn-dropdown" style="display:none"></div>`;
       h += `</div></div>`;
     }
   }

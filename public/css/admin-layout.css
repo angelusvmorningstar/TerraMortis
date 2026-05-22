@@ -6329,12 +6329,46 @@ html:not([data-theme="dark"]) .cc-audit-err {
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
 
-/* ── Connected Characters ────────────────────────────────────────────────── */
+/* ── Connected Characters — typeahead ────────────────────────────────────── */
 .proc-connected-section {
   margin-top: 10px;
   padding: 8px 12px 10px;
   border-top: 1px solid var(--bdr);
 }
+.proc-conn-typeahead { position: relative; margin-top: 6px; }
+.proc-conn-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.proc-conn-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 6px 2px 9px; border-radius: 12px;
+  background: var(--gold-a12); border: 1px solid var(--gold2-a25);
+  color: var(--gold2); font-size: 12px; white-space: nowrap;
+}
+.proc-conn-chip-x {
+  background: none; border: none; cursor: pointer;
+  color: var(--txt3); font-size: 15px; line-height: 1;
+  padding: 0; margin: 0;
+}
+.proc-conn-chip-x:hover { color: var(--result-pend); }
+.proc-conn-input {
+  width: 100%; box-sizing: border-box;
+  padding: 5px 8px; background: var(--surf2);
+  border: 1px solid var(--bdr); border-radius: 4px;
+  color: var(--text); font-size: 13px; font-family: var(--fl);
+}
+.proc-conn-input:focus { outline: none; border-color: var(--gold2); }
+.proc-conn-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+  background: var(--surf2); border: 1px solid var(--bdr);
+  border-top: none; border-radius: 0 0 4px 4px;
+  max-height: 180px; overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+}
+.proc-conn-dd-item {
+  padding: 6px 10px; cursor: pointer;
+  font-size: 13px; color: var(--text);
+}
+.proc-conn-dd-item:hover { background: var(--gold-a10); color: var(--gold2); }
+
 .proc-connected-list {
   display: flex;
   flex-wrap: wrap;
