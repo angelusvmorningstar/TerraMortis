@@ -5,6 +5,8 @@
  * AC2 — char with no submission for last cycle → shows max / max
  * AC3 — char with submission but no influence_spend field (DT1 era) → shows max / max
  * AC4 — no closed cycle exists → shows max / max for all
+ * Regression — most-recent cycle is chosen by game_number, not array order
+ *   (live DT1 was re-imported with a newer _id than DT3, breaking .find()).
  */
 
 const { test, expect } = require('@playwright/test');
@@ -46,8 +48,8 @@ const TEST_CHARS = [
   },
 ];
 
-const CLOSED_CYCLE = { _id: 'cycle-closed-001', status: 'closed', cycle_number: 3 };
-const OPEN_CYCLE   = { _id: 'cycle-open-001',   status: 'open',   cycle_number: 4 };
+const CLOSED_CYCLE = { _id: 'cycle-closed-001', status: 'closed', game_number: 3 };
+const OPEN_CYCLE   = { _id: 'cycle-open-001',   status: 'open',   game_number: 4 };
 
 // c-001 spent 3 total (2 + 1 + 0)
 const SUBMISSIONS_WITH_SPEND = [
@@ -105,9 +107,14 @@ async function setup(page, {
   await page.route('**/api/downtime_cycles', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cycles) })
   );
-  await page.route('**/api/downtime_submissions**', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(submissions) })
-  );
+  await page.route('**/api/downtime_submissions**', route => {
+    // Mirror the real endpoint: scope returned submissions to ?cycle_id=.
+    const cid = new URL(route.request().url()).searchParams.get('cycle_id');
+    const body = cid
+      ? submissions.filter(s => String(s.cycle_id) === cid)
+      : submissions;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
   await page.route('**/api/st_mods**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
@@ -165,12 +172,37 @@ test('AC3: DT1 submission with no influence_spend shows max/max', async ({ page 
 // ── AC1 variant: cycle with status='game' (live DT3 pattern) ─────────────────
 
 test('AC1 live: cycle with status "game" is treated as a past cycle (not skipped)', async ({ page }) => {
-  const gameCycle = { _id: 'cycle-game-001', status: 'game', cycle_number: 3 };
+  const gameCycle = { _id: 'cycle-game-001', status: 'game', game_number: 3 };
   await setup(page, {
     cycles: [gameCycle, OPEN_CYCLE],
     submissions: SUBMISSIONS_WITH_SPEND.map(s => ({ ...s, cycle_id: 'cycle-game-001' })),
   });
   // c-001 spent 3 of 4 → remaining = 1
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
+  await expect(infSpan).toContainText('1/4');
+});
+
+// ── Regression: most-recent cycle chosen by game_number, not array order ─────
+// Live bug — the cycles API sorts by _id desc, but DT1 was re-imported and got
+// a newer _id than DT3. The stale DT1 therefore appeared first in the array and
+// .find() grabbed it; its CSV submissions carry no influence_spend, so every
+// character wrongly showed max/max. Fix orders cycles on game_number.
+
+test('regression: spend resolves from highest game_number cycle, not array order', async ({ page }) => {
+  const dt1 = { _id: 'cycle-dt1', status: 'closed', game_number: 1 };
+  const dt3 = { _id: 'cycle-dt3', status: 'game',   game_number: 3 };
+  await setup(page, {
+    // dt3 (the genuine most-recent cycle) deliberately placed AFTER dt1,
+    // reproducing the broken _id-desc ordering from the live data.
+    cycles: [dt1, dt3, OPEN_CYCLE],
+    submissions: [
+      { _id: 'sub-dt3', character_id: 'c-001', cycle_id: 'cycle-dt3', status: 'submitted',
+        responses: { influence_spend: JSON.stringify({ the_harbour: 3 }) } },
+    ],
+  });
+  // c-001 infMax=4; spend (3) lives only in dt3. If dt1 were picked, the
+  // cycle-scoped submissions fetch returns [] and INF wrongly shows 4/4.
   const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
   const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
   await expect(infSpan).toContainText('1/4');
