@@ -53,6 +53,7 @@ let _saveTimer = null;
 let _el = null;
 let _playerByCharId = new Map();
 let _infSpentByCharId = new Map();
+let _feedVitaeByCharId = new Map();
 
 // Placeholder strings seeded by an early redacted import. Treat as missing.
 const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
@@ -72,8 +73,9 @@ async function loadPlayerNames() {
   }
 }
 
-async function loadInfluenceSpend() {
+async function loadLastCycleData() {
   _infSpentByCharId = new Map();
+  _feedVitaeByCharId = new Map();
   try {
     const allCycles = await apiGet('/api/downtime_cycles');
     // The cycles API sorts by _id desc, but DT1 was re-imported with a newer
@@ -85,18 +87,35 @@ async function loadInfluenceSpend() {
     if (!lastClosed) return;
     const subs = await apiGet('/api/downtime_submissions?cycle_id=' + lastClosed._id);
     for (const sub of (subs || [])) {
+      const charId = String(sub.character_id);
+
+      // Influence spend (#485) — guarded block, not an early continue, so the
+      // feeding extraction below still runs for influence-less submissions.
       const raw = sub.responses?.influence_spend;
-      if (!raw) continue;
-      let spendObj;
-      try { spendObj = JSON.parse(raw); } catch { continue; }
-      // Absolute amounts: a negative per-territory value is influence
-      // moved, not refunded — it still counts against the spend total.
-      const total = Object.values(spendObj).reduce((s, v) => s + Math.abs(Number(v) || 0), 0);
-      if (total > 0) _infSpentByCharId.set(String(sub.character_id), total);
+      if (raw) {
+        let spendObj = null;
+        try { spendObj = JSON.parse(raw); } catch { spendObj = null; }
+        if (spendObj) {
+          // Absolute amounts: a negative per-territory value is influence
+          // moved, not refunded — it still counts against the spend total.
+          const total = Object.values(spendObj).reduce((s, v) => s + Math.abs(Number(v) || 0), 0);
+          if (total > 0) _infSpentByCharId.set(charId, total);
+        }
+      }
+
+      // Feeding vitae from the logged feed roll (#489): vessel allocation
+      // plus the saved bonus tally. No allocation means no logged feed.
+      const alloc = sub.feeding_vitae_allocation;
+      if (Array.isArray(alloc) && alloc.length > 0) {
+        const vesselTotal = alloc.reduce((s, v) => s + (Number(v) || 0), 0);
+        const bonus = Number(sub.feeding_vitae_tally?.total_bonus) || 0;
+        _feedVitaeByCharId.set(charId, vesselTotal + bonus);
+      }
     }
-    console.info('[signin] inf spend loaded: %d entries', _infSpentByCharId.size);
+    console.info('[signin] last-cycle data loaded: %d inf, %d feed',
+      _infSpentByCharId.size, _feedVitaeByCharId.size);
   } catch (err) {
-    console.warn('[signin] influence spend load failed; defaulting to 0', err);
+    console.warn('[signin] last-cycle data load failed; defaulting to 0', err);
   }
 }
 
@@ -118,7 +137,7 @@ export async function initSignIn(el, chars) {
     return;
   }
 
-  await Promise.all([loadPlayerNames(), loadInfluenceSpend()]);
+  await Promise.all([loadPlayerNames(), loadLastCycleData()]);
   render();
 }
 
@@ -143,7 +162,7 @@ async function handleNewSession() {
     attendance:   [],
   });
   _session = created;
-  await Promise.all([loadPlayerNames(), loadInfluenceSpend()]);
+  await Promise.all([loadPlayerNames(), loadLastCycleData()]);
   render();
 }
 
@@ -229,8 +248,10 @@ function render() {
     const infMax = calcTotalInfluence(c);
     const infSpent = _infSpentByCharId.get(String(c._id)) || 0;
     const infRemaining = Math.max(0, infMax - infSpent);
+    const feedVitae = _feedVitaeByCharId.get(String(c._id)) ?? 0;
+    const vitaeShown = Math.min(feedVitae, vMax);
     const resourceRow = `<div class="si-resources">
-      <span class="si-res-item"><span class="si-res-lbl">V</span> ${vMax}/${vMax}</span>
+      <span class="si-res-item"><span class="si-res-lbl">V</span> ${vitaeShown}/${vMax}</span>
       <span class="si-res-item"><span class="si-res-lbl">WP</span> ${wpMax}/${wpMax}</span>
       ${infMax > 0 ? `<span class="si-res-item"><span class="si-res-lbl">Inf</span> ${infRemaining}/${infMax}</span>` : ''}
     </div>`;
