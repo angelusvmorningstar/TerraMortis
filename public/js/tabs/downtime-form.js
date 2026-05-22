@@ -3245,6 +3245,17 @@ function renderForm(container) {
       }
     }
 
+    // Refresh disabled states so buttons reflect the new remaining value.
+    for (const t of INFLUENCE_TERRITORIES) {
+      const otherTk = t.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const otherEl = document.getElementById(`inf-val-${otherTk}`);
+      const v = otherEl ? parseInt(otherEl.textContent, 10) || 0 : 0;
+      const mBtn = document.querySelector(`[data-inf-terr="${otherTk}"][data-inf-dir="-1"]`);
+      const pBtn = document.querySelector(`[data-inf-terr="${otherTk}"][data-inf-dir="1"]`);
+      if (mBtn) mBtn.disabled = v <= 0 && remaining <= 0;
+      if (pBtn) pBtn.disabled = v >= 0 && remaining <= 0;
+    }
+
     scheduleSave();
   });
 
@@ -6754,13 +6765,15 @@ function renderQuestion(q, value) {
         // vertically aligned across rows; text content is value-driven.
         const leftText  = val < 0 ? 'decreasing ambience' : '';
         const rightText = val > 0 ? 'increasing ambience' : '';
+        const minusDis  = val <= 0 && remaining <= 0 ? ' disabled' : '';
+        const plusDis   = val >= 0 && remaining <= 0 ? ' disabled' : '';
         h += '<div class="dt-influence-row">';
         h += `<span class="dt-influence-terr">${esc(terr)}</span>`;
         h += '<span class="dt-influence-control">';
         h += `<span class="dt-influence-label dt-influence-label-left">${leftText}</span>`;
-        h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
+        h += `<button type="button" class="dt-inf-btn"${minusDis} data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
         h += `<span class="dt-inf-val" id="inf-val-${tk}">${val}</span>`;
-        h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
+        h += `<button type="button" class="dt-inf-btn"${plusDis} data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
         h += `<span class="dt-influence-label dt-influence-label-right">${rightText}</span>`;
         h += '</span>';
         h += '</div>';
