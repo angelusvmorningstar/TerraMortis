@@ -199,6 +199,101 @@ test('feature.483/AC5: new session confirm dialog shows game number', async ({ p
   expect(dialogMessage).toContain('Game 1');
 });
 
+// ── AC3 continued: existing payment method retained ─────────────────────────
+
+test('feature.483/AC3: existing payment method renders as selected option', async ({ page }) => {
+  await setup(page);
+  await goToCheckin(page);
+  // c-001 (Alice) has payment.method = 'cash' stored in session
+  const paySelect = page.locator('.si-pay-sel[data-char-id="c-001"]');
+  await expect(paySelect).toHaveValue('cash');
+});
+
+// ── AC6 continued: footer collected total ────────────────────────────────────
+
+test('feature.483/AC6: footer shows correct attended count and collected total', async ({ page }) => {
+  await setup(page);
+  await goToCheckin(page);
+  // 1 attended (Alice, cash at default $15 rate) → $15 collected
+  const footer = page.locator('.si-footer');
+  await expect(footer).toContainText('1');
+  await expect(footer).toContainText('$15');
+});
+
+// ── AC7: eminence/ascendancy still works ────────────────────────────────────
+
+test('feature.483/AC7: eminence block shows attended chars clan and covenant', async ({ page }) => {
+  await setup(page);
+  await goToCheckin(page);
+  // c-001 (Alice, Mekhet, Carthian Movement, city status 2) is attended=true
+  // Eminence should show Mekhet; Ascendancy should show Carthian Movement
+  const emBlock = page.locator('.si-eminence-block');
+  await expect(emBlock).toContainText('Mekhet');
+  await expect(emBlock).toContainText('Carthian Movement');
+});
+
+test('feature.483/AC7: eminence updates after ticking a new char', async ({ page }) => {
+  await setup(page);
+
+  await page.route('**/api/game_sessions/sess-483-001', async route => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...TEST_SESSION, ...body }) });
+    } else { await route.continue(); }
+  });
+
+  await goToCheckin(page);
+
+  // Dave (c-004, Ventrue, Invictus, city=1) is not yet attended
+  // Eminence block should NOT show Ventrue before tick
+  await expect(page.locator('.si-eminence-block')).not.toContainText('Ventrue');
+
+  const putDone = page.waitForResponse(
+    res => res.url().includes('/api/game_sessions/sess-483-001') && res.request().method() === 'PUT',
+    { timeout: 4000 }
+  );
+  await page.locator('.si-att-chk[data-char-id="c-004"]').check();
+  await putDone;
+
+  // After tick + re-render, Ventrue should appear in eminence
+  await expect(page.locator('.si-eminence-block')).toContainText('Ventrue');
+});
+
+// ── AC4 continued: new session POST + roster render ──────────────────────────
+
+test('feature.483/AC4: confirming new session POSTs and renders roster', async ({ page }) => {
+  await setup(page, []);
+
+  const CREATED_SESSION = {
+    _id: 'sess-483-new', session_date: '2026-05-22', game_number: 1, attendance: [],
+  };
+
+  // Mock the POST that handleNewSession fires
+  await page.route(/\/api\/game_sessions$/, async route => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(CREATED_SESSION) });
+    } else {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+  });
+
+  await page.locator('#n-signin').click();
+  await page.waitForSelector('.si-new-session-btn', { timeout: 5000 });
+
+  page.on('dialog', async dialog => { await dialog.accept(); });
+
+  const postDone = page.waitForResponse(
+    res => res.url().includes('/api/game_sessions') && res.request().method() === 'POST',
+    { timeout: 5000 }
+  );
+  await page.locator('.si-new-session-btn').click();
+  await postDone;
+
+  // After creation the tab should render the full roster (3 non-retired chars)
+  await page.waitForSelector('.si-list', { timeout: 5000 });
+  await expect(page.locator('.si-row')).toHaveCount(3);
+});
+
 // ── AC2: upsert-on-tick ──────────────────────────────────────────────────────
 
 test('feature.483/AC2: ticking unattended char triggers PUT with new entry', async ({ page }) => {
