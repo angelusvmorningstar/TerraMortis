@@ -259,25 +259,19 @@ test('AC4: no cycles at all → all INF displays show max/max', async ({ page })
   await expect(infSpan).toContainText('4/4');
 });
 
-// ── Regression: V and WP still show max/max ──────────────────────────────────
+// ── Regression: WP still shows max/max ───────────────────────────────────────
 
-test('regression: V and WP resource displays still show max/max after INF change', async ({ page }) => {
+test('regression: WP resource display still shows max/max after INF change', async ({ page }) => {
   await setup(page);
   const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
   await expect(aliceRow).toBeVisible();
-  // V and WP are unchanged — they always show max/max
-  const vSpan = aliceRow.locator('.si-res-lbl:text("V")').locator('..');
+  // WP is unaffected by the INF change — still max/max.
+  // (V is no longer max/max as of feature.489 — covered by feature-489 spec.)
   const wpSpan = aliceRow.locator('.si-res-lbl:text("WP")').locator('..');
-  await expect(vSpan).toBeVisible();
   await expect(wpSpan).toBeVisible();
-  const vText = await vSpan.textContent();
   const wpText = await wpSpan.textContent();
-  // Both should be N/N (same numerator and denominator)
-  expect(vText).toMatch(/\d+\/\d+/);
   expect(wpText).toMatch(/\d+\/\d+/);
-  const [vL, vR] = vText.replace(/[^0-9/]/g, '').split('/');
   const [wpL, wpR] = wpText.replace(/[^0-9/]/g, '').split('/');
-  expect(vL).toBe(vR);
   expect(wpL).toBe(wpR);
 });
 
