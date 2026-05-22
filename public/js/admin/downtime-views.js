@@ -7669,6 +7669,35 @@ function _renderXpSpendBreakdown(rows, budget) {
     `</div>`;
 }
 
+// ── Action progress ribbon ────────────────────────────────────────────────────
+// Pending → Valid → Complete, derived from review state at render time.
+// Valid:    any non-pending pool_status (mechanical decisions made).
+// Complete: terminal pool_status AND narrative written (player_facing_note or story_context).
+function _deriveActionRibbonState(rev) {
+  const ps = rev?.pool_status || 'pending';
+  if (ps === 'pending') return 'pending';
+  const hasNarrative = !!(rev?.player_facing_note?.trim() || rev?.story_context?.trim());
+  if (DONE_STATUSES.has(ps) && hasNarrative) return 'complete';
+  return 'valid';
+}
+
+function _renderActionRibbon(rev) {
+  const state = _deriveActionRibbonState(rev);
+  const steps = [['pending', 'Pending'], ['valid', 'Valid'], ['complete', 'Complete']];
+  const activeIdx = steps.findIndex(([s]) => s === state);
+  let h = '<div class="proc-action-ribbon">';
+  steps.forEach(([val, label], i) => {
+    let cls = 'proc-ar-step';
+    if (i < activeIdx)        cls += ' ar-past';
+    else if (i === activeIdx) cls += ` ar-active ar-${val}`;
+    else                      cls += ' ar-future';
+    h += `<span class="${cls}">${label}</span>`;
+    if (i < steps.length - 1) h += '<span class="proc-ar-arrow">›</span>';
+  });
+  h += '</div>';
+  return h;
+}
+
 function _renderActionTypeRow(entry, rev, char, opts = {}) {
   const { suppressTerrPills = false } = opts;
   const key        = entry.key;
@@ -7824,6 +7853,7 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
     }
   }
 
+  h += _renderActionRibbon(rev);
   h += `</div>`;
 
   // Attack merit dropdown (second row, shown for both project and merit)
