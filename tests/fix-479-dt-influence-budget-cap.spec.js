@@ -223,6 +223,59 @@ test.describe('fix.479 — influence spend budget cap enforcement', () => {
     await expect(plusHarbour).toBeEnabled();
   });
 
+  // fix.481 — AC1: disabled button has reduced opacity (CSS :disabled rule)
+  test('fix.481/AC1: disabled .dt-inf-btn has opacity < 1 via computed style', async ({ page }) => {
+    const sandbox = await openInfluenceSection(page, buildSub({ the_academy: 2 }));
+
+    // Academy at budget 2/2 → + button is disabled
+    const plusAcademy = sandbox.locator('[data-inf-terr="the_academy"][data-inf-dir="1"]');
+    await expect(plusAcademy).toBeDisabled();
+
+    const opacity = await plusAcademy.evaluate(el => getComputedStyle(el).opacity);
+    expect(parseFloat(opacity)).toBeLessThan(1);
+  });
+
+  // fix.481 — AC2: over-budget pre-load (remaining < 0) — disabled buttons visually locked
+  test('fix.481/AC2: over-budget pre-load (remaining = −1) → disabled buttons have reduced opacity', async ({ page }) => {
+    // Academy at 3 against budget 2 → remaining = −1
+    const sandbox = await openInfluenceSection(page, buildSub({ the_academy: 3 }));
+
+    const remSpan     = sandbox.locator('.dt-influence-budget .dt-influence-remaining');
+    const plusHarbour = sandbox.locator('[data-inf-terr="the_harbour"][data-inf-dir="1"]');
+    const minusHarbour = sandbox.locator('[data-inf-terr="the_harbour"][data-inf-dir="-1"]');
+
+    // Remaining should show −1
+    await expect(remSpan).toHaveText('-1');
+
+    // + and − on zero-value territory are disabled (remaining <= 0)
+    await expect(plusHarbour).toBeDisabled();
+    await expect(minusHarbour).toBeDisabled();
+
+    // Disabled buttons have reduced opacity (AC2 visual requirement)
+    const plusOpacity  = await plusHarbour.evaluate(el => getComputedStyle(el).opacity);
+    const minusOpacity = await minusHarbour.evaluate(el => getComputedStyle(el).opacity);
+    expect(parseFloat(plusOpacity)).toBeLessThan(1);
+    expect(parseFloat(minusOpacity)).toBeLessThan(1);
+  });
+
+  // fix.481 — AC3: enabled buttons retain full opacity alongside disabled ones
+  test('fix.481/AC3: enabled buttons have full opacity alongside disabled ones', async ({ page }) => {
+    // Academy at budget 2/2 → + disabled, − enabled (frees budget)
+    const sandbox = await openInfluenceSection(page, buildSub({ the_academy: 2 }));
+
+    const plusAcademy  = sandbox.locator('[data-inf-terr="the_academy"][data-inf-dir="1"]');
+    const minusAcademy = sandbox.locator('[data-inf-terr="the_academy"][data-inf-dir="-1"]');
+
+    await expect(plusAcademy).toBeDisabled();
+    await expect(minusAcademy).toBeEnabled();
+
+    const disabledOpacity = await plusAcademy.evaluate(el => getComputedStyle(el).opacity);
+    const enabledOpacity  = await minusAcademy.evaluate(el => getComputedStyle(el).opacity);
+
+    expect(parseFloat(disabledOpacity)).toBeLessThan(1);
+    expect(parseFloat(enabledOpacity)).toBeCloseTo(1, 1);
+  });
+
   // AC1/AC2: pre-loaded over-budget submission — buttons reflect over-spent state
   test('AC1/AC2: pre-loaded at budget → buttons correctly disabled on render', async ({ page }) => {
     // Load with Academy already at full budget (2)
