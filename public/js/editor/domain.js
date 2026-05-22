@@ -36,7 +36,8 @@ export function domKey(m) {
  */
 export function domMeritContribSingle(c, m) {
   if (!m) return 0;
-  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0)
+    + (m.bonus || 0);
   return purchased
     + (m.name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0)
     + (m.free_fwb || 0) + (m.free_attache || 0);

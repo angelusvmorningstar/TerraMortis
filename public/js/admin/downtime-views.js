@@ -10,7 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
-import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus, meritEffectiveRating } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
@@ -1006,7 +1006,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
+  const fgVal = fg ? Math.min(meritEffectiveRating(char, fg), 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -7267,7 +7267,7 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Pool modifier panel data ──
   const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgDice = fg ? Math.min(fg.rating || 0, 5) : null; // null = char not loaded; cap at merit max
+  const fgDice = fg ? Math.min(char ? meritEffectiveRating(char, fg) : (fg.rating || 0), 5) : null; // null = char not loaded; cap at merit max
 
   // Always derive pool expression from current effective character stats (dots + bonus)
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
@@ -8387,7 +8387,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
+      const fgDice0 = fg0 ? Math.min(char ? meritEffectiveRating(char, fg0) : 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
