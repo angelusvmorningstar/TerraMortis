@@ -6335,8 +6335,9 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
   padding: 8px 12px 10px;
   border-top: 1px solid var(--bdr);
 }
-.proc-conn-typeahead { position: relative; margin-top: 6px; }
-.proc-conn-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.proc-conn-typeahead { margin-top: 6px; }
+.proc-conn-input-row { position: relative; }
+.proc-conn-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .proc-conn-chip {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 6px 2px 9px; border-radius: 12px;

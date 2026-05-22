@@ -5497,7 +5497,13 @@ function renderProcessingMode(container) {
   // Wire connected character typeahead widgets
   container.querySelectorAll('.proc-conn-typeahead').forEach(wrap => {
     const key      = wrap.dataset.procKey;
-    const allChars = JSON.parse(wrap.dataset.allChars || '[]');
+    const entry    = _getQueueEntry(key);
+    const selfKey  = (entry?.charName || '').toLowerCase();
+    const allChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name || c.character_name || '?' }))
+      .filter(c => c.key !== selfKey)
+      .sort((a, b) => a.key.localeCompare(b.key));
     const input    = wrap.querySelector('.proc-conn-input');
     const dropdown = wrap.querySelector('.proc-conn-dropdown');
     const chipsEl  = wrap.querySelector('.proc-conn-chips');
@@ -8057,31 +8063,6 @@ function renderNormalisedCard(entry, review) {
     }
   }
 
-  // ── Connected Characters ──
-  {
-    const connectedChars = rev.connected_chars || [];
-    const connectedSet   = new Set(connectedChars);
-    const otherChars = characters
-      .filter(c => !c.retired)
-      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
-      .filter(({ key }) => key !== entry.charName.toLowerCase())
-      .sort((a, b) => a.key.localeCompare(b.key));
-    if (otherChars.length > 0) {
-      const allCharsJson = esc(JSON.stringify(otherChars));
-      h += `<div class="proc-connected-section">`;
-      h += `<div class="proc-detail-label">Connected Characters</div>`;
-      h += `<div class="proc-conn-typeahead" data-proc-key="${esc(entry.key)}" data-all-chars="${allCharsJson}">`;
-      h += `<div class="proc-conn-chips">`;
-      for (const { key: cKey, label } of otherChars.filter(c => connectedSet.has(c.key))) {
-        h += `<span class="proc-conn-chip" data-char-name="${esc(cKey)}">${esc(label)}<button type="button" class="proc-conn-chip-x" title="Remove">×</button></span>`;
-      }
-      h += `</div>`;
-      h += `<input type="text" class="proc-conn-input" data-proc-key="${esc(entry.key)}" placeholder="Add character…" autocomplete="off">`;
-      h += `<div class="proc-conn-dropdown" style="display:none"></div>`;
-      h += `</div></div>`;
-    }
-  }
-
   // ── ST Pool Builder ──
   {
     const char = projChar;
@@ -8207,6 +8188,32 @@ function renderNormalisedCard(entry, review) {
   }
 
   // ── Close left + right panel ──
+  // ── Connected Characters ──
+  {
+    const connectedChars = rev.connected_chars || [];
+    const connectedSet   = new Set(connectedChars);
+    const otherChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
+      .filter(({ key }) => key !== entry.charName.toLowerCase())
+      .sort((a, b) => a.key.localeCompare(b.key));
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-conn-typeahead" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-conn-input-row">`;
+      h += `<input type="text" class="proc-conn-input" data-proc-key="${esc(entry.key)}" placeholder="Add character…" autocomplete="off">`;
+      h += `<div class="proc-conn-dropdown" style="display:none"></div>`;
+      h += `</div>`;
+      h += `<div class="proc-conn-chips">`;
+      for (const { key: cKey, label } of otherChars.filter(c => connectedSet.has(c.key))) {
+        h += `<span class="proc-conn-chip" data-char-name="${esc(cKey)}">${esc(label)}<button type="button" class="proc-conn-chip-x" title="Remove">×</button></span>`;
+      }
+      h += `</div>`;
+      h += `</div></div>`;
+    }
+  }
+
   h += '</div>'; // proc-feed-left
   h += _renderProjRightPanel(entry, projChar, rev);
   h += '</div>'; // proc-feed-layout
