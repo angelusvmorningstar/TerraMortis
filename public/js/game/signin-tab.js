@@ -52,6 +52,7 @@ let _chars = [];
 let _saveTimer = null;
 let _el = null;
 let _playerByCharId = new Map();
+let _infSpentByCharId = new Map();
 
 // Placeholder strings seeded by an early redacted import. Treat as missing.
 const PLACEHOLDER_RE = /^Player [A-Z]{1,2}$/;
@@ -68,6 +69,27 @@ async function loadPlayerNames() {
     console.info('[signin] player name lookup: %d mappings loaded', _playerByCharId.size);
   } catch (err) {
     console.warn('[signin] player name lookup failed; falling back to row.player strings', err);
+  }
+}
+
+async function loadInfluenceSpend() {
+  _infSpentByCharId = new Map();
+  try {
+    const allCycles = await apiGet('/api/downtime_cycles');
+    const lastClosed = (allCycles || []).find(c => c.status === 'closed');
+    if (!lastClosed) return;
+    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + lastClosed._id);
+    for (const sub of (subs || [])) {
+      const raw = sub.responses?.influence_spend;
+      if (!raw) continue;
+      let spendObj;
+      try { spendObj = JSON.parse(raw); } catch { continue; }
+      const total = Object.values(spendObj).reduce((s, v) => s + (Number(v) || 0), 0);
+      if (total > 0) _infSpentByCharId.set(String(sub.character_id), total);
+    }
+    console.info('[signin] inf spend loaded: %d entries', _infSpentByCharId.size);
+  } catch (err) {
+    console.warn('[signin] influence spend load failed; defaulting to 0', err);
   }
 }
 
@@ -89,7 +111,7 @@ export async function initSignIn(el, chars) {
     return;
   }
 
-  await loadPlayerNames();
+  await Promise.all([loadPlayerNames(), loadInfluenceSpend()]);
   render();
 }
 
@@ -114,7 +136,7 @@ async function handleNewSession() {
     attendance:   [],
   });
   _session = created;
-  await loadPlayerNames();
+  await Promise.all([loadPlayerNames(), loadInfluenceSpend()]);
   render();
 }
 
@@ -198,10 +220,12 @@ function render() {
     const vMax  = calcVitaeMax(c);
     const wpMax = calcWillpowerMax(c);
     const infMax = calcTotalInfluence(c);
+    const infSpent = _infSpentByCharId.get(String(c._id)) || 0;
+    const infRemaining = infMax - infSpent;
     const resourceRow = `<div class="si-resources">
       <span class="si-res-item"><span class="si-res-lbl">V</span> ${vMax}/${vMax}</span>
       <span class="si-res-item"><span class="si-res-lbl">WP</span> ${wpMax}/${wpMax}</span>
-      ${infMax > 0 ? `<span class="si-res-item"><span class="si-res-lbl">Inf</span> ${infMax}/${infMax}</span>` : ''}
+      ${infMax > 0 ? `<span class="si-res-item"><span class="si-res-lbl">Inf</span> ${infRemaining}/${infMax}</span>` : ''}
     </div>`;
 
     const { method: currentMethod } = a ? readPayment(a) : { method: '' };
