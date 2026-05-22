@@ -3714,7 +3714,7 @@ export function compilePushOutcome(sub, char, cycle) {
 
   // General notes — free text, always include if present (no status gate)
   const generalNotes = sn.general_notes?.trim();
-  if (generalNotes) { parts.push(generalNotes); hasContent = true; }
+  if (generalNotes) { parts.push(`## ST Notes and Extra Story\n\n${generalNotes}`); hasContent = true; }
 
   return hasContent ? parts.join('\n\n') : '';
 }
