@@ -435,10 +435,19 @@ export function renderOutcomeWithCards(sub, opts = {}) {
 
   // ── Sections 1-2: Story Moment + Home Report (above main narrative) ──
   let h = '<div class="story-narrative">';
-  h += renderStoryMoment(sub, { editable });
-  h += renderHomeReportSection(sub, { editable });
+  const smHtml = renderStoryMoment(sub, { editable });
+  const hrHtml = renderHomeReportSection(sub, { editable });
+  h += smHtml;
+  h += hrHtml;
+  // If a dedicated renderer produced output, skip the same heading in
+  // published_outcome to prevent the section appearing twice (fix #464).
+  const _renderedKeys = new Set();
+  if (smHtml) _renderedKeys.add('story_moment');
+  if (hrHtml) _renderedKeys.add('home_report');
   for (const sec of sections) {
     if (sec.heading) {
+      const secKey = _flagSectionKeyForHeading(sec.heading);
+      if (secKey && _renderedKeys.has(secKey)) continue;
       const isMech = sec.heading === 'Mechanical Outcomes';
       // Match the parsed heading to a project card to find its index. When
       // editable, the heading section is treated as the editable surface for
