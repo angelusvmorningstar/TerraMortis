@@ -289,6 +289,10 @@ export async function initDtStory(cycleId) {
     const feedApproveBtn = e.target.closest('.dt-feed-val-approve-btn');
     if (feedApproveBtn) { handleFeedingApproval(feedApproveBtn); return; }
 
+    // Merit summary dismiss / undismiss
+    const dismissBtn = e.target.closest('.dt-merit-dismiss-btn');
+    if (dismissBtn) { _handleMeritSummaryDismiss(dismissBtn); return; }
+
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
@@ -378,6 +382,32 @@ function _showStoryAutosaveStatus(el, state) {
   if (state === 'error') { el.textContent = 'Save failed'; }
 }
 
+async function _handleMeritSummaryDismiss(btn) {
+  if (!_currentSub) return;
+  const sub = _currentSub;
+  const idx = parseInt(btn.dataset.actionIdx, 10);
+  if (isNaN(idx)) return;
+
+  const current = Array.isArray(sub.st_narrative?.merit_summary_overrides)
+    ? [...sub.st_narrative.merit_summary_overrides]
+    : [];
+
+  const updated = current.includes(idx)
+    ? current.filter(i => i !== idx)
+    : [...current, idx].sort((a, b) => a - b);
+
+  try {
+    await saveNarrativeField(sub._id, { 'st_narrative.merit_summary_overrides': updated });
+  } catch (err) {
+    return;
+  }
+  (sub.st_narrative ??= {}).merit_summary_overrides = updated;
+
+  const char = getCharForSub(sub);
+  const view = document.getElementById('dt-story-char-view');
+  if (view) view.innerHTML = renderCharacterView(char, sub);
+}
+
 async function _handleStoryTaBlur(ta) {
   if (!_currentSub) return;
   const isRevision = ta.classList.contains('dt-story-revision-ta');
@@ -464,16 +494,26 @@ export function isSectionComplete(stNarrative, sectionKey) {
   return stNarrative?.[sectionKey]?.status === 'complete';
 }
 
+function _isDeletedMeritAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
+}
+
+function _isDeletedProjectAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
+}
+
 /**
- * Project responses complete: all non-skipped project entries have status 'complete'.
+ * Project responses complete: all non-skipped, non-deleted project entries have status 'complete'.
  * Used by the sign-off counter and pill rail in place of generic isSectionComplete.
  */
 function projectResponsesComplete(sub) {
   const resolved = sub?.projects_resolved || [];
   const responses = sub?.st_narrative?.project_responses || [];
-  const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+  const applicable = resolved
+    .map((r, idx) => ({ r, idx }))
+    .filter(({ r, idx }) => r?.pool_status !== 'skipped' && !_isDeletedProjectAction(sub, idx));
   if (!applicable.length) return false;
-  return applicable.every((_, i) => responses[i]?.status === 'complete');
+  return applicable.every(({ idx }) => responses[idx]?.status === 'complete');
 }
 
 /**
@@ -1107,11 +1147,12 @@ function getApplicableSections(char, sub) {
 
   sections.push({ key: 'feeding_validation', label: 'Feeding' });
 
-  if (sub?.projects_resolved?.length) {
+  if ((sub?.projects_resolved || []).some((_, idx) => !_isDeletedProjectAction(sub, idx))) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
   }
 
   const hasCategory = (cats) => (sub?.merit_actions || []).some((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return false;
     const cat = deriveMeritCategory(a.merit_type);
     if (!cats.includes(cat)) return false;
     const rev = sub?.merit_actions_resolved?.[i] || {};
@@ -1970,7 +2011,7 @@ function renderStoryMoment(char, sub, stNarrative) {
 /**
  * Builds a flat merit_actions array from a submission's raw/response fields.
  * Called at load time for submissions that don't already have merit_actions populated.
- * Ordering: spheres → contacts → retainers (matches downtime-views.js flat index).
+ * Ordering: spheres → Status/MCI → contacts → retainers → acquisitions (matches downtime-views.js flat index).
  */
 function buildMeritActions(sub) {
   const resp = sub.responses || {};
@@ -1991,15 +2032,35 @@ function buildMeritActions(sub) {
     });
   } else {
     for (let n = 1; n <= 5; n++) {
-      const mt = resp[`sphere_${n}_merit`];
-      if (!mt) continue;
+      const mt        = resp[`sphere_${n}_merit`];
+      const actionVal = resp[`sphere_${n}_action`];
+      if (!mt || !actionVal) continue;
       actions.push({
         merit_type:      mt,
-        action_type:     resp[`sphere_${n}_action`]      || 'misc',
+        action_type:     actionVal,
         desired_outcome: resp[`sphere_${n}_outcome`]     || '',
         description:     resp[`sphere_${n}_description`] || '',
       });
     }
+  }
+
+  // ── Status / MCI ──
+  // Issue #460 — must follow spheres immediately, matching buildProcessingQueue
+  // (downtime-views.js:3199) which appends Status into the spheres array before
+  // contacts. The original issue #233 placement (after acquisitions) caused a
+  // flat-index mismatch: outcomes written by the processing panel at indices
+  // N+1..N+M ended up at different story indices, cross-wiring resolved outcomes
+  // and leaving Status Underworld at a slot beyond merit_actions_resolved length.
+  for (let n = 1; n <= 5; n++) {
+    const mt        = resp[`status_${n}_merit`];
+    const actionVal = resp[`status_${n}_action`];
+    if (!mt || !actionVal) continue;
+    actions.push({
+      merit_type:      mt,
+      action_type:     actionVal,
+      desired_outcome: resp[`status_${n}_outcome`]     || '',
+      description:     resp[`status_${n}_description`] || '',
+    });
   }
 
   // ── Contacts ──
@@ -2127,23 +2188,6 @@ function buildMeritActions(sub) {
     });
   }
 
-  // ── Status / MCI ──
-  // Issue #233 — form writes status_${n}_* for Status influence merits and
-  // MCI standing merits (downtime-form.js:789-815) but no consumer was
-  // normalising them. Appended last so flat indices for spheres / contacts /
-  // retainers / acquisitions above are not disturbed. MCI labels route to
-  // the 'status' category via the regex in deriveMeritCategory (Task 2).
-  for (let n = 1; n <= 5; n++) {
-    const mt = resp[`status_${n}_merit`];
-    if (!mt) continue;
-    actions.push({
-      merit_type:      mt,
-      action_type:     resp[`status_${n}_action`]      || 'misc',
-      desired_outcome: resp[`status_${n}_outcome`]     || '',
-      description:     resp[`status_${n}_description`] || '',
-    });
-  }
-
   return actions;
 }
 
@@ -2155,7 +2199,7 @@ function deriveMeritCategory(meritTypeStr) {
   const s = (meritTypeStr || '').toLowerCase();
   if (/allies/.test(s))                  return 'allies';
   if (/status/.test(s))                  return 'status';
-  if (/mystery cult initiate/.test(s))   return 'status';  // #233 — MCI grouped with Status
+  if (/mystery cult initiat/.test(s))    return 'status';  // #233 — MCI grouped with Status; stem matches both "Initiate" and "Initiation"
   if (/retainer/.test(s))                return 'retainer';
   if (/staff/.test(s))                   return 'staff';
   if (/contacts?/.test(s))               return 'contacts';
@@ -2231,14 +2275,19 @@ function actionResponsesComplete(sub, categories) {
 }
 
 function meritSummaryComplete(sub) {
-  const actions  = sub?.merit_actions || [];
-  const resolved = sub?.merit_actions_resolved || [];
-  const acqRes   = sub?.acquisitions_resolved  || [];
+  const actions   = sub?.merit_actions || [];
+  const resolved  = sub?.merit_actions_resolved || [];
+  const acqRes    = sub?.acquisitions_resolved  || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
 
   for (let i = 0; i < actions.length; i++) {
+    if (_isDeletedMeritAction(sub, i)) continue;
+    if (overrides.has(i)) continue;
     const rev = resolved[i] || {};
     if ((rev.pool_status || '') === 'skipped') continue;
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') continue;
       const acqStatus = acqRes[0]?.pool_status || '';
       if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
       continue;
@@ -2263,15 +2312,24 @@ function renderMeritSummary(char, sub) {
   // Group non-skipped actions by category
   const groups = {};
   actions.forEach((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return;
     const rev = resolved[i] || {};
     if (rev.pool_status === 'skipped') return;
     const cat = deriveMeritCategory(a.merit_type);
     if (!groups[cat]) groups[cat] = [];
-    const { label: meritLabel } = getMeritDetails(char, a);
+    const { label: meritLabel, qualifier } = getMeritDetails(char, a);
+    const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
+    let outcome = rev.outcome_summary?.trim() || '';
+    if (cat === 'resources') {
+      const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
+        || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
+          ? sub.acquisitions_resolved[0].notes_thread : null);
+      if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
+    }
     groups[cat].push({
-      meritLabel: meritLabel || a.merit_type || 'Merit',
+      meritLabel: displayLabel || a.merit_type || 'Merit',
       desiredOutcome: a.desired_outcome?.trim() || '',
-      outcome: rev.outcome_summary?.trim() || '',
+      outcome,
     });
   });
 
@@ -2303,22 +2361,63 @@ function renderMeritSummary(char, sub) {
     }
   }
 
+  // Build the list of all blocking items (ignoring overrides — overrides determine display only)
+  const acqRes    = sub?.acquisitions_resolved || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
+
+  const blockingItems = [];
+  actions.forEach((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return;
+    const rev = resolved[i] || {};
+    if ((rev.pool_status || '') === 'skipped') return;
+    const cat = deriveMeritCategory(a.merit_type);
+    if (cat === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') return;
+      const acqStatus = acqRes[0]?.pool_status || '';
+      if (acqStatus === 'validated' || acqStatus === 'skipped') return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
+    } else {
+      if (rev.outcome_summary?.trim()) return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || a.merit_type || 'Merit', reason: 'outcome not yet recorded' });
+    }
+  });
+
+  const remainingBlocks = blockingItems.filter(item => !overrides.has(item.idx));
+  const dismissedBlocks = blockingItems.filter(item =>  overrides.has(item.idx));
+  const genuinelyComplete = blockingItems.length === 0;
+
   h += `<div class="dt-story-section-actions">`;
-  if (complete) {
+  if (genuinelyComplete) {
     h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
+  } else if (remainingBlocks.length === 0) {
+    const n = dismissedBlocks.length;
+    h += `<span class="dt-story-complete-badge dt-story-complete-overridden">&#10003; Overridden (${n} dismissed)</span>`;
   } else {
-    const acqRes  = sub?.acquisitions_resolved || [];
-    const missing = actions.filter((a, i) => {
-      const rev = resolved[i] || {};
-      if (rev.pool_status === 'skipped') return false;
-      if (deriveMeritCategory(a.merit_type) === 'resources') {
-        const acqStatus = acqRes[0]?.pool_status || '';
-        return acqStatus !== 'validated' && acqStatus !== 'skipped';
-      }
-      return !rev.outcome_summary?.trim();
-    }).length;
-    h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
+    const n = remainingBlocks.length;
+    h += `<span class="dt-story-pending-note">${n} outcome${n !== 1 ? 's' : ''} still to record in DT Processing</span>`;
   }
+
+  const allDisplayed = [...remainingBlocks, ...dismissedBlocks];
+  if (allDisplayed.length) {
+    h += `<div class="dt-merit-blocking-list">`;
+    for (const item of allDisplayed) {
+      const isDismissed = overrides.has(item.idx);
+      const btnClass = isDismissed ? 'dt-merit-dismiss-btn dt-merit-dismiss-btn--active' : 'dt-merit-dismiss-btn';
+      const btnLabel = isDismissed ? 'Undismiss' : 'Dismiss';
+      h += `<div class="dt-merit-blocking-item">`;
+      h += `<span class="dt-merit-blocking-item-label">${esc(item.label)}</span>`;
+      h += `<span class="dt-merit-blocking-reason">— ${esc(item.reason)}</span>`;
+      h += `<button class="${btnClass}" data-action-idx="${item.idx}">${btnLabel}</button>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
   h += `</div>`;
   h += `</div></div>`;
   return h;
@@ -2703,7 +2802,11 @@ function renderMeritSection(char, sub, sectionKey, sectionLabel, categories) {
 
   const applicable = actions
     .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
-    .filter(({ a, rev }) => categories.includes(deriveMeritCategory(a.merit_type)) && rev.pool_status !== 'skipped');
+    .filter(({ a, i, rev }) =>
+      !_isDeletedMeritAction(sub, i) &&
+      categories.includes(deriveMeritCategory(a.merit_type)) &&
+      rev.pool_status !== 'skipped'
+    );
 
   const complete = actionResponsesComplete(sub, categories);
   const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
