@@ -92,7 +92,7 @@ const SUB_AC3 = {
   section_flags: [],
 };
 
-// AC4: legacy letter_from_home only — published_outcome has NO Story Moment heading.
+// AC4a: legacy letter_from_home only — published_outcome has NO Story Moment heading.
 // The archive tab requires a truthy published_outcome to list the submission.
 // renderStoryMoment's legacy path handles this; must produce exactly 1 block.
 const SUB_AC4 = {
@@ -102,6 +102,40 @@ const SUB_AC4 = {
   published_outcome: 'Some general narrative text with no section headings.',
   st_narrative: {
     letter_from_home: { response: 'Dear Alice,\n\nLegacy letter content here.', status: 'complete' },
+  },
+  responses: {},
+  projects_resolved: [],
+  merit_actions_resolved: [],
+  section_flags: [],
+};
+
+// AC4b: legacy touchstone only + ## Story Moment in published_outcome.
+// renderStoryMoment returns non-empty (touchstone path), so the loop must skip
+// the published_outcome heading — same guard, different legacy trigger.
+const SUB_AC4B = {
+  _id: 'sub-464-ac4b',
+  character_id: 'char-464',
+  cycle_id: 'cycle-464',
+  published_outcome: '## Story Moment\n\nThe push text story moment.',
+  st_narrative: {
+    touchstone: { response: 'Touchstone vignette content.', status: 'complete' },
+  },
+  responses: {},
+  projects_resolved: [],
+  merit_actions_resolved: [],
+  section_flags: [],
+};
+
+// Combined: both story_moment AND home_report set; published_outcome has both headings.
+// Guard must fire independently for each — no cross-contamination.
+const SUB_COMBINED = {
+  _id: 'sub-464-combined',
+  character_id: 'char-464',
+  cycle_id: 'cycle-464',
+  published_outcome: '## Story Moment\n\nStory push text.\n\n## Home Report\n\nHome report push text.',
+  st_narrative: {
+    story_moment: { response: 'Structured story moment.', status: 'complete' },
+    home_report:  { response: 'Structured home report.', status: 'complete' },
   },
   responses: {},
   projects_resolved: [],
@@ -201,6 +235,24 @@ test.describe('fix-464: Archive tab Story Moment deduplication', () => {
     // The structured field should be preferred over the published_outcome text.
     const narrative = page.locator('.story-narrative');
     await expect(narrative).toContainText('The structured story moment text from admin tool.');
+  });
+
+  test('AC4b: legacy touchstone only + published_outcome heading → exactly one Story Moment block', async ({ page }) => {
+    await setup(page, [SUB_AC4B]);
+    await openFirstDtItem(page);
+
+    const heads = page.locator('.story-section-head');
+    const storyMomentHeads = heads.filter({ hasText: 'Story Moment' });
+    await expect(storyMomentHeads).toHaveCount(1);
+  });
+
+  test('Combined: story_moment + home_report + both headings in published_outcome → one of each', async ({ page }) => {
+    await setup(page, [SUB_COMBINED]);
+    await openFirstDtItem(page);
+
+    const heads = page.locator('.story-section-head');
+    await expect(heads.filter({ hasText: 'Story Moment' })).toHaveCount(1);
+    await expect(heads.filter({ hasText: 'Home Report' })).toHaveCount(1);
   });
 
 });
