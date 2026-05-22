@@ -453,13 +453,15 @@ function buildPool(method, discName, specName) {
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
+  const fgVal = domMeritContrib(c, 'Feeding Grounds');
 
-  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus + unskilled);
+  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus + unskilled + fgVal);
 
   const parts = [`${bestAV} ${bestA}`, `${bestSV} ${bestS}`];
   if (discVal) parts.push(`${discVal} ${discName}`);
   if (specBonus) parts.push(`${specBonus} ${specName}`);
   if (unskilled) parts.push(`\u2212${Math.abs(unskilled)} (unskilled)`);
+  if (fgVal) parts.push(`${fgVal} Feeding Grounds`);
   poolBreakdown = parts.join(' + ') + ` = ${poolTotal}`;
 }
 
@@ -496,7 +498,11 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       const grid = JSON.parse(sub.responses.feeding_territories);
       for (const [tid, status] of Object.entries(grid)) {
         if (status !== 'resident' && status !== 'poach') continue;
-        const td = effectiveTerrs.find(t => t.slug === tid || tid.startsWith(t.slug));
+        const td = effectiveTerrs.find(t =>
+          t.slug === tid ||
+          tid.startsWith(t.slug) ||
+          t.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') === tid
+        );
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;

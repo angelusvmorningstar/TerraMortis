@@ -5360,7 +5360,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
   for (const terr of FEEDING_TERRITORIES) {
     const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const isBarrens = terr.includes('Barrens');
-    const terrData = TERRITORY_DATA.find(t => t.name === terr);
+    const terrData = (_territories || []).find(t => t.name === terr) || TERRITORY_DATA.find(t => t.name === terr);
     const ambience = terrData ? terrData.ambience : '';
 
     // A character has feeding rights on a territory if they are:
