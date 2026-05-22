@@ -162,6 +162,20 @@ test('AC3: DT1 submission with no influence_spend shows max/max', async ({ page 
   await expect(infSpan).toContainText('3/3');
 });
 
+// ── AC1 variant: cycle with status='game' (live DT3 pattern) ─────────────────
+
+test('AC1 live: cycle with status "game" is treated as a past cycle (not skipped)', async ({ page }) => {
+  const gameCycle = { _id: 'cycle-game-001', status: 'game', cycle_number: 3 };
+  await setup(page, {
+    cycles: [gameCycle, OPEN_CYCLE],
+    submissions: SUBMISSIONS_WITH_SPEND.map(s => ({ ...s, cycle_id: 'cycle-game-001' })),
+  });
+  // c-001 spent 3 of 4 → remaining = 1
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
+  await expect(infSpan).toContainText('1/4');
+});
+
 // ── AC4: no closed cycle → all chars show max/max ────────────────────────────
 
 test('AC4: no closed cycle → all INF displays show max/max', async ({ page }) => {

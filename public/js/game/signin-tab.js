@@ -76,7 +76,7 @@ async function loadInfluenceSpend() {
   _infSpentByCharId = new Map();
   try {
     const allCycles = await apiGet('/api/downtime_cycles');
-    const lastClosed = (allCycles || []).find(c => c.status === 'closed');
+    const lastClosed = (allCycles || []).find(c => c.status && c.status !== 'open');
     if (!lastClosed) return;
     const subs = await apiGet('/api/downtime_submissions?cycle_id=' + lastClosed._id);
     for (const sub of (subs || [])) {
