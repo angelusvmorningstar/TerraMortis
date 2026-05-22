@@ -1471,7 +1471,10 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _formStatuses = _isST ? ['active', 'prep'] : ['active'];
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
-  const _gateBlocks = !currentCycle || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess);
+  const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const _gateBlocks = !currentCycle
+    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess)
+    || (_deadlinePast && !_hasWindowAccess);
 
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
@@ -1587,8 +1590,10 @@ function renderCycleGatePage() {
     </div>`;
   }
   const label = esc(currentCycle.label || 'This cycle');
-  const isGame = currentCycle.status === 'game';
-  const isClosed = currentCycle.status === 'closed';
+  const isGame         = currentCycle.status === 'game';
+  const isClosed       = currentCycle.status === 'closed';
+  const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const isPublished    = !!(responseDoc?.published_outcome);
 
   let h = `<div class="reading-pane qf-gate-page">`;
   h += `<h3 class="qf-title">${label}</h3>`;
@@ -1596,7 +1601,11 @@ function renderCycleGatePage() {
   if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
-    h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Story</strong> tab once ready.</p>`;
+    h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Archive</strong> tab once ready.</p>`;
+  } else if (isDeadlinePast && isPublished) {
+    h += `<p class="qf-gate-msg">Your results for this cycle have been published \u2014 see the <strong>Archive</strong> tab.</p>`;
+  } else if (isDeadlinePast) {
+    h += `<p class="qf-gate-msg">Submissions are closed. Your ST is processing the results \u2014 published outcomes will appear in the <strong>Archive</strong> tab.</p>`;
   } else {
     h += `<p class="qf-gate-msg">Downtime submissions are currently closed.</p>`;
   }
@@ -1887,15 +1896,15 @@ function renderForm(container) {
     restoredFromLocal = false; // only show once per mount
   }
 
-  // Status banner — results live in the Story tab, not here
+  // Status banner — results live in the Archive tab, not here
   const published = responseDoc?.published_outcome;
   const pending = responseDoc && !published && status === 'submitted';
   if (published) {
-    h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
+    h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Archive</strong> tab.</div>`;
   } else if (pending) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
-    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Archive</strong> tab.</div>`;
   }
 
   // dt-form.17 (ADR-003 §Q1): mode selector at top of form.
