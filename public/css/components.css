@@ -4458,12 +4458,13 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .proj-card-feedback-label {
   font-family: var(--fl);
-  font-size: 10px;
-  letter-spacing: 0.07em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   display: block;
-  margin-bottom: 3px;
-  color: var(--txt3);
+  margin: 0 0 6px;
+  color: var(--txt2);
+  font-weight: normal;
 }
 .proj-card-withheld-msg {
   font-size: 12px;

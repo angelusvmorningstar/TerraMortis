@@ -223,8 +223,8 @@ function _storyNarrSection(label, text, opts = {}) {
   if (sub && sectionKey) h += renderFlagAffordance(sub, sectionKey);
   h += '</div>';
   h += '<div class="story-section-body">';
-  const paras = text.trim().split(/\n{2,}/).filter(Boolean);
-  h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  const paras = text.trim().split(/\n/).filter(Boolean);
+  h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   h += '</div></div>';
   return h;
 }
@@ -300,13 +300,13 @@ function renderStoryMoment(sub, opts = {}) {
   h += '</div>';
   h += '<div class="story-section-body">';
   if (touchstone) {
-    const paras = touchstone.trim().split(/\n{2,}/).filter(Boolean);
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    const paras = touchstone.trim().split(/\n/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   }
   if (letter) {
     if (touchstone) h += '<hr class="story-moment-divider">';
-    const paras = letter.trim().split(/\n{2,}/).filter(Boolean);
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    const paras = letter.trim().split(/\n/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   }
   h += '</div></div>';
   return h;
@@ -424,7 +424,7 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       }
 
       const note = rev.player_facing_note || '';
-      if (note) cardHtml += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
+      if (note) cardHtml += `<div class="proj-card-feedback"><h4 class="proj-card-feedback-label">ST Note</h4><em>${esc(note)}</em></div>`;
 
       cardHtml += '</div>';
     }
@@ -477,8 +477,8 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       if (isMech) {
         h += `<pre class="story-pre">${esc(body)}</pre>`;
       } else {
-        const paras = body.split(/\n{2,}/).filter(Boolean);
-        h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+        const paras = body.split(/\n/).filter(Boolean);
+        h += paras.map(p => `<p>${esc(p)}</p>`).join('');
       }
       h += '</div></div>';
 
@@ -489,8 +489,8 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       }
     } else {
       const body = sec.lines.join('\n').trim();
-      const paras = body.split(/\n{2,}/).filter(Boolean);
-      h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      const paras = body.split(/\n/).filter(Boolean);
+      h += paras.map(p => `<p>${esc(p)}</p>`).join('');
     }
   }
   h += '</div>';
