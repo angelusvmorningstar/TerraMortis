@@ -2441,6 +2441,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   background: var(--rp-bg);
   border-color: rgba(139,0,0,.4);
 }
+.dt-inf-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .dt-inf-val {
   min-width: 28px;
   text-align: center;

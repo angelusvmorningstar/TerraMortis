@@ -223,6 +223,18 @@ test.describe('fix.479 — influence spend budget cap enforcement', () => {
     await expect(plusHarbour).toBeEnabled();
   });
 
+  // fix.481 — AC1: disabled button has reduced opacity (CSS :disabled rule)
+  test('fix.481/AC1: disabled .dt-inf-btn has opacity < 1 via computed style', async ({ page }) => {
+    const sandbox = await openInfluenceSection(page, buildSub({ the_academy: 2 }));
+
+    // Academy at budget 2/2 → + button is disabled
+    const plusAcademy = sandbox.locator('[data-inf-terr="the_academy"][data-inf-dir="1"]');
+    await expect(plusAcademy).toBeDisabled();
+
+    const opacity = await plusAcademy.evaluate(el => getComputedStyle(el).opacity);
+    expect(parseFloat(opacity)).toBeLessThan(1);
+  });
+
   // AC1/AC2: pre-loaded over-budget submission — buttons reflect over-spent state
   test('AC1/AC2: pre-loaded at budget → buttons correctly disabled on render', async ({ page }) => {
     // Load with Academy already at full budget (2)
