@@ -89,7 +89,9 @@ async function loadInfluenceSpend() {
       if (!raw) continue;
       let spendObj;
       try { spendObj = JSON.parse(raw); } catch { continue; }
-      const total = Object.values(spendObj).reduce((s, v) => s + (Number(v) || 0), 0);
+      // Absolute amounts: a negative per-territory value is influence
+      // moved, not refunded — it still counts against the spend total.
+      const total = Object.values(spendObj).reduce((s, v) => s + Math.abs(Number(v) || 0), 0);
       if (total > 0) _infSpentByCharId.set(String(sub.character_id), total);
     }
     console.info('[signin] inf spend loaded: %d entries', _infSpentByCharId.size);
@@ -226,7 +228,7 @@ function render() {
     const wpMax = calcWillpowerMax(c);
     const infMax = calcTotalInfluence(c);
     const infSpent = _infSpentByCharId.get(String(c._id)) || 0;
-    const infRemaining = infMax - infSpent;
+    const infRemaining = Math.max(0, infMax - infSpent);
     const resourceRow = `<div class="si-resources">
       <span class="si-res-item"><span class="si-res-lbl">V</span> ${vMax}/${vMax}</span>
       <span class="si-res-item"><span class="si-res-lbl">WP</span> ${wpMax}/${wpMax}</span>

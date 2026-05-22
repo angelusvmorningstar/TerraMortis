@@ -7,6 +7,8 @@
  * AC4 — no closed cycle exists → shows max / max for all
  * Regression — most-recent cycle is chosen by game_number, not array order
  *   (live DT1 was re-imported with a newer _id than DT3, breaking .find()).
+ * Regression — per-territory spend is summed as absolute amounts, and
+ *   remaining never renders below 0 (live: Wan Yelong's -4/+6 DT3 entries).
  */
 
 const { test, expect } = require('@playwright/test');
@@ -206,6 +208,37 @@ test('regression: spend resolves from highest game_number cycle, not array order
   const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
   const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
   await expect(infSpan).toContainText('1/4');
+});
+
+// ── Regression: per-territory spend is absolute, remaining clamps at 0 ───────
+// Live bug — Wan Yelong's DT3 submission held the_academy: -4 alongside
+// the_harbour: 6. Net summing (-4 + 6 = 2) under-counted his spend; influence
+// moved is still influence spent, so totals sum absolute values.
+
+test('absolute spend: negative per-territory value counts toward spend, not refund', async ({ page }) => {
+  await setup(page, {
+    submissions: [
+      { _id: 'sub-abs', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+        responses: { influence_spend: JSON.stringify({ the_academy: -2, the_harbour: 1 }) } },
+    ],
+  });
+  // c-001 infMax=4; |-2| + |1| = 3 spent → 1/4 (net summing would wrongly give 5/4).
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
+  await expect(infSpan).toContainText('1/4');
+});
+
+test('clamp: absolute spend exceeding max shows 0, not negative remaining', async ({ page }) => {
+  await setup(page, {
+    submissions: [
+      { _id: 'sub-over', character_id: 'c-001', cycle_id: 'cycle-closed-001', status: 'submitted',
+        responses: { influence_spend: JSON.stringify({ the_academy: -4, the_harbour: 6 }) } },
+    ],
+  });
+  // c-001 infMax=4; |-4| + |6| = 10 spent → remaining clamps to 0/4.
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
+  await expect(infSpan).toContainText('0/4');
 });
 
 // ── AC4: no closed cycle → all chars show max/max ────────────────────────────
