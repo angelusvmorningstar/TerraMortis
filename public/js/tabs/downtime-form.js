@@ -413,7 +413,7 @@ function collectResponses() {
         // invisible to isMinimalComplete and the hard-mirror lifecycle never
         // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
         // so this is additive, not a regression of the original DTFP-4 case.
-        responses['_feed_method'] = feedMethodId || '';
+        responses['_feed_method'] = feedMethodId || (feedCustomAttr ? 'other' : '');
         // dt-form.35: include method-default violence so visual highlight matches
         // what collectResponses writes. Explicit player click overrides the default.
         const _explicitViolence = responseDoc?.responses?.feed_violence;

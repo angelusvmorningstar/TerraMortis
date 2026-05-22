@@ -186,6 +186,27 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
+  // Custom pool fallback: handles 'other' sentinel (new submissions) and
+  // legacy '' (submissions saved before this fix). If the player built a
+  // custom pool without clicking a preset method card, _feed_method is
+  // 'other' (or '') but _feed_custom_attr is set. Build a synthetic method
+  // entry so the ready-state render fires instead of no_submission.
+  if (!declaredMethod && mySub?.responses?.['_feed_custom_attr']) {
+    const customAttr  = mySub.responses['_feed_custom_attr'];
+    const customSkill = mySub.responses['_feed_custom_skill'] || '';
+    const customDisc  = mySub.responses['_feed_custom_disc']  || '';
+    declaredMethod = {
+      id: 'custom',
+      name: 'Custom Pool',
+      desc: 'Player-declared custom combination',
+      attrs: [customAttr],
+      skills: customSkill ? [customSkill] : [],
+      discs:  customDisc  ? [customDisc]  : [],
+    };
+    declaredDisc = customDisc;
+    declaredSpec = mySub.responses['_feed_spec'] || '';
+  }
+
   // Capture ST roll result and vitae tally if present
   if (mySub?.feeding_roll?.successes != null) {
     stRollResult = mySub.feeding_roll;
