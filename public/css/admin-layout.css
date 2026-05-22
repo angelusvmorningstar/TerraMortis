@@ -5966,6 +5966,7 @@ body {
 }
 .proc-recat-row-tight  { margin-top: 4px; padding-top: 4px; border-top: none; }
 .proc-recat-row-spaced { margin-top: 8px; padding-top: 8px; }
+.proc-recat-row-top    { margin-top: 0; padding-top: 0; border-top: none; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--bdr); }
 
 /* Pool committed state — locks pool builder and modifier panels */
 .proc-pool-committed { opacity: 0.65; pointer-events: none; user-select: none; }
@@ -5979,12 +5980,20 @@ body {
   vertical-align: middle;
 }
 
-/* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
+/* Territory pills rendered inline (action type row for merit/non-normalised; territory rail for normalised card) */
 .proc-terr-inline-pills {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 12px;
+}
+/* Territory rail in normalised card — flex so pills align with the label */
+.proc-proj-terr-rail {
+  display: flex;
+  align-items: center;
+}
+.proc-proj-terr-rail .proc-terr-inline-pills {
+  margin-left: 8px;
 }
 
 .proc-recat-select {

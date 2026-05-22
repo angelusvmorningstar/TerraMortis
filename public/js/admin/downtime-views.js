@@ -6500,17 +6500,17 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
  * Render a territory pill row. Wires up via the existing proc-terr-pill click handler.
  * feedingSet: pass a Set of active territory IDs for feeding multi-select; null for single-select.
  */
-function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null) {
+function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null, noLabel = false) {
   const TERR_PILLS = [
-    { id: '',           label: '\u2014' },
     { id: 'academy',   label: 'Academy' },
     { id: 'harbour',   label: 'Harbour' },
     { id: 'dockyards', label: 'Dockyards' },
     { id: 'northshore', label: 'N. Shore' },
-    { id: 'secondcity', label: '2nd City' },
+    { id: 'barrens',   label: 'Barrens' },
+    { id: '',          label: 'N/A' },
   ];
   let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
-  h += `<span class="proc-feed-lbl">Terr.</span>`;
+  if (!noLabel) h += `<span class="proc-feed-lbl">Terr.</span>`;
   for (const t of TERR_PILLS) {
     const active = feedingSet
       ? ((t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '')
@@ -7669,13 +7669,14 @@ function _renderXpSpendBreakdown(rows, budget) {
     `</div>`;
 }
 
-function _renderActionTypeRow(entry, rev, char) {
+function _renderActionTypeRow(entry, rev, char, opts = {}) {
+  const { suppressTerrPills = false } = opts;
   const key        = entry.key;
   const actionType = entry.actionType;
   const isMerit    = entry.source === 'merit';
   let h = '';
 
-  h += `<div class="proc-recat-row">`;
+  h += `<div class="proc-recat-row${suppressTerrPills ? ' proc-recat-row-top' : ''}">`;
   h += `<span class="proc-feed-lbl">Action Type</span>`;
   h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
   for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
@@ -7702,7 +7703,7 @@ function _renderActionTypeRow(entry, rev, char) {
     }
     h += `</div>`;
     // Add territory pills for project-based investigate (not merit)
-    if (!isMerit) {
+    if (!isMerit && !suppressTerrPills) {
       const _invSub = submissions.find(s => s._id === entry.subId);
       const _invCtx = String(entry.actionIdx);
       const _invTid = _invSub?.st_review?.territory_overrides?.[_invCtx] || '';
@@ -7741,20 +7742,22 @@ function _renderActionTypeRow(entry, rev, char) {
         const _dirLabel = entry.ambienceDir === 'increase' ? '▲ Increase' : '▼ Decrease';
         h += `<span class="proc-ambience-dir-badge proc-ambience-dir-${esc(entry.ambienceDir)}">${_dirLabel}</span>`;
       }
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = String(entry.actionIdx);
-      const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
-      let _ambiTid;
-      if (_stOvrTid) {
-        _ambiTid = _stOvrTid;
-      } else {
-        // No ST override — pre-select from player's submitted territory (visual only)
-        const _slot = entry.projSlot;
-        const _resp = _ambiSub?.responses || {};
-        const _raw = _resp[`project_${_slot}_ambience_target`] || _resp[`project_${_slot}_territory`] || '';
-        _ambiTid = resolveTerrId(_raw) || '';
+      if (!suppressTerrPills) {
+        const _ambiSub = submissions.find(s => s._id === entry.subId);
+        const _ambiCtx = String(entry.actionIdx);
+        const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
+        let _ambiTid;
+        if (_stOvrTid) {
+          _ambiTid = _stOvrTid;
+        } else {
+          // No ST override — pre-select from player's submitted territory (visual only)
+          const _slot = entry.projSlot;
+          const _resp = _ambiSub?.responses || {};
+          const _raw = _resp[`project_${_slot}_ambience_target`] || _resp[`project_${_slot}_territory`] || '';
+          _ambiTid = resolveTerrId(_raw) || '';
+        }
+        h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
       }
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     // merit ambience: territory handled via isAlliesAction pills below
   } else if (!isMerit) {
@@ -7878,6 +7881,9 @@ function renderNormalisedCard(entry, review) {
     }
   }
 
+  // ── Action Type row (at top — territory pills appear in the territory rail below) ──
+  h += _renderActionTypeRow(entry, rev, projChar, { suppressTerrPills: true });
+
   // ── Two-column layout ──
   h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
 
@@ -7926,16 +7932,35 @@ function renderNormalisedCard(entry, review) {
       h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
     }
 
-    // Territory (read-only)
-    if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+    // Territory rail (interactive pills for ambience/investigate; plain text for others)
+    if (_isAmbienceAction(entry.actionType)) {
+      const _ambiCtx  = String(entry.actionIdx);
+      const _stOvrTid = projSub?.st_review?.territory_overrides?.[_ambiCtx];
+      let _ambiTid;
+      if (_stOvrTid) {
+        _ambiTid = _stOvrTid;
+      } else {
+        const _resp = projSub?.responses || {};
+        const _raw  = _resp[`project_${entry.projSlot}_ambience_target`] || _resp[`project_${entry.projSlot}_territory`] || '';
+        _ambiTid = resolveTerrId(_raw) || '';
+      }
+      h += `<div class="proc-proj-field proc-proj-terr-rail"><span class="proc-feed-lbl">Territory</span>`;
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid, null, true);
+      h += `</div>`;
+    } else if (entry.actionType === 'investigate') {
+      const _invCtx = String(entry.actionIdx);
+      const _invTid = projSub?.st_review?.territory_overrides?.[_invCtx] || '';
+      h += `<div class="proc-proj-field proc-proj-terr-rail"><span class="proc-feed-lbl">Territory</span>`;
+      h += _renderInlineTerrPills(entry.subId, _invCtx, _invTid, null, true);
+      h += `</div>`;
+    } else if (entry.projTerritory) {
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+    }
     if (entry.actionType === 'feed') {
       const _nomText = _playerFeedTerrsText(projSub);
       if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
     }
   }
-
-  // ── Action Type row (includes interactive target for investigate/attack + territory pills) ──
-  h += _renderActionTypeRow(entry, rev, projChar);
 
   // ── Connected Characters ──
   {
