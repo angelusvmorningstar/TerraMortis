@@ -904,9 +904,11 @@ function renderJointGroup(joint, entries) {
       (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
       (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
       (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+    const _chipState = _deriveActionRibbonState(review);
+    const _chipLabels = { pending: 'Pending', valid: 'Valid', complete: 'Complete' };
     h += `<span class="proc-row-status-cell">`;
     if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
-    h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+    h += `<span class="proc-row-status ar-${_chipState}">${_chipLabels[_chipState]}</span>`;
     h += `</span>`;
     if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
     // No Dup / Del on joint participant rows — lifecycle handled via JDT-6.
@@ -4520,9 +4522,11 @@ function renderProcessingMode(container) {
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
           (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
           (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+        const _chipState = _deriveActionRibbonState(review);
+        const _chipLabels = { pending: 'Pending', valid: 'Valid', complete: 'Complete' };
         h += `<span class="proc-row-status-cell">`;
         if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
-        h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += `<span class="proc-row-status ar-${_chipState}">${_chipLabels[_chipState]}</span>`;
         h += `</span>`;
         if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
         h += `<span class="proc-row-actions">`;
@@ -7011,7 +7015,6 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = [['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
-  if (!isAuto && ['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -7076,7 +7079,6 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
@@ -7217,7 +7219,6 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
@@ -7467,7 +7468,6 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);

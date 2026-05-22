@@ -5969,18 +5969,26 @@ body {
 .proc-recat-row-top    { margin-top: 0; padding-top: 0; border-top: none; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--bdr); }
 
 /* ── Action progress ribbon (Pending › Valid › Complete) ── */
+/* Shared colour tokens — used by both ribbon steps and the row chip */
+.ar-pending  { --ar-c: var(--result-pend);  --ar-bdr: var(--result-pend-bdr);  --ar-bg: var(--result-pend-bg); }
+.ar-valid    { --ar-c: #e07a30;             --ar-bdr: rgba(224,122,48,.45);    --ar-bg: rgba(224,122,48,.12); }
+.ar-complete { --ar-c: var(--result-succ);  --ar-bdr: var(--result-succ-bdr);  --ar-bg: var(--result-succ-bg); }
+html:not([data-theme="dark"]) .ar-valid { --ar-c: #8b3d00; --ar-bdr: rgba(139,61,0,.40); --ar-bg: rgba(139,61,0,.10); }
+
 .proc-action-ribbon { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.72rem; }
 .proc-ar-step {
   padding: 2px 8px; border-radius: 10px;
   border: 1px solid transparent; color: var(--txt3); white-space: nowrap;
 }
 .proc-ar-step.ar-past    { color: var(--txt2); border-color: var(--surf3); }
-.proc-ar-step.ar-active  { font-weight: 600; }
-.proc-ar-step.ar-active.ar-pending  { border-color: var(--txt3);        color: var(--txt3); }
-.proc-ar-step.ar-active.ar-valid    { border-color: var(--gold2);       color: var(--gold2); }
-.proc-ar-step.ar-active.ar-complete { border-color: var(--result-succ); color: var(--result-succ); }
+.proc-ar-step.ar-active  { font-weight: 600; border-color: var(--ar-bdr); color: var(--ar-c); }
 .proc-ar-step.ar-future  { opacity: 0.35; }
 .proc-ar-arrow { color: var(--txt3); font-size: 0.7rem; }
+
+/* Row chip — shows ribbon state instead of raw pool_status */
+.proc-row-status.ar-pending, .proc-row-status.ar-valid, .proc-row-status.ar-complete {
+  background: var(--ar-bg); color: var(--ar-c);
+}
 
 /* Pool committed state — locks pool builder and modifier panels */
 .proc-pool-committed { opacity: 0.65; pointer-events: none; user-select: none; }
