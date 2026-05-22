@@ -179,3 +179,82 @@ test('AC4: no cycles at all → all INF displays show max/max', async ({ page })
   const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
   await expect(infSpan).toContainText('4/4');
 });
+
+// ── Regression: V and WP still show max/max ──────────────────────────────────
+
+test('regression: V and WP resource displays still show max/max after INF change', async ({ page }) => {
+  await setup(page);
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  await expect(aliceRow).toBeVisible();
+  // V and WP are unchanged — they always show max/max
+  const vSpan = aliceRow.locator('.si-res-lbl:text("V")').locator('..');
+  const wpSpan = aliceRow.locator('.si-res-lbl:text("WP")').locator('..');
+  await expect(vSpan).toBeVisible();
+  await expect(wpSpan).toBeVisible();
+  const vText = await vSpan.textContent();
+  const wpText = await wpSpan.textContent();
+  // Both should be N/N (same numerator and denominator)
+  expect(vText).toMatch(/\d+\/\d+/);
+  expect(wpText).toMatch(/\d+\/\d+/);
+  const [vL, vR] = vText.replace(/[^0-9/]/g, '').split('/');
+  const [wpL, wpR] = wpText.replace(/[^0-9/]/g, '').split('/');
+  expect(vL).toBe(vR);
+  expect(wpL).toBe(wpR);
+});
+
+// ── Graceful degradation: API failure → max/max ───────────────────────────────
+
+test('graceful degradation: downtime_cycles API error → INF shows max/max', async ({ page }) => {
+  await page.addInitScript(({ user }) => {
+    localStorage.setItem('tm_auth_token', 'fake-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, { user: ST_USER });
+
+  await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/api/auth/me', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
+  );
+  await page.route('**/api/game_sessions', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([SESSION]) })
+  );
+  await page.route('**/api/characters**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TEST_CHARS) })
+  );
+  await page.route('**/api/players/display-names', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  // downtime_cycles returns 500 error
+  await page.route('**/api/downtime_cycles', route =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'SERVER_ERROR' }) })
+  );
+  await page.route('**/api/st_mods**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto('/');
+  await page.waitForSelector('#bnav', { timeout: 10000 });
+  await page.locator('#n-signin').click();
+  await page.waitForSelector('.si-row', { timeout: 8000 });
+
+  // c-001 has clan status 4 → infMax=4; API error → spent defaults to 0 → shows 4/4
+  const aliceRow = page.locator('.si-row[data-char-id="c-001"]');
+  const infSpan = aliceRow.locator('.si-res-lbl:text("Inf")').locator('..');
+  await expect(infSpan).toContainText('4/4');
+});
+
+// ── AC5: both new API calls are fired on load ─────────────────────────────────
+
+test('AC5: downtime_cycles and downtime_submissions are both requested on init', async ({ page }) => {
+  const requested = new Set();
+  page.on('request', req => {
+    if (req.url().includes('/api/downtime_cycles')) requested.add('cycles');
+    if (req.url().includes('/api/downtime_submissions')) requested.add('submissions');
+  });
+
+  await setup(page);
+
+  expect(requested.has('cycles')).toBe(true);
+  expect(requested.has('submissions')).toBe(true);
+});
