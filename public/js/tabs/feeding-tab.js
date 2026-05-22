@@ -497,7 +497,7 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
     try {
       const grid = JSON.parse(sub.responses.feeding_territories);
       for (const [tid, status] of Object.entries(grid)) {
-        if (status !== 'resident' && status !== 'poach') continue;
+        if (!status || status === 'none' || status === 'barrens') continue;
         const td = effectiveTerrs.find(t =>
           t.slug === tid ||
           tid.startsWith(t.slug) ||
