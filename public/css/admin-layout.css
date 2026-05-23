@@ -4914,6 +4914,64 @@ body {
   border-top: 1px solid var(--bdr);
 }
 
+/* ── Dice Pool Builder chip row ── */
+.proc-pool-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+/* Dice Pool Modifiers panel when inlined inside the Dice Pool Builder card */
+.proc-pool-builder .proc-feed-mod-panel.proc-pool-mod-inline,
+.proc-pool-mod-inline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 8px 0;
+}
+/* Spec-chip wrapper is layout-transparent so spec chips align with sibling chips */
+.proc-pool-chips .dt-feed-builder-meta.dt-skill-meta {
+  display: contents;
+  margin: 0;
+}
+/* Shared chip token — pool-builder chips match proc-val-status button style */
+.proc-spec-chip,
+.proc-rote-chip,
+.proc-again-opt {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt3);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--fl);
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+/* Hover */
+.proc-spec-chip:hover:not(:disabled),
+.proc-rote-chip:hover:not(:disabled),
+.proc-again-opt:hover:not(:disabled) { border-color: var(--accent); color: var(--txt1); }
+
+/* Active states — semantic colour treatments */
+.proc-spec-chip.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-rote-chip.is-active { border-color: var(--crim); color: var(--crim); background: var(--crim-a15); }
+.proc-again-opt.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-again-opt.is-active.is-auto { border-color: var(--green); color: var(--green); background: var(--green-a15); }
+
+/* Disabled */
+.proc-spec-chip:disabled,
+.proc-rote-chip:disabled,
+.proc-again-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .proc-pool-parse-ref {
   font-size: 12px;
   color: var(--txt3);
@@ -5970,20 +6028,19 @@ body {
 
 /* ── Action progress ribbon (Pending › Valid › Complete) ── */
 /* Shared colour tokens — used by both ribbon steps and the row chip */
-.ar-pending  { --ar-c: var(--result-pend);  --ar-bdr: var(--result-pend-bdr);  --ar-bg: var(--result-pend-bg); }
-.ar-valid    { --ar-c: #e07a30;             --ar-bdr: rgba(224,122,48,.45);    --ar-bg: rgba(224,122,48,.12); }
-.ar-complete { --ar-c: var(--result-succ);  --ar-bdr: var(--result-succ-bdr);  --ar-bg: var(--result-succ-bg); }
-html:not([data-theme="dark"]) .ar-valid { --ar-c: #8b3d00; --ar-bdr: rgba(139,61,0,.40); --ar-bg: rgba(139,61,0,.10); }
+.ar-pending  { --ar-c: var(--result-pend);    --ar-bdr: var(--result-pend-bdr);    --ar-bg: var(--result-pend-bg); }
+.ar-valid    { --ar-c: var(--warn-orange);    --ar-bdr: var(--warn-orange-bdr);    --ar-bg: var(--warn-orange-bg); }
+.ar-complete { --ar-c: var(--result-succ);    --ar-bdr: var(--result-succ-bdr);    --ar-bg: var(--result-succ-bg); }
 
-.proc-action-ribbon { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.72rem; }
+.proc-action-ribbon { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 0.8rem; font-family: var(--fl); }
 .proc-ar-step {
-  padding: 2px 8px; border-radius: 10px;
+  padding: 3px 11px; border-radius: 12px;
   border: 1px solid transparent; color: var(--txt3); white-space: nowrap;
 }
 .proc-ar-step.ar-past    { color: var(--txt2); border-color: var(--surf3); }
-.proc-ar-step.ar-active  { font-weight: 600; border-color: var(--ar-bdr); color: var(--ar-c); }
+.proc-ar-step.ar-active  { font-weight: 700; border-color: var(--ar-bdr); color: var(--ar-c); background: var(--ar-bg); }
 .proc-ar-step.ar-future  { opacity: 0.35; }
-.proc-ar-arrow { color: var(--txt3); font-size: 0.7rem; }
+.proc-ar-arrow { color: var(--txt3); font-size: 0.75rem; }
 
 /* Row chip — shows ribbon state instead of raw pool_status */
 .proc-row-status.ar-pending, .proc-row-status.ar-valid, .proc-row-status.ar-complete {
