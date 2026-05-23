@@ -2288,7 +2288,7 @@ function meritSummaryComplete(sub) {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') continue;
       const acqStatus = acqRes[0]?.pool_status || '';
-      if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
+      if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
       continue;
     }
     if (!rev.outcome_summary?.trim()) return false;
@@ -2377,7 +2377,7 @@ function renderMeritSummary(char, sub) {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') return;
       const acqStatus = acqRes[0]?.pool_status || '';
-      if (acqStatus === 'validated' || acqStatus === 'skipped') return;
+      if (['validated', 'skipped', 'resolved'].includes(acqStatus)) return;
       const { label, qualifier } = getMeritDetails(char, a);
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
