@@ -63,6 +63,20 @@ const territoryEnum = [
   '', 'academy', 'dockyards', 'harbour', 'northshore', 'secondcity'
 ];
 
+// Issue #496 / story 496.1: dual-read tolerance window.
+// `project_${n}_territory` and `sphere_${n}_territory` were enum-only against
+// the short-slug list above; this widens them to also accept ObjectId strings
+// so the form-side write change (story 496.2) can land without the schema
+// rejecting OID-keyed submissions. Tightened back to enum-only — or replaced
+// with an OID-only pattern — once the migration in stories 496.3 / 496.4 has
+// rekeyed all stored submissions.
+const territoryKeyOrOid = {
+  anyOf: [
+    { type: 'string', enum: territoryEnum },
+    { type: 'string', pattern: '^[a-f0-9]{24}$' },
+  ],
+};
+
 const bloodTypeEnum = ['Animal', 'Human', 'Kindred'];
 
 const yesNoGate = { type: 'string', enum: ['yes', 'no', ''] };
@@ -77,7 +91,7 @@ function projectSlotProps(n) {
     [`project_${n}_outcome`]:      { type: 'string' },
     [`project_${n}_description`]:  { type: 'string' },
     [`project_${n}_title`]:        { type: 'string' },
-    [`project_${n}_territory`]:    { type: 'string', enum: territoryEnum },
+    [`project_${n}_territory`]:    territoryKeyOrOid,
     // Dice pool (single, primary). dt-form.24 stripped the secondary pool;
     // legacy `_pool2_*` fields drop from the schema. Pre-redesign drafts
     // retain the keys via `additionalProperties: true` (silent-leave). The
@@ -140,7 +154,7 @@ function sphereSlotProps(n) {
     [`sphere_${n}_action`]:      { type: 'string', enum: sphereActionEnum },
     [`sphere_${n}_outcome`]:     { type: 'string' },
     [`sphere_${n}_description`]: { type: 'string' },
-    [`sphere_${n}_territory`]:   { type: 'string', enum: territoryEnum },
+    [`sphere_${n}_territory`]:   territoryKeyOrOid,
     [`sphere_${n}_merit`]:       { type: 'string' },  // Display label: "Allies ●●● (Police)"
     [`sphere_${n}_cast`]:        { type: 'string' },   // JSON array of character IDs
   };
