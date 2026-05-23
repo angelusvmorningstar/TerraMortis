@@ -3600,18 +3600,13 @@ export function compilePushOutcome(sub, char, cycle) {
           const tOid = tDoc ? String(tDoc._id) : null;
           const pulse = tOid && cyc.territory_pulse[tOid]?.draft;
           if (pulse?.trim()) {
-            pulseChunks.push(`### Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
+            pulseChunks.push(`## Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
           }
         }
       }
 
-      if (narrativeText || pulseChunks.length) {
-        const sectionParts = ['## Feeding'];
-        if (narrativeText) sectionParts.push(narrativeText);
-        if (pulseChunks.length) sectionParts.push(pulseChunks.join('\n\n'));
-        parts.push(sectionParts.join('\n\n'));
-        hasContent = true;
-      }
+      if (narrativeText) { parts.push(`## Feeding\n\n${narrativeText}`); hasContent = true; }
+      for (const chunk of pulseChunks) { parts.push(chunk); hasContent = true; }
       continue;
 
     } else if (key === 'story_moment') {
@@ -3716,7 +3711,7 @@ export function compilePushOutcome(sub, char, cycle) {
 
   // General notes — free text, always include if present (no status gate)
   const generalNotes = sn.general_notes?.trim();
-  if (generalNotes) { parts.push(generalNotes); hasContent = true; }
+  if (generalNotes) { parts.push(`## ST Notes and Extra Story\n\n${generalNotes}`); hasContent = true; }
 
   return hasContent ? parts.join('\n\n') : '';
 }

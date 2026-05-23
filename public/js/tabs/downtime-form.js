@@ -413,7 +413,7 @@ function collectResponses() {
         // invisible to isMinimalComplete and the hard-mirror lifecycle never
         // unlocks. ADVANCED still falls back to `_feed_disc` / `_feed_custom_*`
         // so this is additive, not a regression of the original DTFP-4 case.
-        responses['_feed_method'] = feedMethodId || '';
+        responses['_feed_method'] = feedMethodId || (feedCustomAttr ? 'other' : '');
         // dt-form.35: include method-default violence so visual highlight matches
         // what collectResponses writes. Explicit player click overrides the default.
         const _explicitViolence = responseDoc?.responses?.feed_violence;
@@ -1471,7 +1471,10 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _formStatuses = _isST ? ['active', 'prep'] : ['active'];
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
-  const _gateBlocks = !currentCycle || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess);
+  const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const _gateBlocks = !currentCycle
+    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess)
+    || (_deadlinePast && !_hasWindowAccess);
 
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
@@ -1587,8 +1590,10 @@ function renderCycleGatePage() {
     </div>`;
   }
   const label = esc(currentCycle.label || 'This cycle');
-  const isGame = currentCycle.status === 'game';
-  const isClosed = currentCycle.status === 'closed';
+  const isGame         = currentCycle.status === 'game';
+  const isClosed       = currentCycle.status === 'closed';
+  const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const isPublished    = !!(responseDoc?.published_outcome);
 
   let h = `<div class="reading-pane qf-gate-page">`;
   h += `<h3 class="qf-title">${label}</h3>`;
@@ -1596,7 +1601,11 @@ function renderCycleGatePage() {
   if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
-    h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Story</strong> tab once ready.</p>`;
+    h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Archive</strong> tab once ready.</p>`;
+  } else if (isDeadlinePast && isPublished) {
+    h += `<p class="qf-gate-msg">Your results for this cycle have been published \u2014 see the <strong>Archive</strong> tab.</p>`;
+  } else if (isDeadlinePast) {
+    h += `<p class="qf-gate-msg">Submissions are closed. Your ST is processing the results \u2014 published outcomes will appear in the <strong>Archive</strong> tab.</p>`;
   } else {
     h += `<p class="qf-gate-msg">Downtime submissions are currently closed.</p>`;
   }
@@ -1887,15 +1896,15 @@ function renderForm(container) {
     restoredFromLocal = false; // only show once per mount
   }
 
-  // Status banner — results live in the Story tab, not here
+  // Status banner — results live in the Archive tab, not here
   const published = responseDoc?.published_outcome;
   const pending = responseDoc && !published && status === 'submitted';
   if (published) {
-    h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
+    h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Archive</strong> tab.</div>`;
   } else if (pending) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime is submitted. You can keep editing until the deadline — changes auto-save and update your submission.</p></div>';
   } else if (!published && priorPublishedLabel) {
-    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Archive</strong> tab.</div>`;
   }
 
   // dt-form.17 (ADR-003 §Q1): mode selector at top of form.
@@ -3243,6 +3252,17 @@ function renderForm(container) {
         remSpan.textContent = remaining;
         remSpan.classList.toggle('dt-influence-over', remaining < 0);
       }
+    }
+
+    // Refresh disabled states so buttons reflect the new remaining value.
+    for (const t of INFLUENCE_TERRITORIES) {
+      const otherTk = t.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const otherEl = document.getElementById(`inf-val-${otherTk}`);
+      const v = otherEl ? parseInt(otherEl.textContent, 10) || 0 : 0;
+      const mBtn = document.querySelector(`[data-inf-terr="${otherTk}"][data-inf-dir="-1"]`);
+      const pBtn = document.querySelector(`[data-inf-terr="${otherTk}"][data-inf-dir="1"]`);
+      if (mBtn) mBtn.disabled = v <= 0 && remaining <= 0;
+      if (pBtn) pBtn.disabled = v >= 0 && remaining <= 0;
     }
 
     scheduleSave();
@@ -5351,7 +5371,7 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
   for (const terr of FEEDING_TERRITORIES) {
     const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const isBarrens = terr.includes('Barrens');
-    const terrData = TERRITORY_DATA.find(t => t.name === terr);
+    const terrData = (_territories || []).find(t => t.name === terr) || TERRITORY_DATA.find(t => t.name === terr);
     const ambience = terrData ? terrData.ambience : '';
 
     // A character has feeding rights on a territory if they are:
@@ -6754,13 +6774,15 @@ function renderQuestion(q, value) {
         // vertically aligned across rows; text content is value-driven.
         const leftText  = val < 0 ? 'decreasing ambience' : '';
         const rightText = val > 0 ? 'increasing ambience' : '';
+        const minusDis  = val <= 0 && remaining <= 0 ? ' disabled' : '';
+        const plusDis   = val >= 0 && remaining <= 0 ? ' disabled' : '';
         h += '<div class="dt-influence-row">';
         h += `<span class="dt-influence-terr">${esc(terr)}</span>`;
         h += '<span class="dt-influence-control">';
         h += `<span class="dt-influence-label dt-influence-label-left">${leftText}</span>`;
-        h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
+        h += `<button type="button" class="dt-inf-btn"${minusDis} data-inf-terr="${tk}" data-inf-dir="-1">−</button>`;
         h += `<span class="dt-inf-val" id="inf-val-${tk}">${val}</span>`;
-        h += `<button type="button" class="dt-inf-btn" data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
+        h += `<button type="button" class="dt-inf-btn"${plusDis} data-inf-terr="${tk}" data-inf-dir="1">+</button>`;
         h += `<span class="dt-influence-label dt-influence-label-right">${rightText}</span>`;
         h += '</span>';
         h += '</div>';

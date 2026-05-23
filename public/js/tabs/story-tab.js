@@ -223,8 +223,8 @@ function _storyNarrSection(label, text, opts = {}) {
   if (sub && sectionKey) h += renderFlagAffordance(sub, sectionKey);
   h += '</div>';
   h += '<div class="story-section-body">';
-  const paras = text.trim().split(/\n{2,}/).filter(Boolean);
-  h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  const paras = text.trim().split(/\n/).filter(Boolean);
+  h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   h += '</div></div>';
   return h;
 }
@@ -300,13 +300,13 @@ function renderStoryMoment(sub, opts = {}) {
   h += '</div>';
   h += '<div class="story-section-body">';
   if (touchstone) {
-    const paras = touchstone.trim().split(/\n{2,}/).filter(Boolean);
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    const paras = touchstone.trim().split(/\n/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   }
   if (letter) {
     if (touchstone) h += '<hr class="story-moment-divider">';
-    const paras = letter.trim().split(/\n{2,}/).filter(Boolean);
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    const paras = letter.trim().split(/\n/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p)}</p>`).join('');
   }
   h += '</div></div>';
   return h;
@@ -424,7 +424,7 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       }
 
       const note = rev.player_facing_note || '';
-      if (note) cardHtml += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
+      if (note) cardHtml += `<div class="proj-card-feedback"><h4 class="proj-card-feedback-label">ST Note</h4><em>${esc(note)}</em></div>`;
 
       cardHtml += '</div>';
     }
@@ -435,10 +435,19 @@ export function renderOutcomeWithCards(sub, opts = {}) {
 
   // ── Sections 1-2: Story Moment + Home Report (above main narrative) ──
   let h = '<div class="story-narrative">';
-  h += renderStoryMoment(sub, { editable });
-  h += renderHomeReportSection(sub, { editable });
+  const smHtml = renderStoryMoment(sub, { editable });
+  const hrHtml = renderHomeReportSection(sub, { editable });
+  h += smHtml;
+  h += hrHtml;
+  // If a dedicated renderer produced output, skip the same heading in
+  // published_outcome to prevent the section appearing twice (fix #464).
+  const _renderedKeys = new Set();
+  if (smHtml) _renderedKeys.add('story_moment');
+  if (hrHtml) _renderedKeys.add('home_report');
   for (const sec of sections) {
     if (sec.heading) {
+      const secKey = _flagSectionKeyForHeading(sec.heading);
+      if (secKey && _renderedKeys.has(secKey)) continue;
       const isMech = sec.heading === 'Mechanical Outcomes';
       // Match the parsed heading to a project card to find its index. When
       // editable, the heading section is treated as the editable surface for
@@ -468,8 +477,8 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       if (isMech) {
         h += `<pre class="story-pre">${esc(body)}</pre>`;
       } else {
-        const paras = body.split(/\n{2,}/).filter(Boolean);
-        h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+        const paras = body.split(/\n/).filter(Boolean);
+        h += paras.map(p => `<p>${esc(p)}</p>`).join('');
       }
       h += '</div></div>';
 
@@ -480,8 +489,8 @@ export function renderOutcomeWithCards(sub, opts = {}) {
       }
     } else {
       const body = sec.lines.join('\n').trim();
-      const paras = body.split(/\n{2,}/).filter(Boolean);
-      h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      const paras = body.split(/\n/).filter(Boolean);
+      h += paras.map(p => `<p>${esc(p)}</p>`).join('');
     }
   }
   h += '</div>';

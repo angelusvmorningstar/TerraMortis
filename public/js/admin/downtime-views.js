@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -10,7 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
-import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus, meritEffectiveRating } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
@@ -1017,7 +1017,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
+  const fgVal = fg ? Math.min(meritEffectiveRating(char, fg), 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -7442,6 +7442,32 @@ function _renderProjRightPanel(entry, char, rev) {
 function _renderFeedRightPanel(entry, char, rev) {
   const key = entry.key;
 
+  // ── Pool modifier panel data ──
+  const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+  const fgDice = fg ? Math.min(char ? meritEffectiveRating(char, fg) : (fg.rating || 0), 5) : null; // null = char not loaded; cap at merit max
+
+  // Always derive pool expression from current effective character stats (dots + bonus)
+  const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
+  let initSkillName = '', initSkillDots = 0;
+  if (poolValidated && char) {
+    const charDiscs0 = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+    const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
+    if (parsed0?.skill) {
+      initSkillName = parsed0.skill;
+      initSkillDots = skTotal(char, initSkillName) || 0;
+    }
+  }
+  const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
+
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = _fmtMod(eqMod);
+  const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
+  const poolModTotalStr = _fmtMod(poolModTotal);
+
+  // fgDice data attr: '' when char null (so live update can detect "unknown")
+  const fgDataAttr = fgDice !== null ? String(fgDice) : '';
+  const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
+
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Vitae Tally ──
@@ -8842,7 +8868,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
+      const fgDice0 = fg0 ? Math.min(char ? meritEffectiveRating(char, fg0) : 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used

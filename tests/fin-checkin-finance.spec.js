@@ -76,7 +76,7 @@ test('fin.3: payment method dropdown uses fin.2 enum values', async ({ page }) =
   expect(options.some(o => /PayPal/i.test(o))).toBe(true);
   expect(options.some(o => /Exiles/i.test(o))).toBe(true);
   expect(options.some(o => /Waived/i.test(o))).toBe(true);
-  expect(options.some(o => /Did Not Attend/i.test(o))).toBe(true);
+  // 'Did Not Attend' was retired in FIN-6; canonical signal is the attended checkbox.
 });
 
 // ── fin.4 — Finance tab ─────────────────────────────────────────────────────
