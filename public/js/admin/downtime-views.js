@@ -9089,6 +9089,7 @@ function renderActionPanel(entry, review) {
       h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
       h += '</div>';
       h += '</div>';
+      h += _renderMeritOutcomeZone(entry, rev);
     }
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
@@ -9104,8 +9105,9 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — feeding, project, sorcery, merit move to right panel; others rendered here
-  if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit') {
+  // Validation status — feeding, project, sorcery, merit, skill acquisitions move to right panel; others rendered here
+  const isSkillAcq = entry.source === 'acquisition' && entry.actionType === 'skill_acquisitions';
+  if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit' && !isSkillAcq) {
     const statusOptions = isSorcery
       ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
