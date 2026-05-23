@@ -68,7 +68,7 @@ let activeCycle = null;
 let currentCycle = null;
 let selectedCycleId = null;
 const procExpandedKeys = new Set(); // tracks which action rows are expanded in processing mode
-let procHideDone = false;           // when true, hide fully-resolved action rows from the queue
+let _procFilters = { statuses: new Set(), chars: new Set(), phases: new Set(), territories: new Set() };
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
@@ -120,17 +120,17 @@ const PHASE_ORDER = {
 };
 
 const PHASE_LABELS = {
-  travel: 'Step 1 — Travel Review',
-  resolve_first: 'Step 2 — Blood Sorcery & Rituals',
-  feeding: 'Step 3 — Feeding',
-  joint: 'Step 4 — Joint Projects',
-  ambience: 'Step 5 — Ambience',
-  ambience_change: 'Step 5 — Ambience',
-  hide_protect: 'Step 6 — Defensive',
-  investigate: 'Step 7 — Investigative',
-  attack: 'Step 8 — Hostile',
-  support_patrol: 'Step 9 — Support & Patrol',
-  misc: 'Step 10 — Miscellaneous',
+  travel: '1: Travel Review',
+  resolve_first: '2: Blood Sorcery & Rituals',
+  feeding: '3: Feeding',
+  joint: '4: Joint Projects',
+  ambience: '5: Ambience',
+  ambience_change: '5: Ambience',
+  hide_protect: '6: Defensive',
+  investigate: '7: Investigative',
+  attack: '8: Hostile',
+  support_patrol: '9: Support & Patrol',
+  misc: '10: Miscellaneous',
   allies: 'Allies',
   status: 'Status',
   retainers: 'Retainers',
@@ -4357,6 +4357,48 @@ function renderCharacterStrip(queue) {
  */
 function _getQueueEntry(key) { return _procQueueMap?.get(key) ?? null; }
 
+function _anyFilterActive() {
+  return _procFilters.statuses.size > 0 || _procFilters.chars.size > 0
+      || _procFilters.phases.size > 0  || _procFilters.territories.size > 0;
+}
+
+function _entryTerritories(entry) {
+  const out = new Set();
+  const _terrName = slug => {
+    const id = resolveTerrId(slug);
+    return id ? (TERRITORY_DATA.find(t => t.slug === id)?.name || null) : null;
+  };
+  if (entry.feedTerrs) {
+    for (const [slug, val] of Object.entries(entry.feedTerrs)) {
+      if (!val || val === 'none') continue;
+      const name = _terrName(slug);
+      if (name) out.add(name);
+    }
+  }
+  if (entry.projTerritory) {
+    const name = _terrName(entry.projTerritory);
+    if (name) out.add(name);
+  }
+  return out;
+}
+
+function _filterQueue(queue) {
+  if (!_anyFilterActive()) return queue;
+  return queue.filter(e => {
+    if (_procFilters.statuses.size) {
+      const rev = getEntryReview(e);
+      if (!_procFilters.statuses.has(_deriveActionRibbonState(rev))) return false;
+    }
+    if (_procFilters.chars.size && !_procFilters.chars.has(e.charName)) return false;
+    if (_procFilters.phases.size && !_procFilters.phases.has(e.phase))  return false;
+    if (_procFilters.territories.size) {
+      const terrs = _entryTerritories(e);
+      if (![...terrs].some(t => _procFilters.territories.has(t))) return false;
+    }
+    return true;
+  });
+}
+
 /**
  * Wire ± ticker buttons (dec/inc) inside a processing-mode container.
  * All three modifier tickers share this logic; they differ only in selectors,
@@ -4399,6 +4441,82 @@ function _wireTickerHandler(container, { decCls, incCls, panelCls, inputCls, dis
   });
 }
 
+function renderProcFilterBar(queue) {
+  const chars      = [...new Set(queue.map(e => e.charName))].sort();
+  const phasesSeen = [...new Set(queue.map(e => e.phase))];
+  const terrsSeen  = [...new Set(queue.flatMap(e => [..._entryTerritories(e)]))].sort();
+  const f          = _procFilters;
+
+  let h = '<div class="proc-filter-bar">';
+
+  // Status — fixed three pills
+  h += '<div class="proc-filter-row">';
+  h += '<div class="proc-filter-label">Status</div>';
+  h += '<div class="proc-filter-pills">';
+  for (const [val, label] of [['pending','Pending'],['valid','Valid'],['complete','Complete']]) {
+    h += `<button class="proc-char-chip proc-filter-pill${f.statuses.has(val) ? ' is-active' : ''}" data-filter-dim="statuses" data-filter-val="${esc(val)}">`;
+    h += `<span class="proc-char-chip-name">${label}</span>`;
+    h += `</button>`;
+  }
+  h += '</div></div>';
+
+  // Character — chip style with N/M done count + state colour
+  if (chars.length) {
+    h += '<div class="proc-filter-row">';
+    h += '<div class="proc-filter-label">Character</div>';
+    h += '<div class="proc-filter-pills">';
+    for (const char of chars) {
+      const charEntries = queue.filter(e => e.charName === char);
+      const doneCt = charEntries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+      const total  = charEntries.length;
+      const state  = doneCt === 0 ? 'none' : doneCt === total ? 'complete' : 'partial';
+      const prog   = state === 'complete' ? '✓' : `${doneCt}/${total}`;
+      h += `<button class="proc-char-chip state-${state} proc-filter-pill${f.chars.has(char) ? ' is-active' : ''}" data-filter-dim="chars" data-filter-val="${esc(char)}">`;
+      h += `<span class="proc-char-chip-name">${esc(char)}</span>`;
+      h += `<span class="proc-char-chip-prog">${prog}</span>`;
+      h += `</button>`;
+    }
+    h += '</div></div>';
+  }
+
+  // Phase — natural queue order, readable labels
+  if (phasesSeen.length) {
+    h += '<div class="proc-filter-row">';
+    h += '<div class="proc-filter-label">Phase</div>';
+    h += '<div class="proc-filter-pills">';
+    for (const phaseKey of phasesSeen) {
+      const label = PHASE_LABELS[phaseKey] || phaseKey;
+      h += `<button class="proc-char-chip proc-filter-pill${f.phases.has(phaseKey) ? ' is-active' : ''}" data-filter-dim="phases" data-filter-val="${esc(phaseKey)}">`;
+      h += `<span class="proc-char-chip-name">${esc(label)}</span>`;
+      h += `</button>`;
+    }
+    h += '</div></div>';
+  }
+
+  // Territory
+  if (terrsSeen.length) {
+    h += '<div class="proc-filter-row">';
+    h += '<div class="proc-filter-label">Territory</div>';
+    h += '<div class="proc-filter-pills">';
+    for (const terr of terrsSeen) {
+      h += `<button class="proc-char-chip proc-filter-pill${f.territories.has(terr) ? ' is-active' : ''}" data-filter-dim="territories" data-filter-val="${esc(terr)}">`;
+      h += `<span class="proc-char-chip-name">${esc(terr)}</span>`;
+      h += `</button>`;
+    }
+    h += '</div></div>';
+  }
+
+  // Clear all — only when filter is active
+  if (_anyFilterActive()) {
+    h += '<div class="proc-filter-clear-row">';
+    h += '<button class="proc-filter-clear">Clear all</button>';
+    h += '</div>';
+  }
+
+  h += '</div>'; // proc-filter-bar
+  return h;
+}
+
 function renderProcessingMode(container) {
   renderCityOverview();
 
@@ -4413,8 +4531,9 @@ function renderProcessingMode(container) {
     return;
   }
   _procQueueMap = new Map(queue.map(e => [e.key, e]));
+  const filteredQueue = _filterQueue(queue);
 
-  // Group by phase
+  // Group by phase — built from full queue so all phases appear in natural order
   const byPhase = new Map();
   for (const entry of queue) {
     if (!byPhase.has(entry.phase)) byPhase.set(entry.phase, []);
@@ -4456,7 +4575,6 @@ function renderProcessingMode(container) {
 
   // Controls bar — queue-level toggles
   h += `<div class="proc-queue-controls">`;
-  h += `<button class="proc-hide-done-btn${procHideDone ? ' active' : ''}" id="proc-hide-done-toggle">${procHideDone ? 'Show all' : 'Hide done'}</button>`;
   const _totalDone  = queue.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
   const _totalCount = queue.length;
   if (_totalCount > 0) {
@@ -4467,8 +4585,8 @@ function renderProcessingMode(container) {
   }
   h += `</div>`;
 
-  // Character status strip — at-a-glance state + jump-to navigation
-  h += renderCharacterStrip(queue);
+  // Filter bar — replaces the character strip
+  h += renderProcFilterBar(queue);
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
@@ -4478,16 +4596,14 @@ function renderProcessingMode(container) {
     const doneCount = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
     const phaseProgressBadge = _progressBadge(doneCount, entries.length, '');
 
-    // When hiding done, skip phases where every action is resolved
-    const visibleEntries = procHideDone
-      ? entries.filter(e => !DONE_STATUSES.has(getEntryReview(e)?.pool_status))
-      : entries;
-    if (procHideDone && visibleEntries.length === 0) continue;
+    const visibleEntries = filteredQueue.filter(e => e.phase === phaseKey);
+    if (_anyFilterActive() && visibleEntries.length === 0) continue;
+    const effectiveCollapsed = isCollapsed;
 
     h += `<div class="proc-phase-section">`;
-    h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !isCollapsed);
+    h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !effectiveCollapsed);
 
-    if (!isCollapsed) {
+    if (!effectiveCollapsed) {
       // JDT-5: joint phase groups participant rows by joint_id and wraps
       // each group with a shared header + outcome textarea. Other phases
       // render entries linearly as before.
@@ -4575,12 +4691,6 @@ function renderProcessingMode(container) {
   // Render investigations into its placeholder inside the investigate phase
   renderInvestigations();
 
-  // Wire hide-done toggle
-  document.getElementById('proc-hide-done-toggle')?.addEventListener('click', () => {
-    procHideDone = !procHideDone;
-    renderProcessingMode(container);
-  });
-
   // Wire character strip chips — expand first pending action and scroll to it
   container.querySelectorAll('.proc-char-chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -4613,6 +4723,27 @@ function renderProcessingMode(container) {
       }
       await updateSubmission(subId, { 'st_review.feed_violence_st_override': newVal });
     });
+  });
+
+  // Wire filter pills
+  container.querySelectorAll('.proc-filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dim = btn.dataset.filterDim;
+      const val = btn.dataset.filterVal;
+      if (!dim || !val || !_procFilters[dim]) return;
+      if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
+      else _procFilters[dim].add(val);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire filter clear
+  container.querySelector('.proc-filter-clear')?.addEventListener('click', () => {
+    _procFilters.statuses    = new Set();
+    _procFilters.chars       = new Set();
+    _procFilters.phases      = new Set();
+    _procFilters.territories = new Set();
+    renderProcessingMode(container);
   });
 
   // Wire action type recategorisation selects

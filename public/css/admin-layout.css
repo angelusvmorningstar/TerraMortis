@@ -7743,6 +7743,54 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .proc-deleted-section { border-color: var(--crim) !important; }
 .proc-deleted-section .proc-phase-header { color: var(--crim); }
 
+/* ── Processing filter bar ── */
+.proc-filter-bar {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proc-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.proc-filter-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+.proc-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.proc-char-chip.is-active {
+  border-color: var(--gold2);
+  background: var(--gold2-a12);
+}
+.proc-char-chip.is-active .proc-char-chip-name { color: var(--gold2); }
+.proc-char-chip.is-active .proc-char-chip-prog  { color: var(--gold2); }
+.proc-filter-clear-row { padding-top: 2px; }
+.proc-filter-clear {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.12s;
+}
+.proc-filter-clear:hover { color: var(--accent); }
+
 .proc-deleted-list {
   display: flex;
   flex-direction: column;
