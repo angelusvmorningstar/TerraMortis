@@ -4813,7 +4813,7 @@ function renderProcessingMode(container) {
         if (pillRow) {
           pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
             const pid = p.dataset.terrId;
-            p.classList.toggle('active', pid === '' ? newSet.size === 0 : newSet.has(pid));
+            p.classList.toggle('is-active', pid === '' ? newSet.size === 0 : newSet.has(pid));
           });
         }
       } else {
@@ -4829,7 +4829,7 @@ function renderProcessingMode(container) {
         const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="${context}"]`);
         if (pillRow) {
           pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
-            p.classList.toggle('active', p.dataset.terrId === terrId);
+            p.classList.toggle('is-active', p.dataset.terrId === terrId);
           });
         }
       }
@@ -5152,6 +5152,8 @@ function renderProcessingMode(container) {
         }
       }
       _refreshPoolBuilder(container, procKey);
+      const selEntry = _getQueueEntry(procKey);
+      if (selEntry) _autoSetStOverride(procKey, selEntry);
     });
   });
 
@@ -5221,7 +5223,7 @@ function renderProcessingMode(container) {
       const hiddenCb = container.querySelector(`.proc-pool-rote[data-proc-key="${key}"]`);
       if (hiddenCb) hiddenCb.checked = isActive;
       if (entry.source === 'project') {
-        await saveEntryReview(entry, { rote: isActive });
+        await saveEntryReview(entry, { rote: isActive, roll_mode: 'st_override' });
         renderProcessingMode(container);
       } else {
         const sub = submissions.find(s => s._id === entry.subId);
@@ -5230,6 +5232,7 @@ function renderProcessingMode(container) {
           await updateSubmission(entry.subId, { st_review: stReview });
           sub.st_review = stReview;
         }
+        _autoSetStOverride(key, entry);
       }
     });
   });
@@ -5248,9 +5251,33 @@ function renderProcessingMode(container) {
       const ea = container.querySelector(`.proc-proj-8a[data-proc-key="${key}"]`);
       if (na) na.checked = (again === '9');
       if (ea) ea.checked = (again === '8');
-      await saveEntryReview(entry, { nine_again: again === '9', eight_again: again === '8' });
+      await saveEntryReview(entry, { nine_again: again === '9', eight_again: again === '8', roll_mode: 'st_override' });
+      _autoSetStOverride(key, entry);
     });
   });
+
+  // Roll mode toggle — Player Default / ST Override / No Roll Needed
+  container.querySelectorAll('.proc-roll-mode-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key  = btn.dataset.procKey;
+      const mode = btn.dataset.rollMode;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      container.querySelectorAll(`.proc-roll-mode-btn[data-proc-key="${key}"]`).forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      await saveEntryReview(entry, { roll_mode: mode });
+    });
+  });
+
+  function _autoSetStOverride(key, entry) {
+    const active = container.querySelector(`.proc-roll-mode-btn.is-active[data-proc-key="${key}"]`);
+    if (active?.dataset.rollMode === 'st_override') return;
+    container.querySelectorAll(`.proc-roll-mode-btn[data-proc-key="${key}"]`).forEach(b => b.classList.remove('is-active'));
+    const overrideBtn = container.querySelector(`.proc-roll-mode-btn[data-proc-key="${key}"][data-roll-mode="st_override"]`);
+    if (overrideBtn) overrideBtn.classList.add('is-active');
+    saveEntryReview(entry, { roll_mode: 'st_override' });
+  }
 
   // ── feature.51: Equipment modifier ticker (pool mod panel) ──
   _wireTickerHandler(container, {
@@ -6754,10 +6781,10 @@ function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = 
   let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
   if (!noLabel) h += `<span class="proc-feed-lbl">Terr.</span>`;
   for (const t of TERR_PILLS) {
-    const active = feedingSet
-      ? ((t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '')
-      : (currentTerrId === t.id ? ' active' : '');
-    h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
+    const isActive = feedingSet
+      ? (t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id))
+      : currentTerrId === t.id;
+    h += `<button class="proc-terr-pill proc-again-opt${isActive ? ' is-active' : ''}" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
   }
   h += `</span>`;
   return h;
@@ -7008,6 +7035,17 @@ function _renderValStatusButtons(key, poolStatus, buttons) {
   let h = '<div class="proc-val-status">';
   for (const [val, label] of buttons) {
     h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(key)}" data-status="${val}">${label}</button>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+function _renderRollModeToggle(key, rollMode, disabled) {
+  const modes = [['player', 'Player Default'], ['st_override', 'ST Override'], ['no_roll', 'No Roll Needed']];
+  const dis = disabled ? ' disabled' : '';
+  let h = '<div class="proc-roll-mode-group">';
+  for (const [val, label] of modes) {
+    h += `<button class="proc-roll-mode-btn${rollMode === val ? ' is-active' : ''}" type="button" data-proc-key="${esc(key)}" data-roll-mode="${val}"${dis}>${label}</button>`;
   }
   h += '</div>';
   return h;
@@ -7405,7 +7443,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
  * Render the right-side sidebar for a project/ambience entry (feature.59).
  * Dice Pool Modifiers (equipment only) + Success Modifier + Rote + Validation Status.
  */
-function _renderProjRightPanel(entry, char, rev) {
+function _renderProjRightPanel(entry, char, rev, prependHtml = '') {
   const key = entry.key;
   // Always derive pool expression from current effective character stats (dots + bonus)
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
@@ -7415,6 +7453,22 @@ function _renderProjRightPanel(entry, char, rev) {
   const succStr = _fmtMod(succMod);
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+  if (prependHtml) h += prependHtml;
+
+  // ── Roll card ──
+  {
+    const _projRoll    = rev.roll || null;
+    const _showRollBtn = poolStatus === 'pending' || poolStatus === 'confirmed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!_projRoll;
+    h += _renderRollCard(key, _projRoll, null, {
+      btnClass:        'proc-proj-roll-btn',
+      btnDataAttrs:    ` data-pool-validated="${esc(poolValidated)}"`,
+      canRoll:          _showRollBtn,
+      noRollMsg:       'Validate pool first',
+      successModifier:  succMod,
+      contestedRoll:    rev.contested_roll || null,
+      showConfirm:      poolStatus === 'pending',
+    });
+  }
 
   // ── Investigation: Target Secrecy + Lead toggle (project investigate only) ──
   if (entry.actionType === 'investigate') {
@@ -7534,19 +7588,6 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<button class="proc-second-opinion-btn${_isSO_proj ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_proj ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
   h += `</div>`;
 
-  // ── Roll card ──
-  const projRoll    = rev.roll || null;
-  const showRollBtn = poolStatus === 'pending' || poolStatus === 'confirmed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!projRoll;
-  h += _renderRollCard(key, projRoll, null, {
-    btnClass:        'proc-proj-roll-btn',
-    btnDataAttrs:    ` data-pool-validated="${esc(poolValidated)}"`,
-    canRoll:          showRollBtn,
-    noRollMsg:       'Validate pool first',
-    successModifier:  succMod,
-    contestedRoll:    rev.contested_roll || null,
-    showConfirm:      poolStatus === 'pending',
-  });
-
   h += `</div>`; // proc-feed-right
   return h;
 }
@@ -7557,10 +7598,27 @@ function _renderProjRightPanel(entry, char, rev) {
  * @param {object|null} char - Character document (may be null)
  * @param {object} rev - feeding_review fields
  */
-function _renderFeedRightPanel(entry, char, rev) {
+function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   const key = entry.key;
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+  if (prependHtml) h += prependHtml;
+
+  // ── Roll card ──
+  {
+    const _feedSub      = submissions.find(s => s._id === entry.subId);
+    const _poolStatus   = rev.pool_status || 'pending';
+    const _isRote       = entry.feedRote || _feedSub?.st_review?.feeding_rote || false;
+    const _feedRollObj  = _feedSub?.feeding_roll || null;
+    const _showRollBtn  = _poolStatus === 'pending' || _poolStatus === 'confirmed' || _poolStatus === 'rolled' || _poolStatus === 'validated' || !!_feedRollObj;
+    h += _renderRollCard(key, _feedRollObj, null, {
+      btnClass:     'proc-feed-roll-btn',
+      btnDataAttrs: ` data-sub-id="${esc(entry.subId)}" data-rote="${_isRote}"`,
+      canRoll:      _showRollBtn,
+      noRollMsg:    'Confirm pool first',
+      showConfirm:  _poolStatus === 'pending',
+    });
+  }
 
   // ── Vitae Tally ──
   const herd = (char?.merits || []).find(m => m.name === 'Herd');
@@ -7736,17 +7794,6 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<button class="proc-second-opinion-btn${_isSO_feed ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_feed ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
 
   h += `</div>`;
-
-  // ── Roll card ──
-  const feedRollObj = feedSub?.feeding_roll || null;
-  const showFeedRollBtn = poolStatus === 'pending' || poolStatus === 'confirmed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!feedRollObj;
-  h += _renderRollCard(key, feedRollObj, null, {
-    btnClass:     'proc-feed-roll-btn',
-    btnDataAttrs: ` data-sub-id="${esc(entry.subId)}" data-rote="${isRote}"`,
-    canRoll:      showFeedRollBtn,
-    noRollMsg:    'Confirm pool first',
-    showConfirm:  poolStatus === 'pending',
-  });
 
   // ── DTFP-5: feed-violence ST override ──
   // Player declared (read-only) + ST override dropdown.
@@ -8241,7 +8288,8 @@ function renderNormalisedCard(entry, review) {
     }
   }
 
-  // ── Dice Pool Builder ──
+  // ── Dice Pool Builder (rendered into _bh — injected at top of right column) ──
+  let _bh = '';
   {
     const char = projChar;
     const charDiscs    = _charDiscsArray(char).filter(d => d.dots > 0);
@@ -8293,29 +8341,31 @@ function renderNormalisedCard(entry, review) {
     const _isRote0  = rev.rote || false;
     const _is8a0    = rev.eight_again || false;
     const _again0   = _is8a0 ? '8' : (_pnA ? '9' : (rev.nine_again ? '9' : '10'));
-    h += `<div class="proc-pool-builder${_committed ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable — character not loaded)</span>' : ''}${_committed ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
-    if (showParseRef) h += `<div class="proc-pool-parse-ref">Could not restore selection — previous: "${esc(poolValidated)}"</div>`;
-    h += '<div class="proc-pool-builder-selects">';
-    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_dis}>${attrOptHtml}</select>`;
-    h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_dis}>${skillOptHtml}</select>`;
-    h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_dis}>${discOptHtml}</select>`;
-    h += '</div>';
-    h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${eqMod0}">`;
-    h += `<div class="proc-pool-chips">`;
-    h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-    h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _dis);
-    h += '</div>';
-    h += `<button class="proc-rote-chip${_isRote0 ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_dis ? ' disabled' : ''}>Rote</button>`;
-    h += `<button class="proc-again-opt${_again0 === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_dis ? ' disabled' : ''}>10-Again</button>`;
-    h += `<button class="proc-again-opt${_again0 === '9' ? ' is-active' : ''}${_pnA && !_is8a0 && _again0 === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_dis ? ' disabled' : ''}>9-Again</button>`;
-    h += `<button class="proc-again-opt${_again0 === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_dis ? ' disabled' : ''}>8-Again</button>`;
-    h += '</div>';
-    h += _renderPoolModPanel(entry, char, rev, 'project');
-    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
-    h += '</div>'; // proc-pool-builder
+    const _rollMode0 = rev.roll_mode || (poolValidated ? 'player' : 'no_roll');
+    _bh += `<div class="proc-pool-builder${_committed ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+    _bh += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable — character not loaded)</span>' : ''}${_committed ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+    if (showParseRef) _bh += `<div class="proc-pool-parse-ref">Could not restore selection — previous: "${esc(poolValidated)}"</div>`;
+    _bh += '<div class="proc-pool-builder-selects">';
+    _bh += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_dis}>${attrOptHtml}</select>`;
+    _bh += `<span class="proc-pool-plus">+</span>`;
+    _bh += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_dis}>${skillOptHtml}</select>`;
+    _bh += `<span class="proc-pool-plus">+</span>`;
+    _bh += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_dis}>${discOptHtml}</select>`;
+    _bh += '</div>';
+    _bh += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${eqMod0}">`;
+    _bh += `<div class="proc-pool-chips">`;
+    _bh += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+    _bh += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _dis);
+    _bh += '</div>';
+    _bh += `<button class="proc-rote-chip${_isRote0 ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_dis ? ' disabled' : ''}>Rote</button>`;
+    _bh += `<button class="proc-again-opt${_again0 === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_dis ? ' disabled' : ''}>10-Again</button>`;
+    _bh += `<button class="proc-again-opt${_again0 === '9' ? ' is-active' : ''}${_pnA && !_is8a0 && _again0 === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_dis ? ' disabled' : ''}>9-Again</button>`;
+    _bh += `<button class="proc-again-opt${_again0 === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_dis ? ' disabled' : ''}>8-Again</button>`;
+    _bh += _renderRollModeToggle(entry.key, _rollMode0, !!_dis);
+    _bh += '</div>';
+    _bh += _renderPoolModPanel(entry, char, rev, 'project');
+    _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    _bh += '</div>'; // proc-pool-builder
   }
 
   // ── ST Notes thread ──
@@ -8403,7 +8453,7 @@ function renderNormalisedCard(entry, review) {
   }
 
   h += '</div>'; // proc-feed-left
-  h += _renderProjRightPanel(entry, projChar, rev);
+  h += _renderProjRightPanel(entry, projChar, rev, _bh);
   h += '</div>'; // proc-feed-layout
 
   h += '</div>'; // proc-action-detail
@@ -8806,11 +8856,6 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       h += `</div>`;
     }
-    // Player's nominated feeding territories (informational — ST override is the pills below)
-    {
-      const _nomText = _playerFeedTerrsText(feedSub);
-      if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
-    }
     // ── Resident/poacher mismatch flag ──
     {
       const _charId = String(feedChar?._id || '');
@@ -8843,7 +8888,7 @@ function renderActionPanel(entry, review) {
         h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
       }
     }
-    // Territory pills row — feeding multi-select
+    // Territory row — label + ST override pills on one row
     {
       const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
       let _feedSet;
@@ -8870,7 +8915,8 @@ function renderActionPanel(entry, review) {
         }
       }
       h += `<div class="proc-recat-row">`;
-      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet);
+      h += `<span class="proc-feed-lbl">Territories</span>`;
+      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
       h += `</div>`;
     }
 
@@ -8882,7 +8928,8 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Pool row — feeding gets structured pool builder; others get free-text input
+  // Pool row — feeding gets structured pool builder (rendered into _bh → top of right column)
+  let _bh = '';
   if (entry.source === 'feeding') {
     // Use hoisted feedSub / feedChar from top of function
     const resp = feedSub?.responses || {};
@@ -8981,31 +9028,33 @@ function renderActionPanel(entry, review) {
       const _pnAFeed    = char && preSkill ? skNineAgain(char, preSkill) : false;
       const _is8aFeed   = rev.eight_again || false;
       const _againFeed  = _is8aFeed ? '8' : (_pnAFeed ? '9' : (rev.nine_again ? '9' : '10'));
-      h += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+      const _rollModeFeed = rev.roll_mode || (poolValidated ? 'player' : 'no_roll');
+      _bh += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+      _bh += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
       if (showParseRef) {
-        h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
+        _bh += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
-      h += '<div class="proc-pool-builder-selects">';
-      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_feedDis}>${attrOptHtml}</select>`;
-      h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_feedDis}>${skillOptHtml}</select>`;
-      h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_feedDis}>${discOptHtml}</select>`;
-      h += '</div>'; // proc-pool-builder-selects
-      h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
-      h += `<div class="proc-pool-chips">`;
-      h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-      h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _feedDis);
-      h += '</div>';
-      h += `<button class="proc-rote-chip${_isRoteFeed ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_feedDis ? ' disabled' : ''}>Rote</button>`;
-      h += `<button class="proc-again-opt${_againFeed === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_feedDis ? ' disabled' : ''}>10-Again</button>`;
-      h += `<button class="proc-again-opt${_againFeed === '9' ? ' is-active' : ''}${_pnAFeed && !_is8aFeed && _againFeed === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_feedDis ? ' disabled' : ''}>9-Again</button>`;
-      h += `<button class="proc-again-opt${_againFeed === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_feedDis ? ' disabled' : ''}>8-Again</button>`;
-      h += '</div>'; // proc-pool-chips
-      h += _renderPoolModPanel(entry, char, rev, 'feeding');
-      h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      h += '</div>'; // proc-pool-builder
+      _bh += '<div class="proc-pool-builder-selects">';
+      _bh += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_feedDis}>${attrOptHtml}</select>`;
+      _bh += `<span class="proc-pool-plus">+</span>`;
+      _bh += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_feedDis}>${skillOptHtml}</select>`;
+      _bh += `<span class="proc-pool-plus">+</span>`;
+      _bh += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_feedDis}>${discOptHtml}</select>`;
+      _bh += '</div>'; // proc-pool-builder-selects
+      _bh += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
+      _bh += `<div class="proc-pool-chips">`;
+      _bh += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+      _bh += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _feedDis);
+      _bh += '</div>';
+      _bh += `<button class="proc-rote-chip${_isRoteFeed ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_feedDis ? ' disabled' : ''}>Rote</button>`;
+      _bh += `<button class="proc-again-opt${_againFeed === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_feedDis ? ' disabled' : ''}>10-Again</button>`;
+      _bh += `<button class="proc-again-opt${_againFeed === '9' ? ' is-active' : ''}${_pnAFeed && !_is8aFeed && _againFeed === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_feedDis ? ' disabled' : ''}>9-Again</button>`;
+      _bh += `<button class="proc-again-opt${_againFeed === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_feedDis ? ' disabled' : ''}>8-Again</button>`;
+      _bh += _renderRollModeToggle(entry.key, _rollModeFeed, !!_feedDis);
+      _bh += '</div>'; // proc-pool-chips
+      _bh += _renderPoolModPanel(entry, char, rev, 'feeding');
+      _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+      _bh += '</div>'; // proc-pool-builder
     }
   } else if (entry.source === 'project') {
     // Project: structured pool builder (mirrors feeding)
@@ -9074,6 +9123,7 @@ function renderActionPanel(entry, review) {
     const _isRoteProj = rev.rote || false;
     const _is8aProj   = rev.eight_again || false;
     const _againProj  = _is8aProj ? '8' : (_pnA ? '9' : (rev.nine_again ? '9' : '10'));
+    const _rollModeProj = rev.roll_mode || (poolValidated ? 'player' : 'no_roll');
     h += `<div class="proc-pool-builder${_projCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
     h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
     if (showParseRef) {
@@ -9095,6 +9145,7 @@ function renderActionPanel(entry, review) {
     h += `<button class="proc-again-opt${_againProj === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_projDis ? ' disabled' : ''}>10-Again</button>`;
     h += `<button class="proc-again-opt${_againProj === '9' ? ' is-active' : ''}${_pnA && !_is8aProj && _againProj === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_projDis ? ' disabled' : ''}>9-Again</button>`;
     h += `<button class="proc-again-opt${_againProj === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_projDis ? ' disabled' : ''}>8-Again</button>`;
+    h += _renderRollModeToggle(entry.key, _rollModeProj, !!_projDis);
     h += '</div>'; // proc-pool-chips
     h += _renderPoolModPanel(entry, char, rev, 'project');
     h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
@@ -9348,7 +9399,7 @@ function renderActionPanel(entry, review) {
   // ── Close left column; render right panel for feeding + project + sorcery + merit entries ──
   if (entry.source === 'feeding') {
     h += '</div>'; // proc-feed-left
-    h += _renderFeedRightPanel(entry, feedChar, rev);
+    h += _renderFeedRightPanel(entry, feedChar, rev, _bh);
     h += '</div>'; // proc-feed-layout
   } else if (entry.source === 'project') {
     h += '</div>'; // proc-feed-left

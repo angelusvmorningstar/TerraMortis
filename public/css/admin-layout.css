@@ -4932,10 +4932,16 @@ body {
   padding: 0;
   margin: 0 0 8px 0;
 }
-/* Spec-chip wrapper is layout-transparent so spec chips align with sibling chips */
+/* Spec-chip wrapper occupies its own row; Rote/Again/mode buttons land on the row below */
 .proc-pool-chips .dt-feed-builder-meta.dt-skill-meta {
-  display: contents;
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 6px;
   margin: 0;
+}
+.proc-pool-chips .dt-feed-builder-meta.dt-skill-meta:empty {
+  display: none;
 }
 /* Shared chip token — pool-builder chips match proc-val-status button style */
 .proc-spec-chip,
@@ -4972,6 +4978,34 @@ body {
 .proc-spec-chip:disabled,
 .proc-rote-chip:disabled,
 .proc-again-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Roll mode toggle group — right-justified inside proc-pool-chips */
+.proc-roll-mode-group {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.proc-roll-mode-btn {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt3);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--fl);
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.proc-roll-mode-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--txt1); }
+.proc-roll-mode-btn.is-active[data-roll-mode="player"]      { border-color: var(--green); color: var(--green); background: var(--green-a15); }
+.proc-roll-mode-btn.is-active[data-roll-mode="st_override"] { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-roll-mode-btn.is-active[data-roll-mode="no_roll"]     { border-color: var(--txt3);  color: var(--txt2);  background: var(--surf3); }
+.proc-roll-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .proc-pool-parse-ref {
   font-size: 12px;
@@ -5726,7 +5760,7 @@ body {
   min-width: 0;
 }
 .proc-feed-right {
-  flex: 1;
+  flex: 2;
   min-width: 180px;
   display: flex;
   flex-direction: column;
