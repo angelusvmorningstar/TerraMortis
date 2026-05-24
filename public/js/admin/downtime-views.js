@@ -4430,18 +4430,26 @@ function renderProcessingMode(container) {
   }
 
   // ── Cross-reference index (single O(n) pass) ──
-  // Keys: 'terr:<territory>' | 'inv-target:<charName>'
+  // Keys: 'terr:<canonical-slug>' | 'inv-target:<charName>'
   // Values: [{ charName, label, phase }, ...] — excludes self at render time
+  // 496.2 QA: territory keys are normalised through resolveTerrId so both
+  // OID-keyed (post-496.2) and slug-keyed (legacy) submissions index under
+  // the same canonical slug. Without normalisation, a 496.2 character feeding
+  // in The Harbour would index as 'terr:69d5...' while a pre-496.2 character
+  // would index as 'terr:the_harbour' — same territory, different keys, no
+  // cross-reference.
   _xrefIndex = new Map();
   for (const e of queue) {
     if (e.projTerritory) {
-      const k = `terr:${e.projTerritory}`;
+      const canon = resolveTerrId(e.projTerritory) || e.projTerritory;
+      const k = `terr:${canon}`;
       if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
       _xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
     }
     if (e.feedTerrs) {
       for (const terr of Object.keys(e.feedTerrs)) {
-        const k = `terr:${terr}`;
+        const canon = resolveTerrId(terr) || terr;
+        const k = `terr:${canon}`;
         if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
         _xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
       }
@@ -7521,8 +7529,13 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Fallback: if no fed territories resolved, use primaryTerr as before.
   // normalizedTerrId is a slug; translate to _id for confirmed_ambience reads.
   if (ambienceVitae === null && entry.primaryTerr) {
+    // 496.2 QA: primaryTerr may now be an ObjectId (post-496.2 form). Match
+    // OID against _id directly; fall through to the existing slug/name match
+    // for legacy long-slug / display-name values.
+    const isOid = /^[a-f0-9]{24}$/i.test(entry.primaryTerr);
     const normalizedTerrId = TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr;
     const terrRec = terrList.find(t =>
+      (isOid && String(t._id) === entry.primaryTerr) ||
       t.slug === normalizedTerrId ||
       t.name === entry.primaryTerr ||
       t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
@@ -7530,7 +7543,9 @@ function _renderFeedRightPanel(entry, char, rev) {
     const fallbackOid = terrRec?._id ? String(terrRec._id) : null;
     const confirmedAmb = fallbackOid ? currentCycle?.confirmed_ambience?.[fallbackOid] : null;
     ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
-    bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
+    // 496.2 QA: use the resolved territory's name when available so the UI
+    // shows "The Harbour" instead of a 24-char hex OID.
+    bestTerrLabel = terrRec?.name || (entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null);
   }
   // No territory resolved = Barrens: −4 ambience
   if (ambienceVitae === null) {
@@ -9222,21 +9237,33 @@ function renderActionPanel(entry, review) {
 
     // Project territory overlap
     if (entry.projTerritory) {
-      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || [])
+      // 496.2 QA: normalise to canonical slug for index lookup so OID-keyed
+      // and slug-keyed submissions cross-reference correctly. Also resolve
+      // to display name so the UI shows "The Harbour" instead of an OID.
+      const projCanon = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+      const projDisplay = (cachedTerritories || []).find(t => t.slug === projCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === projCanon)?.name
+                       || entry.projTerritory;
+      const others = (_xrefIndex.get(`terr:${projCanon}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
-        xrefLines.push(`Also in ${entry.projTerritory}: ${names}`);
+        xrefLines.push(`Also in ${projDisplay}: ${names}`);
       }
     }
 
     // Feeding territory overlap
     if (entry.source === 'feeding' && entry.primaryTerr) {
-      const others = (_xrefIndex.get(`terr:${entry.primaryTerr}`) || [])
+      // 496.2 QA: same canonical-slug normalisation + display-name resolution.
+      const primCanon = resolveTerrId(entry.primaryTerr) || entry.primaryTerr;
+      const primDisplay = (cachedTerritories || []).find(t => t.slug === primCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === primCanon)?.name
+                       || entry.primaryTerr;
+      const others = (_xrefIndex.get(`terr:${primCanon}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
-        xrefLines.push(`Also feeding ${entry.primaryTerr}: ${names}`);
+        xrefLines.push(`Also feeding ${primDisplay}: ${names}`);
       }
     }
 

@@ -75,12 +75,39 @@ const TERRITORY_DISPLAY = {
 function resolveTerrId(raw) {
   if (!raw) return null;
   if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  // Issue #496 / story 496.2 QA: ObjectId-format input — look up via
+  // _currentTerritories. After 496.2, submission territory fields are OID-keyed;
+  // every consumer that routes territory identifiers through resolveTerrId
+  // benefits from this branch.
+  if (/^[a-f0-9]{24}$/i.test(raw)) {
+    const t = (_currentTerritories || []).find(td => String(td._id) === raw);
+    return t?.slug || null;
+  }
   const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ').trim();
   for (const [id, name] of Object.entries(TERRITORY_DISPLAY)) {
     const norm = name.toLowerCase().replace(/^the\s+/, '');
     if (normalised === norm || normalised.includes(norm) || norm.includes(normalised)) return id;
   }
   return null;
+}
+
+// Issue #496 / story 496.2 QA: tolerant feeding_territories grid read.
+// After 496.2, blobs may be keyed by ObjectId (new form), long slug
+// (legacy drafts), or short slug (defensive). Each fed-by-slug consumer
+// calls this helper to look up a territory's value without knowing which
+// format the saved blob uses.
+function _terrGridVal(grid, terrId) {
+  if (!grid || !terrId) return undefined;
+  // 1. OID branch: find canonical _id from terrId via _currentTerritories
+  const terrObj = (_currentTerritories || []).find(t => t.slug === terrId);
+  const oid = terrObj ? String(terrObj._id) : null;
+  if (oid && grid[oid] !== undefined) return grid[oid];
+  // 2. Long-slug branch: reverse TERRITORY_SLUG_MAP
+  const longSlug = Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0];
+  if (longSlug && grid[longSlug] !== undefined) return grid[longSlug];
+  // 3. Defensive short-slug direct lookup
+  if (grid[terrId] !== undefined) return grid[terrId];
+  return undefined;
 }
 
 // MERIT_MATRIX and INVESTIGATION_MATRIX imported from downtime-constants.js
@@ -769,12 +796,12 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
     // Count residents/poachers from all submissions
     let residents = 0, poachers = 0;
-    const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
-    if (terrSlug) {
+    if (terrId) {
       for (const s of _allSubmissions) {
         let terrs = {};
         try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-        const val = terrs[terrSlug];
+        // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+        const val = _terrGridVal(terrs, terrId);
         if (val === 'resident') residents++;
         else if (val && val !== 'none') poachers++;
       }
@@ -977,14 +1004,14 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const netChange    = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.net_change) ?? null;
 
   // Residents and poachers
-  const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
   let residentCount = 0, poacherCount = 0;
   const feeders = [];
-  if (terrSlug) {
+  if (terrId) {
     for (const s of _allSubmissions) {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-      const val = terrs[terrSlug];
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      const val = _terrGridVal(terrs, terrId);
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
       const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
@@ -1045,10 +1072,11 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
   // Patrolling character's own feed status in this territory
   let selfFeedStatus = 'Not feeding here';
-  if (terrSlug) {
+  if (terrId) {
     let selfTerrs = {};
     try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
-    const selfVal = selfTerrs[terrSlug];
+    // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+    const selfVal = _terrGridVal(selfTerrs, terrId);
     if (selfVal === 'resident' || selfVal === 'feeding_rights') selfFeedStatus = 'Resident';
     else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
   }
@@ -2864,7 +2892,8 @@ function getCoResidents(territorySlug, thisSub, allSubmissions, allChars) {
     .filter(s => {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { return false; }
-      return terrs[territorySlug] === 'resident';
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      return _terrGridVal(terrs, territorySlug) === 'resident';
     })
     .map(s => {
       const char = allChars.find(c => c._id === s.character_id || displayName(c) === s.character_name);
@@ -2941,7 +2970,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] !== terrId) continue;
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) !== terrId) continue;
       if (val && val !== 'none' && val !== 'resident') {
         const c = allChars.find(ch => String(ch._id) === String(s.character_id)) || null;
         const name = c ? dropdownName(c) : (s.character_name || 'Unknown');
@@ -2970,7 +3000,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] === terrId && val && val !== 'none') {
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) === terrId && val && val !== 'none') {
         feedActors.push(s.character_name || 'Unknown');
       }
     }

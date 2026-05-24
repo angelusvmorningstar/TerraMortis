@@ -500,9 +500,10 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       for (const [tid, status] of Object.entries(grid)) {
         if (!ACTIVE_FEED_STATUSES.has(status)) continue;
         const td = effectiveTerrs.find(t =>
-          t.slug === tid ||
-          tid.startsWith(t.slug) ||
-          t.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') === tid
+          String(t._id) === tid ||         // 496.2: ObjectId match (new form save format)
+          t.slug === tid ||                // short slug
+          tid.startsWith(t.slug) ||        // partial short-slug variants
+          t.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') === tid  // long slug (legacy)
         );
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;

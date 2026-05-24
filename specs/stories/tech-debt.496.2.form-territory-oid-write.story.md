@@ -190,6 +190,24 @@ claude-sonnet-4-6
 
 AC 7 was written under the false assumption that the admin's `resolveTerrId` would "just work" with OID input via pass-through. Verification during AC 8 work showed this was wrong: `resolveTerrId` runs the input through fuzzy substring matching against territory NAMES (e.g. "harbour", "academy"), and a 24-char hex OID matches none of them — it returns `null`, and the downstream comparison silently drops the entry from aggregation. Adding the OID branch was a bug fix necessitated by the saved-format change, not feature scope expansion. The frontend admin code's larger refactor (simplifying away the normaliser entirely) remains 496.4 scope.
 
+**QA polish pass (2026-05-24, post-commit cb5af1a)**
+
+Independent QA pass (Opus on a separate session) revealed that the 496.2 pre-flight audit (AC 1) was scoped to **save sites only** and didn't audit downstream client-side **readers** of the OID-keyed grids. Six broken consumer sites surfaced — all silent failures (no error, just wrong data). Patched in a follow-up commit on the same branch:
+
+- `public/js/admin/downtime-story.js`:
+  - Added OID branch to the file's own `resolveTerrId()` (different function from the one in downtime-views.js)
+  - Added `_terrGridVal(grid, terrId)` helper: tries OID → long slug → short slug
+  - 6 sites updated: territory-report aggregations (×2), self feed status in territory report, `getCoResidents`, poacher iteration, feedActors iteration. The last two switched from `TERRITORY_SLUG_MAP[slug]` to `resolveTerrId(slug)` since the file-local resolver now handles OID.
+- `public/js/tabs/feeding-tab.js`:
+  - Ambience-calc `find` predicate extended with `String(t._id) === tid` so OID-keyed feeding_territories grids resolve correctly. Pre-patch, OID-keyed submissions silently defaulted to Barrens ambience (-4).
+- `public/js/admin/downtime-views.js`:
+  - `primaryTerr` consumer at vitae projection fallback (~line 7523): added OID match against `String(t._id)`; `bestTerrLabel` now prefers the resolved territory's display name over the raw OID/slug.
+  - **Cross-format xref index fix** (the most subtle bug): `_xrefIndex` build sites (`projTerritory` and `feedTerrs` keys, ~lines 4438/4444) now normalise keys via `resolveTerrId()` so OID-keyed and slug-keyed submissions index under the same canonical slug. Without this, a 496.2 character feeding in The Harbour would never cross-reference with a pre-496.2 character also feeding there. Lookup sites at ~lines 9240/9250 normalise identically and resolve display names for the human-readable line ("Also feeding **The Harbour**" instead of "Also feeding 69d5dc6a...").
+
+Parse check (`node --input-type=module --check`) passes on all three files.
+
+**Scope discovery from this QA pass:** the original story AC 7 ("no client-side changes") was wrong twice — first about admin's `resolveTerrId` (corrected in the initial commit) and again about all the literal-key readers above. The lesson for 496.3 / 496.4 stories: any format change to stored data MUST audit reader callsites across all client modules, not just the writing module. Six bugs were dormant in modules the story scope didn't touch.
+
 **Smoke test result (AC 10, 2026-05-24)**
 
 User-driven browser smoke test against live DT4 (status: prep), real API. Test character: Humongulus.
