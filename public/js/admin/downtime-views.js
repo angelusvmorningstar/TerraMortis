@@ -3762,6 +3762,14 @@ function extractTerritoryFromText(text) {
 function resolveTerrId(raw) {
   if (!raw) return null;
   if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  // Issue #496 / story 496.2: ObjectId-format input — look up via cached
+  // territories. Submissions written by the post-496.2 form encode territory
+  // keys as OIDs; admin readers route them through here to get a canonical
+  // short slug for downstream comparisons against territory.slug.
+  if (/^[a-f0-9]{24}$/i.test(raw)) {
+    const t = (cachedTerritories || []).find(td => String(td._id) === raw);
+    return t?.slug || null;
+  }
   // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
   const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
   for (const td of TERRITORY_DATA) {
