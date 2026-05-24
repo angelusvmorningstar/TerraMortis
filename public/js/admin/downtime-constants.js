@@ -16,6 +16,7 @@
 export const ACTION_TYPE_LABELS = {
   ambience_increase: 'Ambience Increase',
   ambience_decrease: 'Ambience Decrease',
+  ambience_change:   'Ambience Change',
   feed:              'Feed',
   attack:            'Attack',
   hide_protect:      'Hide / Protect',
@@ -152,6 +153,9 @@ export const TERRITORY_SLUG_MAP = {
   dockyards:  'dockyards',
   secondcity: 'secondcity',
   northshore: 'northshore',
+  // Explicit Barrens and N/A pill IDs → resolve to null (no territory)
+  barrens:    null,
+  na:         null,
 };
 
 // Human-readable labels for pool_status values (shared with downtime-views.js and downtime-story.js)

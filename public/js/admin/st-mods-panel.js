@@ -1,15 +1,24 @@
-/* ST Mods admin panel (Epic STM, issue #386).
+/* ST Mods admin panel (Epic STM, issue #386; lifecycle UI #440).
  *
  * Per-character workbench: header + global kill-switch toggle +
- * per-character override toggle + create form + active-mods list with
- * revoke buttons. Consumes STM-1 (POST/GET/DELETE /api/st_mods),
- * STM-3 (/api/settings, /api/characters/:id/st_mods_suppressed),
- * and STM-6's label helper + categorised dropdown structure.
+ * per-character override toggle + create form + a lifecycle mod list.
+ * STM-12 (issue #440) evolves the list from "active mods + revoke" into
+ * an active/inactive lifecycle view: active mods (Deactivate/Delete) and
+ * a visually-muted inactive group (Reactivate/Delete), an All/Active/
+ * Inactive filter, a delete-confirmation modal with tombstone copy, and
+ * a soft-duplicate warning that fires only when the create form's path
+ * matches an INACTIVE mod (active-path stacking stays silent per Rev 1 §D4).
+ *
+ * Consumes STM-1/STM-10 (POST/GET/PATCH/DELETE /api/st_mods), STM-3
+ * (/api/settings, /api/characters/:id/st_mods_suppressed), STM-6's label
+ * helper + categorised dropdown, and the pure helpers in
+ * st-mods-panel-logic.js.
  *
  * Delegated event routing throughout (per memory
  * feedback_listener_routing_static_blind_spot):
- *   - one `change` listener for filter inputs + toggles
- *   - one `click` listener for buttons (Save, Revoke, etc.)
+ *   - one `change` listener for filter inputs + toggles + form fields
+ *   - one `click` listener for buttons (Save, Deactivate, Reactivate,
+ *     Delete, filter views, modal confirm/cancel, dormant reactivate)
  * dispatching on data-stm-* attributes.
  */
 
@@ -21,17 +30,21 @@ import {
   getGlobalSettings,
   loadGlobalSettings,
 } from '../data/app-settings.js';
+import { partitionMods, filterMods, findDormantMatch } from './st-mods-panel-logic.js';
 
 // Module-level state for the active panel.
 const state = {
   character: null,
-  mods: [],          // GET /api/st_mods rows for active character
+  mods: [],          // GET /api/st_mods rows for active character (active + inactive)
+  view: 'all',       // list filter: 'all' | 'active' | 'inactive'
   form: {
     stat_path: '',
     delta: 1,
     reason: '',
     show_reason_to_player: false,
   },
+  dormantDismissedPath: null, // path the ST dismissed the dormant banner for
+  pendingDelete: null,        // mod id awaiting delete confirmation (modal open)
   error: null,
   saving: false,
   loading: false,
@@ -64,6 +77,9 @@ export async function initStModsPanel(rootEl, character, onMutate) {
   state.form.delta = 1;
   state.form.reason = '';
   state.form.show_reason_to_player = false;
+  state.view = 'all';
+  state.dormantDismissedPath = null;
+  state.pendingDelete = null;
   state.error = null;
 
   if (!state.initialized) {
@@ -130,6 +146,7 @@ function _renderScaffold() {
             Show reason to player
           </label>
         </div>
+        <div class="stm-dormant-banner-slot" data-stm-dormant-banner>${_renderDormantBanner()}</div>
         <div class="stm-form-actions">
           <button data-stm-action="save" ${state.saving ? 'disabled' : ''}>Save mod</button>
           ${state.error ? `<span class="stm-form-error">${esc(state.error)}</span>` : ''}
@@ -137,41 +154,128 @@ function _renderScaffold() {
       </section>
 
       <section class="stm-panel-list">
-        <h3>Active mods</h3>
+        <div class="stm-list-filters" data-stm-filters>
+          <button data-stm-view="all" class="stm-view-btn ${state.view === 'all' ? 'is-active' : ''}">All</button>
+          <button data-stm-view="active" class="stm-view-btn ${state.view === 'active' ? 'is-active' : ''}">Active only</button>
+          <button data-stm-view="inactive" class="stm-view-btn ${state.view === 'inactive' ? 'is-active' : ''}">Inactive only</button>
+        </div>
         <div class="stm-list-body" data-stm-list-body>
-          ${state.loading ? '<p>Loading…</p>' : _renderModRows()}
+          ${state.loading ? '<p>Loading…</p>' : _renderLists()}
         </div>
       </section>
+      ${_renderDeleteModal()}
     </div>
   `;
 }
 
-function _renderModRows() {
+// Render the active + inactive sections per the current view filter. The
+// inactive group is only shown when it has rows (in 'all' view) so an
+// all-active character isn't cluttered with an empty "Inactive" heading.
+function _renderLists() {
   if (!state.mods.length) {
-    return '<p class="stm-list-empty">No active mods. Create one above.</p>';
+    return '<p class="stm-list-empty">No mods yet. Create one above.</p>';
   }
-  return state.mods.map(m => {
-    const sign = m.delta >= 0 ? '+' : '';
-    const when = m.created_at ? m.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
-    const creator = m?.created_by?.discord_name || 'unknown';
-    return `
-      <article class="stm-mod-row">
-        <header class="stm-mod-row-head">
-          <span class="stm-mod-label">${esc(labelForPath(m.stat_path))}</span>
-          <span class="stm-mod-delta">${esc(sign + String(m.delta))}</span>
-          ${m.show_reason_to_player ? '<span class="stm-mod-public">shown to player</span>' : ''}
-          <button class="stm-mod-revoke" data-stm-action="revoke" data-stm-mod-id="${esc(String(m._id))}">Revoke</button>
-        </header>
-        ${m.reason ? `<p class="stm-mod-reason"><em>${esc(m.reason)}</em></p>` : ''}
-        <p class="stm-mod-meta">${esc(creator)} · ${esc(when)}</p>
-      </article>
-    `;
-  }).join('');
+  const { active, inactive } = filterMods(state.mods, state.view);
+  const counts = partitionMods(state.mods);
+  const parts = [];
+
+  if (state.view !== 'inactive') {
+    const body = active.length
+      ? active.map(m => _renderRow(m, true)).join('')
+      : '<p class="stm-list-empty">No active mods.</p>';
+    parts.push(`<div class="stm-list-group"><h3>Active mods (${counts.active.length})</h3>${body}</div>`);
+  }
+
+  if (state.view === 'inactive') {
+    const body = inactive.length
+      ? inactive.map(m => _renderRow(m, false)).join('')
+      : '<p class="stm-list-empty">No inactive mods.</p>';
+    parts.push(`<div class="stm-list-group"><h3>Inactive mods (${counts.inactive.length})</h3>${body}</div>`);
+  } else if (counts.inactive.length) {
+    // 'all' view: append the muted inactive group when any exist.
+    const body = inactive.map(m => _renderRow(m, false)).join('');
+    parts.push(`<div class="stm-list-group stm-list-group--inactive"><h3>Inactive mods (${counts.inactive.length})</h3>${body}</div>`);
+  }
+
+  return parts.join('');
+}
+
+function _renderRow(m, isActiveRow) {
+  const sign = m.delta >= 0 ? '+' : '';
+  const when = m.created_at ? m.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
+  const creator = m?.created_by?.discord_name || 'unknown';
+  const id = esc(String(m._id));
+  const glyph = isActiveRow ? '●' : '◌';
+  const toggleBtn = isActiveRow
+    ? `<button class="stm-mod-btn" data-stm-action="deactivate" data-stm-mod-id="${id}">Deactivate</button>`
+    : `<button class="stm-mod-btn stm-mod-btn--reactivate" data-stm-action="reactivate" data-stm-mod-id="${id}">Reactivate</button>`;
+  return `
+    <article class="stm-mod-row ${isActiveRow ? '' : 'stm-mod-row--inactive'}">
+      <header class="stm-mod-row-head">
+        <span class="stm-mod-glyph">${glyph}</span>
+        <span class="stm-mod-label">${esc(labelForPath(m.stat_path))}</span>
+        <span class="stm-mod-delta">${esc(sign + String(m.delta))}</span>
+        ${m.show_reason_to_player ? '<span class="stm-mod-public">shown to player</span>' : ''}
+        <span class="stm-mod-actions">
+          ${toggleBtn}
+          <button class="stm-mod-btn stm-mod-btn--delete" data-stm-action="delete" data-stm-mod-id="${id}">Delete</button>
+        </span>
+      </header>
+      ${m.reason ? `<p class="stm-mod-reason"><em>${esc(m.reason)}</em></p>` : ''}
+      <p class="stm-mod-meta">${esc(creator)} · ${esc(when)}</p>
+    </article>
+  `;
+}
+
+// Soft-duplicate banner: shown only when the create form's path matches an
+// INACTIVE mod and the ST hasn't dismissed it for that path. Active-path
+// matches are silent on purpose (multi-mod stacking is by design, Rev 1 §D4).
+function _renderDormantBanner() {
+  const path = (state.form.stat_path || '').trim();
+  if (!path || state.dormantDismissedPath === path) return '';
+  const match = findDormantMatch(state.mods, path);
+  if (!match) return '';
+  const sign = match.delta >= 0 ? '+' : '';
+  const label = `${labelForPath(match.stat_path)} ${sign}${match.delta}`;
+  return `
+    <div class="stm-dormant-banner" role="status">
+      <span class="stm-dormant-text">A dormant '${esc(label)}' already exists for this character. Reactivate it instead?</span>
+      <button class="stm-mod-btn stm-mod-btn--reactivate" data-stm-action="reactivate-dormant" data-stm-mod-id="${esc(String(match._id))}">Reactivate dormant</button>
+      <button class="stm-dormant-dismiss" data-stm-action="dismiss-dormant" aria-label="Dismiss">&times;</button>
+    </div>
+  `;
+}
+
+// Delete confirmation modal — explicit "permanently delete" + tombstone copy.
+function _renderDeleteModal() {
+  if (!state.pendingDelete) return '';
+  const m = state.mods.find(x => String(x._id) === String(state.pendingDelete));
+  if (!m) return '';
+  const sign = m.delta >= 0 ? '+' : '';
+  const label = `${labelForPath(m.stat_path)} ${sign}${m.delta}`;
+  return `
+    <div class="stm-modal-overlay" data-stm-modal-overlay>
+      <div class="stm-modal" role="dialog" aria-modal="true">
+        <h3>Permanently delete this mod?</h3>
+        <p>You are about to permanently delete <strong>${esc(label)}</strong>.</p>
+        <p class="stm-modal-note">The audit log will record this deletion as a tombstone; the mod itself will be gone and cannot be reactivated. To pause it instead, cancel and use <em>Deactivate</em>.</p>
+        <div class="stm-modal-actions">
+          <button class="stm-mod-btn stm-mod-btn--delete" data-stm-action="confirm-delete" data-stm-mod-id="${esc(String(m._id))}">Permanently delete</button>
+          <button class="stm-mod-btn" data-stm-action="cancel-delete">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function _renderListBody() {
   const el = _rootEl?.querySelector('[data-stm-list-body]');
-  if (el) el.innerHTML = state.loading ? '<p>Loading…</p>' : _renderModRows();
+  if (el) el.innerHTML = state.loading ? '<p>Loading…</p>' : _renderLists();
+}
+
+function _renderDormantBannerSlot() {
+  const el = _rootEl?.querySelector('[data-stm-dormant-banner]');
+  if (el) el.innerHTML = _renderDormantBanner();
 }
 
 function _renderError() {
@@ -205,19 +309,49 @@ function _attachDelegatedHandlers(root) {
       if (key === 'delta') state.form.delta = parseInt(t.value, 10) || 0;
       else if (key === 'show_reason_to_player') state.form.show_reason_to_player = t.checked;
       else state.form[key] = t.value;
+      // Changing the stat path resets the dormant-dismissal and re-evaluates
+      // the soft-duplicate banner against the new path.
+      if (key === 'stat_path') {
+        state.dormantDismissedPath = null;
+        _renderDormantBannerSlot();
+      }
     }
   });
 
   root.addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
-    const action = t.dataset.stmAction;
-    if (action === 'save') {
-      _onSaveClick();
-    } else if (action === 'revoke') {
-      _onRevokeClick(t.dataset.stmModId);
+    const btn = t.closest('[data-stm-action], [data-stm-view]');
+    if (!(btn instanceof HTMLElement)) {
+      // Click on the modal backdrop (outside the dialog) cancels the delete.
+      if (t.matches('[data-stm-modal-overlay]')) _cancelDelete();
+      return;
     }
+    const view = btn.dataset.stmView;
+    if (view) { _onViewChange(view); return; }
+    const action = btn.dataset.stmAction;
+    const modId = btn.dataset.stmModId;
+    if (action === 'save') _onSaveClick();
+    else if (action === 'deactivate') _onToggleClick(modId, false);
+    else if (action === 'reactivate') _onToggleClick(modId, true);
+    else if (action === 'reactivate-dormant') _onReactivateDormant(modId);
+    else if (action === 'dismiss-dormant') _onDismissDormant();
+    else if (action === 'delete') _onDeleteClick(modId);
+    else if (action === 'confirm-delete') _onConfirmDelete(modId);
+    else if (action === 'cancel-delete') _cancelDelete();
   });
+}
+
+// ── View filter ──────────────────────────────────────────────────────
+
+function _onViewChange(view) {
+  if (view !== 'all' && view !== 'active' && view !== 'inactive') return;
+  state.view = view;
+  // Update the active-button styling + list body without a full scaffold redraw.
+  _rootEl?.querySelectorAll('[data-stm-view]').forEach(b => {
+    b.classList.toggle('is-active', b.dataset.stmView === view);
+  });
+  _renderListBody();
 }
 
 // ── Toggle handlers ──────────────────────────────────────────────────
@@ -307,21 +441,78 @@ async function _onSaveClick() {
   }
 }
 
-// ── Revoke ───────────────────────────────────────────────────────────
+// ── Lifecycle: deactivate / reactivate (PATCH active) ────────────────
 
-async function _onRevokeClick(modId) {
+async function _onToggleClick(modId, active) {
   if (!modId) return;
-  if (!confirm('Revoke this mod? The audit log will still record the creation event.')) return;
   try {
-    // STM-9 (issue #416): same dedupe shape as POST — mark before DELETE.
+    // STM-9 (issue #416): mark the local write before PATCH so the WS echo
+    // is suppressed — the panel refreshes itself via _refetchMods.
     if (state.character?._id) markLocalWrite(String(state.character._id), { st_mod: true });
-    await apiDelete(`/api/st_mods/${modId}`);
+    await apiPatch(`/api/st_mods/${modId}`, { active });
     await _refetchMods();
     _renderListBody();
+    _renderDormantBannerSlot();   // (de)activation can change dormant-match state
     if (_onMutateCallback) _onMutateCallback();
   } catch (err) {
-    console.error('[stm-panel] revoke failed:', err);
+    console.error('[stm-panel] toggle failed:', err);
   }
+}
+
+async function _onReactivateDormant(modId) {
+  // Reactivate the dormant match from the soft-duplicate banner, then clear
+  // the form path so the banner retires.
+  await _onToggleClick(modId, true);
+  state.form.stat_path = '';
+  state.dormantDismissedPath = null;
+  _renderScaffold();
+}
+
+function _onDismissDormant() {
+  state.dormantDismissedPath = (state.form.stat_path || '').trim() || null;
+  _renderDormantBannerSlot();
+}
+
+// ── Delete (tombstone) with confirmation modal ───────────────────────
+
+function _onDeleteClick(modId) {
+  if (!modId) return;
+  state.pendingDelete = modId;
+  _renderModal();
+}
+
+function _cancelDelete() {
+  state.pendingDelete = null;
+  _renderModal();
+}
+
+async function _onConfirmDelete(modId) {
+  if (!modId) return;
+  try {
+    // STM-9 (issue #416): same dedupe shape as PATCH/POST — mark before DELETE.
+    if (state.character?._id) markLocalWrite(String(state.character._id), { st_mod: true });
+    await apiDelete(`/api/st_mods/${modId}`);
+    state.pendingDelete = null;
+    await _refetchMods();
+    _renderModal();
+    _renderListBody();
+    _renderDormantBannerSlot();
+    if (_onMutateCallback) _onMutateCallback();
+  } catch (err) {
+    console.error('[stm-panel] delete failed:', err);
+    state.pendingDelete = null;
+    _renderModal();
+  }
+}
+
+// Mount/refresh the modal at the panel root (it lives just inside the root,
+// outside the list body, so list re-renders don't clobber it).
+function _renderModal() {
+  const root = _rootEl?.querySelector('[data-stm-panel-root]');
+  if (!root) return;
+  const existing = root.querySelector('[data-stm-modal-overlay]');
+  if (existing) existing.remove();
+  if (state.pendingDelete) root.insertAdjacentHTML('beforeend', _renderDeleteModal());
 }
 
 // ── Fetch helpers ────────────────────────────────────────────────────

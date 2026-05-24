@@ -50,8 +50,7 @@ const CS_ACTION_PRIORITY = [
   'attack',
   'patrol_scout',
   'investigate',
-  'ambience_increase',
-  'ambience_decrease',
+  'ambience_change',
   'support',
   'misc',
   'rumour',
@@ -75,13 +74,16 @@ const TERRITORY_DISPLAY = {
 
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ').trim();
-  for (const [id, name] of Object.entries(TERRITORY_DISPLAY)) {
-    const norm = name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === norm || normalised.includes(norm) || norm.includes(normalised)) return id;
-  }
-  return null;
+  const t = (_currentTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
+}
+
+function _terrGridVal(grid, terrId) {
+  if (!grid || !terrId) return undefined;
+  const terrObj = (_currentTerritories || []).find(t => t.slug === terrId);
+  const oid = terrObj ? String(terrObj._id) : null;
+  if (oid && grid[oid] !== undefined) return grid[oid];
+  return undefined;
 }
 
 // MERIT_MATRIX and INVESTIGATION_MATRIX imported from downtime-constants.js
@@ -289,6 +291,10 @@ export async function initDtStory(cycleId) {
     const feedApproveBtn = e.target.closest('.dt-feed-val-approve-btn');
     if (feedApproveBtn) { handleFeedingApproval(feedApproveBtn); return; }
 
+    // Merit summary dismiss / undismiss
+    const dismissBtn = e.target.closest('.dt-merit-dismiss-btn');
+    if (dismissBtn) { _handleMeritSummaryDismiss(dismissBtn); return; }
+
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
@@ -376,6 +382,32 @@ function _showStoryAutosaveStatus(el, state) {
     return;
   }
   if (state === 'error') { el.textContent = 'Save failed'; }
+}
+
+async function _handleMeritSummaryDismiss(btn) {
+  if (!_currentSub) return;
+  const sub = _currentSub;
+  const idx = parseInt(btn.dataset.actionIdx, 10);
+  if (isNaN(idx)) return;
+
+  const current = Array.isArray(sub.st_narrative?.merit_summary_overrides)
+    ? [...sub.st_narrative.merit_summary_overrides]
+    : [];
+
+  const updated = current.includes(idx)
+    ? current.filter(i => i !== idx)
+    : [...current, idx].sort((a, b) => a - b);
+
+  try {
+    await saveNarrativeField(sub._id, { 'st_narrative.merit_summary_overrides': updated });
+  } catch (err) {
+    return;
+  }
+  (sub.st_narrative ??= {}).merit_summary_overrides = updated;
+
+  const char = getCharForSub(sub);
+  const view = document.getElementById('dt-story-char-view');
+  if (view) view.innerHTML = renderCharacterView(char, sub);
 }
 
 async function _handleStoryTaBlur(ta) {
@@ -475,7 +507,7 @@ export function isSectionComplete(stNarrative, sectionKey) {
 }
 
 /**
- * Project responses complete: all non-skipped project entries have status 'complete'.
+ * Project responses complete: all non-skipped, non-deleted project entries have status 'complete'.
  * Used by the sign-off counter and pill rail in place of generic isSectionComplete.
  */
 function projectResponsesComplete(sub) {
@@ -636,7 +668,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
   // Ambience actions use a dedicated territory field; patrol uses another.
   // Read the action-type-appropriate field so territory is never 'Unknown'.
-  const isAmbience      = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isAmbience      = actionType === 'ambience_change' || actionType === 'ambience_increase' || actionType === 'ambience_decrease';
   const isInvestigation = actionType === 'investigate';
   const isFeed          = actionType === 'feed';
   const terrRaw    = isAmbience
@@ -742,12 +774,12 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
     // Count residents/poachers from all submissions
     let residents = 0, poachers = 0;
-    const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
-    if (terrSlug) {
+    if (terrId) {
       for (const s of _allSubmissions) {
         let terrs = {};
         try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-        const val = terrs[terrSlug];
+        // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+        const val = _terrGridVal(terrs, terrId);
         if (val === 'resident') residents++;
         else if (val && val !== 'none') poachers++;
       }
@@ -761,7 +793,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
         if (!r || r.pool_status === 'skipped') return;
         const sl = i + 1;
         const otherType = r.action_type_override || r.action_type || '';
-        const otherIsAmb = otherType === 'ambience_increase' || otherType === 'ambience_decrease';
+        const otherIsAmb = otherType === 'ambience_change' || otherType === 'ambience_increase' || otherType === 'ambience_decrease';
         const otherTerrRaw = otherIsAmb
           ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
           : otherType === 'patrol_scout'
@@ -950,14 +982,14 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const netChange    = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.net_change) ?? null;
 
   // Residents and poachers
-  const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
   let residentCount = 0, poacherCount = 0;
   const feeders = [];
-  if (terrSlug) {
+  if (terrId) {
     for (const s of _allSubmissions) {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-      const val = terrs[terrSlug];
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      const val = _terrGridVal(terrs, terrId);
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
       const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
@@ -984,7 +1016,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       if (!r || r.pool_status === 'skipped') return;
       const sl = i + 1;
       const aType = r.action_type_override || r.action_type || '';
-      const otherIsAmb = aType === 'ambience_increase' || aType === 'ambience_decrease';
+      const otherIsAmb = aType === 'ambience_change' || aType === 'ambience_increase' || aType === 'ambience_decrease';
       const otherIsPatrol = aType === 'patrol_scout' || aType === 'support';
       const otherTerrRaw = otherIsAmb
         ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
@@ -1018,10 +1050,11 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
   // Patrolling character's own feed status in this territory
   let selfFeedStatus = 'Not feeding here';
-  if (terrSlug) {
+  if (terrId) {
     let selfTerrs = {};
     try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
-    const selfVal = selfTerrs[terrSlug];
+    // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+    const selfVal = _terrGridVal(selfTerrs, terrId);
     if (selfVal === 'resident' || selfVal === 'feeding_rights') selfFeedStatus = 'Resident';
     else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
   }
@@ -1983,7 +2016,7 @@ function renderStoryMoment(char, sub, stNarrative) {
 /**
  * Builds a flat merit_actions array from a submission's raw/response fields.
  * Called at load time for submissions that don't already have merit_actions populated.
- * Ordering: spheres → contacts → retainers (matches downtime-views.js flat index).
+ * Ordering: spheres → Status/MCI → contacts → retainers → acquisitions (matches downtime-views.js flat index).
  */
 function buildMeritActions(sub) {
   const resp = sub.responses || {};
@@ -2004,15 +2037,35 @@ function buildMeritActions(sub) {
     });
   } else {
     for (let n = 1; n <= 5; n++) {
-      const mt = resp[`sphere_${n}_merit`];
-      if (!mt) continue;
+      const mt        = resp[`sphere_${n}_merit`];
+      const actionVal = resp[`sphere_${n}_action`];
+      if (!mt || !actionVal) continue;
       actions.push({
         merit_type:      mt,
-        action_type:     resp[`sphere_${n}_action`]      || 'misc',
+        action_type:     actionVal,
         desired_outcome: resp[`sphere_${n}_outcome`]     || '',
         description:     resp[`sphere_${n}_description`] || '',
       });
     }
+  }
+
+  // ── Status / MCI ──
+  // Issue #460 — must follow spheres immediately, matching buildProcessingQueue
+  // (downtime-views.js:3199) which appends Status into the spheres array before
+  // contacts. The original issue #233 placement (after acquisitions) caused a
+  // flat-index mismatch: outcomes written by the processing panel at indices
+  // N+1..N+M ended up at different story indices, cross-wiring resolved outcomes
+  // and leaving Status Underworld at a slot beyond merit_actions_resolved length.
+  for (let n = 1; n <= 5; n++) {
+    const mt        = resp[`status_${n}_merit`];
+    const actionVal = resp[`status_${n}_action`];
+    if (!mt || !actionVal) continue;
+    actions.push({
+      merit_type:      mt,
+      action_type:     actionVal,
+      desired_outcome: resp[`status_${n}_outcome`]     || '',
+      description:     resp[`status_${n}_description`] || '',
+    });
   }
 
   // ── Contacts ──
@@ -2140,23 +2193,6 @@ function buildMeritActions(sub) {
     });
   }
 
-  // ── Status / MCI ──
-  // Issue #233 — form writes status_${n}_* for Status influence merits and
-  // MCI standing merits (downtime-form.js:789-815) but no consumer was
-  // normalising them. Appended last so flat indices for spheres / contacts /
-  // retainers / acquisitions above are not disturbed. MCI labels route to
-  // the 'status' category via the regex in deriveMeritCategory (Task 2).
-  for (let n = 1; n <= 5; n++) {
-    const mt = resp[`status_${n}_merit`];
-    if (!mt) continue;
-    actions.push({
-      merit_type:      mt,
-      action_type:     resp[`status_${n}_action`]      || 'misc',
-      desired_outcome: resp[`status_${n}_outcome`]     || '',
-      description:     resp[`status_${n}_description`] || '',
-    });
-  }
-
   return actions;
 }
 
@@ -2168,7 +2204,7 @@ function deriveMeritCategory(meritTypeStr) {
   const s = (meritTypeStr || '').toLowerCase();
   if (/allies/.test(s))                  return 'allies';
   if (/status/.test(s))                  return 'status';
-  if (/mystery cult initiate/.test(s))   return 'status';  // #233 — MCI grouped with Status
+  if (/mystery cult initiat/.test(s))    return 'status';  // #233 — MCI grouped with Status; stem matches both "Initiate" and "Initiation"
   if (/retainer/.test(s))                return 'retainer';
   if (/staff/.test(s))                   return 'staff';
   if (/contacts?/.test(s))               return 'contacts';
@@ -2244,17 +2280,21 @@ function actionResponsesComplete(sub, categories) {
 }
 
 function meritSummaryComplete(sub) {
-  const actions  = sub?.merit_actions || [];
-  const resolved = sub?.merit_actions_resolved || [];
-  const acqRes   = sub?.acquisitions_resolved  || [];
+  const actions   = sub?.merit_actions || [];
+  const resolved  = sub?.merit_actions_resolved || [];
+  const acqRes    = sub?.acquisitions_resolved  || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
 
   for (let i = 0; i < actions.length; i++) {
     if (_isDeletedMeritAction(sub, i)) continue;
+    if (overrides.has(i)) continue;
     const rev = resolved[i] || {};
     if ((rev.pool_status || '') === 'skipped') continue;
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') continue;
       const acqStatus = acqRes[0]?.pool_status || '';
-      if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
+      if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
       continue;
     }
     if (!rev.outcome_summary?.trim()) return false;
@@ -2282,11 +2322,22 @@ function renderMeritSummary(char, sub) {
     if (rev.pool_status === 'skipped') return;
     const cat = deriveMeritCategory(a.merit_type);
     if (!groups[cat]) groups[cat] = [];
-    const { label: meritLabel } = getMeritDetails(char, a);
+    const { label: meritLabel, qualifier } = getMeritDetails(char, a);
+    const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
+    let outcome = rev.outcome_summary?.trim() || '';
+    if (cat === 'resources') {
+      if (!outcome) outcome = sub?.acquisitions_resolved?.[0]?.outcome_summary?.trim() || '';
+      if (!outcome) {
+        const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
+          || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
+            ? sub.acquisitions_resolved[0].notes_thread : null);
+        if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
+      }
+    }
     groups[cat].push({
-      meritLabel: meritLabel || a.merit_type || 'Merit',
+      meritLabel: displayLabel || a.merit_type || 'Merit',
       desiredOutcome: a.desired_outcome?.trim() || '',
-      outcome: rev.outcome_summary?.trim() || '',
+      outcome,
     });
   });
 
@@ -2318,22 +2369,63 @@ function renderMeritSummary(char, sub) {
     }
   }
 
+  // Build the list of all blocking items (ignoring overrides — overrides determine display only)
+  const acqRes    = sub?.acquisitions_resolved || [];
+  const overrides = new Set(sub?.st_narrative?.merit_summary_overrides || []);
+
+  const blockingItems = [];
+  actions.forEach((a, i) => {
+    if (_isDeletedMeritAction(sub, i)) return;
+    const rev = resolved[i] || {};
+    if ((rev.pool_status || '') === 'skipped') return;
+    const cat = deriveMeritCategory(a.merit_type);
+    if (cat === 'resources') {
+      const revStatus = resolved[i]?.pool_status || '';
+      if (revStatus === 'validated' || revStatus === 'skipped') return;
+      const acqStatus = acqRes[0]?.pool_status || '';
+      if (['validated', 'skipped', 'resolved'].includes(acqStatus)) return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
+    } else {
+      if (rev.outcome_summary?.trim()) return;
+      const { label, qualifier } = getMeritDetails(char, a);
+      const displayLabel = qualifier ? `${label} (${qualifier})` : label;
+      blockingItems.push({ idx: i, label: displayLabel || a.merit_type || 'Merit', reason: 'outcome not yet recorded' });
+    }
+  });
+
+  const remainingBlocks = blockingItems.filter(item => !overrides.has(item.idx));
+  const dismissedBlocks = blockingItems.filter(item =>  overrides.has(item.idx));
+  const genuinelyComplete = blockingItems.length === 0;
+
   h += `<div class="dt-story-section-actions">`;
-  if (complete) {
+  if (genuinelyComplete) {
     h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
+  } else if (remainingBlocks.length === 0) {
+    const n = dismissedBlocks.length;
+    h += `<span class="dt-story-complete-badge dt-story-complete-overridden">&#10003; Overridden (${n} dismissed)</span>`;
   } else {
-    const acqRes  = sub?.acquisitions_resolved || [];
-    const missing = actions.filter((a, i) => {
-      const rev = resolved[i] || {};
-      if (rev.pool_status === 'skipped') return false;
-      if (deriveMeritCategory(a.merit_type) === 'resources') {
-        const acqStatus = acqRes[0]?.pool_status || '';
-        return acqStatus !== 'validated' && acqStatus !== 'skipped';
-      }
-      return !rev.outcome_summary?.trim();
-    }).length;
-    h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
+    const n = remainingBlocks.length;
+    h += `<span class="dt-story-pending-note">${n} outcome${n !== 1 ? 's' : ''} still to record in DT Processing</span>`;
   }
+
+  const allDisplayed = [...remainingBlocks, ...dismissedBlocks];
+  if (allDisplayed.length) {
+    h += `<div class="dt-merit-blocking-list">`;
+    for (const item of allDisplayed) {
+      const isDismissed = overrides.has(item.idx);
+      const btnClass = isDismissed ? 'dt-merit-dismiss-btn dt-merit-dismiss-btn--active' : 'dt-merit-dismiss-btn';
+      const btnLabel = isDismissed ? 'Undismiss' : 'Dismiss';
+      h += `<div class="dt-merit-blocking-item">`;
+      h += `<span class="dt-merit-blocking-item-label">${esc(item.label)}</span>`;
+      h += `<span class="dt-merit-blocking-reason">— ${esc(item.reason)}</span>`;
+      h += `<button class="${btnClass}" data-action-idx="${item.idx}">${btnLabel}</button>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
   h += `</div>`;
   h += `</div></div>`;
   return h;
@@ -2778,7 +2870,8 @@ function getCoResidents(territorySlug, thisSub, allSubmissions, allChars) {
     .filter(s => {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { return false; }
-      return terrs[territorySlug] === 'resident';
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      return _terrGridVal(terrs, territorySlug) === 'resident';
     })
     .map(s => {
       const char = allChars.find(c => c._id === s.character_id || displayName(c) === s.character_name);
@@ -2855,7 +2948,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] !== terrId) continue;
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) !== terrId) continue;
       if (val && val !== 'none' && val !== 'resident') {
         const c = allChars.find(ch => String(ch._id) === String(s.character_id)) || null;
         const name = c ? dropdownName(c) : (s.character_name || 'Unknown');
@@ -2884,7 +2978,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] === terrId && val && val !== 'none') {
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) === terrId && val && val !== 'none') {
         feedActors.push(s.character_name || 'Unknown');
       }
     }
@@ -3514,18 +3609,13 @@ export function compilePushOutcome(sub, char, cycle) {
           const tOid = tDoc ? String(tDoc._id) : null;
           const pulse = tOid && cyc.territory_pulse[tOid]?.draft;
           if (pulse?.trim()) {
-            pulseChunks.push(`### Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
+            pulseChunks.push(`## Territory Pulse — ${terr.name}\n\n${pulse.trim()}`);
           }
         }
       }
 
-      if (narrativeText || pulseChunks.length) {
-        const sectionParts = ['## Feeding'];
-        if (narrativeText) sectionParts.push(narrativeText);
-        if (pulseChunks.length) sectionParts.push(pulseChunks.join('\n\n'));
-        parts.push(sectionParts.join('\n\n'));
-        hasContent = true;
-      }
+      if (narrativeText) { parts.push(`## Feeding\n\n${narrativeText}`); hasContent = true; }
+      for (const chunk of pulseChunks) { parts.push(chunk); hasContent = true; }
       continue;
 
     } else if (key === 'story_moment') {
@@ -3630,7 +3720,7 @@ export function compilePushOutcome(sub, char, cycle) {
 
   // General notes — free text, always include if present (no status gate)
   const generalNotes = sn.general_notes?.trim();
-  if (generalNotes) { parts.push(generalNotes); hasContent = true; }
+  if (generalNotes) { parts.push(`## ST Notes and Extra Story\n\n${generalNotes}`); hasContent = true; }
 
   return hasContent ? parts.join('\n\n') : '';
 }

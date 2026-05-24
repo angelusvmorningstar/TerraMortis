@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -10,7 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
-import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus, meritEffectiveRating } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
@@ -111,7 +111,7 @@ const PHASE_ORDER = {
   resolve_first: 0,
   feeding: 1,
   feed: 1,
-  ambience_increase: 2, ambience_decrease: 2,
+  ambience_increase: 2, ambience_decrease: 2, ambience_change: 2,
   hide_protect: 3,
   investigate: 4,
   attack: 5,
@@ -125,6 +125,7 @@ const PHASE_LABELS = {
   feeding: 'Step 3 — Feeding',
   joint: 'Step 4 — Joint Projects',
   ambience: 'Step 5 — Ambience',
+  ambience_change: 'Step 5 — Ambience',
   hide_protect: 'Step 6 — Defensive',
   investigate: 'Step 7 — Investigative',
   attack: 'Step 8 — Hostile',
@@ -170,7 +171,7 @@ const ST_ACTION_PHASE_MAP = {
 const ACTION_TYPE_LABELS = { ..._ACTION_TYPE_LABELS_BASE, feed: 'Rote Feed' };
 
 const ALL_ACTION_TYPES = [
-  'ambience_increase', 'ambience_decrease', 'feed', 'attack', 'hide_protect',
+  'ambience_change', 'feed', 'attack', 'hide_protect',
   'investigate', 'patrol_scout', 'support', 'misc', 'maintenance', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
@@ -371,6 +372,10 @@ function showDtuxPhase(phase) {
   document.querySelectorAll('#dt-phase-ribbon .pr-tab').forEach(btn => {
     btn.classList.toggle('pr-tab-active', btn.dataset.phase === phase);
   });
+  // Show city export button only on the city tab
+  const cityExportBtn = document.getElementById('dt-city-export-btn');
+  if (cityExportBtn) cityExportBtn.style.display = phase === 'city' ? '' : 'none';
+
   // Lazy-init city/story tabs the first time they're shown.
   if (phase === 'city' && !_dtuxCityInited) { _dtuxCityInited = true; renderCityOverview(); }
   if (phase === 'story' && !_dtuxStoryInited) { _dtuxStoryInited = true; _initDtStoryFromRibbon(); }
@@ -378,6 +383,7 @@ function showDtuxPhase(phase) {
 
 let _dtuxCityInited = false;
 let _dtuxStoryInited = false;
+let _cityMatrix = null;
 
 async function _initDtStoryFromRibbon() {
   // Lazily import to avoid a circular dep \u2014 DT Story reads characters via API
@@ -504,6 +510,9 @@ export async function initDowntimeView(passedChars) {
     document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
     document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
     document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
+    document.getElementById('dt-city-export-btn')?.addEventListener('click', () => {
+      if (_cityMatrix) _exportCityOverview(_cityMatrix);
+    });
     document.getElementById('dt-import-csv').addEventListener('click', () => {
       document.getElementById('dt-import-csv-input').click();
     });
@@ -895,9 +904,11 @@ function renderJointGroup(joint, entries) {
       (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
       (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
       (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+    const _chipState = _deriveActionRibbonState(review);
+    const _chipLabels = { pending: 'Pending', valid: 'Valid', complete: 'Complete' };
     h += `<span class="proc-row-status-cell">`;
     if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
-    h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+    h += `<span class="proc-row-status ar-${_chipState}">${_chipLabels[_chipState]}</span>`;
     h += `</span>`;
     if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
     // No Dup / Del on joint participant rows — lifecycle handled via JDT-6.
@@ -1006,7 +1017,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
+  const fgVal = fg ? Math.min(meritEffectiveRating(char, fg), 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -3036,16 +3047,17 @@ function buildProcessingQueue(subs) {
       const projReview = (sub.projects_resolved || [])[idx] || {};
       let effectiveActionType = projReview.action_type_override || actionType;
 
-      // Issue #196 — dt-form.25's project ambience redesign keeps action
-      // = 'ambience_change' and persists direction in `_ambience_direction`
-      // ('up' | 'down'). Normalise to the canonical enum so phase routing,
-      // ACTION_TYPE_LABELS, and downstream tally + render code match. The
-      // ST override (if set) was already applied above, so this only
-      // touches the player-submitted shape.
-      if (effectiveActionType === 'ambience_change') {
+      // Canonical ambience normalisation: all ambience project entries use
+      // actionType='ambience_change'; direction is stamped as ambienceDir.
+      // Legacy DB entries stored the split types directly — normalise those too.
+      let ambienceDir = null;
+      if (_AMBIENCE_ACTION_TYPES.has(effectiveActionType)) {
         const projDir = resp[`project_${slot}_ambience_direction`] || resp[`project_${slot}_ambience_dir`] || '';
-        if (projDir === 'up' || projDir === 'improve') effectiveActionType = 'ambience_increase';
-        else if (projDir === 'down' || projDir === 'degrade') effectiveActionType = 'ambience_decrease';
+        if (effectiveActionType === 'ambience_increase')      ambienceDir = 'increase';
+        else if (effectiveActionType === 'ambience_decrease') ambienceDir = 'decrease';
+        else if (projDir === 'up'   || projDir === 'improve') ambienceDir = 'increase';
+        else if (projDir === 'down' || projDir === 'degrade') ambienceDir = 'decrease';
+        effectiveActionType = 'ambience_change';
       }
 
       let phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
@@ -3059,11 +3071,9 @@ function buildProcessingQueue(subs) {
         phaseKey = PHASE_NUM_TO_LABEL[PHASE_JOINT];
       }
 
-      // Issue #196 — for ambience-change projects, dt-form.25 writes the
-      // territory to `_ambience_target` instead of `_territory`. Prefer
-      // the new key, fall back to legacy for pre-redesign drafts.
-      const _isProjAmb = effectiveActionType === 'ambience_increase'
-                      || effectiveActionType === 'ambience_decrease';
+      // For ambience-change projects, dt-form.25 writes the territory to
+      // `_ambience_target` instead of `_territory`. Prefer new key, fall back.
+      const _isProjAmb = effectiveActionType === 'ambience_change';
       const _projTerritory = _isProjAmb
         ? (resp[`project_${slot}_ambience_target`] || resp[`project_${slot}_territory`] || '')
         : (resp[`project_${slot}_territory`] || '');
@@ -3140,6 +3150,7 @@ function buildProcessingQueue(subs) {
         projXpBreakdown:      _projXpBreakdown,
         projXpRows:           _projXpRows,
         projXpBudgetSnapshot: _projXpBudgetSnapshot,
+        ambienceDir,
         // JDT-5: joint membership — populated when the slot belongs to a joint.
         joint_id:        _jointInfo?.joint?._id || null,
         joint_role:      _jointInfo?.role || null,
@@ -3747,17 +3758,11 @@ function extractTerritoryFromText(text) {
   return null;
 }
 
-/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
+/** Normalise a territory OID string to a TERRITORY_DATA id. Returns null if not found. */
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
-  for (const td of TERRITORY_DATA) {
-    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.slug;
-  }
-  return null;
+  const t = (cachedTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
 }
 
 // ── Ambience source gatherers ─────────────────────────────────────────────────
@@ -3850,18 +3855,10 @@ function _gatherProjectAmbience(subs) {
       const resolved = (sub.projects_resolved || [])[idx] || {};
       // Effective action type: ST override takes priority over player submission
       let effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
-      // Issue #196 — dt-form.25's project ambience redesign keeps the raw
-      // action `'ambience_change'` and persists direction in
-      // `_ambience_direction` ('up' | 'down'). Sphere-side normalises to
-      // ambience_increase / _decrease at form-write time; project-side does
-      // not. Map at admin read so the existing tally branches still match.
-      if (effectiveType === 'ambience_change') {
-        const dir = resp[`project_${n}_ambience_direction`] || resp[`project_${n}_ambience_dir`] || '';
-        if (dir === 'up' || dir === 'improve') effectiveType = 'ambience_increase';
-        else if (dir === 'down' || dir === 'degrade') effectiveType = 'ambience_decrease';
-      }
-      const isIncrease = effectiveType === 'ambience_increase';
-      const isDecrease = effectiveType === 'ambience_decrease';
+      if (!_AMBIENCE_ACTION_TYPES.has(effectiveType)) continue;
+      const _ambiDir = _ambienceDirection(effectiveType, n, resp);
+      const isIncrease = _ambiDir === 'increase';
+      const isDecrease = _ambiDir === 'decrease';
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
@@ -4419,18 +4416,26 @@ function renderProcessingMode(container) {
   }
 
   // ── Cross-reference index (single O(n) pass) ──
-  // Keys: 'terr:<territory>' | 'inv-target:<charName>'
+  // Keys: 'terr:<canonical-slug>' | 'inv-target:<charName>'
   // Values: [{ charName, label, phase }, ...] — excludes self at render time
+  // 496.2 QA: territory keys are normalised through resolveTerrId so both
+  // OID-keyed (post-496.2) and slug-keyed (legacy) submissions index under
+  // the same canonical slug. Without normalisation, a 496.2 character feeding
+  // in The Harbour would index as 'terr:69d5...' while a pre-496.2 character
+  // would index as 'terr:the_harbour' — same territory, different keys, no
+  // cross-reference.
   _xrefIndex = new Map();
   for (const e of queue) {
     if (e.projTerritory) {
-      const k = `terr:${e.projTerritory}`;
+      const canon = resolveTerrId(e.projTerritory) || e.projTerritory;
+      const k = `terr:${canon}`;
       if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
       _xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
     }
     if (e.feedTerrs) {
       for (const terr of Object.keys(e.feedTerrs)) {
-        const k = `terr:${terr}`;
+        const canon = resolveTerrId(terr) || terr;
+        const k = `terr:${canon}`;
         if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
         _xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
       }
@@ -4519,9 +4524,11 @@ function renderProcessingMode(container) {
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
           (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
           (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
+        const _chipState = _deriveActionRibbonState(review);
+        const _chipLabels = { pending: 'Pending', valid: 'Valid', complete: 'Complete' };
         h += `<span class="proc-row-status-cell">`;
         if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
-        h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += `<span class="proc-row-status ar-${_chipState}">${_chipLabels[_chipState]}</span>`;
         h += `</span>`;
         if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
         h += `<span class="proc-row-actions">`;
@@ -5078,6 +5085,48 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire Rote chip button → sync hidden checkbox + save
+  container.querySelectorAll('.proc-rote-chip').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const isActive = btn.classList.toggle('is-active');
+      const hiddenCb = container.querySelector(`.proc-pool-rote[data-proc-key="${key}"]`);
+      if (hiddenCb) hiddenCb.checked = isActive;
+      if (entry.source === 'project') {
+        await saveEntryReview(entry, { rote: isActive });
+        renderProcessingMode(container);
+      } else {
+        const sub = submissions.find(s => s._id === entry.subId);
+        if (sub) {
+          const stReview = { ...(sub.st_review || {}), feeding_rote: isActive };
+          await updateSubmission(entry.subId, { st_review: stReview });
+          sub.st_review = stReview;
+        }
+      }
+    });
+  });
+
+  // Wire Again option buttons (10/9/8) — mutually exclusive radio group
+  container.querySelectorAll('.proc-again-opt').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const again = btn.dataset.again;
+      container.querySelectorAll(`.proc-again-opt[data-proc-key="${key}"]`).forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      const na = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
+      const ea = container.querySelector(`.proc-proj-8a[data-proc-key="${key}"]`);
+      if (na) na.checked = (again === '9');
+      if (ea) ea.checked = (again === '8');
+      await saveEntryReview(entry, { nine_again: again === '9', eight_again: again === '8' });
+    });
+  });
+
   // ── feature.51: Equipment modifier ticker (pool mod panel) ──
   _wireTickerHandler(container, {
     decCls: 'proc-equip-mod-dec', incCls: 'proc-equip-mod-inc',
@@ -5202,15 +5251,16 @@ function renderProcessingMode(container) {
   });
 
   // Wire feeding roll buttons
-  // Wire feeding spec toggles
-  container.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
+  // Wire spec chip buttons (proc-spec-chip = button elements, no hidden checkbox)
+  container.querySelectorAll('.proc-spec-chip').forEach(btn => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const key  = cb.dataset.procKey;
-      const spec = cb.dataset.spec;
+      const key  = btn.dataset.procKey;
+      const spec = btn.dataset.spec;
       const entry = _getQueueEntry(key);
       if (!entry || !spec) return;
       const review = getEntryReview(entry) || {};
+      const isNowActive = btn.classList.toggle('is-active');
 
       // Snapshot current builder expression so it survives future re-renders
       const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
@@ -5220,7 +5270,7 @@ function renderProcessingMode(container) {
       }
 
       const activeFeedSpecs = [...(review.active_feed_specs || [])];
-      if (cb.checked) {
+      if (isNowActive) {
         if (!activeFeedSpecs.includes(spec)) activeFeedSpecs.push(spec);
       } else {
         const i = activeFeedSpecs.indexOf(spec);
@@ -5230,10 +5280,9 @@ function renderProcessingMode(container) {
       const char = sub
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
-      const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
       const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
+      _updatePoolTotal(container, key);
     });
   });
 
@@ -5489,17 +5538,88 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire connected character checkboxes
-  container.querySelectorAll('.proc-conn-char-chk').forEach(cb => {
-    cb.addEventListener('click', e => e.stopPropagation());
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key   = cb.dataset.procKey;
+  // Wire connected character typeahead widgets
+  container.querySelectorAll('.proc-conn-typeahead').forEach(wrap => {
+    const key      = wrap.dataset.procKey;
+    const entry    = _getQueueEntry(key);
+    const selfKey  = (entry?.charName || '').toLowerCase();
+    const allChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name || c.character_name || '?' }))
+      .filter(c => c.key !== selfKey)
+      .sort((a, b) => a.key.localeCompare(b.key));
+    const input    = wrap.querySelector('.proc-conn-input');
+    const dropdown = wrap.querySelector('.proc-conn-dropdown');
+    const chipsEl  = wrap.querySelector('.proc-conn-chips');
+
+    function getSelectedKeys() {
+      return new Set([...chipsEl.querySelectorAll('.proc-conn-chip')].map(c => c.dataset.charName));
+    }
+
+    function showDropdown(query) {
+      const selected = getSelectedKeys();
+      const q = query.trim().toLowerCase();
+      const matches = allChars.filter(c =>
+        !selected.has(c.key) && (!q || c.label.toLowerCase().includes(q))
+      );
+      if (!matches.length) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = '';
+      for (const { key: cKey, label } of matches.slice(0, 10)) {
+        const item = document.createElement('div');
+        item.className = 'proc-conn-dd-item';
+        item.dataset.charName = cKey;
+        item.textContent = label;
+        dropdown.appendChild(item);
+      }
+      dropdown.style.display = '';
+    }
+
+    function addChip(charKey, label) {
+      const chip = document.createElement('span');
+      chip.className = 'proc-conn-chip';
+      chip.dataset.charName = charKey;
+      chip.appendChild(document.createTextNode(label));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'proc-conn-chip-x';
+      btn.title = 'Remove';
+      btn.textContent = '×';
+      chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    }
+
+    async function saveConnected() {
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
-      const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
+      const connected = [...chipsEl.querySelectorAll('.proc-conn-chip')].map(c => c.dataset.charName);
       await saveEntryReview(entry, { connected_chars: connected });
+    }
+
+    input.addEventListener('focus', () => showDropdown(input.value));
+    input.addEventListener('input', () => showDropdown(input.value));
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { dropdown.style.display = 'none'; input.value = ''; }
+    });
+    input.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+
+    wrap.addEventListener('click', async e => {
+      const ddItem = e.target.closest('.proc-conn-dd-item');
+      if (ddItem) {
+        const charKey = ddItem.dataset.charName;
+        const charObj = allChars.find(c => c.key === charKey);
+        if (charObj && !getSelectedKeys().has(charKey)) {
+          addChip(charKey, charObj.label);
+          input.value = '';
+          dropdown.style.display = 'none';
+          await saveConnected();
+        }
+        return;
+      }
+      const chipX = e.target.closest('.proc-conn-chip-x');
+      if (chipX) {
+        chipX.closest('.proc-conn-chip')?.remove();
+        await saveConnected();
+      }
     });
   });
 
@@ -6405,17 +6525,22 @@ function _buildSpecTogglesHtml(char, preSkill, procKey, activeSpecs, disabled) {
   if (!char || !preSkill) return '';
   let h = '';
   for (const sp of skSpecs(char, preSkill)) {
-    const checked = activeSpecs.includes(sp) ? ' checked' : '';
     const aoe = hasAoE(char, sp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(procKey)}" data-spec="${esc(sp)}"${checked}${disabled}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+    h += `<button type="button" class="proc-spec-chip${activeSpecs.includes(sp) ? ' is-active' : ''}" data-proc-key="${esc(procKey)}" data-spec="${esc(sp)}"${disabled}>${esc(sp)} ${aoe ? '+2' : '+1'}</button>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === preSkill) continue; // already present as a native spec on this skill
-    const checked = activeSpecs.includes(isSp) ? ' checked' : '';
     const aoe = hasAoE(char, isSp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(procKey)}" data-spec="${esc(isSp)}"${checked}${disabled}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+    h += `<button type="button" class="proc-spec-chip${activeSpecs.includes(isSp) ? ' is-active' : ''}" data-proc-key="${esc(procKey)}" data-spec="${esc(isSp)}"${disabled}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</button>`;
   }
   return h;
+}
+
+/** Return display label for the Again ticker (state = '10' | '9' | '8'). */
+function _againerLabel(state) {
+  if (state === '8') return '8-Again';
+  if (state === '9') return '9-Again';
+  return '10-Again';
 }
 
 /**
@@ -6480,16 +6605,18 @@ function _formatDiceString(diceString) {
  * nineAgain is optional; when true, appends (9-Again).
  */
 function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skillName, nineAgain = false) {
-  if (!attr || !skill) return '\u2014 + \u2014 = 0';
-  const base = _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+  if (!attr || !skill) return '\u2014 + \u2014 \u00b10 = 0';
+  let expr = `${attr} ${attrDots} + ${skill} ${skillDots}`;
+  if (disc && disc !== 'none') expr += ` + ${disc} ${discDots}`;
+  expr += ` ${_fmtMod(modifier)}`;
+  const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
   const penalty = _unskilledPenalty(skillName, skillDots);
   let result;
   if (!penalty) {
-    result = base;
+    result = `${expr} = ${rawTotal}`;
   } else {
-    const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
     const corrected = rawTotal + penalty;
-    result = base.replace(`= ${rawTotal}`, `= ${corrected} (\u2212${Math.abs(penalty)} unskilled)`);
+    result = `${expr} = ${corrected} (\u2212${Math.abs(penalty)} unskilled)`;
   }
   if (nineAgain) result += ' (9-Again)';
   return result;
@@ -6499,17 +6626,17 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
  * Render a territory pill row. Wires up via the existing proc-terr-pill click handler.
  * feedingSet: pass a Set of active territory IDs for feeding multi-select; null for single-select.
  */
-function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null) {
+function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null, noLabel = false) {
   const TERR_PILLS = [
-    { id: '',           label: '\u2014' },
     { id: 'academy',   label: 'Academy' },
     { id: 'harbour',   label: 'Harbour' },
     { id: 'dockyards', label: 'Dockyards' },
     { id: 'northshore', label: 'N. Shore' },
-    { id: 'secondcity', label: '2nd City' },
+    { id: 'barrens',   label: 'Barrens' },
+    { id: '',          label: 'N/A' },
   ];
   let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
-  h += `<span class="proc-feed-lbl">Terr.</span>`;
+  if (!noLabel) h += `<span class="proc-feed-lbl">Terr.</span>`;
   for (const t of TERR_PILLS) {
     const active = feedingSet
       ? ((t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '')
@@ -6588,8 +6715,6 @@ function _updateVitaeTotal(container, key) {
  * Update the unskilled row in the right panel when the skill dropdown changes.
  */
 function _updateUnskilledRow(container, key) {
-  const right = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
-  if (!right) return;
   const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
   if (!builder) return;
   const skillSel  = builder.querySelector('.proc-pool-skill');
@@ -6598,7 +6723,7 @@ function _updateUnskilledRow(container, key) {
   const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
   const penalty   = _unskilledPenalty(skillName, skillDots);
 
-  const row = right.querySelector('.proc-feed-unskilled-row');
+  const row = container.querySelector(`.proc-feed-unskilled-row[data-proc-key="${key}"]`);
   if (row) {
     if (penalty === 0) {
       row.style.display = 'none';
@@ -6636,30 +6761,38 @@ function _updateFeedBuilderMeta(container, key) {
     if (sidebarNineA) sidebarNineA.checked = nineA;
     const poolTotalEl = container.querySelector(`.proc-pool-total[data-proc-key="${key}"]`);
     if (poolTotalEl) poolTotalEl.dataset.nineAgain = nineA ? '1' : '0';
+    const cur8aProj = container.querySelector(`.proc-proj-8a[data-proc-key="${key}"]`)?.checked || false;
+    const newStateProj = cur8aProj ? '8' : nineA ? '9' : '10';
+    container.querySelectorAll(`.proc-again-opt[data-proc-key="${key}"]`).forEach(b => {
+      b.classList.toggle('is-active', b.dataset.again === newStateProj);
+      if (b.dataset.again === '9') b.classList.toggle('is-auto', nineA && !cur8aProj);
+    });
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
       const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
+      h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
       if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
       const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
+      h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
     }
     metaEl.innerHTML = h;
-    metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
-      cb.addEventListener('change', async e => {
+    metaEl.querySelectorAll('.proc-spec-chip').forEach(btn => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation();
-        const entry2 = _getQueueEntry(cb.dataset.procKey);
-        if (!entry2 || !cb.dataset.spec) return;
+        const entry2 = _getQueueEntry(btn.dataset.procKey);
+        if (!entry2 || !btn.dataset.spec) return;
         const rev2 = getEntryReview(entry2) || {};
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
-        if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
-        else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
+        const isNowActive = btn.classList.toggle('is-active');
+        if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
+        else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
         const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
+        _updatePoolTotal(container, btn.dataset.procKey);
       });
     });
     return;
@@ -6672,31 +6805,38 @@ function _updateFeedBuilderMeta(container, key) {
   if (sidebarNineAFeed && (nineA || review.nine_again == null)) {
     sidebarNineAFeed.checked = nineA;
   }
+  const cur8aFeed = container.querySelector(`.proc-proj-8a[data-proc-key="${key}"]`)?.checked || false;
+  const newStateFeed = cur8aFeed ? '8' : (nineA && (nineA || review.nine_again == null)) ? '9' : '10';
+  container.querySelectorAll(`.proc-again-opt[data-proc-key="${key}"]`).forEach(b => {
+    b.classList.toggle('is-active', b.dataset.again === newStateFeed);
+    if (b.dataset.again === '9') b.classList.toggle('is-auto', nineA && !cur8aFeed);
+  });
   let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
     const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
+    h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
     const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
+    h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
   }
   metaEl.innerHTML = h;
-  // Wire spec toggles injected by _updateFeedBuilderMeta — no re-render; pool_mod_spec applied at roll time
-  metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
+  metaEl.querySelectorAll('.proc-spec-chip').forEach(btn => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const entry2 = _getQueueEntry(cb.dataset.procKey);
-      if (!entry2 || !cb.dataset.spec) return;
+      const entry2 = _getQueueEntry(btn.dataset.procKey);
+      if (!entry2 || !btn.dataset.spec) return;
       const rev2 = getEntryReview(entry2) || {};
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
-      if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
-      else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
+      const isNowActive = btn.classList.toggle('is-active');
+      if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
+      else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
       const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
+      _updatePoolTotal(container, btn.dataset.procKey);
     });
   });
 }
@@ -6732,7 +6872,15 @@ function _updatePoolTotal(container, key) {
   const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
   const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
   const nineAgain = totalEl.dataset.nineAgain === '1';
-  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill, nineAgain);
+  const baseDisplay = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill, nineAgain);
+  const entry = _getQueueEntry(key);
+  const review = entry ? (getEntryReview(entry) || {}) : {};
+  const activeSpecs = review.active_feed_specs || [];
+  const sub = entry ? submissions.find(s => s._id === entry.subId) : null;
+  const char = sub
+    ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
+    : null;
+  totalEl.textContent = _augmentPoolWithSpecs(baseDisplay, activeSpecs, char) || baseDisplay;
 }
 
 /**
@@ -6780,6 +6928,76 @@ function _renderTickerRow(key, label, cssPrefix, displayStr, storedVal) {
   h += `<button class="${cssPrefix}-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
   h += `</span></div>`;
   return h;
+}
+
+/**
+ * Render the Dice Pool Modifiers panel inline inside a Dice Pool Builder card.
+ * kind = 'feeding' | 'project' | 'sorcery'
+ */
+function _renderPoolModPanel(entry, char, rev, kind) {
+  const key = entry.key;
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = _fmtMod(eqMod);
+
+  if (kind === 'feeding') {
+    const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+    const fgDice = fg ? Math.min(fg.rating || 0, 5) : null;
+    const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
+    let initSkillName = '', initSkillDots = 0;
+    if (poolValidated && char) {
+      const charDiscs0 = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+      const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
+      if (parsed0?.skill) {
+        initSkillName = parsed0.skill;
+        initSkillDots = skTotal(char, initSkillName) || 0;
+      }
+    }
+    const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
+    const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
+    const poolModTotalStr = _fmtMod(poolModTotal);
+    const fgDataAttr = fgDice !== null ? String(fgDice) : '';
+    const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
+
+    let h = `<div class="proc-feed-mod-panel proc-pool-mod-inline" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
+    const unskilledDisplay = initUnskilled !== 0 ? String(initUnskilled) : '0';
+    h += `<div class="proc-feed-unskilled-row proc-mod-row" data-proc-key="${esc(key)}" style="${initUnskilled === 0 ? 'display:none' : ''}">`;
+    h += `<span class="proc-mod-label">Unskilled penalty</span>`;
+    h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
+    h += `</div>`;
+    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
+    h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}" style="display:none">${poolModTotalStr}</span>`;
+    h += `</div>`;
+    return h;
+  }
+
+  if (kind === 'project') {
+    const poolModTotalStr = eqStr;
+    let h = `<div class="proc-feed-mod-panel proc-pool-mod-inline" data-proc-key="${esc(key)}" data-fg="">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
+    h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}" style="display:none">${poolModTotalStr}</span>`;
+    h += `</div>`;
+    return h;
+  }
+
+  if (kind === 'sorcery') {
+    const isCruac = entry.tradition === 'Cruac';
+    const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+    const _sorcCommitted = (rev.pool_status || 'pending') === 'confirmed';
+    let h = `<div class="proc-feed-mod-panel proc-pool-mod-inline${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
+    if (hasMandragora) {
+      h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+3</span></div>`;
+    }
+    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
+    h += `</div>`;
+    return h;
+  }
+
+  return '';
 }
 
 /**
@@ -6933,7 +7151,7 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-merit-mode-row">`;
   h += `<span class="proc-mod-label">Action Mode</span>`;
   h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
-  if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+  if (_isAmbienceAction(actionType)) {
     const mLbl = entry.meritLabel || '';
     const mQual = entry.meritQualifier || '';
     h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(category)}">${esc(mLbl.toUpperCase())}</span>`;
@@ -7010,7 +7228,6 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = [['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
-  if (!isAuto && ['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -7034,33 +7251,10 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
   const mgDots       = hasMandragora ? 3 : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
-  const eqStr        = _fmtMod(eqMod);
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
-  const _sorcCommitted = poolStatus === 'confirmed';
-  const _sorcDis = _sorcCommitted ? ' disabled' : '';
-
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
-
-  // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-mod-panel${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
-
-  // +3 Downtime bonus (always on)
-  h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
-
-  // Mandragora Garden — flat +3 for Cruac users with the merit, always-on.
-  // No toggle: the player-side parked-rite flag is for sustained-cost storage,
-  // not for gating the dice bonus.
-  if (hasMandragora) {
-    h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+3</span></div>`;
-  }
-
-  // Equipment / other ticker
-  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
-
-  h += `</div>`; // proc-feed-mod-panel
 
   // ── Roll card ──
   const ritRoll = rev.ritual_roll || null;
@@ -7075,7 +7269,6 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
@@ -7102,23 +7295,10 @@ function _renderProjRightPanel(entry, char, rev) {
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
   const poolStatus    = rev.pool_status    || 'pending';
 
-  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
-  const eqStr = _fmtMod(eqMod);
-  const poolModTotalStr = eqStr;
-
   const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
   const succStr = _fmtMod(succMod);
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
-
-  // ── Dice Pool Modifiers (equipment only) ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
-  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
-  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
-  h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
-  h += `</div>`;
-  h += `</div>`; // proc-feed-mod-panel
 
   // ── Investigation: Target Secrecy + Lead toggle (project investigate only) ──
   if (entry.actionType === 'investigate') {
@@ -7207,7 +7387,7 @@ function _renderProjRightPanel(entry, char, rev) {
   const eightAgainState = rev.eight_again || false;
   // Auto-detect nine_again from the character's validated skill — only when not explicitly saved
   const nineAgainState = _resolveNineAgainState(rev, poolValidated, char);
-  h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
+  h += `<div class="proc-feed-right-section proc-feed-toggles-row" style="display:none">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainState ? ' checked' : ''}> 9-Again</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-8a" data-proc-key="${esc(key)}"${eightAgainState ? ' checked' : ''}> 8-Again</label>`;
@@ -7216,7 +7396,6 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
@@ -7267,7 +7446,7 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Pool modifier panel data ──
   const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgDice = fg ? Math.min(fg.rating || 0, 5) : null; // null = char not loaded; cap at merit max
+  const fgDice = fg ? Math.min(char ? meritEffectiveRating(char, fg) : (fg.rating || 0), 5) : null; // null = char not loaded; cap at merit max
 
   // Always derive pool expression from current effective character stats (dots + bonus)
   const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
@@ -7292,25 +7471,6 @@ function _renderFeedRightPanel(entry, char, rev) {
   const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
-
-  // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-right-section proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
-  // Feeding Grounds row
-  h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
-  // Unskilled penalty row (hidden when 0)
-  const unskilledDisplay = initUnskilled !== 0 ? String(initUnskilled) : '0';
-  h += `<div class="proc-feed-unskilled-row proc-mod-row" data-proc-key="${esc(key)}" style="${initUnskilled === 0 ? 'display:none' : ''}">`;
-  h += `<span class="proc-mod-label">Unskilled penalty</span>`;
-  h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
-  h += `</div>`;
-  // Equipment ticker
-  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
-  // Total
-  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
-  h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
-  h += `</div>`;
-  h += `</div>`; // proc-feed-mod-panel
 
   // ── Vitae Tally ──
   const herd = (char?.merits || []).find(m => m.name === 'Herd');
@@ -7355,8 +7515,13 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Fallback: if no fed territories resolved, use primaryTerr as before.
   // normalizedTerrId is a slug; translate to _id for confirmed_ambience reads.
   if (ambienceVitae === null && entry.primaryTerr) {
+    // 496.2 QA: primaryTerr may now be an ObjectId (post-496.2 form). Match
+    // OID against _id directly; fall through to the existing slug/name match
+    // for legacy long-slug / display-name values.
+    const isOid = /^[a-f0-9]{24}$/i.test(entry.primaryTerr);
     const normalizedTerrId = TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr;
     const terrRec = terrList.find(t =>
+      (isOid && String(t._id) === entry.primaryTerr) ||
       t.slug === normalizedTerrId ||
       t.name === entry.primaryTerr ||
       t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
@@ -7364,7 +7529,9 @@ function _renderFeedRightPanel(entry, char, rev) {
     const fallbackOid = terrRec?._id ? String(terrRec._id) : null;
     const confirmedAmb = fallbackOid ? currentCycle?.confirmed_ambience?.[fallbackOid] : null;
     ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
-    bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
+    // 496.2 QA: use the resolved territory's name when available so the UI
+    // shows "The Harbour" instead of a 24-char hex OID.
+    bestTerrLabel = terrRec?.name || (entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null);
   }
   // No territory resolved = Barrens: −4 ambience
   if (ambienceVitae === null) {
@@ -7456,7 +7623,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
   const eightAgainStateFeed = rev.eight_again || false;
   const nineAgainStateFeed = _resolveNineAgainState(rev, poolValidated, char);
-  h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
+  h += `<div class="proc-feed-right-section proc-feed-toggles-row" style="display:none">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainStateFeed ? ' checked' : ''}> 9-Again</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-8a" data-proc-key="${esc(key)}"${eightAgainStateFeed ? ' checked' : ''}> 8-Again</label>`;
@@ -7466,7 +7633,6 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  if (['pending', 'confirmed', 'rolled'].includes(poolStatus)) h += _renderStatusRibbon(key, poolStatus);
   h += _renderValStatusButtons(key, poolStatus, [['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
@@ -7668,13 +7834,43 @@ function _renderXpSpendBreakdown(rows, budget) {
     `</div>`;
 }
 
-function _renderActionTypeRow(entry, rev, char) {
+// ── Action progress ribbon ────────────────────────────────────────────────────
+// Pending → Valid → Complete, derived from review state at render time.
+// Valid:    any non-pending pool_status (mechanical decisions made).
+// Complete: terminal pool_status AND narrative written (player_facing_note or story_context).
+function _deriveActionRibbonState(rev) {
+  const ps = rev?.pool_status || 'pending';
+  if (ps === 'pending') return 'pending';
+  const hasNarrative = !!(rev?.player_facing_note?.trim() || rev?.story_context?.trim());
+  if (DONE_STATUSES.has(ps) && hasNarrative) return 'complete';
+  return 'valid';
+}
+
+function _renderActionRibbon(rev) {
+  const state = _deriveActionRibbonState(rev);
+  const steps = [['pending', 'Pending'], ['valid', 'Valid'], ['complete', 'Complete']];
+  const activeIdx = steps.findIndex(([s]) => s === state);
+  let h = '<div class="proc-action-ribbon">';
+  steps.forEach(([val, label], i) => {
+    let cls = 'proc-ar-step';
+    if (i < activeIdx)        cls += ' ar-past';
+    else if (i === activeIdx) cls += ` ar-active ar-${val}`;
+    else                      cls += ' ar-future';
+    h += `<span class="${cls}">${label}</span>`;
+    if (i < steps.length - 1) h += '<span class="proc-ar-arrow">›</span>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function _renderActionTypeRow(entry, rev, char, opts = {}) {
+  const { suppressTerrPills = false } = opts;
   const key        = entry.key;
   const actionType = entry.actionType;
   const isMerit    = entry.source === 'merit';
   let h = '';
 
-  h += `<div class="proc-recat-row">`;
+  h += `<div class="proc-recat-row${suppressTerrPills ? ' proc-recat-row-top' : ''}">`;
   h += `<span class="proc-feed-lbl">Action Type</span>`;
   h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
   for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
@@ -7701,7 +7897,7 @@ function _renderActionTypeRow(entry, rev, char) {
     }
     h += `</div>`;
     // Add territory pills for project-based investigate (not merit)
-    if (!isMerit) {
+    if (!isMerit && !suppressTerrPills) {
       const _invSub = submissions.find(s => s._id === entry.subId);
       const _invCtx = String(entry.actionIdx);
       const _invTid = _invSub?.st_review?.territory_overrides?.[_invCtx] || '';
@@ -7733,22 +7929,29 @@ function _renderActionTypeRow(entry, rev, char) {
       h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
     }
     h += `</select>`;
-  } else if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+  } else if (_isAmbienceAction(actionType)) {
     if (!isMerit) {
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = String(entry.actionIdx);
-      const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
-      let _ambiTid;
-      if (_stOvrTid) {
-        _ambiTid = _stOvrTid;
-      } else {
-        // No ST override — pre-select from player's submitted territory (visual only)
-        const _slot = entry.projSlot;
-        const _resp = _ambiSub?.responses || {};
-        const _raw = _resp[`project_${_slot}_ambience_target`] || _resp[`project_${_slot}_territory`] || '';
-        _ambiTid = resolveTerrId(_raw) || '';
+      // Direction badge (increase ↑ / decrease ↓)
+      if (entry.ambienceDir) {
+        const _dirLabel = entry.ambienceDir === 'increase' ? '▲ Increase' : '▼ Decrease';
+        h += `<span class="proc-ambience-dir-badge proc-ambience-dir-${esc(entry.ambienceDir)}">${_dirLabel}</span>`;
       }
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+      if (!suppressTerrPills) {
+        const _ambiSub = submissions.find(s => s._id === entry.subId);
+        const _ambiCtx = String(entry.actionIdx);
+        const _stOvrTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx];
+        let _ambiTid;
+        if (_stOvrTid) {
+          _ambiTid = _stOvrTid;
+        } else {
+          // No ST override — pre-select from player's submitted territory (visual only)
+          const _slot = entry.projSlot;
+          const _resp = _ambiSub?.responses || {};
+          const _raw = _resp[`project_${_slot}_ambience_target`] || _resp[`project_${_slot}_territory`] || '';
+          _ambiTid = resolveTerrId(_raw) || '';
+        }
+        h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+      }
     }
     // merit ambience: territory handled via isAlliesAction pills below
   } else if (!isMerit) {
@@ -7765,7 +7968,13 @@ function _renderActionTypeRow(entry, rev, char) {
           const _roteGrid = JSON.parse(_roteSub?.responses?.feeding_territories_rote || '{}');
           for (const [slug, status] of Object.entries(_roteGrid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _rotePillSet.add(tid);
           }
         } catch { /* ignore */ }
@@ -7790,7 +7999,7 @@ function _renderActionTypeRow(entry, rev, char) {
           return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
         })
         .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-      const _isAmb = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      const _isAmb = _isAmbienceAction(actionType);
       const _hasHWV = _isAmb && (char?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
       h += `<span class="proc-feed-lbl">Merit</span>`;
       h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(key)}">`;
@@ -7815,6 +8024,7 @@ function _renderActionTypeRow(entry, rev, char) {
     }
   }
 
+  h += _renderActionRibbon(rev);
   h += `</div>`;
 
   // Attack merit dropdown (second row, shown for both project and merit)
@@ -7839,6 +8049,289 @@ function _renderActionTypeRow(entry, rev, char) {
   return h;
 }
 
+/**
+ * Normalised project card — Step 0 template.
+ * Details card: title + outcome + description + player pool (always) + merits/bonuses + XP spend.
+ * Target/lead/cast are removed from Details; target is handled interactively by _renderActionTypeRow.
+ */
+function renderNormalisedCard(entry, review) {
+  const rev               = review || {};
+  const poolStatus        = rev.pool_status       || 'pending';
+  const poolPlayer        = rev.pool_player       || entry.poolPlayer || '';
+  const poolValidated     = rev.pool_validated    || '';
+  const thread            = rev.notes_thread      || [];
+  const feedback          = rev.story_context     || '';
+  const playerFacingNote  = rev.player_facing_note || '';
+
+  const projSub  = submissions.find(s => s._id === entry.subId) || null;
+  const projChar = _findCharForSub(projSub);
+
+  const xpTrait  = projSub?.responses?.[`project_${entry.projSlot}_xp_trait`] || '';
+  const xpAmount = projSub?.responses?.[`project_${entry.projSlot}_xp`]       || '';
+
+  let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // ── Reminder badges ──
+  const actionKey = entryActionKey(entry);
+  if (actionKey) {
+    const badges = cycleReminders.filter(r =>
+      r.targets && r.targets.some(t => t.sub_id === entry.subId && t.action_key === actionKey)
+    );
+    for (const r of badges) {
+      h += `<div class="proc-reminder-badge">⚑ ${esc(r.source_rite)} (${esc(r.source_tradition)}) — ${esc(r.text)}</div>`;
+    }
+  }
+
+  // ── Action Type row (at top — territory pills appear in the territory rail below) ──
+  h += _renderActionTypeRow(entry, rev, projChar, { suppressTerrPills: true });
+
+  // ── Two-column layout ──
+  h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
+  // ── Details card ──
+  {
+    const titleVal      = rev.title           ?? entry.projTitle   ?? '';
+    const outcomeVal    = rev.desired_outcome ?? entry.projOutcome ?? '';
+    const descVal       = rev.description     ?? entry.description ?? '';
+    const _meritsRaw    = rev.merits_bonuses  ?? entry.projMerits  ?? '';
+    const meritsVal     = Array.isArray(_meritsRaw) ? (_meritsRaw.length ? _meritsRaw.join(', ') : '') : String(_meritsRaw || '');
+    const playerPoolVal = poolPlayer || '';
+    const showOutcome   = entry.actionType === 'misc';
+
+    h += `<div class="proc-feed-desc-card">`;
+    h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+
+    // View mode
+    h += `<div class="proc-feed-desc-view">`;
+    if (titleVal)                  h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
+    if (showOutcome && outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+    if (descVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+    if (entry.projXpRows && entry.projXpRows.length) {
+      h += _renderXpSpendBreakdown(entry.projXpRows, entry.projXpBudgetSnapshot);
+    } else if (entry.projXpBreakdown) {
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
+    }
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player’s Pool</span> ${playerPoolVal ? esc(playerPoolVal) : '<span class="proc-feed-desc-empty">—</span>'}</div>`;
+    if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
+    if (!titleVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
+    h += `</div>`;
+
+    // Edit mode
+    h += `<div class="proc-feed-desc-edit" style="display:none">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-detail-input proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
+    if (showOutcome) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea><span class="dt-autosave-status" data-proc-key="${esc(entry.key)}" data-field="description"></span></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player’s Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-detail-input proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
+    h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+    h += `</div>`;
+    h += `</div>`; // proc-feed-desc-card
+
+    // XP spend approval row (outside card)
+    if (xpTrait) {
+      const xpLabel = xpAmount ? `XP Spend (${esc(String(xpAmount))} XP)` : 'XP Spend';
+      h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
+    }
+
+    // Territory rail (interactive pills for ambience/investigate; plain text for others)
+    if (_isAmbienceAction(entry.actionType)) {
+      const _ambiCtx  = String(entry.actionIdx);
+      const _stOvrTid = projSub?.st_review?.territory_overrides?.[_ambiCtx];
+      let _ambiTid;
+      if (_stOvrTid) {
+        _ambiTid = _stOvrTid;
+      } else {
+        const _resp = projSub?.responses || {};
+        const _raw  = _resp[`project_${entry.projSlot}_ambience_target`] || _resp[`project_${entry.projSlot}_territory`] || '';
+        _ambiTid = resolveTerrId(_raw) || '';
+      }
+      h += `<div class="proc-proj-field proc-proj-terr-rail"><span class="proc-feed-lbl">Territory</span>`;
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid, null, true);
+      h += `</div>`;
+    } else if (entry.actionType === 'investigate') {
+      const _invCtx = String(entry.actionIdx);
+      const _invTid = projSub?.st_review?.territory_overrides?.[_invCtx] || '';
+      h += `<div class="proc-proj-field proc-proj-terr-rail"><span class="proc-feed-lbl">Territory</span>`;
+      h += _renderInlineTerrPills(entry.subId, _invCtx, _invTid, null, true);
+      h += `</div>`;
+    } else if (entry.projTerritory) {
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+    }
+    if (entry.actionType === 'feed') {
+      const _nomText = _playerFeedTerrsText(projSub);
+      if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
+    }
+  }
+
+  // ── Dice Pool Builder ──
+  {
+    const char = projChar;
+    const charDiscs    = _charDiscsArray(char).filter(d => d.dots > 0);
+    const allDiscNames = char ? charDiscs.map(d => d.name) : KNOWN_DISCIPLINES;
+
+    let preAttr = '', preSkill = '', preDisc = 'none', showParseRef = false;
+    if (poolValidated) {
+      const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
+      if (parsed) { preAttr = parsed.attr || ''; preSkill = parsed.skill || ''; preDisc = parsed.disc || 'none'; }
+      else { showParseRef = true; }
+    } else if (projSub) {
+      const resp2 = projSub.responses || {};
+      preAttr  = resp2[`project_${entry.projSlot}_pool_attr`]  || '';
+      preSkill = resp2[`project_${entry.projSlot}_pool_skill`] || '';
+      preDisc  = resp2[`project_${entry.projSlot}_pool_disc`]  || 'none';
+    }
+
+    const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
+      ...ALL_ATTRS.map(a => {
+        const dots = char ? (getAttrVal(char, a) || 0) : null;
+        return `<option value="${esc(a)}" data-dots="${dots ?? 0}"${a === preAttr ? ' selected' : ''}>${dots !== null ? `${esc(a)} (${dots})` : esc(a)}</option>`;
+      })
+    ].join('');
+
+    const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
+      ...ALL_SKILLS.map(s => {
+        const dots = char ? (skTotal(char, s) || 0) : null;
+        return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${s === preSkill ? ' selected' : ''}>${dots !== null ? `${esc(s)} (${dots})` : esc(s)}</option>`;
+      })
+    ].join('');
+
+    const discOptHtml = ['<option value="none" data-dots="0">None</option>',
+      ...allDiscNames.map(name => {
+        const d = charDiscs.find(cd => cd.name === name);
+        const dots = d ? d.dots : null;
+        return `<option value="${esc(name)}" data-dots="${dots ?? 0}"${name === preDisc ? ' selected' : ''}>${dots !== null ? `${esc(name)} (${dots})` : esc(name)}</option>`;
+      })
+    ].join('');
+
+    const eqMod0        = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+    const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr)  || 0) : 0) : 0;
+    const initSkillDots = preSkill ? (char ? (skTotal(char, preSkill)     || 0) : 0) : 0;
+    const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
+    const _pnA          = char && preSkill ? skNineAgain(char, preSkill) : false;
+    const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, eqMod0, preSkill, _pnA);
+
+    const _committed = poolStatus === 'confirmed';
+    const _dis = _committed ? ' disabled' : '';
+    const _isRote0  = rev.rote || false;
+    const _is8a0    = rev.eight_again || false;
+    const _again0   = _is8a0 ? '8' : (_pnA ? '9' : (rev.nine_again ? '9' : '10'));
+    h += `<div class="proc-pool-builder${_committed ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable — character not loaded)</span>' : ''}${_committed ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+    if (showParseRef) h += `<div class="proc-pool-parse-ref">Could not restore selection — previous: "${esc(poolValidated)}"</div>`;
+    h += '<div class="proc-pool-builder-selects">';
+    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_dis}>${attrOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_dis}>${skillOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_dis}>${discOptHtml}</select>`;
+    h += '</div>';
+    h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${eqMod0}">`;
+    h += `<div class="proc-pool-chips">`;
+    h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+    h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _dis);
+    h += '</div>';
+    h += `<button class="proc-rote-chip${_isRote0 ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_dis ? ' disabled' : ''}>Rote</button>`;
+    h += `<button class="proc-again-opt${_again0 === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_dis ? ' disabled' : ''}>10-Again</button>`;
+    h += `<button class="proc-again-opt${_again0 === '9' ? ' is-active' : ''}${_pnA && !_is8a0 && _again0 === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_dis ? ' disabled' : ''}>9-Again</button>`;
+    h += `<button class="proc-again-opt${_again0 === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_dis ? ' disabled' : ''}>8-Again</button>`;
+    h += '</div>';
+    h += _renderPoolModPanel(entry, char, rev, 'project');
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    h += '</div>'; // proc-pool-builder
+  }
+
+  // ── ST Notes thread ──
+  h += '<div class="proc-section proc-notes-panel proc-notes-primary">';
+  h += '<div class="proc-detail-label">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>';
+  if (thread.length) {
+    h += '<div class="proc-notes-thread">';
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += '<div class="proc-note-entry">';
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  ·  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(entry.key)}" data-note-idx="${noteIdx}" title="Delete note">×</button></div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  h += '<div class="proc-note-add">';
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="3"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
+  h += '</div>';
+  h += '</div>'; // proc-notes-panel
+
+  // ── Narrative Constraint ──
+  h += '<div class="proc-section proc-feedback-section">';
+  h += '<div class="proc-detail-label">Narrative Constraint <span class="proc-label-sub">— Claude must not contradict this</span></div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Hard constraint injected into AI prompt (not sent to player)...">`;
+  h += '</div>';
+
+  // ── Player Feedback ──
+  h += '<div class="proc-section proc-player-note-section">';
+  h += '<div class="proc-detail-label">Player Feedback <span class="proc-label-sub">— sent to player</span></div>';
+  h += `<textarea class="proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Plain-language note included verbatim in player outcome...">${esc(playerFacingNote)}</textarea>`;
+  h += '</div>';
+
+  // ── XRef callout ──
+  {
+    const xrefLines = [];
+    if (entry.projTerritory) {
+      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || []).filter(r => r.charName !== entry.charName);
+      if (others.length) xrefLines.push(`Also in ${entry.projTerritory}: ${others.map(r => `${r.charName} (${r.label})`).join(', ')}`);
+    }
+    if (entry.actionType === 'investigate' && rev.investigate_target_char) {
+      const target = rev.investigate_target_char;
+      const others = (_xrefIndex.get(`inv-target:${target}`) || []).filter(r => r.charName !== entry.charName);
+      if (others.length) xrefLines.push(`Also investigating ${target}: ${others.map(r => r.charName).join(', ')}`);
+      if ([..._procQueueMap.values()].some(e => e.actionType === 'hide_protect' && e.charName.toLowerCase() === target)) {
+        xrefLines.push(`${target} has an active hide/protect action this cycle`);
+      }
+    }
+    if (xrefLines.length) {
+      h += `<div class="proc-xref-callout">`;
+      for (const line of xrefLines) h += `<div class="proc-xref-line">${esc(line)}</div>`;
+      h += `</div>`;
+    }
+  }
+
+  // ── Close left + right panel ──
+  // ── Connected Characters ──
+  {
+    const connectedChars = rev.connected_chars || [];
+    const connectedSet   = new Set(connectedChars);
+    const otherChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
+      .filter(({ key }) => key !== entry.charName.toLowerCase())
+      .sort((a, b) => a.key.localeCompare(b.key));
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-conn-typeahead" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-conn-input-row">`;
+      h += `<input type="text" class="proc-conn-input" data-proc-key="${esc(entry.key)}" placeholder="Add character…" autocomplete="off">`;
+      h += `<div class="proc-conn-dropdown" style="display:none"></div>`;
+      h += `</div>`;
+      h += `<div class="proc-conn-chips">`;
+      for (const { key: cKey, label } of otherChars.filter(c => connectedSet.has(c.key))) {
+        h += `<span class="proc-conn-chip" data-char-name="${esc(cKey)}">${esc(label)}<button type="button" class="proc-conn-chip-x" title="Remove">×</button></span>`;
+      }
+      h += `</div>`;
+      h += `</div></div>`;
+    }
+  }
+
+  h += '</div>'; // proc-feed-left
+  h += _renderProjRightPanel(entry, projChar, rev);
+  h += '</div>'; // proc-feed-layout
+
+  h += '</div>'; // proc-action-detail
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -7857,6 +8350,9 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
     return h;
   }
+
+  // Project entries use the normalised card template (Step 0)
+  if (entry.source === 'project') return renderNormalisedCard(entry, review);
 
   const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
   const poolValidated = rev.pool_validated || '';
@@ -8282,7 +8778,13 @@ function renderActionPanel(entry, review) {
           const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
           for (const [slug, status] of Object.entries(_grid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _feedSet.add(tid);
           }
         } catch { /* ignore malformed JSON */ }
@@ -8314,7 +8816,7 @@ function renderActionPanel(entry, review) {
     const resp = feedSub?.responses || {};
     const char = feedChar;
 
-    // ST Pool Builder — always rendered; dot values filled from char data when available
+    // Dice Pool Builder — always rendered; dot values filled from char data when available
     {
       const charDiscs = _charDiscsArray(char).filter(d => d.dots > 0);
       const discNames = charDiscs.map(d => d.name);
@@ -8387,7 +8889,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
+      const fgDice0 = fg0 ? Math.min(char ? meritEffectiveRating(char, fg0) : 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
@@ -8402,8 +8904,13 @@ function renderActionPanel(entry, review) {
 
       const _feedCommitted = poolStatus === 'confirmed';
       const _feedDis = _feedCommitted ? ' disabled' : '';
+      const _feedSubR0  = submissions.find(s => s._id === entry.subId);
+      const _isRoteFeed = entry.feedRote || _feedSubR0?.st_review?.feeding_rote || false;
+      const _pnAFeed    = char && preSkill ? skNineAgain(char, preSkill) : false;
+      const _is8aFeed   = rev.eight_again || false;
+      const _againFeed  = _is8aFeed ? '8' : (_pnAFeed ? '9' : (rev.nine_again ? '9' : '10'));
       h += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+      h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
@@ -8414,13 +8921,18 @@ function renderActionPanel(entry, review) {
       h += `<span class="proc-pool-plus">+</span>`;
       h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_feedDis}>${discOptHtml}</select>`;
       h += '</div>'; // proc-pool-builder-selects
-      // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
-      h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      // Skill metadata: spec checkboxes only (9-again lives in the right panel)
+      h += `<div class="proc-pool-chips">`;
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
       h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _feedDis);
       h += '</div>';
+      h += `<button class="proc-rote-chip${_isRoteFeed ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_feedDis ? ' disabled' : ''}>Rote</button>`;
+      h += `<button class="proc-again-opt${_againFeed === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_feedDis ? ' disabled' : ''}>10-Again</button>`;
+      h += `<button class="proc-again-opt${_againFeed === '9' ? ' is-active' : ''}${_pnAFeed && !_is8aFeed && _againFeed === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_feedDis ? ' disabled' : ''}>9-Again</button>`;
+      h += `<button class="proc-again-opt${_againFeed === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_feedDis ? ' disabled' : ''}>8-Again</button>`;
+      h += '</div>'; // proc-pool-chips
+      h += _renderPoolModPanel(entry, char, rev, 'feeding');
+      h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
       h += '</div>'; // proc-pool-builder
     }
   } else if (entry.source === 'project') {
@@ -8487,8 +8999,11 @@ function renderActionPanel(entry, review) {
 
     const _projCommitted = poolStatus === 'confirmed';
     const _projDis = _projCommitted ? ' disabled' : '';
+    const _isRoteProj = rev.rote || false;
+    const _is8aProj   = rev.eight_again || false;
+    const _againProj  = _is8aProj ? '8' : (_pnA ? '9' : (rev.nine_again ? '9' : '10'));
     h += `<div class="proc-pool-builder${_projCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
+    h += `<div class="proc-detail-label">Dice Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
     if (showParseRef) {
       h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
     }
@@ -8500,11 +9015,17 @@ function renderActionPanel(entry, review) {
     h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_projDis}>${discOptHtml}</select>`;
     h += '</div>';
     h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
-    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
-    // Spec toggles only — 9-again moved to right sidebar for project entries
+    h += `<div class="proc-pool-chips">`;
     h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
     h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _projDis);
     h += '</div>';
+    h += `<button class="proc-rote-chip${_isRoteProj ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}"${_projDis ? ' disabled' : ''}>Rote</button>`;
+    h += `<button class="proc-again-opt${_againProj === '10' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="10"${_projDis ? ' disabled' : ''}>10-Again</button>`;
+    h += `<button class="proc-again-opt${_againProj === '9' ? ' is-active' : ''}${_pnA && !_is8aProj && _againProj === '9' ? ' is-auto' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="9"${_projDis ? ' disabled' : ''}>9-Again</button>`;
+    h += `<button class="proc-again-opt${_againProj === '8' ? ' is-active' : ''}" type="button" data-proc-key="${esc(entry.key)}" data-again="8"${_projDis ? ' disabled' : ''}>8-Again</button>`;
+    h += '</div>'; // proc-pool-chips
+    h += _renderPoolModPanel(entry, char, rev, 'project');
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
     h += '</div>'; // proc-pool-builder
   } else if (isSorcery) {
     // ── Sorcery: player details card + rite dropdown + computed pool display + result note ──
@@ -8547,6 +9068,8 @@ function renderActionPanel(entry, review) {
     const shortRiteName = entry.riteName && entry.riteName.length <= 60;
     if (overridden && shortRiteName) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
     h += '</div>';
+
+    h += _renderPoolModPanel(entry, sorcChar, rev, 'sorcery');
 
     // Pool + target display (auto-computed from selected rite + char)
     // For Custom, build a fake ritInfo from tradition pool + entered level
@@ -8613,6 +9136,7 @@ function renderActionPanel(entry, review) {
       h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
       h += '</div>';
       h += '</div>';
+      h += _renderMeritOutcomeZone(entry, rev);
     }
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
@@ -8628,8 +9152,9 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — feeding, project, sorcery, merit move to right panel; others rendered here
-  if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit') {
+  // Validation status — feeding, project, sorcery, merit, skill acquisitions move to right panel; others rendered here
+  const isSkillAcq = entry.source === 'acquisition' && entry.actionType === 'skill_acquisitions';
+  if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit' && !isSkillAcq) {
     const statusOptions = isSorcery
       ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
@@ -8710,21 +9235,33 @@ function renderActionPanel(entry, review) {
 
     // Project territory overlap
     if (entry.projTerritory) {
-      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || [])
+      // 496.2 QA: normalise to canonical slug for index lookup so OID-keyed
+      // and slug-keyed submissions cross-reference correctly. Also resolve
+      // to display name so the UI shows "The Harbour" instead of an OID.
+      const projCanon = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+      const projDisplay = (cachedTerritories || []).find(t => t.slug === projCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === projCanon)?.name
+                       || entry.projTerritory;
+      const others = (_xrefIndex.get(`terr:${projCanon}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
-        xrefLines.push(`Also in ${entry.projTerritory}: ${names}`);
+        xrefLines.push(`Also in ${projDisplay}: ${names}`);
       }
     }
 
     // Feeding territory overlap
     if (entry.source === 'feeding' && entry.primaryTerr) {
-      const others = (_xrefIndex.get(`terr:${entry.primaryTerr}`) || [])
+      // 496.2 QA: same canonical-slug normalisation + display-name resolution.
+      const primCanon = resolveTerrId(entry.primaryTerr) || entry.primaryTerr;
+      const primDisplay = (cachedTerritories || []).find(t => t.slug === primCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === primCanon)?.name
+                       || entry.primaryTerr;
+      const others = (_xrefIndex.get(`terr:${primCanon}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
-        xrefLines.push(`Also feeding ${entry.primaryTerr}: ${names}`);
+        xrefLines.push(`Also feeding ${primDisplay}: ${names}`);
       }
     }
 
@@ -10051,7 +10588,13 @@ function _playerFeedTerrsText(sub) {
   if (terrs) {
     for (const [slug, status] of Object.entries(terrs)) {
       if (!status || status === 'none' || status === 'Not feeding here') continue;
-      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      let tid;
+      if (/^[a-f0-9]{24}$/i.test(slug)) {
+        const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+        tid = terrDoc?.slug || null;
+      } else {
+        tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      }
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
       if (mt) labels.push(mt.label);
@@ -10094,9 +10637,14 @@ function _getSubFedTerrs(sub) {
     if (grid) {
       for (const [slug, status] of Object.entries(grid)) {
         if (!status || status === 'none' || status === 'Not feeding here') continue;
-        const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-          ? TERRITORY_SLUG_MAP[slug] : undefined;
-        if (tid === undefined) continue;
+        let tid;
+        if (/^[a-f0-9]{24}$/i.test(slug)) {
+          const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+          tid = terrDoc?.slug || null;
+        } else {
+          tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+        }
+        if (!tid) continue;
         const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
         if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
       }
@@ -10132,9 +10680,14 @@ function _getSubFedTerrs(sub) {
       if (roteGrid) {
         for (const [slug, status] of Object.entries(roteGrid)) {
           if (!status || status === 'none' || status === 'Not feeding here') continue;
-          const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-            ? TERRITORY_SLUG_MAP[slug] : undefined;
-          if (tid === undefined) continue;
+          let tid;
+          if (/^[a-f0-9]{24}$/i.test(slug)) {
+            const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+            tid = terrDoc?.slug || null;
+          } else {
+            tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+          }
+          if (!tid) continue;
           const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
           if (!mt) continue;
           const current = fed.get(mt.csvKey) || 0;
@@ -10538,7 +11091,6 @@ export function renderCityOverview() {
     return;
   }
 
-  const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};
   const notes   = currentCycle?.ambience_notes    || '';
 
@@ -10578,19 +11130,12 @@ export function renderCityOverview() {
   const activePhases = TAAG_PHASES.filter(p =>
     TERRITORY_DATA.some(t => (matrix[p.key][t.slug] || []).length > 0)
   );
+  _cityMatrix = matrix;
 
   // ── HTML ──
   let h = `<div class="dt-conflict-panel">`;
 
-  // Header row: title toggle + export button
-  h += `<div class="dt-city-panel-head">`;
-  h += `<div class="dt-matrix-toggle dt-city-title" id="dt-city-toggle">${isOpen ? '\u25BC' : '\u25BA'} City Overview</div>`;
-  h += `<button class="dt-city-export-btn" id="dt-city-export-btn">\u2193 Export JSON</button>`;
-  h += `</div>`;
-
-  if (isOpen) {
-
-    // ── 1. Feeding Matrix ─────────────────────────────────────────
+  // ── 1. Feeding Matrix ─────────────────────────────────────────
     h += `<div class="proc-disc-header" data-toggle="city-feed-matrix">`;
     h += `<span class="proc-amb-title">Feeding Matrix</span>`;
     h += `<span class="proc-amb-toggle">${matrixCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
@@ -10698,22 +11243,11 @@ export function renderCityOverview() {
 
     // ── 6. Territory Pulse (DTIL-4) ───────────────────────────────
     h += renderTerritoryPulsePanel(currentCycle, submissions, characters);
-  }
-
   h += `</div>`; // dt-conflict-panel
   el.innerHTML = h;
 
   // ── Event wiring ──
 
-  document.getElementById('dt-city-toggle')?.addEventListener('click', () => {
-    el.dataset.open = isOpen ? 'false' : 'true';
-    renderCityOverview();
-  });
-
-  document.getElementById('dt-city-export-btn')?.addEventListener('click', e => {
-    e.stopPropagation();
-    _exportCityOverview(matrix);
-  });
 
   el.querySelector('[data-toggle="city-feed-matrix"]')?.addEventListener('click', () => {
     matrixCollapsed = !matrixCollapsed;
