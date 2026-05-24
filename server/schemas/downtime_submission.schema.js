@@ -59,9 +59,7 @@ const feedMethodEnum = [
   '', 'seduction', 'stalking', 'force', 'familiar', 'intimidation', 'other'
 ];
 
-const territoryEnum = [
-  '', 'academy', 'dockyards', 'harbour', 'northshore', 'secondcity'
-];
+const territoryOid = { type: 'string', pattern: '^[a-f0-9]{24}$' };
 
 const bloodTypeEnum = ['Animal', 'Human', 'Kindred'];
 
@@ -77,7 +75,7 @@ function projectSlotProps(n) {
     [`project_${n}_outcome`]:      { type: 'string' },
     [`project_${n}_description`]:  { type: 'string' },
     [`project_${n}_title`]:        { type: 'string' },
-    [`project_${n}_territory`]:    { type: 'string', enum: territoryEnum },
+    [`project_${n}_territory`]:    territoryOid,
     // Dice pool (single, primary). dt-form.24 stripped the secondary pool;
     // legacy `_pool2_*` fields drop from the schema. Pre-redesign drafts
     // retain the keys via `additionalProperties: true` (silent-leave). The
@@ -140,7 +138,7 @@ function sphereSlotProps(n) {
     [`sphere_${n}_action`]:      { type: 'string', enum: sphereActionEnum },
     [`sphere_${n}_outcome`]:     { type: 'string' },
     [`sphere_${n}_description`]: { type: 'string' },
-    [`sphere_${n}_territory`]:   { type: 'string', enum: territoryEnum },
+    [`sphere_${n}_territory`]:   territoryOid,
     [`sphere_${n}_merit`]:       { type: 'string' },  // Display label: "Allies ●●● (Police)"
     [`sphere_${n}_cast`]:        { type: 'string' },   // JSON array of character IDs
   };
