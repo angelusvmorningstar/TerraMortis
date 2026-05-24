@@ -822,10 +822,13 @@ function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
  */
 function _renderPhaseHeader(phaseKey, label, count, unit, isExpanded) {
   const s = count !== 1 ? 's' : '';
-  let h = `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
+  const clickable = isExpanded !== undefined;
+  let h = clickable
+    ? `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`
+    : `<div class="proc-phase-header">`;
   h += `<span class="proc-phase-label">${label}</span>`;
   h += `<span class="proc-phase-count">${count} ${unit}${s}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  if (clickable) h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
   h += `</div>`;
   return h;
 }
@@ -4453,8 +4456,8 @@ function renderProcFilterBar(queue) {
   h += '<div class="proc-filter-row">';
   h += '<div class="proc-filter-label">Status</div>';
   h += '<div class="proc-filter-pills">';
-  for (const [val, label] of [['pending','Pending'],['valid','Valid'],['complete','Complete']]) {
-    h += `<button class="proc-char-chip proc-filter-pill${f.statuses.has(val) ? ' is-active' : ''}" data-filter-dim="statuses" data-filter-val="${esc(val)}">`;
+  for (const [val, label, state] of [['pending','Pending','none'],['valid','Valid','partial'],['complete','Complete','complete']]) {
+    h += `<button class="proc-char-chip state-${state} proc-filter-pill${f.statuses.has(val) ? ' is-active' : ''}" data-filter-dim="statuses" data-filter-val="${esc(val)}">`;
     h += `<span class="proc-char-chip-name">${label}</span>`;
     h += `</button>`;
   }
@@ -4470,10 +4473,10 @@ function renderProcFilterBar(queue) {
       const doneCt = charEntries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
       const total  = charEntries.length;
       const state  = doneCt === 0 ? 'none' : doneCt === total ? 'complete' : 'partial';
-      const prog   = state === 'complete' ? '✓' : `${doneCt}/${total}`;
-      h += `<button class="proc-char-chip state-${state} proc-filter-pill${f.chars.has(char) ? ' is-active' : ''}" data-filter-dim="chars" data-filter-val="${esc(char)}">`;
+      const firstPending = charEntries.find(e => !DONE_STATUSES.has(getEntryReview(e)?.pool_status));
+      const stripPhase = firstPending?.phase || '';
+      h += `<button class="proc-char-chip state-${state} proc-filter-pill${f.chars.has(char) ? ' is-active' : ''}" data-filter-dim="chars" data-filter-val="${esc(char)}" data-strip-char="${esc(char)}"${stripPhase ? ` data-strip-phase="${esc(stripPhase)}"` : ''}>`;
       h += `<span class="proc-char-chip-name">${esc(char)}</span>`;
-      h += `<span class="proc-char-chip-prog">${prog}</span>`;
       h += `</button>`;
     }
     h += '</div></div>';
@@ -4486,7 +4489,7 @@ function renderProcFilterBar(queue) {
     h += '<div class="proc-filter-pills">';
     for (const phaseKey of phasesSeen) {
       const label = PHASE_LABELS[phaseKey] || phaseKey;
-      h += `<button class="proc-char-chip proc-filter-pill${f.phases.has(phaseKey) ? ' is-active' : ''}" data-filter-dim="phases" data-filter-val="${esc(phaseKey)}">`;
+      h += `<button class="proc-char-chip state-none proc-filter-pill${f.phases.has(phaseKey) ? ' is-active' : ''}" data-filter-dim="phases" data-filter-val="${esc(phaseKey)}">`;
       h += `<span class="proc-char-chip-name">${esc(label)}</span>`;
       h += `</button>`;
     }
@@ -4499,7 +4502,7 @@ function renderProcFilterBar(queue) {
     h += '<div class="proc-filter-label">Territory</div>';
     h += '<div class="proc-filter-pills">';
     for (const terr of terrsSeen) {
-      h += `<button class="proc-char-chip proc-filter-pill${f.territories.has(terr) ? ' is-active' : ''}" data-filter-dim="territories" data-filter-val="${esc(terr)}">`;
+      h += `<button class="proc-char-chip state-none proc-filter-pill${f.territories.has(terr) ? ' is-active' : ''}" data-filter-dim="territories" data-filter-val="${esc(terr)}">`;
       h += `<span class="proc-char-chip-name">${esc(terr)}</span>`;
       h += `</button>`;
     }
@@ -4590,24 +4593,17 @@ function renderProcessingMode(container) {
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
-    const isCollapsed = !expandedPhases.has(phaseKey);
-
     // Completion count for this phase
     const doneCount = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
     const phaseProgressBadge = _progressBadge(doneCount, entries.length, '');
 
     const visibleEntries = filteredQueue.filter(e => e.phase === phaseKey);
     if (_anyFilterActive() && visibleEntries.length === 0) continue;
-    const effectiveCollapsed = isCollapsed;
 
-    h += `<div class="proc-phase-section">`;
-    h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !effectiveCollapsed);
-
-    if (!effectiveCollapsed) {
-      // JDT-5: joint phase groups participant rows by joint_id and wraps
-      // each group with a shared header + outcome textarea. Other phases
-      // render entries linearly as before.
-      if (phaseKey === 'joint') {
+    // JDT-5: joint phase groups participant rows by joint_id and wraps
+    // each group with a shared header + outcome textarea. Other phases
+    // render entries linearly as before.
+    if (phaseKey === 'joint') {
         const byJoint = new Map();
         for (const entry of visibleEntries) {
           const jid = entry.joint_id || '_orphan';
@@ -4623,7 +4619,7 @@ function renderProcessingMode(container) {
           const joint = jointEntries[0]?.joint_doc || null;
           h += renderJointGroup(joint, jointEntries);
         }
-      } else {
+    } else {
       for (const entry of visibleEntries) {
         const isExpanded = procExpandedKeys.has(entry.key);
         const review = getEntryReview(entry);
@@ -4661,19 +4657,12 @@ function renderProcessingMode(container) {
       if (phaseKey === 'investigate') {
         h += '<div id="dt-investigations"></div>';
       }
-    }
 
-    h += '</div>'; // proc-phase-section
   }
 
   // If no investigate actions were submitted, still show the investigations tracker
   if (!byPhase.has('investigate')) {
-    h += `<div class="proc-phase-section">`;
-    h += _renderPhaseHeader('investigate', PHASE_LABELS.investigate, 0, 'action', expandedPhases.has('investigate'));
-    if (expandedPhases.has('investigate')) {
-      h += '<div id="dt-investigations"></div>';
-    }
-    h += '</div>';
+    h += '<div id="dt-investigations"></div>';
   }
 
   // XP Review — Step 10
@@ -4725,14 +4714,21 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire filter pills
+  // Wire filter pills — character chips use replace shortcut (proto.3); others toggle
   container.querySelectorAll('.proc-filter-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      const dim = btn.dataset.filterDim;
-      const val = btn.dataset.filterVal;
-      if (!dim || !val || !_procFilters[dim]) return;
-      if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
-      else _procFilters[dim].add(val);
+      if (btn.dataset.stripChar) {
+        _procFilters.statuses    = new Set();
+        _procFilters.chars       = new Set([btn.dataset.stripChar]);
+        _procFilters.phases      = btn.dataset.stripPhase ? new Set([btn.dataset.stripPhase]) : new Set();
+        _procFilters.territories = new Set();
+      } else {
+        const dim = btn.dataset.filterDim;
+        const val = btn.dataset.filterVal;
+        if (!dim || !val || !_procFilters[dim]) return;
+        if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
+        else _procFilters[dim].add(val);
+      }
       renderProcessingMode(container);
     });
   });
@@ -6112,15 +6108,6 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire phase section collapse toggles
-  container.querySelectorAll('[data-toggle-phase]').forEach(el => {
-    el.addEventListener('click', () => {
-      const key = el.dataset.togglePhase;
-      if (expandedPhases.has(key)) expandedPhases.delete(key);
-      else expandedPhases.add(key);
-      renderProcessingMode(container);
-    });
-  });
 
   // Wire XP review character block toggles (Step 10)
   container.querySelectorAll('[data-xp-review-id]').forEach(el => {

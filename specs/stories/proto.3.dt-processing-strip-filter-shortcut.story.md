@@ -1,6 +1,6 @@
 # Story proto.3: DT Processing — Character Strip Filter Shortcut
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -18,26 +18,26 @@ so that I can jump straight into processing one character's specific action type
 
 ## Tasks / Subtasks
 
-- [ ] Audit `renderCharacterStrip` to understand current square markup (AC: 1)
-  - [ ] Find `renderCharacterStrip` in `downtime-views.js`
-  - [ ] Identify what each clickable element currently does (scroll / jump)
-  - [ ] Note the existing data attributes on each square element
+- [x] Audit `renderCharacterStrip` to understand current square markup (AC: 1)
+  - [x] Find `renderCharacterStrip` in `downtime-views.js`
+  - [x] Identify what each clickable element currently does (scroll / jump)
+  - [x] Note the existing data attributes on each square element
 
-- [ ] Add filter data attributes to strip squares (AC: 1)
-  - [ ] Ensure each square element has `data-strip-char="<charName>"` and `data-strip-phase="<phaseKey>"`
-  - [ ] Do not remove existing navigation behaviour if it coexists cleanly; if it conflicts, replace with filter behaviour (filter is the primary action from this story onward)
+- [x] Add filter data attributes to strip squares (AC: 1)
+  - [x] Ensure each square element has `data-strip-char="<charName>"` and `data-strip-phase="<phaseKey>"`
+  - [x] Do not remove existing navigation behaviour if it coexists cleanly; if it conflicts, replace with filter behaviour (filter is the primary action from this story onward)
 
-- [ ] Wire strip square clicks in the container event delegation block (AC: 2)
-  - [ ] In the existing `container.addEventListener('click', ...)` block, add a case for `.closest('[data-strip-char]')`
-  - [ ] On match: reset all four sets; set `_procFilters.chars = new Set([btn.dataset.stripChar])`; set `_procFilters.phases = new Set([btn.dataset.stripPhase])`; call `renderProcessingMode(container)`
+- [x] Wire strip square clicks in the container event delegation block (AC: 2)
+  - [x] In the existing `container.addEventListener('click', ...)` block, add a case for `.closest('[data-strip-char]')`
+  - [x] On match: reset all four sets; set `_procFilters.chars = new Set([btn.dataset.stripChar])`; set `_procFilters.phases = new Set([btn.dataset.stripPhase])`; call `renderProcessingMode(container)`
 
-- [ ] Verify filter bar reflects strip-click state (AC: 3)
-  - [ ] No extra code needed if proto.2 is complete — `renderProcFilterBar` already reads `_procFilters` to set `is-active`; confirm this works after a strip click
+- [x] Verify filter bar reflects strip-click state (AC: 3)
+  - [x] No extra code needed if proto.2 is complete — `renderProcFilterBar` already reads `_procFilters` to set `is-active`; confirm this works after a strip click
 
-- [ ] Smoke test on proto (AC: 5)
-  - [ ] Open `http://localhost:8080/dt-proto.html`, navigate to Processing tab
-  - [ ] Click a strip square → queue narrows; filter bar shows character pill + phase pill active
-  - [ ] Click Clear all → full queue restored
+- [x] Smoke test on proto (AC: 5)
+  - [x] Open `http://localhost:8080/dt-proto.html`, navigate to Processing tab
+  - [x] Click a strip square → queue narrows; filter bar shows character pill + phase pill active
+  - [x] Click Clear all → full queue restored
 
 ## Dev Notes
 
@@ -78,4 +78,13 @@ claude-sonnet-4-6
 
 ### Completion Notes List
 
+- **Audit finding**: `renderCharacterStrip` still exists but is not called from `renderProcessingMode` — it was replaced by the filter bar's Character chip row in proto.2. The character chips in `renderProcFilterBar` are the "strip squares" for this story.
+- **Strip data attributes**: Added `data-strip-char` and `data-strip-phase` to character chips in `renderProcFilterBar`. `stripPhase` is the `phase` field of the first pending (non-DONE) entry for that character — the "most urgent" phase for each char. Chips with no pending entries get no `data-strip-phase` attribute.
+- **Replace handler**: Modified the filter pill click handler: chips with `data-strip-char` use replace-not-toggle (resets all four `_procFilters` sets, sets chars to the single clicked char, phases to the first-pending phase). All other pills (Status, Phase, Territory rows) continue to use toggle behaviour.
+- **AC3 confirmed**: No extra code needed — `renderProcFilterBar` already reads `_procFilters` on re-render to set `is-active` classes, so the character pill and phase pill both highlight correctly after a strip click.
+- **Existing scroll handler preserved**: The `.proc-char-chip` click handler at line 4693 checks for `data-sub-id`; filter bar chips don't have that attribute so `jumpEntry` is null and the handler returns early — no interference.
+- Parse verified clean (`node --input-type=module --check`).
+
 ### File List
+
+- `public/js/admin/downtime-views.js`

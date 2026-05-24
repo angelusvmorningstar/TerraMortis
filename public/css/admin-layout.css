@@ -4174,11 +4174,12 @@ body {
   font-family: var(--fl);
 }
 
-.proc-phase-toggle {
-  font-size: 11px;
-  color: var(--txt3);
-  font-family: var(--fl);
-  font-weight: 400;
+.proc-phase-section .proc-phase-header {
+  cursor: default;
+  user-select: auto;
+}
+.proc-phase-section .proc-phase-header:hover {
+  background: var(--surf2);
 }
 
 /* ── Shared submission-row styles (sign-off, XP review, narrative, etc.) ── */
