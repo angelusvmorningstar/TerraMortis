@@ -4,7 +4,6 @@ import { getCollection } from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { territorySchema } from '../schemas/territory.schema.js';
 import { isStRole, isRegentOfTerritory } from '../middleware/auth.js';
-import { buildTerritoryLookupMaps, resolveSubmissionTerritoryKey } from '../utils/territory-key-resolver.js';
 
 function requireST(req, res, next) {
   if (!isStRole(req.user)) return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
@@ -105,10 +104,8 @@ router.patch('/:id/feeding-rights', async (req, res) => {
   }
 
   // Lock check — only applies to non-ST callers.
-  // Issue #496 / story 496.1: dual-read tolerance. Submission feeding_territories
-  // keys can be in any of the live formats (long slug, short slug, display name,
-  // ObjectId). Route every key through the shared resolver, which maps each to
-  // the canonical territory `_id` string. Comparison is OID-to-OID.
+  // Issue #496 / story 496.4: all stored submissions are OID-keyed after the
+  // 496.3 migration, so direct key comparison suffices.
   if (!isStRole(req.user)) {
     const activeCycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
 
@@ -122,9 +119,6 @@ router.patch('/:id/feeding-rights', async (req, res) => {
           status: 'submitted',
         }).toArray();
 
-        // Single-territory lookup map: any submission key that doesn't resolve
-        // to THIS territory's _id correctly returns null and is skipped.
-        const maps = buildTerritoryLookupMaps([territory]);
         const targetId = String(territory._id);
         const fedCharIds = new Set();
         for (const sub of subs) {
@@ -135,7 +129,7 @@ router.patch('/:id/feeding-rights', async (req, res) => {
           if (!grid || typeof grid !== 'object') continue;
           for (const [key, state] of Object.entries(grid)) {
             if (state !== 'resident') continue;
-            if (resolveSubmissionTerritoryKey(key, maps) === targetId) {
+            if (key === targetId) {
               fedCharIds.add(String(sub.character_id));
             }
           }

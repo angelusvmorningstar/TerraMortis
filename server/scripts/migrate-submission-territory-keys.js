@@ -49,11 +49,6 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  buildTerritoryLookupMaps,
-  resolveSubmissionTerritoryKey,
-} from '../utils/territory-key-resolver.js';
-
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const HEX24 = /^[a-f0-9]{24}$/i;
@@ -96,6 +91,68 @@ export function buildValueFieldNames() {
 }
 
 export const VALUE_FIELDS = buildValueFieldNames();
+
+// ── Territory lookup helpers (inlined from deleted territory-key-resolver.js) ─
+// These are only needed during migration runs; after --apply all keys are OIDs.
+
+// Known display-name and long-slug aliases that don't derive from a territory
+// document's canonical name or slug. Drawn from the DT1/DT2 audit in 496.1.
+const _NAME_ALIASES = {
+  'The Shore':          'northshore',
+  'The City Harbour':   'harbour',
+  'The Docklands':      'dockyards',
+  'The Northern Shore': 'northshore',
+  'Academy':            'academy',
+  'Harbour':            'harbour',
+  'Dockyards':          'dockyards',
+  'Second City':        'secondcity',
+  'North Shore':        'northshore',
+};
+
+const _LONG_SLUG_ALIASES = {
+  the_city_harbour:    'harbour',
+  the_docklands:       'dockyards',
+  the_northern_shore:  'northshore',
+};
+
+/**
+ * Build slug/name lookup maps from a territory document array.
+ * Exported so the migration test can create MAPS without importing the
+ * (now-deleted) territory-key-resolver.js module.
+ * @param {object[]} territories
+ */
+export function buildTerritoryLookupMaps(territories) {
+  const bySlug = {};     // short slug ('harbour') → OID
+  const byLongSlug = {}; // long slug ('the_harbour') → OID
+  const byName = {};     // display name ('The Harbour') → OID
+
+  for (const t of territories) {
+    if (!t.slug || t.slug.startsWith('regent_save_')) continue;
+    const oid = String(t._id);
+    bySlug[t.slug] = oid;
+    if (t.name) {
+      byName[t.name] = oid;
+      const longSlug = t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      byLongSlug[longSlug] = oid;
+    }
+  }
+
+  for (const [alias, slug] of Object.entries(_NAME_ALIASES)) {
+    if (bySlug[slug] && !byName[alias]) byName[alias] = bySlug[slug];
+  }
+  for (const [alias, slug] of Object.entries(_LONG_SLUG_ALIASES)) {
+    if (bySlug[slug] && !byLongSlug[alias]) byLongSlug[alias] = bySlug[slug];
+  }
+
+  return { bySlug, byLongSlug, byName };
+}
+
+/** Resolve a territory key string to a canonical OID string (or null). */
+export function resolveSubmissionTerritoryKey(key, maps) {
+  if (!key || typeof key !== 'string') return null;
+  if (isOidShaped(key)) return key;
+  return maps.bySlug[key] || maps.byLongSlug[key] || maps.byName[key] || null;
+}
 
 // ── Pure helpers (exported for unit testing) ────────────────────────────────
 

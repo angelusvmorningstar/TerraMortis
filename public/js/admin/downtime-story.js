@@ -74,39 +74,15 @@ const TERRITORY_DISPLAY = {
 
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  // Issue #496 / story 496.2 QA: ObjectId-format input — look up via
-  // _currentTerritories. After 496.2, submission territory fields are OID-keyed;
-  // every consumer that routes territory identifiers through resolveTerrId
-  // benefits from this branch.
-  if (/^[a-f0-9]{24}$/i.test(raw)) {
-    const t = (_currentTerritories || []).find(td => String(td._id) === raw);
-    return t?.slug || null;
-  }
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ').trim();
-  for (const [id, name] of Object.entries(TERRITORY_DISPLAY)) {
-    const norm = name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === norm || normalised.includes(norm) || norm.includes(normalised)) return id;
-  }
-  return null;
+  const t = (_currentTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
 }
 
-// Issue #496 / story 496.2 QA: tolerant feeding_territories grid read.
-// After 496.2, blobs may be keyed by ObjectId (new form), long slug
-// (legacy drafts), or short slug (defensive). Each fed-by-slug consumer
-// calls this helper to look up a territory's value without knowing which
-// format the saved blob uses.
 function _terrGridVal(grid, terrId) {
   if (!grid || !terrId) return undefined;
-  // 1. OID branch: find canonical _id from terrId via _currentTerritories
   const terrObj = (_currentTerritories || []).find(t => t.slug === terrId);
   const oid = terrObj ? String(terrObj._id) : null;
   if (oid && grid[oid] !== undefined) return grid[oid];
-  // 2. Long-slug branch: reverse TERRITORY_SLUG_MAP
-  const longSlug = Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0];
-  if (longSlug && grid[longSlug] !== undefined) return grid[longSlug];
-  // 3. Defensive short-slug direct lookup
-  if (grid[terrId] !== undefined) return grid[terrId];
   return undefined;
 }
 

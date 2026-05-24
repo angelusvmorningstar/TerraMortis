@@ -3758,25 +3758,11 @@ function extractTerritoryFromText(text) {
   return null;
 }
 
-/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
+/** Normalise a territory OID string to a TERRITORY_DATA id. Returns null if not found. */
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  // Issue #496 / story 496.2: ObjectId-format input — look up via cached
-  // territories. Submissions written by the post-496.2 form encode territory
-  // keys as OIDs; admin readers route them through here to get a canonical
-  // short slug for downstream comparisons against territory.slug.
-  if (/^[a-f0-9]{24}$/i.test(raw)) {
-    const t = (cachedTerritories || []).find(td => String(td._id) === raw);
-    return t?.slug || null;
-  }
-  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
-  for (const td of TERRITORY_DATA) {
-    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.slug;
-  }
-  return null;
+  const t = (cachedTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
 }
 
 // ── Ambience source gatherers ─────────────────────────────────────────────────
@@ -7982,7 +7968,13 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
           const _roteGrid = JSON.parse(_roteSub?.responses?.feeding_territories_rote || '{}');
           for (const [slug, status] of Object.entries(_roteGrid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _rotePillSet.add(tid);
           }
         } catch { /* ignore */ }
@@ -8786,7 +8778,13 @@ function renderActionPanel(entry, review) {
           const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
           for (const [slug, status] of Object.entries(_grid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _feedSet.add(tid);
           }
         } catch { /* ignore malformed JSON */ }
@@ -10590,7 +10588,13 @@ function _playerFeedTerrsText(sub) {
   if (terrs) {
     for (const [slug, status] of Object.entries(terrs)) {
       if (!status || status === 'none' || status === 'Not feeding here') continue;
-      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      let tid;
+      if (/^[a-f0-9]{24}$/i.test(slug)) {
+        const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+        tid = terrDoc?.slug || null;
+      } else {
+        tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      }
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
       if (mt) labels.push(mt.label);
@@ -10633,9 +10637,14 @@ function _getSubFedTerrs(sub) {
     if (grid) {
       for (const [slug, status] of Object.entries(grid)) {
         if (!status || status === 'none' || status === 'Not feeding here') continue;
-        const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-          ? TERRITORY_SLUG_MAP[slug] : undefined;
-        if (tid === undefined) continue;
+        let tid;
+        if (/^[a-f0-9]{24}$/i.test(slug)) {
+          const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+          tid = terrDoc?.slug || null;
+        } else {
+          tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+        }
+        if (!tid) continue;
         const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
         if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
       }
@@ -10671,9 +10680,14 @@ function _getSubFedTerrs(sub) {
       if (roteGrid) {
         for (const [slug, status] of Object.entries(roteGrid)) {
           if (!status || status === 'none' || status === 'Not feeding here') continue;
-          const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-            ? TERRITORY_SLUG_MAP[slug] : undefined;
-          if (tid === undefined) continue;
+          let tid;
+          if (/^[a-f0-9]{24}$/i.test(slug)) {
+            const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+            tid = terrDoc?.slug || null;
+          } else {
+            tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+          }
+          if (!tid) continue;
           const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
           if (!mt) continue;
           const current = fed.get(mt.csvKey) || 0;

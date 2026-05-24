@@ -1,17 +1,12 @@
 /**
- * API tests — submission territory key dual-read tolerance (issue #496, story 496.1).
+ * API tests — submission territory key OID format (issue #496, story 496.4).
  *
- * Verifies that the server accepts BOTH ObjectId-keyed and legacy-slug-keyed
- * submission territory fields end-to-end:
- *
+ * After 496.4 cleanup:
  *   (a) POST submission with OID-keyed feeding_territories → persists & reads back
- *   (b) POST submission with legacy-slug-keyed feeding_territories → persists & reads back
- *   (c) POST submission with mixed OID + slug keys in the same payload → both work
+ *   (b) POST submission with legacy slug in sphere/project enum fields → 400
+ *   (c) POST submission with OID-keyed enum fields → persists & reads back
  *   (d) Feeding-rights lock check honours OID-keyed submission territory
- *       (companion to the slug-keyed lock test in api-territories-regent-write.test.js)
- *
- * Story 496.4 will tighten the schema and delete this test file once the
- * migration has rekeyed all submissions to OID and the tolerance window closes.
+ *       (uses direct key comparison after resolver deletion)
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -100,17 +95,16 @@ afterAll(async () => {
   await teardownDb();
 });
 
-describe('POST /api/downtime_submissions — feeding_territories format tolerance (AC 6 a/b/c)', () => {
-  it('(b) accepts legacy long-slug keys and round-trips them unchanged', async () => {
+describe('POST /api/downtime_submissions — territory field format (AC 6 a/b/c)', () => {
+  it('(a) accepts ObjectId-keyed feeding_territories and round-trips unchanged', async () => {
     const payload = {
       cycle_id: CYCLE_ID,
       character_id: CHAR_ID,
       status: 'draft',
       responses: {
         feeding_territories: JSON.stringify({
-          the_academy: 'none',
-          the_harbour: 'resident',
-          the_north_shore: 'feeding_rights',
+          [HARBOUR_OID]: 'resident',
+          [NORTHSHORE_OID]: 'feeding_rights',
           the_barrens_no_territory_: 'none',
         }),
       },
@@ -125,41 +119,33 @@ describe('POST /api/downtime_submissions — feeding_territories format toleranc
     CREATED_SUBMISSIONS.push(new ObjectId(res.body._id));
   });
 
-  it('(a) accepts ObjectId-keyed feeding_territories and round-trips them unchanged', async () => {
-    const payload = {
-      cycle_id: CYCLE_ID,
-      character_id: CHAR_ID,
-      status: 'draft',
-      responses: {
-        feeding_territories: JSON.stringify({
-          [HARBOUR_OID]: 'resident',
-          [NORTHSHORE_OID]: 'feeding_rights',
-        }),
-      },
-    };
+  it('(b) rejects legacy short-slug values in the validated enum fields', async () => {
+    // After 496.4 schema tightening, sphere/project territory enums are OID-only.
     const res = await request(app)
       .post('/api/downtime_submissions')
       .set('X-Test-User', playerUser([CHAR_ID]))
-      .send(payload);
-
-    expect(res.status).toBe(201);
-    expect(res.body.responses.feeding_territories).toBe(payload.responses.feeding_territories);
-    CREATED_SUBMISSIONS.push(new ObjectId(res.body._id));
+      .send({
+        cycle_id: CYCLE_ID,
+        character_id: CHAR_ID,
+        status: 'draft',
+        responses: {
+          sphere_1_territory: 'academy', // short-slug: no longer valid
+        },
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
   });
 
-  it('(c) accepts mixed OID + legacy-slug keys in the same payload', async () => {
+  it('(c) accepts OID values in the validated enum fields', async () => {
     const payload = {
       cycle_id: CYCLE_ID,
       character_id: CHAR_ID,
       status: 'draft',
       responses: {
-        feeding_territories: JSON.stringify({
-          [HARBOUR_OID]: 'resident',         // OID key
-          the_north_shore: 'feeding_rights', // long-slug key
-        }),
-        project_1_territory:        HARBOUR_OID, // enum: OID format
-        sphere_1_territory:         'academy',   // enum: short-slug format
-        project_1_ambience_target:  NORTHSHORE_OID,
+        feeding_territories: JSON.stringify({ [HARBOUR_OID]: 'resident' }),
+        project_1_territory:       HARBOUR_OID,
+        sphere_1_territory:        NORTHSHORE_OID,
+        project_1_ambience_target: HARBOUR_OID,
       },
     };
     const res = await request(app)
@@ -169,10 +155,8 @@ describe('POST /api/downtime_submissions — feeding_territories format toleranc
 
     expect(res.status).toBe(201);
     const r = res.body.responses;
-    expect(r.feeding_territories).toBe(payload.responses.feeding_territories);
     expect(r.project_1_territory).toBe(HARBOUR_OID);
-    expect(r.sphere_1_territory).toBe('academy');
-    expect(r.project_1_ambience_target).toBe(NORTHSHORE_OID);
+    expect(r.sphere_1_territory).toBe(NORTHSHORE_OID);
     CREATED_SUBMISSIONS.push(new ObjectId(res.body._id));
   });
 
@@ -185,7 +169,7 @@ describe('POST /api/downtime_submissions — feeding_territories format toleranc
         character_id: CHAR_ID,
         status: 'draft',
         responses: {
-          project_1_territory: 'garbage-not-an-oid-or-slug',
+          project_1_territory: 'garbage-not-an-oid',
         },
       });
     expect(res.status).toBe(400);
@@ -194,9 +178,8 @@ describe('POST /api/downtime_submissions — feeding_territories format toleranc
 });
 
 describe('PATCH /api/territories/:id/feeding-rights — OID-keyed submission lock (AC 6 d)', () => {
-  // Companion to the slug-keyed lock test in api-territories-regent-write.test.js:183.
-  // Verifies that the new resolver path correctly identifies feeders whose
-  // submission used the OID format.
+  // Verifies that the feeding-rights lock check correctly identifies feeders
+  // via direct OID key comparison (post-496.4: no resolver involved).
 
   let testRegentTerritory;
   let testCycle;
@@ -250,13 +233,8 @@ describe('PATCH /api/territories/:id/feeding-rights — OID-keyed submission loc
 
   it('(d, negative) OID-keyed submission for a DIFFERENT territory does NOT lock removal from this one', async () => {
     // Submission's feeding key is HARBOUR_OID (a different territory's _id).
-    // The lock check builds a single-territory lookup map for testRegentTerritory,
-    // so HARBOUR_OID correctly resolves to null and is skipped. The removal
-    // should succeed.
-    //
-    // Regression guard: if a future refactor changes the lock check to use a
-    // multi-territory map without re-filtering by the target's _id, this test
-    // catches the resulting over-lock.
+    // Direct key comparison: HARBOUR_OID !== testRegentTerritory, so the
+    // character is not counted as a feeder here and removal succeeds.
     const subResult = await getCollection('downtime_submissions').insertOne({
       character_id: 'oid-fed-char',
       character_name: 'OID Fed Elsewhere',

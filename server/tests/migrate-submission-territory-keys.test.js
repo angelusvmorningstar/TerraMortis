@@ -14,7 +14,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MongoClient, ObjectId } from 'mongodb';
 import 'dotenv/config';
 
-import { buildTerritoryLookupMaps } from '../utils/territory-key-resolver.js';
 import {
   isOidShaped,
   isBarrens,
@@ -24,6 +23,7 @@ import {
   auditSubmissions,
   applyUpdates,
   countLegacyKeysRemaining,
+  buildTerritoryLookupMaps,
 } from '../scripts/migrate-submission-territory-keys.js';
 
 // ── Shared fixture data ─────────────────────────────────────────────────────

@@ -133,16 +133,11 @@ function _terrOidForName(name) {
   return t?._id ? String(t._id) : null;
 }
 
-// Issue #496 / story 496.2: tolerant grid-value read for the dual-key window.
-// After 496.2 ships, feeding_territories / feeding_territories_rote / influence_spend
-// blobs may be keyed by either ObjectId (new) or legacy slug (existing drafts).
-// Tries OID first, falls back to legacy slug. Returns undefined when neither key
-// is present so callers preserve their existing default-value behaviour.
 function _terrGridVal(grid, displayName, legacyKey) {
   if (!grid) return undefined;
   const oid = _terrOidForName(displayName);
   if (oid && grid[oid] !== undefined) return grid[oid];
-  return grid[legacyKey];
+  return undefined;
 }
 let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
@@ -3805,16 +3800,8 @@ function renderProjectSlots(saved, mode = 'advanced') {
         try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
         const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
         if (!key) return '';
-        // 496.2: key may be an OID (new format) or a long slug (legacy drafts)
-        if (/^[a-f0-9]{24}$/i.test(key)) {
-          const t = (_territories || []).find(t => String(t._id) === key);
-          return t?.slug || '';
-        }
-        const niceName = FEEDING_TERRITORIES.find(
-          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
-        );
-        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
-        return td?.slug || '';
+        const t = (_territories || []).find(t => String(t._id) === key);
+        return t?.slug || '';
       };
       const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
       // Issue #166 (2026-05-08): pass the primary feeding's active spec
@@ -6462,16 +6449,8 @@ function renderQuestion(q, value) {
           try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
           const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
           if (!key) return '';
-          // 496.2: key may be an OID (new format) or a long slug (legacy drafts)
-          if (/^[a-f0-9]{24}$/i.test(key)) {
-            const t = (_territories || []).find(t => String(t._id) === key);
-            return t?.slug || '';
-          }
-          const niceName = FEEDING_TERRITORIES.find(
-            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
-          );
-          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
-          return td?.slug || '';
+          const t = (_territories || []).find(t => String(t._id) === key);
+          return t?.slug || '';
         };
         const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
         // Issue #166: pass the active speciality so the MINIMAL primary
@@ -6620,15 +6599,8 @@ function renderQuestion(q, value) {
           );
           if (!key) return null;
           if (grid[key] === 'barrens') return { mod: -4, label: 'Barrens (The Barrens)' };
-          // 496.2: key may be an OID (new format) or a long slug (legacy drafts).
-          // Resolve to a display name either way.
-          let name;
-          if (/^[a-f0-9]{24}$/i.test(key)) {
-            const tDoc = (_territories || []).find(t => String(t._id) === key);
-            name = tDoc?.name;
-          } else {
-            name = FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key);
-          }
+          const tDoc = (_territories || []).find(t => String(t._id) === key);
+          const name = tDoc?.name;
           if (!name) return null;
           const td = TERRITORY_DATA.find(t => t.name === name);
           if (!td) return null;
