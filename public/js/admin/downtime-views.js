@@ -7702,6 +7702,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `</div>`; // proc-feed-vitae-panel
 
   // ── Roll toggles: Rote, 9-Again, 8-Again ──
+  const poolValidated = rev.pool_validated || '';
   const feedSubR = submissions.find(s => s._id === entry.subId);
   const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
   const eightAgainStateFeed = rev.eight_again || false;
