@@ -488,20 +488,22 @@ async function _handleStoryTaBlur(ta) {
 
 // ── Completion helpers ─────────────────────────────────────────────────────────
 
+/** True if the merit action at index idx was player-deleted via st_review.deleted_action_keys. */
+function _isDeletedMeritAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
+}
+
+/** True if the project action at index idx was player-deleted via st_review.deleted_action_keys. */
+function _isDeletedProjectAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
+}
+
 /**
  * Returns true only when stNarrative[sectionKey].status === 'complete'.
  * Array-typed and approval-typed sections use section-specific helpers below.
  */
 export function isSectionComplete(stNarrative, sectionKey) {
   return stNarrative?.[sectionKey]?.status === 'complete';
-}
-
-function _isDeletedMeritAction(sub, idx) {
-  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
-}
-
-function _isDeletedProjectAction(sub, idx) {
-  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
 }
 
 /**
