@@ -50,8 +50,7 @@ const CS_ACTION_PRIORITY = [
   'attack',
   'patrol_scout',
   'investigate',
-  'ambience_increase',
-  'ambience_decrease',
+  'ambience_change',
   'support',
   'misc',
   'rumour',
@@ -75,13 +74,16 @@ const TERRITORY_DISPLAY = {
 
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ').trim();
-  for (const [id, name] of Object.entries(TERRITORY_DISPLAY)) {
-    const norm = name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === norm || normalised.includes(norm) || norm.includes(normalised)) return id;
-  }
-  return null;
+  const t = (_currentTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
+}
+
+function _terrGridVal(grid, terrId) {
+  if (!grid || !terrId) return undefined;
+  const terrObj = (_currentTerritories || []).find(t => t.slug === terrId);
+  const oid = terrObj ? String(terrObj._id) : null;
+  if (oid && grid[oid] !== undefined) return grid[oid];
+  return undefined;
 }
 
 // MERIT_MATRIX and INVESTIGATION_MATRIX imported from downtime-constants.js
@@ -486,20 +488,22 @@ async function _handleStoryTaBlur(ta) {
 
 // ── Completion helpers ─────────────────────────────────────────────────────────
 
+/** True if the merit action at index idx was player-deleted via st_review.deleted_action_keys. */
+function _isDeletedMeritAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
+}
+
+/** True if the project action at index idx was player-deleted via st_review.deleted_action_keys. */
+function _isDeletedProjectAction(sub, idx) {
+  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
+}
+
 /**
  * Returns true only when stNarrative[sectionKey].status === 'complete'.
  * Array-typed and approval-typed sections use section-specific helpers below.
  */
 export function isSectionComplete(stNarrative, sectionKey) {
   return stNarrative?.[sectionKey]?.status === 'complete';
-}
-
-function _isDeletedMeritAction(sub, idx) {
-  return (sub?.st_review?.deleted_action_keys || []).includes(`merit:${idx}`);
-}
-
-function _isDeletedProjectAction(sub, idx) {
-  return (sub?.st_review?.deleted_action_keys || []).includes(`proj:${idx}`);
 }
 
 /**
@@ -664,7 +668,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
   // Ambience actions use a dedicated territory field; patrol uses another.
   // Read the action-type-appropriate field so territory is never 'Unknown'.
-  const isAmbience      = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+  const isAmbience      = actionType === 'ambience_change' || actionType === 'ambience_increase' || actionType === 'ambience_decrease';
   const isInvestigation = actionType === 'investigate';
   const isFeed          = actionType === 'feed';
   const terrRaw    = isAmbience
@@ -770,12 +774,12 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
 
     // Count residents/poachers from all submissions
     let residents = 0, poachers = 0;
-    const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
-    if (terrSlug) {
+    if (terrId) {
       for (const s of _allSubmissions) {
         let terrs = {};
         try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-        const val = terrs[terrSlug];
+        // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+        const val = _terrGridVal(terrs, terrId);
         if (val === 'resident') residents++;
         else if (val && val !== 'none') poachers++;
       }
@@ -789,7 +793,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
         if (!r || r.pool_status === 'skipped') return;
         const sl = i + 1;
         const otherType = r.action_type_override || r.action_type || '';
-        const otherIsAmb = otherType === 'ambience_increase' || otherType === 'ambience_decrease';
+        const otherIsAmb = otherType === 'ambience_change' || otherType === 'ambience_increase' || otherType === 'ambience_decrease';
         const otherTerrRaw = otherIsAmb
           ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
           : otherType === 'patrol_scout'
@@ -978,14 +982,14 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const netChange    = (terrOidStr && cycleData?.confirmed_ambience?.[terrOidStr]?.net_change) ?? null;
 
   // Residents and poachers
-  const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
   let residentCount = 0, poacherCount = 0;
   const feeders = [];
-  if (terrSlug) {
+  if (terrId) {
     for (const s of _allSubmissions) {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
-      const val = terrs[terrSlug];
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      const val = _terrGridVal(terrs, terrId);
       if (!val || val === 'none') continue;
       const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
       const fName = fChar ? dropdownName(fChar) : (s.character_name || 'Unknown');
@@ -1012,7 +1016,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
       if (!r || r.pool_status === 'skipped') return;
       const sl = i + 1;
       const aType = r.action_type_override || r.action_type || '';
-      const otherIsAmb = aType === 'ambience_increase' || aType === 'ambience_decrease';
+      const otherIsAmb = aType === 'ambience_change' || aType === 'ambience_increase' || aType === 'ambience_decrease';
       const otherIsPatrol = aType === 'patrol_scout' || aType === 'support';
       const otherTerrRaw = otherIsAmb
         ? (s.responses?.[`project_${sl}_ambience_target`] || s.responses?.[`project_${sl}_territory`] || '')
@@ -1046,10 +1050,11 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
   // Patrolling character's own feed status in this territory
   let selfFeedStatus = 'Not feeding here';
-  if (terrSlug) {
+  if (terrId) {
     let selfTerrs = {};
     try { selfTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { /* ok */ }
-    const selfVal = selfTerrs[terrSlug];
+    // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+    const selfVal = _terrGridVal(selfTerrs, terrId);
     if (selfVal === 'resident' || selfVal === 'feeding_rights') selfFeedStatus = 'Resident';
     else if (selfVal && selfVal !== 'none') selfFeedStatus = 'Poacher';
   }
@@ -2289,7 +2294,7 @@ function meritSummaryComplete(sub) {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') continue;
       const acqStatus = acqRes[0]?.pool_status || '';
-      if (acqStatus !== 'validated' && acqStatus !== 'skipped') return false;
+      if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
       continue;
     }
     if (!rev.outcome_summary?.trim()) return false;
@@ -2321,10 +2326,13 @@ function renderMeritSummary(char, sub) {
     const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
     let outcome = rev.outcome_summary?.trim() || '';
     if (cat === 'resources') {
-      const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
-        || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
-          ? sub.acquisitions_resolved[0].notes_thread : null);
-      if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
+      if (!outcome) outcome = sub?.acquisitions_resolved?.[0]?.outcome_summary?.trim() || '';
+      if (!outcome) {
+        const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
+          || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
+            ? sub.acquisitions_resolved[0].notes_thread : null);
+        if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
+      }
     }
     groups[cat].push({
       meritLabel: displayLabel || a.merit_type || 'Merit',
@@ -2375,7 +2383,7 @@ function renderMeritSummary(char, sub) {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') return;
       const acqStatus = acqRes[0]?.pool_status || '';
-      if (acqStatus === 'validated' || acqStatus === 'skipped') return;
+      if (['validated', 'skipped', 'resolved'].includes(acqStatus)) return;
       const { label, qualifier } = getMeritDetails(char, a);
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
@@ -2862,7 +2870,8 @@ function getCoResidents(territorySlug, thisSub, allSubmissions, allChars) {
     .filter(s => {
       let terrs = {};
       try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { return false; }
-      return terrs[territorySlug] === 'resident';
+      // 496.2 QA: tolerant read across OID / long-slug / short-slug formats
+      return _terrGridVal(terrs, territorySlug) === 'resident';
     })
     .map(s => {
       const char = allChars.find(c => c._id === s.character_id || displayName(c) === s.character_name);
@@ -2939,7 +2948,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] !== terrId) continue;
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) !== terrId) continue;
       if (val && val !== 'none' && val !== 'resident') {
         const c = allChars.find(ch => String(ch._id) === String(s.character_id)) || null;
         const name = c ? dropdownName(c) : (s.character_name || 'Unknown');
@@ -2968,7 +2978,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     let terrs = {};
     try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
     for (const [slug, val] of Object.entries(terrs)) {
-      if (TERRITORY_SLUG_MAP[slug] === terrId && val && val !== 'none') {
+      // 496.2 QA: resolveTerrId handles OID, long slug, short slug, display name
+      if (resolveTerrId(slug) === terrId && val && val !== 'none') {
         feedActors.push(s.character_name || 'Unknown');
       }
     }

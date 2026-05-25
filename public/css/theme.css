@@ -96,6 +96,7 @@
   --result-pend:#c04040;--result-pend-bg:rgba(192,64,64,.10);--result-pend-bdr:rgba(192,64,64,.35);
   --green-dk:#1b5e20;--green-dk-bg:rgba(27,94,32,.12);--green-dk-bdr:rgba(27,94,32,.35);
   --warn-dk:#7a5c00;--warn-dk-bg:rgba(122,92,0,.12);
+  --warn-orange:#8b3d00;--warn-orange-bg:rgba(139,61,0,.10);--warn-orange-bdr:rgba(139,61,0,.40);
 
   /* Reading pane — warm parchment surfaces (questionnaires, player portal, dossiers).
      Used in both light (parchment tokens below) and dark (overrides at bottom of file). */
@@ -249,6 +250,7 @@
   --result-pend:#ff9090;--result-pend-bg:rgba(255,144,144,.12);--result-pend-bdr:rgba(255,144,144,.35);
   --green-dk:#6abf6a;--green-dk-bg:rgba(106,191,106,.15);--green-dk-bdr:rgba(106,191,106,.40);
   --warn-dk:#d4a832;--warn-dk-bg:rgba(212,168,50,.15);
+  --warn-orange:#e07a30;--warn-orange-bg:rgba(224,122,48,.12);--warn-orange-bdr:rgba(224,122,48,.45);
 
   /* Lethal damage (dark amber) */
   --dmg-lethal:#D4830A;

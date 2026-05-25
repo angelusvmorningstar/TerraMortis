@@ -4914,6 +4914,64 @@ body {
   border-top: 1px solid var(--bdr);
 }
 
+/* ── Dice Pool Builder chip row ── */
+.proc-pool-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+/* Dice Pool Modifiers panel when inlined inside the Dice Pool Builder card */
+.proc-pool-builder .proc-feed-mod-panel.proc-pool-mod-inline,
+.proc-pool-mod-inline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 8px 0;
+}
+/* Spec-chip wrapper is layout-transparent so spec chips align with sibling chips */
+.proc-pool-chips .dt-feed-builder-meta.dt-skill-meta {
+  display: contents;
+  margin: 0;
+}
+/* Shared chip token — pool-builder chips match proc-val-status button style */
+.proc-spec-chip,
+.proc-rote-chip,
+.proc-again-opt {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt3);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--fl);
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+/* Hover */
+.proc-spec-chip:hover:not(:disabled),
+.proc-rote-chip:hover:not(:disabled),
+.proc-again-opt:hover:not(:disabled) { border-color: var(--accent); color: var(--txt1); }
+
+/* Active states — semantic colour treatments */
+.proc-spec-chip.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-rote-chip.is-active { border-color: var(--crim); color: var(--crim); background: var(--crim-a15); }
+.proc-again-opt.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-again-opt.is-active.is-auto { border-color: var(--green); color: var(--green); background: var(--green-a15); }
+
+/* Disabled */
+.proc-spec-chip:disabled,
+.proc-rote-chip:disabled,
+.proc-again-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .proc-pool-parse-ref {
   font-size: 12px;
   color: var(--txt3);
@@ -5602,6 +5660,28 @@ body {
   font-style: italic;
   font-size: 12px;
 }
+/* ── Ambience direction badge (▲/▼) in action-type row ── */
+.proc-ambience-dir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 1px 7px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+.proc-ambience-dir-increase {
+  background: color-mix(in srgb, var(--green, #3a7d44) 18%, transparent);
+  color: var(--green, #5cb85c);
+  border: 1px solid color-mix(in srgb, var(--green, #3a7d44) 35%, transparent);
+}
+.proc-ambience-dir-decrease {
+  background: color-mix(in srgb, var(--crim) 18%, transparent);
+  color: #c06060;
+  border: 1px solid color-mix(in srgb, var(--crim) 35%, transparent);
+}
 /* ── Detail card shared input styles (feeding / project / sorcery / merit) ── */
 .proc-detail-input,
 .proc-detail-ta {
@@ -5944,6 +6024,28 @@ body {
 }
 .proc-recat-row-tight  { margin-top: 4px; padding-top: 4px; border-top: none; }
 .proc-recat-row-spaced { margin-top: 8px; padding-top: 8px; }
+.proc-recat-row-top    { margin-top: 0; padding-top: 0; border-top: none; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--bdr); }
+
+/* ── Action progress ribbon (Pending › Valid › Complete) ── */
+/* Shared colour tokens — used by both ribbon steps and the row chip */
+.ar-pending  { --ar-c: var(--result-pend);    --ar-bdr: var(--result-pend-bdr);    --ar-bg: var(--result-pend-bg); }
+.ar-valid    { --ar-c: var(--warn-orange);    --ar-bdr: var(--warn-orange-bdr);    --ar-bg: var(--warn-orange-bg); }
+.ar-complete { --ar-c: var(--result-succ);    --ar-bdr: var(--result-succ-bdr);    --ar-bg: var(--result-succ-bg); }
+
+.proc-action-ribbon { display: flex; align-items: center; gap: 5px; margin-left: auto; font-size: 0.8rem; font-family: var(--fl); }
+.proc-ar-step {
+  padding: 3px 11px; border-radius: 12px;
+  border: 1px solid transparent; color: var(--txt3); white-space: nowrap;
+}
+.proc-ar-step.ar-past    { color: var(--txt2); border-color: var(--surf3); }
+.proc-ar-step.ar-active  { font-weight: 700; border-color: var(--ar-bdr); color: var(--ar-c); background: var(--ar-bg); }
+.proc-ar-step.ar-future  { opacity: 0.35; }
+.proc-ar-arrow { color: var(--txt3); font-size: 0.75rem; }
+
+/* Row chip — shows ribbon state instead of raw pool_status */
+.proc-row-status.ar-pending, .proc-row-status.ar-valid, .proc-row-status.ar-complete {
+  background: var(--ar-bg); color: var(--ar-c);
+}
 
 /* Pool committed state — locks pool builder and modifier panels */
 .proc-pool-committed { opacity: 0.65; pointer-events: none; user-select: none; }
@@ -5957,12 +6059,20 @@ body {
   vertical-align: middle;
 }
 
-/* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
+/* Territory pills rendered inline (action type row for merit/non-normalised; territory rail for normalised card) */
 .proc-terr-inline-pills {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 12px;
+}
+/* Territory rail in normalised card — flex so pills align with the label */
+.proc-proj-terr-rail {
+  display: flex;
+  align-items: center;
+}
+.proc-proj-terr-rail .proc-terr-inline-pills {
+  margin-left: 8px;
 }
 
 .proc-recat-select {
@@ -6276,12 +6386,47 @@ html:not([data-theme="dark"]) .cc-audit-err {
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
 
-/* ── Connected Characters ────────────────────────────────────────────────── */
+/* ── Connected Characters — typeahead ────────────────────────────────────── */
 .proc-connected-section {
   margin-top: 10px;
   padding: 8px 12px 10px;
   border-top: 1px solid var(--bdr);
 }
+.proc-conn-typeahead { margin-top: 6px; }
+.proc-conn-input-row { position: relative; }
+.proc-conn-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.proc-conn-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 6px 2px 9px; border-radius: 12px;
+  background: var(--gold-a12); border: 1px solid var(--gold2-a25);
+  color: var(--gold2); font-size: 12px; white-space: nowrap;
+}
+.proc-conn-chip-x {
+  background: none; border: none; cursor: pointer;
+  color: var(--txt3); font-size: 15px; line-height: 1;
+  padding: 0; margin: 0;
+}
+.proc-conn-chip-x:hover { color: var(--result-pend); }
+.proc-conn-input {
+  width: 100%; box-sizing: border-box;
+  padding: 5px 8px; background: var(--surf2);
+  border: 1px solid var(--bdr); border-radius: 4px;
+  color: var(--text); font-size: 13px; font-family: var(--fl);
+}
+.proc-conn-input:focus { outline: none; border-color: var(--gold2); }
+.proc-conn-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+  background: var(--surf2); border: 1px solid var(--bdr);
+  border-top: none; border-radius: 0 0 4px 4px;
+  max-height: 180px; overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+}
+.proc-conn-dd-item {
+  padding: 6px 10px; cursor: pointer;
+  font-size: 13px; color: var(--text);
+}
+.proc-conn-dd-item:hover { background: var(--gold-a10); color: var(--gold2); }
+
 .proc-connected-list {
   display: flex;
   flex-wrap: wrap;

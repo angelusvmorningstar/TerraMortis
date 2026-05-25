@@ -104,6 +104,41 @@ let currentChar = null;
 let currentCycle = null;
 let _territories = [];
 let gateValues = {};
+
+// Issue #496 / story 496.2: build a name+slug → ObjectId lookup from the
+// cached territories list. Used at the save boundary in collectResponses() to
+// rewrite legacy long-slug / short-slug territory keys into canonical OIDs.
+// Returns a Map keyed by BOTH display name ("The Harbour") and short slug
+// ("harbour") so JSON-key sites (which iterate FEEDING_TERRITORIES display
+// names) and enum-value sites (which read short slugs from the pill widget)
+// can share one map. Barrens has no _id and is excluded; callers fall back
+// to the legacy key when this map returns null (server resolver maps both
+// Barrens variants to null correctly).
+function _buildTerritoryOidMap() {
+  const m = new Map();
+  for (const t of _territories || []) {
+    if (!t || !t._id) continue;
+    const oid = String(t._id);
+    if (t.name) m.set(t.name, oid);
+    if (t.slug) m.set(t.slug, oid);
+  }
+  return m;
+}
+
+// Issue #496 / story 496.2: O(n) lookup of a territory's OID by display name,
+// for use in render functions that don't have a pre-built map in scope. n is
+// always <=5 in practice; no need for a cached module-level map.
+function _terrOidForName(name) {
+  const t = (_territories || []).find(t => t?.name === name);
+  return t?._id ? String(t._id) : null;
+}
+
+function _terrGridVal(grid, displayName, legacyKey) {
+  if (!grid) return undefined;
+  const oid = _terrOidForName(displayName);
+  if (oid && grid[oid] !== undefined) return grid[oid];
+  return undefined;
+}
 let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
@@ -371,6 +406,13 @@ function collectResponses() {
   const _mode = _formMode(_prior);
   const _isMinimal = _mode === 'minimal';
 
+  // Issue #496 / story 496.2: build the territory display-name+slug → OID
+  // lookup once per save call. Used at the save boundary to rewrite legacy
+  // territory keys (long slugs, short slugs) into canonical ObjectId strings
+  // for every territory-typed response field. Server tolerates both formats
+  // per story 496.1 (dual-read tolerance) until story 496.4 tightens.
+  const _terrOidMap = _buildTerritoryOidMap();
+
   // Persist auto-detected gates
   responses['_gate_attended'] = gateValues.attended || '';
   responses['_gate_is_regent'] = gateValues.is_regent || '';
@@ -450,7 +492,9 @@ function collectResponses() {
           for (const terr of FEEDING_TERRITORIES) {
             const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
             const el = document.getElementById(`feed-rote-val-${terrKey}`);
-            roteGridVals[terrKey] = el ? el.value : 'none';
+            // 496.2: write OID key; Barrens has no _id and falls back to legacy slug
+            const outKey = _terrOidMap.get(terr) || terrKey;
+            roteGridVals[outKey] = el ? el.value : 'none';
           }
           responses['feeding_territories_rote'] = JSON.stringify(roteGridVals);
         }
@@ -469,7 +513,10 @@ function collectResponses() {
         for (const terr of INFLUENCE_TERRITORIES) {
           const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
           const el = document.getElementById(`inf-val-${tk}`);
-          infVals[tk] = el ? parseInt(el.textContent, 10) || 0 : 0;
+          // 496.2: write OID key; INFLUENCE_TERRITORIES excludes Barrens so the
+          // fallback never fires in practice, but keep it for defensive symmetry.
+          const outKey = _terrOidMap.get(terr) || tk;
+          infVals[outKey] = el ? parseInt(el.textContent, 10) || 0 : 0;
         }
         responses[q.key] = JSON.stringify(infVals);
         continue;
@@ -479,7 +526,9 @@ function collectResponses() {
         for (const terr of FEEDING_TERRITORIES) {
           const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
           const el = document.getElementById(`feed-val-${terrKey}`);
-          gridVals[terrKey] = el ? el.value : 'none';
+          // 496.2: write OID key; Barrens has no _id and falls back to legacy slug
+          const outKey = _terrOidMap.get(terr) || terrKey;
+          gridVals[outKey] = el ? el.value : 'none';
         }
         responses[q.key] = JSON.stringify(gridVals);
         continue;
@@ -620,7 +669,11 @@ function collectResponses() {
       responses[`project_${n}_action`] = 'feed';
     }
     responses[`project_${n}_title`] = titleEl ? titleEl.value : '';
-    responses[`project_${n}_territory`] = terrEl ? terrEl.value : '';
+    // 496.2: remap territory slug (from pill widget) to OID; empty/unmapped pass through
+    {
+      const v = terrEl ? terrEl.value : '';
+      responses[`project_${n}_territory`] = v ? (_terrOidMap.get(v) || v) : '';
+    }
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
     const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
     responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
@@ -677,7 +730,11 @@ function collectResponses() {
     const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
     if (targetValueEl) responses[`project_${n}_target_value`] = targetValueEl.value;
     const targetTerrEl = document.getElementById(`dt-project_${n}_target_terr`);
-    if (targetTerrEl) responses[`project_${n}_target_terr`] = targetTerrEl.value;
+    if (targetTerrEl) {
+      // 496.2: remap territory slug to OID; empty/unmapped pass through
+      const v = targetTerrEl.value;
+      responses[`project_${n}_target_terr`] = v ? (_terrOidMap.get(v) || v) : '';
+    }
     const targetOtherEl = document.getElementById(`dt-project_${n}_target_other`);
     if (targetOtherEl) responses[`project_${n}_target_other`] = targetOtherEl.value;
     // dt-form.25: legacy `_ambience_dir` radio collect dropped (drop-the-
@@ -687,7 +744,11 @@ function collectResponses() {
     // the doc via the spread base (silent-leave per A1).
     const ambTargetEl = document.getElementById(`dt-project_${n}_ambience_target`);
     const ambDirEl    = document.getElementById(`dt-project_${n}_ambience_direction`);
-    if (ambTargetEl) responses[`project_${n}_ambience_target`]    = ambTargetEl.value;
+    if (ambTargetEl) {
+      // 496.2: remap territory slug to OID; empty/unmapped pass through
+      const v = ambTargetEl.value;
+      responses[`project_${n}_ambience_target`] = v ? (_terrOidMap.get(v) || v) : '';
+    }
     if (ambDirEl)    responses[`project_${n}_ambience_direction`] = ambDirEl.value;
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
@@ -756,7 +817,14 @@ function collectResponses() {
   for (let n = 1; n <= maxSpheres; n++) {
     for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead', 'grow_target']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
-      if (el) responses[`sphere_${n}_${suffix}`] = el.value;
+      if (!el) continue;
+      if (suffix === 'territory') {
+        // 496.2: remap territory slug to OID; empty/unmapped pass through
+        const v = el.value;
+        responses[`sphere_${n}_${suffix}`] = v ? (_terrOidMap.get(v) || v) : '';
+      } else {
+        responses[`sphere_${n}_${suffix}`] = el.value;
+      }
     }
     // Ambience direction (radio) — when sphere action is ambience_change, resolve
     // to legacy ambience_increase/ambience_decrease so downstream code is untouched.
@@ -3732,11 +3800,8 @@ function renderProjectSlots(saved, mode = 'advanced') {
         try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
         const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
         if (!key) return '';
-        const niceName = FEEDING_TERRITORIES.find(
-          t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
-        );
-        const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
-        return td?.slug || '';
+        const t = (_territories || []).find(t => String(t._id) === key);
+        return t?.slug || '';
       };
       const roteSlug = slugFromGrid(saved.feeding_territories_rote || '');
       // Issue #166 (2026-05-08): pass the primary feeding's active spec
@@ -5337,9 +5402,17 @@ function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOt
  *  Uses the canonical .dt-chip-grid / .dt-chip styling so target-zone territory chips
  *  match the character roster visually. */
 function renderTerritoryPills(fieldId, savedVal) {
+  // 496.2: savedVal may be an ObjectId string (new format) or a short slug
+  // (legacy). Normalise to slug for the pill-match check. The hidden input
+  // keeps the saved value as-is so collectResponses() can remap on next save.
+  let pillMatchSlug = savedVal;
+  if (savedVal && /^[a-f0-9]{24}$/i.test(savedVal)) {
+    const td = (_territories || []).find(t => String(t._id) === savedVal);
+    if (td?.slug) pillMatchSlug = td.slug;
+  }
   let h = `<div class="dt-chip-grid" data-terr-single="${fieldId}">`;
   for (const t of TERRITORY_DATA) {
-    const selected = savedVal === t.slug ? ' dt-chip--selected' : '';
+    const selected = pillMatchSlug === t.slug ? ' dt-chip--selected' : '';
     h += `<button type="button" class="dt-chip${selected}" data-terr-single="${fieldId}" data-terr-val="${esc(t.slug)}">${esc(t.name)}</button>`;
   }
   h += '</div>';
@@ -5362,7 +5435,9 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
   if (rote && mainGridVals) {
     for (const t of FEEDING_TERRITORIES) {
       const k = t.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      if (mainGridVals[k] && mainGridVals[k] !== 'none' && t.includes('Barrens')) {
+      // 496.2: tolerant read across OID and legacy-slug keys
+      const v = _terrGridVal(mainGridVals, t, k);
+      if (v && v !== 'none' && t.includes('Barrens')) {
         mainIsBarrens = true;
       }
     }
@@ -5388,10 +5463,12 @@ function renderFeedingTerritoryPills(gridVals, rote = false, mainGridVals = null
       return Array.isArray(t.feeding_rights) && t.feeding_rights.some(id => String(id) === myId);
     });
 
-    let savedVal = gridVals[terrKey] || 'none';
+    // 496.2: tolerant read across OID (new) and legacy-slug (existing drafts) keys
+    const rawSaved = _terrGridVal(gridVals, terr, terrKey);
+    let savedVal = rawSaved || 'none';
     if (savedVal === 'resident') savedVal = 'feeding_rights';
     if (savedVal === 'poacher') savedVal = 'poaching';
-    if (gridVals[terrKey] === undefined && !isBarrens) {
+    if (rawSaved === undefined && !isBarrens) {
       savedVal = hasFeedingRights ? 'feeding_rights' : 'none';
     }
     if (savedVal === 'poaching' && hasFeedingRights && !isBarrens) savedVal = 'feeding_rights';
@@ -6372,11 +6449,8 @@ function renderQuestion(q, value) {
           try { grid = JSON.parse(gridStr || '{}'); } catch { return ''; }
           const key = Object.keys(grid).find(k => grid[k] && grid[k] !== 'none');
           if (!key) return '';
-          const niceName = FEEDING_TERRITORIES.find(
-            t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
-          );
-          const td = niceName ? TERRITORY_DATA.find(t => t.name === niceName) : null;
-          return td?.slug || '';
+          const t = (_territories || []).find(t => String(t._id) === key);
+          return t?.slug || '';
         };
         const territorySlug = slugFromGrid(responseDoc?.responses?.feeding_territories);
         // Issue #166: pass the active speciality so the MINIMAL primary
@@ -6525,7 +6599,8 @@ function renderQuestion(q, value) {
           );
           if (!key) return null;
           if (grid[key] === 'barrens') return { mod: -4, label: 'Barrens (The Barrens)' };
-          const name = FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key);
+          const tDoc = (_territories || []).find(t => String(t._id) === key);
+          const name = tDoc?.name;
           if (!name) return null;
           const td = TERRITORY_DATA.find(t => t.name === name);
           if (!td) return null;
@@ -6755,7 +6830,8 @@ function renderQuestion(q, value) {
       let totalSpent = 0;
       for (const terr of INFLUENCE_TERRITORIES) {
         const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        totalSpent += Math.abs(infVals[tk] || 0);
+        // 496.2: tolerant read across OID (new) and legacy-slug keys
+        totalSpent += Math.abs(_terrGridVal(infVals, terr, tk) || 0);
       }
       const remaining = budget - totalSpent;
 
@@ -6769,7 +6845,8 @@ function renderQuestion(q, value) {
 
       for (const terr of INFLUENCE_TERRITORIES) {
         const tk = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        const val = infVals[tk] || 0;
+        // 496.2: tolerant read across OID (new) and legacy-slug keys
+        const val = _terrGridVal(infVals, terr, tk) || 0;
         // DTFP-1: both label slots always present so the stepper column stays
         // vertically aligned across rows; text content is value-driven.
         const leftText  = val < 0 ? 'decreasing ambience' : '';

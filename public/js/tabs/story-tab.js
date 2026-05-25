@@ -523,6 +523,7 @@ function _deriveMeritCat(meritTypeStr) {
   if (/retainer/.test(s))  return 'retainer';
   if (/contacts?/.test(s)) return 'contacts';
   if (/resources?/.test(s)) return 'resources';
+  if (/skill/.test(s))     return 'resources';
   return 'misc';
 }
 
@@ -541,7 +542,11 @@ function renderMeritSummarySection(sub) {
   const actions  = buildPlayerMeritActions(sub);
   const resolved = sub.merit_actions_resolved || [];
 
-  const hasOutcomeSummaries = resolved.some(rev => rev?.outcome_summary?.trim());
+  const acqRes = sub.acquisitions_resolved || [];
+
+  const hasOutcomeSummaries =
+    resolved.some(rev => rev?.outcome_summary?.trim()) ||
+    acqRes.some(rev => rev?.outcome_summary?.trim());
 
   if (!hasOutcomeSummaries) {
     return renderMeritActionCards(sub);
@@ -552,7 +557,12 @@ function renderMeritSummarySection(sub) {
   actions.forEach((a, i) => {
     const rev = resolved[i] || {};
     if (rev.pool_status === 'skipped') return;
-    const summary = rev.outcome_summary?.trim();
+    // Skill acquisitions save to acquisitions_resolved[0], not merit_actions_resolved[i].
+    // Mirror ST-side downtime-story.js:2323 fallback.
+    let summary = rev.outcome_summary?.trim();
+    if (!summary && a.merit_type === 'Skill Acquisition' && a.action_type === 'acquisition') {
+      summary = acqRes[0]?.outcome_summary?.trim() || '';
+    }
     if (!summary) return;
     const cat = _deriveMeritCat(a.merit_type);
     if (!groups[cat]) groups[cat] = [];
@@ -644,6 +654,14 @@ function buildPlayerMeritActions(sub) {
   const resBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
   if (resBlob.trim()) {
     actions.push({ merit_type: 'Resources', action_type: 'acquisition' });
+  }
+
+  // Skill Acquisitions (mirror ST-side buildMeritActions at downtime-story.js:2159-2188).
+  // Appended last so its index aligns with acquisitions_resolved[0] under the
+  // current single-acquisition-per-submission constraint (PR #187 context).
+  const skillAcqBlob = raw.acquisitions?.skill_acquisitions || resp['skill_acquisitions'] || '';
+  if (skillAcqBlob.trim()) {
+    actions.push({ merit_type: 'Skill Acquisition', action_type: 'acquisition' });
   }
 
   return actions;
