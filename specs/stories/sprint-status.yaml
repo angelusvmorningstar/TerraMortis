@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-25 (proto.4 at review: roll mode toggle (Player Default/ST Override/No Roll Needed) on proc-pool-chips row; spec chips own flex row; pool builder prepended to top of right column; roll card second in right column; 60/40 feed column split)
+# last_updated: 2026-05-25 (proto.5 + proto.6 story files written at ready-for-dev: Snapshot panel — sibling cycle submissions + character discipline ratings; TASK-SA schema audit registered in-progress as prerequisite for any Snapshot write-back. Territory pill fix: suppressTerrPills now actually gates rendering in _renderActionTypeRow; _renderRightMechanics replaced projTerritory plain-text with editable _renderInlineTerrPills for rote and non-rote project actions. Earlier: proto.4 at review: roll mode toggle (Player Default/ST Override/No Roll Needed) on proc-pool-chips row; spec chips own flex row; pool builder prepended to top of right column; roll card second in right column; 60/40 feed column split)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -813,3 +813,11 @@ development_status:
   proto-2-dt-processing-filter-bar-ui: review     # renderProcFilterBar; char chip row replaces character strip; PHASE_LABELS reformatted; empty phases skipped
   proto-3-dt-processing-strip-filter-shortcut: review  # char chips replace-not-toggle; data-strip-char + data-strip-phase; flat card wall (no phase accordions or section frames)
   proto-4-dt-processing-pool-builder-ux: review        # roll mode toggle (Player Default/ST Override/No Roll Needed); spec chips own row; pool builder at top of right column; roll card second; 60/40 feed split
+
+  # TASK-SA: schema audit — review current proto data handling; identify ephemeral state requiring Mongo
+  # persistence; map existing st_review / st_narrative fields to avoid duplication before any Snapshot
+  # write-back stories. Prerequisite before any story that writes Snapshot data to the database.
+  proto-task-sa-schema-audit: in-progress
+
+  proto-5-snapshot-cycle-submissions: review   # Snapshot panel: sibling actions from same cycle + resolution status; read-only, derives from queue client-side
+  proto-6-snapshot-character-state: review     # Snapshot panel: character discipline ratings; derives from chars array already in memory

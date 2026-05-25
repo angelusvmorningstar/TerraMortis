@@ -7826,6 +7826,116 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 }
 .proc-filter-clear:hover { color: var(--accent); }
 
+/* ── proto.5: Snapshot panel (This Cycle siblings) ── */
+.proc-snapshot-panel {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.proc-snap-heading {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+.proc-snap-empty {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.proc-snap-row:hover { background: var(--surf3); }
+.proc-snap-row + .proc-snap-row { margin-top: 2px; }
+.proc-snap-phase {
+  font-size: 11px;
+  color: var(--txt3);
+  flex-shrink: 0;
+  width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-action {
+  font-size: 12px;
+  color: var(--txt2);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-status {
+  font-size: 10px;
+  font-family: var(--fl);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-status--pending {
+  color: var(--txt3);
+  background: var(--surf3);
+}
+.proc-snap-status--valid {
+  color: var(--gold2);
+  background: var(--gold2-a12);
+}
+.proc-snap-status--complete {
+  color: var(--accent);
+  background: var(--accent-a8);
+}
+@keyframes proc-snap-flash {
+  0%   { outline: 2px solid var(--gold2); outline-offset: 2px; }
+  80%  { outline: 2px solid var(--gold2); outline-offset: 2px; }
+  100% { outline: 2px solid transparent; outline-offset: 2px; }
+}
+.proc-card--flash { animation: proc-snap-flash 0.8s ease-out forwards; }
+
+/* ── proto.6: Snapshot discipline ratings ── */
+.proc-snap-subheading {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bdr);
+  margin-bottom: 4px;
+}
+.proc-snap-disc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 6px;
+}
+.proc-snap-disc-name {
+  font-size: 12px;
+  color: var(--txt2);
+}
+.proc-snap-disc-dots {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
 .proc-deleted-list {
   display: flex;
   flex-direction: column;
