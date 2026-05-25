@@ -7936,6 +7936,171 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   flex-shrink: 0;
 }
 
+/* ── proto.8: Snapshot territory presence ── */
+.proc-snap-terr-section { margin-top: 8px; }
+.proc-snap-terr-name {
+  font-family: var(--fl);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--txt3);
+  margin: 4px 0 2px;
+}
+.proc-snap-terr-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-terr-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-terr-action {
+  font-size: 11px;
+  color: var(--txt3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-terr-hp .proc-snap-terr-action { color: var(--gold2); }
+
+/* ── proto.9: Snapshot block conflicts ── */
+.proc-snap-block-section { margin-top: 8px; }
+.proc-snap-block-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-block-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-block-level {
+  font-size: 11px;
+  color: var(--crim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── proto.10: Snapshot hide/protect disciplines ── */
+.proc-snap-hp-section { margin-top: 8px; }
+.proc-snap-hp-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-hp-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-hp-disc {
+  font-size: 11px;
+  color: var(--gold2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-hp-unknown { color: var(--txt3); font-style: italic; }
+
+/* ── proto.11: Snapshot investigate cross-reference ── */
+.proc-snap-inv-section { margin-top: 8px; }
+.proc-snap-inv-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-inv-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-inv-detail {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-inv-pending { color: var(--txt3); font-style: italic; }
+
+/* ── proto.12: Snapshot sorcery cross-reference ── */
+.proc-snap-sorc-section { margin-top: 8px; }
+.proc-snap-sorc-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-sorc-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-sorc-rite {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-sorc-done .proc-snap-sorc-char,
+.proc-snap-sorc-done .proc-snap-sorc-rite { color: var(--txt3); text-decoration: line-through; }
+
+/* ── proto.13: Snapshot feeding cross-reference ── */
+.proc-snap-feed-section { margin-top: 8px; }
+.proc-snap-feed-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-feed-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-feed-disc {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-feed-done .proc-snap-feed-char,
+.proc-snap-feed-done .proc-snap-feed-disc { color: var(--txt3); }
+
 .proc-deleted-list {
   display: flex;
   flex-direction: column;

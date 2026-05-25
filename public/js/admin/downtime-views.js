@@ -73,6 +73,7 @@ let cycleReminders = [];       // processing_reminders from the current cycle do
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
+let _procCtxMap   = null;      // Map<key, ctxObj> built once per renderProcessingMode call; proto.8-13 populate ctxObj
 let _xrefIndex = new Map();   // cross-reference index built once per renderProcessingMode call
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
@@ -4360,6 +4361,60 @@ function renderCharacterStrip(queue) {
  */
 function _getQueueEntry(key) { return _procQueueMap?.get(key) ?? null; }
 
+/**
+ * Build a per-card cross-action context map in two O(n) passes over the queue.
+ * Phase 1a: index all entries by territory name via _entryTerritories.
+ * Phase 1b: index sorcery entries by character name (proto.12).
+ * Phase 2: for each entry, join across its territories → sameTerrEntries (excl self);
+ *           join sorcery entries for same-territory characters → sorcEntries.
+ */
+function _buildProcCtxMap(queue) {
+  // Phase 1a — territory → entries index
+  const terrToEntries = new Map();
+  for (const entry of queue) {
+    for (const terr of _entryTerritories(entry)) {
+      if (!terrToEntries.has(terr)) terrToEntries.set(terr, []);
+      terrToEntries.get(terr).push(entry);
+    }
+  }
+  // Phase 1b — char → sorcery entries index (proto.12)
+  const sorcByChar = new Map();
+  for (const entry of queue) {
+    if (entry.source === 'sorcery') {
+      if (!sorcByChar.has(entry.charName)) sorcByChar.set(entry.charName, []);
+      sorcByChar.get(entry.charName).push(entry);
+    }
+  }
+  // Phase 2 — assemble per-card context
+  const map = new Map();
+  for (const entry of queue) {
+    const seen = new Set();
+    const sameTerrEntries = [];
+    for (const terr of _entryTerritories(entry)) {
+      for (const e of (terrToEntries.get(terr) || [])) {
+        if (e.key !== entry.key && !seen.has(e.key)) {
+          seen.add(e.key);
+          sameTerrEntries.push(e);
+        }
+      }
+    }
+    const sorcSeen = new Set();
+    const sorcEntries = [];
+    for (const e of sameTerrEntries) {
+      for (const sorc of (sorcByChar.get(e.charName) || [])) {
+        if (!sorcSeen.has(sorc.key)) {
+          sorcSeen.add(sorc.key);
+          sorcEntries.push(sorc);
+        }
+      }
+    }
+    map.set(entry.key, { sameTerrEntries, sorcEntries });
+  }
+  return map;
+}
+
+function _getProcCtx(key) { return _procCtxMap?.get(key) ?? { sameTerrEntries: [], sorcEntries: [] }; }
+
 function _anyFilterActive() {
   return _procFilters.statuses.size > 0 || _procFilters.chars.size > 0
       || _procFilters.phases.size > 0  || _procFilters.territories.size > 0;
@@ -4534,6 +4589,7 @@ function renderProcessingMode(container) {
     return;
   }
   _procQueueMap = new Map(queue.map(e => [e.key, e]));
+  _procCtxMap   = _buildProcCtxMap(queue);
   const filteredQueue = _filterQueue(queue);
 
   // Group by phase — built from full queue so all phases appear in natural order
@@ -8305,12 +8361,144 @@ function _renderSnapshotDisciplines(entry) {
   return h;
 }
 
+/** Snapshot panel — territory presence: other characters active in the same territory. */
+function _renderSnapshotTerrPresence(entry, ctx) {
+  if (!ctx.sameTerrEntries.length) return '';
+  const myTerrs = _entryTerritories(entry);
+  const byTerr = new Map();
+  for (const terr of myTerrs) byTerr.set(terr, []);
+  for (const e of ctx.sameTerrEntries) {
+    for (const terr of _entryTerritories(e)) {
+      if (byTerr.has(terr)) byTerr.get(terr).push(e);
+    }
+  }
+  const populated = [...byTerr.entries()].filter(([, arr]) => arr.length > 0);
+  if (!populated.length) return '';
+  let h = '<div class="proc-snap-terr-section">';
+  for (const [terrName, entries] of populated) {
+    h += `<div class="proc-snap-terr-name">${esc(terrName)}</div>`;
+    for (const e of entries) {
+      const hp = e.actionType === 'hide_protect';
+      h += `<div class="proc-snap-terr-entry${hp ? ' proc-snap-terr-hp' : ''}">` +
+        `<span class="proc-snap-terr-char">${esc(e.charName)}</span>` +
+        `<span class="proc-snap-terr-action">${esc(e.label)}</span>` +
+        `</div>`;
+    }
+  }
+  h += '</div>';
+  return h;
+}
+
+/** Snapshot panel — block actions active in the same territory. */
+function _renderSnapshotBlockers(entry, ctx) {
+  const blockEntries = ctx.sameTerrEntries.filter(e => e.actionType === 'block');
+  if (!blockEntries.length) return '';
+  let h = '<div class="proc-snap-block-section">';
+  h += '<div class="proc-snap-subheading">Block in Territory</div>';
+  for (const e of blockEntries) {
+    const level = e.meritDots ? `${'●'.repeat(e.meritDots)} or lower` : '? or lower';
+    h += `<div class="proc-snap-block-entry">` +
+      `<span class="proc-snap-block-char">${esc(e.charName)}</span>` +
+      `<span class="proc-snap-block-level">${esc(level)}</span>` +
+      `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/** Snapshot panel — hide/protect actions in the same territory with discipline extracted from pool_validated. */
+function _renderSnapshotHideProtect(entry, ctx) {
+  const hpEntries = ctx.sameTerrEntries.filter(e => e.actionType === 'hide_protect');
+  if (!hpEntries.length) return '';
+  let h = '<div class="proc-snap-hp-section">';
+  h += '<div class="proc-snap-subheading">Hide / Protect</div>';
+  for (const e of hpEntries) {
+    const rev = getEntryReview(e);
+    const poolValidated = rev?.pool_validated || '';
+    const disc = KNOWN_DISCIPLINES.find(d => poolValidated.includes(d)) || null;
+    h += `<div class="proc-snap-hp-entry">` +
+      `<span class="proc-snap-hp-char">${esc(e.charName)}</span>` +
+      `<span class="proc-snap-hp-disc${disc ? '' : ' proc-snap-hp-unknown'}">${esc(disc || 'unconfirmed')}</span>` +
+      `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/** Snapshot panel — investigate actions in the same territory: secrecy level + lead status. */
+function _renderSnapshotInvestigate(entry, ctx) {
+  const invEntries = ctx.sameTerrEntries.filter(e => e.actionType === 'investigate');
+  if (!invEntries.length) return '';
+  let h = '<div class="proc-snap-inv-section">';
+  h += '<div class="proc-snap-subheading">Investigating</div>';
+  for (const e of invEntries) {
+    const rev = getEntryReview(e);
+    const secrecy = rev?.inv_secrecy || null;
+    const hasLead = rev?.inv_has_lead;
+    let detail = secrecy || 'pending';
+    if (secrecy && hasLead === true)  detail += ' ✓';
+    if (secrecy && hasLead === false) detail += ' ✗';
+    h += `<div class="proc-snap-inv-entry">` +
+      `<span class="proc-snap-inv-char">${esc(e.charName)}</span>` +
+      `<span class="proc-snap-inv-detail${secrecy ? '' : ' proc-snap-inv-pending'}">${esc(detail)}</span>` +
+      `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/** Snapshot panel — sorcery cast by same-territory characters this cycle. */
+function _renderSnapshotSorcery(entry, ctx) {
+  if (!ctx.sorcEntries.length) return '';
+  let h = '<div class="proc-snap-sorc-section">';
+  h += '<div class="proc-snap-subheading">Sorcery This Cycle</div>';
+  for (const e of ctx.sorcEntries) {
+    const rev = getEntryReview(e);
+    const status = rev?.pool_status || 'pending';
+    const done = status === 'resolved' || status === 'no_effect';
+    h += `<div class="proc-snap-sorc-entry${done ? ' proc-snap-sorc-done' : ''}">` +
+      `<span class="proc-snap-sorc-char">${esc(e.charName)}</span>` +
+      `<span class="proc-snap-sorc-rite">${esc(e.riteName || e.label)}</span>` +
+      `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/** Snapshot panel — other characters feeding in the same territory. */
+function _renderSnapshotFeeding(entry, ctx) {
+  const feedEntries = ctx.sameTerrEntries.filter(e => e.source === 'feeding');
+  if (!feedEntries.length) return '';
+  let h = '<div class="proc-snap-feed-section">';
+  h += '<div class="proc-snap-subheading">Also Feeding</div>';
+  for (const e of feedEntries) {
+    const rev = getEntryReview(e);
+    const status = rev?.pool_status || 'pending';
+    const done = status !== 'pending';
+    const disc = e.feedDisc || e.feedMethodLabel || 'method unknown';
+    h += `<div class="proc-snap-feed-entry${done ? ' proc-snap-feed-done' : ''}">` +
+      `<span class="proc-snap-feed-char">${esc(e.charName)}</span>` +
+      `<span class="proc-snap-feed-disc">${esc(disc)}</span>` +
+      `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 /** Snapshot panel — left-column intelligence section for normalised cards. */
 function _renderSnapshotPanel(entry) {
+  const ctx = _getProcCtx(entry.key);
   let h = '<div class="proc-snapshot-panel">';
   h += '<div class="proc-snap-heading">This Cycle</div>';
   h += _renderSnapshotSiblings(entry);
   h += _renderSnapshotDisciplines(entry);
+  h += _renderSnapshotTerrPresence(entry, ctx);
+  h += _renderSnapshotBlockers(entry, ctx);
+  h += _renderSnapshotHideProtect(entry, ctx);
+  h += _renderSnapshotInvestigate(entry, ctx);
+  h += _renderSnapshotSorcery(entry, ctx);
+  h += _renderSnapshotFeeding(entry, ctx);
+  /* Snapshot section complete — proto.14+ are write-back stories */
   h += '</div>';
   return h;
 }

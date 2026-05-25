@@ -817,7 +817,21 @@ development_status:
   # TASK-SA: schema audit — review current proto data handling; identify ephemeral state requiring Mongo
   # persistence; map existing st_review / st_narrative fields to avoid duplication before any Snapshot
   # write-back stories. Prerequisite before any story that writes Snapshot data to the database.
-  proto-task-sa-schema-audit: in-progress
+  proto-task-sa-schema-audit: review    # field map at specs/architecture/proto-snapshot-field-map.md; GO for proto.7; gap: hide_protect_disc (proto.10), st_review_touched_at optional (proto.16)
 
   proto-5-snapshot-cycle-submissions: review   # Snapshot panel: sibling actions from same cycle + resolution status; read-only, derives from queue client-side
   proto-6-snapshot-character-state: review     # Snapshot panel: character discipline ratings; derives from chars array already in memory
+
+  proto-7-dt-processing-card-context: review       # per-card cross-action context map: _procCtxMap, _buildProcCtxMap, _getProcCtx; infrastructure for proto.8-13
+
+  proto-8-dt-processing-territory-presence: review         # Snapshot panel: same-territory characters grouped by territory; hide_protect highlighted; proto.9 expansion point
+
+  proto-9-dt-processing-snapshot-blockers: review          # Snapshot panel: block actions in same territory flagged with char name + dot level; --crim indicator
+
+  proto-10-dt-processing-snapshot-hide-protect: review        # Snapshot panel: hide_protect entries + discipline extracted from pool_validated via KNOWN_DISCIPLINES
+
+  proto-11-dt-processing-snapshot-investigate: review         # Snapshot panel: investigate entries with secrecy level + lead status; proto.12 expansion point
+
+  proto-12-dt-processing-snapshot-sorcery: review             # Snapshot panel: sorcery by same-territory chars; _buildProcCtxMap extended with sorcByChar index + sorcEntries
+
+  proto-13-dt-processing-snapshot-feeding: in-progress        # Snapshot panel: feeding entries in same territory; disc/method label; done-state muting; final cross-ref section
