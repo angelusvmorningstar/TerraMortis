@@ -834,4 +834,10 @@ development_status:
 
   proto-12-dt-processing-snapshot-sorcery: review             # Snapshot panel: sorcery by same-territory chars; _buildProcCtxMap extended with sorcByChar index + sorcEntries
 
-  proto-13-dt-processing-snapshot-feeding: in-progress        # Snapshot panel: feeding entries in same territory; disc/method label; done-state muting; final cross-ref section
+  proto-13-dt-processing-snapshot-feeding: review             # Snapshot panel: feeding entries in same territory; disc/method label; done-state muting; final cross-ref section
+
+  proto-14-dt-processing-hide-protect-disc-writeback: review        # Write-back: auto-save hide_protect_disc on merit_actions_resolved when pool_validated saved for hide_protect actions
+
+  proto-15-dt-processing-hide-protect-disc-consume: review          # Snapshot: _renderSnapshotHideProtect prefers hide_protect_disc structured field; text extraction remains fallback for legacy entries
+
+  proto-16-dt-processing-st-review-touched-at: review               # Write-back: co-save st_review.st_review_touched_at ISO timestamp in every saveEntryReview call; atomic with source-specific update; D1 gap closure

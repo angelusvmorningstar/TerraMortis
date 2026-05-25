@@ -3664,9 +3664,11 @@ function getEntryReview(entry) {
 async function saveEntryReview(entry, patch) {
   const sub = submissions.find(s => s._id === entry.subId);
   if (!sub) return;
+  // proto.16: version stamp co-saved atomically with every review write
+  const ts = new Date().toISOString();
 
   if (entry.source === 'travel') {
-    const stReview = { ...(sub.st_review || {}), travel_discretion: patch.pool_status };
+    const stReview = { ...(sub.st_review || {}), travel_discretion: patch.pool_status, st_review_touched_at: ts };
     await updateSubmission(entry.subId, { st_review: stReview });
     sub.st_review = stReview;
     return;
@@ -3675,7 +3677,7 @@ async function saveEntryReview(entry, patch) {
   if (entry.source === 'feeding') {
     const current = sub.feeding_review || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     const updated = { ...current, ...patch };
-    await updateSubmission(entry.subId, { feeding_review: updated });
+    await updateSubmission(entry.subId, { feeding_review: updated, 'st_review.st_review_touched_at': ts });
     sub.feeding_review = updated;
     // Recompute discipline × territory profile when pool or status changes
     if ('pool_status' in patch || 'pool_validated' in patch) {
@@ -3686,7 +3688,7 @@ async function saveEntryReview(entry, patch) {
     while (resolved.length <= entry.actionIdx) resolved.push(null);
     const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '', resolved_at: null };
     resolved[entry.actionIdx] = { ...current, ...patch };
-    await updateSubmission(entry.subId, { projects_resolved: resolved });
+    await updateSubmission(entry.subId, { projects_resolved: resolved, 'st_review.st_review_touched_at': ts });
     sub.projects_resolved = resolved;
     // Recompute discipline profile when ambience actions are validated
     if (('pool_status' in patch || 'pool_validated' in patch) &&
@@ -3697,30 +3699,37 @@ async function saveEntryReview(entry, patch) {
     const resolved = [...(sub.merit_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
     const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
-    resolved[entry.actionIdx] = { ...current, ...patch };
-    await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
+    // proto.14: co-save hide_protect_disc when pool_validated is written for hide_protect actions
+    const savePatch = ('pool_validated' in patch && entry.actionType === 'hide_protect')
+      ? { ...patch, hide_protect_disc: KNOWN_DISCIPLINES.find(d => (patch.pool_validated || '').includes(d)) || '' }
+      : patch;
+    resolved[entry.actionIdx] = { ...current, ...savePatch };
+    await updateSubmission(entry.subId, { merit_actions_resolved: resolved, 'st_review.st_review_touched_at': ts });
     sub.merit_actions_resolved = resolved;
   } else if (entry.source === 'sorcery') {
     const sorcReview = { ...(sub.sorcery_review || {}) };
     const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], story_context: '' };
     sorcReview[entry.actionIdx] = { ...current, ...patch };
-    await updateSubmission(entry.subId, { sorcery_review: sorcReview });
+    await updateSubmission(entry.subId, { sorcery_review: sorcReview, 'st_review.st_review_touched_at': ts });
     sub.sorcery_review = sorcReview;
   } else if (entry.source === 'st_created') {
     const resolved = [...(sub.st_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
     const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     resolved[entry.actionIdx] = { ...current, ...patch };
-    await updateSubmission(entry.subId, { st_actions_resolved: resolved });
+    await updateSubmission(entry.subId, { st_actions_resolved: resolved, 'st_review.st_review_touched_at': ts });
     sub.st_actions_resolved = resolved;
   } else if (entry.source === 'acquisition') {
     const resolved = [...(sub.acquisitions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
     const current = resolved[entry.actionIdx] || { pool_player: '', pool_validated: '', pool_status: 'pending', notes_thread: [], story_context: '' };
     resolved[entry.actionIdx] = { ...current, ...patch };
-    await updateSubmission(entry.subId, { acquisitions_resolved: resolved });
+    await updateSubmission(entry.subId, { acquisitions_resolved: resolved, 'st_review.st_review_touched_at': ts });
     sub.acquisitions_resolved = resolved;
   }
+  // proto.16: update in-memory st_review timestamp for all non-travel branches
+  if (!sub.st_review) sub.st_review = {};
+  sub.st_review.st_review_touched_at = ts;
 }
 
 // ── Ambience Dashboard (feature.47) ─────────────────────────────────────────
@@ -8415,7 +8424,7 @@ function _renderSnapshotHideProtect(entry, ctx) {
   for (const e of hpEntries) {
     const rev = getEntryReview(e);
     const poolValidated = rev?.pool_validated || '';
-    const disc = KNOWN_DISCIPLINES.find(d => poolValidated.includes(d)) || null;
+    const disc = rev?.hide_protect_disc || KNOWN_DISCIPLINES.find(d => poolValidated.includes(d)) || null;
     h += `<div class="proc-snap-hp-entry">` +
       `<span class="proc-snap-hp-char">${esc(e.charName)}</span>` +
       `<span class="proc-snap-hp-disc${disc ? '' : ' proc-snap-hp-unknown'}">${esc(disc || 'unconfirmed')}</span>` +
