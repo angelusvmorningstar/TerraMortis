@@ -816,6 +816,13 @@ body {
 .terr-feed-add-btn:hover { border-color: var(--accent-a40); color: var(--accent); }
 .terr-feed-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ── Non-vampire territory cards (feat-2) ── */
+.terr-card--non-vampire { opacity: 0.8; border-color: var(--bdr); }
+.terr-card--non-vampire .terr-card-hd:hover { background: none; }
+.terr-type-badge { display: inline-block; padding: 2px 7px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 10px; font-size: 11px; color: var(--txt3); font-family: var(--fl); letter-spacing: .04em; }
+.terr-section-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--txt3); font-family: var(--fl); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.terr-section-divider::before, .terr-section-divider::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+
 /* ── Territory ambience override ── */
 .terr-amb-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bdr); }
 .terr-amb-mod-inp { width: 64px; padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; }

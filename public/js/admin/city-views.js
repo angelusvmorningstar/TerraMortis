@@ -323,6 +323,21 @@ function _terrDoc(terrId) {
   return terrDocs.find(d => d.slug === terrId);
 }
 
+const TERR_TYPE_LABELS = { mortal: 'Mortal-controlled', contested: 'Contested' };
+
+function _renderNonVampireTerrCard(td) {
+  const label = TERR_TYPE_LABELS[td.type] || td.type;
+  let h = `<div class="terr-card terr-card--non-vampire">`;
+  h += `<div class="terr-card-hd" style="cursor:default">`;
+  h += `<div class="terr-hd-info">`;
+  h += `<div class="terr-name">${esc(td.name || td.slug || td._id)}</div>`;
+  h += `<span class="terr-type-badge">${esc(label)}</span>`;
+  h += `</div>`;
+  h += `</div>`;
+  h += `</div>`;
+  return h;
+}
+
 function renderTerritories() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   let h = '<h3 class="city-section-title">Territories</h3>';
@@ -332,6 +347,8 @@ function renderTerritories() {
 
   for (const t of TERRITORIES) {
     const td = _terrDoc(t.id);
+    // feat-2: skip vampire section if this territory has been reclassified
+    if (td?.type && td.type !== 'vampire') continue;
     const regent = td?.regent_id ? active.find(c => String(c._id) === td.regent_id) : null;
     // Prefer DB ambience values over hardcoded defaults
     const dispAmbience = td?.ambience || t.ambience;
@@ -436,6 +453,14 @@ function renderTerritories() {
     h += `</div>`;
   }
 
+  // feat-2: non-vampire territories — rendered without regent/feeding controls
+  const nonVampireDocs = terrDocs.filter(td => td.type && td.type !== 'vampire');
+  if (nonVampireDocs.length) {
+    h += `<div class="terr-section-divider"><span>Non-Vampire Territories</span></div>`;
+    for (const td of nonVampireDocs) {
+      h += _renderNonVampireTerrCard(td);
+    }
+  }
 
   return h;
 }

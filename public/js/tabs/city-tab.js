@@ -80,8 +80,13 @@ export async function renderCityTab(el, territories = []) {
   }
   const sortedCovs = [...covGroups.keys()].sort((a, b) => a.localeCompare(b));
 
+  // feat-2: split territories by type; absent type defaults to 'vampire'
   const allTerrs = (territories || [])
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  const vampireTerrs    = allTerrs.filter(t => (t.type || 'vampire') === 'vampire');
+  const nonVampireTerrs = allTerrs.filter(t => t.type && t.type !== 'vampire');
+
+  const TERR_TYPE_LABELS = { mortal: 'Mortal-controlled', contested: 'Contested' };
 
   let h = '<div class="city-col">';
 
@@ -104,13 +109,13 @@ export async function renderCityTab(el, territories = []) {
   }
   h += '</div></details>';
 
-  // ── Regencies (collapsible) ────────────────────────────────────────────────
-  if (allTerrs.length) {
+  // ── Regencies (collapsible) — vampire territories only ───────────────────
+  if (vampireTerrs.length) {
     h += `<details class="city-section">`;
-    h += `<summary class="city-section-hd">Regencies <span class="city-section-count">${allTerrs.length}</span></summary>`;
+    h += `<summary class="city-section-hd">Regencies <span class="city-section-count">${vampireTerrs.length}</span></summary>`;
     h += `<div class="city-section-body">`;
     h += '<div class="city-char-list">';
-    for (const tr of allTerrs) {
+    for (const tr of vampireTerrs) {
       const rc = chars.find(ch => String(ch._id) === tr.regent_id);
       if (rc) {
         h += charRow(rc, tr.name || tr.id);
@@ -121,6 +126,24 @@ export async function renderCityTab(el, territories = []) {
         h += '</div>';
         h += '</div>';
       }
+    }
+    h += '</div>';
+    h += '</div></details>';
+  }
+
+  // ── Non-Vampire Territories (collapsible) — feat-2 ───────────────────────
+  if (nonVampireTerrs.length) {
+    h += `<details class="city-section">`;
+    h += `<summary class="city-section-hd">Non-Vampire Territories <span class="city-section-count">${nonVampireTerrs.length}</span></summary>`;
+    h += `<div class="city-section-body">`;
+    h += '<div class="city-char-list">';
+    for (const tr of nonVampireTerrs) {
+      const label = TERR_TYPE_LABELS[tr.type] || tr.type;
+      h += '<div class="city-char-row city-nv-row">';
+      h += '<div class="city-char-top">';
+      h += `<span class="city-char-name">${esc(tr.name || tr.id)} <span class="city-nv-badge">${esc(label)}</span></span>`;
+      h += '</div>';
+      h += '</div>';
     }
     h += '</div>';
     h += '</div></details>';
