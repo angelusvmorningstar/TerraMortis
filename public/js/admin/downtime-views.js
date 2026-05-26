@@ -6102,8 +6102,8 @@ function renderProcessingMode(container) {
       // with the merit, always-on; not gated by per-rite parked toggle)
       const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
-      const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
-      const mgDots       = hasMandragora ? 3 : 0;
+      const _mgMerit6    = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+      const mgDots       = _mgMerit6 ? ((_mgMerit6.rating || _mgMerit6.dots || 0) + (_mgMerit6.bonus || 0)) : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
       if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
@@ -7356,14 +7356,15 @@ function _renderPoolModPanel(entry, char, rev, kind) {
   }
 
   if (kind === 'sorcery') {
-    const isCruac = entry.tradition === 'Cruac';
-    const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
+    const isCruac   = entry.tradition === 'Cruac';
+    const _mgMerit  = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+    const mgDots    = _mgMerit ? ((_mgMerit.rating || _mgMerit.dots || 0) + (_mgMerit.bonus || 0)) : 0;
     const _sorcCommitted = (rev.pool_status || 'pending') === 'confirmed';
     let h = `<div class="proc-feed-mod-panel proc-pool-mod-inline${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Confirmed]</span>' : ''}</div>`;
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
-    if (hasMandragora) {
-      h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+3</span></div>`;
+    if (mgDots) {
+      h += `<div class="proc-mod-row"><span class="proc-mod-label">Mandragora Garden</span><span class="proc-mod-static">+${mgDots}</span></div>`;
     }
     h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
     h += `</div>`;
@@ -7622,13 +7623,41 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
 
   const isCruac      = (rev.sorc_tradition || entry.tradition) === 'Cruac';
-  const hasMandragora = isCruac && (char?.merits || []).some(m => m.name === 'Mandragora Garden');
-  const mgDots       = hasMandragora ? 3 : 0;
+  const _mgMerit     = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+  const mgDots       = _mgMerit ? ((_mgMerit.rating || _mgMerit.dots || 0) + (_mgMerit.bonus || 0)) : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Dice Pool Builder (no attr/skill/disc dropdowns — pool is fixed by rite rules) ──
+  {
+    let exprParts = [];
+    if (ritInfo && char) {
+      const _slEntry = ritInfo.disc ? _charDiscsArray(char).find(d => d.name === ritInfo.disc) : null;
+      exprParts = [
+        `${ritInfo.attr} ${getAttrVal(char, ritInfo.attr) || 0}`,
+        `${ritInfo.skill} ${skTotal(char, ritInfo.skill) || 0}`,
+        ritInfo.disc ? `${ritInfo.disc} ${_slEntry?.dots || 0}` : null,
+        '+3',
+      ].filter(Boolean);
+    } else if (ritInfo) {
+      exprParts = [ritInfo.poolExpr, '+3'];
+    }
+    if (mgDots) exprParts.push(`+${mgDots}`);
+    if (eqMod)  exprParts.push(eqMod > 0 ? `+${eqMod}` : String(eqMod));
+    const _poolTotalStr = ritInfo
+      ? `${exprParts.join(' + ')} = ${total}   TARGET   ${ritInfo.target} success${ritInfo.target !== 1 ? 'es' : ''} (Level ${ritInfo.target})`
+      : 'Select a rite to compute pool';
+
+    h += `<div class="proc-pool-builder" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-detail-label">Dice Pool Builder</div>`;
+    h += _renderPoolModPanel(entry, char, rev, 'sorcery');
+    h += `<div class="proc-pool-total" data-proc-key="${esc(key)}">${esc(_poolTotalStr)}</div>`;
+    h += `</div>`;
+  }
+
   h += _renderRightMechanics(entry, char, rev, { isSorcery: true });
 
   // ── Roll card ──
@@ -8821,6 +8850,33 @@ function renderActionPanel(entry, review) {
     }
   }
 
+  // ── Sorcery: rite header row (mirrors action type row structure) ──
+  if (isSorcery) {
+    const _allRites     = (_getRulesDB() || []).filter(r => r.category === 'rite');
+    const _selectedRite = rev.rite_override || entry.riteName || '';
+    const _overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
+    const _shortRite    = entry.riteName && entry.riteName.length <= 60;
+    const _tradOrder    = ['Cruac', 'Theban'];
+    const _byTrad       = {};
+    for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
+    const _tradKeys = [..._tradOrder.filter(t => _byTrad[t]), ...Object.keys(_byTrad).filter(t => !_tradOrder.includes(t))];
+    let _riteOpts = `<option value="">— Select Rite —</option><option value="__custom__"${_selectedRite === '__custom__' ? ' selected' : ''}>Custom…</option>`;
+    for (const trad of _tradKeys) {
+      const grp = (_byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+      _riteOpts += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}"${_selectedRite === r.name ? ' selected' : ''}>${esc(r.name)} (Level ${r.rank || _getRiteLevel(r.name) || '?'})</option>`).join('')}</optgroup>`;
+    }
+    h += `<div class="proc-recat-row proc-recat-row-top">`;
+    h += `<span class="proc-feed-lbl">Rite</span>`;
+    h += `<select class="proc-rite-select" data-proc-key="${esc(entry.key)}">${_riteOpts}</select>`;
+    if (_selectedRite === '__custom__') {
+      const _lvl = rev.rite_custom_level || '';
+      h += `<label class="proc-rite-custom-lbl">Level <input type="number" class="proc-rite-custom-level-input dt-num-input-sm" min="1" max="5" data-proc-key="${esc(entry.key)}" value="${esc(String(_lvl))}"></label>`;
+    }
+    if (_overridden && _shortRite) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
+    h += _renderActionRibbon(rev);
+    h += `</div>`;
+  }
+
   // ── Two-column layout wrapper (feeding + project + sorcery + merit) ──
   if (entry.source === 'feeding' || entry.source === 'project' || isSorcery || entry.source === 'merit') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
 
@@ -9396,96 +9452,11 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
     h += '</div>'; // proc-pool-builder
   } else if (isSorcery) {
-    // ── Sorcery: player details card + rite dropdown + computed pool display + result note ──
-    const allRites    = (_getRulesDB() || []).filter(r => r.category === 'rite');
-    const selectedRite = rev.rite_override || entry.riteName || '';
-    const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
-    const overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
-
-    // Rite selector
-    h += '<div class="proc-rite-select-row">';
-    h += '<span class="proc-detail-label">Rite</span>';
-    h += `<select class="proc-rite-select" data-proc-key="${esc(entry.key)}">`;
-    h += '<option value="">\u2014 Select Rite \u2014</option>';
-    h += `<option value="__custom__"${selectedRite === '__custom__' ? ' selected' : ''}>Custom\u2026</option>`;
-    const tradOrder = ['Cruac', 'Theban'];
-    const byTrad = {};
-    for (const r of allRites) {
-      const t = r.parent || 'Unknown';
-      if (!byTrad[t]) byTrad[t] = [];
-      byTrad[t].push(r);
-    }
-    const tradKeys = [...tradOrder.filter(t => byTrad[t]), ...Object.keys(byTrad).filter(t => !tradOrder.includes(t))];
-    for (const trad of tradKeys) {
-      const group = (byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
-      h += `<optgroup label="${esc(trad)}">`;
-      for (const r of group) {
-        const sel = selectedRite === r.name ? ' selected' : '';
-        const lvl = r.rank || _getRiteLevel(r.name) || '?';
-        h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${lvl})</option>`;
-      }
-      h += '</optgroup>';
-    }
-    h += '</select>';
-    // Custom level input — only when Custom is selected
-    if (selectedRite === '__custom__') {
-      const lvl = rev.rite_custom_level || '';
-      h += `<label class="proc-rite-custom-lbl">Level <input type="number" class="proc-rite-custom-level-input dt-num-input-sm" min="1" max="5" data-proc-key="${esc(entry.key)}" value="${esc(String(lvl))}"></label>`;
-    }
-    // Override indicator — only for short rite names (suppress blobs from CSV submissions)
-    const shortRiteName = entry.riteName && entry.riteName.length <= 60;
-    if (overridden && shortRiteName) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
-    h += '</div>';
-
-    h += _renderPoolModPanel(entry, sorcChar, rev, 'sorcery');
-
-    // Pool + target display (auto-computed from selected rite + char)
-    // For Custom, build a fake ritInfo from tradition pool + entered level
-    let resolvedRitInfo = ritInfo;
-    if (!resolvedRitInfo && selectedRite === '__custom__' && rev.rite_custom_level) {
-      const pool = TRADITION_POOL[entry.tradition] || null;
-      if (pool) {
-        resolvedRitInfo = {
-          attr: pool.attr, skill: pool.skill, disc: pool.disc,
-          poolExpr: [pool.attr, pool.skill, pool.disc].filter(Boolean).join(' + '),
-          target: rev.rite_custom_level,
-        };
-      }
-    }
-
-    if (resolvedRitInfo) {
-      const base         = _computeRitePool(sorcChar, resolvedRitInfo.attr, resolvedRitInfo.skill, resolvedRitInfo.disc);
-      const isCruac      = entry.tradition === 'Cruac';
-      const hasMandragora = isCruac && (sorcChar?.merits || []).some(m => m.name === 'Mandragora Garden');
-      const mgDots       = hasMandragora ? 3 : 0;
-      const eqMod        = rev.pool_mod_equipment || 0;
-      const total        = base + 3 + mgDots + eqMod;
-
-      const _slEntry = resolvedRitInfo.disc ? _charDiscsArray(sorcChar).find(d => d.name === resolvedRitInfo.disc) : null;
-      let exprParts = sorcChar
-        ? [
-            `${resolvedRitInfo.attr} ${getAttrVal(sorcChar, resolvedRitInfo.attr) || 0}`,
-            `${resolvedRitInfo.skill} ${skTotal(sorcChar, resolvedRitInfo.skill) || 0}`,
-            resolvedRitInfo.disc ? `${resolvedRitInfo.disc} ${_slEntry?.dots || 0}` : null,
-            '+3',
-          ].filter(Boolean)
-        : [resolvedRitInfo.poolExpr, '+3'];
-      if (mgDots) exprParts.push(`+${mgDots}`);
-      if (eqMod)  exprParts.push(eqMod > 0 ? `+${eqMod}` : String(eqMod));
-
-      h += `<div class="proc-ritual-info">`;
-      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Pool</span> ${esc(exprParts.join(' + '))} = ${total}</span>`;
-      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${resolvedRitInfo.target} success${resolvedRitInfo.target !== 1 ? 'es' : ''} (Level ${resolvedRitInfo.target})</span>`;
-      h += '</div>';
-    } else if (selectedRite && selectedRite !== '__custom__') {
-      h += `<div class="proc-ritual-no-rule">Rite not found in rules database.</div>`;
-    }
-
-    // Mechanical result note
+    // Pool display moved to right column Dice Pool Builder
     const resultNote = rev.ritual_result_note || '';
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Mechanical Result</div>';
-    h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target\u2026">${esc(resultNote)}</textarea>`;
+    h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target…">${esc(resultNote)}</textarea>`;
     h += '</div>';
   } else if (entry.source === 'acquisition') {
     // Acquisitions: Resources has no roll (notes only). Skill has a roll — show 2-column pool layout.

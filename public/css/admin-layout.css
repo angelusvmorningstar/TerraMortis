@@ -5550,7 +5550,7 @@ body {
   margin-bottom: 8px;
 }
 .proc-rite-select {
-  flex: 1;
+  width: 280px;
   font-family: var(--fl);
   font-size: 12px;
   color: var(--txt);
