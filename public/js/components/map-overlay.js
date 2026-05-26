@@ -56,7 +56,7 @@ export function renderMapStageHtml(opts) {
  */
 export function renderLabelHtml(territory, chars, editable = false) {
   const regent = territory.regent_id ? (chars || []).find(c => String(c._id) === String(territory.regent_id)) : null;
-  const regentName = regent ? displayName(regent) : '(vacant)';
+  const regentName = regent ? displayName(regent) : '(vacant)'; // deliberate: court title shown on map overlay
   const ambience = territory.ambience || '';
   const x = territory.map_coords?.x ?? 0;
   const y = territory.map_coords?.y ?? 0;

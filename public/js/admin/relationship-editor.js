@@ -4,7 +4,7 @@
    different NPC id resets it. */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { esc, displayName, dropdownName, sortName } from '../data/helpers.js';
+import { esc, displayName, cardName, dropdownName, sortName } from '../data/helpers.js';
 import {
   RELATIONSHIP_KINDS, FAMILIES,
   kindByCode, kindsByFamily, defaultDirectionFor,
@@ -95,7 +95,7 @@ function endpointLabel(ep) {
   if (!ep) return '(unknown)';
   if (ep.type === 'pc') {
     const c = _chars.find(x => String(x._id) === String(ep.id));
-    return c ? 'PC: ' + displayName(c) : `PC: (${ep.id})`;
+    return c ? 'PC: ' + cardName(c) : `PC: (${ep.id})`;
   }
   if (ep.type === 'npc') {
     const n = _npcs.find(x => String(x._id) === String(ep.id));

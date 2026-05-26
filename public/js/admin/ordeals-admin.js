@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, cardName } from '../data/helpers.js';
 
 function esc(s) {
   const d = document.createElement('div');
@@ -166,7 +166,7 @@ function renderRight() {
   if (!sub) { h += '<p class="or-placeholder">Submission not found.</p></div>'; return h; }
 
   const char    = characters.find(c => String(c._id) === String(sub.character_id));
-  const charName = char ? displayName(char) : (sub.character_name || 'Unknown');
+  const charName = char ? cardName(char) : (sub.character_name || 'Unknown');
   const typeLabel = ORDEAL_LABELS[sub.ordeal_type] || sub.ordeal_type;
   const status  = sub.marking?.status || 'unmarked';
   const isComplete = status === 'complete';
@@ -453,5 +453,5 @@ async function handleRubricSave(rubricId, qIdx) {
 
 function charNameForSub(sub) {
   const char = characters.find(c => String(c._id) === String(sub.character_id));
-  return char ? displayName(char) : (sub.character_name || 'Unknown');
+  return char ? cardName(char) : (sub.character_name || 'Unknown');
 }

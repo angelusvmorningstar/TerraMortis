@@ -600,7 +600,7 @@ function openCharDetail(c) {
 
   panel.innerHTML = `
     <div class="cd-header">
-      <h3 class="cd-name">${esc(displayName(c))}</h3>
+      <h3 class="cd-name">${esc(cardName(c))}</h3>
       <span class="cd-player">${esc(redactPlayer(c.player || ''))}</span>
       <div class="cd-header-actions">
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
@@ -674,7 +674,7 @@ async function toggleRetire() {
 
   const newState = !c.retired;
   const action = newState ? 'retire' : 'unretire';
-  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${displayName(c)}?`)) return;
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${cardName(c)}?`)) return;
 
   const btn = document.getElementById('cd-retire');
   btn.textContent = 'Saving...';
@@ -712,7 +712,7 @@ async function showEmergencyContact(c) {
   modal.id = 'ec-modal';
   modal.className = 'ec-modal-overlay';
   modal.innerHTML = `<div class="ec-modal-box panel">
-    <div class="panel-label">Emergency Contact — ${esc(displayName(c))}</div>
+    <div class="panel-label">Emergency Contact — ${esc(cardName(c))}</div>
     <div class="ec-modal-body">
       ${name   ? `<div class="ec-row"><span class="ec-lbl">Contact</span><span class="ec-val">${esc(name)}</span></div>` : ''}
       ${mobile ? `<div class="ec-row"><span class="ec-lbl">Mobile</span><span class="ec-val"><a href="tel:${esc(mobile)}">${esc(mobile)}</a></span></div>` : ''}
@@ -734,7 +734,7 @@ async function showEmergencyContact(c) {
 async function openHardDeleteModal(c) {
   document.getElementById('hd-modal')?.remove();
 
-  const charName = displayName(c);
+  const charName = cardName(c);
   const overlay = document.createElement('div');
   overlay.id = 'hd-modal';
   overlay.className = 'hd-overlay';
@@ -994,7 +994,7 @@ async function _renderPlmContent(c) {
   }
 
   const charId = String(c._id);
-  const charName = displayName(c);
+  const charName = cardName(c);
   const linked = players.find(p => (p.character_ids || []).some(id => String(id) === charId));
 
   const rows = players.map(p => {
@@ -1134,7 +1134,7 @@ function _renderOrdealsModal(c) {
 
   overlay.innerHTML = `<div class="plm-dialog om-dialog">
     <div class="plm-header om-header">
-      <h3>Ordeals \u2014 ${esc(displayName(c))}</h3>
+      <h3>Ordeals \u2014 ${esc(cardName(c))}</h3>
       <button class="cd-close" onclick="document.getElementById('ordeals-modal').remove()">&times;</button>
     </div>
     <p class="om-summary">${done} of ${ORDEAL_TYPES.length} complete \u2014 ${done * 3} XP awarded</p>
