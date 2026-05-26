@@ -4689,12 +4689,14 @@ function renderProcessingMode(container) {
         const isExpanded = procExpandedKeys.has(entry.key);
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
-        const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
+        const shortDesc = entry.source === 'sorcery'
+          ? ''
+          : (entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description);
         const isDone = DONE_STATUSES.has(status);
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}${isDone ? ' proc-action-done' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
-        h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        h += `<span class="proc-row-desc" title="${entry.source !== 'sorcery' ? esc(entry.description) : ''}">${esc(shortDesc || '—')}</span>`;
         const _attributedName =
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
           (status === 'confirmed' && review?.pool_confirmed_by) ? review.pool_confirmed_by :
