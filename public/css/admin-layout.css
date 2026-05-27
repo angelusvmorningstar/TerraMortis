@@ -2163,8 +2163,11 @@ body {
 .proc-feed-desc-card,
 .proc-proj-detail,
 .proc-player-note-section,
-.proc-proj-contested-panel,
-.proc-xref-callout {
+.proc-xref-callout,
+.proc-targeting-group,
+.proc-notes-panel,
+.proc-mech-result-section,
+.proc-feedback-section {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 6px;
@@ -4820,9 +4823,21 @@ body {
   color: var(--txt2);
 }
 
+.proc-pool-player-meta {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 8px;
+}
+.proc-pool-meta-row {
+  font-size: 12px;
+  color: var(--txt1);
+  padding: 2px 0;
+}
+.proc-pool-meta-row .proc-feed-lbl {
+  margin-right: 6px;
+}
+
 .proc-pool-builder {
-  margin-top: 8px;
-  margin-bottom: 12px;
 }
 
 .proc-pool-builder-selects {
@@ -5041,7 +5056,7 @@ body {
 .proc-feedback-input:focus { border-color: var(--accent); outline: none; }
 
 .proc-player-note-input {
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   color: var(--txt1);
   padding: 6px 10px;
@@ -5110,7 +5125,7 @@ body {
 }
 
 .proc-note-entry {
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   border-radius: 4px;
   padding: 8px 10px;
@@ -5152,7 +5167,7 @@ body {
 
 .proc-note-textarea {
   flex: 1;
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   color: var(--txt1);
   padding: 7px 10px;
@@ -5164,21 +5179,13 @@ body {
 }
 .proc-note-textarea:focus { border-color: var(--accent); outline: none; }
 
-/* ── DTX-3: notes / feedback visual hierarchy ──────────────────── */
-.proc-feedback-section {
-  background: var(--surf2);
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin-top: 4px;
-}
-.proc-feedback-section .proc-detail-label {
-  margin-bottom: 4px;
-}
-.proc-player-note-section {
-  border-left: 3px solid var(--accent);
-  margin-top: 4px;
-}
-.proc-player-note-section .proc-detail-label {
+/* ── DTX-3: notes / feedback visual hierarchy ── */
+/* Chrome (background/border/radius/padding) now comes from the canonical CSS-6 rule.
+   Only label spacing is overridden here. */
+.proc-feedback-section .proc-mod-panel-title,
+.proc-player-note-section .proc-mod-panel-title,
+.proc-notes-panel .proc-mod-panel-title,
+.proc-mech-result-section .proc-mod-panel-title {
   margin-bottom: 4px;
 }
 .proc-label-sub {
@@ -5281,12 +5288,14 @@ body {
   font-weight: 600;
 }
 
-/* ── DTR-2: contested roll panel ───────────────────────────────── */
-.proc-proj-contested-panel {
-  border-left: 3px solid var(--crim);
+/* ── DTR-2: contested roll panel (now inline inside roll card) ── */
+.proc-contested-inline {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--bdr);
 }
 
 .proc-contested-toggle {
@@ -5328,6 +5337,23 @@ body {
 /* DTSR-5: relocated Outcome zone in left column of merit panels */
 .proc-merit-outcome-zone {
   margin-top: 12px;
+}
+
+/* Territory pill panel in merit right column */
+.proc-merit-terr-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+}
+.proc-merit-terr-panel .proc-terr-inline-pills {
+  margin-left: 0;
+}
+
+/* Outcome button panel in merit right column */
+.proc-merit-outcome-btns-panel {
+  padding: 8px 10px;
 }
 
 .proc-merit-outcome-btns {
@@ -5577,7 +5603,7 @@ body {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
-  background: var(--surf2);
+  background: var(--surf1);
   color: var(--txt1);
   border: 1px solid var(--surf3);
   border-radius: 3px;
@@ -5675,7 +5701,7 @@ body {
 
 /* ── Feeding description card (editable) ── */
 .proc-feed-desc-card {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .proc-feed-desc-card-hd {
   display: flex;
@@ -5683,7 +5709,7 @@ body {
   justify-content: space-between;
   margin-bottom: 6px;
 }
-.proc-feed-desc-card-hd .proc-detail-label {
+.proc-feed-desc-card-hd .proc-mod-panel-title {
   margin-bottom: 0;
 }
 .proc-feed-desc-card-hd .dt-btn {
@@ -5781,13 +5807,19 @@ body {
 }
 
 .proc-proj-roll-result {
-  font-size: 11px;
-  color: var(--txt2);
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--accent);
+  font-family: var(--fm);
   word-break: break-word;
   line-height: 1.5;
 }
 .proc-proj-roll-result.proc-roll-net-zero {
   color: var(--result-pend);
+}
+.proc-proj-roll-result.proc-ritual-fail {
+  color: var(--txt2);
+  font-weight: 600;
 }
 
 .proc-proj-val-notation {
@@ -6421,11 +6453,41 @@ html:not([data-theme="dark"]) .cc-audit-err {
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
 
+/* ── Targeting group — shared container for Target + Connected Characters ── */
+/* Let inner sections own their padding; overflow:hidden respects border-radius */
+.proc-targeting-group { padding: 0; overflow: hidden; }
+/* Strip chrome from a proc-feed-mod-panel that sits inside (investigate target) */
+.proc-targeting-group > .proc-feed-mod-panel {
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin-top: 0;
+  padding: 8px 12px 10px;
+}
+/* The typeahead inside the mod-panel already has the panel's 12px sides; strip its own */
+.proc-targeting-group > .proc-feed-mod-panel .proc-connected-section {
+  padding: 0;
+  margin-top: 6px;
+  border-top: none;
+}
+/* Inside the targeting group, match the input style to the surrounding mod-panel fields */
+.proc-targeting-group .proc-conn-input {
+  background: var(--surf2);
+  border-color: var(--surf3);
+  border-radius: 3px;
+  padding: 6px 8px;
+}
+
 /* ── Connected Characters — typeahead ────────────────────────────────────── */
 .proc-connected-section {
   margin-top: 10px;
   padding: 8px 12px 10px;
   border-top: 1px solid var(--bdr);
+}
+/* First section inside the targeting group: flush with container top */
+.proc-targeting-group > .proc-connected-section:first-child {
+  margin-top: 0;
+  border-top: none;
 }
 .proc-conn-typeahead { margin-top: 6px; }
 .proc-conn-input-row { position: relative; }
@@ -6444,14 +6506,14 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
 .proc-conn-chip-x:hover { color: var(--result-pend); }
 .proc-conn-input {
   width: 100%; box-sizing: border-box;
-  padding: 5px 8px; background: var(--surf2);
+  padding: 5px 8px; background: var(--bg);
   border: 1px solid var(--bdr); border-radius: 4px;
   color: var(--text); font-size: 13px; font-family: var(--fl);
 }
 .proc-conn-input:focus { outline: none; border-color: var(--gold2); }
 .proc-conn-dropdown {
   position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
-  background: var(--surf2); border: 1px solid var(--bdr);
+  background: var(--bg); border: 1px solid var(--bdr);
   border-top: none; border-radius: 0 0 4px 4px;
   max-height: 180px; overflow-y: auto;
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
@@ -8100,6 +8162,250 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 }
 .proc-snap-feed-done .proc-snap-feed-char,
 .proc-snap-feed-done .proc-snap-feed-disc { color: var(--txt3); }
+
+/* ── Merit blocked warning ── */
+.proc-snap-merit-blocked {
+  background: color-mix(in srgb, var(--crim) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--crim) 40%, transparent);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+}
+.proc-snap-merit-blocked-hd {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--crim);
+  margin-bottom: 3px;
+}
+.proc-snap-merit-blocked-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  padding: 1px 0;
+}
+.proc-snap-merit-blocked-char { color: var(--txt2); }
+.proc-snap-merit-blocked-level { color: var(--crim); flex-shrink: 0; }
+.proc-snap-merit-blocked-terr { color: var(--txt3); font-size: 10px; }
+
+/* ── Patrol/scout snapshot panel ── */
+.proc-snap-patrol-list { display: flex; flex-direction: column; gap: 2px; }
+.proc-snap-patrol-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+}
+.proc-snap-patrol-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.proc-snap-patrol-action {
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.proc-snap-patrol-obf {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.proc-snap-patrol-empty {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-contacts-empty {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-contacts-sphere {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-snap-contacts-desc {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.proc-contacts-spheres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.proc-contacts-sphere-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: var(--gold-a12);
+  border: 1px solid var(--gold2-a25);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--gold2);
+  white-space: nowrap;
+}
+.proc-contacts-sphere-dots {
+  font-size: 10px;
+  color: var(--gold2);
+  opacity: 0.7;
+}
+.proc-contacts-detail-panel { margin-bottom: 0; }
+
+/* ── Target intelligence panel (investigate / attack) ── */
+.proc-snap-target-intel {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-snap-ti-section {
+  margin-top: 6px;
+}
+.proc-snap-ti-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 3px;
+}
+.proc-snap-ti-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 0;
+  flex-wrap: wrap;
+}
+.proc-snap-ti-badge {
+  font-size: 11px;
+  color: var(--txt2);
+  background: var(--surf3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.proc-snap-ti-badge--def {
+  color: var(--crim);
+}
+.proc-snap-ti-terr {
+  font-size: 11px;
+  color: var(--txt3);
+  white-space: nowrap;
+}
+.proc-snap-ti-succ {
+  font-size: 11px;
+  color: var(--txt2);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.proc-snap-ti-pending {
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-ti-done .proc-snap-ti-badge,
+.proc-snap-ti-done .proc-snap-ti-terr { color: var(--txt3); text-decoration: line-through; }
+.proc-snap-ti-detail {
+  font-size: 11px;
+  color: var(--txt2);
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.proc-snap-ti-method {
+  font-size: 11px;
+  color: var(--txt2);
+}
+.proc-snap-ti-disc { font-size: 12px; color: var(--txt2); }
+.proc-snap-ti-disc--obvious { color: var(--crim); }
+.proc-snap-ti-disc--subtle  { color: var(--gold2); }
+.proc-snap-ti-empty,
+.proc-snap-ti-none,
+.proc-snap-ti-unset {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 2px 0;
+}
+
+/* ── Feeding intelligence snapshot panel ── */
+.proc-snap-feed-method {
+  font-size: 12px;
+  color: var(--txt1);
+  padding: 2px 0;
+}
+.proc-snap-feed-discs {
+  font-size: 11px;
+  color: var(--txt2);
+}
+.proc-snap-terr-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+.proc-snap-terr-name {
+  font-size: 12px;
+  color: var(--txt1);
+  flex-shrink: 0;
+}
+.proc-snap-terr-status {
+  font-size: 10px;
+  font-family: var(--fl);
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-terr-claim  { color: var(--result-succ); border: 1px solid var(--result-succ); }
+.proc-snap-terr-poach  { color: var(--result-pend); border: 1px solid var(--result-pend); }
+.proc-snap-terr-badge {
+  font-size: 10px;
+  font-family: var(--fl);
+  color: var(--gold2);
+  border: 1px solid var(--gold2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-terr-ambience {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-feed-peers {
+  font-size: 11px;
+  color: var(--result-pend);
+  padding: 2px 0 4px 8px;
+}
+.proc-snap-none {
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-amb-dir {
+  font-size: 11px;
+  font-family: var(--fl);
+  flex-shrink: 0;
+}
+.proc-snap-amb-up   { color: var(--result-succ); }
+.proc-snap-amb-down { color: var(--result-pend); }
 
 .proc-deleted-list {
   display: flex;
