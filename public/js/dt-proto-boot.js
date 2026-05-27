@@ -85,7 +85,16 @@ window.fetch = function shimFetch(url, opts = {}) {
 
   if (method === 'DELETE') return noContent();
   if (method === 'POST') return echo(201);
-  return echo(200); // PUT, PATCH
+  if (method === 'PATCH' && seg[0] === 'downtime_submissions' && seg[1]) {
+    const subId = seg[1];
+    const idx = submissions.findIndex(s => String(s._id) === String(subId));
+    if (idx !== -1) {
+      const body = opts.body ? (() => { try { return JSON.parse(opts.body); } catch { return {}; } })() : {};
+      Object.assign(submissions[idx], body);
+    }
+    return echo(200);
+  }
+  return echo(200); // PUT, other PATCH
 };
 
 // ── 3. Import and init ───────────────────────────────────────────────────────

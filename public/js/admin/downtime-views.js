@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Downtime domain views — admin app.
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
@@ -10,7 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
 import { displayName, dropdownName, sortName, hasAoE, isSpecs } from '../data/helpers.js';
-import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus, effectiveInvictusStatus, meritEffectiveRating } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
@@ -1010,7 +1010,7 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
   }
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
-  const fgVal = fg ? Math.min(fg.rating || 0, 5) : 0;
+  const fgVal = fg ? Math.min(meritEffectiveRating(char, fg), 5) : 0;
   // The `ambienceMod` parameter is misleadingly named. Three callers
   // exist; only one passes actual territory ambience, and that one is
   // a bug:
@@ -3747,17 +3747,11 @@ function extractTerritoryFromText(text) {
   return null;
 }
 
-/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
+/** Normalise a territory OID string to a TERRITORY_DATA id. Returns null if not found. */
 function resolveTerrId(raw) {
   if (!raw) return null;
-  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
-  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
-  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
-  for (const td of TERRITORY_DATA) {
-    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
-    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.slug;
-  }
-  return null;
+  const t = (cachedTerritories || []).find(td => String(td._id) === raw);
+  return t?.slug || null;
 }
 
 // ── Ambience source gatherers ─────────────────────────────────────────────────
@@ -4607,18 +4601,26 @@ function renderProcessingMode(container) {
   }
 
   // ── Cross-reference index (single O(n) pass) ──
-  // Keys: 'terr:<territory>' | 'inv-target:<charName>'
+  // Keys: 'terr:<canonical-slug>' | 'inv-target:<charName>'
   // Values: [{ charName, label, phase }, ...] — excludes self at render time
+  // 496.2 QA: territory keys are normalised through resolveTerrId so both
+  // OID-keyed (post-496.2) and slug-keyed (legacy) submissions index under
+  // the same canonical slug. Without normalisation, a 496.2 character feeding
+  // in The Harbour would index as 'terr:69d5...' while a pre-496.2 character
+  // would index as 'terr:the_harbour' — same territory, different keys, no
+  // cross-reference.
   _xrefIndex = new Map();
   for (const e of queue) {
     if (e.projTerritory) {
-      const k = `terr:${e.projTerritory}`;
+      const canon = resolveTerrId(e.projTerritory) || e.projTerritory;
+      const k = `terr:${canon}`;
       if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
       _xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
     }
     if (e.feedTerrs) {
       for (const terr of Object.keys(e.feedTerrs)) {
-        const k = `terr:${terr}`;
+        const canon = resolveTerrId(terr) || terr;
+        const k = `terr:${canon}`;
         if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
         _xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
       }
@@ -7620,6 +7622,32 @@ function _renderProjRightPanel(entry, char, rev, prependHtml = '') {
 function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   const key = entry.key;
 
+  // ── Pool modifier panel data ──
+  const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+  const fgDice = fg ? Math.min(char ? meritEffectiveRating(char, fg) : (fg.rating || 0), 5) : null; // null = char not loaded; cap at merit max
+
+  // Always derive pool expression from current effective character stats (dots + bonus)
+  const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
+  let initSkillName = '', initSkillDots = 0;
+  if (poolValidated && char) {
+    const charDiscs0 = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+    const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
+    if (parsed0?.skill) {
+      initSkillName = parsed0.skill;
+      initSkillDots = skTotal(char, initSkillName) || 0;
+    }
+  }
+  const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
+
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = _fmtMod(eqMod);
+  const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
+  const poolModTotalStr = _fmtMod(poolModTotal);
+
+  // fgDice data attr: '' when char null (so live update can detect "unknown")
+  const fgDataAttr = fgDice !== null ? String(fgDice) : '';
+  const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
+
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
   if (prependHtml) h += prependHtml;
 
@@ -7682,8 +7710,13 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   // Fallback: if no fed territories resolved, use primaryTerr as before.
   // normalizedTerrId is a slug; translate to _id for confirmed_ambience reads.
   if (ambienceVitae === null && entry.primaryTerr) {
+    // 496.2 QA: primaryTerr may now be an ObjectId (post-496.2 form). Match
+    // OID against _id directly; fall through to the existing slug/name match
+    // for legacy long-slug / display-name values.
+    const isOid = /^[a-f0-9]{24}$/i.test(entry.primaryTerr);
     const normalizedTerrId = TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr;
     const terrRec = terrList.find(t =>
+      (isOid && String(t._id) === entry.primaryTerr) ||
       t.slug === normalizedTerrId ||
       t.name === entry.primaryTerr ||
       t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
@@ -7691,7 +7724,9 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
     const fallbackOid = terrRec?._id ? String(terrRec._id) : null;
     const confirmedAmb = fallbackOid ? currentCycle?.confirmed_ambience?.[fallbackOid] : null;
     ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
-    bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
+    // 496.2 QA: use the resolved territory's name when available so the UI
+    // shows "The Harbour" instead of a 24-char hex OID.
+    bestTerrLabel = terrRec?.name || (entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null);
   }
   // No territory resolved = Barrens: −4 ambience
   if (ambienceVitae === null) {
@@ -8086,7 +8121,13 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
           const _roteGrid = JSON.parse(_roteSub?.responses?.feeding_territories_rote || '{}');
           for (const [slug, status] of Object.entries(_roteGrid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _rotePillSet.add(tid);
           }
         } catch { /* ignore */ }
@@ -9408,7 +9449,13 @@ function renderActionPanel(entry, review) {
           const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
           for (const [slug, status] of Object.entries(_grid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _feedSet.add(tid);
           }
         } catch { /* ignore malformed JSON */ }
@@ -9515,7 +9562,7 @@ function renderActionPanel(entry, review) {
       // Compute initial pool modifier total from right-panel values (FG + equipment)
       // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
       const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
-      const fgDice0 = fg0 ? Math.min(fg0.rating || 0, 5) : 0;
+      const fgDice0 = fg0 ? Math.min(char ? meritEffectiveRating(char, fg0) : 0, 5) : 0;
       const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
       const initFeedPoolMod = fgDice0 + eqMod0;
       // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
@@ -9689,6 +9736,7 @@ function renderActionPanel(entry, review) {
       h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
       h += '</div>';
       h += '</div>';
+      h += _renderMeritOutcomeZone(entry, rev);
     }
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
@@ -9750,11 +9798,18 @@ function renderActionPanel(entry, review) {
 
     // Project territory overlap
     if (entry.projTerritory) {
-      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || [])
+      // 496.2 QA: normalise to canonical slug for index lookup so OID-keyed
+      // and slug-keyed submissions cross-reference correctly. Also resolve
+      // to display name so the UI shows "The Harbour" instead of an OID.
+      const projCanon = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+      const projDisplay = (cachedTerritories || []).find(t => t.slug === projCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === projCanon)?.name
+                       || entry.projTerritory;
+      const others = (_xrefIndex.get(`terr:${projCanon}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
-        xrefLines.push(`Also in ${entry.projTerritory}: ${names}`);
+        xrefLines.push(`Also in ${projDisplay}: ${names}`);
       }
     }
 
@@ -11113,7 +11168,13 @@ function _playerFeedTerrsText(sub) {
   if (terrs) {
     for (const [slug, status] of Object.entries(terrs)) {
       if (!status || status === 'none' || status === 'Not feeding here') continue;
-      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      let tid;
+      if (/^[a-f0-9]{24}$/i.test(slug)) {
+        const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+        tid = terrDoc?.slug || null;
+      } else {
+        tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      }
       if (!tid) continue;
       const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
       if (mt) labels.push(mt.label);
@@ -11156,9 +11217,14 @@ function _getSubFedTerrs(sub) {
     if (grid) {
       for (const [slug, status] of Object.entries(grid)) {
         if (!status || status === 'none' || status === 'Not feeding here') continue;
-        const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-          ? TERRITORY_SLUG_MAP[slug] : undefined;
-        if (tid === undefined) continue;
+        let tid;
+        if (/^[a-f0-9]{24}$/i.test(slug)) {
+          const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+          tid = terrDoc?.slug || null;
+        } else {
+          tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+        }
+        if (!tid) continue;
         const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
         if (mt) fed.set(mt.csvKey, (fed.get(mt.csvKey) || 0) + 1);
       }
@@ -11194,9 +11260,14 @@ function _getSubFedTerrs(sub) {
       if (roteGrid) {
         for (const [slug, status] of Object.entries(roteGrid)) {
           if (!status || status === 'none' || status === 'Not feeding here') continue;
-          const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
-            ? TERRITORY_SLUG_MAP[slug] : undefined;
-          if (tid === undefined) continue;
+          let tid;
+          if (/^[a-f0-9]{24}$/i.test(slug)) {
+            const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+            tid = terrDoc?.slug || null;
+          } else {
+            tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : undefined;
+          }
+          if (!tid) continue;
           const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
           if (!mt) continue;
           const current = fed.get(mt.csvKey) || 0;

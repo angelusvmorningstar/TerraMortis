@@ -1,3 +1,56 @@
+# Test Automation Summary — feature.489 Check-In vitae from last feed roll
+
+**Date:** 2026-05-22
+**Author:** Quinn (QA)
+**Scope:** E2E coverage review for feature.489 — the Check-In V column shows the
+last cycle's logged feed roll (`feeding_vitae_allocation` + tally bonus), else 0.
+
+## Generated Tests
+
+### E2E Tests (Playwright)
+- [x] `tests/feature-489-checkin-vitae-feed-roll.spec.js` — 13 tests (10 from dev-story, 3 added in QA)
+
+## Coverage
+
+| AC | Behaviour | Status |
+|---|---|---|
+| AC1 | logged feed roll → `feedTotal / vMax` | 2 tests |
+| AC2 | no submission → `0 / vMax` | 1 test |
+| AC3 | no logged feed (deferred, tally-only) → `0 / vMax` | 2 tests |
+| AC4 | no last cycle → `0 / vMax` for all | 2 tests |
+| AC5 | feed total > vMax → clamped to `vMax / vMax` | 1 test |
+| AC6 | parallelised load | Structural — feeding rides the existing `loadLastCycleData` fetch; code-review check, not an E2E counter |
+| AC7 | WP / INF unchanged | WP regression test + full feature-485 (13) + feature-483 (13) |
+
+## Gaps Closed in QA
+
+1. No test exercised a single submission carrying both `influence_spend` and a feed roll — the real DT3 shape, and what the loop restructure was for. Added.
+2. `feeding_vitae_allocation: []` (empty array) was untested versus an absent field. Added — pins the `length > 0` guard.
+3. A logged feed with an allocation but no `feeding_vitae_tally` (a real DT3 shape) was untested. Added — pins the bonus `|| 0` fallback.
+
+## Run
+
+```bash
+npx playwright test tests/feature-489-checkin-vitae-feed-roll.spec.js tests/feature-485-checkin-inf-remaining-spend.spec.js tests/feature-483-checkin-roster-new-session.spec.js --reporter=list
+```
+
+39/39 passed — 13 #489 + 13 #485 + 13 #483, zero regressions.
+
+## Notes
+
+- AC6 has no dedicated E2E test: an absolute `/api/downtime_submissions` request
+  count is not a clean signal — other app code hits that endpoint on boot
+  (observed 3 requests). The "no added fetch" guarantee is structural: feeding is
+  extracted inside the existing `loadLastCycleData` call.
+- The feature-485 `V and WP max/max` regression test was updated during dev-story
+  to WP-only, since feature.489 intentionally changes V. Correct and expected.
+
+## Next Steps
+
+- feature.489 is QA-clear — ready for PR into `dev`.
+
+---
+
 # Test Automation Summary — Issue #327 Feeding matrix rote+normal double-feed
 
 **Date:** 2026-05-17

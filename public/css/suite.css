@@ -759,7 +759,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .proj-card-roll-fail{color:var(--crim);}
 .proj-card-dice{font-family:var(--fl);font-size:11px;color:var(--txt3);margin-top:2px;}
 .proj-card-feedback{margin-top:10px;padding:6px 0 0 10px;border-top:none;border-left:2px solid var(--bdr2);font-family:var(--ft);font-size:13px;color:var(--txt3);line-height:1.6;}
-.proj-card-feedback-label{font-family:var(--fl);font-size:10px;font-style:italic;letter-spacing:.04em;text-transform:none;display:block;margin-bottom:4px;color:var(--txt3);}
+.proj-card-feedback-label{font-family:var(--fl);font-size:11px;letter-spacing:.06em;text-transform:uppercase;display:block;margin:0 0 6px;color:var(--txt2);font-weight:normal;}
 .proj-card-withheld-msg{font-family:var(--ft);font-size:13px;color:var(--txt3);font-style:italic;margin:6px 0 0;}
 .placeholder-msg{color:var(--txt3);font-size:14px;padding:24px 16px;text-align:center;}
 .dtl-wrap{padding:12px 16px;}

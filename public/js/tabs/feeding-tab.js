@@ -186,6 +186,27 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
+  // Custom pool fallback: handles 'other' sentinel (new submissions) and
+  // legacy '' (submissions saved before this fix). If the player built a
+  // custom pool without clicking a preset method card, _feed_method is
+  // 'other' (or '') but _feed_custom_attr is set. Build a synthetic method
+  // entry so the ready-state render fires instead of no_submission.
+  if (!declaredMethod && mySub?.responses?.['_feed_custom_attr']) {
+    const customAttr  = mySub.responses['_feed_custom_attr'];
+    const customSkill = mySub.responses['_feed_custom_skill'] || '';
+    const customDisc  = mySub.responses['_feed_custom_disc']  || '';
+    declaredMethod = {
+      id: 'custom',
+      name: 'Custom Pool',
+      desc: 'Player-declared custom combination',
+      attrs: [customAttr],
+      skills: customSkill ? [customSkill] : [],
+      discs:  customDisc  ? [customDisc]  : [],
+    };
+    declaredDisc = customDisc;
+    declaredSpec = mySub.responses['_feed_spec'] || '';
+  }
+
   // Capture ST roll result and vitae tally if present
   if (mySub?.feeding_roll?.successes != null) {
     stRollResult = mySub.feeding_roll;
@@ -432,13 +453,15 @@ function buildPool(method, discName, specName) {
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
+  const fgVal = domMeritContrib(c, 'Feeding Grounds');
 
-  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus + unskilled);
+  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus + unskilled + fgVal);
 
   const parts = [`${bestAV} ${bestA}`, `${bestSV} ${bestS}`];
   if (discVal) parts.push(`${discVal} ${discName}`);
   if (specBonus) parts.push(`${specBonus} ${specName}`);
   if (unskilled) parts.push(`\u2212${Math.abs(unskilled)} (unskilled)`);
+  if (fgVal) parts.push(`${fgVal} Feeding Grounds`);
   poolBreakdown = parts.join(' + ') + ` = ${poolTotal}`;
 }
 
@@ -473,9 +496,10 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
   if (sub?.responses?.feeding_territories) {
     try {
       const grid = JSON.parse(sub.responses.feeding_territories);
+      const ACTIVE_FEED_STATUSES = new Set(['feeding_rights', 'poaching', 'resident', 'poacher', 'poach']);
       for (const [tid, status] of Object.entries(grid)) {
-        if (status !== 'resident' && status !== 'poach') continue;
-        const td = effectiveTerrs.find(t => t.slug === tid || tid.startsWith(t.slug));
+        if (!ACTIVE_FEED_STATUSES.has(status)) continue;
+        const td = effectiveTerrs.find(t => String(t._id) === tid);
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;
