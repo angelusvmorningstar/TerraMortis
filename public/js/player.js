@@ -23,6 +23,7 @@ import { renderCityTab } from './tabs/city-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
 import { renderPrimerTab } from './tabs/primer-tab.js';
 import { renderTicketsTab } from './tabs/tickets-tab.js';
+import { renderDevlogTab }  from './tabs/devlog-tab.js';
 import { renderXpLogTab } from './tabs/xp-log-tab.js';
 import { startWizard } from './tabs/wizard.js';
 import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
@@ -388,6 +389,7 @@ const _lazyRenderers = {
   archive: () => initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars),
   regency: () => renderRegencyTab(document.getElementById('regency-content'), activeChar, _territories),
   office:  () => renderOfficeTab(document.getElementById('office-content'), activeChar),
+  devlog:  () => renderDevlogTab(document.getElementById('devlog-content')),
 };
 
 /**

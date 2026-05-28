@@ -34,6 +34,7 @@ import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
+import devlogRouter from './routes/devlog.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -164,6 +165,7 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
+app.use('/api/devlog',   requireAuth, noCache(), devlogRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
