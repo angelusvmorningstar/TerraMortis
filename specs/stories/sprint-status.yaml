@@ -354,7 +354,7 @@ development_status:
   epic-feat: in-progress
 
   feat-1-remove-resolved-tickets: done
-  feat-2-non-vampire-territories: ready-for-dev
+  feat-2-non-vampire-territories: review
   feat-3-duplicate-character-hard-delete: review
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog

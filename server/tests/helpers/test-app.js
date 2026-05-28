@@ -26,6 +26,7 @@ import npcFlagsRouter from '../../routes/npc-flags.js';
 import npcsRouter from '../../routes/npcs.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
 import appSettingsRouter from '../../routes/app-settings.js';
+import devlogRouter from '../../routes/devlog.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -94,6 +95,8 @@ export function createTestApp() {
   app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
   // Epic STM (issue #378): app settings (global kill-switch)
   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
+  // Issue #502: devlog entries (player read, ST write)
+  app.use('/api/devlog', mockAuth, noCache(), devlogRouter);
 
   return app;
 }

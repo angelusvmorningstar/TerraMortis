@@ -1,7 +1,7 @@
 ---
 id: feat.2
 epic: feat
-status: ready-for-dev
+status: review
 priority: low
 depends_on: []
 ---
@@ -153,3 +153,31 @@ Type values stay as enum strings (`vampire | mortal | contested`); no British/US
 - `server/schemas/territory.schema.js` — current schema (additionalProperties true).
 - `public/js/tabs/city-tab.js` — player city renderer.
 - `public/js/admin/city-views.js` — admin city renderer.
+
+---
+
+## Dev Agent Record
+
+### Agent Model Used
+
+claude-sonnet-4-6
+
+### Completion Notes
+
+- Schema: `type` field (`'vampire' | 'mortal' | 'contested'` enum) added to `territory.schema.js` properties. `additionalProperties: false` already present — adding to `properties` is sufficient; no required-list change.
+- Admin city view (`city-views.js`): added `_renderNonVampireTerrCard(td)` helper and `TERR_TYPE_LABELS` map. `renderTerritories()` skips any hardcoded TERRITORIES entry whose `terrDoc` has a non-vampire type (with `continue`), then renders a `.terr-section-divider` + non-vampire cards for all `terrDocs` with `type !== 'vampire'`. Non-vampire cards show name + type badge; no regent/lieutenant/feeding/ambience controls.
+- Player city tab (`city-tab.js`): `allTerrs` split into `vampireTerrs` / `nonVampireTerrs` at data-prep time. Regencies section now iterates `vampireTerrs` only (count in summary updated accordingly). New collapsible "Non-Vampire Territories" section added for `nonVampireTerrs` — each row shows territory name + `.city-nv-badge` type label. Section is omitted entirely when there are no non-vampire territories (no regression when all territories are vampire).
+- CSS: `.terr-card--non-vampire`, `.terr-type-badge`, `.terr-section-divider` added to `admin-layout.css`; `.city-nv-row`, `.city-nv-badge` added to `player-layout.css`. All use existing tokens (`--surf2`, `--bdr`, `--txt3`, `--fl`) — no new tokens.
+- Open decision (grouping vs interleaved): Option B (grouped) implemented per strawman — vampire first, divider, non-vampire. Confirmed as stated preference in story.
+- Manual smoke test required: flip one MongoDB territory to `type: 'mortal'` to verify both views.
+- Parse checks: city-tab.js and city-views.js both clean.
+
+### File List
+
+- `server/schemas/territory.schema.js`
+- `public/js/tabs/city-tab.js`
+- `public/js/admin/city-views.js`
+- `public/css/admin-layout.css`
+- `public/css/player-layout.css`
+- `specs/stories/feat-2-non-vampire-territories.story.md`
+- `specs/stories/sprint-status.yaml`

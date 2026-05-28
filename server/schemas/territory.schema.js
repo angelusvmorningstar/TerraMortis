@@ -35,6 +35,8 @@ export const territorySchema = {
     lieutenant_id:   { type: ['string', 'null'] },
     feeding_rights:  { type: 'array', items: { type: 'string' } },
     updated_at:      { type: 'string' },
+    // feat-2: optional territory type classification. Absent = 'vampire' default.
+    type: { type: 'string', enum: ['vampire', 'mortal', 'contested'] },
     // Issue #9 (2026-05-07): optional placement on the city map overlay.
     // Both x and y are percentages of the map image's natural dimensions
     // (0–100 inclusive). When present, both keys are required and must be

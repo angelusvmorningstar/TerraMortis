@@ -1485,6 +1485,10 @@ body {
 .city-char-player { font-size: 11px; color: var(--txt3); font-style: italic; }
 .city-placeholder { font-size: 12px; margin: 0; }
 
+/* ── Non-vampire territory rows (feat-2) ── */
+.city-nv-row { opacity: 0.8; }
+.city-nv-badge { display: inline-block; padding: 1px 6px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 8px; font-size: 10px; color: var(--txt3); font-family: var(--fl); margin-left: 4px; }
+
 /* ── Status tab ─ ranked clan / covenant standing ─────────────────────────── */
 
 #tab-status.active { overflow-y: auto; }
