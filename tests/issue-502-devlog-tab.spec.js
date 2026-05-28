@@ -208,97 +208,125 @@ test.describe('Admin — Devlog domain (AC#6)', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-//  PLAYER — Devlog tab in player.html
+//  PLAYER — Devlog tab in index.html / app.js (the unified game app)
 //
-//  BUG (issue #502 follow-up): player.html immediately redirects to /
-//  (index.html / the Game App) via window.location.replace. The devlog tab
-//  was implemented in player.html + player.js, which are unreachable for
-//  end-users because of this redirect. Resolving these tests requires
-//  either:
-//    a) Porting the devlog tab to index.html / app.js (preferred — unified
-//       app is the canonical player surface), OR
-//    b) Making the redirect conditional (remove or guard it so player.html
-//       is actually served to players).
-//
-//  All tests in this group are marked test.fixme() until the redirect is
-//  resolved. They are written against the correct selectors/assertions so
-//  they are ready to pass once the implementation is in the right place.
+//  The devlog tab is wired into index.html via NAV_ITEMS + goTab() in
+//  app.js. The nav button is #n-devlog; the tab container is #t-devlog.
+//  renderDevlogTab() fetches /api/devlog and renders content into #t-devlog.
 // ══════════════════════════════════════════════════════════════════════════
 
-test.describe('Player — Devlog tab (AC#7-10)', () => {
-  test.fixme(true, 'player.html redirects to / — devlog tab must be ported to index.html/app.js');
+async function loginAsGameApp(page, user) {
+  await page.addInitScript(({ user }) => {
+    localStorage.setItem('tm_auth_token', 'fake-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, { user });
 
-  test('Devlog sidebar button present in player app', async ({ page }) => {
-    await loginAsPlayer(page);
+  await page.route('**/api/auth/me', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+  );
+  // Stub all boot-time API calls so the app reaches a ready state
+  await page.route(/\/api\/characters(\?|$)/, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/characters/names', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/territories*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/downtime_cycles*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/downtime_submissions*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/game_sessions*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/st_mods*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+  await page.route('**/api/settings*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'global', st_mods_enabled: true }) })
+  );
+  await page.route('**/api/rules*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  );
+}
+
+test.describe('Player — Devlog tab in game app (AC#7-10)', () => {
+  // goTab is on window (app.js:2283). Use page.evaluate to navigate —
+  // avoids fragility from bottom-nav being hidden in desktop-mode viewport.
+  async function goDevlog(page) {
+    await page.evaluate(() => window.goTab('devlog'));
+    await page.waitForSelector('#t-devlog.active', { timeout: 5000 });
+  }
+
+  test('Devlog nav button exists in the DOM', async ({ page }) => {
+    await loginAsGameApp(page, PLAYER_USER);
     await page.route('**/api/devlog*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
     );
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 10000 });
-    await expect(page.locator('[data-tab="devlog"]')).toBeVisible();
-    await expect(page.locator('[data-tab="devlog"]')).toContainText('Devlog');
+    await page.goto('/');
+    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+    // Button exists in DOM (may be in bottom nav or desktop sidebar depending on viewport)
+    await expect(page.locator('#n-devlog')).toHaveCount(1);
+    await expect(page.locator('#n-devlog')).toContainText('Devlog');
   });
 
-  test('Clicking Devlog tab renders entries grouped by type', async ({ page }) => {
-    await loginAsPlayer(page);
+  test('Devlog tab renders entries grouped by type', async ({ page }) => {
+    await loginAsGameApp(page, PLAYER_USER);
     await page.route('**/api/devlog*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
     );
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 10000 });
-    await page.click('[data-tab="devlog"]');
-    await page.waitForSelector('#tab-devlog.active, #tab-devlog .devlog-section', { timeout: 5000 });
+    await page.goto('/');
+    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+    await goDevlog(page);
 
-    // Active entries should be visible
-    await expect(page.locator('#devlog-content')).toContainText('Street Fighting rework');
-    await expect(page.locator('#devlog-content')).toContainText('Regency tracker');
+    await expect(page.locator('#t-devlog')).toContainText('Street Fighting rework');
+    await expect(page.locator('#t-devlog')).toContainText('Regency tracker');
   });
 
-  test('Status shows human-readable chip not raw enum (AC#8)', async ({ page }) => {
-    await loginAsPlayer(page);
+  test('Status shown as human-readable chip not raw enum (AC#8)', async ({ page }) => {
+    await loginAsGameApp(page, PLAYER_USER);
     await page.route('**/api/devlog*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
     );
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 10000 });
-    await page.click('[data-tab="devlog"]');
-    await page.waitForSelector('#tab-devlog.active', { timeout: 5000 });
+    await page.goto('/');
+    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+    await goDevlog(page);
 
-    // Human-readable labels, not raw enum values
-    await expect(page.locator('#devlog-content')).toContainText('Under Consideration');
-    await expect(page.locator('#devlog-content')).not.toContainText('considering');
-    await expect(page.locator('#devlog-content')).toContainText('In Progress');
-    await expect(page.locator('#devlog-content')).not.toContainText('in_progress');
+    await expect(page.locator('#t-devlog')).toContainText('Under Consideration');
+    await expect(page.locator('#t-devlog')).not.toContainText('considering');
+    await expect(page.locator('#t-devlog')).toContainText('In Progress');
+    await expect(page.locator('#t-devlog')).not.toContainText('in_progress');
   });
 
-  test('Implemented entries appear in collapsed Resolved section (AC#9)', async ({ page }) => {
-    await loginAsPlayer(page);
+  test('Implemented entries in collapsed Resolved section (AC#9)', async ({ page }) => {
+    await loginAsGameApp(page, PLAYER_USER);
     await page.route('**/api/devlog*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
     );
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 10000 });
-    await page.click('[data-tab="devlog"]');
-    await page.waitForSelector('#tab-devlog.active', { timeout: 5000 });
+    await page.goto('/');
+    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+    await goDevlog(page);
 
-    // The implemented entry should NOT be visible without expanding the details
-    const resolved = page.locator('#devlog-content details');
+    const resolved = page.locator('#t-devlog details');
     await expect(resolved).toBeVisible({ timeout: 3000 });
-    // Expanding the details should reveal the resolved entry
     await resolved.click();
-    await expect(page.locator('#devlog-content')).toContainText('Dark mode for mobile');
+    await expect(page.locator('#t-devlog')).toContainText('Dark mode for mobile');
   });
 
-  test('Empty state shows "Nothing posted yet" when no entries (AC#7)', async ({ page }) => {
-    await loginAsPlayer(page);
+  test('Empty state shows "Nothing posted yet" (AC#7)', async ({ page }) => {
+    await loginAsGameApp(page, PLAYER_USER);
     await page.route('**/api/devlog*', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     );
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 10000 });
-    await page.click('[data-tab="devlog"]');
-    await page.waitForSelector('#tab-devlog.active', { timeout: 5000 });
+    await page.goto('/');
+    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+    await goDevlog(page);
 
-    await expect(page.locator('#devlog-content')).toContainText('Nothing posted yet');
+    await expect(page.locator('#t-devlog')).toContainText('Nothing posted yet');
   });
 });
