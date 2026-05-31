@@ -17,7 +17,7 @@ import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEED
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
@@ -559,6 +559,17 @@ function collectResponses() {
   if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
   if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
   if (psTextEl) responses['personal_story_text'] = psTextEl.value;
+
+  // #504: Safe Places and Havens locations. Recompute the Safe Place list the
+  // same way the renderer does so indices align, then read each input. Gate on
+  // element presence (silent-leave) so a save when the section isn't rendered
+  // (zero safe places) leaves any pre-existing keys on the spread base intact.
+  const _safePlaces = (currentChar?.merits || [])
+    .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+  _safePlaces.forEach((sp, i) => {
+    const spEl = document.getElementById('dt-safe_place_location_' + i);
+    if (spEl) responses['safe_place_location_' + i] = spEl.value;
+  });
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -2069,6 +2080,7 @@ function renderForm(container) {
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
+    if (section.key === 'safe_place_locations') continue; // #504: rendered explicitly below (custom per-merit inputs)
     // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
     // MINIMAL so it falls through; trust/harm/aspirations live in admin).
     if (!_isSectionVisibleInMode(section.key, mode)) continue;
@@ -2088,6 +2100,9 @@ function renderForm(container) {
     }
     h += '</div></div>';
   }
+
+  // ── Safe Places and Havens — ungated; renders after Court regardless of attendance (#504) ──
+  h += renderSafePlaceLocationsSection(saved);
 
   // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
@@ -4402,6 +4417,47 @@ function renderPersonalStorySection(saved) {
   h += '</label>';
   h += `<textarea id="dt-personal_story_text" class="qf-textarea" rows="4" placeholder="${esc(placeholder)}">${esc(savedText)}</textarea>`;
   h += '</div>';
+
+  h += '</div></div>';
+  return h;
+}
+
+// #504: Safe Places and Havens — one street+suburb text input per Safe Place
+// merit instance. A Haven is always built on a Safe Place (its rating is
+// capped by the attached Safe Place via `attached_to` === domKey(safePlace)),
+// so it is NOT a separate input: the safe place hosting the haven is marked
+// "(Haven)" in its label. With zero safe places the whole section is omitted
+// (a haven cannot exist without one). Locations are optional and deliberately
+// NOT wired into the completeness gate. Custom renderer + manual collector
+// mirror renderPersonalStorySection; index-keyed responses
+// (safe_place_location_${i}) match the form's slot convention.
+function renderSafePlaceLocationsSection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'safe_place_locations');
+  if (!section) return '';
+
+  const safePlaces = (currentChar?.merits || [])
+    .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+  if (safePlaces.length === 0) return ''; // AC#4 — nothing to ask about
+
+  const haven = (currentChar?.merits || [])
+    .find(m => m.category === 'domain' && m.name === 'Haven');
+  const havenKey = haven && haven.attached_to ? haven.attached_to : null;
+
+  let h = '<div class="qf-section collapsed" data-section-key="safe_place_locations">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  safePlaces.forEach((sp, i) => {
+    const key = domKey(sp);
+    const isHaven = havenKey !== null && havenKey === key;
+    const label = esc(key) + (isHaven ? ' <span class="qf-haven-tag">(Haven)</span>' : '');
+    const val = saved['safe_place_location_' + i] || '';
+    h += '<div class="qf-field" style="margin-top:12px;">';
+    h += `<label class="qf-label" for="dt-safe_place_location_${i}">${label}</label>`;
+    h += `<input type="text" id="dt-safe_place_location_${i}" class="qf-input" data-safe-place-location="${i}" value="${esc(val)}" placeholder="Street and suburb">`;
+    h += '</div>';
+  });
 
   h += '</div></div>';
   return h;

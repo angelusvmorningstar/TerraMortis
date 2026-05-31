@@ -222,6 +222,21 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
+  // 1b. Safe Places and Havens — always shown (gate: null), regardless of
+  // attendance, so locations are captured even when the Court section is
+  // hidden. Custom-rendered (renderSafePlaceLocationsSection in downtime-
+  // form.js) because it emits one input per Safe Place merit instance and a
+  // fixed questions[] cannot express a per-merit dynamic count. Empty
+  // questions[] keeps the generic render/collect loops inert; the explicit
+  // renderer + collector own this section. See issue #504.
+  {
+    key: 'safe_place_locations',
+    title: 'Safe Places and Havens',
+    gate: null,
+    intro: 'For each of your safe places, tell us the street and suburb where it is located. If you have a haven, it sits on one of these safe places.',
+    questions: [],
+  },
+
   // 2. Personal Story — always shown; player selects an NPC to interact with.
   // DTR.2: correspondence moved here from the Court section (where it
   // historically lived). Rendered by the custom personal-story renderer.
