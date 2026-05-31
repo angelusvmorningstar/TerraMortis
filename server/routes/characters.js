@@ -448,6 +448,61 @@ router.patch('/:id/st_mods_suppressed', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// PATCH /api/characters/:id/safe_place_locations — player (own char) or ST.
+// #506: persist per-Safe-Place street+suburb on the character so locations carry
+// across downtime cycles. Narrowly scoped: only the `location` field on `Safe
+// Place` domain merits is touched; every other merit and field is left exactly
+// as-is. The player-facing downtime form cannot use PUT /:id (ST-only), so this
+// is the sole player write path. Ownership mirrors GET /:id (:331-333).
+router.patch('/:id/safe_place_locations', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  // Ownership: players may only write their own character; ST may write any.
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const { locations } = req.body || {};
+  if (!Array.isArray(locations)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'locations must be an array' });
+  }
+  const MAX_LEN = 200;
+  const clean = locations.map(v => {
+    if (v == null) return '';
+    if (typeof v !== 'string') return null; // sentinel: invalid entry
+    return v.slice(0, MAX_LEN);
+  });
+  if (clean.some(v => v === null)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'each location must be a string' });
+  }
+
+  const char = await col().findOne({ _id: oid });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  // Apply positionally to Safe Place domain merits in document order — the same
+  // filter the downtime form renders/collects by, so index i aligns within a
+  // single load->submit. A shorter array leaves trailing safe places untouched.
+  let spIndex = 0;
+  const merits = (char.merits || []).map(m => {
+    if (m.category === 'domain' && m.name === 'Safe Place') {
+      const loc = clean[spIndex];
+      spIndex += 1;
+      if (loc !== undefined) return { ...m, location: loc };
+    }
+    return m;
+  });
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { merits } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
 // DELETE /api/characters/:id — ST only (hard-delete with cascade)
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);

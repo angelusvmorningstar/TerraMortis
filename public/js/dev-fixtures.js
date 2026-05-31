@@ -32,6 +32,8 @@ window.fetch=function devFix(url,opts){
   if(method==='GET'&&seg[0]==='attendance'){var qStr=urlStr.indexOf('?')>=0?urlStr.slice(urlStr.indexOf('?')+1):'';var qCid=new URLSearchParams(qStr).get('character_id')||'';var ats=CHARS.filter(function(c){return String(c._id)!==qCid;}).map(function(c){return{id:c._id,name:c.moniker||c.name};});return _mock({attended:true,attendees:ats});}
   if(method==='GET'&&seg[0]==='characters'&&seg[1]&&['public','status','combat','names'].indexOf(seg[1])<0){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
   if(method==='PUT'&&seg[0]==='characters'&&seg[1]){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
+  // #506: persist safe-place locations onto the in-memory char so the cross-cycle pre-fill round-trips locally.
+  if(method==='PATCH'&&seg[0]==='characters'&&seg[1]&&seg[2]==='safe_place_locations'){var slb=opts.body?JSON.parse(opts.body):{};var slc=CHARS.find(function(x){return x._id===seg[1];});if(!slc)return _mock({error:'NOT_FOUND'},404);var locs=Array.isArray(slb.locations)?slb.locations:[];var si=0;(slc.merits||[]).forEach(function(m){if(m.category==='domain'&&m.name==='Safe Place'){if(si<locs.length&&locs[si]!=null)m.location=String(locs[si]).slice(0,200);si++;}});return _mock(slc);}
   if(method==='GET'&&seg[0]==='territories'&&!seg[1])return _mock(TERRITORIES);
   if(method==='GET'&&seg[0]==='tracker_state'&&seg[1]){var ts=TRACKER_STATE[seg[1]];return ts?_mock(ts):_mock(null,404);}
   if(method==='PUT'&&seg[0]==='tracker_state')return _mock(null,204);
