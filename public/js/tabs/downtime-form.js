@@ -1261,6 +1261,29 @@ async function submitForm() {
         submitted_at: new Date().toISOString(),
       });
     }
+    // #506: write-through Safe Place locations to the character so they persist
+    // across cycles. Submit-time only (not autosave). Soft-fail in its own
+    // try/catch — a location write error must never undo or block the
+    // already-saved submission. Values come from `responses` (collected at
+    // collectResponses), falling back to the merit's stored location.
+    try {
+      const _safePlaces = (currentChar?.merits || [])
+        .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+      if (_safePlaces.length && currentChar?._id) {
+        const locations = _safePlaces.map((sp, i) => {
+          const v = responses['safe_place_location_' + i];
+          return (v !== undefined && v !== null) ? v : (sp.location || '');
+        });
+        const updated = await apiPatch(
+          `/api/characters/${encodeURIComponent(String(currentChar._id))}/safe_place_locations`,
+          { locations },
+        );
+        // Refresh in-memory merits so a same-session re-render shows stored values.
+        if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
+      }
+    } catch (locErr) {
+      console.warn('Safe-place location persist failed (submission still saved):', locErr);
+    }
     showToast('Downtime submitted successfully!', 'success');
     // DTU-2: submission completed, local mirror no longer needed.
     _clearLocalSnapshot();
@@ -4452,7 +4475,12 @@ function renderSafePlaceLocationsSection(saved) {
     const key = domKey(sp);
     const isHaven = havenKey !== null && havenKey === key;
     const label = esc(key) + (isHaven ? ' <span class="qf-haven-tag">(Haven)</span>' : '');
-    const val = saved['safe_place_location_' + i] || '';
+    // #506: prefer an in-progress submission edit, then the persisted character
+    // value (sp.location, carried across cycles), then blank. An explicit
+    // null/undefined check (not `||`) so a deliberately-cleared ('') in-cycle
+    // edit is not overridden by the stored sp.location.
+    const _saved = saved['safe_place_location_' + i];
+    const val = (_saved !== undefined && _saved !== null) ? _saved : (sp.location || '');
     h += '<div class="qf-field" style="margin-top:12px;">';
     h += `<label class="qf-label" for="dt-safe_place_location_${i}">${label}</label>`;
     h += `<input type="text" id="dt-safe_place_location_${i}" class="qf-input" data-safe-place-location="${i}" value="${esc(val)}" placeholder="Street and suburb">`;

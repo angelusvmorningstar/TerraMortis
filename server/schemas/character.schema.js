@@ -383,6 +383,7 @@ export const characterSchema = {
         spheres:       { type: 'array', items: { type: 'string' } },
         granted_by:    { type: 'string' },
         active:        { type: 'boolean' },
+        location:      { type: ['string', 'null'] }, // #506: street+suburb for Safe Place instances; carries across DT cycles
         narrow:        { type: ['string', 'boolean', 'null'] },
         ghoul:         { type: 'boolean' },
         derived:       { type: 'boolean' },
