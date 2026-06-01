@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
-import { normalizeMeritsMiddleware } from '../lib/normalize-character.js';
+import { normalizeMeritsMiddleware, normalizeCharacterMerits } from '../lib/normalize-character.js';
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -493,6 +493,85 @@ router.patch('/:id/safe_place_locations', async (req, res) => {
     }
     return m;
   });
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { merits } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
+// PATCH /api/characters/:id/carthian_pull — player (own char) or ST.
+// #508: allocate the single Carthian Pull dot to Allies/Contacts/Haven/Herd as a
+// live bonus dot (the `free_carthian` channel) on the character, so it shows on
+// the sheet via the existing bonus-dot model. At most one Carthian-Pull bonus
+// exists at a time, so every write is strip-then-apply: bonus-only instances we
+// created (tagged `granted_by:'Carthian Pull'`) are deleted, an augmented
+// existing Herd/Haven has its `free_carthian` cleared, then the new allocation
+// is applied. Player-scoped (the ST-only PUT cannot be used by players);
+// ownership mirrors GET /:id (:331-333). `target:''` clears the allocation.
+router.patch('/:id/carthian_pull', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const { target = '', sphere = '' } = req.body || {};
+  const TARGETS = ['', 'allies', 'contacts', 'haven', 'herd'];
+  if (!TARGETS.includes(target)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid target' });
+  }
+  const sphereStr = typeof sphere === 'string' ? sphere.trim().slice(0, 120) : '';
+  if ((target === 'allies' || target === 'contacts') && !sphereStr) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere required for allies/contacts' });
+  }
+
+  const char = await col().findOne({ _id: oid });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  // 1) Strip the prior Carthian-Pull bonus: drop bonus-only instances we made,
+  //    and clear free_carthian from any existing merit we augmented in place.
+  let merits = (char.merits || [])
+    .filter(m => m.granted_by !== 'Carthian Pull')
+    .map(m => {
+      if (m.free_carthian) { const { free_carthian, ...rest } = m; return rest; }
+      return m;
+    });
+
+  // 2) Apply the new allocation.
+  if (target === 'allies' || target === 'contacts') {
+    // Allies/Contacts are multi-instance and sphere-bearing: always a separate
+    // bonus-only instance (cleanly removable on retarget).
+    merits.push({
+      category: 'influence',
+      name: target === 'allies' ? 'Allies' : 'Contacts',
+      spheres: [sphereStr],
+      granted_by: 'Carthian Pull',
+      free_carthian: 1,
+      rating: 1,
+    });
+  } else if (target === 'haven' || target === 'herd') {
+    // Single-instance domain merits: augment the existing one if present,
+    // otherwise create a bonus-only instance.
+    const name = target === 'haven' ? 'Haven' : 'Herd';
+    const existing = merits.find(m => m.category === 'domain' && m.name === name);
+    if (existing) {
+      existing.free_carthian = (existing.free_carthian || 0) + 1;
+    } else {
+      merits.push({ category: 'domain', name, granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
+    }
+  }
+  // target === '' → cleared; nothing to add.
+
+  // 3) Re-sync ratings (rating = sum of channels) so the doc stays consistent.
+  const docForNorm = { merits };
+  normalizeCharacterMerits(docForNorm);
+  merits = docForNorm.merits;
 
   const result = await col().findOneAndUpdate(
     { _id: oid },

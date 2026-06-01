@@ -40,7 +40,8 @@ export function domMeritContribSingle(c, m) {
     + (m.bonus || 0);
   return purchased
     + (m.name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0)
-    + (m.free_fwb || 0) + (m.free_attache || 0);
+    + (m.free_fwb || 0) + (m.free_attache || 0) + (m.free_carthian || 0); // #508
+
 }
 
 /** Partner-shareable dots for a specific merit instance (cp + free + xp, no auto-bonuses). */
@@ -189,7 +190,7 @@ export function meritFreeSum(m) {
     + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
     + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0)
     + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0)
-    + (m.free_attache || 0);
+    + (m.free_attache || 0) + (m.free_carthian || 0); // #508
 }
 
 /**
@@ -260,7 +261,7 @@ export function meritEffectiveRating(c, m) {
     + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
     + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
     + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0)
-    + (m.free_fwb || 0) + (m.free_attache || 0);
+    + (m.free_fwb || 0) + (m.free_attache || 0) + (m.free_carthian || 0); // #508
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }

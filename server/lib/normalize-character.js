@@ -26,7 +26,7 @@ const MERIT_CHANNELS = [
   'cp', 'xp', 'free',
   'free_mci', 'free_vm', 'free_lk', 'free_ohm', 'free_inv',
   'free_pt', 'free_mdb', 'free_sw', 'free_bloodline', 'free_pet',
-  'free_attache',
+  'free_attache', 'free_carthian',
 ];
 
 /**
@@ -52,6 +52,7 @@ const GRANTED_BY_CHANNEL = {
   'MDB':        'free_mdb',
   'Lorekeeper': 'free_lk',
   'Invested':   'free_inv',
+  'Carthian Pull': 'free_carthian', // #508
 };
 
 function backfillChannel(merit) {
