@@ -1,14 +1,13 @@
 /**
- * API tests — PATCH /api/characters/:id/carthian_pull (#508).
+ * API tests — PATCH /api/characters/:id/carthian_pull (#508 + #510).
  *
  * The single Carthian Pull dot is allocated to Allies/Contacts/Haven/Herd as a
- * live `free_carthian` bonus dot on the character. At most one such bonus exists
- * at a time; every write is strip-then-apply. The endpoint must:
- *   - allow the owning player (and ST); 403 for non-owners
- *   - create a bonus-only instance for Allies/Contacts and absent targets
- *   - augment an existing Herd/Haven in place (no duplicate instance)
- *   - move the bonus on retarget (only ever one) and remove it on clear
- *   - keep merit `rating` in sync (= sum of channels) via the normalizer
+ * live `free_carthian` bonus dot. #510 corrects the Allies/Contacts sphere path:
+ *   - sphere must be a valid INFLUENCE_SPHERES value (not free text);
+ *   - match the EXISTING merit by sphere qualifier and augment it, else create;
+ *   - Allies stores its sphere in `area`; Contacts in `spheres[]` (+ a
+ *     carthian_sphere marker so the strip pops exactly that sphere);
+ *   - per-merit 5-dot cap; one bonus at a time (strip-then-apply).
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -48,78 +47,150 @@ afterAll(async () => {
   await teardownDb();
 });
 
-describe('PATCH /api/characters/:id/carthian_pull (#508)', () => {
-  it('allies allocation creates a bonus-only Allies instance with free_carthian:1', async () => {
-    const char = await seedChar({ name: 'CP Allies', merits: [cpMerit()] });
+describe('PATCH /api/characters/:id/carthian_pull — Allies (#510)', () => {
+  it('sphere not held → creates a bonus-only Allies merit keyed by area (not spheres)', async () => {
+    const char = await seedChar({ name: 'CP Allies New', merits: [cpMerit()] });
     const idStr = char._id.toString();
 
-    const res = await patch(app, idStr, { target: 'allies', sphere: 'Street' }, playerUser([idStr]));
+    const res = await patch(app, idStr, { target: 'allies', sphere: 'Underworld' }, playerUser([idStr]));
     expect(res.status).toBe(200);
 
     const stored = await getCollection('characters').findOne({ _id: char._id });
     const bonus = stored.merits.find(m => m.granted_by === 'Carthian Pull');
-    expect(bonus).toBeTruthy();
     expect(bonus.name).toBe('Allies');
-    expect(bonus.spheres).toEqual(['Street']);
+    expect(bonus.area).toBe('Underworld');
+    expect('spheres' in bonus).toBe(false); // Allies uses area, never spheres
     expect(bonus.free_carthian).toBe(1);
-    expect(bonus.rating).toBe(1); // normalizer kept rating = sum
+    expect(bonus.rating).toBe(1);
   });
 
-  it('herd allocation augments an existing Herd in place (no duplicate)', async () => {
-    const char = await seedChar({ name: 'CP Herd', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 2, rating: 2 }] });
+  it('sphere held below 5 → augments the existing Allies(area) by one dot, no new instance', async () => {
+    const char = await seedChar({ name: 'CP Allies Aug', merits: [cpMerit(), { category: 'influence', name: 'Allies', area: 'Underworld', cp: 2, rating: 2 }] });
     const idStr = char._id.toString();
 
-    const res = await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
-    expect(res.status).toBe(200);
-
+    await patch(app, idStr, { target: 'allies', sphere: 'Underworld' }, playerUser([idStr]));
     const stored = await getCollection('characters').findOne({ _id: char._id });
-    const herds = stored.merits.filter(m => m.category === 'domain' && m.name === 'Herd');
-    expect(herds).toHaveLength(1); // augmented, not duplicated
-    expect(herds[0].free_carthian).toBe(1);
-    expect(herds[0].rating).toBe(3); // 2 cp + 1 free_carthian, re-synced
+    const allies = stored.merits.filter(m => m.name === 'Allies' && (m.area || '') === 'Underworld');
+    expect(allies).toHaveLength(1); // augmented, not duplicated
+    expect(allies[0].free_carthian).toBe(1);
+    expect(allies[0].rating).toBe(3); // 2 + 1, re-synced
   });
 
-  it('herd allocation with no existing Herd creates a bonus-only instance', async () => {
-    const char = await seedChar({ name: 'CP Herd New', merits: [cpMerit()] });
+  it('Allies sphere already at 5 dots → 400', async () => {
+    const char = await seedChar({ name: 'CP Allies Cap', merits: [cpMerit(), { category: 'influence', name: 'Allies', area: 'Street', cp: 5, rating: 5 }] });
+    const res = await patch(app, char._id.toString(), { target: 'allies', sphere: 'Street' }, playerUser([char._id.toString()]));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /api/characters/:id/carthian_pull — Contacts (#510)', () => {
+  it('no Contacts merit → creates a bonus-only Contacts with spheres:[X]', async () => {
+    const char = await seedChar({ name: 'CP Contacts New', merits: [cpMerit()] });
     const idStr = char._id.toString();
 
-    await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
+    await patch(app, idStr, { target: 'contacts', sphere: 'Legal' }, playerUser([idStr]));
     const stored = await getCollection('characters').findOne({ _id: char._id });
-    const herd = stored.merits.find(m => m.name === 'Herd');
-    expect(herd).toBeTruthy();
-    expect(herd.granted_by).toBe('Carthian Pull');
-    expect(herd.free_carthian).toBe(1);
+    const bonus = stored.merits.find(m => m.granted_by === 'Carthian Pull');
+    expect(bonus.name).toBe('Contacts');
+    expect(bonus.spheres).toEqual(['Legal']);
+    expect(bonus.free_carthian).toBe(1);
   });
 
-  it('retarget moves the bonus — only one Carthian-Pull bonus ever exists', async () => {
-    const char = await seedChar({ name: 'CP Retarget', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 2, rating: 2 }] });
+  it('existing Contacts, sphere not held → pushes the sphere + dot and tags carthian_sphere', async () => {
+    const char = await seedChar({ name: 'CP Contacts Aug', merits: [cpMerit(), { category: 'influence', name: 'Contacts', spheres: ['Legal', 'Street'], cp: 2, rating: 2 }] });
     const idStr = char._id.toString();
 
-    await patch(app, idStr, { target: 'allies', sphere: 'Street' }, playerUser([idStr]));
-    await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
-
+    await patch(app, idStr, { target: 'contacts', sphere: 'Underworld' }, playerUser([idStr]));
     const stored = await getCollection('characters').findOne({ _id: char._id });
-    // The earlier bonus-only Allies instance is gone
-    expect(stored.merits.some(m => m.granted_by === 'Carthian Pull' && m.name === 'Allies')).toBe(false);
-    // Exactly one free_carthian dot, now on Herd
-    const withBonus = stored.merits.filter(m => (m.free_carthian || 0) > 0);
-    expect(withBonus).toHaveLength(1);
-    expect(withBonus[0].name).toBe('Herd');
-    expect(withBonus[0].rating).toBe(3);
+    const contacts = stored.merits.filter(m => m.name === 'Contacts');
+    expect(contacts).toHaveLength(1); // augmented in place, not duplicated
+    expect(contacts[0].spheres).toEqual(['Legal', 'Street', 'Underworld']);
+    expect(contacts[0].carthian_sphere).toBe('Underworld');
+    expect(contacts[0].free_carthian).toBe(1);
+    expect(contacts[0].rating).toBe(3); // === spheres.length, re-synced
   });
 
-  it('clear (target:"") removes the bonus and restores the augmented merit', async () => {
-    const char = await seedChar({ name: 'CP Clear', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 2, rating: 2 }] });
+  it('Contacts sphere already held → 400', async () => {
+    const char = await seedChar({ name: 'CP Contacts Dup', merits: [cpMerit(), { category: 'influence', name: 'Contacts', spheres: ['Legal'], cp: 1, rating: 1 }] });
+    const res = await patch(app, char._id.toString(), { target: 'contacts', sphere: 'Legal' }, playerUser([char._id.toString()]));
+    expect(res.status).toBe(400);
+  });
+
+  it('clearing an augmented Contacts pops the sphere + dot and restores rating', async () => {
+    const char = await seedChar({ name: 'CP Contacts Clear', merits: [cpMerit(), { category: 'influence', name: 'Contacts', spheres: ['Legal', 'Street'], cp: 2, rating: 2 }] });
     const idStr = char._id.toString();
 
-    await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
+    await patch(app, idStr, { target: 'contacts', sphere: 'Underworld' }, playerUser([idStr]));
     await patch(app, idStr, { target: '' }, playerUser([idStr]));
 
     const stored = await getCollection('characters').findOne({ _id: char._id });
+    const contacts = stored.merits.find(m => m.name === 'Contacts');
+    expect(contacts.spheres).toEqual(['Legal', 'Street']); // pushed sphere removed
+    expect('carthian_sphere' in contacts).toBe(false);
+    expect('free_carthian' in contacts).toBe(false);
+    expect(contacts.rating).toBe(2); // back to base
+  });
+});
+
+describe('PATCH /api/characters/:id/carthian_pull — shared (#508/#510)', () => {
+  it('round-trip: Contacts-augment → retarget to Herd leaves zero residue on Contacts', async () => {
+    const char = await seedChar({ name: 'CP RT Contacts', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 1, rating: 1 }, { category: 'influence', name: 'Contacts', spheres: ['Legal', 'Street'], cp: 2, rating: 2 }] });
+    const idStr = char._id.toString();
+
+    await patch(app, idStr, { target: 'contacts', sphere: 'Underworld' }, playerUser([idStr]));
+    await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    const contacts = stored.merits.find(m => m.name === 'Contacts');
+    expect(contacts.spheres).toEqual(['Legal', 'Street']); // no orphan sphere
+    expect(contacts.rating).toBe(2); // rating === spheres.length
+    expect('free_carthian' in contacts).toBe(false);
+    expect('carthian_sphere' in contacts).toBe(false);
+    // exactly one bonus, now on Herd
+    expect(stored.merits.filter(m => (m.free_carthian || 0) > 0).map(m => m.name)).toEqual(['Herd']);
+  });
+
+  it('round-trip: Allies-augment → clear restores the merit exactly', async () => {
+    const char = await seedChar({ name: 'CP RT Allies', merits: [cpMerit(), { category: 'influence', name: 'Allies', area: 'Police', cp: 3, rating: 3 }] });
+    const idStr = char._id.toString();
+
+    await patch(app, idStr, { target: 'allies', sphere: 'Police' }, playerUser([idStr]));
+    await patch(app, idStr, { target: '' }, playerUser([idStr]));
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    const allies = stored.merits.filter(m => m.name === 'Allies');
+    expect(allies).toHaveLength(1);
+    expect(allies[0].rating).toBe(3);
+    expect('free_carthian' in allies[0]).toBe(false);
     expect(stored.merits.some(m => (m.free_carthian || 0) > 0)).toBe(false);
-    const herd = stored.merits.find(m => m.name === 'Herd');
-    expect(herd.rating).toBe(2); // back to original
-    expect('free_carthian' in herd).toBe(false);
+  });
+
+  it('non-enum sphere → 400', async () => {
+    const char = await seedChar({ name: 'CP Bad Sphere', merits: [cpMerit()] });
+    const res = await patch(app, char._id.toString(), { target: 'allies', sphere: 'Nonsense' }, playerUser([char._id.toString()]));
+    expect(res.status).toBe(400);
+  });
+
+  it('retarget moves the bonus — only one Carthian bonus exists', async () => {
+    const char = await seedChar({ name: 'CP Retarget', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 2, rating: 2 }] });
+    const idStr = char._id.toString();
+
+    await patch(app, idStr, { target: 'allies', sphere: 'Police' }, playerUser([idStr]));
+    await patch(app, idStr, { target: 'herd' }, playerUser([idStr]));
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    expect(stored.merits.some(m => m.granted_by === 'Carthian Pull' && m.name === 'Allies')).toBe(false);
+    const withBonus = stored.merits.filter(m => (m.free_carthian || 0) > 0);
+    expect(withBonus).toHaveLength(1);
+    expect(withBonus[0].name).toBe('Herd');
+  });
+
+  it('herd augments an existing Herd in place (no duplicate)', async () => {
+    const char = await seedChar({ name: 'CP Herd', merits: [cpMerit(), { category: 'domain', name: 'Herd', cp: 2, rating: 2 }] });
+    await patch(app, char._id.toString(), { target: 'herd' }, playerUser([char._id.toString()]));
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    expect(stored.merits.filter(m => m.name === 'Herd')).toHaveLength(1);
+    expect(stored.merits.find(m => m.name === 'Herd').rating).toBe(3);
   });
 
   it('ST can write any character', async () => {
@@ -136,14 +207,8 @@ describe('PATCH /api/characters/:id/carthian_pull (#508)', () => {
   });
 
   it('400 on invalid target', async () => {
-    const char = await seedChar({ name: 'CP Bad', merits: [cpMerit()] });
+    const char = await seedChar({ name: 'CP Bad Target', merits: [cpMerit()] });
     const res = await patch(app, char._id.toString(), { target: 'nonsense' }, playerUser([char._id.toString()]));
-    expect(res.status).toBe(400);
-  });
-
-  it('400 when allies/contacts has no sphere', async () => {
-    const char = await seedChar({ name: 'CP NoSphere', merits: [cpMerit()] });
-    const res = await patch(app, char._id.toString(), { target: 'contacts', sphere: '  ' }, playerUser([char._id.toString()]));
     expect(res.status).toBe(400);
   });
 

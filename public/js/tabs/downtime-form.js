@@ -16,7 +16,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
@@ -310,9 +310,10 @@ function detectMerits() {
     }
   }
 
-  detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
-    m.category === 'influence' && m.name === 'Allies'
-  ));
+  // #510: Allies + Contacts action lists come from the shared derivation so the
+  // init detection and the live Carthian re-render cannot diverge.
+  const _ia = deriveInfluenceActionMerits(merits);
+  detectedMerits.spheres = _ia.spheres;
   // Issue #194 (2026-05-08): the standing-merit name is canonically
   // 'Mystery Cult Initiation' across the codebase (sheet, editor, admin,
   // audit). Filtering on 'MCI' here meant any character whose MCI was
@@ -323,31 +324,7 @@ function detectMerits() {
   detectedMerits.status = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && m.name === 'Status'
   )).concat(merits.filter(m => m.category === 'standing' && m.name === 'Mystery Cult Initiation'));
-  // Contacts: expand spheres array into individual entries for toggle rendering
-  const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
-    m.category === 'influence' && m.name === 'Contacts'
-  ));
-  detectedMerits.contacts = [];
-  for (const m of rawContacts) {
-    // New format: spheres array
-    if (m.spheres && m.spheres.length) {
-      for (const sp of m.spheres) {
-        detectedMerits.contacts.push({ ...m, area: sp, rating: 1 });
-      }
-    } else {
-      // Legacy format: comma-separated area/qualifier string
-      const areas = (m.area || m.qualifier || '').split(/,\s*/).filter(Boolean);
-      if (areas.length > 1) {
-        for (const a of areas) {
-          detectedMerits.contacts.push({ ...m, area: a.trim(), rating: 1 });
-        }
-      } else if (areas.length === 1) {
-        detectedMerits.contacts.push({ ...m, area: areas[0] });
-      } else {
-        detectedMerits.contacts.push(m);
-      }
-    }
-  }
+  detectedMerits.contacts = _ia.contacts;
   // Attaché (*) merits are functionally Retainers (per sheet.js:900); also walk
   // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
   detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
@@ -4475,13 +4452,16 @@ function renderCarthianPullSection(saved) {
   const hasCP = (currentChar?.merits || []).some(m => m.name === 'Carthian Pull');
   if (!hasCP) return '';
 
-  // Current allocation derived from the live bonus merit (fallback to saved).
-  const bonus = (currentChar.merits || []).find(m => m.granted_by === 'Carthian Pull');
+  // Current allocation derived from the live bonus merit — the bearer of the
+  // free_carthian dot (bonus-only OR an augmented existing merit). Allies stores
+  // its sphere in `area`; an augmented Contacts records it in `carthian_sphere`
+  // (a bonus-only Contacts holds it as its single spheres[0]). Fallback to saved.
+  const bonus = (currentChar.merits || []).find(m => (m.free_carthian || 0) > 0);
   let curTarget = '';
   let curSphere = '';
   if (bonus) {
-    if (bonus.name === 'Allies') { curTarget = 'allies'; curSphere = (bonus.spheres && bonus.spheres[0]) || ''; }
-    else if (bonus.name === 'Contacts') { curTarget = 'contacts'; curSphere = (bonus.spheres && bonus.spheres[0]) || ''; }
+    if (bonus.name === 'Allies') { curTarget = 'allies'; curSphere = bonus.area || ''; }
+    else if (bonus.name === 'Contacts') { curTarget = 'contacts'; curSphere = bonus.carthian_sphere || (bonus.granted_by === 'Carthian Pull' && bonus.spheres && bonus.spheres[0]) || ''; }
     else if (bonus.name === 'Haven') curTarget = 'haven';
     else if (bonus.name === 'Herd') curTarget = 'herd';
   } else {
@@ -4489,34 +4469,29 @@ function renderCarthianPullSection(saved) {
     curSphere = saved['carthian_pull_sphere'] || '';
   }
 
-  // Base (non-Carthian) action counts for cap-aware disabling.
-  const baseAllies = (detectedMerits.spheres || []).filter(m => m.granted_by !== 'Carthian Pull').length;
-  const baseContacts = (detectedMerits.contacts || []).filter(m => m.granted_by !== 'Carthian Pull').length;
-  const alliesFull = baseAllies >= 5 && curTarget !== 'allies';
-  const contactsFull = baseContacts >= 5 && curTarget !== 'contacts';
-
   let h = '<div class="qf-section collapsed" data-section-key="carthian_pull">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
-  const opt = (val, label, disabled) =>
-    `<option value="${val}"${curTarget === val ? ' selected' : ''}${disabled ? ' disabled' : ''}>${esc(label)}${disabled ? ' (at cap)' : ''}</option>`;
+  const opt = (val, label) =>
+    `<option value="${val}"${curTarget === val ? ' selected' : ''}>${esc(label)}</option>`;
 
   h += '<div class="qf-field" style="margin-top:12px;">';
   h += '<label class="qf-label" for="dt-carthian_target">Allocate your Carthian Pull dot to</label>';
   h += '<select id="dt-carthian_target" class="qf-input" data-carthian-target>';
-  h += opt('', '— None —', false);
-  h += opt('allies', 'Allies', alliesFull);
-  h += opt('contacts', 'Contacts', contactsFull);
-  h += opt('haven', 'Haven', false);
-  h += opt('herd', 'Herd', false);
+  h += opt('', '— None —');
+  h += opt('allies', 'Allies');
+  h += opt('contacts', 'Contacts');
+  h += opt('haven', 'Haven');
+  h += opt('herd', 'Herd');
   h += '</select></div>';
 
   if (curTarget === 'allies' || curTarget === 'contacts') {
+    // #510: sphere is a fixed-enum dropdown, filtered for the target.
     h += '<div class="qf-field" style="margin-top:12px;">';
     h += '<label class="qf-label" for="dt-carthian_sphere">Sphere</label>';
-    h += `<input type="text" id="dt-carthian_sphere" class="qf-input" data-carthian-sphere value="${esc(curSphere)}" placeholder="e.g. Street, Legal, Underworld">`;
+    h += `<select id="dt-carthian_sphere" class="qf-input" data-carthian-sphere>${_carthianSphereOptions(curTarget, curSphere)}</select>`;
     h += '</div>';
   }
 
@@ -4524,22 +4499,81 @@ function renderCarthianPullSection(saved) {
   return h;
 }
 
-// #508: keep detectedMerits.spheres/.contacts in sync with a live Carthian Pull
-// change. detectMerits() is init-only and already picks up a persisted bonus, so
-// this only handles in-session retargeting: strip the prior Carthian entry, then
-// re-add the current bonus (if Allies/Contacts and under the 5-cap). One merit ->
-// one slot; never a synthetic duplicate alongside the real merit.
-function _syncCarthianDetected() {
-  detectedMerits.spheres = (detectedMerits.spheres || []).filter(m => m.granted_by !== 'Carthian Pull');
-  detectedMerits.contacts = (detectedMerits.contacts || []).filter(m => m.granted_by !== 'Carthian Pull');
-  const bonus = (currentChar.merits || []).find(m => m.granted_by === 'Carthian Pull');
-  if (!bonus) return;
-  if (bonus.name === 'Allies' && detectedMerits.spheres.length < 5) {
-    detectedMerits.spheres.push(bonus);
-  } else if (bonus.name === 'Contacts' && detectedMerits.contacts.length < 5) {
-    const sp = (bonus.spheres && bonus.spheres[0]) || '';
-    detectedMerits.contacts.push({ ...bonus, area: sp, rating: 1 });
+// #510: options for the Carthian sphere <select>, filtered by target.
+//  - Allies: all INFLUENCE_SPHERES; a sphere whose existing Allies merit is at
+//    5 dots is disabled, and (when at the 5-Allies-slot cap) a NEW sphere that
+//    would create a 6th slot is disabled. The current selection stays selectable.
+//  - Contacts: exclude spheres already in the character's Contacts spheres[]
+//    (mirrors the sheet editor's exclusion), except the current selection.
+function _carthianSphereOptions(target, curSphere) {
+  const merits = currentChar?.merits || [];
+  let avail = INFLUENCE_SPHERES.slice();
+  const disabled = new Set();
+  if (target === 'contacts') {
+    const cm = merits.find(m => m.category === 'influence' && m.name === 'Contacts');
+    const held = new Set((cm?.spheres || []).filter(s => s !== curSphere));
+    avail = avail.filter(sp => !held.has(sp));
+  } else if (target === 'allies') {
+    const alliesMerits = merits.filter(m => m.category === 'influence' && m.name === 'Allies');
+    const slotCount = alliesMerits.filter(m => (m.area || '') !== curSphere).length;
+    for (const sp of avail) {
+      if (sp === curSphere) continue;
+      const ex = alliesMerits.find(m => (m.area || '') === sp);
+      if (ex && meritEffectiveRating(currentChar, ex) >= 5) disabled.add(sp);      // sphere already at 5 dots
+      else if (!ex && slotCount >= 5) disabled.add(sp);                            // new sphere would exceed 5 Allies slots
+    }
   }
+  let h = '<option value="">— select sphere —</option>';
+  for (const sp of avail) {
+    const dis = disabled.has(sp);
+    h += `<option value="${esc(sp)}"${sp === curSphere ? ' selected' : ''}${dis ? ' disabled' : ''}>${esc(sp)}${dis ? ' (at 5)' : ''}</option>`;
+  }
+  return h;
+}
+
+// Derive the Allies (spheres) + Contacts action-merit lists from a merits array,
+// using the same expansion/dedup as detectMerits. Shared so the init detection
+// and the live Carthian re-render cannot diverge (#510).
+function deriveInfluenceActionMerits(merits) {
+  const list = (merits || []).filter(m => m.category);
+  const directInfluenceNames = new Set(list.filter(m => m.category === 'influence').map(m => m.name));
+  const exp = [...list];
+  for (const m of list) {
+    if (m.category !== 'standing') continue;
+    const grants = Array.isArray(m.tier_grants) ? m.tier_grants
+                 : Array.isArray(m.benefit_grants) ? m.benefit_grants
+                 : [];
+    for (const g of grants) {
+      if (g.category !== 'influence') continue;
+      if (directInfluenceNames.has(g.name)) continue;
+      exp.push({ ...g, _from_mci: m.cult_name || m.name });
+    }
+  }
+  const spheres = deduplicateMerits(exp.filter(m => m.category === 'influence' && m.name === 'Allies'));
+  const rawContacts = deduplicateMerits(exp.filter(m => m.category === 'influence' && m.name === 'Contacts'));
+  const contacts = [];
+  for (const m of rawContacts) {
+    if (m.spheres && m.spheres.length) {
+      for (const sp of m.spheres) contacts.push({ ...m, area: sp, rating: 1 });
+    } else {
+      const areas = (m.area || m.qualifier || '').split(/,\s*/).filter(Boolean);
+      if (areas.length > 1) { for (const a of areas) contacts.push({ ...m, area: a.trim(), rating: 1 }); }
+      else if (areas.length === 1) contacts.push({ ...m, area: areas[0] });
+      else contacts.push(m);
+    }
+  }
+  return { spheres, contacts };
+}
+
+// #510: after a live Carthian write, re-derive the Allies/Contacts action lists
+// from the (possibly augmented) character. detectMerits() is init-only and has
+// side effects, so we re-derive ONLY these two arrays here. This replaces the
+// #508 strip-and-push, which broke once augmented merits (no granted_by) became
+// possible. One merit -> one slot, no double-up.
+function _syncCarthianDetected() {
+  const ia = deriveInfluenceActionMerits(currentChar?.merits || []);
+  detectedMerits.spheres = ia.spheres;
+  detectedMerits.contacts = ia.contacts;
 }
 
 // #508: write the current Carthian Pull allocation to the character (live), then

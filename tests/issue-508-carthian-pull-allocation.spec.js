@@ -58,16 +58,30 @@ const CHAR_CP_CAPPED = {
   ],
 };
 
-// Mirror the server strip-then-apply so the mocked PATCH returns a consistent char.
+// Mirror the server match/augment/create + strip (#510) so the mocked PATCH
+// returns a consistent char: Allies by `area`, Contacts by `spheres[]`+marker.
 function applyCarthian(char, body) {
   const c = JSON.parse(JSON.stringify(char));
   const target = (body && body.target) || '';
   const sphere = ((body && body.sphere) || '').trim();
   c.merits = (c.merits || [])
     .filter(m => m.granted_by !== 'Carthian Pull')
-    .map(m => { if (m.free_carthian) { const r = { ...m }; delete r.free_carthian; return r; } return m; });
-  if (target === 'allies' || target === 'contacts') {
-    c.merits.push({ category: 'influence', name: target === 'allies' ? 'Allies' : 'Contacts', spheres: [sphere], granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
+    .map(m => {
+      if (!m.free_carthian && !m.carthian_sphere) return m;
+      const r = { ...m };
+      delete r.free_carthian;
+      if (r.carthian_sphere) { const sp = r.carthian_sphere; delete r.carthian_sphere; if (Array.isArray(r.spheres)) r.spheres = r.spheres.filter(s => s !== sp); }
+      r.rating = (r.name === 'Contacts' && Array.isArray(r.spheres)) ? r.spheres.length : ((r.cp || 0) + (r.xp || 0) + (r.free || 0));
+      return r;
+    });
+  if (target === 'allies') {
+    const ex = c.merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === sphere);
+    if (ex) { ex.free_carthian = (ex.free_carthian || 0) + 1; ex.rating = (ex.rating || 0) + 1; }
+    else c.merits.push({ category: 'influence', name: 'Allies', area: sphere, granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
+  } else if (target === 'contacts') {
+    const ex = c.merits.find(m => m.category === 'influence' && m.name === 'Contacts');
+    if (ex) { const sp = Array.isArray(ex.spheres) ? ex.spheres : []; if (sp.indexOf(sphere) < 0) { ex.spheres = sp.concat([sphere]); ex.free_carthian = (ex.free_carthian || 0) + 1; ex.carthian_sphere = sphere; ex.rating = ex.spheres.length; } }
+    else c.merits.push({ category: 'influence', name: 'Contacts', spheres: [sphere], granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
   } else if (target === 'haven' || target === 'herd') {
     const name = target === 'haven' ? 'Haven' : 'Herd';
     const ex = c.merits.find(m => m.category === 'domain' && m.name === name);
@@ -163,30 +177,21 @@ test.describe('Player DT form — Carthian Pull allocation (#508)', () => {
     expect(req.postDataJSON().target).toBe('herd');
   });
 
-  test('write: Allies reveals a sphere input and PATCHes with the typed sphere', async ({ page }) => {
+  test('write: Allies reveals a sphere dropdown and PATCHes with the chosen enum sphere', async ({ page }) => {
     await setup(page, { char: CHAR_WITH_CP });
     await openDtTab(page);
     await expect(page.locator(SECTION)).toBeAttached({ timeout: 8000 });
     await page.locator(`${SECTION} .qf-section-title`).click();
 
-    // Selecting Allies reveals the sphere field (no write yet — needs a sphere).
+    // Selecting Allies reveals the sphere <select> (no write yet — needs a sphere).
     await page.selectOption(TARGET, 'allies');
-    await expect(page.locator('#dt-carthian_sphere')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('select#dt-carthian_sphere')).toBeVisible({ timeout: 3000 });
 
     const [req] = await Promise.all([
       page.waitForRequest(r => r.method() === 'PATCH' && /carthian_pull/.test(r.url()) && r.postDataJSON().target === 'allies', { timeout: 6000 }),
-      page.fill('#dt-carthian_sphere', 'Street').then(() => page.locator('#dt-carthian_sphere').blur()),
+      page.selectOption('#dt-carthian_sphere', 'Street'),
     ]);
     expect(req.postDataJSON()).toMatchObject({ target: 'allies', sphere: 'Street' });
-  });
-
-  test('AC#5: Allies target is disabled at the 5-action cap', async ({ page }) => {
-    await setup(page, { char: CHAR_CP_CAPPED });
-    await openDtTab(page);
-    await expect(page.locator(SECTION)).toBeAttached({ timeout: 8000 });
-    await expect(page.locator(`${TARGET} option[value="allies"]`)).toBeDisabled();
-    // Haven/Herd remain available
-    await expect(page.locator(`${TARGET} option[value="herd"]`)).toBeEnabled();
   });
 
   test('AC#8: selecting None clears the allocation (PATCH target empty)', async ({ page }) => {
