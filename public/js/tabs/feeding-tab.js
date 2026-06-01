@@ -113,7 +113,14 @@ export async function renderFeedingTab(el, char) {
         .filter(s => String(s.character_id) === charId &&
           (s.published_outcome || s.feeding_roll_player || s.feeding_deferred))
         .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
-      if (candidateSub) {
+      // Guard: only use candidateSub if its cycle is the newest non-closed cycle.
+      // A newer live cycle (e.g. DT4 in 'active') means we are between downtimes —
+      // surfacing a previous cycle's confirmed roll would let players act on stale
+      // vitae numbers before the current game session has occurred. (#537)
+      const newestLiveCycle = allCycles
+        .filter(c => c.status !== 'closed')
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
+      if (candidateSub && (!newestLiveCycle || String(candidateSub.cycle_id) === String(newestLiveCycle._id))) {
         activeCycle = allCycles.find(c => String(c._id) === String(candidateSub.cycle_id)) || null;
         mySub = candidateSub;
       }
