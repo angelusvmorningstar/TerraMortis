@@ -101,6 +101,8 @@ function renderPlayerPrefs(char) {
   let h = '<div class="xpl-panel player-prefs-panel">';
   h += '<div class="xpl-col-head">Chronicle Preferences</div>';
 
+  h += '<p class="player-prefs-desc">Helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
+
   h += '<table class="xpl-table pref-axes-table">';
   for (const axis of PLAYER_PREF_AXES) {
     const current = prefs[axis.key]?.rating ?? null;
@@ -114,7 +116,6 @@ function renderPlayerPrefs(char) {
     h += '</div></td>';
     h += '</tr>';
   }
-  h += `<tr class="pref-desc-row"><td colspan="2" class="player-prefs-desc">Helps the ST team calibrate content — it doesn\'t affect your individual story.</td></tr>`;
   if (updatedAt) {
     h += `<tr><td colspan="2" class="player-prefs-updated">Last updated ${esc(updatedAt)}</td></tr>`;
   }
