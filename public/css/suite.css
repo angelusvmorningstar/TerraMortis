@@ -2559,3 +2559,8 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   cursor: pointer; user-select: none; letter-spacing: .04em; padding-bottom: 10px;
 }
 .devlog-resolved .devlog-card { opacity: .68; border-left-color: var(--bdr2) !important; }
+
+/* "Recently Shipped" — prominent, full-opacity, gold-accented so just-shipped
+   entries read as news rather than archive (issue: implemented = looks old). */
+.devlog-recent-heading { color: var(--gold); }
+.devlog-recent .devlog-card { border-left-color: var(--gold2); }
