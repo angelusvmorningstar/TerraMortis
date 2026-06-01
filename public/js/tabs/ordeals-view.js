@@ -101,12 +101,12 @@ function renderPlayerPrefs(char) {
   let h = '<div class="xpl-panel player-prefs-panel">';
   h += '<div class="xpl-col-head">Chronicle Preferences</div>';
 
-  h += '<table class="xpl-table">';
+  h += '<table class="xpl-table pref-axes-table">';
   for (const axis of PLAYER_PREF_AXES) {
     const current = prefs[axis.key]?.rating ?? null;
     h += `<tr class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
     h += `<td class="pref-axis-lbl">${esc(axis.label)}</td>`;
-    h += '<td><div class="dot-stepper">';
+    h += '<td class="pref-dots-cell"><div class="dot-stepper">';
     for (let i = 1; i <= 5; i++) {
       const filled = current !== null && i <= current;
       h += `<span class="dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
@@ -114,11 +114,9 @@ function renderPlayerPrefs(char) {
     h += '</div></td>';
     h += '</tr>';
   }
-  h += '</table>';
-
-  h += '<p class="player-prefs-desc">Rates what you want from the chronicle. Helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
+  h += `<tr class="pref-desc-row"><td colspan="2" class="player-prefs-desc">Helps the ST team calibrate content — it doesn\'t affect your individual story.</td></tr>`;
   if (updatedAt) {
-    h += `<p class="player-prefs-updated">Last updated ${esc(updatedAt)}</p>`;
+    h += `<tr><td colspan="2" class="player-prefs-updated">Last updated ${esc(updatedAt)}</td></tr>`;
   }
   h += '<button type="button" class="qf-btn qf-btn-submit player-prefs-save" id="player-prefs-save">Save Preferences</button>';
   h += '</div>';

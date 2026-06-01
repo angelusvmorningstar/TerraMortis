@@ -2188,20 +2188,16 @@ html:not([data-theme="dark"]) .tk-badge-sheet      { background: var(--gold-a12)
 
 /* ── Player Preferences (#542) ──────────────────────────────── */
 .player-prefs-panel { margin-top: 20px; }
-.player-prefs-panel .xpl-table { margin-bottom: 12px; }
-.pref-axis-row td { padding: 10px 0; border-bottom: 1px solid var(--surf2); }
-.pref-axis-row:last-child td { border-bottom: none; }
+.pref-axes-table td { padding: 14px 0; }
+.pref-axes-table .pref-axis-row td { border-bottom: 1px solid var(--surf2); }
+.pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
 .pref-axis-lbl { width: 160px; color: var(--txt2); }
-.player-prefs-panel .dot { width: 26px; height: 26px; font-size: 20px; }
-.player-prefs-panel .player-prefs-desc {
+.pref-dots-cell .dot { width: 28px; height: 28px; font-size: 22px; }
+.player-prefs-desc {
   font-size: 12px;
   color: var(--txt3);
   font-style: italic;
-  margin: 0 0 10px;
+  padding-top: 8px;
 }
-.player-prefs-panel .player-prefs-updated {
-  font-size: 11px;
-  color: var(--txt3);
-  margin: 0 0 10px;
-}
-.player-prefs-save { margin-top: 2px; }
+.player-prefs-updated { font-size: 11px; color: var(--txt3); }
+.player-prefs-save { margin-top: 10px; display: block; }
