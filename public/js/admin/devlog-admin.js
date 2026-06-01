@@ -51,23 +51,32 @@ function _form(entry) {
   ).join('');
   return `
     <form class="dl-form" data-id="${esc(id)}">
-      <div class="dl-form-row">
-        <label>Type <select name="type">${typeOpts}</select></label>
-        <label>Status <select name="status">${statusOpts}</select></label>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label">Type</label>
+          <select class="form-select" name="type">${typeOpts}</select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Status</label>
+          <select class="form-select" name="status">${statusOpts}</select>
+        </div>
       </div>
-      <div class="dl-form-row">
-        <label>Title <input type="text" name="title" value="${esc(entry?.title || '')}" required></label>
+      <div class="form-row">
+        <label class="form-label">Title</label>
+        <input class="form-input" type="text" name="title" value="${esc(entry?.title || '')}" required>
       </div>
-      <div class="dl-form-row">
-        <label>Body <textarea name="body" rows="3">${esc(entry?.body || '')}</textarea></label>
+      <div class="form-row">
+        <label class="form-label">Body</label>
+        <textarea class="form-input" name="body" rows="4">${esc(entry?.body || '')}</textarea>
       </div>
-      <div class="dl-form-row">
-        <label>Target cycle <input type="text" name="target_cycle" value="${esc(entry?.target_cycle || '')}" placeholder="e.g. Game 4"></label>
+      <div class="form-row">
+        <label class="form-label">Target cycle</label>
+        <input class="form-input" type="text" name="target_cycle" value="${esc(entry?.target_cycle || '')}" placeholder="e.g. Game 4">
       </div>
       <div class="dl-form-actions">
         <button type="submit" class="btn-sm">${entry ? 'Save' : 'Create'}</button>
         <button type="button" class="btn-sm dl-cancel-btn">Cancel</button>
-        <span class="dl-form-error" style="color:var(--crim)"></span>
+        <span class="dl-form-error"></span>
       </div>
     </form>`;
 }
