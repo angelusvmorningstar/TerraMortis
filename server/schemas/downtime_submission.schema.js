@@ -59,7 +59,9 @@ const feedMethodEnum = [
   '', 'seduction', 'stalking', 'force', 'familiar', 'intimidation', 'other'
 ];
 
-const territoryOid = { type: 'string', pattern: '^[a-f0-9]{24}$' };
+// #514: optional ObjectId — matches a 24-hex ObjectId OR '' (the territory
+// pill's "--" / no-territory option), still rejecting slugs and other garbage.
+const territoryOid = { type: 'string', pattern: '^([a-f0-9]{24})?$' };
 
 const bloodTypeEnum = ['Animal', 'Human', 'Kindred'];
 
