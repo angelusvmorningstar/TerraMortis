@@ -104,8 +104,13 @@ router.patch('/:id/feeding-rights', async (req, res) => {
   }
 
   // Lock check — only applies to non-ST callers.
-  // Issue #496 / story 496.4: all stored submissions are OID-keyed after the
-  // 496.3 migration, so direct key comparison suffices.
+  // Issue #497: downtime_submissions.cycle_id is stored as BOTH a string (DT1)
+  // and an ObjectId (DT2+) until the one-time #497 migration runs. (The 496.3
+  // migration only normalised territory keys inside responses.* — it did NOT
+  // touch the top-level cycle_id FK.) MongoDB BSON comparison is type-strict,
+  // so the query must match both the ObjectId and its string form, or
+  // string-typed DT1 submissions are silently dropped and a regent could
+  // remove a character who has already fed.
   if (!isStRole(req.user)) {
     const activeCycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
 
@@ -115,7 +120,7 @@ router.patch('/:id/feeding-rights', async (req, res) => {
 
       if (removed.length > 0) {
         const subs = await getCollection('downtime_submissions').find({
-          cycle_id: activeCycle._id,
+          cycle_id: { $in: [activeCycle._id, String(activeCycle._id)] },
           status: 'submitted',
         }).toArray();
 

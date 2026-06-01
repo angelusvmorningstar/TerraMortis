@@ -188,6 +188,14 @@ export const downtimeSubmissionSchema = {
   properties: {
 
     // ── Document wrapper ─────────────────────────────────────
+    // FK type note (issue #497): canonical STORAGE for character_id and
+    // cycle_id is ObjectId. The inbound REQUEST shape is always a JSON string,
+    // so the validator must accept 'string' here; the server coerces string →
+    // ObjectId before write (POST /downtime_submissions and PUT /:id). Reads
+    // tolerate both types during the grace window (dual-type $in / $or
+    // filters) until the one-time #497 migration normalises stored cycle_id.
+    // Do NOT tighten these to reject strings — that would 400 every client
+    // write. See migrate-submission-cycle-id-to-oid.js.
     character_id:    { type: ['string', 'null'], minLength: 1 },
     character_name:  { type: 'string' },
     cycle_id:        { type: ['string', 'null'] },
