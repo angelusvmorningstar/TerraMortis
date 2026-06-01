@@ -2509,3 +2509,53 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-hist-res.e { color: var(--accent); }
 .dm-hist-res.f { color: var(--err); }
 .dm-hist-res.d { color: var(--dmg-agg); }
+
+/* ── Devlog Tab (player-facing) ──
+   Recovered from issue #502 (commit 30f0490, never merged). Status names
+   reconciled to the live schema: the orphaned 'drafted' becomes 'in_progress'
+   (same amber treatment). All colours are theme vars, so it works in both the
+   dark and parchment themes. */
+.devlog-tab { padding: 16px 18px 32px; max-width: 700px; }
+.devlog-section { margin-bottom: 32px; }
+.devlog-section-heading {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .14em; color: var(--gold2);
+  border-bottom: 1px solid var(--bdr2); padding-bottom: 6px; margin: 0 0 14px;
+}
+.devlog-card {
+  background: var(--surf2); border: 1px solid var(--bdr2);
+  border-left: 3px solid var(--bdr3); border-radius: 6px;
+  padding: 13px 16px 11px; margin-bottom: 10px;
+}
+.devlog-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.devlog-title {
+  font-family: var(--fh); font-size: 14px; font-weight: 600;
+  color: var(--txt); line-height: 1.35; flex: 1;
+}
+.devlog-status {
+  flex-shrink: 0; align-self: flex-start; display: inline-block;
+  padding: 3px 9px; border-radius: 4px; font-family: var(--fl);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .4px; white-space: nowrap;
+}
+/* Left-border accent matches status colour. */
+.devlog-card:has(.devlog-status--considering) { border-left-color: var(--crim); }
+.devlog-card:has(.devlog-status--in_progress) { border-left-color: var(--warn-orange); }
+.devlog-card:has(.devlog-status--confirmed)   { border-left-color: var(--green-dk); }
+/* RAG status chips. */
+.devlog-status--considering { background: var(--crim-a8);        color: var(--crim2);       border: 1px solid var(--crim-a15); }
+.devlog-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border: 1px solid var(--warn-orange-bdr); }
+.devlog-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
+.devlog-status--implemented { background: var(--green-dk-bg);    color: var(--txt3);        border: 1px solid var(--bdr); }
+.devlog-status--deferred    { background: transparent;           color: var(--txt3);        border: 1px solid var(--bdr2); }
+.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; }
+.devlog-target { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .03em; }
+.devlog-resolved { margin-top: 4px; border-top: 1px solid var(--bdr); padding-top: 16px; }
+.devlog-resolved-toggle {
+  font-family: var(--fl); font-size: 12px; color: var(--txt3);
+  cursor: pointer; user-select: none; letter-spacing: .04em; padding-bottom: 10px;
+}
+.devlog-resolved .devlog-card { opacity: .68; border-left-color: var(--bdr2) !important; }
