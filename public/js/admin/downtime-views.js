@@ -966,7 +966,7 @@ export function matchSubmission(sub) {
   return { character: char, warnings };
 }
 
-function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
+function buildFeedingPool(char, methodId, stMod, picks = {}) {
   if (!char) return null;
   const method = FEED_METHODS_DATA.find(m => m.id === methodId);
   if (!method) return null;
@@ -1018,25 +1018,14 @@ function buildFeedingPool(char, methodId, ambienceMod, picks = {}) {
 
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? Math.min(meritEffectiveRating(char, fg), 5) : 0;
-  // The `ambienceMod` parameter is misleadingly named. Three callers
-  // exist; only one passes actual territory ambience, and that one is
-  // a bug:
-  //   - renderFeedingDetail (line 1327): passes `stMod`
-  //     (st_review.feeding_modifier — ST manual adjudication lever for
-  //     cover / difficulty / etc.). Legitimately a dice modifier;
-  //     stays in `total` here.
-  //   - bestGenericPool (line 9716): passes `0`. Neutral.
-  //   - renderFeedingScene (post-#176 fix loop 2): now passes `0` after
-  //     Ma'at flagged the original `ambienceMod` (territory) here as a
-  //     dice double-count. Territory ambience is surfaced separately in
-  //     that table's 'Ambience' column.
-  //
-  // Net effect: `ambienceMod` here is now exclusively the ST manual
-  // modifier path; territory ambience is handled in feeding-pool.js
-  // (player-side) and surfaced separately in admin display surfaces.
-  // A follow-up tech-debt issue should rename this parameter to `stMod`
-  // to remove the lurking ambiguity.
-  const amb = ambienceMod || 0;
+  // #248: `stMod` is the ST manual feeding modifier (st_review.feeding_modifier)
+  // — a dice-pool adjustment for cover/difficulty/etc. It is NOT territory
+  // ambience: ambience affects Vitae yield, not the dice pool, and is handled
+  // separately (feeding-pool.js player-side + the admin 'Ambience' column). All
+  // callers pass `stMod` or `0`. Renamed from the misleadingly-named
+  // `ambienceMod` (Ma'at, post-#176 fix-loop-2) so the name documents the
+  // semantic and removes the variable-name-vs-value foot-gun.
+  const amb = stMod || 0;
   const unskilled = bestSkill === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;

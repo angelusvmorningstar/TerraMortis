@@ -4601,7 +4601,19 @@ async function _writeCarthianAllocation(container) {
     if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
     _syncCarthianDetected();
   } catch (err) {
+    // #512: surface the failure instead of silently reverting. The section
+    // derives curTarget from the character, so a failed write must not be left
+    // to fall back to a stale pending-defer choice (which manifested as the
+    // dropdown "snapping back to Contacts" when a Herd/Haven write 404'd).
     console.warn('Carthian Pull allocation write failed:', err);
+    showToast('Could not save your Carthian Pull allocation. Please try again.', 'error');
+  }
+  // After any write attempt (success or failure), drop the pending-defer marker
+  // so the section reflects the character's actual state — the bonus merit, or
+  // None — never a stale saved target (#512).
+  if (responseDoc?.responses) {
+    delete responseDoc.responses.carthian_pull_target;
+    delete responseDoc.responses.carthian_pull_sphere;
   }
   renderForm(container);
 }
