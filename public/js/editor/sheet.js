@@ -1045,7 +1045,7 @@ export function shRenderDomainMerits(c, editMode) {
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
       const mBon = m.bonus || 0;
-      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
+      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0, carthB = !dp ? (m.free_carthian || 0) : 0; // #508 carthB
       const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + mBon;
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
@@ -1053,7 +1053,7 @@ export function shRenderDomainMerits(c, editMode) {
       if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
-      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0) {
+      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0 || carthB > 0) {
         const dPurch = _dRaw;
         dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch) + mBon);
       } else {

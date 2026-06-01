@@ -571,6 +571,14 @@ function collectResponses() {
     if (spEl) responses['safe_place_location_' + i] = spEl.value;
   });
 
+  // #508: Carthian Pull allocation — record the choice in the submission too
+  // (the canonical state is the free_carthian bonus on the character; this is a
+  // per-cycle audit copy, presence-gated like the safe-place collector).
+  const cpTargetEl = document.getElementById('dt-carthian_target');
+  if (cpTargetEl) responses['carthian_pull_target'] = cpTargetEl.value;
+  const cpSphereEl = document.getElementById('dt-carthian_sphere');
+  if (cpSphereEl) responses['carthian_pull_sphere'] = cpSphereEl.value;
+
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
   // the DB are read by downstream renderers via fallback lookups.
@@ -2104,6 +2112,7 @@ function renderForm(container) {
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
     if (section.key === 'safe_place_locations') continue; // #504: rendered explicitly below (custom per-merit inputs)
+    if (section.key === 'carthian_pull') continue; // #508: rendered explicitly below (custom allocation control)
     // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
     // MINIMAL so it falls through; trust/harm/aspirations live in admin).
     if (!_isSectionVisibleInMode(section.key, mode)) continue;
@@ -2129,6 +2138,9 @@ function renderForm(container) {
 
   // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
+
+  // ── Carthian Pull — single-dot bonus allocation; ungated, before Feeding (#508) ──
+  h += renderCarthianPullSection(saved);
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
@@ -2658,6 +2670,11 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // #508: Carthian Pull allocation — live write to the character, then re-render.
+    if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
+      _writeCarthianAllocation(container);
+      return;
+    }
     // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
     // The story-moment relationship picker (a DB-relational element) was
     // suppressed under the broader NPC-interaction policy alongside the
@@ -4443,6 +4460,116 @@ function renderPersonalStorySection(saved) {
 
   h += '</div></div>';
   return h;
+}
+
+// #508: Carthian Pull — single-dot allocation to a one-cycle bonus dot on
+// Allies/Contacts/Haven/Herd. The dot is written LIVE to the character (the
+// `free_carthian` channel) so it shows on the sheet via the existing bonus-dot
+// model, and is read back here. Returns '' unless the character holds Carthian
+// Pull. Allies/Contacts require a sphere; the choice is disabled at the 5-action
+// cap. Because the bonus is a real merit, the existing detection produces the
+// action slot — no synthetic slot is injected (no double-up).
+function renderCarthianPullSection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'carthian_pull');
+  if (!section) return '';
+  const hasCP = (currentChar?.merits || []).some(m => m.name === 'Carthian Pull');
+  if (!hasCP) return '';
+
+  // Current allocation derived from the live bonus merit (fallback to saved).
+  const bonus = (currentChar.merits || []).find(m => m.granted_by === 'Carthian Pull');
+  let curTarget = '';
+  let curSphere = '';
+  if (bonus) {
+    if (bonus.name === 'Allies') { curTarget = 'allies'; curSphere = (bonus.spheres && bonus.spheres[0]) || ''; }
+    else if (bonus.name === 'Contacts') { curTarget = 'contacts'; curSphere = (bonus.spheres && bonus.spheres[0]) || ''; }
+    else if (bonus.name === 'Haven') curTarget = 'haven';
+    else if (bonus.name === 'Herd') curTarget = 'herd';
+  } else {
+    curTarget = saved['carthian_pull_target'] || '';
+    curSphere = saved['carthian_pull_sphere'] || '';
+  }
+
+  // Base (non-Carthian) action counts for cap-aware disabling.
+  const baseAllies = (detectedMerits.spheres || []).filter(m => m.granted_by !== 'Carthian Pull').length;
+  const baseContacts = (detectedMerits.contacts || []).filter(m => m.granted_by !== 'Carthian Pull').length;
+  const alliesFull = baseAllies >= 5 && curTarget !== 'allies';
+  const contactsFull = baseContacts >= 5 && curTarget !== 'contacts';
+
+  let h = '<div class="qf-section collapsed" data-section-key="carthian_pull">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  const opt = (val, label, disabled) =>
+    `<option value="${val}"${curTarget === val ? ' selected' : ''}${disabled ? ' disabled' : ''}>${esc(label)}${disabled ? ' (at cap)' : ''}</option>`;
+
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label" for="dt-carthian_target">Allocate your Carthian Pull dot to</label>';
+  h += '<select id="dt-carthian_target" class="qf-input" data-carthian-target>';
+  h += opt('', '— None —', false);
+  h += opt('allies', 'Allies', alliesFull);
+  h += opt('contacts', 'Contacts', contactsFull);
+  h += opt('haven', 'Haven', false);
+  h += opt('herd', 'Herd', false);
+  h += '</select></div>';
+
+  if (curTarget === 'allies' || curTarget === 'contacts') {
+    h += '<div class="qf-field" style="margin-top:12px;">';
+    h += '<label class="qf-label" for="dt-carthian_sphere">Sphere</label>';
+    h += `<input type="text" id="dt-carthian_sphere" class="qf-input" data-carthian-sphere value="${esc(curSphere)}" placeholder="e.g. Street, Legal, Underworld">`;
+    h += '</div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+// #508: keep detectedMerits.spheres/.contacts in sync with a live Carthian Pull
+// change. detectMerits() is init-only and already picks up a persisted bonus, so
+// this only handles in-session retargeting: strip the prior Carthian entry, then
+// re-add the current bonus (if Allies/Contacts and under the 5-cap). One merit ->
+// one slot; never a synthetic duplicate alongside the real merit.
+function _syncCarthianDetected() {
+  detectedMerits.spheres = (detectedMerits.spheres || []).filter(m => m.granted_by !== 'Carthian Pull');
+  detectedMerits.contacts = (detectedMerits.contacts || []).filter(m => m.granted_by !== 'Carthian Pull');
+  const bonus = (currentChar.merits || []).find(m => m.granted_by === 'Carthian Pull');
+  if (!bonus) return;
+  if (bonus.name === 'Allies' && detectedMerits.spheres.length < 5) {
+    detectedMerits.spheres.push(bonus);
+  } else if (bonus.name === 'Contacts' && detectedMerits.contacts.length < 5) {
+    const sp = (bonus.spheres && bonus.spheres[0]) || '';
+    detectedMerits.contacts.push({ ...bonus, area: sp, rating: 1 });
+  }
+}
+
+// #508: write the current Carthian Pull allocation to the character (live), then
+// re-render. Allies/Contacts need a sphere before we write. Soft-fail.
+async function _writeCarthianAllocation(container) {
+  const tEl = document.getElementById('dt-carthian_target');
+  const sEl = document.getElementById('dt-carthian_sphere');
+  const target = tEl ? tEl.value : '';
+  const sphere = sEl ? sEl.value.trim() : '';
+  if ((target === 'allies' || target === 'contacts') && !sphere) {
+    // Reveal the sphere input; defer the write until it's filled. Persist the
+    // pending target into the submission so the re-render keeps the selection
+    // (there is no bonus merit yet to derive it from).
+    const responses = collectResponses();
+    if (responseDoc) responseDoc.responses = responses;
+    else responseDoc = { responses };
+    renderForm(container);
+    return;
+  }
+  try {
+    const updated = await apiPatch(
+      `/api/characters/${encodeURIComponent(String(currentChar._id))}/carthian_pull`,
+      { target, sphere },
+    );
+    if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
+    _syncCarthianDetected();
+  } catch (err) {
+    console.warn('Carthian Pull allocation write failed:', err);
+  }
+  renderForm(container);
 }
 
 // #504: Safe Places and Havens — one street+suburb text input per Safe Place

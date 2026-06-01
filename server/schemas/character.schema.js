@@ -430,6 +430,7 @@ export const characterSchema = {
         free_bloodline: { type: 'integer', minimum: 0 },
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },
+        free_carthian:  { type: 'integer', minimum: 0 }, // #508: Carthian Pull dot-allocation bonus
         attached_to:    { type: ['string', 'null'] },
         rule_key: { type: ['string', 'null'] },
         bonus:    { type: 'integer', minimum: 0 }

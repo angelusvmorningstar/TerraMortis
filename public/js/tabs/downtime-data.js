@@ -284,6 +284,17 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
+  // 3b. Carthian Pull — single-dot allocation to a one-cycle bonus dot (#508).
+  // Custom renderer (renderCarthianPullSection); only shown when the character
+  // holds Carthian Pull. Rendered explicitly before Feeding.
+  {
+    key: 'carthian_pull',
+    title: 'Carthian Pull',
+    gate: null,
+    intro: 'Spend your Carthian Pull dot as a bonus dot on one of your merits for this cycle. You can change it at any time and it moves with your choice.',
+    questions: [],
+  },
+
   // 4. Feeding — territory declaration, then method selection, pool, rote, description
   {
     key: 'feeding',
