@@ -1954,6 +1954,12 @@ async function handleSubmitFinalConfirm(container) {
 }
 
 function renderForm(container) {
+  // Guard against a detached/missing container: renderDowntimeTab renders into
+  // `document.getElementById('dt-container')`, which is briefly null if the tab
+  // is re-rendered while a prior async render is still in flight. No container
+  // means nothing to draw (a newer render owns the live DOM); bail rather than
+  // throw an uncaught TypeError on container.querySelectorAll.
+  if (!container) return;
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
   const isST = isSTRole();
