@@ -103,7 +103,7 @@ function renderPlayerPrefs(char) {
 
   h += '<p class="player-prefs-desc">Helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
 
-  h += '<table class="xpl-table pref-axes-table">';
+  h += '<table class="pref-axes-table">';
   for (const axis of PLAYER_PREF_AXES) {
     const current = prefs[axis.key]?.rating ?? null;
     h += `<tr class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
