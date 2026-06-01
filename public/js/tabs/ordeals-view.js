@@ -100,21 +100,23 @@ function renderPlayerPrefs(char) {
 
   let h = '<div class="xpl-panel player-prefs-panel">';
   h += '<div class="xpl-col-head">Chronicle Preferences</div>';
-  h += '<p class="player-prefs-desc">Rate what you want from the chronicle. This helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
 
+  h += '<table class="xpl-table">';
   for (const axis of PLAYER_PREF_AXES) {
     const current = prefs[axis.key]?.rating ?? null;
-    h += `<div class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
-    h += `<span class="pref-axis-lbl">${esc(axis.label)}</span>`;
-    h += '<div class="dot-stepper">';
+    h += `<tr class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
+    h += `<td class="pref-axis-lbl">${esc(axis.label)}</td>`;
+    h += '<td><div class="dot-stepper">';
     for (let i = 1; i <= 5; i++) {
       const filled = current !== null && i <= current;
       h += `<span class="dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
     }
-    h += '</div>';
-    h += '</div>';
+    h += '</div></td>';
+    h += '</tr>';
   }
+  h += '</table>';
 
+  h += '<p class="player-prefs-desc">Rates what you want from the chronicle. Helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
   if (updatedAt) {
     h += `<p class="player-prefs-updated">Last updated ${esc(updatedAt)}</p>`;
   }
