@@ -526,85 +526,133 @@ router.patch('/:id/carthian_pull', async (req, res) => {
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
 
-  const { target = '', sphere = '' } = req.body || {};
-  const TARGETS = ['', 'allies', 'contacts', 'haven', 'herd'];
-  if (!TARGETS.includes(target)) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid target' });
+  // #522: accept a SET of allocations { allocations: [{ target, sphere }, ...] }.
+  // The legacy single { target, sphere } is normalised to a one-element set
+  // (and target:'' to an empty set = cleared) for back-compat. The pool size is
+  // the character's Carthian (Covenant) Status, read from the doc — never
+  // trusted from the client.
+  const body = req.body || {};
+  let rawAllocations;
+  if (Array.isArray(body.allocations)) {
+    rawAllocations = body.allocations;
+  } else if (typeof body.target === 'string') {
+    rawAllocations = body.target ? [{ target: body.target, sphere: body.sphere }] : [];
+  } else {
+    rawAllocations = [];
   }
-  const sphereStr = typeof sphere === 'string' ? sphere.trim().slice(0, 120) : '';
-  if (target === 'allies' || target === 'contacts') {
-    if (!sphereStr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere required for allies/contacts' });
-    // #510: sphere must be a recognised influence sphere, not free text.
-    if (!INFLUENCE_SPHERES.includes(sphereStr)) {
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere must be a valid influence sphere' });
+
+  const VALID_TARGETS = ['allies', 'contacts', 'haven', 'herd'];
+  const allocations = [];
+  for (const a of rawAllocations) {
+    const target = a && typeof a.target === 'string' ? a.target : '';
+    if (target === '') continue; // empty rows are no-ops
+    if (!VALID_TARGETS.includes(target)) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid target' });
     }
+    let sphereStr = '';
+    if (target === 'allies' || target === 'contacts') {
+      sphereStr = typeof a.sphere === 'string' ? a.sphere.trim().slice(0, 120) : '';
+      if (!sphereStr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere required for allies/contacts' });
+      // #510: sphere must be a recognised influence sphere, not free text.
+      if (!INFLUENCE_SPHERES.includes(sphereStr)) {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere must be a valid influence sphere' });
+      }
+    }
+    allocations.push({ target, sphere: sphereStr });
   }
 
   const char = await col().findOne({ _id: oid });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
-  // 1) Strip the prior Carthian-Pull bonus, leaving zero residue:
+  // Pool = Carthian Movement covenant Status (0–5). #522.
+  const pool = Number(char.status?.covenant?.['Carthian Movement']) || 0;
+  if (allocations.length > pool) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Carthian Pull allows ${pool} dot(s) (your Carthian Status); ${allocations.length} requested` });
+  }
+
+  // 1) Strip ALL prior Carthian-Pull residue, leaving zero trace:
   //    - delete bonus-only instances we created (granted_by:'Carthian Pull');
   //    - clear free_carthian from any merit we augmented in place;
-  //    - for an augmented Contacts, also pop the pushed sphere (tracked by
-  //      carthian_sphere) so rating stays equal to spheres.length (#510).
+  //    - pop every Contacts sphere a Carthian dot pushed (carthian_spheres[]
+  //      plural #522, or the legacy single carthian_sphere #510) so rating
+  //      stays equal to spheres.length.
   let merits = (char.merits || [])
     .filter(m => m.granted_by !== 'Carthian Pull')
     .map(m => {
-      if (!m.free_carthian && !m.carthian_sphere) return m;
+      const hasPushed = (Array.isArray(m.carthian_spheres) && m.carthian_spheres.length) || m.carthian_sphere;
+      if (!m.free_carthian && !hasPushed) return m;
       const rest = { ...m };
       delete rest.free_carthian;
-      if (rest.carthian_sphere) {
-        const sp = rest.carthian_sphere;
-        delete rest.carthian_sphere;
-        if (Array.isArray(rest.spheres)) rest.spheres = rest.spheres.filter(s => s !== sp);
-      }
+      const popped = [];
+      if (Array.isArray(rest.carthian_spheres)) { popped.push(...rest.carthian_spheres); delete rest.carthian_spheres; }
+      if (rest.carthian_sphere) { popped.push(rest.carthian_sphere); delete rest.carthian_sphere; }
+      if (popped.length && Array.isArray(rest.spheres)) rest.spheres = rest.spheres.filter(s => !popped.includes(s));
       return rest;
     });
 
   // Normalize once so ratings reflect the stripped base (rating = sum of
-  // channels) before we cap-check an augment target.
+  // channels) before we cap-check against the base.
   const baseDoc = { merits };
   normalizeCharacterMerits(baseDoc);
   merits = baseDoc.merits;
 
-  // 2) Apply the new allocation. Match the existing merit by its sphere
-  //    qualifier (Allies → `area`, Contacts → `spheres[]`); augment it, or
-  //    create a bonus-only instance if absent.
-  if (target === 'allies') {
-    const ex = merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === sphereStr);
-    if (ex) {
-      if ((ex.rating || 0) >= 5) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Allies sphere already at 5 dots' });
-      ex.free_carthian = (ex.free_carthian || 0) + 1;
-    } else {
-      merits.push({ category: 'influence', name: 'Allies', area: sphereStr, granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
-    }
-  } else if (target === 'contacts') {
-    const ex = merits.find(m => m.category === 'influence' && m.name === 'Contacts');
-    if (ex) {
-      const spheres = Array.isArray(ex.spheres) ? ex.spheres : [];
-      if (spheres.includes(sphereStr)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Contacts sphere already held' });
-      if (spheres.length >= 5) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Contacts already at 5 spheres' });
-      ex.spheres = [...spheres, sphereStr];
-      ex.free_carthian = (ex.free_carthian || 0) + 1;
-      ex.carthian_sphere = sphereStr; // marker for unambiguous strip
-    } else {
-      merits.push({ category: 'influence', name: 'Contacts', spheres: [sphereStr], granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
-    }
-  } else if (target === 'haven' || target === 'herd') {
-    // Single-instance domain merits: augment the existing one if present,
-    // otherwise create a bonus-only instance.
-    const name = target === 'haven' ? 'Haven' : 'Herd';
-    const existing = merits.find(m => m.category === 'domain' && m.name === name);
-    if (existing) {
-      existing.free_carthian = (existing.free_carthian || 0) + 1;
-    } else {
-      merits.push({ category: 'domain', name, granted_by: 'Carthian Pull', free_carthian: 1, rating: 1 });
+  // 2) Tally the requested dots per target (stacking allowed — PO 2026-06-01).
+  const alliesAdds = new Map();   // area -> dot count
+  const contactsAdds = [];        // ordered, distinct spheres to push
+  let havenAdds = 0, herdAdds = 0;
+  for (const { target, sphere } of allocations) {
+    if (target === 'allies') alliesAdds.set(sphere, (alliesAdds.get(sphere) || 0) + 1);
+    else if (target === 'contacts') contactsAdds.push(sphere);
+    else if (target === 'haven') havenAdds++;
+    else herdAdds++;
+  }
+
+  // 3) Validate caps against the stripped base (reject over-cap — PO 2026-06-01).
+  //    Allies: base(area) + added <= 5 per sphere. Herd/Haven uncapped here.
+  for (const [area, cnt] of alliesAdds) {
+    const ex = merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === area);
+    const base = ex ? (ex.rating || 0) : 0;
+    if (base + cnt > 5) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Allies (${area}) would exceed 5 dots` });
     }
   }
-  // target === '' → cleared; nothing to add.
+  //    Contacts: each pushed sphere distinct + not already held; total <= 5.
+  const contactsEx = merits.find(m => m.category === 'influence' && m.name === 'Contacts');
+  const existingContactSpheres = contactsEx && Array.isArray(contactsEx.spheres) ? contactsEx.spheres : [];
+  const seenContact = new Set();
+  for (const sp of contactsAdds) {
+    if (existingContactSpheres.includes(sp)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Contacts sphere already held: ${sp}` });
+    if (seenContact.has(sp)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: `a Contacts sphere can only be held once: ${sp}` });
+    seenContact.add(sp);
+  }
+  if (existingContactSpheres.length + contactsAdds.length > 5) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Contacts would exceed 5 spheres' });
+  }
 
-  // 3) Re-sync ratings (rating = sum of channels) so the doc stays consistent.
+  // 4) Apply. Match the existing merit by qualifier (Allies → area, Contacts →
+  //    spheres[]); augment it, or create a bonus-only instance if absent.
+  for (const [area, cnt] of alliesAdds) {
+    const ex = merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === area);
+    if (ex) ex.free_carthian = (ex.free_carthian || 0) + cnt;
+    else merits.push({ category: 'influence', name: 'Allies', area, granted_by: 'Carthian Pull', free_carthian: cnt, rating: cnt });
+  }
+  if (contactsAdds.length) {
+    if (contactsEx) {
+      contactsEx.spheres = [...existingContactSpheres, ...contactsAdds];
+      contactsEx.free_carthian = (contactsEx.free_carthian || 0) + contactsAdds.length;
+      contactsEx.carthian_spheres = [...(Array.isArray(contactsEx.carthian_spheres) ? contactsEx.carthian_spheres : []), ...contactsAdds];
+    } else {
+      merits.push({ category: 'influence', name: 'Contacts', spheres: [...contactsAdds], carthian_spheres: [...contactsAdds], granted_by: 'Carthian Pull', free_carthian: contactsAdds.length, rating: contactsAdds.length });
+    }
+  }
+  for (const [name, cnt] of [['Haven', havenAdds], ['Herd', herdAdds]]) {
+    if (!cnt) continue;
+    const ex = merits.find(m => m.category === 'domain' && m.name === name);
+    if (ex) ex.free_carthian = (ex.free_carthian || 0) + cnt;
+    else merits.push({ category: 'domain', name, granted_by: 'Carthian Pull', free_carthian: cnt, rating: cnt });
+  }
+
+  // 5) Re-sync ratings (rating = sum of channels) so the doc stays consistent.
   const docForNorm = { merits };
   normalizeCharacterMerits(docForNorm);
   merits = docForNorm.merits;

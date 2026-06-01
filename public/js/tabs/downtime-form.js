@@ -2245,6 +2245,13 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // #522: remove an applied Carthian Pull dot, then re-render.
+    const cpRemove = e.target.closest('[data-carthian-remove]');
+    if (cpRemove) {
+      e.preventDefault();
+      _onCarthianRemove(container, Number(cpRemove.getAttribute('data-carthian-remove')));
+      return;
+    }
     // dt-form.17: Mode pill toggle. Persist on responses._mode and re-render.
     // Switching preserves entered data (per ADR §Q1 Resolutions): non-MINIMAL
     // fields stay in responses; only their UI is hidden.
@@ -2647,9 +2654,10 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
-    // #508: Carthian Pull allocation — live write to the character, then re-render.
+    // #508/#522: Carthian Pull — a change on the "new dot" row's target/sphere
+    // writes the full allocation set to the character, then re-renders.
     if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
-      _writeCarthianAllocation(container);
+      _onCarthianNewRowChange(container);
       return;
     }
     // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
@@ -4451,52 +4459,88 @@ function renderCarthianPullSection(saved) {
   if (!section) return '';
   const hasCP = (currentChar?.merits || []).some(m => m.name === 'Carthian Pull');
   if (!hasCP) return '';
+  // #522: the pool is the character's Carthian (Covenant) Status (0–5).
+  const pool = Number(currentChar?.status?.covenant?.['Carthian Movement']) || 0;
+  if (pool < 1) return '';
 
-  // Current allocation derived from the live bonus merit — the bearer of the
-  // free_carthian dot (bonus-only OR an augmented existing merit). Allies stores
-  // its sphere in `area`; an augmented Contacts records it in `carthian_sphere`
-  // (a bonus-only Contacts holds it as its single spheres[0]). Fallback to saved.
-  const bonus = (currentChar.merits || []).find(m => (m.free_carthian || 0) > 0);
-  let curTarget = '';
-  let curSphere = '';
-  if (bonus) {
-    if (bonus.name === 'Allies') { curTarget = 'allies'; curSphere = bonus.area || ''; }
-    else if (bonus.name === 'Contacts') { curTarget = 'contacts'; curSphere = bonus.carthian_sphere || (bonus.granted_by === 'Carthian Pull' && bonus.spheres && bonus.spheres[0]) || ''; }
-    else if (bonus.name === 'Haven') curTarget = 'haven';
-    else if (bonus.name === 'Herd') curTarget = 'herd';
-  } else {
-    curTarget = saved['carthian_pull_target'] || '';
-    curSphere = saved['carthian_pull_sphere'] || '';
-  }
+  const allocs = _carthianCurrentAllocations(); // applied dots, derived from the character
+  const used = allocs.length;
+  // One in-progress "new dot" row, driven by the pending target/sphere in
+  // responses so a target chosen before its sphere survives the re-render.
+  const pendTarget = (used < pool) ? (saved['carthian_pull_target'] || '') : '';
+  const pendSphere = saved['carthian_pull_sphere'] || '';
 
   let h = '<div class="qf-section collapsed" data-section-key="carthian_pull">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+  h += `<p class="qf-carthian-pool"><strong>${used} of ${pool}</strong> dot${pool === 1 ? '' : 's'} allocated (Carthian Status ${pool}).</p>`;
 
-  const opt = (val, label) =>
-    `<option value="${val}"${curTarget === val ? ' selected' : ''}>${esc(label)}</option>`;
+  // Applied dots — display + remove.
+  if (used) {
+    h += '<div class="qf-carthian-applied">';
+    allocs.forEach((a, i) => {
+      h += `<div class="qf-carthian-chip" data-carthian-idx="${i}">`;
+      h += `<span>${esc(_carthianLabel(a))}</span>`;
+      h += `<button type="button" class="qf-carthian-remove" data-carthian-remove="${i}" title="Remove this dot">✕</button>`;
+      h += '</div>';
+    });
+    h += '</div>';
+  }
 
-  h += '<div class="qf-field" style="margin-top:12px;">';
-  h += '<label class="qf-label" for="dt-carthian_target">Allocate your Carthian Pull dot to</label>';
-  h += '<select id="dt-carthian_target" class="qf-input" data-carthian-target>';
-  h += opt('', '— None —');
-  h += opt('allies', 'Allies');
-  h += opt('contacts', 'Contacts');
-  h += opt('haven', 'Haven');
-  h += opt('herd', 'Herd');
-  h += '</select></div>';
-
-  if (curTarget === 'allies' || curTarget === 'contacts') {
-    // #510: sphere is a fixed-enum dropdown, filtered for the target.
-    h += '<div class="qf-field" style="margin-top:12px;">';
-    h += '<label class="qf-label" for="dt-carthian_sphere">Sphere</label>';
-    h += `<select id="dt-carthian_sphere" class="qf-input" data-carthian-sphere>${_carthianSphereOptions(curTarget, curSphere)}</select>`;
+  // New-dot row — only while there is pool left.
+  if (used < pool) {
+    const opt = (val, label) => `<option value="${val}"${pendTarget === val ? ' selected' : ''}>${esc(label)}</option>`;
+    h += '<div class="qf-carthian-new" style="margin-top:12px;">';
+    h += '<div class="qf-field"><label class="qf-label" for="dt-carthian_target">Allocate a dot to</label>';
+    h += '<select id="dt-carthian_target" class="qf-input" data-carthian-target>';
+    h += opt('', '— select —');
+    h += opt('allies', 'Allies');
+    h += opt('contacts', 'Contacts');
+    h += opt('haven', 'Haven');
+    h += opt('herd', 'Herd');
+    h += '</select></div>';
+    if (pendTarget === 'allies' || pendTarget === 'contacts') {
+      // #510: sphere is a fixed-enum dropdown, filtered for the target.
+      h += '<div class="qf-field" style="margin-top:8px;"><label class="qf-label" for="dt-carthian_sphere">Sphere</label>';
+      h += `<select id="dt-carthian_sphere" class="qf-input" data-carthian-sphere>${_carthianSphereOptions(pendTarget, pendSphere)}</select></div>`;
+    }
     h += '</div>';
   }
 
   h += '</div></div>';
   return h;
+}
+
+// #522: derive the applied Carthian Pull dots from the character's
+// free_carthian-bearing merits. Returns an ordered list of {target, sphere}.
+// Allies stacks (free_carthian dots on one area); Contacts tracks pushed
+// spheres via carthian_spheres[] (plural #522) / carthian_sphere (legacy
+// single #510) / a bonus-only Contacts' own spheres[] (pre-marker #508).
+function _carthianCurrentAllocations() {
+  const out = [];
+  for (const m of (currentChar?.merits || [])) {
+    const fc = m.free_carthian || 0;
+    if (m.category === 'influence' && m.name === 'Allies') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'allies', sphere: m.area || '' });
+    } else if (m.category === 'influence' && m.name === 'Contacts') {
+      let cs = Array.isArray(m.carthian_spheres) ? m.carthian_spheres.slice()
+             : (m.carthian_sphere ? [m.carthian_sphere] : []);
+      if (!cs.length && m.granted_by === 'Carthian Pull' && Array.isArray(m.spheres)) cs = m.spheres.slice();
+      for (const sp of cs) out.push({ target: 'contacts', sphere: sp });
+    } else if (m.category === 'domain' && m.name === 'Haven') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'haven', sphere: '' });
+    } else if (m.category === 'domain' && m.name === 'Herd') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'herd', sphere: '' });
+    }
+  }
+  return out;
+}
+
+function _carthianLabel(a) {
+  const names = { allies: 'Allies', contacts: 'Contacts', haven: 'Haven', herd: 'Herd' };
+  const n = names[a.target] || a.target;
+  return a.sphere ? `${n} (${a.sphere})` : n;
 }
 
 // #510: options for the Carthian sphere <select>, filtered by target.
@@ -4576,46 +4620,66 @@ function _syncCarthianDetected() {
   detectedMerits.contacts = ia.contacts;
 }
 
-// #508: write the current Carthian Pull allocation to the character (live), then
-// re-render. Allies/Contacts need a sphere before we write. Soft-fail.
-async function _writeCarthianAllocation(container) {
-  const tEl = document.getElementById('dt-carthian_target');
-  const sEl = document.getElementById('dt-carthian_sphere');
-  const target = tEl ? tEl.value : '';
-  const sphere = sEl ? sEl.value.trim() : '';
-  if ((target === 'allies' || target === 'contacts') && !sphere) {
-    // Reveal the sphere input; defer the write until it's filled. Persist the
-    // pending target into the submission so the re-render keeps the selection
-    // (there is no bonus merit yet to derive it from).
-    const responses = collectResponses();
-    if (responseDoc) responseDoc.responses = responses;
-    else responseDoc = { responses };
-    renderForm(container);
-    return;
-  }
+// #522: apply a full Carthian Pull allocation SET to the character (live), then
+// re-render. Soft-fail with a toast (#512). Clears the pending new-row markers
+// after any attempt so the section reflects the character's actual saved state.
+async function _applyCarthianSet(container, allocations) {
   try {
     const updated = await apiPatch(
       `/api/characters/${encodeURIComponent(String(currentChar._id))}/carthian_pull`,
-      { target, sphere },
+      { allocations },
     );
     if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
     _syncCarthianDetected();
   } catch (err) {
-    // #512: surface the failure instead of silently reverting. The section
-    // derives curTarget from the character, so a failed write must not be left
-    // to fall back to a stale pending-defer choice (which manifested as the
-    // dropdown "snapping back to Contacts" when a Herd/Haven write 404'd).
+    // #512: surface the failure instead of silently reverting; the section
+    // derives its rows from the character, so a failed write must not be left
+    // to fall back to a stale pending choice.
     console.warn('Carthian Pull allocation write failed:', err);
     showToast('Could not save your Carthian Pull allocation. Please try again.', 'error');
   }
-  // After any write attempt (success or failure), drop the pending-defer marker
-  // so the section reflects the character's actual state — the bonus merit, or
-  // None — never a stale saved target (#512).
   if (responseDoc?.responses) {
     delete responseDoc.responses.carthian_pull_target;
     delete responseDoc.responses.carthian_pull_sphere;
   }
   renderForm(container);
+}
+
+// #522: handle a change on the "new dot" row. Builds the full set = the applied
+// dots plus this new one, and writes it. Allies/Contacts defer until a sphere
+// is chosen (persisting the pending target so the re-render reveals the sphere
+// select). Selecting "— select —" just drops the pending row.
+function _onCarthianNewRowChange(container) {
+  const tEl = document.getElementById('dt-carthian_target');
+  const sEl = document.getElementById('dt-carthian_sphere');
+  const target = tEl ? tEl.value : '';
+  const sphere = sEl ? sEl.value.trim() : '';
+  if (target === '') {
+    if (responseDoc?.responses) {
+      delete responseDoc.responses.carthian_pull_target;
+      delete responseDoc.responses.carthian_pull_sphere;
+    }
+    renderForm(container);
+    return;
+  }
+  if ((target === 'allies' || target === 'contacts') && !sphere) {
+    // Need a sphere first — persist the pending target so the re-render keeps it.
+    const responses = collectResponses();
+    responses.carthian_pull_target = target;
+    if (responseDoc) responseDoc.responses = responses;
+    else responseDoc = { responses };
+    renderForm(container);
+    return;
+  }
+  _applyCarthianSet(container, [..._carthianCurrentAllocations(), { target, sphere }]);
+}
+
+// #522: remove one applied dot (by index into the derived allocation list) and
+// write the reduced set.
+function _onCarthianRemove(container, idx) {
+  const applied = _carthianCurrentAllocations();
+  if (!Number.isInteger(idx) || idx < 0 || idx >= applied.length) return;
+  _applyCarthianSet(container, applied.filter((_, i) => i !== idx));
 }
 
 // #504: Safe Places and Havens — one street+suburb text input per Safe Place

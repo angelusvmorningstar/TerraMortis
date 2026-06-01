@@ -1879,6 +1879,12 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 #t-downtime .qf-label { color: var(--txt2); font-family: var(--ft); }
 #t-downtime .qf-section-body { background: transparent; }
 #t-downtime .qf-tag { background: var(--accent-a8); color: var(--accent); border-color: var(--accent-a25); }
+/* #522: Carthian Pull multi-dot allocation — pool counter + applied-dot chips. */
+#t-downtime .qf-carthian-pool { color: var(--txt2); font-family: var(--ft); font-size: 13px; margin: 8px 0 0; }
+#t-downtime .qf-carthian-applied { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#t-downtime .qf-carthian-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--bdr2); border-radius: 999px; background: var(--surf2); color: var(--txt); font-size: 13px; }
+#t-downtime .qf-carthian-remove { border: none; background: none; cursor: pointer; color: var(--txt3); font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 50%; }
+#t-downtime .qf-carthian-remove:hover { color: var(--crim); background: var(--surf3); }
 #t-downtime .qf-radio-label,
 #t-downtime .qf-checkbox-label { color: var(--txt); }
 #t-downtime .qf-radio-label:hover,
