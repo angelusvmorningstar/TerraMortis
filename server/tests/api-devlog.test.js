@@ -136,6 +136,23 @@ describe('AC#2 — POST creates entry (ST only)', () => {
     expect(res.status).toBe(400);
   });
 
+  it('accepts and round-trips the boolean highlight flag', async () => {
+    const res = await request(app)
+      .post('/api/devlog')
+      .set('X-Test-User', stUser())
+      .send({ ...VALID_ENTRY, title: 'Test highlight flag', highlight: true });
+    expect(res.status).toBe(201);
+    expect(res.body.highlight).toBe(true);
+  });
+
+  it('400 when highlight is not a boolean', async () => {
+    const res = await request(app)
+      .post('/api/devlog')
+      .set('X-Test-User', stUser())
+      .send({ ...VALID_ENTRY, highlight: 'yes' });
+    expect(res.status).toBe(400);
+  });
+
   // expose createdId for PATCH / DELETE suites
   afterAll(() => {
     globalThis._devlogTestId = createdId;

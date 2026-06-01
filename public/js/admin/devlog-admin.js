@@ -73,6 +73,10 @@ function _form(entry) {
         <label class="form-label">Target cycle</label>
         <input class="form-input" type="text" name="target_cycle" value="${esc(entry?.target_cycle || '')}" placeholder="e.g. Game 4">
       </div>
+      <label class="dl-check-label">
+        <input type="checkbox" name="highlight"${entry?.highlight ? ' checked' : ''}>
+        Highlight as new (show in the player "Recently Shipped" section)
+      </label>
       <div class="dl-form-actions">
         <button type="submit" class="btn-sm">${entry ? 'Save' : 'Create'}</button>
         <button type="button" class="btn-sm dl-cancel-btn">Cancel</button>
@@ -89,6 +93,7 @@ function _card(entry) {
       <div class="dl-card-meta">
         <span class="dl-type-chip">${esc(typeLabel)}</span>
         <span class="dl-status-chip dl-status--${esc(entry.status)}">${esc(statusLabel)}</span>
+        ${entry.highlight ? `<span class="dl-new-chip">New</span>` : ''}
         ${entry.target_cycle ? `<span class="dl-target">Target: ${esc(entry.target_cycle)}</span>` : ''}
       </div>
       <div class="dl-card-title">${esc(entry.title)}</div>
@@ -140,6 +145,9 @@ function _bindEvents(root) {
       const errEl = form.querySelector('.dl-form-error');
       const id    = form.dataset.id;
       const data  = Object.fromEntries(new FormData(form));
+      // FormData omits an unchecked box and gives "on" when checked; the schema
+      // wants a real boolean, so read the element directly.
+      data.highlight = !!form.elements.highlight?.checked;
       try {
         if (!id) {
           const created = await apiPost('/api/devlog', data);
