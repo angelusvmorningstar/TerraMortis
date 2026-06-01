@@ -286,6 +286,22 @@ export const characterSchema = {
       }
     },
 
+    // ── Player Preferences (#542) ─────────────────────────────
+    player_prefs: {
+      type: 'object',
+      properties: {
+        political_social:      { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        personal_horror:       { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        direct_confrontation:  { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        character_growth:      { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        mysticism:             { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        supporter_wildcard:    { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        st_scaffolding:        { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        updated_at:            { type: ['string', 'null'] },
+      },
+      additionalProperties: false,
+    },
+
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
