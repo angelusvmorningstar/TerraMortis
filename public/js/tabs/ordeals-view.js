@@ -118,6 +118,7 @@ function renderPlayerPrefs(char) {
   if (updatedAt) {
     h += `<tr><td colspan="2" class="player-prefs-updated">Last updated ${esc(updatedAt)}</td></tr>`;
   }
+  h += '</table>';
   h += '<button type="button" class="qf-btn qf-btn-submit player-prefs-save" id="player-prefs-save">Save Preferences</button>';
   h += '</div>';
   return h;
