@@ -237,7 +237,7 @@ body {
 .dl-status--considering { background: var(--crim-a8);        color: var(--crim2);       border-color: var(--crim-a15); }
 .dl-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
 .dl-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
-.dl-status--implemented { background: var(--green-dk-bg);    color: var(--txt3);        border-color: var(--bdr); }
+.dl-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
 .dl-status--deferred    { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
 .dl-target { margin-left: auto; font-family: var(--fl); font-size: 11px; color: var(--txt3); }
 .dl-card-title { font-family: var(--fh); font-size: 16px; color: var(--txt); }
