@@ -785,6 +785,18 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
   }
 
   const { _id, ...updates } = req.body;
+  // Issue #497: coerce FK strings → ObjectId before write, mirroring the POST
+  // path (above). PUT bodies rarely carry cycle_id/character_id, but if they
+  // do, a string value would re-introduce the mixed-type split. Malformed
+  // (non-24-hex) values are left untouched, matching the POST guard.
+  if (updates.cycle_id) {
+    const cidOid = parseId(String(updates.cycle_id));
+    if (cidOid) updates.cycle_id = cidOid;
+  }
+  if (updates.character_id) {
+    const charOid = parseId(String(updates.character_id));
+    if (charOid) updates.character_id = charOid;
+  }
   const result = await submissions().findOneAndUpdate(
     { _id: oid },
     { $set: updates },
@@ -1160,8 +1172,12 @@ projectInvitationsRouter.post('/:id/accept', async (req, res) => {
   const charOid = parseId(inv.invited_character_id);
   let sub = null;
   if (charOid) {
+    // Issue #497: tolerate both ObjectId and string cycle_id. (Joints are a
+    // DT2+ feature so a string-typed DT1 submission can't actually be a joint
+    // invitee, but this keeps every submission-by-cycle_id read uniformly
+    // dual-type during the migration grace window.)
     sub = await submissions().findOne({
-      cycle_id: cycleOid,
+      cycle_id: { $in: [cycleOid, String(cycleOid)] },
       $or: [{ character_id: charOid }, { character_id: String(inv.invited_character_id) }],
     });
   }

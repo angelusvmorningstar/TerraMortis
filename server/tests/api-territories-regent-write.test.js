@@ -62,7 +62,11 @@ async function seedActiveCycle() {
   return { _id: result.insertedId };
 }
 
-async function seedSubmission({ cycleId, character_id, territorySlug = 'the_second_city', state = 'resident' }) {
+// `cycleId` is written verbatim — pass an ObjectId or a string to exercise the
+// mixed-type tolerance (issue #497). `territoryKey` overrides the grid key when
+// given (post-496.4 the lock check compares grid keys to String(territory._id),
+// so OID-keyed grids are the canonical shape); falls back to `territorySlug`.
+async function seedSubmission({ cycleId, character_id, territorySlug = 'the_second_city', territoryKey = null, state = 'resident' }) {
   const col = getCollection('downtime_submissions');
   const doc = {
     character_id,
@@ -70,7 +74,7 @@ async function seedSubmission({ cycleId, character_id, territorySlug = 'the_seco
     cycle_id: cycleId,
     status: 'submitted',
     responses: {
-      feeding_territories: JSON.stringify({ [territorySlug]: state }),
+      feeding_territories: JSON.stringify({ [territoryKey || territorySlug]: state }),
     },
   };
   const result = await col.insertOne(doc);
@@ -187,12 +191,12 @@ describe('PATCH /api/territories/:id/feeding-rights — locks', () => {
       regent_id: 'regent-lock',
       feeding_rights: ['fed-char', 'safe-char'],
     });
-    // Submission's feeding-grid key matches the territory's slug after
-    // normaliseTerritorySlug pass-through (unknown keys pass through unchanged).
+    // Post-496.4 the lock check compares grid keys directly to
+    // String(territory._id), so the feeding-grid key is the territory OID.
     await seedSubmission({
       cycleId: cycle._id,
       character_id: 'fed-char',
-      territorySlug: 'rfr_test_sc',
+      territoryKey: terr._idStr,
     });
 
     const res = await request(app)
@@ -245,7 +249,7 @@ describe('PATCH /api/territories/:id/feeding-rights — locks', () => {
     await seedSubmission({
       cycleId: cycle._id,
       character_id: 'char-a',
-      territorySlug: 'rfr_test_sc_clean',
+      territoryKey: terr._idStr,
       state: 'poach',
     });
 
@@ -255,5 +259,57 @@ describe('PATCH /api/territories/:id/feeding-rights — locks', () => {
       .send({ feeding_rights: ['char-b'] });
     expect(res.status).toBe(200);
     expect(res.body.feeding_rights).toEqual(['char-b']);
+  });
+});
+
+// ── Issue #497: mixed-type cycle_id tolerance in the lock check ──────────────
+// downtime_submissions.cycle_id is stored as both string (DT1) and ObjectId
+// (DT2+). The lock check must find submissions of BOTH types for the active
+// cycle, or a regent could strip feeding rights from a character whose
+// string-typed submission was silently dropped by a type-strict query.
+describe('PATCH /api/territories/:id/feeding-rights — #497 mixed cycle_id', () => {
+  it('locks when the matching submission has a STRING-typed cycle_id', async () => {
+    const cycle = await seedActiveCycle();
+    const terr = await seedTerritory({
+      slug: 'rfr_test_497_str',
+      regent_id: 'regent-497s',
+      feeding_rights: ['fed-char', 'safe-char'],
+    });
+    // cycle_id stored as a STRING (DT1 shape) — the bug this story fixes.
+    await seedSubmission({
+      cycleId: String(cycle._id),
+      character_id: 'fed-char',
+      territoryKey: terr._idStr,
+    });
+
+    const res = await request(app)
+      .patch(`/api/territories/${terr._idStr}/feeding-rights`)
+      .set('X-Test-User', playerUser(['regent-497s']))
+      .send({ feeding_rights: ['safe-char'] });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect(res.body.locked).toEqual(['fed-char']);
+  });
+
+  it('locks when the matching submission has an OBJECTID-typed cycle_id (no regression)', async () => {
+    const cycle = await seedActiveCycle();
+    const terr = await seedTerritory({
+      slug: 'rfr_test_497_oid',
+      regent_id: 'regent-497o',
+      feeding_rights: ['fed-char', 'safe-char'],
+    });
+    await seedSubmission({
+      cycleId: cycle._id, // ObjectId (DT2+ shape)
+      character_id: 'fed-char',
+      territoryKey: terr._idStr,
+    });
+
+    const res = await request(app)
+      .patch(`/api/territories/${terr._idStr}/feeding-rights`)
+      .set('X-Test-User', playerUser(['regent-497o']))
+      .send({ feeding_rights: ['safe-char'] });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect(res.body.locked).toEqual(['fed-char']);
   });
 });
