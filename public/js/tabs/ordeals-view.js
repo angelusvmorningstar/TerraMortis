@@ -42,13 +42,12 @@ const KEY_TO_SUBMISSION_TYPE = {
 };
 
 const PLAYER_PREF_AXES = [
-  { key: 'political_social',     label: 'Political & Social' },
-  { key: 'personal_horror',      label: 'Personal Horror' },
-  { key: 'direct_confrontation', label: 'Direct Confrontation' },
-  { key: 'character_growth',     label: 'Character Growth' },
-  { key: 'mysticism',            label: 'Mysticism & Occult' },
-  { key: 'supporter_wildcard',   label: 'Supporter / Wildcard' },
-  { key: 'st_scaffolding',       label: 'ST Scaffolding needed' },
+  { key: 'combat_action',            label: 'Combat & Action' },
+  { key: 'horror_dread',             label: 'Horror & Dread' },
+  { key: 'institutional_corruption', label: 'Institutional Corruption' },
+  { key: 'mysticism_mystery',        label: 'Mysticism & Mystery' },
+  { key: 'personal_story',           label: 'Personal Story' },
+  { key: 'political_intrigue',       label: 'Political Intrigue' },
 ];
 
 let playerDoc       = null;

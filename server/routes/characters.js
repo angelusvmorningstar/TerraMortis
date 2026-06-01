@@ -708,8 +708,8 @@ router.patch('/:id/player_prefs', async (req, res) => {
   }
 
   const VALID_KEYS = [
-    'political_social', 'personal_horror', 'direct_confrontation',
-    'character_growth', 'mysticism', 'supporter_wildcard', 'st_scaffolding',
+    'combat_action', 'horror_dread', 'institutional_corruption',
+    'mysticism_mystery', 'personal_story', 'political_intrigue',
   ];
   const prefs = {};
   for (const key of VALID_KEYS) {
