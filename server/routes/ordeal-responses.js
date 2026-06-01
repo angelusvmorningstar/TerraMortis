@@ -188,6 +188,23 @@ router.get('/all', requireRole('st'), async (req, res) => {
     });
   }
 
+  // Snapshot character_name for all docs that have a character_id — includes
+  // retired characters which may not appear in the admin's active chars[] array.
+  const charIds = [...new Set(docs.filter(d => d.character_id).map(d => d.character_id))];
+  if (charIds.length) {
+    const charDocs = await getCollection('characters').find(
+      { _id: { $in: charIds } },
+      { projection: { _id: 1, name: 1, moniker: 1, honorific: 1 } }
+    ).toArray();
+    const charMap = new Map(charDocs.map(c => [String(c._id), c]));
+    docs.forEach(d => {
+      if (d.character_id && !d.character_name) {
+        const c = charMap.get(String(d.character_id));
+        if (c) d.character_name = [c.honorific, c.moniker || c.name].filter(Boolean).join(' ');
+      }
+    });
+  }
+
   res.json(docs);
 });
 
