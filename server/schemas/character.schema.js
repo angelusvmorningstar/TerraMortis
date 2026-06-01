@@ -55,6 +55,7 @@ export const characterSchema = {
     retired:          { type: 'boolean' },
     pending_approval: { type: 'boolean' },
     created_at:       { type: 'string' },
+    current:          { type: ['object', 'null'], additionalProperties: true },
 
     clan: {
       type: ['string', 'null'],
