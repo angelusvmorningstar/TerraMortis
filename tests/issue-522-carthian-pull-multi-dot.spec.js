@@ -1,41 +1,41 @@
 /**
- * Player DT form — Carthian Pull sphere is a fixed enum + match/augment (#510)
+ * Player DT form — Carthian Pull multi-dot allocation (#522)
  *
- * Corrects #508: the sphere is now a <select> from INFLUENCE_SPHERES (not free
- * text), and Contacts excludes spheres the character already holds. The
- * match/augment-by-qualifier server behaviour is covered by
- * server/tests/api-characters-carthian-pull.test.js; this spec covers the
- * DT-form control.
+ * Carthian Pull now grants a POOL of dots equal to the character's Carthian
+ * (Covenant) Status, allocatable across Allies/Contacts/Haven/Herd. This spec
+ * covers the multi-row DT-form UI: the "X of N" pool counter, allocating
+ * multiple dots, and the applied-dot chips. The set-based server contract is
+ * covered by server/tests/api-characters-carthian-pull.test.js.
+ *
+ * Harness mirrors issue-508/510; the mock applies the set to a live char copy.
  */
 
 const { test, expect } = require('@playwright/test');
 
 const PLAYER_USER = {
   id: '987654321', username: 'test_player', global_name: 'Test Player',
-  avatar: null, role: 'player', player_id: 'p-510',
-  character_ids: ['char-510'], is_dual_role: false,
+  avatar: null, role: 'player', player_id: 'p-522',
+  character_ids: ['char-522'], is_dual_role: false,
 };
 const ACTIVE_CYCLE = {
-  _id: 'cycle-510', cycle_number: 6, status: 'open',
+  _id: 'cycle-522', cycle_number: 7, status: 'open',
   deadline: new Date(Date.now() + 86400000 * 7).toISOString(), confirmed_ambience: {}, narrative_notes: '',
 };
 const CHAR_BASE = {
-  _id: 'char-510', name: 'Pull Sphere', moniker: null, honorific: null,
+  _id: 'char-522', name: 'Pull Pool', moniker: null, honorific: null,
   clan: 'Daeva', covenant: 'Carthian Movement', player: 'Test Player',
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null, regent_territory: null, retired: false,
-  // #522: Carthian Pull pool = Carthian (Covenant) Status, keyed by full name.
+  // Carthian Status 3 → a 3-dot pool.
   status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 3, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
     Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
   },
-  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
+  skills: {}, disciplines: {}, merits: [{ category: 'general', name: 'Carthian Pull', cp: 1, rating: 1 }], powers: [], ordeals: [],
 };
-const CP = { category: 'general', name: 'Carthian Pull', cp: 1, rating: 1 };
 
-// #522: mirror the set-based endpoint — accepts {allocations:[{target,sphere}]}
-// (and legacy {target,sphere}); strip-then-apply over the set.
+// Mirror the set-based endpoint (strip-then-apply over {allocations:[...]}).
 function applyCarthian(char, body) {
   const c = JSON.parse(JSON.stringify(char));
   const raw = Array.isArray(body && body.allocations) ? body.allocations
@@ -95,13 +95,13 @@ async function setup(page, char) {
     if (url.includes('/api/auth/me'))             return ok(PLAYER_USER);
     if (url.includes('/api/characters/names'))    return ok([{ _id: live._id, name: live.name }]);
     if (method === 'PATCH' && /\/api\/characters\/[^/]+\/carthian_pull/.test(url)) { live = applyCarthian(live, route.request().postDataJSON()); return ok(live); }
-    if (/\/api\/characters\/char-510(\?|$)/.test(url))  return ok(live);
+    if (/\/api\/characters\/char-522(\?|$)/.test(url))  return ok(live);
     if (url.includes('/api/characters'))          return ok([live]);
     if (url.includes('/api/attendance'))          return ok({ attended: false });
     if (url.includes('/api/downtime_cycles'))     return ok([ACTIVE_CYCLE]);
-    if (url.includes('/api/downtime_submissions')) { if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-510', responses: {} }); return ok([]); }
+    if (url.includes('/api/downtime_submissions')) { if (method === 'POST' || method === 'PUT') return ok({ _id: 'sub-522', responses: {} }); return ok([]); }
     if (url.includes('/api/territories'))         return ok([]);
-    if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-510' });
+    if (method === 'POST' || method === 'PUT' || method === 'PATCH') return ok({ ok: true, _id: 'sub-522' });
     return ok([]);
   });
   await page.goto('/');
@@ -115,52 +115,45 @@ async function openDtTab(page) {
 
 const SECTION = '[data-section-key="carthian_pull"]';
 
-test.describe('Player DT form — Carthian Pull sphere enum (#510)', () => {
+test.describe('Player DT form — Carthian Pull multi-dot (#522)', () => {
 
-  test('AC#1: the sphere control is a <select> from INFLUENCE_SPHERES (not free text)', async ({ page }) => {
-    await setup(page, { ...CHAR_BASE, merits: [CP] });
+  test('the pool counter reflects Carthian Status and allocating fills it', async ({ page }) => {
+    await setup(page, CHAR_BASE);
     await openDtTab(page);
+    await expect(page.locator(SECTION)).toBeAttached({ timeout: 8000 });
     await page.locator(`${SECTION} .qf-section-title`).click();
-    await page.selectOption('#dt-carthian_target', 'allies');
-    // It is a <select>, and there is no free-text input
-    await expect(page.locator('select#dt-carthian_sphere')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('input#dt-carthian_sphere')).toHaveCount(0);
-    // Canonical spheres are present as options
-    await expect(page.locator('#dt-carthian_sphere option[value="Underworld"]')).toHaveCount(1);
-    await expect(page.locator('#dt-carthian_sphere option[value="Legal"]')).toHaveCount(1);
+
+    // Pool counter starts at 0 of 3.
+    await expect(page.locator(`${SECTION} .qf-carthian-pool`)).toContainText('0 of 3');
+
+    // Allocate dot 1 → Herd.
+    await page.selectOption('#dt-carthian_target', 'herd');
+    await expect(page.locator(`${SECTION} .qf-carthian-pool`)).toContainText('1 of 3');
+    await expect(page.locator(`${SECTION} .qf-carthian-chip`)).toHaveCount(1);
+    await expect(page.locator(`${SECTION} .qf-carthian-chip`).first()).toContainText('Herd');
   });
 
-  test('AC#6: Contacts dropdown excludes a sphere the character already holds', async ({ page }) => {
-    const char = { ...CHAR_BASE, merits: [CP, { category: 'influence', name: 'Contacts', spheres: ['Legal', 'Street'], cp: 2, rating: 2 }] };
-    await setup(page, char);
+  test('allocating a second dot accumulates the set in the PATCH', async ({ page }) => {
+    await setup(page, CHAR_BASE);
     await openDtTab(page);
+    await expect(page.locator(SECTION)).toBeAttached({ timeout: 8000 });
     await page.locator(`${SECTION} .qf-section-title`).click();
-    await page.selectOption('#dt-carthian_target', 'contacts');
-    await expect(page.locator('select#dt-carthian_sphere')).toBeVisible({ timeout: 3000 });
-    // Held spheres are excluded; an unheld one is offered
-    await expect(page.locator('#dt-carthian_sphere option[value="Legal"]')).toHaveCount(0);
-    await expect(page.locator('#dt-carthian_sphere option[value="Street"]')).toHaveCount(0);
-    await expect(page.locator('#dt-carthian_sphere option[value="Underworld"]')).toHaveCount(1);
-  });
 
-  test('AC#3: choosing a Contacts sphere PATCHes with the enum value', async ({ page }) => {
-    const char = { ...CHAR_BASE, merits: [CP, { category: 'influence', name: 'Contacts', spheres: ['Legal'], cp: 1, rating: 1 }] };
-    await setup(page, char);
-    await openDtTab(page);
-    await page.locator(`${SECTION} .qf-section-title`).click();
-    await page.selectOption('#dt-carthian_target', 'contacts');
-    await expect(page.locator('select#dt-carthian_sphere')).toBeVisible({ timeout: 3000 });
+    // Dot 1 → Herd.
+    await page.selectOption('#dt-carthian_target', 'herd');
+    await expect(page.locator(`${SECTION} .qf-carthian-pool`)).toContainText('1 of 3');
 
-    // #522: the request body is now a set — {allocations:[{target,sphere},...]}.
-    const hasContacts = (r) => {
-      const a = r.postDataJSON().allocations;
-      return Array.isArray(a) && a.some(x => x.target === 'contacts');
-    };
+    // Dot 2 → Haven, via the fresh "new dot" row. The PATCH carries BOTH.
     const [req] = await Promise.all([
-      page.waitForRequest(r => r.method() === 'PATCH' && /carthian_pull/.test(r.url()) && hasContacts(r), { timeout: 6000 }),
-      page.selectOption('#dt-carthian_sphere', 'Underworld'),
+      page.waitForRequest(r => r.method() === 'PATCH' && /carthian_pull/.test(r.url())
+        && (r.postDataJSON().allocations || []).some(a => a.target === 'haven'), { timeout: 6000 }),
+      page.selectOption('#dt-carthian_target', 'haven'),
     ]);
-    expect(req.postDataJSON().allocations).toContainEqual({ target: 'contacts', sphere: 'Underworld' });
+    const allocs = req.postDataJSON().allocations;
+    expect(allocs).toContainEqual({ target: 'herd', sphere: '' });
+    expect(allocs).toContainEqual({ target: 'haven', sphere: '' });
+    await expect(page.locator(`${SECTION} .qf-carthian-pool`)).toContainText('2 of 3');
+    await expect(page.locator(`${SECTION} .qf-carthian-chip`)).toHaveCount(2);
   });
 
 });

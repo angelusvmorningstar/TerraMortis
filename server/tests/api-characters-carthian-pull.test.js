@@ -26,6 +26,10 @@ async function seedChar(overrides = {}) {
   const doc = {
     name: 'CP Test Char',
     retired: false, pending_approval: false,
+    // #522: Carthian Pull pool = Carthian (Covenant) Status. Default high so the
+    // single-dot (#508/#510) tests below pass the pool gate; per-test overrides
+    // set a lower pool where the gate itself is under test.
+    status: { covenant: { 'Carthian Movement': 5 } },
     attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
     ...overrides,
   };
@@ -105,7 +109,7 @@ describe('PATCH /api/characters/:id/carthian_pull — Contacts (#510)', () => {
     const contacts = stored.merits.filter(m => m.name === 'Contacts');
     expect(contacts).toHaveLength(1); // augmented in place, not duplicated
     expect(contacts[0].spheres).toEqual(['Legal', 'Street', 'Underworld']);
-    expect(contacts[0].carthian_sphere).toBe('Underworld');
+    expect(contacts[0].carthian_spheres).toEqual(['Underworld']); // #522: plural marker (was singular carthian_sphere in #510)
     expect(contacts[0].free_carthian).toBe(1);
     expect(contacts[0].rating).toBe(3); // === spheres.length, re-synced
   });
@@ -221,5 +225,161 @@ describe('PATCH /api/characters/:id/carthian_pull — shared (#508/#510)', () =>
     const char = await seedChar({ name: 'CP NoAuth', merits: [cpMerit()] });
     const res = await request(app).patch(`/api/characters/${char._id.toString()}/carthian_pull`).send({ target: 'haven' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('PATCH /api/characters/:id/carthian_pull — #522 multi-dot pool', () => {
+  it('allocates N dots across targets when N = Carthian Status', async () => {
+    const char = await seedChar({
+      name: 'CP Multi',
+      status: { covenant: { 'Carthian Movement': 3 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [
+      { target: 'allies', sphere: 'Police' },
+      { target: 'contacts', sphere: 'Legal' },
+      { target: 'herd' },
+    ] }, playerUser([idStr]));
+    expect(res.status).toBe(200);
+
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    const total = stored.merits.reduce((s, m) => s + (m.free_carthian || 0), 0);
+    expect(total).toBe(3);
+    expect(stored.merits.find(m => m.name === 'Allies' && m.area === 'Police').free_carthian).toBe(1);
+    expect(stored.merits.find(m => m.name === 'Contacts').spheres).toEqual(['Legal']);
+    expect(stored.merits.find(m => m.name === 'Herd').free_carthian).toBe(1);
+  });
+
+  it('rejects any allocation when Carthian Status is 0 (no pool)', async () => {
+    const char = await seedChar({
+      name: 'CP Zero Pool',
+      status: { covenant: { 'Carthian Movement': 0 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [{ target: 'herd' }] }, playerUser([idStr]));
+    expect(res.status).toBe(400);
+  });
+
+  it('allows clearing (empty set) even when Carthian Status is 0', async () => {
+    const char = await seedChar({
+      name: 'CP Zero Clear',
+      status: { covenant: { 'Carthian Movement': 0 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [] }, playerUser([idStr]));
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects an allocation count greater than the pool (400)', async () => {
+    const char = await seedChar({
+      name: 'CP Over Pool',
+      status: { covenant: { 'Carthian Movement': 1 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [
+      { target: 'herd' },
+      { target: 'haven' },
+    ] }, playerUser([idStr]));
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Carthian Status/i);
+  });
+
+  it('stacks two dots on the same Allies sphere (+2)', async () => {
+    const char = await seedChar({
+      name: 'CP Stack',
+      status: { covenant: { 'Carthian Movement': 2 } },
+      merits: [cpMerit(), { category: 'influence', name: 'Allies', area: 'Police', cp: 1, rating: 1 }],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [
+      { target: 'allies', sphere: 'Police' },
+      { target: 'allies', sphere: 'Police' },
+    ] }, playerUser([idStr]));
+    expect(res.status).toBe(200);
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    const allies = stored.merits.filter(m => m.name === 'Allies' && m.area === 'Police');
+    expect(allies).toHaveLength(1);
+    expect(allies[0].free_carthian).toBe(2);
+    expect(allies[0].rating).toBe(3); // base 1 + 2
+  });
+
+  it('rejects stacking that would exceed the 5-dot Allies cap', async () => {
+    const char = await seedChar({
+      name: 'CP Stack Cap',
+      status: { covenant: { 'Carthian Movement': 3 } },
+      merits: [cpMerit(), { category: 'influence', name: 'Allies', area: 'Police', cp: 4, rating: 4 }],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [
+      { target: 'allies', sphere: 'Police' },
+      { target: 'allies', sphere: 'Police' },
+    ] }, playerUser([idStr]));
+    expect(res.status).toBe(400); // 4 + 2 > 5
+  });
+
+  it('adds multiple distinct Contacts spheres and strips them all on clear', async () => {
+    const char = await seedChar({
+      name: 'CP Contacts Multi',
+      status: { covenant: { 'Carthian Movement': 2 } },
+      merits: [cpMerit(), { category: 'influence', name: 'Contacts', spheres: ['Legal'], cp: 1, rating: 1 }],
+    });
+    const idStr = char._id.toString();
+    await patch(app, idStr, { allocations: [
+      { target: 'contacts', sphere: 'Street' },
+      { target: 'contacts', sphere: 'Underworld' },
+    ] }, playerUser([idStr]));
+
+    let stored = await getCollection('characters').findOne({ _id: char._id });
+    let contacts = stored.merits.find(m => m.name === 'Contacts');
+    expect(contacts.spheres).toEqual(['Legal', 'Street', 'Underworld']);
+    expect(contacts.carthian_spheres).toEqual(['Street', 'Underworld']);
+    expect(contacts.free_carthian).toBe(2);
+    expect(contacts.rating).toBe(3);
+
+    // Clear: both pushed spheres come back out, base restored exactly.
+    await patch(app, idStr, { allocations: [] }, playerUser([idStr]));
+    stored = await getCollection('characters').findOne({ _id: char._id });
+    contacts = stored.merits.find(m => m.name === 'Contacts');
+    expect(contacts.spheres).toEqual(['Legal']);
+    expect('carthian_spheres' in contacts).toBe(false);
+    expect('free_carthian' in contacts).toBe(false);
+    expect(contacts.rating).toBe(1);
+  });
+
+  it('rejects the same Contacts sphere allocated twice', async () => {
+    const char = await seedChar({
+      name: 'CP Contacts Twice',
+      status: { covenant: { 'Carthian Movement': 2 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const res = await patch(app, idStr, { allocations: [
+      { target: 'contacts', sphere: 'Legal' },
+      { target: 'contacts', sphere: 'Legal' },
+    ] }, playerUser([idStr]));
+    expect(res.status).toBe(400);
+  });
+
+  it('re-applying the same multi-dot set is idempotent', async () => {
+    const char = await seedChar({
+      name: 'CP Idempotent',
+      status: { covenant: { 'Carthian Movement': 2 } },
+      merits: [cpMerit()],
+    });
+    const idStr = char._id.toString();
+    const set = { allocations: [
+      { target: 'allies', sphere: 'Police' },
+      { target: 'herd' },
+    ] };
+    await patch(app, idStr, set, playerUser([idStr]));
+    await patch(app, idStr, set, playerUser([idStr]));
+    const stored = await getCollection('characters').findOne({ _id: char._id });
+    const total = stored.merits.reduce((s, m) => s + (m.free_carthian || 0), 0);
+    expect(total).toBe(2); // not 4 — no compounding
+    expect(stored.merits.filter(m => m.name === 'Allies' && m.area === 'Police')).toHaveLength(1);
   });
 });

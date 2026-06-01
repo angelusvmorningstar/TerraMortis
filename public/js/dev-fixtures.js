@@ -34,9 +34,36 @@ window.fetch=function devFix(url,opts){
   if(method==='PUT'&&seg[0]==='characters'&&seg[1]){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
   // #506: persist safe-place locations onto the in-memory char so the cross-cycle pre-fill round-trips locally.
   if(method==='PATCH'&&seg[0]==='characters'&&seg[1]&&seg[2]==='safe_place_locations'){var slb=opts.body?JSON.parse(opts.body):{};var slc=CHARS.find(function(x){return x._id===seg[1];});if(!slc)return _mock({error:'NOT_FOUND'},404);var locs=Array.isArray(slb.locations)?slb.locations:[];var si=0;(slc.merits||[]).forEach(function(m){if(m.category==='domain'&&m.name==='Safe Place'){if(si<locs.length&&locs[si]!=null)m.location=String(locs[si]).slice(0,200);si++;}});return _mock(slc);}
-  // #508: Carthian Pull live allocation — strip-then-apply the single free_carthian bonus dot. Mirrors the server endpoint.
-  // #510: mirror the server match/augment/create + clean strip (Allies area, Contacts spheres[]+carthian_sphere).
-  if(method==='PATCH'&&seg[0]==='characters'&&seg[1]&&seg[2]==='carthian_pull'){var cpb=opts.body?JSON.parse(opts.body):{};var cpc=CHARS.find(function(x){return x._id===seg[1];});if(!cpc)return _mock({error:'NOT_FOUND'},404);var tgt=cpb.target||'';var sph=(cpb.sphere||'').trim();var ms=(cpc.merits||[]).filter(function(m){return m.granted_by!=='Carthian Pull';}).map(function(m){if(!m.free_carthian&&!m.carthian_sphere)return m;var r=Object.assign({},m);delete r.free_carthian;if(r.carthian_sphere){var sp=r.carthian_sphere;delete r.carthian_sphere;if(Array.isArray(r.spheres))r.spheres=r.spheres.filter(function(s){return s!==sp;});}r.rating=(r.name==='Contacts'&&Array.isArray(r.spheres))?r.spheres.length:((r.cp||0)+(r.xp||0)+(r.free||0));return r;});if(tgt==='allies'){var ea=ms.find(function(m){return m.category==='influence'&&m.name==='Allies'&&(m.area||'')===sph;});if(ea){ea.free_carthian=(ea.free_carthian||0)+1;ea.rating=(ea.rating||0)+1;}else{ms.push({category:'influence',name:'Allies',area:sph,granted_by:'Carthian Pull',free_carthian:1,rating:1});}}else if(tgt==='contacts'){var ec=ms.find(function(m){return m.category==='influence'&&m.name==='Contacts';});if(ec){var spheres=Array.isArray(ec.spheres)?ec.spheres:[];if(spheres.indexOf(sph)<0){ec.spheres=spheres.concat([sph]);ec.free_carthian=(ec.free_carthian||0)+1;ec.carthian_sphere=sph;ec.rating=ec.spheres.length;}}else{ms.push({category:'influence',name:'Contacts',spheres:[sph],granted_by:'Carthian Pull',free_carthian:1,rating:1});}}else if(tgt==='haven'||tgt==='herd'){var nm=tgt==='haven'?'Haven':'Herd';var ex=ms.find(function(m){return m.category==='domain'&&m.name===nm;});if(ex){ex.free_carthian=(ex.free_carthian||0)+1;ex.rating=(ex.rating||0)+1;}else{ms.push({category:'domain',name:nm,granted_by:'Carthian Pull',free_carthian:1,rating:1});}}cpc.merits=ms;return _mock(cpc);}
+  // #508/#510/#522: Carthian Pull live allocation. Mirrors the server endpoint:
+  // accepts {allocations:[{target,sphere},...]} (or legacy {target,sphere}),
+  // pool = Carthian Status, strip-then-apply over the set (Allies stacks,
+  // Contacts pushes distinct spheres tracked in carthian_spheres[]).
+  if(method==='PATCH'&&seg[0]==='characters'&&seg[1]&&seg[2]==='carthian_pull'){
+    var cpb=opts.body?JSON.parse(opts.body):{};
+    var cpc=CHARS.find(function(x){return x._id===seg[1];});
+    if(!cpc)return _mock({error:'NOT_FOUND'},404);
+    var rawAllocs=Array.isArray(cpb.allocations)?cpb.allocations:(cpb.target?[{target:cpb.target,sphere:cpb.sphere}]:[]);
+    var allocs=[];
+    for(var ai=0;ai<rawAllocs.length;ai++){var rt=(rawAllocs[ai]&&rawAllocs[ai].target)||'';if(!rt)continue;allocs.push({target:rt,sphere:((rawAllocs[ai].sphere)||'').trim()});}
+    var pool=(cpc.status&&cpc.status.covenant&&cpc.status.covenant['Carthian Movement'])||0;
+    if(allocs.length>pool)return _mock({error:'VALIDATION_ERROR',message:'exceeds Carthian Status pool'},400);
+    var ms=(cpc.merits||[]).filter(function(m){return m.granted_by!=='Carthian Pull';}).map(function(m){
+      var hasPushed=(Array.isArray(m.carthian_spheres)&&m.carthian_spheres.length)||m.carthian_sphere;
+      if(!m.free_carthian&&!hasPushed)return m;
+      var r=Object.assign({},m);delete r.free_carthian;var popped=[];
+      if(Array.isArray(r.carthian_spheres)){popped=popped.concat(r.carthian_spheres);delete r.carthian_spheres;}
+      if(r.carthian_sphere){popped.push(r.carthian_sphere);delete r.carthian_sphere;}
+      if(popped.length&&Array.isArray(r.spheres))r.spheres=r.spheres.filter(function(s){return popped.indexOf(s)<0;});
+      r.rating=(r.name==='Contacts'&&Array.isArray(r.spheres))?r.spheres.length:((r.cp||0)+(r.xp||0)+(r.free||0));
+      return r;
+    });
+    var alliesAdds={},contactsAdds=[],havenAdds=0,herdAdds=0;
+    for(var k=0;k<allocs.length;k++){var a=allocs[k];if(a.target==='allies')alliesAdds[a.sphere]=(alliesAdds[a.sphere]||0)+1;else if(a.target==='contacts')contactsAdds.push(a.sphere);else if(a.target==='haven')havenAdds++;else if(a.target==='herd')herdAdds++;}
+    Object.keys(alliesAdds).forEach(function(area){var cnt=alliesAdds[area];var ea=ms.find(function(m){return m.category==='influence'&&m.name==='Allies'&&(m.area||'')===area;});if(ea){ea.free_carthian=(ea.free_carthian||0)+cnt;ea.rating=(ea.rating||0)+cnt;}else{ms.push({category:'influence',name:'Allies',area:area,granted_by:'Carthian Pull',free_carthian:cnt,rating:cnt});}});
+    if(contactsAdds.length){var ec=ms.find(function(m){return m.category==='influence'&&m.name==='Contacts';});if(ec){var cbase=Array.isArray(ec.spheres)?ec.spheres:[];ec.spheres=cbase.concat(contactsAdds);ec.free_carthian=(ec.free_carthian||0)+contactsAdds.length;ec.carthian_spheres=(Array.isArray(ec.carthian_spheres)?ec.carthian_spheres:[]).concat(contactsAdds);ec.rating=ec.spheres.length;}else{ms.push({category:'influence',name:'Contacts',spheres:contactsAdds.slice(),carthian_spheres:contactsAdds.slice(),granted_by:'Carthian Pull',free_carthian:contactsAdds.length,rating:contactsAdds.length});}}
+    [['Haven',havenAdds],['Herd',herdAdds]].forEach(function(p){var nm=p[0],cnt=p[1];if(!cnt)return;var ex=ms.find(function(m){return m.category==='domain'&&m.name===nm;});if(ex){ex.free_carthian=(ex.free_carthian||0)+cnt;ex.rating=(ex.rating||0)+cnt;}else{ms.push({category:'domain',name:nm,granted_by:'Carthian Pull',free_carthian:cnt,rating:cnt});}});
+    cpc.merits=ms;return _mock(cpc);
+  }
   if(method==='GET'&&seg[0]==='territories'&&!seg[1])return _mock(TERRITORIES);
   if(method==='GET'&&seg[0]==='tracker_state'&&seg[1]){var ts=TRACKER_STATE[seg[1]];return ts?_mock(ts):_mock(null,404);}
   if(method==='PUT'&&seg[0]==='tracker_state')return _mock(null,204);
