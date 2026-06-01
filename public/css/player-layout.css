@@ -2188,17 +2188,31 @@ html:not([data-theme="dark"]) .tk-badge-sheet      { background: var(--gold-a12)
 
 /* ── Player Preferences (#542) ──────────────────────────────── */
 .player-prefs-panel { margin-top: 20px; }
-.pref-axes-table { margin-top: 6px; }
-.pref-axes-table td { padding: 10px 0; }
-.pref-axes-table .pref-axis-row td { border-bottom: 1px solid var(--surf2); }
-.pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
-.pref-axis-lbl { width: 160px; color: var(--txt2); }
-.pref-dots-cell .dot { width: 32px; height: 32px; font-size: 26px; }
 .player-prefs-desc {
   font-size: 12px;
   color: var(--txt3);
   font-style: italic;
-  margin: 4px 0 0;
+  margin: 10px 0 16px;
 }
-.player-prefs-updated { font-size: 11px; color: var(--txt3); padding: 6px 0 0; }
-.player-prefs-save { margin-top: 16px; display: block; }
+.pref-axes-table td { padding: 12px 0; }
+.pref-axes-table .pref-axis-row td { border-bottom: 1px solid var(--surf2); }
+.pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
+.pref-axis-lbl { width: 160px; color: var(--txt2); }
+.pref-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 28px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.1s;
+  color: var(--accent-a25);
+}
+.pref-dot.filled { color: var(--accent); }
+.pref-dot:hover { opacity: 0.8; }
+.pref-dots-cell .dot-stepper { gap: 6px; }
+.player-prefs-updated { font-size: 11px; color: var(--txt3); padding: 8px 0 0; }
+.player-prefs-save { margin-top: 20px; display: block; }

@@ -111,7 +111,7 @@ function renderPlayerPrefs(char) {
     h += '<td class="pref-dots-cell"><div class="dot-stepper">';
     for (let i = 1; i <= 5; i++) {
       const filled = current !== null && i <= current;
-      h += `<span class="dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
+      h += `<span class="pref-dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
     }
     h += '</div></td>';
     h += '</tr>';
@@ -279,13 +279,13 @@ function renderOrdealsList(el, char) {
   });
 
   // Dot toggle — fill up to clicked value; clicking the sole filled dot deselects
-  el.querySelectorAll('.pref-axis-row .dot').forEach(dot => {
+  el.querySelectorAll('.pref-axis-row .pref-dot').forEach(dot => {
     dot.addEventListener('click', () => {
       const row = dot.closest('.pref-axis-row');
       const clickedVal = +dot.dataset.value;
-      const filledDots = row.querySelectorAll('.dot.filled');
+      const filledDots = row.querySelectorAll('.pref-dot.filled');
       const newVal = (filledDots.length === 1 && filledDots[0] === dot) ? 0 : clickedVal;
-      row.querySelectorAll('.dot').forEach((d, idx) => {
+      row.querySelectorAll('.pref-dot').forEach((d, idx) => {
         const fill = idx < newVal;
         d.classList.toggle('filled', fill);
         d.classList.toggle('empty', !fill);
@@ -299,7 +299,7 @@ function renderOrdealsList(el, char) {
     saveBtn.addEventListener('click', async () => {
       const prefs = {};
       for (const axis of PLAYER_PREF_AXES) {
-        const dots = el.querySelectorAll(`.pref-axis-row[data-pref-key="${axis.key}"] .dot`);
+        const dots = el.querySelectorAll(`.pref-axis-row[data-pref-key="${axis.key}"] .pref-dot`);
         let rating = null;
         dots.forEach((d, idx) => { if (d.classList.contains('filled')) rating = idx + 1; });
         prefs[axis.key] = { rating };
