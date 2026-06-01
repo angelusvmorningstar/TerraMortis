@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
+import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
@@ -66,6 +67,23 @@ describe('POST /api/ordeal-responses — create (issue #525)', () => {
       .send({ type: 'covenant', responses: {} });
     expect(res.status).toBe(201);
     expect(res.body.character_id).toBeNull();
+  });
+
+  it('resolves character_id via live player lookup when session character_ids is empty (issue #530)', async () => {
+    // This is the production bug scenario: empty session + player in DB with characters.
+    const fakeCharId = new ObjectId();
+    const playersCol = getCollection('players');
+    await playersCol.insertOne({ _id: PLAYER_ID, character_ids: [fakeCharId] });
+    try {
+      const res = await request(app)
+        .post('/api/ordeal-responses')
+        .set('X-Test-User', playerUser([]))  // session has no character_ids
+        .send({ type: 'lore' });
+      expect(res.status).toBe(201);
+      expect(String(res.body.character_id)).toBe(String(fakeCharId));
+    } finally {
+      await playersCol.deleteOne({ _id: PLAYER_ID });
+    }
   });
 
   it('rejects an invalid type', async () => {
@@ -143,6 +161,41 @@ describe('Ordeal response flow — submit + read back (issue #525)', () => {
     expect(fetched.status).toBe(200);
     expect(fetched.body.ordeal_type).toBe('covenant');
     expect(fetched.body.responses).toEqual({ q1: 'final' });
+  });
+});
+
+describe('GET /api/ordeal-responses/all — character_id enrichment (issue #530)', () => {
+  it('enriches null character_id from the player record batch lookup', async () => {
+    const fakeCharId = new ObjectId();
+    const playersCol = getCollection('players');
+    const responsesCol = getCollection('ordeal_responses');
+
+    const { insertedId: playerId } = await playersCol.insertOne({
+      username: 'test-enrich-530',
+      character_ids: [fakeCharId],
+    });
+    const { insertedId: docId } = await responsesCol.insertOne({
+      player_id: playerId,
+      character_id: null,
+      ordeal_type: 'rules',
+      status: 'submitted',
+      responses: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    try {
+      const res = await request(app)
+        .get('/api/ordeal-responses/all')
+        .set('X-Test-User', stUser());
+      expect(res.status).toBe(200);
+      const found = res.body.find(r => String(r._id) === String(docId));
+      expect(found).toBeTruthy();
+      expect(String(found.character_id)).toBe(String(fakeCharId));
+    } finally {
+      await responsesCol.deleteOne({ _id: docId });
+      await playersCol.deleteOne({ _id: playerId });
+    }
   });
 });
 
