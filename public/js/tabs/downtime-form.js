@@ -137,6 +137,7 @@ function _terrGridVal(grid, displayName, legacyKey) {
   if (!grid) return undefined;
   const oid = _terrOidForName(displayName);
   if (oid && grid[oid] !== undefined) return grid[oid];
+  if (legacyKey && grid[legacyKey] !== undefined) return grid[legacyKey];
   return undefined;
 }
 let saveTimer = null;
