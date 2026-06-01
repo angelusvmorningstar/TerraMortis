@@ -99,18 +99,18 @@ function renderPlayerPrefs(char) {
     ? new Date(prefs.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
-  let h = '<div class="player-prefs-panel">';
-  h += '<h3 class="ordeals-heading">Chronicle Preferences</h3>';
+  let h = '<div class="xpl-panel player-prefs-panel">';
+  h += '<div class="xpl-col-head">Chronicle Preferences</div>';
   h += '<p class="player-prefs-desc">Rate what you want from the chronicle. This helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
 
   for (const axis of PLAYER_PREF_AXES) {
     const current = prefs[axis.key]?.rating ?? null;
-    h += `<div class="player-pref-row" data-pref-key="${esc(axis.key)}">`;
-    h += `<span class="player-pref-label">${esc(axis.label)}</span>`;
-    h += '<div class="player-pref-dots">';
+    h += `<div class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
+    h += `<span class="pref-axis-lbl">${esc(axis.label)}</span>`;
+    h += '<div class="dot-stepper">';
     for (let i = 1; i <= 5; i++) {
       const filled = current !== null && i <= current;
-      h += `<button type="button" class="pref-dot${filled ? ' filled' : ''}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">${filled ? '●' : '○'}</button>`;
+      h += `<span class="dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
     }
     h += '</div>';
     h += '</div>';
@@ -278,16 +278,16 @@ function renderOrdealsList(el, char) {
   });
 
   // Dot toggle — fill up to clicked value; clicking the sole filled dot deselects
-  el.querySelectorAll('.pref-dot').forEach(dot => {
+  el.querySelectorAll('.pref-axis-row .dot').forEach(dot => {
     dot.addEventListener('click', () => {
-      const row = dot.closest('.player-pref-row');
+      const row = dot.closest('.pref-axis-row');
       const clickedVal = +dot.dataset.value;
-      const filledDots = row.querySelectorAll('.pref-dot.filled');
+      const filledDots = row.querySelectorAll('.dot.filled');
       const newVal = (filledDots.length === 1 && filledDots[0] === dot) ? 0 : clickedVal;
-      row.querySelectorAll('.pref-dot').forEach((d, idx) => {
+      row.querySelectorAll('.dot').forEach((d, idx) => {
         const fill = idx < newVal;
         d.classList.toggle('filled', fill);
-        d.textContent = fill ? '●' : '○';
+        d.classList.toggle('empty', !fill);
       });
     });
   });
@@ -298,7 +298,7 @@ function renderOrdealsList(el, char) {
     saveBtn.addEventListener('click', async () => {
       const prefs = {};
       for (const axis of PLAYER_PREF_AXES) {
-        const dots = el.querySelectorAll(`.player-pref-row[data-pref-key="${axis.key}"] .pref-dot`);
+        const dots = el.querySelectorAll(`.pref-axis-row[data-pref-key="${axis.key}"] .dot`);
         let rating = null;
         dots.forEach((d, idx) => { if (d.classList.contains('filled')) rating = idx + 1; });
         prefs[axis.key] = { rating };
