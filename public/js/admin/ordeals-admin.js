@@ -20,6 +20,17 @@ const ORDEAL_LABELS = {
   character_history:      'Character History',
 };
 
+// ordeal_responses stores short-form types; admin tabs and rubric use long-form.
+const ORDEAL_TYPE_NORM = {
+  rules:    'rules_mastery',
+  lore:     'lore_mastery',
+  covenant: 'covenant_questionnaire',
+};
+
+function normType(t) {
+  return ORDEAL_TYPE_NORM[t] || t;
+}
+
 const ORDEAL_TYPES = Object.keys(ORDEAL_LABELS);
 
 const STATUS_LABELS = {
@@ -46,7 +57,7 @@ export async function initOrdealsAdminView(chars) {
 
   try {
     [submissions, rubrics] = await Promise.all([
-      apiGet('/api/ordeal_submissions'),
+      apiGet('/api/ordeal-responses/all'),
       apiGet('/api/ordeal_rubrics'),
     ]);
   } catch (err) {
@@ -100,7 +111,7 @@ function renderLeft() {
   // Type filter tabs
   const visible = activeType === 'all'
     ? submissions
-    : submissions.filter(s => s.ordeal_type === activeType);
+    : submissions.filter(s => normType(s.ordeal_type) === activeType);
 
   const sorted = [...visible].sort((a, b) => {
     const nameA = charNameForSub(a);
@@ -131,7 +142,7 @@ function renderLeft() {
     let lastType = null;
     for (const sub of sorted) {
       if (activeType === 'all' && sub.ordeal_type !== lastType) {
-        h += `<div class="or-list-heading">${esc(ORDEAL_LABELS[sub.ordeal_type] || sub.ordeal_type)}</div>`;
+        h += `<div class="or-list-heading">${esc(ORDEAL_LABELS[normType(sub.ordeal_type)] || sub.ordeal_type)}</div>`;
         lastType = sub.ordeal_type;
       }
       const status = sub.marking?.status || 'unmarked';
@@ -150,7 +161,7 @@ function renderLeft() {
 function tabBtn(type, label) {
   const count = type === 'all'
     ? submissions.length
-    : submissions.filter(s => s.ordeal_type === type).length;
+    : submissions.filter(s => normType(s.ordeal_type) === type).length;
   return `<button class="or-tab-btn${activeType === type ? ' on' : ''}" data-type="${esc(type)}">${esc(label)} <span class="or-tab-count">${count}</span></button>`;
 }
 
@@ -167,14 +178,15 @@ function renderRight() {
 
   const char    = characters.find(c => String(c._id) === String(sub.character_id));
   const charName = char ? displayName(char) : (sub.character_name || 'Unknown');
-  const typeLabel = ORDEAL_LABELS[sub.ordeal_type] || sub.ordeal_type;
+  const typeLabel = ORDEAL_LABELS[normType(sub.ordeal_type)] || sub.ordeal_type;
   const status  = sub.marking?.status || 'unmarked';
   const isComplete = status === 'complete';
 
-  // Find matching rubric
+  // Find matching rubric (normalise short-form ordeal_type from ordeal_responses)
+  const normOrdealType = normType(sub.ordeal_type);
   const rubric = rubrics.find(r =>
-    r.ordeal_type === sub.ordeal_type &&
-    (sub.ordeal_type !== 'covenant_questionnaire' || r.covenant === sub.covenant || !r.covenant)
+    r.ordeal_type === normOrdealType &&
+    (normOrdealType !== 'covenant_questionnaire' || r.covenant === sub.covenant || !r.covenant)
   );
   const rubricQs = rubric?.questions || [];
 
@@ -191,8 +203,10 @@ function renderRight() {
   }
   h += '</div>';
 
-  // Q&A table
-  const responses = sub.responses || [];
+  // Q&A table — ordeal_responses stores { key: value }; ordeal_submissions stores [{ question, answer }]
+  const responses = Array.isArray(sub.responses)
+    ? sub.responses
+    : Object.entries(sub.responses || {}).map(([key, answer]) => ({ question: key, answer }));
   const savedAnswers  = sub.marking?.answers || [];
   const pending       = pendingAnswers[sub._id] || {};
 
@@ -412,9 +426,10 @@ async function handleSave(subId, markComplete) {
       answers:          existing,
     },
   };
+  if (markComplete) updates.status = 'approved';
 
   try {
-    const updated = await apiPut('/api/ordeal_submissions/' + subId, updates);
+    const updated = await apiPut('/api/ordeal-responses/' + subId, updates);
     const idx = submissions.findIndex(s => s._id === subId);
     if (idx >= 0) submissions[idx] = updated;
     delete pendingAnswers[subId];
@@ -452,6 +467,13 @@ async function handleRubricSave(rubricId, qIdx) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function charNameForSub(sub) {
-  const char = characters.find(c => String(c._id) === String(sub.character_id));
-  return char ? displayName(char) : (sub.character_name || 'Unknown');
+  if (sub.character_id) {
+    const char = characters.find(c => String(c._id) === String(sub.character_id));
+    if (char) return displayName(char);
+  }
+  if (sub.player_id) {
+    const char = characters.find(c => String(c.player_id) === String(sub.player_id));
+    if (char) return displayName(char);
+  }
+  return sub.character_name || 'Unknown';
 }
