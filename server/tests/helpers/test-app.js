@@ -15,6 +15,7 @@ import playersRouter from '../../routes/players.js';
 import attendanceRouter from '../../routes/attendance.js';
 import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
+import ordealResponsesRouter from '../../routes/ordeal-responses.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
 import {
@@ -72,6 +73,7 @@ export function createTestApp() {
   app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);
   app.use('/api/tracker_state', mockAuth, requireRole('st'), noCache(), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, noCache(), ordealSubmissionsRouter);
+  app.use('/api/ordeal-responses', mockAuth, noCache(), ordealResponsesRouter);
   app.use('/api/archive_documents', mockAuth, noCache(), archiveDocumentsRouter);
   // Rules engine — must mount before /api/rules (purchasable_powers)
   const reRoleST = requireRole('st');
