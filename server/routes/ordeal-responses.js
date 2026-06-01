@@ -81,6 +81,7 @@ router.post('/', validate(ordealResponseSchema), async (req, res) => {
   const now = new Date().toISOString();
   const doc = {
     player_id: playerId,
+    character_id: req.user.character_ids?.[0] ?? null,
     ordeal_type: type,
     status: 'draft',
     responses: responses || {},
@@ -115,6 +116,14 @@ router.put('/:id', async (req, res) => {
   const updates = { updated_at: new Date().toISOString() };
   if (req.body.responses !== undefined) updates.responses = req.body.responses;
 
+  if (req.body.marking !== undefined && isStRole(req.user)) {
+    updates.marking = req.body.marking;
+    if (req.body.marking?.status === 'complete') {
+      updates.marking.marked_at  = updates.updated_at;
+      updates.marking.xp_awarded = 3;
+    }
+  }
+
   if (req.body.status === 'submitted') {
     updates.status = 'submitted';
     updates.submitted_at = updates.updated_at;
@@ -135,6 +144,11 @@ router.put('/:id', async (req, res) => {
 
   // Cascade XP to all player characters when a player-level ordeal is newly approved
   if (updates.status === 'approved' && existing.status !== 'approved') {
+    await cascadePlayerOrdealXp(existing.player_id, existing.ordeal_type);
+  }
+
+  // Also cascade when ST marks complete via the admin marking panel
+  if (updates.marking?.status === 'complete' && existing.marking?.status !== 'complete') {
     await cascadePlayerOrdealXp(existing.player_id, existing.ordeal_type);
   }
 
