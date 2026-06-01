@@ -2551,7 +2551,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .devlog-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
 .devlog-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
 .devlog-status--deferred    { background: transparent;           color: var(--txt3);        border: 1px solid var(--bdr2); }
-.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; }
+.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; white-space: pre-wrap; }
 .devlog-target { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .03em; }
 .devlog-resolved { margin-top: 4px; border-top: 1px solid var(--bdr); padding-top: 16px; }
 .devlog-resolved-toggle {
