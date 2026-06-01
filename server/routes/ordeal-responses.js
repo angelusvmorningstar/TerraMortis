@@ -78,10 +78,20 @@ router.post('/', validate(ordealResponseSchema), async (req, res) => {
   const existing = await col().findOne({ player_id: playerId, ordeal_type: type });
   if (existing) return res.status(409).json({ error: 'CONFLICT', message: 'Response already exists — use PUT to update' });
 
+  // Resolve character_id even when the session's character_ids is stale or empty.
+  let characterId = req.user.character_ids?.[0] ?? null;
+  if (!characterId) {
+    const player = await getCollection('players').findOne(
+      { _id: req.user.player_id },
+      { projection: { character_ids: 1 } }
+    );
+    characterId = player?.character_ids?.[0] ?? null;
+  }
+
   const now = new Date().toISOString();
   const doc = {
     player_id: playerId,
-    character_id: req.user.character_ids?.[0] ?? null,
+    character_id: characterId,
     ordeal_type: type,
     status: 'draft',
     responses: responses || {},
@@ -160,6 +170,24 @@ router.get('/all', requireRole('st'), async (req, res) => {
   const filter = {};
   if (req.query.type) filter.ordeal_type = req.query.type;
   const docs = await col().find(filter).toArray();
+
+  // Batch-enrich: for docs with null character_id, resolve via player lookup.
+  // Mutates in-memory docs only — never writes back to MongoDB.
+  const nullCharDocs = docs.filter(d => !d.character_id && d.player_id);
+  if (nullCharDocs.length) {
+    const playerIds = [...new Set(nullCharDocs.map(d => d.player_id))];
+    const players = await getCollection('players').find(
+      { _id: { $in: playerIds } },
+      { projection: { _id: 1, character_ids: 1 } }
+    ).toArray();
+    const playerMap = new Map(players.map(p => [String(p._id), p.character_ids?.[0] ?? null]));
+    docs.forEach(d => {
+      if (!d.character_id && d.player_id) {
+        d.character_id = playerMap.get(String(d.player_id)) ?? null;
+      }
+    });
+  }
+
   res.json(docs);
 });
 
