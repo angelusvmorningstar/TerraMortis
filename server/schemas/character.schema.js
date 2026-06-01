@@ -431,6 +431,7 @@ export const characterSchema = {
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },
         free_carthian:  { type: 'integer', minimum: 0 }, // #508: Carthian Pull dot-allocation bonus
+        carthian_sphere: { type: ['string', 'null'] }, // #510: sphere a Carthian dot pushed into an augmented Contacts merit (for clean strip)
         attached_to:    { type: ['string', 'null'] },
         rule_key: { type: ['string', 'null'] },
         bonus:    { type: 'integer', minimum: 0 }
