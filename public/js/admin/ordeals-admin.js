@@ -56,10 +56,16 @@ export async function initOrdealsAdminView(chars) {
   container.innerHTML = '<p class="placeholder">Loading ordeals\u2026</p>';
 
   try {
-    [submissions, rubrics] = await Promise.all([
+    const [responses, legacy, rubricsData] = await Promise.all([
       apiGet('/api/ordeal-responses/all'),
+      apiGet('/api/ordeal_submissions'),
       apiGet('/api/ordeal_rubrics'),
     ]);
+    rubrics = rubricsData;
+    submissions = [
+      ...(responses || []).map(r => ({ ...r, _source: 'responses' })),
+      ...(legacy   || []).map(l => ({ ...l, _source: 'submissions' })),
+    ];
   } catch (err) {
     container.innerHTML = `<p class="placeholder">Failed to load: ${esc(err.message)}</p>`;
     return;
@@ -426,12 +432,22 @@ async function handleSave(subId, markComplete) {
       answers:          existing,
     },
   };
-  if (markComplete) updates.status = 'approved';
+
+  const endpoint = sub._source === 'submissions'
+    ? '/api/ordeal_submissions/' + subId
+    : '/api/ordeal-responses/' + subId;
+
+  // ordeal_responses needs status:'approved' to trigger XP cascade;
+  // ordeal_submissions handles XP server-side via its own cascadeComplete.
+  if (markComplete && sub._source !== 'submissions') {
+    updates.status = 'approved';
+  }
 
   try {
-    const updated = await apiPut('/api/ordeal-responses/' + subId, updates);
+    const updated = await apiPut(endpoint, updates);
     const idx = submissions.findIndex(s => s._id === subId);
-    if (idx >= 0) submissions[idx] = updated;
+    // Re-attach _source — server response won't include it
+    if (idx >= 0) submissions[idx] = { ...updated, _source: sub._source };
     delete pendingAnswers[subId];
     delete pendingOverall[subId];
     render();
