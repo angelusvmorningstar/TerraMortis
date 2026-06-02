@@ -1678,6 +1678,7 @@ function renderCycleGatePage() {
     </div>`;
   }
   const label = esc(currentCycle.label || 'This cycle');
+  const isPrep         = currentCycle.status === 'prep';
   const isGame         = currentCycle.status === 'game';
   const isClosed       = currentCycle.status === 'closed';
   const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
@@ -1686,7 +1687,9 @@ function renderCycleGatePage() {
   let h = `<div class="reading-pane qf-gate-page">`;
   h += `<h3 class="qf-title">${label}</h3>`;
 
-  if (isGame) {
+  if (isPrep) {
+    h += `<p class="qf-gate-msg">Downtime is being prepared \u2014 your ST will open submissions shortly.</p>`;
+  } else if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
     h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Archive</strong> tab once ready.</p>`;
