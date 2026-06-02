@@ -30,7 +30,7 @@ function esc(s) {
   return d.innerHTML;
 }
 
-const PAYMENT_METHODS = ['', 'Cash', 'PayPal', 'PayID (Symon)', 'Transfer (Lyn)', 'Exiles', 'Waived'];
+const PAYMENT_METHODS = ['', 'Cash', 'PayPal', 'PayID (Symon)', 'Transfer', 'Exiles', 'Waived'];
 
 export async function initAttendance(charList) {
   chars = charList.filter(c => !c.retired);
