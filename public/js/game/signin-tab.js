@@ -17,15 +17,16 @@ import { readPayment } from './payment-helpers.js';
 
 // fin.2 schema enum. Display labels paired with stored values.
 const PAYMENT_METHODS = [
-  { value: '',       label: '— Not recorded' },
-  { value: 'cash',   label: 'Cash' },
-  { value: 'payid',  label: 'PayID' },
-  { value: 'paypal', label: 'PayPal' },
-  { value: 'exiles', label: 'Exiles (offset)' },
-  { value: 'waived', label: 'Waived' },
+  { value: '',         label: '— Not recorded' },
+  { value: 'cash',     label: 'Cash' },
+  { value: 'payid',    label: 'PayID' },
+  { value: 'paypal',   label: 'PayPal' },
+  { value: 'transfer', label: 'Transfer' },
+  { value: 'exiles',   label: 'Exiles (offset)' },
+  { value: 'waived',   label: 'Waived' },
 ];
 // FIN-7: paid methods inherit session.session_rate; everything else is $0.
-const PAID_METHODS = new Set(['cash', 'payid', 'paypal']);
+const PAID_METHODS = new Set(['cash', 'payid', 'paypal', 'transfer']);
 const DEFAULT_RATE = 15;
 
 function calcEminence(session, chars) {

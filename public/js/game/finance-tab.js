@@ -42,16 +42,16 @@ export async function initFinanceTab(el) {
 // ── Derived calculations ────────────────────────────────────────────────────
 
 function derivePayments(session) {
-  const byMethod = { cash: 0, payid: 0, paypal: 0, exiles: 0 };
-  const counts  = { cash: 0, payid: 0, paypal: 0, exiles: 0, waived: 0 };
+  const byMethod = { cash: 0, payid: 0, paypal: 0, transfer: 0, exiles: 0 };
+  const counts  = { cash: 0, payid: 0, paypal: 0, transfer: 0, exiles: 0, waived: 0 };
   for (const entry of session.attendance || []) {
     const { method, amount } = readPayment(entry);
     if (!method) continue;
     counts[method] = (counts[method] || 0) + 1;
     if (byMethod[method] !== undefined) byMethod[method] += amount;
   }
-  // Exiles is offset/credit, not real cash collected
-  const collected = byMethod.cash + byMethod.payid + byMethod.paypal;
+  // Exiles is offset/credit, not real cash collected. Transfer is collected.
+  const collected = byMethod.cash + byMethod.payid + byMethod.paypal + byMethod.transfer;
   return { byMethod, counts, collected };
 }
 
@@ -122,6 +122,7 @@ function render() {
         <div class="fin-row"><span>Cash</span><span>$${byMethod.cash}</span></div>
         <div class="fin-row"><span>PayID</span><span>$${byMethod.payid}</span></div>
         <div class="fin-row"><span>PayPal</span><span>$${byMethod.paypal}</span></div>
+        <div class="fin-row"><span>Transfer</span><span>$${byMethod.transfer}</span></div>
         <div class="fin-row fin-row-dim"><span>Exiles (offset)</span><span>${counts.exiles}</span></div>
         <div class="fin-row fin-row-dim"><span>Waived</span><span>${counts.waived}</span></div>
         <div class="fin-row fin-row-total"><span>Collected</span><span>$${collected}</span></div>
