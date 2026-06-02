@@ -48,6 +48,7 @@ function calcEminence(session, chars) {
 }
 
 let _session = null;
+let _sessions = [];
 let _chars = [];
 let _saveTimer = null;
 let _el = null;
@@ -126,7 +127,8 @@ export async function initSignIn(el, chars) {
 
   try {
     const sessions = await apiGet('/api/game_sessions');
-    _session = sessions.sort((a, b) => b.session_date.localeCompare(a.session_date))[0] || null;
+    _sessions = sessions.sort((a, b) => b.session_date.localeCompare(a.session_date));
+    _session  = _sessions[0] || null;
   } catch {
     el.innerHTML = '<div class="si-empty">Could not load sessions. Check your connection.</div>';
     return;
@@ -162,6 +164,7 @@ async function handleNewSession() {
     attendance:   [],
   });
   _session = created;
+  _sessions.unshift(created);
   await Promise.all([loadPlayerNames(), loadLastCycleData()]);
   render();
 }
@@ -208,12 +211,6 @@ function render() {
 
   const attendedCount = roster.filter(c => entryByCharId.get(String(c._id))?.attended).length;
 
-  const parts = [];
-  if (_session.game_number != null) parts.push(`Game ${_session.game_number}`);
-  if (_session.session_date) parts.push(_session.session_date);
-  if (_session.title) parts.push(_session.title);
-  const label = parts.join(' — ');
-
   const { eminence, ascendancy } = calcEminence(_session, _chars);
   const fmtTop = (arr) => arr.length
     ? arr.map(e => `${esc(e.name)} (${e.total})`).join(' · ')
@@ -221,8 +218,18 @@ function render() {
 
   const rate = Number.isFinite(_session.session_rate) ? _session.session_rate : DEFAULT_RATE;
 
+  const sessionOpts = _sessions.map(s => {
+    const p = [];
+    if (s.game_number != null) p.push(`Game ${s.game_number}`);
+    if (s.session_date)        p.push(s.session_date);
+    if (s.title)               p.push(s.title);
+    const lbl = p.join(' — ');
+    const sel = String(s._id) === String(_session._id) ? ' selected' : '';
+    return `<option value="${esc(String(s._id))}"${sel}>${esc(lbl)}</option>`;
+  }).join('');
+
   let h = `<div class="si-header">
-    <span class="si-session-label">${esc(label)}</span>
+    <select class="si-session-sel" id="si-session-sel">${sessionOpts}</select>
     <span class="si-stat">${attendedCount} / ${roster.length} attended</span>
     <span class="si-status"></span>
   </div>
@@ -355,6 +362,17 @@ function wireEvents() {
       render();
     });
   });
+
+  const sessSel = _el.querySelector('#si-session-sel');
+  if (sessSel) {
+    sessSel.addEventListener('change', () => {
+      const chosen = _sessions.find(s => String(s._id) === sessSel.value);
+      if (chosen) {
+        _session = chosen;
+        render();
+      }
+    });
+  }
 
   const rateInput = _el.querySelector('#si-session-rate');
   if (rateInput) {
