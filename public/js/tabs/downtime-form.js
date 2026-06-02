@@ -1560,8 +1560,12 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
   const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  // Scheduled auto-open: once auto_open_at has passed, players reach the form even while the
+  // cycle is still 'prep' (mirrors downtime-tab.js autoOpenPassed). Kept OUT of the deadline
+  // clause below — a passed auto-open must never reopen a window whose deadline has passed.
+  const _autoOpenPassed = !!(currentCycle?.auto_open_at && new Date(currentCycle.auto_open_at) <= new Date());
   const _gateBlocks = !currentCycle
-    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess)
+    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess && !_autoOpenPassed)
     || (_deadlinePast && !_hasWindowAccess);
 
   if (options.singleColumn) {
@@ -1688,7 +1692,15 @@ function renderCycleGatePage() {
   h += `<h3 class="qf-title">${label}</h3>`;
 
   if (isPrep) {
-    h += `<p class="qf-gate-msg">Downtime is being prepared \u2014 your ST will open submissions shortly.</p>`;
+    const _openAt = currentCycle.auto_open_at ? new Date(currentCycle.auto_open_at) : null;
+    if (_openAt && _openAt > new Date()) {
+      // Scheduled to open later: show when, not "being prepared". data-open-at is emitted so a
+      // live ticker can be wired later without markup change (gate page is rebuilt on each load).
+      const openLabel = _openAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      h += `<p class="qf-gate-msg" data-open-at="${esc(currentCycle.auto_open_at)}">Downtimes opening soon. Opens <strong>${esc(openLabel)}</strong>.</p>`;
+    } else {
+      h += `<p class="qf-gate-msg">Downtime is being prepared \u2014 your ST will open submissions shortly.</p>`;
+    }
   } else if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
