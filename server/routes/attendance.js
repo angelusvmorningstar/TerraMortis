@@ -7,15 +7,14 @@ const col = () => getCollection('game_sessions');
 
 // GET /api/attendance?character_id=X[&game_number=N]
 // Player-accessible: returns attendance status and attendee list.
-// If game_number provided, looks up the Nth game session (sorted by date); otherwise uses the most recent.
+// If game_number provided, selects the session whose game_number field equals N; otherwise uses the most recent.
 router.get('/', async (req, res) => {
   const charId = req.query.character_id ? String(req.query.character_id) : null;
   const gameNumber = req.query.game_number ? parseInt(req.query.game_number, 10) : null;
 
   let latest;
   if (gameNumber && Number.isInteger(gameNumber) && gameNumber > 0) {
-    const all = await col().find({}).sort({ session_date: 1 }).toArray();
-    latest = all[gameNumber - 1] || null;
+    latest = await col().findOne({ game_number: gameNumber }) || null;
   } else {
     const sessions = await col().find({}).sort({ session_date: -1 }).limit(1).toArray();
     latest = sessions[0] || null;
