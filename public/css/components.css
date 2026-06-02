@@ -5968,3 +5968,47 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 }
 .stm-audit-pagination button:hover:not(:disabled) { background: var(--surf3); }
 .stm-audit-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Player Preferences (#542) ──────────────────────────────────
+   Lives in components.css (shared) so the widget styles apply in BOTH
+   the game app (index.html) and the player portal (player.html).
+   player-layout.css is NOT loaded by index.html. Table is fully
+   self-contained — does NOT reuse .xpl-table, because suite.css's
+   `.xpl-table td` rule loads after this file and would override it. */
+.player-prefs-panel { margin-top: 20px; }
+.player-prefs-desc {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin: 10px 0 18px;
+}
+.pref-axes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pref-axes-table .pref-axis-row td {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--surf2);
+}
+.pref-axes-table .pref-axis-row:last-of-type td { border-bottom: none; }
+.pref-axis-lbl { width: 170px; color: var(--txt2); }
+.pref-dots-cell .dot-stepper { display: flex; gap: 8px; }
+.pref-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.1s;
+  color: var(--accent-a25);
+}
+.pref-dot.filled { color: var(--accent); }
+.pref-dot:hover { opacity: 0.8; }
+.player-prefs-updated { font-size: 11px; color: var(--txt3); padding: 10px 0 0; }
+.player-prefs-save { margin-top: 22px; display: block; }

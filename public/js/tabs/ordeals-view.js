@@ -2,7 +2,7 @@
  * Character-level: Questionnaire, History (per character)
  * Player-level: Setting/Lore, Rules, Covenant (per player) */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPatch } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import {
   xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpEarned,
@@ -40,6 +40,15 @@ const KEY_TO_SUBMISSION_TYPE = {
   history:   'character_history',
   // questionnaire has its own collection (questionnaire_responses), not ordeal_submissions
 };
+
+const PLAYER_PREF_AXES = [
+  { key: 'combat_action',            label: 'Combat & Action' },
+  { key: 'horror_dread',             label: 'Horror & Dread' },
+  { key: 'institutional_corruption', label: 'Institutional Corruption' },
+  { key: 'mysticism_mystery',        label: 'Mysticism & Mystery' },
+  { key: 'personal_story',           label: 'Personal Story' },
+  { key: 'political_intrigue',       label: 'Political Intrigue' },
+];
 
 let playerDoc       = null;
 let currentChar     = null;
@@ -79,6 +88,41 @@ export async function initOrdeals(char, chars, containerEl) {
   }
 
   renderOrdealsList(el, char);
+}
+
+// ── Player Preferences (#542) ────────────────────────────────────────────────
+
+function renderPlayerPrefs(char) {
+  const prefs = char.player_prefs || {};
+  const updatedAt = prefs.updated_at
+    ? new Date(prefs.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
+  let h = '<div class="xpl-panel player-prefs-panel">';
+  h += '<div class="xpl-col-head">Chronicle Preferences</div>';
+
+  h += '<p class="player-prefs-desc">Helps the ST team calibrate content — it doesn\'t affect your individual story.</p>';
+
+  h += '<table class="pref-axes-table">';
+  for (const axis of PLAYER_PREF_AXES) {
+    const current = prefs[axis.key]?.rating ?? null;
+    h += `<tr class="pref-axis-row" data-pref-key="${esc(axis.key)}">`;
+    h += `<td class="pref-axis-lbl">${esc(axis.label)}</td>`;
+    h += '<td class="pref-dots-cell"><div class="dot-stepper">';
+    for (let i = 1; i <= 5; i++) {
+      const filled = current !== null && i <= current;
+      h += `<span class="pref-dot ${filled ? 'filled' : 'empty'}" data-value="${i}" aria-label="${esc(axis.label)} ${i} of 5">●</span>`;
+    }
+    h += '</div></td>';
+    h += '</tr>';
+  }
+  if (updatedAt) {
+    h += `<tr><td colspan="2" class="player-prefs-updated">Last updated ${esc(updatedAt)}</td></tr>`;
+  }
+  h += '</table>';
+  h += '<button type="button" class="qf-btn qf-btn-submit player-prefs-save" id="player-prefs-save">Save Preferences</button>';
+  h += '</div>';
+  return h;
 }
 
 // ── XP breakdown ─────────────────────────────────────────────────────────────
@@ -222,6 +266,8 @@ function renderOrdealsList(el, char) {
   h += '</div>';
   h += '</div>'; // ordeals-container
 
+  h += renderPlayerPrefs(char);
+
   h += renderXPBreakdown(char);
 
   h += '</div>'; // ordeal-col
@@ -231,6 +277,46 @@ function renderOrdealsList(el, char) {
   el.querySelectorAll('.ordeal-card[data-form]').forEach(card => {
     card.addEventListener('click', () => openForm(el, card.dataset.form));
   });
+
+  // Dot toggle — fill up to clicked value; clicking the sole filled dot deselects
+  el.querySelectorAll('.pref-axis-row .pref-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      const row = dot.closest('.pref-axis-row');
+      const clickedVal = +dot.dataset.value;
+      const filledDots = row.querySelectorAll('.pref-dot.filled');
+      const newVal = (filledDots.length === 1 && filledDots[0] === dot) ? 0 : clickedVal;
+      row.querySelectorAll('.pref-dot').forEach((d, idx) => {
+        const fill = idx < newVal;
+        d.classList.toggle('filled', fill);
+        d.classList.toggle('empty', !fill);
+      });
+    });
+  });
+
+  // Save button
+  const saveBtn = el.querySelector('#player-prefs-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const prefs = {};
+      for (const axis of PLAYER_PREF_AXES) {
+        const dots = el.querySelectorAll(`.pref-axis-row[data-pref-key="${axis.key}"] .pref-dot`);
+        let rating = null;
+        dots.forEach((d, idx) => { if (d.classList.contains('filled')) rating = idx + 1; });
+        prefs[axis.key] = { rating };
+      }
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        await apiPatch(`/api/characters/${currentChar._id}/player_prefs`, { player_prefs: prefs });
+        currentChar.player_prefs = { ...prefs, updated_at: new Date().toISOString() };
+        renderOrdealsList(el, currentChar);
+      } catch (err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Preferences';
+        alert('Save failed: ' + err.message);
+      }
+    });
+  }
 }
 
 // ── Status resolution ─────────────────────────────────────────────────────────

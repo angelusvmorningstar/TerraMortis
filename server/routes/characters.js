@@ -690,4 +690,47 @@ router.delete('/:id', requireRole('st'), async (req, res) => {
   }
 });
 
+// PATCH /api/characters/:id/player_prefs — player (own char) or ST.
+// #542: persist player preference ratings. Narrowly scoped: only the
+// `player_prefs` subdocument is touched. Ownership mirrors GET /:id.
+router.patch('/:id/player_prefs', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const { player_prefs } = req.body || {};
+  if (!player_prefs || typeof player_prefs !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'player_prefs must be an object' });
+  }
+
+  const VALID_KEYS = [
+    'combat_action', 'horror_dread', 'institutional_corruption',
+    'mysticism_mystery', 'personal_story', 'political_intrigue',
+  ];
+  const prefs = {};
+  for (const key of VALID_KEYS) {
+    const v = player_prefs[key];
+    if (v === undefined) continue;
+    const rating = (v && typeof v === 'object') ? v.rating : v;
+    if (rating !== null && rating !== undefined &&
+        (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: `${key}.rating must be 1–5 integer or null` });
+    }
+    prefs[key] = { rating: rating ?? null };
+  }
+  prefs.updated_at = new Date().toISOString();
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { player_prefs: prefs } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
 export default router;

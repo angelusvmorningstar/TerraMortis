@@ -286,6 +286,21 @@ export const characterSchema = {
       }
     },
 
+    // ── Player Preferences (#542) ─────────────────────────────
+    player_prefs: {
+      type: 'object',
+      properties: {
+        combat_action:            { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        horror_dread:             { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        institutional_corruption: { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        mysticism_mystery:        { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        personal_story:           { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        political_intrigue:       { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        updated_at:               { type: ['string', 'null'] },
+      },
+      additionalProperties: false,
+    },
+
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 

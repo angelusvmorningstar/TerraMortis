@@ -9460,3 +9460,48 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   font-size: 0.8rem;
   color: var(--gold2);
 }
+
+/* ── Player Preferences admin view (#542) ───────────────────── */
+.or-prefs-shell { display: flex; flex-direction: column; gap: 24px; padding: 16px; }
+.or-prefs-aggregate,
+.or-prefs-chars {
+  background: var(--surf1);
+  border: 1px solid var(--surf3);
+  border-radius: 6px;
+  padding: 16px;
+}
+.or-prefs-heading {
+  font-size: 0.9em;
+  font-family: var(--fh);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin: 0 0 12px;
+}
+.or-prefs-meta {
+  font-size: 0.78em;
+  color: var(--txt3);
+  font-family: var(--fl);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
+.or-prefs-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85em;
+}
+.or-prefs-table th {
+  text-align: left;
+  color: var(--txt3);
+  font-weight: 400;
+  border-bottom: 1px solid var(--surf3);
+  padding: 4px 8px;
+}
+.or-prefs-table td { padding: 5px 8px; border-bottom: 1px solid var(--surf2); }
+.or-prefs-avg { text-align: right; font-variant-numeric: tabular-nums; }
+.or-prefs-dots { letter-spacing: 2px; color: var(--gold2); }
+.or-prefs-axis-head { text-align: center; font-size: 0.8em; }
+.or-prefs-cell { text-align: center; font-variant-numeric: tabular-nums; }
+.or-prefs-null { opacity: 0.35; }
+.or-prefs-date { font-size: 0.75em; color: var(--txt3); }

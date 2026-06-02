@@ -13,6 +13,15 @@ function esc(s) {
   return d.innerHTML;
 }
 
+const PLAYER_PREF_AXES = [
+  { key: 'combat_action',            label: 'Combat & Action' },
+  { key: 'horror_dread',             label: 'Horror & Dread' },
+  { key: 'institutional_corruption', label: 'Institutional Corruption' },
+  { key: 'mysticism_mystery',        label: 'Mysticism & Mystery' },
+  { key: 'personal_story',           label: 'Personal Story' },
+  { key: 'political_intrigue',       label: 'Political Intrigue' },
+];
+
 const ORDEAL_LABELS = {
   lore_mastery:           'Lore Mastery',
   rules_mastery:          'Rules Mastery',
@@ -90,10 +99,13 @@ function render(container) {
   h += '<div class="or-view-toggle">';
   h += `<button class="or-toggle-btn${activeView === 'marking' ? ' on' : ''}" data-view="marking">Marking</button>`;
   h += `<button class="or-toggle-btn${activeView === 'rubric' ? ' on' : ''}" data-view="rubric">Rubric Editor</button>`;
+  h += `<button class="or-toggle-btn${activeView === 'prefs' ? ' on' : ''}" data-view="prefs">Player Preferences</button>`;
   h += '</div>';
 
   if (activeView === 'marking') {
     h += renderMarkingView();
+  } else if (activeView === 'prefs') {
+    h += renderPrefsView();
   } else {
     h += renderRubricView();
   }
@@ -478,6 +490,71 @@ async function handleRubricSave(rubricId, qIdx) {
   } catch (err) {
     alert('Rubric save failed: ' + err.message);
   }
+}
+
+// ── Player Preferences View (#542) ───────────────────────────────────────────
+
+function renderPrefsView() {
+  const active = characters.filter(c => !c.retired);
+  const withPrefs = active.filter(c => {
+    const p = c.player_prefs || {};
+    return PLAYER_PREF_AXES.some(a => p[a.key]?.rating != null);
+  });
+
+  const averages = {};
+  for (const axis of PLAYER_PREF_AXES) {
+    const vals = withPrefs.map(c => c.player_prefs[axis.key]?.rating).filter(v => v != null);
+    averages[axis.key] = vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+  }
+
+  let h = '<div class="or-prefs-shell">';
+
+  // Campaign aggregate
+  h += '<div class="or-prefs-aggregate">';
+  h += `<h3 class="or-prefs-heading">Campaign Average <span class="or-prefs-meta">${withPrefs.length} of ${active.length} players responded</span></h3>`;
+  h += '<table class="or-prefs-table">';
+  h += '<thead><tr><th>Preference</th><th>Avg</th><th>Visual</th></tr></thead><tbody>';
+  for (const axis of PLAYER_PREF_AXES) {
+    const avg = averages[axis.key];
+    const avgStr = avg !== null ? avg.toFixed(1) : '—';
+    const filled = avg !== null ? Math.round(avg) : 0;
+    const dots = Array.from({ length: 5 }, (_, i) => i < filled ? '●' : '○').join('');
+    h += `<tr><td>${esc(axis.label)}</td><td class="or-prefs-avg">${esc(avgStr)}</td><td class="or-prefs-dots">${dots}</td></tr>`;
+  }
+  h += '</tbody></table>';
+  h += '</div>';
+
+  // Per-character breakdown
+  h += '<div class="or-prefs-chars">';
+  h += '<h3 class="or-prefs-heading">Per Character</h3>';
+  if (!withPrefs.length) {
+    h += '<p class="placeholder">No characters have set preferences yet.</p>';
+  } else {
+    h += '<table class="or-prefs-table or-prefs-chars-table">';
+    h += '<thead><tr><th>Character</th>';
+    for (const axis of PLAYER_PREF_AXES) {
+      h += `<th class="or-prefs-axis-head" title="${esc(axis.label)}">${esc(axis.label.split(' ')[0])}</th>`;
+    }
+    h += '</tr></thead><tbody>';
+    const sorted = [...withPrefs].sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    for (const c of sorted) {
+      const p = c.player_prefs || {};
+      const updatedAt = p.updated_at
+        ? new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : null;
+      h += `<tr><td>${esc(displayName(c))}${updatedAt ? `<br><small class="or-prefs-date">${esc(updatedAt)}</small>` : ''}</td>`;
+      for (const axis of PLAYER_PREF_AXES) {
+        const rating = p[axis.key]?.rating ?? null;
+        h += `<td class="or-prefs-cell">${rating !== null ? rating : '<span class="or-prefs-null">—</span>'}</td>`;
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
