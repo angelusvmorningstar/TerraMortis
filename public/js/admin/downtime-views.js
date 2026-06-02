@@ -2670,9 +2670,11 @@ function renderPrepPanel(cycle) {
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;
-    await updateCycle(cycle._id, { auto_open_at: val ? new Date(val).toISOString() : null });
+    const iso = val ? new Date(val).toISOString() : null;
+    await updateCycle(cycle._id, { auto_open_at: iso });
     const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) allCycles[idx].auto_open_at = val ? new Date(val).toISOString() : null;
+    if (idx >= 0) allCycles[idx].auto_open_at = iso;
+    cycle.auto_open_at = iso;   // mutate closure ref so a later renderPrepPanel(cycle) keeps the value (mirrors chapter-finale handler)
     renderPhaseRibbon(allCycles[idx] || cycle, []);
   });
 
