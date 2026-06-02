@@ -358,6 +358,7 @@ function wireEvents() {
       const amount = PAID_METHODS.has(method) ? rate : 0;
       entry.payment = { ...(entry.payment || {}), method, amount };
       entry.payment_method = method;
+      entry.paid = PAID_METHODS.has(method);
       scheduleAutosave();
       render();
     });
