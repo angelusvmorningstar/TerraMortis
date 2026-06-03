@@ -38,12 +38,26 @@ orphans from real fragmentation. Outcome so far:
   relinked to current ObjectIds (real history), 12 empty test subs + 3
   dead-cycle drafts deleted. Not in the original audit's "fragmentation" framing
   but the same hygiene class.
-- **Still valid (real production fragmentation):** Tier 1.1 (`character_id`),
-  Tier 3 (enums), Tier 4 (schema-shape), Tier 5 (attribution). The sweep
-  confirmed test/orphan pollution did **not** inflate these.
+- **Tier 1.1 (`character_id`) — DONE (#558).** 29 string values coerced to
+  ObjectId; write paths already coerced, so it cannot regrow.
+- **Tier 3 (enums) was a FALSE POSITIVE — closed #561/#562/#563.** Enumerating the
+  actual values showed these are coherent enums, not drift: `pool_status` =
+  validated/resolved/no_roll/pending/skipped; `project_N_action` = 12 distinct
+  actions; `marking.status` = unmarked/in_progress. The format classifier counts
+  a two-word value (`no_roll`, `in_progress`) as `snake_slug` and a one-word value
+  (`resolved`) as `flat_lower`, so a clean enum with mixed word-counts reads as
+  "fragmented." It is not. (Optional future hardening: schema enums to lock the
+  valid sets.)
+- **Still valid (real production work):** Tier 4 (schema-shape — `letter_from_home`,
+  `touchstone`, `xp_spend`, `pool_targets`) and parts of Tier 5 (attribution).
 
-**Lesson for the remaining issues:** run the test/orphan sweep on a collection
-before treating its audit counts as production work.
+**Two lessons for the remaining issues:** (1) run the test/orphan sweep on a
+collection before treating its audit counts as production work; (2) for any
+string field, enumerate the **distinct values** before trusting the format-class
+"fragmentation" flag — multi-word enum values trip it. Net: of 8 filed issues,
+only Tier 4 + parts of Tier 5 are real fragmentation; the rest were test
+pollution (#559/#560), a separate orphan finding (#567), one real coercion
+(#558), or enum false positives (#561/#562/#563).
 
 ---
 
