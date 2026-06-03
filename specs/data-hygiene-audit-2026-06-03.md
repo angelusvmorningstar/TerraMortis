@@ -21,43 +21,54 @@ schema-shape fragmentation only.
 
 ---
 
-## Update 2026-06-03 (post-investigation) — some findings were TEST POLLUTION
+## Update 2026-06-03 — CAMPAIGN COMPLETE (outcome + lessons, for Piatra review)
 
-Acting on this audit surfaced a key caveat: the audit script counted **test and
-orphaned docs as production data**, inflating some counts. A read-only sweep
-(`server/scripts/sweep-test-orphan-data.js`) was added to separate fixtures and
-orphans from real fragmentation. Outcome so far:
+This audit kicked off a full pass; **all 8 filed issues plus a bonus orphan
+finding are now resolved.** The headline for review: **the audit over-flagged by
+roughly 3×.** Two systematic causes, both now mitigated:
 
-- **Tier 1.2 (`territories.regent_id` / `lieutenant_id`) and Tier 2.3
-  (`territories.slug`) were entirely test pollution, NOT production drift.** The
-  `territories` collection held 5 clean production rows plus **8 orphaned
-  "Regent Save Test" fixtures** carrying all the non-canonical values. Deleting
-  them (#560) left all 5 real territories canonical. **#559 closed** as resolved
-  by the same cleanup. Disregard the Tier 1.2 / 2.3 fragmentation counts below.
-- **Separate finding (#567):** 19 orphaned `downtime_submissions` — 4 DT1 records
-  relinked to current ObjectIds (real history), 12 empty test subs + 3
-  dead-cycle drafts deleted. Not in the original audit's "fragmentation" framing
-  but the same hygiene class.
-- **Tier 1.1 (`character_id`) — DONE (#558).** 29 string values coerced to
-  ObjectId; write paths already coerced, so it cannot regrow.
-- **Tier 3 (enums) was a FALSE POSITIVE — closed #561/#562/#563.** Enumerating the
-  actual values showed these are coherent enums, not drift: `pool_status` =
-  validated/resolved/no_roll/pending/skipped; `project_N_action` = 12 distinct
-  actions; `marking.status` = unmarked/in_progress. The format classifier counts
-  a two-word value (`no_roll`, `in_progress`) as `snake_slug` and a one-word value
-  (`resolved`) as `flat_lower`, so a clean enum with mixed word-counts reads as
-  "fragmented." It is not. (Optional future hardening: schema enums to lock the
-  valid sets.)
-- **Still valid (real production work):** Tier 4 (schema-shape — `letter_from_home`,
-  `touchstone`, `xp_spend`, `pool_targets`) and parts of Tier 5 (attribution).
+1. **It counted test/orphan docs as production data.** A read-only sweep
+   (`server/scripts/sweep-test-orphan-data.js`) now separates fixtures/orphans
+   from real fragmentation. (The entire `territories` "fragmentation" was 8
+   `Regent Save Test` fixtures; the `created_by.discord_id` "misnaming" was 88
+   `test-st-001` `st_mods`/audit rows.)
+2. **Its format classifier counts word-count as format.** A two-word enum value
+   (`no_roll`, `in_progress`) classes as `snake_slug`, a one-word value
+   (`resolved`) as `flat_lower` — so a coherent enum reads as "fragmented."
+   Always enumerate the **distinct values** before trusting the format flag.
 
-**Two lessons for the remaining issues:** (1) run the test/orphan sweep on a
-collection before treating its audit counts as production work; (2) for any
-string field, enumerate the **distinct values** before trusting the format-class
-"fragmentation" flag — multi-word enum values trip it. Net: of 8 filed issues,
-only Tier 4 + parts of Tier 5 are real fragmentation; the rest were test
-pollution (#559/#560), a separate orphan finding (#567), one real coercion
-(#558), or enum false positives (#561/#562/#563).
+### Outcome by issue
+
+| Issue | Verdict | Resolution |
+|---|---|---|
+| #558 `character_id` | Real fragmentation | 29 string → ObjectId; write paths already coerce, so it can't regrow |
+| #564 schema-shape | Real (partial) | 2 narrative `{response,author,status}` wraps + 1 `pool_targets` array; `xp_spend` excluded (archival `_raw`, "n/a" is legit) |
+| #559 + #560 territories | Test pollution | 8 `Regent Save Test` docs deleted; the 5 real territories were already canonical |
+| #565 attribution | Test pollution + false positive | 88 test `st_mods`/audit rows deleted; `pool_*_by`/`author`/`submitted_by` are intentional free-text "who did it" labels, left as-is |
+| #561 / #562 / #563 enums | False positives | Closed, no migration (coherent enums; word-count ≠ drift) |
+| #567 orphan submissions (bonus) | Real | 4 DT1 records relinked to current ObjectIds; 12 empty test subs + 3 dead-cycle drafts deleted |
+
+**Net: only ~2 of 8 filed issues were genuine fragmentation.** Every data change
+was applied live, each **backed up to `st-working/audit/`** (recoverable).
+Dry-run/guarded tooling lives in `server/scripts/` (`audit-data-hygiene`,
+`sweep-test-orphan-data`, and seven targeted migration/cleanup scripts).
+
+### For Piatra — advisory asks
+
+1. **The audit engine's false-positive tendencies** (test/orphan inclusion;
+   word-count-as-format). Worth hardening the classifier — e.g. skip enum-like
+   fields, exclude obvious test rows — or is the *sweep-first + enumerate-first*
+   discipline enough on its own?
+2. **Still-pending real item:** #496 territory-key residual (79 legacy feeding
+   keys remain; gated on fixing the CSV-import write side so they don't regrow).
+   Where does that sit against your schema-refactor / purge+reimport direction?
+3. **The fix loop** (canonical shape → migrate → tighten schema so it can't
+   regrow → delete the normaliser) — anything you'd change, especially the
+   schema-guard step that #496 originally skipped?
+
+_The tiers below are the ORIGINAL audit findings, kept as the raw record. Read
+them through the lens of the outcome table above — several were test pollution
+or false positives, not production fragmentation._
 
 ---
 
