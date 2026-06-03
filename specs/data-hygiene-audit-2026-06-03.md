@@ -21,6 +21,32 @@ schema-shape fragmentation only.
 
 ---
 
+## Update 2026-06-03 (post-investigation) — some findings were TEST POLLUTION
+
+Acting on this audit surfaced a key caveat: the audit script counted **test and
+orphaned docs as production data**, inflating some counts. A read-only sweep
+(`server/scripts/sweep-test-orphan-data.js`) was added to separate fixtures and
+orphans from real fragmentation. Outcome so far:
+
+- **Tier 1.2 (`territories.regent_id` / `lieutenant_id`) and Tier 2.3
+  (`territories.slug`) were entirely test pollution, NOT production drift.** The
+  `territories` collection held 5 clean production rows plus **8 orphaned
+  "Regent Save Test" fixtures** carrying all the non-canonical values. Deleting
+  them (#560) left all 5 real territories canonical. **#559 closed** as resolved
+  by the same cleanup. Disregard the Tier 1.2 / 2.3 fragmentation counts below.
+- **Separate finding (#567):** 19 orphaned `downtime_submissions` — 4 DT1 records
+  relinked to current ObjectIds (real history), 12 empty test subs + 3
+  dead-cycle drafts deleted. Not in the original audit's "fragmentation" framing
+  but the same hygiene class.
+- **Still valid (real production fragmentation):** Tier 1.1 (`character_id`),
+  Tier 3 (enums), Tier 4 (schema-shape), Tier 5 (attribution). The sweep
+  confirmed test/orphan pollution did **not** inflate these.
+
+**Lesson for the remaining issues:** run the test/orphan sweep on a collection
+before treating its audit counts as production work.
+
+---
+
 ## Tier 1 — FK / identity TYPE fragmentation (silent-drop bug class)
 
 These are the highest-impact: a field stored as two different BSON types means
