@@ -1,6 +1,6 @@
 # Story Fix.573: Editor card total shows effective rating inclusive of bonus dots
 
-## Status: review
+## Status: done
 
 ## Metadata
 - issue: 573
@@ -184,6 +184,7 @@ Pure display arithmetic change in `public/js/editor/sheet.js`, two render sites 
 
 - 2026-06-04 — Editor card corner total (`bd-val`) now shows effective rating inclusive of bonus dots for both Attributes and Skills, matching the rendered filled+hollow dots. Removed redundant attribute "Eff" sub-value. Render-only; no data/XP changes. (Issue #573)
 - 2026-06-04 — QA (Quinn): added `tests/char-editor-effective-total.spec.js` (4 Playwright E2E tests, all passing). Static review found no correctness issues. Pre-existing unrelated failure noted (see QA Review).
+- 2026-06-04 — Shipped via PR #574 (merged to dev) and promoted dev → main (production deploy). Dev smoke confirmed clear by owner. Story closed as done.
 
 ## QA Review (Quinn)
 
