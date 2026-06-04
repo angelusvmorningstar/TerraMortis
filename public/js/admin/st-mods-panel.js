@@ -23,7 +23,7 @@
  */
 
 import { apiGet, apiPost, apiPatch, apiDelete } from '../data/api.js';
-import { displayName, esc } from '../data/helpers.js';
+import { displayName, cardName, esc } from '../data/helpers.js';
 import { labelForPath, buildStatPathCategories } from '../data/st-mod-labels.js';
 import { markLocalWrite } from '../data/ws.js';
 import {
@@ -108,7 +108,7 @@ function _renderScaffold() {
   _rootEl.innerHTML = `
     <div class="stm-panel" data-stm-panel-root>
       <header class="stm-panel-head">
-        <h2>ST Mods — ${esc(displayName(c) || c.name || '')}</h2>
+        <h2>ST Mods — ${esc(cardName(c) || c.name || '')}</h2>
       </header>
 
       <section class="stm-panel-toggles">

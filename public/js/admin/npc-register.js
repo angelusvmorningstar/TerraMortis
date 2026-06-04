@@ -3,7 +3,7 @@
    Data loads lazily on first entry; subsequent entries re-render from cache. */
 
 import { apiGet, apiPost, apiPut, apiDelete, apiRaw } from '../data/api.js';
-import { esc, sortName, displayName } from '../data/helpers.js';
+import { esc, sortName, displayName, cardName } from '../data/helpers.js';
 import { renderRelationshipsSection } from './relationship-editor.js';
 
 const ALL = '__all__';
@@ -132,7 +132,7 @@ function labelForSelection() {
   if (_selectedCharId === ALL) return 'All NPCs';
   if (_selectedCharId === UNLINKED) return 'Unlinked';
   const c = _chars.find(x => String(x._id) === String(_selectedCharId));
-  return c ? displayName(c) : '(unknown)';
+  return c ? cardName(c) : '(unknown)';
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ function renderPicker() {
   for (const c of sortedChars) {
     const id = String(c._id);
     const count = (idx[id] || []).length;
-    const label = displayName(c) + (c.retired ? ' (retired)' : '');
+    const label = cardName(c) + (c.retired ? ' (retired)' : '');
     h += rowHtml(id, label, count, !!c.retired);
   }
 
@@ -347,7 +347,7 @@ function cardHtml(n) {
 function charNameFor(id) {
   if (!id) return '(unknown character)';
   const c = _chars.find(x => String(x._id) === String(id));
-  return c ? displayName(c) : '(unknown character)';
+  return c ? cardName(c) : '(unknown character)';
 }
 
 function renderDetail() {
