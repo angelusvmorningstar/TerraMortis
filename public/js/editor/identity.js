@@ -2,7 +2,7 @@
 
 import state from '../data/state.js';
 import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
-import { esc, displayName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
+import { esc, displayName, cardName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
 
 let _markDirty, _xpLeft;
 export function registerCallbacks(markDirty, xpLeft) {
@@ -171,7 +171,7 @@ export function updField(key, val) {
   _markDirty();
   // Update header name
   if (key === 'name' || key === 'honorific' || key === 'moniker') {
-    document.getElementById('edit-charname').textContent = displayName(state.chars[state.editIdx]) || 'Unnamed';
+    document.getElementById('edit-charname').textContent = cardName(state.chars[state.editIdx]) || 'Unnamed';
   }
 }
 

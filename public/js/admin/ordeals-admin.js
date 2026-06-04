@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { cardName } from '../data/helpers.js';
 
 function esc(s) {
   const d = document.createElement('div');
@@ -195,7 +195,7 @@ function renderRight() {
   if (!sub) { h += '<p class="or-placeholder">Submission not found.</p></div>'; return h; }
 
   const char    = characters.find(c => String(c._id) === String(sub.character_id));
-  const charName = char ? displayName(char) : (sub.character_name || 'Unknown');
+  const charName = char ? cardName(char) : (sub.character_name || 'Unknown');
   const typeLabel = ORDEAL_LABELS[normType(sub.ordeal_type)] || sub.ordeal_type;
   const status  = sub.marking?.status || 'unmarked';
   const isComplete = status === 'complete';
@@ -536,13 +536,13 @@ function renderPrefsView() {
       h += `<th class="or-prefs-axis-head" title="${esc(axis.label)}">${esc(axis.label.split(' ')[0])}</th>`;
     }
     h += '</tr></thead><tbody>';
-    const sorted = [...withPrefs].sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    const sorted = [...withPrefs].sort((a, b) => cardName(a).localeCompare(cardName(b)));
     for (const c of sorted) {
       const p = c.player_prefs || {};
       const updatedAt = p.updated_at
         ? new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
         : null;
-      h += `<tr><td>${esc(displayName(c))}${updatedAt ? `<br><small class="or-prefs-date">${esc(updatedAt)}</small>` : ''}</td>`;
+      h += `<tr><td>${esc(cardName(c))}${updatedAt ? `<br><small class="or-prefs-date">${esc(updatedAt)}</small>` : ''}</td>`;
       for (const axis of PLAYER_PREF_AXES) {
         const rating = p[axis.key]?.rating ?? null;
         h += `<td class="or-prefs-cell">${rating !== null ? rating : '<span class="or-prefs-null">—</span>'}</td>`;
@@ -562,11 +562,11 @@ function renderPrefsView() {
 function charNameForSub(sub) {
   if (sub.character_id) {
     const char = characters.find(c => String(c._id) === String(sub.character_id));
-    if (char) return displayName(char);
+    if (char) return cardName(char);
   }
   if (sub.player_id) {
     const char = characters.find(c => String(c.player_id) === String(sub.player_id));
-    if (char) return displayName(char);
+    if (char) return cardName(char);
   }
   return sub.character_name || 'Unknown';
 }

@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-22 (fix-460: buildMeritActions Status ordering aligned with buildProcessingQueue — 6 Playwright tests, all passing)
+# last_updated: 2026-05-25 (proto.5 + proto.6 story files written at ready-for-dev: Snapshot panel — sibling cycle submissions + character discipline ratings; TASK-SA schema audit registered in-progress as prerequisite for any Snapshot write-back. Territory pill fix: suppressTerrPills now actually gates rendering in _renderActionTypeRow; _renderRightMechanics replaced projTerritory plain-text with editable _renderInlineTerrPills for rote and non-rote project actions. Earlier: proto.4 at review: roll mode toggle (Player Default/ST Override/No Roll Needed) on proc-pool-chips row; spec chips own flex row; pool builder prepended to top of right column; roll card second in right column; 60/40 feed column split)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -811,3 +811,43 @@ development_status:
   feature-506-persist-safe-place-locations: review  # persist safe-place locations on the character (merits[].location, new schema field) so they carry between cycles; needs NEW player-scoped PATCH /api/characters/:id/safe_place_locations (existing PUT is ST-only) with character_ids ownership gate; store on merit object NOT a domKey-map (sidesteps feature.504 domKey-collision); write on submit only (not autosave); renderer pre-fill precedence saved ?? sp.location; dev-fixtures interceptor handler needed; follows issue #506
   tech-debt-497-cycle-id-objectid-fk: review  # downtime_submissions.cycle_id stored as both string (DT1) and ObjectId (DT2+); type-strict BSON find({cycle_id: activeCycle._id}) silently drops string-typed subs. Most read sites ALREADY dual-type tolerant (#496/#257); genuine bug is ONLY the feeding-rights lock check at territories.js:117-120 (no tolerance + wrong comment claiming 496.3 OID-normalised cycle_id — it only did responses.* territory keys). Scope: (a) lock-check dual-type $in fix + comment correction, (b) PUT cycle_id/character_id coercion (POST already coerces 619-628), (c) schema tolerance comment, (d) grep-sweep + sibling FK audit (character_id already coerced+dual-read; project_invitations.cycle_id String by own convention=out of scope), (e) read-only audit script + one-time migration script (dry-run/backup/idempotent/safety-abort, modelled on migrate-submission-territory-keys.js) — USER runs both against live. Tests in tm_suite_test. Distinct from #496. Issue #497
   chore-581-merge-dt-proto-dev: in-progress  # merge ms/dt-processing-proto (13 commits, never pushed) into dev. KEY FINDING: not a standalone app — dt-proto.html is a dev harness (fetch shim + gitignored dt-proto-data fixtures); the real work is in shared public/js/admin/downtime-views.js which the live admin app already imports (admin.js:27) and which already reads live prod data via /api/* (netlify.toml:17-19 -> tm-suite-api.onrender.com) behind ST auth. So the merge ITSELF lands proto.1-16 in the live /admin DT view against real data; no "rewire" needed (corrects issue #581 framing). Zero server/ changes -> fully dev-testable (unusual). DECISIONS RESOLVED 2026-06-05: (1) KEEP dt-proto.html+boot untouched as a permanent OFFLINE PLAYGROUND (experiment without API/auth; fixtures+shim are the feature, dev-only); (2) proto REPLACES the existing DT view so conflicts on downtime-views.js + admin-layout.css resolve in proto's favour, BUT preserve dev's 2 newer non-DT commits post-5b033c3 + union sprint-status; (3) dev-only. Issue #581
+
+  # ============================================================
+  # DT PROCESSING PROTOTYPE — branch ms/dt-processing-proto
+  # ============================================================
+  # Sandbox for flat-card-wall processing layout + filter bar.
+  # Uses same downtime-views.js as production; proto-only entry point dt-proto.html.
+  # Data fixtures in gitignored public/dt-proto-data/ (local only).
+
+  proto-1-dt-processing-filter-engine: review     # _procFilters state, _filterQueue, _entryTerritories, _anyFilterActive; removed procHideDone
+  proto-2-dt-processing-filter-bar-ui: review     # renderProcFilterBar; char chip row replaces character strip; PHASE_LABELS reformatted; empty phases skipped
+  proto-3-dt-processing-strip-filter-shortcut: review  # char chips replace-not-toggle; data-strip-char + data-strip-phase; flat card wall (no phase accordions or section frames)
+  proto-4-dt-processing-pool-builder-ux: review        # roll mode toggle (Player Default/ST Override/No Roll Needed); spec chips own row; pool builder at top of right column; roll card second; 60/40 feed split
+
+  # TASK-SA: schema audit — review current proto data handling; identify ephemeral state requiring Mongo
+  # persistence; map existing st_review / st_narrative fields to avoid duplication before any Snapshot
+  # write-back stories. Prerequisite before any story that writes Snapshot data to the database.
+  proto-task-sa-schema-audit: review    # field map at specs/architecture/proto-snapshot-field-map.md; GO for proto.7; gap: hide_protect_disc (proto.10), st_review_touched_at optional (proto.16)
+
+  proto-5-snapshot-cycle-submissions: review   # Snapshot panel: sibling actions from same cycle + resolution status; read-only, derives from queue client-side
+  proto-6-snapshot-character-state: review     # Snapshot panel: character discipline ratings; derives from chars array already in memory
+
+  proto-7-dt-processing-card-context: review       # per-card cross-action context map: _procCtxMap, _buildProcCtxMap, _getProcCtx; infrastructure for proto.8-13
+
+  proto-8-dt-processing-territory-presence: review         # Snapshot panel: same-territory characters grouped by territory; hide_protect highlighted; proto.9 expansion point
+
+  proto-9-dt-processing-snapshot-blockers: review          # Snapshot panel: block actions in same territory flagged with char name + dot level; --crim indicator
+
+  proto-10-dt-processing-snapshot-hide-protect: review        # Snapshot panel: hide_protect entries + discipline extracted from pool_validated via KNOWN_DISCIPLINES
+
+  proto-11-dt-processing-snapshot-investigate: review         # Snapshot panel: investigate entries with secrecy level + lead status; proto.12 expansion point
+
+  proto-12-dt-processing-snapshot-sorcery: review             # Snapshot panel: sorcery by same-territory chars; _buildProcCtxMap extended with sorcByChar index + sorcEntries
+
+  proto-13-dt-processing-snapshot-feeding: review             # Snapshot panel: feeding entries in same territory; disc/method label; done-state muting; final cross-ref section
+
+  proto-14-dt-processing-hide-protect-disc-writeback: review        # Write-back: auto-save hide_protect_disc on merit_actions_resolved when pool_validated saved for hide_protect actions
+
+  proto-15-dt-processing-hide-protect-disc-consume: review          # Snapshot: _renderSnapshotHideProtect prefers hide_protect_disc structured field; text extraction remains fallback for legacy entries
+
+  proto-16-dt-processing-st-review-touched-at: review               # Write-back: co-save st_review.st_review_touched_at ISO timestamp in every saveEntryReview call; atomic with source-specific update; D1 gap closure

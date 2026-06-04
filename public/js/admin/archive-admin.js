@@ -2,7 +2,7 @@
  * Lists existing documents; provides .docx upload with type/cycle/title fields. */
 
 import { apiGet, apiPost } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { cardName } from '../data/helpers.js';
 import { renderSheet } from '../editor/sheet.js';
 import { openInlineEditor } from '../editor/archive-inline-editor.js';
 
@@ -50,7 +50,7 @@ async function renderArchiveAdmin() {
 
   // Header
   h += '<div class="ar-admin-header">';
-  h += `<span class="ar-admin-title">Archive &mdash; ${esc(displayName(_char))}</span>`;
+  h += `<span class="ar-admin-title">Archive &mdash; ${esc(cardName(_char))}</span>`;
   h += `<button class="dt-btn" id="ar-back-sheet">&#8592; Sheet</button>`;
   h += '</div>';
 
