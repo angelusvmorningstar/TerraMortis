@@ -8844,9 +8844,15 @@ function renderNormalisedCard(entry, review) {
     h += `<div class="proc-feed-desc-card">`;
     h += `<div class="proc-feed-desc-card-hd"><span class="proc-mod-panel-title">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
 
+    // Investigate lead — player-submitted starting point, shown read-only
+    // between Title and Description (issue #583). Gated to investigate actions.
+    const leadVal = (entry.actionType === 'investigate' && entry.projInvestigateLead)
+      ? entry.projInvestigateLead : '';
+
     // View mode
     h += `<div class="proc-feed-desc-view">`;
     if (titleVal)                  h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
+    if (leadVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(leadVal)}</div>`;
     if (showOutcome && outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
     if (descVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
     if (entry.projXpRows && entry.projXpRows.length) {
@@ -8854,7 +8860,7 @@ function renderNormalisedCard(entry, review) {
     } else if (entry.projXpBreakdown) {
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
     }
-    if (!titleVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
+    if (!titleVal && !leadVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
     h += `</div>`;
 
     // Edit mode
