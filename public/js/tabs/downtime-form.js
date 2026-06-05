@@ -7073,11 +7073,13 @@ function renderQuestion(q, value) {
           if (bestAmb.mod >= 0) posMods.push({ label: lbl, val: bestAmb.mod });
           else negMods.push({ label: lbl, val: bestAmb.mod });
         }
-        // #599: effectiveDomainDots EXCLUDES the Flock bonus — add it for the true
-        // total (Flock can exceed the +5 cap) and surface the breakdown.
-        // (Pre-existing, out of scope: it also excludes ssjHerdBonus — see #599 follow-up.)
+        // #609: effectiveDomainDots('Herd') (via meritEffectiveRating, domain.js:265)
+        // ALREADY includes the SSJ and Flock bonuses, so herdDots is the true total and
+        // matches the ST (domMeritContrib). #599 erroneously re-added flock here, which
+        // double-counted it (Flock chars showed +8 not +5); do NOT add ssj/flock to the
+        // total. flockHerd is used only for the "(Flock)" label + "(+x)" breakdown.
         const flockHerd = flockHerdBonus(c);
-        const herdTotal = herdDots + flockHerd;
+        const herdTotal = herdDots;
         if (herdTotal > 0) {
           posMods.push({
             label: flockHerd > 0 ? 'Herd (Flock)' : `Herd (${'●'.repeat(herdDots)})`,
