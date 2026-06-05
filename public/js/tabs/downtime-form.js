@@ -7073,7 +7073,18 @@ function renderQuestion(q, value) {
           if (bestAmb.mod >= 0) posMods.push({ label: lbl, val: bestAmb.mod });
           else negMods.push({ label: lbl, val: bestAmb.mod });
         }
-        if (herdDots > 0) posMods.push({ label: `Herd (${'●'.repeat(herdDots)})`, val: herdDots });
+        // #599: effectiveDomainDots EXCLUDES the Flock bonus — add it for the true
+        // total (Flock can exceed the +5 cap) and surface the breakdown.
+        // (Pre-existing, out of scope: it also excludes ssjHerdBonus — see #599 follow-up.)
+        const flockHerd = flockHerdBonus(c);
+        const herdTotal = herdDots + flockHerd;
+        if (herdTotal > 0) {
+          posMods.push({
+            label: flockHerd > 0 ? 'Herd (Flock)' : `Herd (${'●'.repeat(herdDots)})`,
+            val: herdTotal,
+            valSuffix: flockHerd > 0 ? ` (+${flockHerd})` : '',
+          });
+        }
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
@@ -7086,7 +7097,7 @@ function renderQuestion(q, value) {
         h += '<div class="dt-vitae-budget-title">Vitae Projection</div>';
         h += '<div class="dt-vitae-row"><span>Starting Vitae</span><span>0</span></div>';
         for (const mod of posMods) {
-          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}</span></div>`;
+          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}${esc(mod.valSuffix || '')}</span></div>`;
         }
         for (const mod of negMods) {
           h += `<div class="dt-vitae-row dt-vitae-cost"><span>${esc(mod.label)}</span><span>−${Math.abs(mod.val)}</span></div>`;
