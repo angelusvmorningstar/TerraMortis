@@ -5274,12 +5274,17 @@ function renderProcessingMode(container) {
       container.querySelectorAll(`.proc-roll-mode-btn[data-proc-key="${key}"]`).forEach(b => b.classList.remove('is-active'));
       btn.classList.add('is-active');
       const rev       = getEntryReview(entry) || {};
-      const hasRoll   = !!(rev.roll);
-      const curStatus = rev.pool_status || 'pending';
+      // #595: validate on whether a POOL EXISTS to roll, not whether it has already
+      // been rolled. The old `!!(rev.roll)` gated on the roll RESULT, so selecting a
+      // rolling mode never validated a not-yet-rolled pool (chicken-and-egg), and the
+      // `!DONE_STATUSES.has(curStatus)` guard blocked switching back from 'no_roll'.
+      const hasPool   = !!(rev.pool_validated || rev.pool_player || entry.poolPlayer);
       const patch     = { roll_mode: mode };
       if (mode === 'no_roll') {
         patch.pool_status = 'no_roll';
-      } else if ((mode === 'player' || mode === 'st_override') && hasRoll && !DONE_STATUSES.has(curStatus)) {
+      } else if ((mode === 'player' || mode === 'st_override') && hasPool && !rev.roll) {
+        // Switching to a rolling mode validates the pool (rollable), as long as it
+        // has not already been rolled (`!rev.roll` preserves a real roll result).
         patch.pool_status = 'validated';
       }
       await saveEntryReview(entry, patch);
@@ -7623,7 +7628,8 @@ function _renderProjRightPanel(entry, char, rev, prependHtml = '') {
       btnClass:        'proc-proj-roll-btn',
       btnDataAttrs:    ` data-pool-validated="${esc(poolValidated)}"`,
       canRoll:          _showRollBtn,
-      noRollMsg:       'Validate pool first',
+      // #595: a 'no_roll' action is a deliberate end state, not an un-validated pool.
+      noRollMsg:       poolStatus === 'no_roll' ? 'No roll needed' : 'Validate pool first',
       successModifier:  succMod,
       contestedRoll:    rev.contested_roll || null,
       showConfirm:      poolStatus === 'pending',
