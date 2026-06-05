@@ -7842,9 +7842,14 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}" data-terr-label="${esc(bestTerrLabel || '')}" data-rite-cost="${vitaeRite}" data-manual="${vitaeMod}" data-total-bonus="${finalVitae}">`;
   h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
 
-  // Herd
-  const herdDisplay = herdVitae !== null ? `+${herdVitae}` : '\u2014';
-  h += `<div class="proc-mod-row"><span class="proc-mod-label">Herd</span><span class="proc-mod-val${herdVitae !== null && herdVitae > 0 ? ' proc-mod-pos' : ''}">${herdDisplay}</span></div>`;
+  // Herd (issue #599: surface Flock-derived dots, which can exceed the +5 cap).
+  // herdVitae (domMeritContrib) ALREADY includes the Flock bonus \u2014 do not re-add it.
+  const flockHerd   = flockHerdBonus(char);
+  const herdLabel   = (herdVitae !== null && flockHerd > 0) ? 'Herd (Flock)' : 'Herd';
+  const herdDisplay = herdVitae !== null
+    ? (flockHerd > 0 ? `+${herdVitae} (+${flockHerd})` : `+${herdVitae}`)
+    : '\u2014';
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">${herdLabel}</span><span class="proc-mod-val${herdVitae !== null && herdVitae > 0 ? ' proc-mod-pos' : ''}">${herdDisplay}</span></div>`;
 
   // Feeding Grounds — does not contribute vitae
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val proc-mod-muted">\u2014</span></div>`;
