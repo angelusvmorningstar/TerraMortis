@@ -41,7 +41,7 @@ The ST "Connected Characters" typeahead renders on almost every action (`downtim
 - [x] **AC2 (ST seed)** — Project entry's `connectedCharKeys` seeds the ST Connected Characters typeahead on first open, no ST input. _(Test: "player connected character seeds the ST box".)_
 - [x] **AC3 (override-aware)** — `('connected_chars' in rev) ? (rev.connected_chars||[]) : (entry.connectedCharKeys||[])`. _(Tests: "ST clear wins", "ST set wins".)_
 - [x] **AC4 (key mapping + graceful)** — `_composeCharKeysFromIds` maps `_id`s → `sortName(c)`, dropping unresolved/retired. _(Tests: "unresolved id", "retired character".)_
-- [x] **AC5 (scope guard)** — `connectedCharKeys` set for project entries only → seed is `[]` elsewhere; the player widget is gated to project actions (excl. ambience); the actor is excluded both in the player options (`allCharacters` already drops self) and the ST filter (`:7119`).
+- [x] **AC5 (scope guard)** — `connectedCharKeys` set for project entries only → seed is `[]` elsewhere; the player widget renders on all project actions (rote-locked feed slots skip via the existing `continue`); the actor is excluded both in the player dropdown (`allCharacters` already drops self — QA test asserts it) and the ST filter (`:7119`).
 - [x] **AC6 (test)** — 10 Playwright tests total (6 ST-seed + 4 player-capture).
 
 ---
@@ -109,7 +109,7 @@ claude-opus-4-8 (Amelia / dev-story)
 
 - **Shared mapper:** extracted `_composeCharKeysFromIds(rawVal, chars)` from `_composeTargetCharKeys` (DRY — #586 target keys now route through it too); added `_composeConnectedCharKeys`. `entry.connectedCharKeys` set in `buildProcessingQueue` for project entries only.
 - **ST seed:** `downtime-views.js:7115` override-aware presence check; non-project entries get `[]` so other action types are untouched (AC5).
-- **Player widget:** `renderConnectedCharsZone` (add-dropdown + removable chips) on project cards (excl. ambience). Two delegated handlers (change `.dt-conn-add`, click `.dt-conn-remove`) write the JSON `_id` array canonical-first, re-render, save — mirroring the maintenance-chip pattern. `collectResponses` preserves the value via its `_prior` spread (no hidden input needed).
+- **Player widget:** `renderConnectedCharsZone` (add-dropdown + removable chips) on all project cards (rote-locked feed slots skip via `continue`). Two delegated handlers (change `.dt-conn-add`, click `.dt-conn-remove`) write the JSON `_id` array canonical-first, re-render, save — mirroring the maintenance-chip pattern. `collectResponses` preserves the value via its `_prior` spread (no hidden input needed).
 - **Gotcha caught pre-test:** the form's `allCharacters` is `{ id, name }` (already self-excluded, `name` = `moniker||name`), NOT `{ _id, moniker }` — widget reads `c.id`/`c.name`.
 - Scope: project actions only (Angelus). Sphere/contact/retainer actions keep the ST box but stay manual — a noted future follow-up.
 

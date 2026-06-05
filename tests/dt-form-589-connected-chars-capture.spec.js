@@ -129,4 +129,14 @@ test.describe('dt-form #589: connected characters capture on project actions', (
     await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(0);
   });
 
+  // QA top-up: the acting character must NOT be a connect option (no self-connect).
+  test('the acting character is not an option in the dropdown', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
+    await openForm(page, char);
+    const opts = await connZone(page).locator('.dt-conn-add option').allTextContents();
+    expect(opts).not.toContain('Test Subject');     // self excluded
+    expect(opts).toContain('Ally One');              // others present
+  });
+
 });

@@ -3799,10 +3799,9 @@ function renderProjectSlots(saved, mode = 'advanced') {
     }
 
     // ── Connected characters (issue #589) — other PCs linked to this action.
-    // Shown for all project actions except ambience (territory-focused).
-    if (!['ambience_increase', 'ambience_decrease'].includes(actionVal)) {
-      h += renderConnectedCharsZone(n, saved, allCharacters);
-    }
+    // Shown for all project actions (rote-locked feed slots already `continue`
+    // above, matching the ST side which excludes feeding entries).
+    h += renderConnectedCharsZone(n, saved, allCharacters);
 
     // ── Investigate lead (mandatory for investigate) ──
     if (fields.includes('investigate_lead')) {
