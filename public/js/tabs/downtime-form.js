@@ -2676,6 +2676,23 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // #589: Connected Characters — add via dropdown. Canonical-first write of the
+    // JSON id array, then re-render (resets the dropdown) and save.
+    const connAdd = e.target.closest('.dt-conn-add');
+    if (connAdd && connAdd.value) {
+      const slot = connAdd.dataset.connSlot;
+      const id   = String(connAdd.value);
+      const k    = `project_${slot}_connected_chars`;
+      const base = (responseDoc && responseDoc.responses) || {};
+      let arr = [];
+      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
+      if (!arr.includes(id)) arr.push(id);
+      const next = { ...base, [k]: JSON.stringify(arr) };
+      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // #508/#522: Carthian Pull — a change on the "new dot" row's target/sphere
     // writes the full allocation set to the character, then re-renders.
     if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
@@ -3065,6 +3082,22 @@ function renderForm(container) {
     // Previously the handler only mutated the local DOM; sibling slots couldn't
     // see the new selection until something else triggered a render, leaving
     // their disabled-chip state stale across add/remove/re-add cycles.
+    // #589: Connected Characters — remove a chip. Canonical-first write.
+    const connRemove = e.target.closest('.dt-conn-remove');
+    if (connRemove) {
+      const slot = connRemove.dataset.connSlot;
+      const id   = String(connRemove.dataset.connId);
+      const k    = `project_${slot}_connected_chars`;
+      const base = (responseDoc && responseDoc.responses) || {};
+      let arr = [];
+      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
+      arr = arr.filter(x => String(x) !== id);
+      const next = { ...base, [k]: JSON.stringify(arr) };
+      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
@@ -3763,6 +3796,12 @@ function renderProjectSlots(saved, mode = 'advanced') {
     // ── Target zone ──
     if (fields.includes('target')) {
       h += renderTargetZone(n, actionVal, saved, allCharacters);
+    }
+
+    // ── Connected characters (issue #589) — other PCs linked to this action.
+    // Shown for all project actions except ambience (territory-focused).
+    if (!['ambience_increase', 'ambience_decrease'].includes(actionVal)) {
+      h += renderConnectedCharsZone(n, saved, allCharacters);
     }
 
     // ── Investigate lead (mandatory for investigate) ──
@@ -5687,6 +5726,53 @@ function renderTargetZone(n, actionVal, saved, chars) {
     h += renderMaintenanceChips(n, saved, currentChar, formDedup, 'project', auditMaint);
   }
 
+  h += '</div>';
+  return h;
+}
+
+/**
+ * Connected Characters multi-select for a project action (issue #589).
+ * Other PCs the player links to this action; flows to the ST Connected Characters
+ * box. Stores selected character _ids as a JSON array in
+ * `project_${n}_connected_chars`. Add via dropdown, remove via chip ✕.
+ */
+function renderConnectedCharsZone(n, saved, chars) {
+  const key = `project_${n}_connected_chars`;
+  const raw = saved[key];
+  let ids = [];
+  if (raw) {
+    if (typeof raw === 'string' && raw.startsWith('[')) {
+      try { const a = JSON.parse(raw); if (Array.isArray(a)) ids = a.map(String); } catch { ids = []; }
+    } else if (Array.isArray(raw)) { ids = raw.map(String); }
+    else { ids = [String(raw)]; }
+  }
+  // `chars` is the form's allCharacters: { id, name } (already self-excluded, name = moniker||name).
+  const others = chars || [];
+  const labelOf = (id) => {
+    const c = others.find(ch => String(ch.id) === String(id));
+    return c ? c.name : null; // unresolved -> dropped
+  };
+  const selected = ids.filter(Boolean).filter((id, i, a) => a.indexOf(id) === i);
+
+  let h = '<div class="qf-field dt-connected-zone">';
+  h += '<label class="qf-label">Connected Characters</label>';
+  h += '<p class="qf-desc">Other player characters involved in or linked to this action (optional).</p>';
+  h += '<div class="dt-conn-chips">';
+  for (const id of selected) {
+    const nm = labelOf(id);
+    if (!nm) continue;
+    h += `<span class="dt-conn-chip" data-conn-id="${esc(id)}">${esc(nm)} `
+       + `<button type="button" class="dt-conn-remove" data-conn-slot="${n}" data-conn-id="${esc(id)}" title="Remove">×</button></span>`;
+  }
+  h += '</div>';
+  const selectedSet = new Set(selected.map(String));
+  h += `<select class="dt-conn-add" data-conn-slot="${n}">`;
+  h += '<option value="">Add a character…</option>';
+  for (const c of others.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))) {
+    if (selectedSet.has(String(c.id))) continue;
+    h += `<option value="${esc(String(c.id))}">${esc(c.name)}</option>`;
+  }
+  h += '</select>';
   h += '</div>';
   return h;
 }

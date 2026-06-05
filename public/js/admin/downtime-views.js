@@ -2773,15 +2773,20 @@ function _composeTargetString(resp, prefix, chars) {
  * Returns [] for non-character targets or unresolved/retired ids — the typeahead
  * is keyed by sortName(c), so display strings / _ids would never match a chip.
  */
-function _composeTargetCharKeys(resp, prefix, chars) {
-  const tType  = resp[`${prefix}_target_type`]  || '';
-  const tValue = resp[`${prefix}_target_value`] || '';
-  if (tType !== 'character' || !tValue) return [];
+// Map a stored character-id value (single id, or a JSON array of ids) to typeahead
+// keys (sortName), dropping unresolved/retired. Shared by the target picker (#586)
+// and Connected Characters (#589).
+function _composeCharKeysFromIds(rawVal, chars) {
+  if (!rawVal) return [];
   let ids = [];
-  if (typeof tValue === 'string' && tValue.startsWith('[')) {
-    try { const a = JSON.parse(tValue); if (Array.isArray(a)) ids = a; }
+  if (typeof rawVal === 'string' && rawVal.startsWith('[')) {
+    try { const a = JSON.parse(rawVal); if (Array.isArray(a)) ids = a; }
     catch { ids = []; }
-  } else { ids = [tValue]; }
+  } else if (Array.isArray(rawVal)) {
+    ids = rawVal;
+  } else {
+    ids = [rawVal];
+  }
   ids = ids.map(String).filter(Boolean);
   const keys = [];
   for (const id of ids) {
@@ -2789,6 +2794,18 @@ function _composeTargetCharKeys(resp, prefix, chars) {
     if (c && !c.retired) keys.push(sortName(c));
   }
   return keys;
+}
+
+function _composeTargetCharKeys(resp, prefix, chars) {
+  const tType  = resp[`${prefix}_target_type`]  || '';
+  const tValue = resp[`${prefix}_target_value`] || '';
+  if (tType !== 'character' || !tValue) return [];
+  return _composeCharKeysFromIds(tValue, chars);
+}
+
+// #589: player Connected Characters for a project slot -> sortName keys.
+function _composeConnectedCharKeys(resp, prefix, chars) {
+  return _composeCharKeysFromIds(resp[`${prefix}_connected_chars`], chars);
 }
 
 /**
@@ -3072,6 +3089,9 @@ function buildProcessingQueue(subs) {
       // processing target picker (investigate/attack/block) when the ST has not
       // yet touched it. Non-character targets resolve to [] (surfaced via projTarget).
       const _projTargetCharKeys = _composeTargetCharKeys(resp, `project_${slot}`, characters);
+      // #589: player Connected Characters for this project slot, as sortName keys,
+      // for seeding the ST Connected Characters box (project actions only).
+      const _projConnectedKeys = _composeConnectedCharKeys(resp, `project_${slot}`, characters);
 
       // Issue #219 — investigate-lead chip + multi-row xp_spend breakdown.
       // Form persists `project_${n}_investigate_lead` (free text, populated
@@ -3144,6 +3164,7 @@ function buildProcessingQueue(subs) {
         projTerritory:   _projTerritory,
         projTarget:      _projTarget,
         targetCharKeys:  _projTargetCharKeys,
+        connectedCharKeys: _projConnectedKeys,
         projInvestigateLead: _projInvestigateLead,
         maintenanceTarget:   _maintenanceTarget,
         projXpBreakdown:      _projXpBreakdown,
@@ -7112,7 +7133,10 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
   }
 
   if (!isAmbienceMerit && entry.source !== 'feeding') {
-    const _connChars  = rev.connected_chars || [];
+    // #589: seed from the player's submitted connected characters (project actions
+    // set entry.connectedCharKeys) when the ST has not touched the box. Presence
+    // check, NOT ||/?? — the typeahead saves []/null on clear, and an ST clear wins.
+    const _connChars  = ('connected_chars' in rev) ? (rev.connected_chars || []) : (entry.connectedCharKeys || []);
     const _otherChars = characters
       .filter(c => !c.retired)
       .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
