@@ -5020,8 +5020,10 @@ body {
 .proc-spec-chip,
 .proc-rote-chip,
 .proc-again-opt {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
+  /* #587: lift the inactive fill off the dark panels (--surf2) so the button
+     reads as raised/interactive; active colours below are unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
   color: var(--txt3);
   padding: 5px 12px;
   border-radius: 4px;
@@ -5059,8 +5061,9 @@ body {
   margin-left: auto;
 }
 .proc-roll-mode-btn {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
+  /* #587: separate the inactive button from the dark panel; active colours below unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
   color: var(--txt3);
   padding: 5px 12px;
   border-radius: 4px;
@@ -5078,6 +5081,20 @@ body {
 .proc-roll-mode-btn.is-active[data-roll-mode="player"]      { border-color: var(--green); color: var(--green); background: var(--green-a15); }
 .proc-roll-mode-btn.is-active[data-roll-mode="st_override"] { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
 .proc-roll-mode-btn.is-active[data-roll-mode="no_roll"]     { border-color: var(--txt3);  color: var(--txt2);  background: var(--surf3); }
+
+/* #587: generic press feedback — solid dark gold, reusing the player-facing
+   .dt-ticker__pill:has(input:checked) idiom (var(--gold2) fill + var(--bg) text).
+   Momentary (:active only), so the colour-coded persistent .is-active states above
+   (crimson/gold/green) are unaffected once the press is released (AC3). */
+.dt-btn:active,
+.proc-rote-chip:not(:disabled):active,
+.proc-again-opt:not(:disabled):active,
+.proc-roll-mode-btn:not(:disabled):active,
+.proc-inv-lead-btn:active {
+  background: var(--gold2);
+  color: var(--bg);
+  border-color: var(--gold2);
+}
 .proc-roll-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .proc-pool-parse-ref {
@@ -6128,7 +6145,8 @@ body {
   padding: 2px 7px;
   border-radius: 3px;
   border: 1px solid var(--bdr2);
-  background: var(--surf2);
+  /* #587: separate from the dark mod-panel it sits on. */
+  background: var(--surf);
   color: var(--txt3);
   cursor: pointer;
 }
@@ -6528,10 +6546,11 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
   margin-top: 6px;
   border-top: none;
 }
-/* Inside the targeting group, match the input style to the surrounding mod-panel fields */
+/* #587: fill-in text inputs read as light/editable parchment, not the dark panel
+   fill. Use the light base (var(--bg)) like the un-scoped .proc-conn-input. */
 .proc-targeting-group .proc-conn-input {
-  background: var(--surf2);
-  border-color: var(--surf3);
+  background: var(--bg);
+  border-color: var(--bdr);
   border-radius: 3px;
   padding: 6px 8px;
 }
