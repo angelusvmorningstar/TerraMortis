@@ -205,22 +205,36 @@ async function setupDowntimeProcessing(page, submissions, chars = [CHAR_PT4]) {
   await page.waitForTimeout(1000);
 }
 
+// #602: the flat card wall (#581) removed the phase accordions. Navigate via the
+// phase filter pill + the flat .proc-action-row, mirroring downtime-processing.spec.js
+// openActionInPhase. The legacy labels map to the filter-pill phase keys.
+const PHASE_KEY = {
+  Ambience: 'ambience',
+  Feeding: 'feeding',
+  Investigative: 'investigate',
+  Sorcery: 'resolve_first',
+};
+
 async function openFirstAction(page, phaseLabel) {
-  await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-  const phaseHeader = page.locator('.proc-phase-header').filter({ hasText: phaseLabel }).first();
-  const toggle = phaseHeader.locator('.proc-phase-toggle');
-  const toggleText = await toggle.textContent().catch(() => '');
-  if (toggleText.includes('Show')) await phaseHeader.click();
+  await page.waitForSelector('.proc-action-row', { timeout: 8000 });
+  const key = PHASE_KEY[phaseLabel] || phaseLabel.toLowerCase();
+  const pill = page.locator(`.proc-filter-pill[data-filter-dim="phases"][data-filter-val="${key}"]`).first();
+  if (await pill.count()) {
+    await pill.click();
+    await page.waitForTimeout(200);
+  }
+  await page.locator('.proc-action-row').first().click();
+  await page.waitForSelector('.proc-action-detail', { timeout: 8000 });
   await page.waitForTimeout(200);
-  const phase = page.locator('.proc-phase-section').filter({ hasText: phaseLabel }).first();
-  const firstRow = phase.locator('.proc-action-row').first();
-  await firstRow.click();
-  await page.waitForTimeout(400);
 }
 
 // ── F96-1: Progress ribbon rendering ──────────────────────────────────────────
 
-test.describe('F96-1: Progress ribbon renders for intermediate pool states', () => {
+// #602 RETIRED: the flat card wall (#581) removed the 3-step pool-status ribbon
+// (`_renderStatusRibbon` / `.proc-status-ribbon` / `.proc-ribbon-step`) — it is now
+// dead code, replaced by the pending/valid/complete card chip (_deriveActionRibbonState).
+// These assert the removed ribbon; retired pending a rewrite against the new chip.
+test.describe.skip('F96-1: Progress ribbon renders for intermediate pool states', () => {
 
   test('project panel shows ribbon when pool_status is pending', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
@@ -298,7 +312,10 @@ test.describe('F96-1: Progress ribbon renders for intermediate pool states', () 
 
 // ── F96-2: Committed/Rolled removed as clickable buttons ──────────────────────
 
-test.describe('F96-2: Committed and Rolled removed from pool-builder button sets', () => {
+// #602 RETIRED: asserts the old `.proc-val-btn[data-status=...]` validation button-set,
+// which the flat card wall (#581) removed entirely (no `.proc-val-btn` is rendered).
+// Vacuously green on a dead selector; retired.
+test.describe.skip('F96-2: Committed and Rolled removed from pool-builder button sets', () => {
 
   test('project panel has no Committed button', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
@@ -360,7 +377,9 @@ test.describe('F96-2: Committed and Rolled removed from pool-builder button sets
 
 // ── F96-3: Terminal buttons and Pending reset remain ──────────────────────────
 
-test.describe('F96-3: Terminal buttons and Pending reset remain clickable', () => {
+// #602 RETIRED: asserts the removed `.proc-val-btn[data-status=...]` terminal buttons
+// (validated/no_roll/skipped/...) — gone with the flat card wall (#581).
+test.describe.skip('F96-3: Terminal buttons and Pending reset remain clickable', () => {
 
   test('project panel still has Validated button', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
@@ -424,7 +443,8 @@ test.describe('F96-3: Terminal buttons and Pending reset remain clickable', () =
 
 test.describe('F96-4: Auto-merit action type unaffected by ribbon changes', () => {
 
-  test('auto-merit action has no progress ribbon', async ({ page }) => {
+  // #602 RETIRED: asserts the removed `.proc-status-ribbon` (dead post-#581).
+  test.skip('auto-merit action has no progress ribbon', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_AUTO_MERIT_PENDING]);
     await openFirstAction(page, 'Ambience');
 
@@ -439,7 +459,8 @@ test.describe('F96-4: Auto-merit action type unaffected by ribbon changes', () =
     await expect(page.locator('.proc-val-status')).toHaveCount(0);
   });
 
-  test('auto-merit action has no Committed or Rolled buttons in compact panel', async ({ page }) => {
+  // #602 RETIRED: asserts the removed `.proc-val-btn` buttons (dead post-#581).
+  test.skip('auto-merit action has no Committed or Rolled buttons in compact panel', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_AUTO_MERIT_PENDING]);
     await openFirstAction(page, 'Ambience');
 
@@ -481,7 +502,10 @@ test.describe('F96-5: Roll button visible from pending (no longer requires Commi
 
 // ── F96-6: Implicit commit API write on terminal button click ─────────────────
 
-test.describe('F96-6: Terminal button click triggers implicit commit API write', () => {
+// #602 RETIRED: clicks the removed `.proc-val-btn[data-status="validated"]` button
+// (gone with the flat card wall, #581). The commit-on-click path is now exercised by
+// F310-3 (Confirm Dice Pool) instead.
+test.describe.skip('F96-6: Terminal button click triggers implicit commit API write', () => {
 
   test('clicking Validated on pending project triggers at least one API write', async ({ page }) => {
     const writes = [];
@@ -623,7 +647,9 @@ test.describe('F96-7: Confirm Dice Pool button visible from pending; absent once
 
 // ── F310-1: Pending button absent on all 4 action types ──────────────────────
 
-test.describe('F310-1: Pending button absent from feeding, sorcery, and merit action types', () => {
+// #602 RETIRED: asserts the removed `.proc-val-btn[data-status="pending"]` button is
+// absent — vacuously true on a dead selector (no `.proc-val-btn` exists post-#581).
+test.describe.skip('F310-1: Pending button absent from feeding, sorcery, and merit action types', () => {
 
   test('feeding panel has NO Pending button', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
@@ -721,7 +747,9 @@ test.describe('F310-3: Confirm Dice Pool click triggers pool_status save', () =>
 
 // ── F310-4: Clear Pool click triggers API write ───────────────────────────────
 
-test.describe('F310-4: Clear Pool click triggers API write resetting pool_status', () => {
+// #602 RETIRED: the "Clear Pool" button (`.proc-pool-clear-btn`) was removed by the
+// flat card wall / proto work (#581) — the selector no longer exists.
+test.describe.skip('F310-4: Clear Pool click triggers API write resetting pool_status', () => {
 
   test('clicking Clear Pool on confirmed project triggers at least one API write', async ({ page }) => {
     const writes = [];
@@ -774,7 +802,8 @@ test.describe('F310-4: Clear Pool click triggers API write resetting pool_status
 
 test.describe('F310-5: Label text, Re-roll label, and rolled-state roll button', () => {
 
-  test('confirmed ribbon step contains text "Confirmed"', async ({ page }) => {
+  // #602 RETIRED: asserts the removed `.proc-ribbon-step` ribbon (dead post-#581).
+  test.skip('confirmed ribbon step contains text "Confirmed"', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
     await openFirstAction(page, 'Ambience');
 
