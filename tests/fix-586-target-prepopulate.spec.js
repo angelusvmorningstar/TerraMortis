@@ -39,7 +39,8 @@ function mkChar(id, name) {
 const EINAR = mkChar('char-einar', 'Einar Test');
 const RYAN  = mkChar('char-ryan',  'Ryan Ambrose');
 const EVE   = mkChar('char-eve',   'Eve Test');
-const ALL_CHARS = [EINAR, RYAN, EVE];
+const RETIRED = mkChar('char-retired', 'Old Ghost'); RETIRED.retired = true;
+const ALL_CHARS = [EINAR, RYAN, EVE, RETIRED];
 
 const TEST_CYCLE = { _id: 'cycle-586', cycle_number: 3, status: 'active', confirmed_ambience: {}, narrative_notes: '' };
 
@@ -151,6 +152,22 @@ test.describe('Fix #586 — target pre-population', () => {
     const group = page.locator('.proc-action-detail .proc-targeting-group').first();
     await expect(group).toContainText('Submitted target');
     await expect(group).toContainText('The Harbour');
+  });
+
+  // QA top-up (AC4 graceful degrade): an unresolvable character id (e.g. a deleted
+  // character) must not crash the card and must produce no seeded chip.
+  test('unresolved character id degrades gracefully (no chip, no crash)', async ({ page }) => {
+    await setup(page, [projectSub({ targetValue: 'char-ghost' })]);
+    await openAction(page, 'Hunting the Hunter'); // resolves only if the detail rendered
+    await expect(page.locator('.proc-action-detail .proc-targeting-group').first()).toBeVisible();
+    await expect(targetChip(page, 'investigate_target_char')).toHaveCount(0);
+  });
+
+  // QA top-up (AC4): a retired character target is skipped the same way (no chip).
+  test('retired character target is not seeded (no chip)', async ({ page }) => {
+    await setup(page, [projectSub({ targetValue: 'char-retired' })]);
+    await openAction(page, 'Hunting the Hunter');
+    await expect(targetChip(page, 'investigate_target_char')).toHaveCount(0);
   });
 
 });
