@@ -3082,6 +3082,14 @@ function buildProcessingQueue(subs) {
       // `responses.xp_spend` mirror but the per-slot card showed only the
       // legacy single-row keys.
       const _projInvestigateLead = resp[`project_${slot}_investigate_lead`] || '';
+      // #601: maintenance stores the maintained asset in project_N_target_value as
+      // `${m.name}_${dots}` (e.g. "Professional Training_5"), with no target_type.
+      // Resolve the readable merit name by stripping the trailing _<dots> (the
+      // maintainable merit names contain no underscore). Gated to maintenance so it
+      // never collides with the character target_value used by attack/block/investigate.
+      const _maintenanceTarget = effectiveActionType === 'maintenance'
+        ? String(resp[`project_${slot}_target_value`] || '').replace(/_\d+$/, '').trim()
+        : '';
       let _projXpBreakdown = '';
       let _projXpRows = [];
       let _projXpBudgetSnapshot = null;
@@ -3137,6 +3145,7 @@ function buildProcessingQueue(subs) {
         projTarget:      _projTarget,
         targetCharKeys:  _projTargetCharKeys,
         projInvestigateLead: _projInvestigateLead,
+        maintenanceTarget:   _maintenanceTarget,
         projXpBreakdown:      _projXpBreakdown,
         projXpRows:           _projXpRows,
         projXpBudgetSnapshot: _projXpBudgetSnapshot,
@@ -8914,11 +8923,17 @@ function renderNormalisedCard(entry, review) {
     // between Title and Description (issue #583). Gated to investigate actions.
     const leadVal = (entry.actionType === 'investigate' && entry.projInvestigateLead)
       ? entry.projInvestigateLead : '';
+    // Maintenance target — the asset the player is maintaining, shown read-only
+    // (issue #601). Gated to maintenance actions (target_value doubles as the
+    // character target for other action types).
+    const maintVal = (entry.actionType === 'maintenance' && entry.maintenanceTarget)
+      ? entry.maintenanceTarget : '';
 
     // View mode
     h += `<div class="proc-feed-desc-view">`;
     if (titleVal)                  h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
     if (leadVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Lead</span> ${esc(leadVal)}</div>`;
+    if (maintVal)                  h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Target</span> ${esc(maintVal)}</div>`;
     if (showOutcome && outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
     if (descVal)                   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
     if (entry.projXpRows && entry.projXpRows.length) {
@@ -8926,7 +8941,7 @@ function renderNormalisedCard(entry, review) {
     } else if (entry.projXpBreakdown) {
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">XP Spend</span> ${esc(entry.projXpBreakdown)}</div>`;
     }
-    if (!titleVal && !leadVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
+    if (!titleVal && !leadVal && !maintVal && !(showOutcome && outcomeVal) && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">— No details recorded</div>`;
     h += `</div>`;
 
     // Edit mode
