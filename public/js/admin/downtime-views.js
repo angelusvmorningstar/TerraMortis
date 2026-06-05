@@ -5833,6 +5833,15 @@ function renderProcessingMode(container) {
         payload = { [saveField]: chips };
       }
       await saveEntryReview(entry, payload);
+      // #608: Opposing Char change — recompute the resistance pool label from the
+      // current trait selection against the new opposing character, then re-render
+      // so the resistance-trait builder reflects the new character's stats.
+      if (saveField === 'contested_char') {
+        const r = getEntryReview(entry) || {};
+        const oppChar = characters.find(c => sortName(c) === (chips[0] || '')) || null;
+        await saveEntryReview(entry, { contested_pool_label: _computeContestedPoolLabel(r.contested_resist_traits || [], !!r.contested_resist_bp, oppChar) });
+        renderProcessingMode(container);
+      }
       // Investigate/attack target: re-render snapshot panel so target intel is visible immediately
       if (saveField === 'investigate_target_char' || saveField === 'attack_target_char') {
         const card   = container.querySelector(`.proc-action-detail[data-proc-key="${key}"]`);
@@ -6248,7 +6257,7 @@ function renderProcessingMode(container) {
       if (!entry) return;
       const rev   = getEntryReview(entry) || {};
       if (rev.contested) {
-        await saveEntryReview(entry, { contested: false, contested_char: '', contested_pool_label: '', contested_roll: null });
+        await saveEntryReview(entry, { contested: false, contested_char: '', contested_pool_label: '', contested_roll: null, contested_resist_traits: [], contested_resist_bp: false });
       } else {
         await saveEntryReview(entry, { contested: true });
       }
@@ -6256,24 +6265,27 @@ function renderProcessingMode(container) {
     });
   });
 
-  // ── Contested char selector ──
-  container.querySelectorAll('.proc-contested-char-sel').forEach(sel => {
-    sel.addEventListener('change', async e => {
-      const key   = sel.dataset.procKey;
+  // ── Contested resistance-trait + Blood Potency toggles (#608) ──
+  // (The Opposing Char picker is now the shared character typeahead, saveField
+  // 'contested_char' — wired below in the typeahead handler.)
+  container.querySelectorAll('.proc-contested-trait, .proc-contested-bp').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { contested_char: sel.value });
-      renderProcessingMode(container);
-    });
-  });
-
-  // ── Contested pool label input ──
-  container.querySelectorAll('.proc-contested-pool-input').forEach(input => {
-    input.addEventListener('change', async e => {
-      const key   = input.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      await saveEntryReview(entry, { contested_pool_label: input.value.trim() });
+      const rev   = getEntryReview(entry) || {};
+      let traits  = [...(rev.contested_resist_traits || [])];
+      let useBp   = !!rev.contested_resist_bp;
+      if (btn.classList.contains('proc-contested-bp')) {
+        useBp = !useBp;
+      } else {
+        const t = btn.dataset.trait;
+        traits = traits.includes(t) ? traits.filter(x => x !== t) : [...traits, t];
+      }
+      const oppChar = characters.find(c => sortName(c) === (rev.contested_char || '')) || null;
+      const label   = _computeContestedPoolLabel(traits, useBp, oppChar);
+      await saveEntryReview(entry, { contested_resist_traits: traits, contested_resist_bp: useBp, contested_pool_label: label });
       renderProcessingMode(container);
     });
   });
@@ -7677,6 +7689,8 @@ function _renderProjRightPanel(entry, char, rev, prependHtml = '') {
         contestedChar: rev.contested_char || '',
         contestedPool: rev.contested_pool_label || '',
         contestedRoll: rev.contested_roll || null,
+        resistTraits:  rev.contested_resist_traits || [],
+        resistBp:      !!rev.contested_resist_bp,
       } : null,
     });
   }
@@ -7968,6 +7982,29 @@ function _findCharForSub(sub) {
  *   @param {string}  opts.noRollMsg       - hint shown when canRoll is false
  *   @param {number}  opts.targetSuccesses - sorcery: target for potency/fail display
  */
+// #608: contested resistance pool — built from the opposing character's resistance
+// traits (Resolve/Stamina/Composure) plus optional Blood Potency. Produces a label
+// ending in "= N" so the existing Roll Defence parser (rollPool) works unchanged.
+const CONTESTED_RESIST_TRAITS = ['Resolve', 'Stamina', 'Composure'];
+function _computeContestedPoolLabel(traits, useBp, oppChar) {
+  if (!oppChar) return '';
+  const sel = (traits || []).filter(t => CONTESTED_RESIST_TRAITS.includes(t));
+  const parts = [];
+  let total = 0;
+  for (const t of CONTESTED_RESIST_TRAITS) {            // stable display order
+    if (!sel.includes(t)) continue;
+    const v = getAttrVal(oppChar, t) || 0;
+    parts.push(`${t} ${v}`);
+    total += v;
+  }
+  if (useBp) {
+    const bp = oppChar.blood_potency || 0;
+    parts.push(`Blood Potency ${bp}`);
+    total += bp;
+  }
+  return parts.length ? `${parts.join(' + ')} = ${total}` : '';
+}
+
 function _renderRollCard(key, roll, poolTotal, opts = {}) {
   const {
     btnClass        = 'proc-proj-roll-btn',
@@ -7989,25 +8026,29 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
 
   // \u2500\u2500 Contested toggle + controls (above roll button) \u2500\u2500
   if (contestedData) {
-    const { isContested, contestedChar = '', contestedPool = '', contestedRoll: cContest = null } = contestedData;
+    const { isContested, contestedChar = '', contestedPool = '', contestedRoll: cContest = null, resistTraits = [], resistBp = false } = contestedData;
     h += `<div class="proc-contested-inline">`;
     h += `<button class="proc-contested-toggle${isContested ? ' active' : ''}" data-proc-key="${esc(key)}">${isContested ? 'Contested \u2014 ON' : 'Mark as Contested'}</button>`;
     if (isContested) {
-      h += `<div class="proc-mod-row" style="margin-top:4px">`;
-      h += `<span class="proc-mod-label">Opposing Char</span>`;
-      h += `<select class="proc-contested-char-sel" data-proc-key="${esc(key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const val = sortName(c);
-        const lbl = c.moniker || c.name;
-        h += `<option value="${esc(val)}"${val === contestedChar ? ' selected' : ''}>${esc(lbl)}</option>`;
+      // Opposing Char \u2014 styled typeahead chip picker (single-select; #608).
+      const _oppAll = [...characters].filter(c => !c.retired).map(c => ({ key: sortName(c), label: c.moniker || c.name }));
+      h += _renderCharTypeahead(key, contestedChar ? [contestedChar] : [], _oppAll, { label: 'Opposing Char', saveField: 'contested_char', single: true });
+      // Resistance Pool \u2014 built from the opposing character's resistance traits + optional BP (#608).
+      h += `<div class="proc-mod-row" style="margin-top:4px"><span class="proc-mod-label">Resistance Pool</span></div>`;
+      const _oppChar = characters.find(c => sortName(c) === contestedChar) || null;
+      if (!_oppChar) {
+        h += `<div class="proc-mod-row"><span class="proc-mod-val proc-mod-muted">Select an opposing character first.</span></div>`;
+      } else {
+        h += `<div class="proc-contested-resist" data-proc-key="${esc(key)}">`;
+        for (const t of CONTESTED_RESIST_TRAITS) {
+          const on = resistTraits.includes(t);
+          h += `<button type="button" class="proc-contested-trait${on ? ' is-active' : ''}" data-proc-key="${esc(key)}" data-trait="${esc(t)}">${esc(t)} ${getAttrVal(_oppChar, t) || 0}</button>`;
+        }
+        h += `<button type="button" class="proc-contested-bp${resistBp ? ' is-active' : ''}" data-proc-key="${esc(key)}">+ Blood Potency ${_oppChar.blood_potency || 0}</button>`;
+        h += `</div>`;
+        const _expr = _computeContestedPoolLabel(resistTraits, resistBp, _oppChar);
+        if (_expr) h += `<div class="proc-pool-total proc-contested-total">${esc(_expr)}</div>`;
       }
-      h += `</select>`;
-      h += `</div>`;
-      h += `<div class="proc-mod-row">`;
-      h += `<span class="proc-mod-label">Resistance Pool</span>`;
-      h += `<input type="text" class="proc-contested-pool-input" data-proc-key="${esc(key)}" placeholder="e.g. Resolve + BP = 4" value="${esc(contestedPool)}" />`;
-      h += `</div>`;
       if (contestedPool) {
         const defBtnLabel = cContest ? 'Re-roll Defence' : 'Roll Defence';
         h += `<button class="dt-btn proc-contested-roll-btn" data-proc-key="${esc(key)}">${defBtnLabel}</button>`;
