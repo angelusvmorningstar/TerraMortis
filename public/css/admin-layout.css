@@ -5090,7 +5090,8 @@ body {
 .proc-rote-chip:not(:disabled):active,
 .proc-again-opt:not(:disabled):active,
 .proc-roll-mode-btn:not(:disabled):active,
-.proc-inv-lead-btn:active {
+.proc-inv-lead-btn:active,
+.proc-contested-toggle:not(:disabled):active {
   background: var(--gold2);
   color: var(--bg);
   border-color: var(--gold2);
@@ -5375,8 +5376,9 @@ body {
 
 .proc-contested-toggle {
   padding: 5px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
+  /* #587: separate from the dark Roll panel; .active (crimson) below unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
   border-radius: 4px;
   color: var(--txt2);
   font-size: 12px;

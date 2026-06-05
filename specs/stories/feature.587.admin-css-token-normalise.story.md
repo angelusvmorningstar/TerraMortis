@@ -63,7 +63,7 @@ The "pressed = dark gold" rule (Problem 2) is for **generic action buttons** (`.
 - [x] **AC4 (inputs light)** — `.proc-targeting-group .proc-conn-input` no longer forces `var(--surf2)`; it now uses the light base `var(--bg)` + `var(--bdr)`, matching the un-scoped `.proc-conn-input`.
 - [x] **AC5 (chip spacing)** — `.char-picker__chips` gains `margin-top: 6px` (zeroed when `:empty`) so the selected target chip is not flush against the type buttons.
 - [x] **AC6 (tokens, both themes)** — All edits use existing `:root` tokens (`--surf`/`--bg`/`--bdr`/`--bdr2`/`--gold2`), which are themselves redefined in the dark block, so both themes follow. No bare hex added (verified).
-- [ ] **AC7 (no regressions)** — No layout/spec regressions on the admin surfaces; existing admin Playwright specs (e.g. `admin.spec.js`, `downtime-processing.spec.js`) still pass.
+- [x] **AC7 (no regressions)** — `admin.spec.js` + `desktop-and-css.spec.js` + `downtime-processing.spec.js`: **33 passed, 0 failed** (incl. the `css-audit — DT Submission tab has dark-theme input styles` check). No layout/spec regression.
 
 ---
 
@@ -86,8 +86,8 @@ The press is `:active`-only (momentary), so the persistent `.is-active` colour r
 ### Task 5 — Target chip spacing (AC5) — [x] DONE
 `.char-picker__chips { margin-top: 6px }` (zeroed when `:empty`) in `components.css`. Add spacing between the target chip row and the type-button row in the DT form target zone (the charPicker chip; reference `.dt-chip-grid`/`.dt-chip` in `components.css:4844+`).
 
-### Task 6 — Verify (AC6, AC7)
-Toggle light/dark to confirm both themes. Run the admin Playwright specs (`admin.spec.js`, `desktop-and-css.spec.js`, `downtime-processing.spec.js`) — no regressions. On-dev visual smoke (Angelus): buttons separate on dark panels, pressed = dark gold, inputs light, chip spacing.
+### Task 6 — Verify (AC6, AC7) — [x] DONE (specs); on-dev visual smoke pending Angelus
+Admin specs green (33 passed). Merged to dev (PR #592) for the visual smoke. Toggle light/dark to confirm both themes. Run the admin Playwright specs (`admin.spec.js`, `desktop-and-css.spec.js`, `downtime-processing.spec.js`) — no regressions. On-dev visual smoke (Angelus): buttons separate on dark panels, pressed = dark gold, inputs light, chip spacing.
 
 ---
 
@@ -150,4 +150,4 @@ CSS-only, token-only. Five edits:
 
 ### Change Log
 
-- 2026-06-05 — CSS token normalisation (admin): lifted dark-on-dark button bases off `--surf2`, added a dark-gold `:active` press (reusing the Blood-Type `.dt-ticker__pill` idiom), made targeting inputs light, spaced the target chip. Token-only, semantic state colours preserved. Admin regression specs: <pending>. Status → review. Visual confirmation pending on-dev smoke.
+- 2026-06-05 — CSS token normalisation (admin): lifted dark-on-dark button bases off `--surf2`, added a dark-gold `:active` press (reusing the Blood-Type `.dt-ticker__pill` idiom), made targeting inputs light, spaced the target chip. Token-only, semantic state colours preserved. Admin regression specs: 33 passed / 0 failed (admin + desktop-and-css + downtime-processing). Merged to dev via PR #592. Status → review. Visual confirmation pending on-dev smoke.
