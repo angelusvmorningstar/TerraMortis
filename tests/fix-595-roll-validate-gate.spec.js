@@ -130,4 +130,42 @@ test.describe('Fix #595 — roll validation gate', () => {
     await expect(rollCard(page)).not.toContainText('No roll needed');
   });
 
+  // QA top-up: ST Override is the other rolling mode and must validate the same way.
+  test('selecting ST Override also validates the pool and enables the roll', async ({ page }) => {
+    await setup(page, [stuckSub()]);
+    await openInvestigate(page);
+    await page.locator('.proc-roll-mode-btn[data-roll-mode="st_override"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(rollCard(page).locator('.proc-proj-roll-btn')).toHaveCount(1);
+    await expect(rollCard(page)).not.toContainText('Validate pool first');
+  });
+
+  // QA top-up (safety-critical): the `!rev.roll` guard must PRESERVE a real roll
+  // result — re-selecting a roll mode on an already-rolled action must NOT reset it.
+  test('re-selecting a mode does NOT clobber an existing roll result', async ({ page }) => {
+    const rolledSub = {
+      ...stuckSub(),
+      projects_resolved: [{
+        action_type: 'investigate',
+        pool_player: POOL,
+        pool_validated: POOL,
+        pool_status: 'rolled',
+        roll_mode: 'player',
+        roll: { dice_string: '8,9,10', successes: 3, exceptional: false },
+        notes_thread: [],
+      }],
+    };
+    await setup(page, [rolledSub]);
+    await openInvestigate(page);
+
+    // The roll result is shown.
+    await expect(rollCard(page)).toContainText('3 success');
+
+    // Re-select Player Pool — the existing result must survive (not "Validate pool first").
+    await page.locator('.proc-roll-mode-btn[data-roll-mode="player"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(rollCard(page)).toContainText('3 success');
+    await expect(rollCard(page)).not.toContainText('Validate pool first');
+  });
+
 });

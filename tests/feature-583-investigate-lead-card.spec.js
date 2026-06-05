@@ -169,4 +169,22 @@ test.describe('Feature #583 — investigate lead on the Details card', () => {
     await expect(leadField).toHaveCount(0);
   });
 
+  // QA top-up (AC3 empty-state): a lead-only action (no title, no description) shows
+  // the Lead row and must NOT fall through to "— No details recorded".
+  test('lead-only action shows the Lead row, not the empty-state', async ({ page }) => {
+    const leadOnly = investigateSub();
+    leadOnly._raw.projects[0].title = '';
+    leadOnly._raw.projects[0].desired_outcome = '';
+    leadOnly._raw.projects[0].detail = '';
+    leadOnly.responses.project_1_title = '';
+    leadOnly.responses.project_1_description = '';
+    // keep project_1_investigate_lead
+    await setup(page, [leadOnly]);
+    await openActionDetail(page, 'Investigate');
+
+    const view = page.locator('.proc-action-detail .proc-feed-desc-view').first();
+    await expect(view.locator('.proc-proj-field', { hasText: 'Lead' }).first()).toContainText(LEAD_TEXT);
+    await expect(view).not.toContainText('No details recorded');
+  });
+
 });

@@ -112,4 +112,22 @@ test.describe('Fix #594 — dossier target read', () => {
     await expect(snapshot(page)).not.toContainText('Target: Ryan Ambrose');
   });
 
+  // QA top-up: the dossier handles BOTH investigate and attack — cover attack too.
+  test('attack: player-seeded target shows in the dossier', async ({ page }) => {
+    const attackSub = {
+      _id: 'sub-594-atk', cycle_id: 'cycle-594',
+      character_name: 'Einar Test', character_id: 'char-einar', player_name: 'P',
+      submitted_at: '2026-06-05T00:00:00Z',
+      _raw: { projects: [{ action_type: 'attack', title: 'Ambush', desired_outcome: 'Ambush', detail: 'Strike.', primary_pool: { expression: 'Strength 2 + Brawl 2 = 4' } }], feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
+      responses: { project_1_action: 'attack', project_1_title: 'Ambush', project_1_description: 'Strike.', project_1_target_type: 'character', project_1_target_value: 'char-ryan' },
+      projects_resolved: [], feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+    };
+    await setup(page, [attackSub]);
+    await page.waitForSelector('.proc-action-row', { timeout: 8000 });
+    await page.locator('.proc-action-row', { hasText: 'Ambush' }).first().click();
+    await page.waitForSelector('.proc-action-detail .proc-snapshot-panel', { timeout: 8000 });
+    await expect(snapshot(page)).toContainText('Target: Ryan Ambrose');
+    await expect(snapshot(page).locator('.proc-snap-ti-unset')).toHaveCount(0);
+  });
+
 });

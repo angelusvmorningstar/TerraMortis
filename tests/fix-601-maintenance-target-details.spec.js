@@ -143,4 +143,27 @@ test.describe('Feature #601 — maintenance target on Details card', () => {
     await expect(descView(page).locator('.proc-feed-lbl', { hasText: /^Target$/ })).toHaveCount(0);
   });
 
+  // QA top-up: the other maintainable merit (MCI) resolves the same way.
+  test('maintenance MCI resolves to "Mystery Cult Initiation"', async ({ page }) => {
+    const sub = maintenanceSub();
+    sub.responses.project_1_target_value = 'Mystery Cult Initiation_3';
+    await setup(page, [sub]);
+    await openRow(page, 'Maintenance');
+
+    const target = descView(page).locator('.proc-proj-field', { hasText: 'Target' }).first();
+    await expect(target).toContainText('Mystery Cult Initiation');
+    await expect(descView(page)).not.toContainText('Mystery Cult Initiation_3');
+  });
+
+  // QA top-up: a maintenance action with no asset selected -> no stray Target row.
+  test('maintenance with no asset shows no Target row (Description still shows)', async ({ page }) => {
+    const sub = maintenanceSub();
+    sub.responses.project_1_target_value = '';
+    await setup(page, [sub]);
+    await openRow(page, 'Maintenance');
+
+    await expect(descView(page).locator('.proc-feed-lbl', { hasText: /^Target$/ })).toHaveCount(0);
+    await expect(descView(page)).toContainText(MAINT_DESC);
+  });
+
 });
