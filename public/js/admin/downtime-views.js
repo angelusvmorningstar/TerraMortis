@@ -2767,6 +2767,31 @@ function _composeTargetString(resp, prefix, chars) {
 }
 
 /**
+ * Resolve a player-submitted CHARACTER target into typeahead keys (sortName).
+ * Mirrors the `character` branch of _composeTargetString, but returns an array
+ * of sortName(c) keys for seeding the processing target pickers (issue #586).
+ * Returns [] for non-character targets or unresolved/retired ids — the typeahead
+ * is keyed by sortName(c), so display strings / _ids would never match a chip.
+ */
+function _composeTargetCharKeys(resp, prefix, chars) {
+  const tType  = resp[`${prefix}_target_type`]  || '';
+  const tValue = resp[`${prefix}_target_value`] || '';
+  if (tType !== 'character' || !tValue) return [];
+  let ids = [];
+  if (typeof tValue === 'string' && tValue.startsWith('[')) {
+    try { const a = JSON.parse(tValue); if (Array.isArray(a)) ids = a; }
+    catch { ids = []; }
+  } else { ids = [tValue]; }
+  ids = ids.map(String).filter(Boolean);
+  const keys = [];
+  for (const id of ids) {
+    const c = chars.find(ch => String(ch._id) === String(id));
+    if (c && !c.retired) keys.push(sortName(c));
+  }
+  return keys;
+}
+
+/**
  * Aggregate all actions from all submissions into a flat, phase-tagged queue.
  * Each entry: { key, subId, charName, phase, phaseNum, actionType, label, description, source, actionIdx, poolPlayer }
  */
@@ -3043,6 +3068,10 @@ function buildProcessingQueue(subs) {
       // `_composeTargetString` helper defined below; project + sphere
       // both consume it.
       const _projTarget = _composeTargetString(resp, `project_${slot}`, characters);
+      // #586: player character target(s) as sortName keys, for seeding the
+      // processing target picker (investigate/attack/block) when the ST has not
+      // yet touched it. Non-character targets resolve to [] (surfaced via projTarget).
+      const _projTargetCharKeys = _composeTargetCharKeys(resp, `project_${slot}`, characters);
 
       // Issue #219 — investigate-lead chip + multi-row xp_spend breakdown.
       // Form persists `project_${n}_investigate_lead` (free text, populated
@@ -3106,6 +3135,7 @@ function buildProcessingQueue(subs) {
         projMerits:      projMeritsResolved,
         projTerritory:   _projTerritory,
         projTarget:      _projTarget,
+        targetCharKeys:  _projTargetCharKeys,
         projInvestigateLead: _projInvestigateLead,
         projXpBreakdown:      _projXpBreakdown,
         projXpRows:           _projXpRows,
@@ -6983,7 +7013,11 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
   let connH   = '';
 
   if (actionType === 'investigate') {
-    const _invT     = rev.investigate_target_char || '';
+    // #586: ST value wins once touched (present in rev, even when cleared to
+    // null); seed the player's submitted character target only when untouched.
+    const _invT     = ('investigate_target_char' in rev)
+      ? (rev.investigate_target_char || '')
+      : (entry.targetCharKeys?.[0] || '');
     const _invChars = characters
       .filter(c => !c.retired)
       .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
@@ -7020,13 +7054,29 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
     targetH += `</div>`;
     targetH += `</div>`;
   } else if (actionType === 'attack') {
-    const _atkT     = rev.attack_target_char || '';
+    // #586: ST override wins once touched; otherwise seed the player's target.
+    const _atkT     = ('attack_target_char' in rev)
+      ? (rev.attack_target_char || '')
+      : (entry.targetCharKeys?.[0] || '');
     const _atkChars = characters
       .filter(c => !c.retired)
       .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
       .filter(({ key }) => key !== entry.charName.toLowerCase())
       .sort((a, b) => a.key.localeCompare(b.key));
     targetH += _renderCharTypeahead(key, [_atkT], _atkChars, { label: 'Target', saveField: 'attack_target_char', single: true });
+  } else if (actionType === 'block') {
+    // #586: block captures a player target_char in the form but previously
+    // rendered no processing picker at all. Mirror attack: single character
+    // target, ST override wins, otherwise seed the player's submitted target.
+    const _blkT     = ('block_target_char' in rev)
+      ? (rev.block_target_char || '')
+      : (entry.targetCharKeys?.[0] || '');
+    const _blkChars = characters
+      .filter(c => !c.retired)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
+      .filter(({ key }) => key !== entry.charName.toLowerCase())
+      .sort((a, b) => a.key.localeCompare(b.key));
+    targetH += _renderCharTypeahead(key, [_blkT], _blkChars, { label: 'Target', saveField: 'block_target_char', single: true });
   } else if (isSorcery) {
     const _sorcSub   = submissions.find(s => s._id === entry.subId);
     const _tRaw      = normaliseSorceryTargets(_sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`]) || entry.targetsText || '';
@@ -7038,6 +7088,13 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
       .filter(({ key }) => key !== entry.charName.toLowerCase())
       .sort((a, b) => a.key.localeCompare(b.key));
     targetH += _renderCharTypeahead(entry.key, _tSelected, _tChars, { label: 'Targets', saveField: 'sorc_targets' });
+  }
+
+  // #586: a non-character player target (territory / other) can't seed the
+  // character picker — surface it read-only so it is not silently dropped.
+  if (['investigate', 'attack', 'block'].includes(actionType)
+      && entry.projTarget && !(entry.targetCharKeys && entry.targetCharKeys.length)) {
+    targetH += `<div class="proc-mod-row"><span class="proc-mod-label">Submitted target</span> <span class="proc-mod-val proc-mod-muted">${esc(entry.projTarget)}</span></div>`;
   }
 
   if (!isAmbienceMerit && entry.source !== 'feeding') {
