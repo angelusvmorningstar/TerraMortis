@@ -8725,10 +8725,13 @@ function _renderSnapshotTargetIntel(entry) {
   const actionType = entry.actionType;
   if (actionType !== 'investigate' && actionType !== 'attack') return '';
 
-  const rev = getEntryReview(entry);
-  const targetName = actionType === 'investigate'
-    ? (rev?.investigate_target_char || '')
-    : (rev?.attack_target_char || '');
+  const rev = getEntryReview(entry) || {};
+  // #594: mirror #586's override-aware seed — show the player's submitted target
+  // until the ST touches the field (the ('field' in rev) presence check lets an ST
+  // clear win, unlike `||`/`??`). entry.targetCharKeys are sortName keys, the exact
+  // shape the match below expects.
+  const field = actionType === 'investigate' ? 'investigate_target_char' : 'attack_target_char';
+  const targetName = (field in rev) ? (rev[field] || '') : (entry.targetCharKeys?.[0] || '');
 
   if (!targetName) {
     return '<div class="proc-snap-ti-unset">Target not set — select a target above.</div>';
