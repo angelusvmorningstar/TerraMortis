@@ -1,10 +1,10 @@
 /**
- * Feature #599 (player side) — player DT form Vitae Projection shows
- * "Herd (Flock)" + the (+x) portion, and includes the Flock bonus in the total
- * (effectiveDomainDots excludes it).
+ * Fix #609 (player side) — the DT form Vitae Projection Herd total must include the
+ * Secret Society Junkie (SSJ) bonus, matching the ST (domMeritContrib).
+ * effectiveDomainDots excluded it; #609 adds ssjHerdBonus(c) to the total (silently —
+ * no "(SSJ)" label).
  *
- * Mounts the DT form in a sandbox (dt-form-35 pattern) and reads the advanced-mode
- * Vitae Projection rows.
+ * Mounts the DT form in a sandbox (same pattern as dt-form-599-flock-herd.spec.js).
  */
 
 const { test, expect } = require('@playwright/test');
@@ -16,15 +16,15 @@ const PLAYER_USER = {
 };
 
 const ACTIVE_CYCLE = {
-  _id: 'cycle-dt599', status: 'active', label: 'Test Cycle DT599',
+  _id: 'cycle-dt609', status: 'active', label: 'Test Cycle DT609',
   feeding_rights_confirmed: true, is_chapter_finale: false,
   created_at: '2026-05-07T00:00:00.000Z',
 };
 
 function buildChar(merits) {
   return {
-    _id: 'char-001', name: 'Flock Haver', moniker: null, honorific: null,
-    clan: 'Gangrel', covenant: 'Invictus', player: 'Test Player',
+    _id: 'char-001', name: 'SSJ Haver', moniker: null, honorific: null,
+    clan: 'Mekhet', covenant: 'Invictus', player: 'Test Player',
     blood_potency: 2, humanity: 7, humanity_base: 7, court_title: null, retired: false,
     status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
     attributes: {
@@ -37,10 +37,11 @@ function buildChar(merits) {
   };
 }
 
-const HERD = { category: 'domain', name: 'Herd', rating: 2, cp: 2, dots: 2 };
-const FLOCK = { category: 'general', name: 'Flock', rating: 3, cp: 3, dots: 3 };
+const HERD  = { category: 'domain', name: 'Herd', rating: 2, cp: 2, dots: 2 };
+const SSJ   = { category: 'general', name: 'Secret Society Junkie', rating: 1, cp: 1, dots: 1 };
+const MCI3  = { category: 'standing', name: 'Mystery Cult Initiation', rating: 3, cp: 3, dots: 3 };
 
-const PRIOR = { _id: 'sub-dt599', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses: { _feed_method: 'predator', feed_violence: 'kiss' } };
+const PRIOR = { _id: 'sub-dt609', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses: { _feed_method: 'predator', feed_violence: 'kiss' } };
 
 async function setupSuite(page, char) {
   await page.addInitScript((u) => {
@@ -71,37 +72,30 @@ async function openForm(page, char) {
     const mod = await import('/js/tabs/downtime-form.js');
     await mod.renderDowntimeTab(sandbox, c, []);
   }, char);
-  // Vitae Projection lives in the Advanced view.
   await page.waitForSelector('#dt-sandbox [data-dt-mode="advanced"]', { timeout: 10000 });
   await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
-  // The Vitae Projection rows live in a collapsible section; assert on text
-  // content (toContainText reads attached elements regardless of visibility).
   await page.waitForSelector('#dt-sandbox .dt-vitae-row', { state: 'attached', timeout: 10000 });
 }
 
-const herdRow = (page) =>
-  page.locator('#dt-sandbox .dt-vitae-row', { hasText: 'Herd' }).first();
+const herdRow = (page) => page.locator('#dt-sandbox .dt-vitae-row', { hasText: 'Herd' }).first();
 
-test.describe('dt-form #599: Flock Herd in the player Vitae Projection', () => {
+test.describe('dt-form #609: SSJ bonus in the player Herd total', () => {
 
-  test('Flock character shows "Herd (Flock)" with the (+x) portion', async ({ page }) => {
-    const char = buildChar([HERD, FLOCK]);
+  test('SSJ + MCI character: Herd total includes the SSJ bonus', async ({ page }) => {
+    // Herd 2 + SSJ(MCI 3) = 5.
+    const char = buildChar([HERD, SSJ, MCI3]);
     await setupSuite(page, char);
     await openForm(page, char);
-    await expect(herdRow(page)).toContainText('Herd (Flock)');
-    await expect(herdRow(page)).toContainText('(+3)');
-    // #609: total is the true Herd (effectiveDomainDots already includes Flock) — Herd
-    // 2 + Flock 3 = 5. Must NOT be +8 (the #599 double-count this corrects).
     await expect(herdRow(page)).toContainText('+5');
-    await expect(herdRow(page)).not.toContainText('+8');
+    await expect(herdRow(page)).not.toContainText('(SSJ)');  // silent inclusion
   });
 
-  test('character without Flock shows plain "Herd", no "(Flock)"', async ({ page }) => {
+  test('character without SSJ is unchanged', async ({ page }) => {
+    // Herd 2, no SSJ → 2.
     const char = buildChar([HERD]);
     await setupSuite(page, char);
     await openForm(page, char);
-    await expect(herdRow(page)).toContainText('Herd');
-    await expect(herdRow(page)).not.toContainText('(Flock)');
+    await expect(herdRow(page)).toContainText('+2');
   });
 
 });
