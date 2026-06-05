@@ -799,7 +799,13 @@ function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
   const base     = poolValidated.slice(0, eqIdx).trim();
   const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
   const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+  // #590: name cross-skill (IS) specs with their source skill, e.g. "Coward Punch (Stealth)",
+  // mirroring _buildSpecTogglesHtml. Native specs on the selected skill keep just their name.
+  const fromSkillMap = new Map((char ? isSpecs(char) : []).map(({ spec, fromSkill }) => [spec, fromSkill]));
+  const specLabel = activeSpecs.map(sp => {
+    const qualified = fromSkillMap.has(sp) ? `${sp} (${fromSkillMap.get(sp)})` : sp;
+    return `${qualified} +${char && hasAoE(char, sp) ? 2 : 1}`;
+  }).join(', ');
   return `${base} + ${specLabel} = ${tot + specTotal}`;
 }
 
@@ -9075,7 +9081,7 @@ function renderNormalisedCard(entry, review) {
     _bh += _renderRollModeToggle(entry.key, _rollMode0, !!_dis);
     _bh += '</div>';
     _bh += _renderPoolModPanel(entry, char, rev, 'project');
-    _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(_augmentPoolWithSpecs(initTotalStr, rev.active_feed_specs || [], char) || initTotalStr)}</div>`;
     _bh += '</div>'; // proc-pool-builder
   }
 
@@ -9721,7 +9727,7 @@ function renderActionPanel(entry, review) {
       _bh += _renderRollModeToggle(entry.key, _rollModeFeed, !!_feedDis);
       _bh += '</div>'; // proc-pool-chips
       _bh += _renderPoolModPanel(entry, char, rev, 'feeding');
-      _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+      _bh += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(_augmentPoolWithSpecs(initTotalStr, rev.active_feed_specs || [], char) || initTotalStr)}</div>`;
       _bh += '</div>'; // proc-pool-builder
     }
   } else if (entry.source === 'project') {
@@ -9816,7 +9822,7 @@ function renderActionPanel(entry, review) {
     h += _renderRollModeToggle(entry.key, _rollModeProj, !!_projDis);
     h += '</div>'; // proc-pool-chips
     h += _renderPoolModPanel(entry, char, rev, 'project');
-    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(_augmentPoolWithSpecs(initTotalStr, rev.active_feed_specs || [], char) || initTotalStr)}</div>`;
     h += '</div>'; // proc-pool-builder
   } else if (isSorcery) {
     // Pool display moved to right column Dice Pool Builder
