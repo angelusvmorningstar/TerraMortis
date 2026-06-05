@@ -77,11 +77,23 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 #t-dice.active,#t-roll.active,#t-st.active{display:flex;}
 
 /* ── BOTTOM NAV ── */
-#bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px;overscroll-behavior-x:contain;touch-action:pan-x;}
+/* Phone bottom nav (issue #596): +25% size, safe-area-inset reservation, and an
+ * edge-gradient scroll affordance. Affordance is pure CSS (mask-image, option b
+ * in the issue) — no JS, no z-index/pointer-events trap on the nav buttons. The
+ * fade is phone-scoped (≤599px) so the ≥600px flex-start layout doesn't get a
+ * cosmetic fade over its empty right gutter. Safe-area uses the .cr-box pattern
+ * at line 683; on desktop the inset evaluates to 0 so only the 8px buffer adds. */
+#bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px calc(8px + env(safe-area-inset-bottom));overscroll-behavior-x:contain;touch-action:pan-x;}
 @media (min-width: 600px) { #bnav { justify-content: flex-start; } }
+@media (max-width: 599px) {
+  #bnav {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+}
 #bnav::-webkit-scrollbar{display:none;}
-.nbtn{flex:0 0 68px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:4px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;}
-.nbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.nbtn{flex:0 0 85px;min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 5px 15px;gap:5px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;}
+.nbtn svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
 .nbtn:hover{color:var(--txt2);}
 .nbtn-disabled{opacity:.3;cursor:default;pointer-events:none;}
 .nbtn-seasonal{color:var(--crim);}.nbtn-seasonal svg{stroke:var(--crim);}
