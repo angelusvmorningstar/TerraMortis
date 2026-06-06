@@ -183,4 +183,18 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
     await expect(ambRow.locator('.fvt-val')).toHaveText('-4');
   });
 
+  // QA (Quinn): multi-territory — the tally picks the BEST ambience among all declared
+  // feeding territories (computeVitateTally loops + keeps the max). Doubles as a regression
+  // guard on the slug-match fix: pre-fix this returned Barrens; now it must pick Academy (+3).
+  test('QA: best ambience wins across multiple feeding territories', async ({ page }) => {
+    const sub = buildSub({ academy: 'feeding_rights', harbour: 'poaching', dockyards: 'feeding_rights' });
+    const sandbox = await openFeedingTabSandbox(page, sub);
+
+    await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
+    await expect(sandbox.locator('.fvt-card')).toContainText('Academy'); // best of +3 / -2 / 0
+    await expect(sandbox.locator('.fvt-card')).not.toContainText('Barrens');
+    const ambRowBest = sandbox.locator('.fvt-card .fvt-row', { hasText: 'Academy' });
+    await expect(ambRowBest.locator('.fvt-val')).toHaveText('+3');
+  });
+
 });

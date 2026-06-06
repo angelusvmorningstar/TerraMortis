@@ -94,7 +94,8 @@ claude-opus-4-8
 REAL PRODUCT BUG: `computeVitateTally` matches feeding territories on `t._id`, but `TERRITORY_DATA` entries have `slug` (no `_id`, ADR-002), so the match always fails → ambience always Barrens −4 for every feeding character. The form writes slug keys (`slugFromGrid` / `data-terr-val=t.slug`). Fix = match on `t.slug`. The spec is separately stale (`the_academy` vs `academy` slugs) and must be corrected too.
 
 ### Debug Log References
-- `npx playwright test tests/fix-477-vitae-tally-status-filter.spec.js` → **5 passed**.
+- `npx playwright test tests/fix-477-vitae-tally-status-filter.spec.js` → **6 passed** (5 ACs + 1 QA guard).
+- **QA sign-off (Quinn):** +1 multi-territory test — the tally picks the BEST ambience across several declared feeding territories (academy +3 / harbour −2 / dockyards 0 → Academy +3). Exercises the loop + max-selection + slug-match across multiple entries; doubles as a regression guard (pre-fix → Barrens). Green first run.
 - Regression: `fix-473-feeding-custom-pool-blank` + `feat-16-17-fix44-tracker-feeding` → **38 passed / 3 skipped (#627 fixme) / 0 failed** (incl. feat-16-17:958 "vitae tally uses live territory ambience").
 
 ### Completion Notes List
