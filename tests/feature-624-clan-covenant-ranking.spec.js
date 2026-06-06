@@ -7,6 +7,7 @@
  */
 
 const { test, expect } = require('@playwright/test');
+const { bootApp, goToTab } = require('./helpers/unified-app.js');
 
 const PLAYER_USER = {
   id: '900', username: 'voter_player', global_name: 'Voter Player',
@@ -29,7 +30,7 @@ function mkChar(id, name, clan, covenant, covStatus = {}) {
       Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
       Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
     },
-    skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
+    skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [], // array per schema — unified app renders sheet on boot
   };
 }
 
@@ -48,30 +49,23 @@ function statusProjection(c) {
 
 async function setup(page, user, { mine = null, aggregate = null } = {}) {
   let lastPut = null;
-  await page.addInitScript((u) => {
-    localStorage.setItem('tm_auth_token', 'fake-test-token');
-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
-    localStorage.setItem('tm_auth_user', JSON.stringify(u));
-  }, user);
-
-  await page.route('**/api/auth/me', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) }));
-  await page.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([VOTER]) }));
-  await page.route('**/api/characters/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(statusProjection)) }));
-  await page.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(c => ({ _id: c._id, name: c.name }))) }));
-  await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
-  for (const p of ['downtime_submissions', 'game_sessions', 'ordeal-responses', 'tracker_state', 'territories', 'session_logs']) {
-    await page.route(`**/api/${p}*`, r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  }
-  await page.route('**/api/ranking_ballots/mine*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mine) }));
-  await page.route('**/api/ranking_ballots/aggregate*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(aggregate || { clan_points: {}, covenant_points: {} }) }));
-  await page.route(/\/api\/ranking_ballots$/, r => {
-    lastPut = JSON.parse(r.request().postData() || '{}');
-    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  // Unified app via the shared harness (#625/#626): catch-all + auth + goto '/' + wait #app.
+  // Spec-specific mocks go in `routes` (they win over the catch-all).
+  await bootApp(page, user, {
+    routes: async (p) => {
+      await p.route(/\/api\/characters$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([VOTER]) }));
+      await p.route('**/api/characters/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(statusProjection)) }));
+      await p.route('**/api/characters/names', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ALL.map(c => ({ _id: c._id, name: c.name }))) }));
+      await p.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
+      await p.route('**/api/ranking_ballots/mine*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mine) }));
+      await p.route('**/api/ranking_ballots/aggregate*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(aggregate || { clan_points: {}, covenant_points: {} }) }));
+      await p.route(/\/api\/ranking_ballots$/, r => {
+        lastPut = JSON.parse(r.request().postData() || '{}');
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+      });
+    },
   });
-
-  await page.goto('/player.html');
-  await page.waitForSelector('#player-app:not([style*="display: none"])', { timeout: 15000 });
-  await page.click('.sidebar-btn[data-tab="status"]');
+  await goToTab(page, 'status');
   return () => lastPut;
 }
 

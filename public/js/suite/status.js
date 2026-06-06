@@ -17,6 +17,7 @@ import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
 import suiteState, { CITY_SVG, OTHER_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
 import { resolveActiveChar, covenantListFor, covenantRowsFor, clanRowsFor } from '../data/status-data.js';
+import { appendRankingSection } from '../tabs/status-ranking.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
 let _statusTabEl  = null;   // stored for re-renders after edits
@@ -376,4 +377,7 @@ export async function renderSuiteStatusTab(el) {
       });
     });
   }
+
+  // #624: clan/covenant ranking (player ballot / ST aggregate) — shared with tabs/status-tab.js
+  await appendRankingSection(el, { chars, activeChar, isST });
 }
