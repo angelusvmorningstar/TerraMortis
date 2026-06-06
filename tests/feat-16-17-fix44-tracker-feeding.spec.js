@@ -101,11 +101,12 @@ const FEED_CHAR = {
 };
 
 const LIVE_TERRITORIES = [
-  { _id: 'terr-ac',  id: 'academy',    name: 'The Academy',    ambience: 'Verdant',  ambienceMod: 4, regent_id: null },
-  { _id: 'terr-dk',  id: 'dockyards',  name: 'The Dockyards',  ambience: 'Tended',   ambienceMod: 2, regent_id: null },
-  { _id: 'terr-hb',  id: 'harbour',    name: 'The Harbour',    ambience: 'Neglected',ambienceMod: -3, regent_id: null },
-  { _id: 'terr-ns',  id: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: 2, regent_id: null },
-  { _id: 'terr-sc',  id: 'secondcity', name: 'The Second City', ambience: 'Curated', ambienceMod: 3, regent_id: null },
+  // #627: live territory docs carry `slug` (production resolves them via _terrDoc = find(d => d.slug === terrId)).
+  { _id: 'terr-ac',  id: 'academy',    slug: 'academy',    name: 'The Academy',    ambience: 'Verdant',  ambienceMod: 4, regent_id: null },
+  { _id: 'terr-dk',  id: 'dockyards',  slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Tended',   ambienceMod: 2, regent_id: null },
+  { _id: 'terr-hb',  id: 'harbour',    slug: 'harbour',    name: 'The Harbour',    ambience: 'Neglected',ambienceMod: -3, regent_id: null },
+  { _id: 'terr-ns',  id: 'northshore', slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: 2, regent_id: null },
+  { _id: 'terr-sc',  id: 'secondcity', slug: 'secondcity', name: 'The Second City', ambience: 'Curated', ambienceMod: 3, regent_id: null },
 ];
 
 // ── Setup helpers ─────────────────────────────────────────────────────────────
@@ -916,13 +917,10 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(opts).toContain('The Rack');
   });
 
-  // #626 NOTE: the three admin-side City-tab ambience tests below are PRE-EXISTING failures
-  // unrelated to the player-portal→unified migration (they use setupAdmin/admin.html, which the
-  // unification did not touch; the sibling 'dropdown includes The Rack' test on the same setup
-  // passes). They assert the live ambience is pre-selected / a PUT fires on change — admin City-tab
-  // behaviour that has drifted. Quarantined (test.fixme) and escalated for separate investigation,
-  // NOT silently deleted (AC5). Re-enable when the admin City ambience flow is fixed.
-  test.fixme('live territory ambience is reflected in select (pre-selected value)', async ({ page }) => {
+  // #627: restored. The admin City ambience flow is correct; the spec just needed (1) `slug` on the
+  // live mock docs (production resolves them via _terrDoc = find(d => d.slug === terrId)), and (2) the
+  // save tests must click the explicit "Save Ambience" button — ambience is NOT auto-saved on change.
+  test('live territory ambience is reflected in select (pre-selected value)', async ({ page }) => {
     // LIVE_TERRITORIES has academy = 'Verdant'
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await openCityTabWithTerritory(page, 'academy');
@@ -934,7 +932,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(val).toBe('Verdant');
   });
 
-  test.fixme('changing ambience fires a PUT to territories API', async ({ page }) => { // #626: pre-existing admin City-tab drift (see note above)
+  test('changing ambience + Save fires a write to territories API', async ({ page }) => {
     let putCalled = false;
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await page.route('**/api/territories*', route => {
@@ -950,6 +948,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     const academySel = page.locator('.terr-amb-level-sel[data-terr-id="academy"]');
     await expect(academySel).toBeVisible({ timeout: 5000 });
     await academySel.selectOption('Tended');
+    await page.locator('[data-terr-amb-save="academy"]').click(); // explicit Save Ambience button
     await page.waitForTimeout(500);
 
     expect(putCalled).toBe(true);
@@ -990,7 +989,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(html.length).toBeGreaterThan(10);
   });
 
-  test.fixme('ambience save shows feedback (auto-save on change)', async ({ page }) => { // #626: pre-existing admin City-tab drift (see note above)
+  test('ambience save fires a write when the Save button is clicked', async ({ page }) => {
     let putCalled = false;
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await page.route('**/api/territories*', route => {
@@ -1006,9 +1005,9 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     const dockyardsSel = page.locator('.terr-amb-level-sel[data-terr-id="dockyards"]');
     await expect(dockyardsSel).toBeVisible({ timeout: 5000 });
     await dockyardsSel.selectOption('Curated');
+    await page.locator('[data-terr-amb-save="dockyards"]').click(); // explicit Save Ambience button
     await page.waitForTimeout(600);
 
-    // Auto-save should have fired
     expect(putCalled).toBe(true);
   });
 
