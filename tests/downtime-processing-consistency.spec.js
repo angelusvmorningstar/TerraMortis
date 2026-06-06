@@ -339,47 +339,33 @@ test.describe('B2 — Sorcery selectors', () => {
     await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="resolve_first"]')).toBeVisible({ timeout: 8000 });
   });
 
-  // DEFERRED (fix.614 out-of-scope): pre-existing product drift, NOT flat-wall #581.
-  // The sorcery edit panel no longer renders .proc-sorc-*-sel as the test expects.
-  // Tracked for a follow-up issue (DT processing consistency spec drift).
-  test.fixme('tradition selector is a select element with Cruac and Theban Sorcery options', async ({ page }) => {
+  // fix.617 (Angelus ruling): the sorcery panel was consolidated — tradition is no longer a
+  // separate selector; Cruac/Theban appear as <optgroup>s inside the single Rite <select>.
+  // The per-tradition options can't be asserted in this harness (rites reference data isn't
+  // mocked, so _allRites is empty → no optgroups), so that assertion is retired; the rite
+  // dropdown itself is covered by the next test.
+  // fix.617: the rite selector is now .proc-rite-select (was .proc-sorc-rite-sel).
+  test('rite selector is a select element', async ({ page }) => {
     await setup(page, [makeSorcSubmission()]);
     await openActionInPhase(page, 'resolve_first');
 
     const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const tradSel = card.locator('.proc-sorc-tradition-sel');
-    await expect(tradSel).toBeVisible({ timeout: 5000 });
-
-    const options = await tradSel.locator('option').allTextContents();
-    expect(options).toContain('Cruac');
-    expect(options).toContain('Theban Sorcery');
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('rite selector is a select element', async ({ page }) => {
-    await setup(page, [makeSorcSubmission()]);
-    await openActionInPhase(page, 'resolve_first');
-
-    const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const riteSel = card.locator('.proc-sorc-rite-sel');
+    const riteSel = card.locator('.proc-rite-select');
     await expect(riteSel).toBeVisible({ timeout: 5000 });
     const tagName = await riteSel.evaluate(el => el.tagName.toLowerCase());
     expect(tagName).toBe('select');
   });
 
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('targets field is a multi-select', async ({ page }) => {
+  // fix.617: sorcery targets now use the unified Connected-Characters typeahead picker
+  // (.proc-conn-typeahead / .proc-conn-input), not a multi-select.
+  test('targets use the Connected Characters picker', async ({ page }) => {
     await setup(page, [makeSorcSubmission()]);
     await openActionInPhase(page, 'resolve_first');
 
     const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const targetsSel = card.locator('.proc-sorc-targets-sel');
-    await expect(targetsSel).toBeVisible({ timeout: 5000 });
-    const isMultiple = await targetsSel.evaluate(el => el.multiple);
-    expect(isMultiple).toBe(true);
+    const picker = card.locator('.proc-conn-typeahead').first();
+    await expect(picker).toBeVisible({ timeout: 5000 });
+    await expect(picker.locator('.proc-conn-input')).toBeVisible();
   });
 
 });
@@ -410,17 +396,15 @@ test.describe('B3 — Contacts info-type selector', () => {
     expect(options).toContain('Restricted');
   });
 
-  // DEFERRED (fix.614 out-of-scope): the "Subject" field was renamed to "Target"
-  // (.proc-contacts-subject-input → .proc-contacts-target-input) in the DTQ epic (dd1ce56f),
-  // unrelated to flat-wall #581. Tracked for a follow-up issue.
-  test.fixme('subject field is a text input', async ({ page }) => {
+  // fix.617: the "Subject" field was renamed to "Target" (.proc-contacts-target-input).
+  test('target field is a text input', async ({ page }) => {
     await setup(page, [makeContactsSubmission()]);
     await openActionInPhase(page, 'contacts');
 
     const card = page.locator('.proc-action-detail').first();
-    const subjectInput = card.locator('.proc-contacts-subject-input');
-    await expect(subjectInput).toBeVisible({ timeout: 5000 });
-    const tagName = await subjectInput.evaluate(el => el.tagName.toLowerCase());
+    const targetInput = card.locator('.proc-contacts-target-input');
+    await expect(targetInput).toBeVisible({ timeout: 5000 });
+    const tagName = await targetInput.evaluate(el => el.tagName.toLowerCase());
     expect(tagName).toBe('input');
   });
 
@@ -571,104 +555,24 @@ test.describe('C4 — Block resolution display', () => {
     await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="misc"]')).toBeVisible({ timeout: 8000 });
   });
 
-  // DEFERRED (fix.614 out-of-scope): block actions now render via the auto/rolled branch,
-  // not the actionType==='block' "Block Resolution" panel, so .proc-block-* and the
-  // "Auto-blocks" label are absent. Product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('block panel shows Auto-blocks label', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block')]);
-    await openActionInPhase(page, 'misc');
-
-    const card = page.locator('.proc-action-detail').first();
-    await expect(card).toContainText('Auto-blocks', { timeout: 5000 });
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('Confirm Block button is visible when not yet confirmed', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'pending' })]);
-    await openActionInPhase(page, 'misc');
-
-    const card = page.locator('.proc-action-detail').first();
-    const confirmBtn = card.locator('.proc-block-confirm-btn');
-    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-    await expect(confirmBtn).toContainText('Confirm Block');
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('block confirmed state shows tick instead of button when pool_status is no_roll', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'no_roll' })]);
-    await openActionInPhase(page, 'misc');
-
-    const card = page.locator('.proc-action-detail').first();
-    // Confirm Block button should NOT be visible
-    await expect(card.locator('.proc-block-confirm-btn')).toHaveCount(0);
-    // Confirmed tick text should be visible
-    await expect(card).toContainText('Block confirmed', { timeout: 5000 });
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('clicking Confirm Block triggers a PATCH save', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'pending' })]);
-
-    // Register PUT/PATCH intercept AFTER setup so it takes priority (Playwright LIFO routing)
-    // updateSubmission uses PUT via apiPut
-    let patchCalled = false;
-    await page.route('**/api/downtime_submissions/**', route => {
-      if (['PATCH', 'PUT'].includes(route.request().method())) {
-        patchCalled = true;
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
-      } else {
-        route.continue();
-      }
-    });
-
-    await openActionInPhase(page, 'misc');
-
-    const card = page.locator('.proc-action-detail').first();
-    await card.locator('.proc-block-confirm-btn').click();
-    await page.waitForTimeout(500);
-    expect(patchCalled).toBe(true);
-  });
+  // fix.617 (Angelus ruling): the explicit "Confirm Block" step was intentionally removed —
+  // blocks now auto-resolve and render as an automatic effect. The former tests for the
+  // Block Resolution panel / Confirm Block button / "Auto-blocks" label / PATCH-on-confirm
+  // are retired. Follow-up product issue (separate): a player block must surface in relevant
+  // cross-reference intelligence, with STs always able to override.
 
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  E2 — Committed pool status
+//  E2 — Block has no pool builder (Committed pool-status state removed — fix.617)
 // ══════════════════════════════════════════════════════════════════════════════
+//
+// fix.617 (Angelus ruling): the "Committed" pool-status state (badge, Committed button,
+// locked pool builder, committed row chip) was intentionally removed from DT processing.
+// Every test asserting that surface is retired. The one durable behaviour kept is that an
+// auto action (block) has no pool builder.
 
-test.describe('E2 — Committed pool status — button presence', () => {
-
-  // DEFERRED (fix.614 out-of-scope): the committed-status buttons (.proc-val-btn[data-status="committed"])
-  // are not present in the right panel as the test expects. Product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('project panel status buttons include Committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission()]);
-    await openActionInPhase(page, 'misc');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-    await expect(committedBtn).toContainText('Committed');
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('sorcery panel status buttons include Committed', async ({ page }) => {
-    await setup(page, [makeSorcSubmission()]);
-    await openActionInPhase(page, 'resolve_first');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  // DEFERRED (fix.614 out-of-scope): product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('merit (rolled) panel status buttons include Committed', async ({ page }) => {
-    // patrol_scout uses dots2plus2 formula — it has a roll card and a pool
-    await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await openActionInPhase(page, 'patrol');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
+test.describe('E2 — Block has no pool builder', () => {
 
   test('block panel (no roll) does NOT have a pool builder', async ({ page }) => {
     // block uses mode: auto, poolFormula: none — right panel shows block resolution, not pool builder
@@ -678,88 +582,6 @@ test.describe('E2 — Committed pool status — button presence', () => {
     const leftCol = page.locator('.proc-feed-left').first();
     // No pool builder should be present for a block entry
     await expect(leftCol.locator('.proc-pool-builder')).toHaveCount(0);
-  });
-
-});
-
-// DEFERRED (fix.614 out-of-scope): the entire committed-pool-locking feature surface
-// (.proc-pool-builder [Committed] badge / disabled selects, .proc-val-btn.active.committed,
-// .proc-feed-mod-panel.proc-pool-committed) has drifted from these assertions. This is
-// product evolution unrelated to flat-wall #581. Tracked for a follow-up issue.
-test.describe.fixme('E2 — Committed pool status — pool builder locked', () => {
-
-  test('project pool builder selects are disabled when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openActionInPhase(page, 'misc');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toBeVisible({ timeout: 5000 });
-
-    // All selects within the builder should be disabled
-    const selects = builder.locator('select');
-    const count = await selects.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(selects.nth(i)).toBeDisabled();
-    }
-  });
-
-  test('[Committed] badge appears on pool builder heading when committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openActionInPhase(page, 'misc');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toContainText('[Committed]', { timeout: 5000 });
-  });
-
-  test('project pool builder selects are enabled when pool_status is pending', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'pending' })]);
-    await openActionInPhase(page, 'misc');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toBeVisible({ timeout: 5000 });
-
-    const selects = builder.locator('select');
-    const count = await selects.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(selects.nth(i)).toBeEnabled();
-    }
-  });
-
-  test('committed button shows as active when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openActionInPhase(page, 'misc');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn.active.committed');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  test('sorcery modifier panel has committed class when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeSorcSubmission({ pool_status: 'committed' })]);
-    await openActionInPhase(page, 'resolve_first');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const modPanel = rightPanel.locator('.proc-feed-mod-panel.proc-pool-committed');
-    await expect(modPanel).toBeVisible({ timeout: 5000 });
-  });
-
-});
-
-test.describe('E2 — Committed pool status — not counted as done', () => {
-
-  test('committed entry does not count toward done in phase header', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-
-    // Flat-wall (#581) removed per-phase done-count badges from the static phase header;
-    // the committed-vs-done distinction is now covered by the "committed button shows as active"
-    // and "pool builder selects are disabled when committed" tests in this describe block.
-    // Verify the submission lands in the misc phase (grow action → misc) without error.
-    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="misc"]')).toBeVisible({ timeout: 8000 });
   });
 
 });

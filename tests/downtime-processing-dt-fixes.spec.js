@@ -361,129 +361,45 @@ async function openFirstAction(page, phaseLabel) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DEFERRED (fix.614 out-of-scope): a number of tests below are marked test.fixme.
-// They assert on DT-processing FEATURES that have drifted since this spec was written
-// — committed-status styling/badges, character-target radio/checkbox selectors,
-// "Second Opinion" button relocation, cross-reference callouts, contested roll (#608),
-// ST-created sorcery panel, and notes/feedback hierarchy. The flat-wall navigation
-// (#581/#585) conversion for these tests is correct — the right action cards open —
-// but the asserted feature selectors moved/renamed in unrelated product work. This is
-// product drift, NOT flat-wall breakage; tracked for a follow-up issue.
+// fix.617 (#617): the tests below were re-aligned to the current DT-processing DOM after
+// Angelus ruled per cluster (all intended redesigns, no regressions). Removed-feature tests
+// (committed-status styling, Roll-on-committed, Second Opinion) are retired; redesigned-panel
+// tests (character-target picker, sorcery panel, secrecy/lead) are rewritten to current markup.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── DT-Fix-17: Committed chip amber + ST attribution ───────────────────────────
-
-test.describe('DT-Fix-17: Committed status styling and attribution', () => {
-
-  test.fixme('queue row with committed status has proc-row-status.committed class', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    // Flat wall (#581): activate the Ambience filter pill so its queue rows render.
-    await page.waitForSelector('.proc-action-row', { timeout: 8000 });
-    await page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="ambience"]').first().click();
-    await page.waitForTimeout(300);
-
-    const committedBadge = page.locator('.proc-row-status.committed').first();
-    await expect(committedBadge).toBeVisible({ timeout: 5000 });
-  });
-
-  test.fixme('committed pool badge renders when pool_status is committed', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    // The committed pool badge in the right panel should be visible
-    const committedBadge = page.locator('.proc-pool-committed-badge').first();
-    await expect(committedBadge).toBeVisible({ timeout: 5000 });
-  });
-
-  test.fixme('committed pool badge shows[Committed] label', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    // Badge text is '[Committed]'; the ST name appears in the queue-row validator chip, not here
-    const committedBadge = page.locator('.proc-pool-committed-badge').first();
-    await expect(committedBadge).toContainText('Committed');
-  });
-
-  test.fixme('queue row validator label shows committed-by name (not only validated-by)', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    // Flat wall (#581): activate the Ambience filter pill so its queue rows render.
-    await page.waitForSelector('.proc-action-row', { timeout: 8000 });
-    await page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="ambience"]').first().click();
-    await page.waitForTimeout(300);
-
-    const attrChip = page.locator('.proc-row-validator').first();
-    await expect(attrChip).toContainText('Test ST');
-  });
-
-});
+// ── DT-Fix-17: Committed status — RETIRED (committed pool-status state removed, fix.617) ──
 
 // ── DT-Fix-19: Character selectors ────────────────────────────────────────────
 
-test.describe('DT-Fix-19: Character selectors', () => {
+test.describe('DT-Fix-19: Character target picker', () => {
 
-  test.fixme('investigate target renders as radio list, not a dropdown', async ({ page }) => {
+  // fix.617 (Angelus ruling): character targets (investigate + sorcery) now use the unified
+  // Connected-Characters typeahead picker (.proc-conn-typeahead / .proc-conn-input), not
+  // radio/checkbox lists. The old static-list content assertions (which characters appear) are
+  // retired — the picker is a dynamic typeahead, and its character source is covered elsewhere.
+
+  test('investigate target uses the Connected Characters picker (not a radio/select list)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
-    // investigate → phase 'Step 5 — Investigative'
     await openFirstAction(page, 'Investigative');
 
-    const radioInputs = page.locator('.proc-inv-target-radio');
-    await expect(radioInputs.first()).toBeVisible({ timeout: 5000 });
-
-    // No <select class="proc-inv-char-sel"> should exist (replaced by radios)
+    const panel = page.locator('.proc-action-detail').first();
+    await expect(panel.locator('.proc-conn-typeahead').first()).toBeVisible({ timeout: 5000 });
+    await expect(panel.locator('.proc-conn-input').first()).toBeVisible();
+    // Old radio/select target controls should be gone
+    await expect(page.locator('.proc-inv-target-radio')).toHaveCount(0);
     await expect(page.locator('.proc-inv-char-sel')).toHaveCount(0);
   });
 
-  test.fixme('investigate target radio list contains all non-retired characters', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
-    await openFirstAction(page, 'Investigative');
-
-    const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).toContainText('Charlie Test');
-    await expect(panel).toContainText('Non Submitter');
-  });
-
-  test('investigate target radio list does NOT contain retired characters', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
-    await openFirstAction(page, 'Investigative');
-
-    const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).not.toContainText('Retired One');
-  });
-
-  test.fixme('sorcery targets render as checkboxes, not a dropdown', async ({ page }) => {
+  test('sorcery targets use the Connected Characters picker (not a checkbox/multi-select)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_SORCERY]);
-    // resolve_first → 'Step 1 — Blood Sorcery & Rituals' (matches 'Sorcery')
     await openFirstAction(page, 'Sorcery');
-    // Checkboxes live in the edit mode section; click Edit to reveal them
-    await page.locator('.proc-feed-desc-edit-btn').first().click();
-    await page.waitForTimeout(300);
 
-    const checkboxes = page.locator('.proc-sorc-target-chk');
-    await expect(checkboxes.first()).toBeVisible({ timeout: 5000 });
-
-    // No <select multiple> for targets
+    const panel = page.locator('.proc-action-detail').first();
+    await expect(panel.locator('.proc-conn-typeahead').first()).toBeVisible({ timeout: 5000 });
+    await expect(panel.locator('.proc-conn-input').first()).toBeVisible();
+    // Old checkbox/multi-select target controls should be gone
+    await expect(page.locator('.proc-sorc-target-chk')).toHaveCount(0);
     await expect(page.locator('.proc-sorc-targets-sel[multiple]')).toHaveCount(0);
-  });
-
-  test.fixme('sorcery targets checkbox list contains all non-retired characters', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_SORCERY]);
-    await openFirstAction(page, 'Sorcery');
-    await page.locator('.proc-feed-desc-edit-btn').first().click();
-    await page.waitForTimeout(300);
-
-    const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).toContainText('Charlie Test');
-    await expect(panel).toContainText('Non Submitter');
-  });
-
-  test('sorcery targets checkbox list does NOT contain retired characters', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_SORCERY]);
-    await openFirstAction(page, 'Sorcery');
-    await page.locator('.proc-feed-desc-edit-btn').first().click();
-    await page.waitForTimeout(300);
-
-    const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).not.toContainText('Retired One');
   });
 
 });
@@ -556,23 +472,11 @@ test.describe('DT-Fix-21: Territory pills on project-based Investigate', () => {
 
 // ── DT-Fix-22: Roll button unlocks on Committed ───────────────────────────────
 
-test.describe('DT-Fix-22: Roll button available on Committed status', () => {
+test.describe('DT-Fix-22: Roll button availability', () => {
 
-  test.fixme('Roll button renders when pool_status is committed', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    const rollBtn = page.locator('.proc-proj-roll-btn').first();
-    await expect(rollBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  test.fixme('Roll button is labelled ROLL when no prior roll exists', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    const rollBtn = page.locator('.proc-proj-roll-btn').first();
-    await expect(rollBtn).toContainText('Roll');
-  });
+  // fix.617 (Angelus ruling): the "Committed" pool-status state was removed, so the two
+  // Roll-on-committed tests are retired. Roll-button presence is covered by the pending +
+  // validated cases below (feature.96: Roll no longer requires Committed first).
 
   test('Roll button IS visible when pool_status is pending (feature.96: no longer requires Committed first)', async ({ page }) => {
     // feature.96 made Roll visible from pending — this test was previously asserting absence
@@ -646,18 +550,20 @@ test.describe('DT-Fix-23: Merit automatic successes, no dice pool', () => {
     await expect(autoPanel).toContainText('3');
   });
 
-  test.fixme('merit investigate automatic successes panel does NOT have Target Secrecy selector (moved to project panel)', async ({ page }) => {
+  // fix.617 (Angelus ruling): Secrecy + Lead now appear on merit investigate too (the
+  // project-only distinction was intentionally dropped) — so these flip from absent to present.
+  test('merit investigate shows the Target Secrecy selector', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    await expect(page.locator('.proc-inv-secrecy-sel')).toHaveCount(0);
+    await expect(page.locator('.proc-inv-secrecy-sel').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.fixme('merit investigate automatic successes panel does NOT have Lead toggle buttons (moved to project panel)', async ({ page }) => {
+  test('merit investigate shows the Lead toggle buttons', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    await expect(page.locator('.proc-inv-lead-btn')).toHaveCount(0);
+    await expect(page.locator('.proc-inv-lead-btn').first()).toBeVisible({ timeout: 5000 });
   });
 
 });
@@ -711,46 +617,9 @@ test.describe('DT-Fix-24: Sorcery rite blob pre-populates Notes', () => {
 
 });
 
-// ── DT-Fix-25: Second Opinion button in sidebar ───────────────────────────────
-
-test.describe('DT-Fix-25: Second Opinion button location', () => {
-
-  test('Second Opinion button is NOT in the left panel (proc-feed-left)', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    const leftPanel = page.locator('.proc-feed-left').first();
-    await expect(leftPanel.locator('.proc-second-opinion-btn')).toHaveCount(0);
-  });
-
-  test.fixme('Second Opinion button IS present in the right panel status section', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
-    await openFirstAction(page, 'Ambience');
-
-    // The button should be somewhere in the right panel
-    const rightPanel = page.locator('.proc-feed-right, .proc-right-panel').first();
-    const secondOpinionBtn = rightPanel.locator('.proc-second-opinion-btn');
-    await expect(secondOpinionBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  test.fixme('Second Opinion button is present on feeding action right panel', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_NO_TERR]);
-    await openFirstAction(page, 'Feeding');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    await expect(rightPanel.locator('.proc-second-opinion-btn')).toBeVisible({ timeout: 5000 });
-  });
-
-  test.fixme('Second Opinion button is present on merit action right panel', async ({ page }) => {
-    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
-    // allies merit → phase 'Step 5 — Investigative'
-    await openFirstAction(page, 'Investigative');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    await expect(rightPanel.locator('.proc-second-opinion-btn')).toBeVisible({ timeout: 5000 });
-  });
-
-});
+// ── DT-Fix-25: Second Opinion button — RETIRED (button removed, fix.617) ──
+// fix.617 (Angelus ruling): the "Second Opinion" button was intentionally removed from the
+// action cards. All four tests (presence/location) are retired.
 
 // ── DTQ-1: Rote feed project renders in Feed phase ────────────────────────────
 
@@ -890,20 +759,21 @@ test.describe('DTQ-3: Lead ticker on project investigate, not merit investigate'
     await expect(rightPanel).toContainText('Investigation');
   });
 
-  test.fixme('merit investigate right panel does NOT show Lead / No Lead buttons', async ({ page }) => {
+  // fix.617 (Angelus ruling): Lead/Secrecy now appear on merit investigate too — flip to present.
+  test('merit investigate right panel shows Lead / No Lead buttons', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
     const rightPanel = page.locator('.proc-feed-right').first();
-    await expect(rightPanel.locator('.proc-inv-lead-btns')).toHaveCount(0);
+    await expect(rightPanel.locator('.proc-inv-lead-btns')).toBeVisible({ timeout: 5000 });
   });
 
-  test.fixme('merit investigate right panel does NOT show Target Secrecy selector', async ({ page }) => {
+  test('merit investigate right panel shows Target Secrecy selector', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
     const rightPanel = page.locator('.proc-feed-right').first();
-    await expect(rightPanel.locator('.proc-inv-secrecy-sel')).toHaveCount(0);
+    await expect(rightPanel.locator('.proc-inv-secrecy-sel')).toBeVisible({ timeout: 5000 });
   });
 
 });
