@@ -93,6 +93,7 @@ TEST DRIFT (product correct). (1) `LIVE_TERRITORIES` mock docs lack `slug`, but 
 - **Task 3 — done.** Removed the 3 `test.fixme` markers + the `#626` quarantine note; replaced with a one-line `#627` note explaining the mock-slug + save-button reality.
 - **Task 4 — done.** feat-16-17 fully green; no other test regressed.
 - **AC1-AC5 ✅.** TEST-ONLY — `city-views.js` untouched (the admin City ambience flow was already correct; the tests had drifted).
+- **QA pass (Quinn):** tried to add a "Saved" feedback assertion → it can't pass: the handler sets `status.textContent = 'Saved'` then immediately `patchTerritories()` re-renders the span empty (city-views.js:706-707), so the feedback is never visible. That's a genuine (cosmetic) product micro-bug — escalated as **#634**, not fixed here (test-only). Left a breadcrumb comment at the dockyards save test; kept the POST assertion.
 
 ### File List
 - tests/feat-16-17-fix44-tracker-feeding.spec.js (LIVE_TERRITORIES `slug`; 3 tests un-fixme'd + Save-button clicks)

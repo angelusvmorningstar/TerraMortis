@@ -1006,6 +1006,8 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     await expect(dockyardsSel).toBeVisible({ timeout: 5000 });
     await dockyardsSel.selectOption('Curated');
     await page.locator('[data-terr-amb-save="dockyards"]').click(); // explicit Save Ambience button
+    // NB: the "Saved" feedback (city-views.js:706) is wiped immediately by patchTerritories (:707),
+    // so it's not observable — tracked separately. We assert the write fired.
     await page.waitForTimeout(600);
 
     expect(putCalled).toBe(true);
