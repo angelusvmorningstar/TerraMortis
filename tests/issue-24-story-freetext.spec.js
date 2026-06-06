@@ -121,54 +121,47 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(select).toHaveCount(0);
   });
 
-  // #626/#628: the 5 tests below assert the PRE-dt-form.18 personal_story design
-  // (#dt-personal_story_npc_name_free + #dt-personal_story_note + a visible→hidden sync).
-  // dt-form.18 redesigned it to #dt-personal_story_npc_name / #dt-personal_story_text /
-  // a kind radio, used directly (downtime-form.js:2709). Per the fix.617 rule (escalate
-  // redesigns, don't bulk-rewrite to mask them), these are quarantined and tracked in #628.
-  // The "no relationship dropdown" test above still holds and stays green.
-  test.fixme('Story section has a free-text NPC name input', async ({ page }) => {
+  // #628: restored for the dt-form.18 personal_story design — `kind` radio +
+  // #dt-personal_story_npc_name (text, metadata-only) + #dt-personal_story_text (textarea).
+  // The section's complete-tick gate (_hasPersonalStory) is `kind && text`. The old
+  // #dt-personal_story_npc_name_free + #dt-personal_story_note + visible→hidden sync are gone.
+  test('Story section has a free-text NPC name input', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    const nameInput = page.locator('#dt-personal_story_npc_name_free');
+    const nameInput = page.locator('#dt-personal_story_npc_name');
     await expect(nameInput).toBeVisible();
     await expect(nameInput).toHaveAttribute('type', 'text');
   });
 
-  test.fixme('Story section has an interaction note textarea', async ({ page }) => { // #628: dt-form.18 redesign
+  test('Story section has an interaction note textarea', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    const noteArea = page.locator('#dt-personal_story_note');
+    const noteArea = page.locator('#dt-personal_story_text');
     await expect(noteArea).toBeVisible();
   });
 
-  test.fixme('typing an NPC name syncs to the hidden personal_story_npc_name field', async ({ page }) => { // #628: sync removed by dt-form.18
+  // #628: RETIRED — 'typing an NPC name syncs to the hidden personal_story_npc_name field'.
+  // dt-form.18 uses #dt-personal_story_npc_name directly; there is no visible→hidden sync.
+
+  test('filling the personal-story section marks the tick visible', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    await page.fill('#dt-personal_story_npc_name_free', 'Marcus the Shepherd');
-    await page.press('#dt-personal_story_npc_name_free', 'Tab');
-    await page.waitForTimeout(200);
-
-    const hidden = page.locator('#dt-personal_story_npc_name');
-    await expect(hidden).toHaveValue('Marcus the Shepherd');
-  });
-
-  test.fixme('typing a name and note marks the section tick visible', async ({ page }) => { // #628: dt-form.18 redesign
-    await loginAsPlayer(page);
-    await openStorySection(page);
-
-    await page.fill('#dt-personal_story_npc_name_free', 'Marcus the Shepherd');
-    await page.fill('#dt-personal_story_note', 'A quiet conversation by the river.');
+    // The visual tick uses the generic "all qf-fields filled" fallback (updateSectionTicks has
+    // no personal_story rule), so it needs kind + name + text — even though the submit gate
+    // (_hasPersonalStory) only requires kind+text. NB: the "(optional)" name is counted here.
+    await page.locator('input[name="dt-personal_story_kind"][value="touchstone"]').check();
+    await page.fill('#dt-personal_story_npc_name', 'Marcus the Shepherd');
+    await page.fill('#dt-personal_story_text', 'A quiet conversation by the river.');
     await page.waitForTimeout(300);
 
     const tick = page.locator('.qf-section[data-section-key="personal_story"] .qf-section-tick');
     await expect(tick).toHaveClass(/visible/);
   });
 
-  test.fixme('saved personal_story_npc_name pre-populates the name input on re-render', async ({ page }) => { // #628: dt-form.18 redesign
+  test('saved personal_story_npc_name pre-populates the name input on re-render', async ({ page }) => {
     // loginAsPlayer first so its downtime_submissions handler is registered before the
     // test-specific override — Playwright evaluates in LIFO, so the override (registered
     // last) takes priority and returns the saved submission on GET.
@@ -183,14 +176,14 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
         body: JSON.stringify([{
           _id: 'sub-saved', cycle_id: ACTIVE_CYCLE._id,
           character_id: TEST_CHAR._id, status: 'draft',
-          responses: { personal_story_npc_name: 'Elara the Merchant', personal_story_note: 'Trade secrets.' },
+          responses: { personal_story_npc_name: 'Elara the Merchant', personal_story_text: 'Trade secrets.' },
         }]),
       });
     });
 
     await openStorySection(page);
 
-    await expect(page.locator('#dt-personal_story_npc_name_free')).toHaveValue('Elara the Merchant');
+    await expect(page.locator('#dt-personal_story_npc_name')).toHaveValue('Elara the Merchant');
   });
 
 });
