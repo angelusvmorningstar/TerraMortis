@@ -440,12 +440,13 @@ test.describe('DT-Fix-21: Territory pills on project-based Investigate', () => {
     await expect(terrPills.first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.fixme('project-based investigate territory pills default to — (no territory)', async ({ page }) => {
+  test('project-based investigate territory pills default to — (no territory)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    // Neutral pill (data-terr-id="") is active when no territory override is set
-    const neutralPill = page.locator('.proc-terr-pill[data-terr-id=""].active').first();
+    // fix.617: the active class is `is-active` (not `active`). Neutral pill (data-terr-id="")
+    // is active when no territory override is set.
+    const neutralPill = page.locator('.proc-terr-pill[data-terr-id=""].is-active').first();
     await expect(neutralPill).toBeVisible({ timeout: 5000 });
   });
 
@@ -856,13 +857,13 @@ const SUBMISSION_RETAINER_TASK = {
 
 test.describe('DTX-3: Notes / feedback visual hierarchy', () => {
 
-  test.fixme('ST Notes section renders above Player Feedback in the left panel', async ({ page }) => {
+  test('ST Notes section renders above Player Feedback in the left panel', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
     await openFirstAction(page, 'Ambience');
 
     const panel = page.locator('.proc-action-detail').first();
     const notesPanel   = panel.locator('.proc-notes-panel').first();
-    const feedbackPanel = panel.locator('.proc-feedback-section').first();
+    const feedbackPanel = panel.locator('.proc-player-note-section').first();
 
     // Both must exist
     await expect(notesPanel).toBeVisible({ timeout: 5000 });
@@ -883,11 +884,12 @@ test.describe('DTX-3: Notes / feedback visual hierarchy', () => {
     await expect(notesPanel).not.toContainText('ST only');
   });
 
-  test.fixme('Player Feedback section has proc-feedback-section class', async ({ page }) => {
+  // fix.617: Player Feedback section class is .proc-player-note-section (was .proc-feedback-section).
+  test('Player Feedback section is present in the left panel', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
     await openFirstAction(page, 'Ambience');
 
-    await expect(page.locator('.proc-feedback-section').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-player-note-section').first()).toBeVisible({ timeout: 5000 });
   });
 
 });
@@ -920,12 +922,14 @@ test.describe('DTX-2: Compact panel for binary merit actions', () => {
     await expect(page.locator('.proc-val-status')).toHaveCount(0);
   });
 
-  test.fixme('full-mode merit (allies investigate) renders normal panel — not compact', async ({ page }) => {
+  test('full-mode merit (allies investigate) renders normal panel — not compact', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    await expect(page.locator('.proc-val-status').first()).toBeVisible({ timeout: 5000 });
+    // fix.617: .proc-val-status was removed; a full-mode merit is marked by NOT being compact and
+    // by carrying full controls (e.g. the Target Secrecy selector), unlike a compact merit panel.
     await expect(page.locator('.proc-compact-merit-panel')).toHaveCount(0);
+    await expect(page.locator('.proc-inv-secrecy-sel').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('compact panel outcome toggle — clicking Approved marks it active', async ({ page }) => {
@@ -1162,6 +1166,10 @@ const SUBMISSION_INV_CHARLIE_TARGET_NS = {
 
 test.describe('DTX-1: Cross-reference callouts', () => {
 
+  // fix.617 DEFERRED — CONFIRMED product bug #621: the territory xref lookup at
+  // downtime-views.js:9169 uses the raw territory key while the index (:4672) and the sibling
+  // path (:9961) use the canonical resolveTerrId key, so the callout never renders on this card
+  // path. Un-skip once #621 lands (the assertions are already correct).
   test.fixme('project action with shared territory shows xref callout naming the other character', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
@@ -1177,6 +1185,7 @@ test.describe('DTX-1: Cross-reference callouts', () => {
     await expect(callout).toContainText('Non Submitter');
   });
 
+  // fix.617 DEFERRED — same confirmed territory-xref bug as the project case above (#621).
   test.fixme('feeding action with shared territory shows xref callout', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
@@ -1279,20 +1288,25 @@ test.describe('DTR-2: Contested roll', () => {
     await expect(page.locator('.proc-contested-toggle').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.fixme('toggling contested on shows character selector and pool input', async ({ page }) => {
+  // fix.617: #608 contested widget — the character is chosen via the connected-char typeahead
+  // (data-ta-save="contested_char") and the resistance pool is built from trait chips,
+  // not a plain char-select + pool-input.
+  test('toggling contested on shows the character picker and resistance trait chips', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJ_CONTESTED_ON]);
     await openFirstAction(page, 'Ambience');
 
-    await expect(page.locator('.proc-contested-char-sel').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.proc-contested-pool-input').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-conn-typeahead[data-ta-save="contested_char"]').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-contested-trait').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.fixme('after rolling defence, roll card shows att − def = net format', async ({ page }) => {
+  // fix.617: the contested roll-result is "<dice> N att − M def = K net" (downtime-views.js:8088).
+  // Scope to the line containing "net" — the defence-successes line is a separate
+  // .proc-proj-roll-result rendered first, so `.first()` grabbed the wrong one.
+  test('after rolling defence, roll card shows att − def = net format', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJ_CONTESTED_ROLLED]);
     await openFirstAction(page, 'Ambience');
 
-    // Target the roll card result specifically (not the defence result inside the contested panel)
-    const rollResult = page.locator('.proc-proj-roll-card .proc-proj-roll-result').first();
+    const rollResult = page.locator('.proc-proj-roll-card .proc-proj-roll-result').filter({ hasText: 'net' }).first();
     await expect(rollResult).toBeVisible({ timeout: 5000 });
     await expect(rollResult).toContainText('att');
     await expect(rollResult).toContainText('def');
@@ -1300,14 +1314,14 @@ test.describe('DTR-2: Contested roll', () => {
     await expect(rollResult).toContainText('2');  // 3 att − 1 def = 2 net
   });
 
-  test('toggling contested off hides char selector and pool input', async ({ page }) => {
+  test('toggling contested off hides the character picker and trait chips', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJ_UNCONTESTED]);
     await openFirstAction(page, 'Ambience');
 
-    // Toggle is present but char selector is absent (contested is off)
+    // Toggle is present but the contested char picker + trait chips are absent (contested is off)
     await expect(page.locator('.proc-contested-toggle').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.proc-contested-char-sel')).toHaveCount(0);
-    await expect(page.locator('.proc-contested-pool-input')).toHaveCount(0);
+    await expect(page.locator('.proc-conn-typeahead[data-ta-save="contested_char"]')).toHaveCount(0);
+    await expect(page.locator('.proc-contested-trait')).toHaveCount(0);
   });
 
 });
@@ -1399,14 +1413,14 @@ test.describe('DTS-1: ST-created sorcery full panel', () => {
     ],
   };
 
-  test.fixme('ST sorcery action renders full sorcery panel with tradition and rite fields', async ({ page }) => {
+  // fix.617: sorcery consolidated — no separate Tradition field; the Rite <select> (.proc-rite-select) carries it.
+  test('ST sorcery action renders the full sorcery panel with a rite selector', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ST_SORCERY], [CHAR_CRUAC, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
     await openFirstAction(page, 'Sorcery');
 
-    // Full sorcery detail card should be present
+    // Full sorcery detail card + the rite selector
     await expect(page.locator('.proc-feed-desc-card').first()).toBeVisible({ timeout: 5000 });
-    // Tradition field visible
-    await expect(page.locator('.proc-proj-field').first()).toContainText('Tradition');
+    await expect(page.locator('.proc-rite-select').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('ST sorcery right panel renders (two-column layout with pool modifiers)', async ({ page }) => {
@@ -1420,13 +1434,16 @@ test.describe('DTS-1: ST-created sorcery full panel', () => {
     await expect(rightPanel).toContainText('Select a rite first');
   });
 
-  test.fixme('ST sorcery status buttons include Resolved and No Effect (sorcery set)', async ({ page }) => {
+  // fix.617: status model unified to a Pending → Valid → Complete ribbon (.proc-action-ribbon);
+  // the sorcery-specific "Resolved"/"No Effect" set was removed.
+  test('ST sorcery action shows the Pending/Valid/Complete status ribbon', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ST_SORCERY], [CHAR_CRUAC, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
     await openFirstAction(page, 'Sorcery');
 
-    const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).toContainText('Resolved');
-    await expect(panel).toContainText('No Effect');
+    const ribbon = page.locator('.proc-action-detail .proc-action-ribbon').first();
+    await expect(ribbon).toBeVisible({ timeout: 5000 });
+    await expect(ribbon).toContainText('Pending');
+    await expect(ribbon).toContainText('Complete');
   });
 
 });
@@ -1479,6 +1496,10 @@ test.describe('DTS-2: Duplicate action', () => {
     await expect(page.locator('.proc-duplicate-btn').first()).toBeVisible({ timeout: 5000 });
   });
 
+  // fix.617 DEFERRED (confirmed harness limit): clicking Dup runs addStAction → updateSubmission
+  // (PUT) then re-renders, but the action-row count stays 1 in-test — the duplicate's persistence
+  // isn't reflected back (the stateless route mock returns the original submissions on re-read).
+  // Needs a stateful submissions mock. The poll assertion below is correct once that exists.
   test.fixme('clicking duplicate creates a new ST sorcery entry in the phase', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_SORC_FOR_DUP], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
 
@@ -1492,13 +1513,13 @@ test.describe('DTS-2: Duplicate action', () => {
     const initialRows = await page.locator('.proc-action-row').count();
     await dupBtn.click({ force: true });
 
-    // A new row should have appeared (ST badge visible)
-    await expect(page.locator('.proc-row-st-badge')).toBeVisible({ timeout: 5000 });
-    const newRows = await page.locator('.proc-action-row').count();
-    expect(newRows).toBeGreaterThan(initialRows);
+    // fix.617: addStAction mutates the in-memory submissions then re-renders; a new ST sorcery
+    // row appears in the phase. (The old .proc-row-st-badge marker was removed.)
+    await expect.poll(async () => page.locator('.proc-action-row').count(), { timeout: 5000 })
+      .toBeGreaterThan(initialRows);
   });
 
-  test.fixme('duplicate button present on ST-created sorcery row too', async ({ page }) => {
+  test('duplicate button present on ST-created sorcery row too', async ({ page }) => {
     const subWithStSorc = {
       ...SUBMISSION_SORC_FOR_DUP,
       _id: 'sub-sorc-dup-st',

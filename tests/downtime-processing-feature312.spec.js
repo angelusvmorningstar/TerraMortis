@@ -318,18 +318,16 @@ test.describe('F312-4: Pool builder initial modifier total respects the FG cap',
     expect(parseInt(fgAttr, 10)).toBeLessThanOrEqual(5);
   });
 
-  // DEFERRED (fix.614 out-of-scope): the .proc-mod-total-row / .proc-mod-total-val markup
-  // drifted in unrelated product work; the FG-cap navigation conversion is correct (the
-  // feeding card opens). Product drift, not flat-wall #581 (see follow-up issue).
-  test.fixme('Mod total row value is consistent with capped FG contribution', async ({ page }) => {
+  // fix.617: the feeding mod-total is a hidden .proc-mod-total-val span (display:none), not a
+  // .proc-mod-total-row. Read its textContent directly (works on hidden/attached elements).
+  test('Mod total value is consistent with capped FG contribution', async ({ page }) => {
     await setup(page, [SUBMISSION_FG_INFLATED], [CHAR_FG_INFLATED]);
     await openFeedingPanel(page);
-    const totalRow = page.locator('.proc-mod-total-row').first();
-    await expect(totalRow).toBeVisible({ timeout: 5000 });
-    const totalVal = totalRow.locator('.proc-mod-total-val');
+    const totalVal = page.locator('.proc-mod-total-val').first();
+    await totalVal.waitFor({ state: 'attached', timeout: 5000 });
     const totalText = await totalVal.textContent();
     // With FG capped at 5 and no other modifiers, total should be +5 (or lower if unskilled applies)
-    const totalNum = parseInt(totalText.replace(/[^0-9-]/g, ''), 10);
+    const totalNum = parseInt((totalText || '').replace(/[^0-9-]/g, ''), 10);
     expect(totalNum).toBeLessThanOrEqual(5);
   });
 

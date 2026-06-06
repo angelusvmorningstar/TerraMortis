@@ -190,6 +190,19 @@ After the per-cluster rulings, implementation began. Done (verified green):
 - dt-fixes: DT-Fix-21 territory pills (1); DTX-3 notes/feedback hierarchy (2); DTX-2 compact panel (1); DTX-1 xref callouts (2); DTR-2 contested roll → align to #608 widget (2); DTS-1 ST sorcery panel (2, reuse the consistency-B2 Rite/Connected-Characters approach); DTS-2 duplicate action (2).
 - feature312: F312-4 mod-total markup (1).
 
+### Selector map for the remaining 13 (captured 2026-06-06 via un-skip + ARIA-snapshot run; 12 fail / 1 already passes)
+
+A second dev-story pass un-skipped all 13 and captured the live DOM. Apply this map next time (read → rewrite → one verify run); branch was reverted to green afterward (no commit). The subtle ones are flagged.
+
+- **DT-Fix-21 territory pills (`bf607`)** — `.proc-terr-pill[data-terr-id]` exists (render `downtime-views.js:6752`, handler `:4909`). Test wants the no-territory pill `[data-terr-id=""].active` by default. Verify the default-active pill's `data-terr-id` (the "N/A" pill) — likely a non-empty id or not active by default; adjust the assertion.
+- **DTX-1 xref callouts (`a4128`, `df89a`)** — class is `.proc-xref-callout` / `.proc-xref-line` (render `:9181`, also `:9948`). Driven by `_xrefIndex` (built `:4669`). Needs ≥2 submissions sharing `terr:<territory>` or `inv-target:<name>`. Tests already set up two chars — check whether the fixtures actually populate the index (territory string must match canonical) and whether the callout renders in the opened card vs the snapshot panel.
+- **DTX-2 compact panel (`155a3`)** — compact = `.proc-compact-merit-panel` (`:7385`); full-mode uses `.proc-val-status`. The 3 compact tests pass; the "full-mode (allies investigate) not compact" one fails — confirm `.proc-val-status` still renders for merit investigate (it gained secrecy/lead, so it's full, not compact).
+- **DTX-3 notes/feedback (`0565e`, `1d77a`)** — `.proc-notes-panel` exists (`:9130`, "ST Notes"). **`.proc-feedback-section` does NOT exist** — Player Feedback section is at `:9159-9161` (title "Player Feedback — sent to player") with textarea `.proc-feedback-input` (`:5383`); find that section's container class and re-point. The "ST Notes above Player Feedback" test may be hitting a compact entry (notes move to `.proc-compact-notes-panel` `:7445`) — check the fixture's action mode.
+- **DTR-2 contested roll → #608 widget (`f0e69`, `aeddd`)** — toggle `.proc-contested-toggle` (`:6252`) exists. Char picker is **`.proc-conn-typeahead[data-ta-save="contested_char"]`** (NOT `.proc-contested-char-sel`); resistance pool is **trait chips `.proc-contested-trait` / `.proc-contested-bp`** (NOT `.proc-contested-pool-input`); roll btn `.proc-contested-roll-btn` (`:6294`). Rewrite 1282 (on shows picker+chips) and 1303 (off hides them) to these. 1290 (att−def=net) — inspect the contested roll-result format in `.proc-proj-roll-card .proc-proj-roll-result`; DTR-1 (passing) shows `.proc-proj-roll-result` carries "net" for modified rolls.
+- **DTS-1 ST sorcery (`1455c`, `3e0b0`)** — reuse the consistency-B2 fix: rite is `.proc-rite-select` (`:9296`), no separate **Tradition** field (consolidated), so 1402's "Tradition" assertion is obsolete → assert the Rite field / `.proc-feed-desc-card`. 1423 (status incl. "Resolved"/"No Effect") — check the sorcery action-ribbon status set (`_renderActionRibbon`).
+- **DTS-2 duplicate (`baa65`)** — `.proc-duplicate-btn` + `.proc-row-st-badge` exist (the "button present" tests pass). 1482 (click adds an ST row) fails — verify the duplicate click path adds a `.proc-action-row` in the test harness (may need the rules/save mock or a re-render wait).
+- **F312-4 mod-total (`ed1fc`)** — `.proc-mod-total-row` / `.proc-mod-total-val` exist, but the **feeding** mod-total-val is `display:none` (`:7273`/`:7283`). Read its `textContent` (works on hidden) rather than asserting visibility, or assert against a visible element.
+
 **Block follow-up (additive product issue):** raised as **#619** — player block must surface in relevant intelligence with ST override.
 
 ### File List
@@ -198,5 +211,15 @@ After the per-cluster rulings, implementation began. Done (verified green):
 - specs/stories/fix.617.dt-spec-drift-tests.story.md (this story)
 - specs/stories/sprint-status.yaml (last_updated log)
 
+### Second execution pass (2026-06-06) — 42 of 46 done
+
+Applied the selector map to the 13 remaining; **9 more re-aligned and green**, 4 deferred:
+- Fixed: DT-Fix-21 (`.active`→`.is-active`), DTX-2 (full-vs-compact via secrecy control, `.proc-val-status` removed), DTX-3 (`.proc-feedback-section`→`.proc-player-note-section`), DTR-2 toggle on/off (#608 typeahead `[data-ta-save="contested_char"]` + `.proc-contested-trait` chips), DTS-1 (Rite selector + unified Pending/Valid/Complete ribbon — "Tradition"/"Resolved"/"No Effect" removed), F312-4 (hidden `.proc-mod-total-val` via textContent).
+- **Deferred (3, `test.fixme` with inline notes):** DTX-1 territory-shared xref ×2 — **CONFIRMED product bug, raised as #621:** the territory xref lookup at `downtime-views.js:9169` (Block A) uses the raw territory key while the index (`:4672`) and the sibling path (`:9961`, fixed in 496.2) use the canonical `resolveTerrId` key, so the territory cross-reference callout silently never renders on that card path (production too) — un-skip once #621 lands; DTS-2 duplicate-creates-entry — **confirmed** harness limit (the action-row count stays 1 in-test because the stateless route-mock doesn't reflect the duplicate's persistence; needs a stateful submissions mock).
+
+**Pass 3 (2026-06-06):** DTR-2 att−def-net **fixed** — the format IS "N att − M def = K net" (`:8088`); the locator just needed scoping to the `net` line (`.first()` was grabbing the separate defence-successes line). DTS-2 verified to be a genuine harness limit (not a quick fix).
+
+dt-fixes + feature312: **63 pass, 3 skip, 0 fail.** consistency: 24 pass. Net **43/46 done**.
+
 ### Change Log
-- 2026-06-06 — Story created (ready-for-dev) → dev-story audit re-scoped it (needs-decision) → Angelus ruled all 7 clusters intended → implementation: 33/46 re-aligned/retired (consistency green, dt-fixes 42/12/0), 13 DOM-investigation tests remain as fixme. Block intelligence+override raised as #619.
+- 2026-06-06 — Story created (ready-for-dev) → dev-story audit re-scoped it (needs-decision) → Angelus ruled all 7 clusters intended → implementation pass 1: 33/46 re-aligned/retired (merged to dev via PR #620). Pass 2: +9 re-aligned (42/46 green); 4 deferred as documented hard cases (1 possible xref gap flagged per AC5). Block intelligence+override raised as #619.
