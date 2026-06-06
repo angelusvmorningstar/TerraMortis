@@ -27,3 +27,39 @@ test.describe('#625 — unified-app boot harness', () => {
     await expect(page.locator('#login-screen')).toBeVisible();
   });
 });
+
+// QA (Quinn): the harness contract that future specs depend on.
+test.describe('#625 — bootApp harness contract', () => {
+  test('caller routes override the catch-all', async ({ page }) => {
+    let overrideHit = false;
+    await bootApp(page, PLAYER_USER, {
+      routes: async (p) => {
+        await p.route(/\/api\/characters$/, r => {
+          overrideHit = true;
+          r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ _id: 'qa-1', name: 'QA Char' }]) });
+        });
+      },
+    });
+    await expect(page.locator('#app')).toBeVisible();
+    // The app fetches /api/characters during boot; the caller's route must win
+    // over the catch-all (Playwright matches last-registered first).
+    expect(overrideHit).toBe(true);
+  });
+
+  test('no boot /api request escapes to the localhost API_BASE', async ({ page }) => {
+    const escaped = [];
+    page.on('requestfailed', r => {
+      const u = r.url();
+      if (u.includes('localhost:3000') && u.includes('/api/')) escaped.push(u);
+    });
+    await bootApp(page, PLAYER_USER);
+    await expect(page.locator('#app')).toBeVisible();
+    // ws://localhost:3000/ws is the known non-fatal exception (not an /api call).
+    expect(escaped).toEqual([]);
+  });
+
+  test('navigate:false sets up mocks/auth without loading the page', async ({ page }) => {
+    await bootApp(page, PLAYER_USER, { navigate: false });
+    expect(page.url()).toBe('about:blank');
+  });
+});

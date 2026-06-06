@@ -116,7 +116,8 @@ claude-opus-4-8
 This branch is off `dev` (pre-#624), so `tests/feature-624-clan-covenant-ranking.spec.js` and the ranking UI in `status-tab.js` are **not present here** — they live on the unmerged `morningstar-issue-624-*` branch. **Task 3 is therefore deferred:** once #625's helper lands on `dev`, the #624 branch merges `dev` in and adopts the helper for its spec (its E2E then goes green there). Tasks 1, 2, 4, 5 are done on this branch and independently fix the 7 player-portal specs that exist on `dev` (all currently broken by the same redirect/catch-all root cause). AC3 carries to the #624 branch.
 
 ### Debug Log References
-- `npx playwright test tests/fix-625-unified-app-boot.spec.js` → **3 passed** (player boots `#app`, ST boots `#app`, unauthenticated shows `#login-screen`).
+- `npx playwright test tests/fix-625-unified-app-boot.spec.js` → **6 passed** (3 boot smoke + 3 harness-contract, added in QA).
+- **QA sign-off (Quinn):** +3 contract tests — caller `routes` override the catch-all; no boot `/api` request escapes to `localhost:3000`; `navigate:false` sets up without loading. All green first run.
 
 ### Completion Notes List
 - **Task 1 (helper) — DONE + verified.** `tests/helpers/unified-app.js` exports `bootApp(page, user, {routes, navigate})` — catch-all `**/api/**` → `[]` registered FIRST, `/api/auth/me` → user, localStorage auth, optional caller `routes` (win over catch-all), `goto('/')`, wait `#app`. Plus `PLAYER_USER`/`ST_USER`. Proven by `tests/fix-625-unified-app-boot.spec.js` (3/3). **This is the reusable unblocker** the #624 E2E needs.
