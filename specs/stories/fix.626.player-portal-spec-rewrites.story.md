@@ -1,6 +1,6 @@
 # Story Fix.626: Rewrite player-portal Playwright specs for the unified-app DOM
 
-## Status: in-progress
+## Status: review (all 7 specs green; redesign-drift quarantined → #627/#628)
 
 ## Metadata
 - issue: 626
@@ -143,12 +143,15 @@ claude-opus-4-8
   - `fix-466`, `fix-473`, `downtime-player-smoke`, `issue-502-devlog` — **already unified-app-aware**; pass as-is (36/36, no edits). The grep "refs" were comments, not broken nav.
   - `feat-16-17-fix44-tracker-feeding` — **33 passed, 3 skipped, 0 failed.** Migrated: catch-all in `setupPlayer`; `ordeals:{}`→`[]`; 2 Feeding boots `/player.html`+`#player-app`+`.sidebar-btn`→`/index.html`+`#app`+`goTab('feeding')`+`#t-feeding`; 5 `#n-*` bottom-nav clicks→`goTab`; tracker `count` snapshot→`toHaveCount`.
     - **AC5 escalation → #627:** 3 ADMIN-side City-tab ambience tests (`setupAdmin`/admin.html, untouched by the unification; sibling passes) are PRE-EXISTING drift — `test.fixme`'d with a note, raised as **#627**, not silently deleted.
-- **STILL PENDING:** `issue-24-story-freetext` (blocked on the Story-tab decision — no `#t-story`; deferred per Angelus). Task 8 (AC4 grep sweep): only `issue-24` still holds functional `/player.html`/`#player-app` refs; the rest are documentation comments.
+- **`issue-24-story-freetext` — DONE (1 pass / 5 fixme).** NOT Story-tab-blocked after all — it tests the downtime form's `personal_story` SECTION (`#t-downtime`), already unified-aware. But 5/6 tests assert the **pre-dt-form.18** fields (`#dt-personal_story_npc_name_free` + `#dt-personal_story_note` + a visible→hidden sync) that the redesign removed (now `_npc_name`/`_text`/`_kind`, used directly — downtime-form.js:2709). Per the fix.617 rule (escalate redesigns, don't bulk-rewrite to mask), the 5 are `test.fixme`'d → **#628**; the "no relationship dropdown" test stays green.
+- **Task 8 (AC4) — DONE.** Zero FUNCTIONAL `/player.html`/`#player-app` refs in `tests/` (no `goto`/`waitForSelector`/`click`). Remaining mentions are accurate redirect-explaining comments (left as documentation).
+- **#626 COMPLETE — all 7 player-portal specs green:** player.spec.js 13/13 · fix-466/473/downtime-smoke/issue-502 36/36 (as-is) · feat-16-17 33+3fixme(#627) · issue-24 1+5fixme(#628). Reusable `bootApp`/`goToTab` harness shipped. Two redesign-drift escalations (#627 admin ambience, #628 personal_story) honestly tracked, not masked.
 
 ### File List
 - tests/helpers/unified-app.js (added `goToTab`)
 - tests/player.spec.js (rewritten onto the unified app — 13/13)
 - tests/feat-16-17-fix44-tracker-feeding.spec.js (migrated — 33 pass / 3 fixme #627)
+- tests/issue-24-story-freetext.spec.js (1 pass / 5 fixme #628 — dt-form.18 redesign)
 - specs/stories/fix.626.player-portal-spec-rewrites.story.md (this story)
 - (no edits needed: fix-466, fix-473, downtime-player-smoke, issue-502-devlog — already unified-aware)
 
