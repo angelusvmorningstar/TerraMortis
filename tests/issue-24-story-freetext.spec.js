@@ -121,7 +121,13 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(select).toHaveCount(0);
   });
 
-  test('Story section has a free-text NPC name input', async ({ page }) => {
+  // #626/#628: the 5 tests below assert the PRE-dt-form.18 personal_story design
+  // (#dt-personal_story_npc_name_free + #dt-personal_story_note + a visible→hidden sync).
+  // dt-form.18 redesigned it to #dt-personal_story_npc_name / #dt-personal_story_text /
+  // a kind radio, used directly (downtime-form.js:2709). Per the fix.617 rule (escalate
+  // redesigns, don't bulk-rewrite to mask them), these are quarantined and tracked in #628.
+  // The "no relationship dropdown" test above still holds and stays green.
+  test.fixme('Story section has a free-text NPC name input', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
@@ -130,7 +136,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(nameInput).toHaveAttribute('type', 'text');
   });
 
-  test('Story section has an interaction note textarea', async ({ page }) => {
+  test.fixme('Story section has an interaction note textarea', async ({ page }) => { // #628: dt-form.18 redesign
     await loginAsPlayer(page);
     await openStorySection(page);
 
@@ -138,7 +144,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(noteArea).toBeVisible();
   });
 
-  test('typing an NPC name syncs to the hidden personal_story_npc_name field', async ({ page }) => {
+  test.fixme('typing an NPC name syncs to the hidden personal_story_npc_name field', async ({ page }) => { // #628: sync removed by dt-form.18
     await loginAsPlayer(page);
     await openStorySection(page);
 
@@ -150,7 +156,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(hidden).toHaveValue('Marcus the Shepherd');
   });
 
-  test('typing a name and note marks the section tick visible', async ({ page }) => {
+  test.fixme('typing a name and note marks the section tick visible', async ({ page }) => { // #628: dt-form.18 redesign
     await loginAsPlayer(page);
     await openStorySection(page);
 
@@ -162,7 +168,7 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(tick).toHaveClass(/visible/);
   });
 
-  test('saved personal_story_npc_name pre-populates the name input on re-render', async ({ page }) => {
+  test.fixme('saved personal_story_npc_name pre-populates the name input on re-render', async ({ page }) => { // #628: dt-form.18 redesign
     // loginAsPlayer first so its downtime_submissions handler is registered before the
     // test-specific override — Playwright evaluates in LIFO, so the override (registered
     // last) takes priority and returns the saved submission on GET.

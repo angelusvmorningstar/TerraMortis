@@ -57,4 +57,15 @@ async function bootApp(page, user, opts = {}) {
   }
 }
 
-module.exports = { bootApp, PLAYER_USER, ST_USER };
+/**
+ * Switch tabs via the app's real global goTab() and wait for the panel to go active.
+ * NB id remaps from player.html: Sheet => 'chars', plus status/downtime/feeding/ordeals/story.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} id  unified tab id (panel is #t-<id>, gets class .active)
+ */
+async function goToTab(page, id) {
+  await page.evaluate((t) => window.goTab(t), id);
+  await page.waitForSelector(`#t-${id}.active`, { timeout: 5000 });
+}
+
+module.exports = { bootApp, goToTab, PLAYER_USER, ST_USER };
