@@ -139,12 +139,18 @@ claude-opus-4-8
   - **Test-data bug (not product):** the old mocks set `ordeals: {}`; the real schema has `ordeals` as an ARRAY. The unified app renders the sheet on boot (`canRollDice` → `char.ordeals.some`), so `{}` threw `(char.ordeals||[]).some is not a function` and killed boot. Fixed to `ordeals: []`. **Every other spec with `ordeals: {}` needs the same one-char fix** (feat-16-17-fix44 has one).
   - **Re-derived (unification, not weakening):** default tab is `#t-sheets` (was Sheet); "Sheet" nav id is `chars` but it activates `#t-sheets` (not `#t-chars`); removed the obsolete `#nav-game` test, the fixed "5 tabs" count, and `#tab-btn-regency`.
   - **⚠️ AC5 ESCALATION CANDIDATE:** the unified app has **no `#t-story` tab** (probe of all `.tab` ids confirms). The player Story tab was consolidated in the unification. `tests/issue-24-story-freetext.spec.js` tests exactly that Story feature — so it can't be a straight rewrite; **needs a decision: where did player Story go (Archive? Relationships? removed?), or raise a separate issue.** Do this before rewriting issue-24.
-- **REMAINING (Tasks 2–7):** downtime-player-smoke (364L), feat-16-17-fix44-tracker-feeding (1006L), fix-466 (226L), fix-473 (314L), issue-24-story-freetext (190L — blocked on the Story-tab decision), issue-502-devlog-tab (332L). Each: swap `loginAs`→`bootApp`, `/player.html`→unified, fix nav via `goTab`/`goToTab`, fix any `ordeals:{}`→`[]`, run green one at a time. Task 8 = grep sweep + full run.
+- **Tasks 2–7 (the 5 straightforward specs) — DONE, all green:**
+  - `fix-466`, `fix-473`, `downtime-player-smoke`, `issue-502-devlog` — **already unified-app-aware**; pass as-is (36/36, no edits). The grep "refs" were comments, not broken nav.
+  - `feat-16-17-fix44-tracker-feeding` — **33 passed, 3 skipped, 0 failed.** Migrated: catch-all in `setupPlayer`; `ordeals:{}`→`[]`; 2 Feeding boots `/player.html`+`#player-app`+`.sidebar-btn`→`/index.html`+`#app`+`goTab('feeding')`+`#t-feeding`; 5 `#n-*` bottom-nav clicks→`goTab`; tracker `count` snapshot→`toHaveCount`.
+    - **AC5 escalation → #627:** 3 ADMIN-side City-tab ambience tests (`setupAdmin`/admin.html, untouched by the unification; sibling passes) are PRE-EXISTING drift — `test.fixme`'d with a note, raised as **#627**, not silently deleted.
+- **STILL PENDING:** `issue-24-story-freetext` (blocked on the Story-tab decision — no `#t-story`; deferred per Angelus). Task 8 (AC4 grep sweep): only `issue-24` still holds functional `/player.html`/`#player-app` refs; the rest are documentation comments.
 
 ### File List
 - tests/helpers/unified-app.js (added `goToTab`)
 - tests/player.spec.js (rewritten onto the unified app — 13/13)
+- tests/feat-16-17-fix44-tracker-feeding.spec.js (migrated — 33 pass / 3 fixme #627)
 - specs/stories/fix.626.player-portal-spec-rewrites.story.md (this story)
+- (no edits needed: fix-466, fix-473, downtime-player-smoke, issue-502-devlog — already unified-aware)
 
 ### Change Log
 - 2026-06-06 — Task 0 DOM/nav audit + Task 1 player.spec.js rewrite (13/13 green); added `goToTab` helper. Found the `ordeals:{}`→`[]` mock bug + the removed Story tab (issue-24 needs an AC5 decision). Tasks 2–7 pending.
