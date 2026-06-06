@@ -989,7 +989,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(html.length).toBeGreaterThan(10);
   });
 
-  test('ambience save fires a write when the Save button is clicked', async ({ page }) => {
+  test('ambience Save shows "Saved" feedback and fires a write', async ({ page }) => {
     let putCalled = false;
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await page.route('**/api/territories*', route => {
@@ -1006,8 +1006,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     await expect(dockyardsSel).toBeVisible({ timeout: 5000 });
     await dockyardsSel.selectOption('Curated');
     await page.locator('[data-terr-amb-save="dockyards"]').click(); // explicit Save Ambience button
-    // NB: the "Saved" feedback (city-views.js:706) is wiped immediately by patchTerritories (:707),
-    // so it's not observable — tracked separately. We assert the write fired.
+    await expect(page.locator('#terr-amb-status-dockyards')).toHaveText('Saved'); // #634: feedback now persists (clears after 2s)
     await page.waitForTimeout(600);
 
     expect(putCalled).toBe(true);

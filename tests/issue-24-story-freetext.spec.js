@@ -145,15 +145,13 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
   // #628: RETIRED — 'typing an NPC name syncs to the hidden personal_story_npc_name field'.
   // dt-form.18 uses #dt-personal_story_npc_name directly; there is no visible→hidden sync.
 
-  test('filling the personal-story section marks the tick visible', async ({ page }) => {
+  test('selecting a kind and filling text marks the tick visible (name optional)', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    // The visual tick uses the generic "all qf-fields filled" fallback (updateSectionTicks has
-    // no personal_story rule), so it needs kind + name + text — even though the submit gate
-    // (_hasPersonalStory) only requires kind+text. NB: the "(optional)" name is counted here.
+    // #637: the tick now matches the submit gate (_hasPersonalStory = kind && text). The
+    // "(optional)" NPC name is NOT required — left blank here on purpose.
     await page.locator('input[name="dt-personal_story_kind"][value="touchstone"]').check();
-    await page.fill('#dt-personal_story_npc_name', 'Marcus the Shepherd');
     await page.fill('#dt-personal_story_text', 'A quiet conversation by the river.');
     await page.waitForTimeout(300);
 
