@@ -1166,18 +1166,14 @@ const SUBMISSION_INV_CHARLIE_TARGET_NS = {
 
 test.describe('DTX-1: Cross-reference callouts', () => {
 
-  // fix.617 DEFERRED — CONFIRMED product bug #621: the territory xref lookup at
-  // downtime-views.js:9169 uses the raw territory key while the index (:4672) and the sibling
-  // path (:9961) use the canonical resolveTerrId key, so the callout never renders on this card
-  // path. Un-skip once #621 lands (the assertions are already correct).
-  test.fixme('project action with shared territory shows xref callout naming the other character', async ({ page }) => {
+  test('project action with shared territory shows xref callout naming the other character', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
       [SUBMISSION_PROJ_TERR_CHARLIE, SUBMISSION_PROJ_TERR_NS],
       [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
     );
-    // Open Charlie's project row (patrol_scout → phase 6 = Support & Patrol)
-    await openFirstAction(page, 'Support');
+    // Open Charlie's project row (patrol_scout → phase 9 = Patrol)
+    await openFirstAction(page, 'Patrol');
 
     const callout = page.locator('.proc-xref-callout').first();
     await expect(callout).toBeVisible({ timeout: 5000 });
@@ -1185,8 +1181,25 @@ test.describe('DTX-1: Cross-reference callouts', () => {
     await expect(callout).toContainText('Non Submitter');
   });
 
-  // fix.617 DEFERRED — same confirmed territory-xref bug as the project case above (#621).
-  test.fixme('feeding action with shared territory shows xref callout', async ({ page }) => {
+  // fix.621 QA: cross-source overlap — a PROJECT card (Block A) must cross-reference a FEEDING
+  // action (indexed via feedTerrs) in the same territory. Proves the canonical key unifies the two
+  // render paths, which same-source project↔project / feeding↔feeding tests don't exercise.
+  test('project card cross-references a feeding action in the same territory', async ({ page }) => {
+    await setupDowntimeProcessing(
+      page,
+      [SUBMISSION_PROJ_TERR_CHARLIE, SUBMISSION_FEED_NS],
+      [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
+    );
+    // Charlie's patrol_scout project → phase 9 = Patrol
+    await openFirstAction(page, 'Patrol');
+
+    const callout = page.locator('.proc-xref-callout').first();
+    await expect(callout).toBeVisible({ timeout: 5000 });
+    await expect(callout).toContainText('North Shore');
+    await expect(callout).toContainText('Non Submitter');
+  });
+
+  test('feeding action with shared territory shows xref callout', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
       [SUBMISSION_FEED_CHARLIE, SUBMISSION_FEED_NS],

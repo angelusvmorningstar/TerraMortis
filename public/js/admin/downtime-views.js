@@ -9166,8 +9166,15 @@ function renderNormalisedCard(entry, review) {
   {
     const xrefLines = [];
     if (entry.projTerritory && entry.actionType !== 'ambience_change') {
-      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || []).filter(r => r.charName !== entry.charName);
-      if (others.length) xrefLines.push(`Also in ${entry.projTerritory}: ${others.map(r => `${r.charName} (${r.label})`).join(', ')}`);
+      // fix.621: look up the CANONICAL key (matches the canonical index at :4672 / Block B :9961).
+      // The raw key never matched once territories load — resolveTerrId canonicalises via
+      // TERRITORY_DATA (e.g. 'North Shore' -> 'north_shore').
+      const projCanon = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+      const projDisplay = (cachedTerritories || []).find(t => t.slug === projCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === projCanon)?.name
+                       || entry.projTerritory;
+      const others = (_xrefIndex.get(`terr:${projCanon}`) || []).filter(r => r.charName !== entry.charName);
+      if (others.length) xrefLines.push(`Also in ${projDisplay}: ${others.map(r => `${r.charName} (${r.label})`).join(', ')}`);
     }
     if (entry.actionType === 'investigate' && rev.investigate_target_char) {
       const target = rev.investigate_target_char;
@@ -9963,6 +9970,21 @@ function renderActionPanel(entry, review) {
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
         xrefLines.push(`Also in ${projDisplay}: ${names}`);
+      }
+    }
+
+    // fix.621: feeding actions index their territory via feedTerrs (no projTerritory). Surface the
+    // same "Also in <territory>" cross-reference for the feeding entry's primary territory.
+    if (entry.source === 'feeding' && entry.primaryTerr) {
+      const feedCanon = resolveTerrId(entry.primaryTerr) || entry.primaryTerr;
+      const feedDisplay = (cachedTerritories || []).find(t => t.slug === feedCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === feedCanon)?.name
+                       || entry.primaryTerr;
+      const others = (_xrefIndex.get(`terr:${feedCanon}`) || [])
+        .filter(r => r.charName !== entry.charName);
+      if (others.length) {
+        const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
+        xrefLines.push(`Also in ${feedDisplay}: ${names}`);
       }
     }
 
