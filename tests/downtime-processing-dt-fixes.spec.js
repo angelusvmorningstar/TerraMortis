@@ -1166,10 +1166,10 @@ const SUBMISSION_INV_CHARLIE_TARGET_NS = {
 
 test.describe('DTX-1: Cross-reference callouts', () => {
 
-  // fix.617 DEFERRED — possible gap (AC5): the target-based xref callout works (3 sibling tests
-  // pass), but the territory-shared xref callout does not render in the action card here. Needs
-  // investigation: whether territory xref moved to the snapshot panel, or projTerritory isn't
-  // indexed for patrol/feeding. Flagged rather than forced green.
+  // fix.617 DEFERRED — CONFIRMED product bug #621: the territory xref lookup at
+  // downtime-views.js:9169 uses the raw territory key while the index (:4672) and the sibling
+  // path (:9961) use the canonical resolveTerrId key, so the callout never renders on this card
+  // path. Un-skip once #621 lands (the assertions are already correct).
   test.fixme('project action with shared territory shows xref callout naming the other character', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
@@ -1185,7 +1185,7 @@ test.describe('DTX-1: Cross-reference callouts', () => {
     await expect(callout).toContainText('Non Submitter');
   });
 
-  // fix.617 DEFERRED — same possible territory-xref gap as the project case above (AC5).
+  // fix.617 DEFERRED — same confirmed territory-xref bug as the project case above (#621).
   test.fixme('feeding action with shared territory shows xref callout', async ({ page }) => {
     await setupDowntimeProcessing(
       page,
