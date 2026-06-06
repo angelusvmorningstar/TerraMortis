@@ -1,6 +1,6 @@
 # Story Feature.624: ST-only clan/covenant ranking on the player Status tab
 
-## Status: in-progress
+## Status: review (backend 12 tests + UI in the LIVE renderer + E2E 4/4 green)
 
 ## Metadata
 - issue: 624
@@ -153,7 +153,8 @@ claude-opus-4-8
 - **Task 2 (player ballot UI) — built.** `status-tab.js` player view now renders a "Clan & Covenant Ranking" section: 3+3 `<select>` slots populated from `clanRowsFor`/`covenantRowsFor` **minus the active char** (self-exclusion), with a Save button (client distinct-check → `PUT /api/ranking_ballots`) and pre-fill from `GET /mine`. Active cycle resolved via `/api/downtime_cycles` (LIVE statuses). Module syntax verified.
 - **Task 3 (ST aggregate) — built.** `status-tab.js` ST view renders a "Ranking Points — this cycle" section (clan + covenant leaderboards, sorted desc), fetched from `GET /aggregate`. Player view never fetches/shows it.
 - **dev-fixtures — done.** Echo handlers for the three endpoints added to `dev-fixtures.js`.
-- **Playwright E2E — written but NOT GREEN LOCALLY (environment blocker, not #624).** `tests/feature-624-clan-covenant-ranking.spec.js` covers: ballot renders, clan picker excludes self + non-members, save PUTs the picks, ST aggregate shows points. **The player-portal test harness fails to boot in this local env** — the page shows "Could not load app" *before any feature code runs*; the existing `tests/player.spec.js` auth test fails identically, **and still fails with my frontend changes git-stashed** — so this is pre-existing player-portal test-debt, not this feature. The spec should pass once the player-portal boot harness is fixed / in CI. **Flag: separate issue for the player-portal Playwright boot.**
+- **Playwright E2E — GREEN (4/4) on the unified app.** Resolved after merging `dev` (for the #625 `bootApp` harness, born from this very blocker) and a **real #624 fix below**. `tests/feature-624-clan-covenant-ranking.spec.js` now boots via `bootApp` + `goToTab('status')`: ballot renders, clan picker excludes self + non-members, save PUTs the picks, ST aggregate shows points.
+- **UI-renderer fix (commit 0feb7256) — the ranking UI was wired into the WRONG renderer.** The ballot/aggregate was built into `tabs/status-tab.js` (`renderStatusTab`), but the live unified app renders `#t-status` via `suite/status.js` (`renderSuiteStatusTab`) — `renderStatusTab` is never called in `app.js` (player.html redirects to the unified app). So the feature did not render in production. Fixed by extracting the ranking UI into a shared module `public/js/tabs/status-ranking.js` (`appendRankingSection`), wiring it into `suite/status.js` (live) AND refactoring `status-tab.js` to use it (de-dup). The two status renderers now share one ranking implementation. (Also exposed the #625 player-portal harness situation, which spun off #625/#626.)
 
 ### File List
 - server/schemas/ranking_ballot.schema.js (NEW)
