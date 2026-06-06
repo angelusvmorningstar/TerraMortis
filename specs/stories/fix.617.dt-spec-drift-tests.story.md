@@ -215,9 +215,11 @@ A second dev-story pass un-skipped all 13 and captured the live DOM. Apply this 
 
 Applied the selector map to the 13 remaining; **9 more re-aligned and green**, 4 deferred:
 - Fixed: DT-Fix-21 (`.active`→`.is-active`), DTX-2 (full-vs-compact via secrecy control, `.proc-val-status` removed), DTX-3 (`.proc-feedback-section`→`.proc-player-note-section`), DTR-2 toggle on/off (#608 typeahead `[data-ta-save="contested_char"]` + `.proc-contested-trait` chips), DTS-1 (Rite selector + unified Pending/Valid/Complete ribbon — "Tradition"/"Resolved"/"No Effect" removed), F312-4 (hidden `.proc-mod-total-val` via textContent).
-- **Deferred (4, `test.fixme` with inline notes):** DTX-1 territory-shared xref ×2 — **CONFIRMED product bug, raised as #621:** the territory xref lookup at `downtime-views.js:9169` (Block A) uses the raw territory key while the index (`:4672`) and the sibling path (`:9961`, fixed in 496.2) use the canonical `resolveTerrId` key, so the territory cross-reference callout silently never renders on that card path (production too). Un-skip once #621 lands; DTR-2 att−def-net — the #608 contested roll-result wording changed; DTS-2 duplicate-creates-entry — harness limit (needs a stateful submissions mock).
+- **Deferred (3, `test.fixme` with inline notes):** DTX-1 territory-shared xref ×2 — **CONFIRMED product bug, raised as #621:** the territory xref lookup at `downtime-views.js:9169` (Block A) uses the raw territory key while the index (`:4672`) and the sibling path (`:9961`, fixed in 496.2) use the canonical `resolveTerrId` key, so the territory cross-reference callout silently never renders on that card path (production too) — un-skip once #621 lands; DTS-2 duplicate-creates-entry — **confirmed** harness limit (the action-row count stays 1 in-test because the stateless route-mock doesn't reflect the duplicate's persistence; needs a stateful submissions mock).
 
-dt-fixes + feature312: **62 pass, 4 skip, 0 fail.** consistency: 24 pass. Net **42/46 done**.
+**Pass 3 (2026-06-06):** DTR-2 att−def-net **fixed** — the format IS "N att − M def = K net" (`:8088`); the locator just needed scoping to the `net` line (`.first()` was grabbing the separate defence-successes line). DTS-2 verified to be a genuine harness limit (not a quick fix).
+
+dt-fixes + feature312: **63 pass, 3 skip, 0 fail.** consistency: 24 pass. Net **43/46 done**.
 
 ### Change Log
 - 2026-06-06 — Story created (ready-for-dev) → dev-story audit re-scoped it (needs-decision) → Angelus ruled all 7 clusters intended → implementation pass 1: 33/46 re-aligned/retired (merged to dev via PR #620). Pass 2: +9 re-aligned (42/46 green); 4 deferred as documented hard cases (1 possible xref gap flagged per AC5). Block intelligence+override raised as #619.

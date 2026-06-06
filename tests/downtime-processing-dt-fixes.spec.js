@@ -1299,14 +1299,14 @@ test.describe('DTR-2: Contested roll', () => {
     await expect(page.locator('.proc-contested-trait').first()).toBeVisible({ timeout: 5000 });
   });
 
-  // fix.617 DEFERRED: the #608 contested roll-result no longer uses the literal "att − def = net"
-  // text format this test asserts. Needs the current contested-result wording before re-enabling.
-  test.fixme('after rolling defence, roll card shows att − def = net format', async ({ page }) => {
+  // fix.617: the contested roll-result is "<dice> N att − M def = K net" (downtime-views.js:8088).
+  // Scope to the line containing "net" — the defence-successes line is a separate
+  // .proc-proj-roll-result rendered first, so `.first()` grabbed the wrong one.
+  test('after rolling defence, roll card shows att − def = net format', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_PROJ_CONTESTED_ROLLED]);
     await openFirstAction(page, 'Ambience');
 
-    // Target the roll card result specifically (not the defence result inside the contested panel)
-    const rollResult = page.locator('.proc-proj-roll-card .proc-proj-roll-result').first();
+    const rollResult = page.locator('.proc-proj-roll-card .proc-proj-roll-result').filter({ hasText: 'net' }).first();
     await expect(rollResult).toBeVisible({ timeout: 5000 });
     await expect(rollResult).toContainText('att');
     await expect(rollResult).toContainText('def');
@@ -1496,9 +1496,10 @@ test.describe('DTS-2: Duplicate action', () => {
     await expect(page.locator('.proc-duplicate-btn').first()).toBeVisible({ timeout: 5000 });
   });
 
-  // fix.617 DEFERRED (harness limit): duplicating an action posts a save that the server then
-  // re-renders into a new ST row; the route-mock returns {ok:true} without adding the entry to
-  // the re-fetched queue, so no new row appears in-test. Needs a stateful submissions mock.
+  // fix.617 DEFERRED (confirmed harness limit): clicking Dup runs addStAction → updateSubmission
+  // (PUT) then re-renders, but the action-row count stays 1 in-test — the duplicate's persistence
+  // isn't reflected back (the stateless route mock returns the original submissions on re-read).
+  // Needs a stateful submissions mock. The poll assertion below is correct once that exists.
   test.fixme('clicking duplicate creates a new ST sorcery entry in the phase', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_SORC_FOR_DUP], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
 
@@ -1512,10 +1513,10 @@ test.describe('DTS-2: Duplicate action', () => {
     const initialRows = await page.locator('.proc-action-row').count();
     await dupBtn.click({ force: true });
 
-    // A new row should have appeared (ST badge visible)
-    await expect(page.locator('.proc-row-st-badge')).toBeVisible({ timeout: 5000 });
-    const newRows = await page.locator('.proc-action-row').count();
-    expect(newRows).toBeGreaterThan(initialRows);
+    // fix.617: addStAction mutates the in-memory submissions then re-renders; a new ST sorcery
+    // row appears in the phase. (The old .proc-row-st-badge marker was removed.)
+    await expect.poll(async () => page.locator('.proc-action-row').count(), { timeout: 5000 })
+      .toBeGreaterThan(initialRows);
   });
 
   test('duplicate button present on ST-created sorcery row too', async ({ page }) => {
