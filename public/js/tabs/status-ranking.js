@@ -59,10 +59,11 @@ function buildOrgGroups(points, chars, orgKey) {
     const org = c[orgKey];
     if (!org) continue;
     if (!orgs.has(org)) orgs.set(org, []);
-    orgs.get(org).push({ name: sortName(c), pts: Number((points || {})[String(c._id)] || 0) });
+    const label = c.moniker || c.name || '';
+    orgs.get(org).push({ name: label, pts: Number((points || {})[String(c._id)] || 0) });
   }
   for (const members of orgs.values())
-    members.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+    members.sort((a, b) => b.pts - a.pts || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   return orgs;
 }
 
