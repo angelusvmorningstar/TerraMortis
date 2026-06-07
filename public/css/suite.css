@@ -2241,7 +2241,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 
 /* ── #624 Clan/Covenant ranking ballot ── */
 .status-ranking-section {
-  margin: 12px 14px 4px;
+  margin: 8px 14px;
   border: 1px solid var(--bdr);
   border-radius: 6px;
   background: var(--surf);
