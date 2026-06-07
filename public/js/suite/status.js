@@ -269,7 +269,8 @@ export async function renderSuiteStatusTab(el) {
 
   const activeChar = suiteState.rollChar || null;
   const activeId   = activeChar ? String(activeChar._id) : '';
-  const isST       = getRole() === 'st';
+  const rawRole    = getRole();
+  const isST       = (rawRole === 'st' || rawRole === 'dev') && sessionStorage.getItem('tm_view_mode') !== 'player';
 
   // ── Compact personal status row ──
   let h = '';
