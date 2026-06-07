@@ -6321,8 +6321,11 @@ function renderProcessingMode(container) {
       const riteName  = rev.sorc_rite_name || rev.rite_override || entry.riteName || '';
       const notes     = rev.sorc_notes || entry.projDescription || entry.description || '';
       const label     = (entry.actionType === 'sorcery' && riteName) ? riteName : entry.label;
+      // Player sorcery entries have actionType='resolve_first'; ST actions must use 'sorcery'
+      // so ST_ACTION_PHASE_MAP maps it correctly to phase 0 (resolve_first).
+      const stActionType = (entry.source === 'sorcery') ? 'sorcery' : entry.actionType;
       await addStAction(entry.subId, {
-        action_type: entry.actionType,
+        action_type: stActionType,
         label,
         description: notes,
         pool_player: entry.poolPlayer || '',
