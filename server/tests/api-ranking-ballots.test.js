@@ -177,3 +177,90 @@ describe('GET /api/ranking_ballots/aggregate — ST only, points totals', () => 
     expect(res.status).toBe(403);
   });
 });
+
+describe('GET /api/ranking_ballots/aggregate?mode=political — status-weighted points', () => {
+  const CYCLE_POL = 'cycle-rank-pol-test';
+
+  beforeAll(async () => {
+    // highVoter: Mekhet clan=3, Invictus covenant=2
+    const highVoter = await seedChar({
+      name: 'HighStatusVoter', clan: 'Mekhet', covenant: 'Invictus',
+      status: { city: 1, clan: 3, covenant: { Invictus: 2 } },
+    });
+    // Use ST role so highVoter can write their own ballot without ownership check friction
+    await request(app).put('/api/ranking_ballots').set('X-Test-User', stUser())
+      .send({
+        cycle_id: CYCLE_POL, voter_character_id: highVoter.id,
+        clan_ranking:     { 1: clanmate1.id, 2: clanmate2.id },
+        covenant_ranking: { 1: covmate1.id,  2: covmate2.id },
+      });
+    // voter: clan=1, Invictus covenant status not set (0) — contributes nothing to covenant
+    await request(app).put('/api/ranking_ballots').set('X-Test-User', playerUser([voter.id]))
+      .send({
+        cycle_id: CYCLE_POL, voter_character_id: voter.id,
+        clan_ranking: { 1: clanmate2.id },
+      });
+  });
+
+  afterAll(async () => {
+    await getCollection('ranking_ballots').deleteMany({ cycle_id: CYCLE_POL });
+  });
+
+  it('weights clan picks by voter.status.clan regardless of slot position', async () => {
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // highVoter (clan=3) picks clanmate1 AND clanmate2 — both get +3 (position irrelevant)
+    // voter (clan=1) also picks clanmate2 — +1
+    expect(res.body.clan_points[clanmate1.id]).toBe(3);
+    expect(res.body.clan_points[clanmate2.id]).toBe(4); // 3+1
+  });
+
+  it('weights covenant picks by voter.status.covenant[voter.covenant]', async () => {
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // highVoter (covenant=Invictus, cov status=2) picks covmate1 and covmate2 → each +2
+    expect(res.body.covenant_points[covmate1.id]).toBe(2);
+    expect(res.body.covenant_points[covmate2.id]).toBe(2);
+  });
+
+  it('a voter with zero covenant status contributes no covenant points', async () => {
+    // voter ranked no covenant picks in this cycle, but verify zero-status isn't miscounted
+    // by running a fresh single-ballot cycle with a zero-status voter
+    const CYCLE_ZERO = 'cycle-rank-zero-cov';
+    const zeroVoter = await seedChar({
+      name: 'ZeroCovVoter', clan: 'Daeva', covenant: 'Invictus',
+      status: { city: 0, clan: 0, covenant: {} },
+    });
+    await request(app).put('/api/ranking_ballots').set('X-Test-User', stUser())
+      .send({ cycle_id: CYCLE_ZERO, voter_character_id: zeroVoter.id,
+        covenant_ranking: { 1: covmate1.id } });
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_ZERO}&mode=political`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // zero-status voter contributes covWeight=0; key is set but value is 0
+    expect(res.body.covenant_points[covmate1.id]).toBe(0);
+    await getCollection('ranking_ballots').deleteMany({ cycle_id: CYCLE_ZERO });
+  });
+
+  it('mode defaults to ranked when ?mode is omitted', async () => {
+    // Ranked: highVoter 1st=5 for clanmate1, 2nd=4 for clanmate2; voter 1st=5 for clanmate2
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.clan_points[clanmate1.id]).toBe(5);
+    expect(res.body.clan_points[clanmate2.id]).toBe(9); // 4 + 5
+  });
+
+  it('403 — political mode also requires ST role', async () => {
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
+      .set('X-Test-User', playerUser([voter.id]));
+    expect(res.status).toBe(403);
+  });
+});
