@@ -211,8 +211,8 @@ test.describe('Admin DT — Processing queue renders', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // At least one phase section should be visible
-    await expect(page.locator('.proc-phase-section').first()).toBeVisible({ timeout: 8000 });
+    // Flat wall (#581): at least one action row should render in the queue.
+    await expect(page.locator('.proc-action-row').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('Feeding phase section is present in projects view', async ({ page }) => {
@@ -220,9 +220,8 @@ test.describe('Admin DT — Processing queue renders', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // Step 3 — Feeding header should appear
-    const feedingHeader = page.locator('.proc-phase-header').filter({ hasText: 'Step 3' }).first();
-    await expect(feedingHeader).toBeVisible({ timeout: 8000 });
+    // Flat wall (#581): the Feeding phase filter pill should appear.
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="feeding"]')).toBeVisible({ timeout: 8000 });
   });
 
   test('Project action rows appear for submitted project actions', async ({ page }) => {
@@ -230,10 +229,7 @@ test.describe('Admin DT — Processing queue renders', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // Expand any phase to find action rows
-    const anyHeader = page.locator('.proc-phase-header').first();
-    await anyHeader.click();
-    await page.waitForTimeout(200);
+    // Flat wall (#581): action rows render directly (no phase accordion to expand).
     await expect(page.locator('.proc-action-row').first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -242,9 +238,7 @@ test.describe('Admin DT — Processing queue renders', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    const anyHeader = page.locator('.proc-phase-header').first();
-    await anyHeader.click();
-    await page.waitForTimeout(200);
+    // Flat wall (#581): action rows render directly (no phase accordion to expand).
     const rows = page.locator('.proc-action-row');
     const rowText = await rows.first().textContent().catch(() => '');
     expect(rowText).toMatch(/Alpha|Beta|Smoke/i);
@@ -296,11 +290,9 @@ test.describe('Admin DT — Action panel opens', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // Expand the feeding phase header
-    const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Step 3' }).first();
-    await feedHeader.click();
-    await page.waitForTimeout(200);
-    // Click the feeding action row
+    // Flat wall (#581): activate the Feeding filter pill, then click the feeding action row.
+    await page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="feeding"]').first().click();
+    await page.waitForTimeout(300);
     await page.locator('.proc-action-row').first().click();
     await page.waitForTimeout(400);
     // An expanded detail panel should appear
@@ -312,9 +304,9 @@ test.describe('Admin DT — Action panel opens', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Step 3' }).first();
-    await feedHeader.click();
-    await page.waitForTimeout(200);
+    // Flat wall (#581): activate the Feeding filter pill, then click the feeding action row.
+    await page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="feeding"]').first().click();
+    await page.waitForTimeout(300);
     await page.locator('.proc-action-row').first().click();
     await page.waitForTimeout(400);
     // Territory pill row should be rendered inside the detail panel
@@ -326,19 +318,7 @@ test.describe('Admin DT — Action panel opens', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // Find and expand the patrol/misc phase
-    const headers = page.locator('.proc-phase-header');
-    const count = await headers.count();
-    // Expand the first available phase with a positive count
-    for (let i = 0; i < count; i++) {
-      const header = headers.nth(i);
-      const countText = await header.locator('.proc-phase-count').textContent().catch(() => '0 actions');
-      if (!countText.includes('0 action')) {
-        await header.click();
-        await page.waitForTimeout(200);
-        break;
-      }
-    }
+    // Flat wall (#581): action rows render directly across all phases (no accordion to expand).
     await expect(page.locator('.proc-action-row').first()).toBeVisible({ timeout: 5000 });
     await page.locator('.proc-action-row').first().click();
     await page.waitForTimeout(400);
@@ -356,13 +336,7 @@ test.describe('Admin DT — Multiple characters', () => {
     await openDowntime(page);
     await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
     await page.waitForTimeout(400);
-    // Expand all headers to reveal rows
-    const headers = page.locator('.proc-phase-header');
-    const count = await headers.count();
-    for (let i = 0; i < count; i++) {
-      await headers.nth(i).click().catch(() => {});
-    }
-    await page.waitForTimeout(300);
+    // Flat wall (#581): all action rows render by default (no phase filter active).
     const rows = page.locator('.proc-action-row');
     const rowCount = await rows.count();
     // Should have at least 2 rows (one per submission's main action)

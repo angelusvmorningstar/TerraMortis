@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut, apiDelete } from '../data/api.js';
-import { displayName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
+import { displayName, cardName, dropdownName, sortName, redactPlayer } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -56,7 +56,7 @@ function getEligibleChars() {
   const presentIds = new Set(activeSession.attendance.map(a => a.character_id));
   return chars
     .filter(c => !presentIds.has(c._id))
-    .sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    .sort((a, b) => cardName(a).localeCompare(cardName(b)));
 }
 
 function showAddForm() {

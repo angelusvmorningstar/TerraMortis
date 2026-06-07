@@ -2221,8 +2221,11 @@ body {
 .proc-feed-desc-card,
 .proc-proj-detail,
 .proc-player-note-section,
-.proc-proj-contested-panel,
-.proc-xref-callout {
+.proc-xref-callout,
+.proc-targeting-group,
+.proc-notes-panel,
+.proc-mech-result-section,
+.proc-feedback-section {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 6px;
@@ -4232,11 +4235,12 @@ body {
   font-family: var(--fl);
 }
 
-.proc-phase-toggle {
-  font-size: 11px;
-  color: var(--txt3);
-  font-family: var(--fl);
-  font-weight: 400;
+.proc-phase-section .proc-phase-header {
+  cursor: default;
+  user-select: auto;
+}
+.proc-phase-section .proc-phase-header:hover {
+  background: var(--surf2);
 }
 
 /* ── Shared submission-row styles (sign-off, XP review, narrative, etc.) ── */
@@ -4877,9 +4881,21 @@ body {
   color: var(--txt2);
 }
 
+.proc-pool-player-meta {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 8px;
+}
+.proc-pool-meta-row {
+  font-size: 12px;
+  color: var(--txt1);
+  padding: 2px 0;
+}
+.proc-pool-meta-row .proc-feed-lbl {
+  margin-right: 6px;
+}
+
 .proc-pool-builder {
-  margin-top: 8px;
-  margin-bottom: 12px;
 }
 
 .proc-pool-builder-selects {
@@ -4989,17 +5005,27 @@ body {
   padding: 0;
   margin: 0 0 8px 0;
 }
-/* Spec-chip wrapper is layout-transparent so spec chips align with sibling chips */
+/* Spec-chip wrapper occupies its own row; Rote/Again/mode buttons land on the row below */
 .proc-pool-chips .dt-feed-builder-meta.dt-skill-meta {
-  display: contents;
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 6px;
   margin: 0;
+}
+.proc-pool-chips .dt-feed-builder-meta.dt-skill-meta:empty {
+  display: none;
 }
 /* Shared chip token — pool-builder chips match proc-val-status button style */
 .proc-spec-chip,
 .proc-rote-chip,
+.proc-contested-trait,
+.proc-contested-bp,
 .proc-again-opt {
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
+  /* #587: lift the inactive fill off the dark panels (--surf2) so the button
+     reads as raised/interactive; active colours below are unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
   color: var(--txt3);
   padding: 5px 12px;
   border-radius: 4px;
@@ -5017,6 +5043,8 @@ body {
 /* Hover */
 .proc-spec-chip:hover:not(:disabled),
 .proc-rote-chip:hover:not(:disabled),
+.proc-contested-trait:hover:not(:disabled),
+.proc-contested-bp:hover:not(:disabled),
 .proc-again-opt:hover:not(:disabled) { border-color: var(--accent); color: var(--txt1); }
 
 /* Active states — semantic colour treatments */
@@ -5024,11 +5052,64 @@ body {
 .proc-rote-chip.is-active { border-color: var(--crim); color: var(--crim); background: var(--crim-a15); }
 .proc-again-opt.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
 .proc-again-opt.is-active.is-auto { border-color: var(--green); color: var(--green); background: var(--green-a15); }
+/* #608: contested resistance-trait + BP toggles — gold active treatment. */
+.proc-contested-trait.is-active,
+.proc-contested-bp.is-active { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
 
 /* Disabled */
 .proc-spec-chip:disabled,
 .proc-rote-chip:disabled,
 .proc-again-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Roll mode toggle group — right-justified inside proc-pool-chips */
+.proc-roll-mode-group {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.proc-roll-mode-btn {
+  /* #587: separate the inactive button from the dark panel; active colours below unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  color: var(--txt3);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--fl);
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.proc-roll-mode-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--txt1); }
+.proc-roll-mode-btn.is-active[data-roll-mode="player"]      { border-color: var(--green); color: var(--green); background: var(--green-a15); }
+.proc-roll-mode-btn.is-active[data-roll-mode="st_override"] { border-color: var(--gold2); color: var(--gold2); background: var(--gold2-a12); }
+.proc-roll-mode-btn.is-active[data-roll-mode="no_roll"]     { border-color: var(--txt3);  color: var(--txt2);  background: var(--surf3); }
+
+/* #587: generic press feedback — solid dark gold, reusing the player-facing
+   .dt-ticker__pill:has(input:checked) idiom (var(--gold2) fill + var(--bg) text).
+   Momentary (:active only), so the colour-coded persistent .is-active states above
+   (crimson/gold/green) are unaffected once the press is released (AC3). */
+.dt-btn:active,
+.proc-rote-chip:not(:disabled):active,
+.proc-again-opt:not(:disabled):active,
+.proc-roll-mode-btn:not(:disabled):active,
+.proc-inv-lead-btn:active,
+.proc-contested-trait:not(:disabled):active,
+.proc-contested-bp:not(:disabled):active,
+.proc-contested-toggle:not(:disabled):active {
+  background: var(--gold2);
+  color: var(--bg);
+  border-color: var(--gold2);
+}
+.proc-roll-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* #608: contested resistance-trait chip row + computed total. */
+.proc-contested-resist { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
+.proc-contested-total { margin-top: 4px; }
 
 .proc-pool-parse-ref {
   font-size: 12px;
@@ -5064,7 +5145,7 @@ body {
 .proc-feedback-input:focus { border-color: var(--accent); outline: none; }
 
 .proc-player-note-input {
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   color: var(--txt1);
   padding: 6px 10px;
@@ -5133,7 +5214,7 @@ body {
 }
 
 .proc-note-entry {
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   border-radius: 4px;
   padding: 8px 10px;
@@ -5175,7 +5256,7 @@ body {
 
 .proc-note-textarea {
   flex: 1;
-  background: var(--surf2);
+  background: var(--surf1);
   border: 1px solid var(--bdr);
   color: var(--txt1);
   padding: 7px 10px;
@@ -5187,21 +5268,13 @@ body {
 }
 .proc-note-textarea:focus { border-color: var(--accent); outline: none; }
 
-/* ── DTX-3: notes / feedback visual hierarchy ──────────────────── */
-.proc-feedback-section {
-  background: var(--surf2);
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin-top: 4px;
-}
-.proc-feedback-section .proc-detail-label {
-  margin-bottom: 4px;
-}
-.proc-player-note-section {
-  border-left: 3px solid var(--accent);
-  margin-top: 4px;
-}
-.proc-player-note-section .proc-detail-label {
+/* ── DTX-3: notes / feedback visual hierarchy ── */
+/* Chrome (background/border/radius/padding) now comes from the canonical CSS-6 rule.
+   Only label spacing is overridden here. */
+.proc-feedback-section .proc-mod-panel-title,
+.proc-player-note-section .proc-mod-panel-title,
+.proc-notes-panel .proc-mod-panel-title,
+.proc-mech-result-section .proc-mod-panel-title {
   margin-bottom: 4px;
 }
 .proc-label-sub {
@@ -5304,18 +5377,21 @@ body {
   font-weight: 600;
 }
 
-/* ── DTR-2: contested roll panel ───────────────────────────────── */
-.proc-proj-contested-panel {
-  border-left: 3px solid var(--crim);
+/* ── DTR-2: contested roll panel (now inline inside roll card) ── */
+.proc-contested-inline {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--bdr);
 }
 
 .proc-contested-toggle {
   padding: 5px 10px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
+  /* #587: separate from the dark Roll panel; .active (crimson) below unchanged. */
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
   border-radius: 4px;
   color: var(--txt2);
   font-size: 12px;
@@ -5351,6 +5427,23 @@ body {
 /* DTSR-5: relocated Outcome zone in left column of merit panels */
 .proc-merit-outcome-zone {
   margin-top: 12px;
+}
+
+/* Territory pill panel in merit right column */
+.proc-merit-terr-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+}
+.proc-merit-terr-panel .proc-terr-inline-pills {
+  margin-left: 0;
+}
+
+/* Outcome button panel in merit right column */
+.proc-merit-outcome-btns-panel {
+  padding: 8px 10px;
 }
 
 .proc-merit-outcome-btns {
@@ -5573,7 +5666,7 @@ body {
   margin-bottom: 8px;
 }
 .proc-rite-select {
-  flex: 1;
+  width: 280px;
   font-family: var(--fl);
   font-size: 12px;
   color: var(--txt);
@@ -5600,7 +5693,7 @@ body {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
-  background: var(--surf2);
+  background: var(--surf1);
   color: var(--txt1);
   border: 1px solid var(--surf3);
   border-radius: 3px;
@@ -5698,7 +5791,7 @@ body {
 
 /* ── Feeding description card (editable) ── */
 .proc-feed-desc-card {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .proc-feed-desc-card-hd {
   display: flex;
@@ -5706,7 +5799,7 @@ body {
   justify-content: space-between;
   margin-bottom: 6px;
 }
-.proc-feed-desc-card-hd .proc-detail-label {
+.proc-feed-desc-card-hd .proc-mod-panel-title {
   margin-bottom: 0;
 }
 .proc-feed-desc-card-hd .dt-btn {
@@ -5783,7 +5876,7 @@ body {
   min-width: 0;
 }
 .proc-feed-right {
-  flex: 1;
+  flex: 2;
   min-width: 180px;
   display: flex;
   flex-direction: column;
@@ -5804,13 +5897,19 @@ body {
 }
 
 .proc-proj-roll-result {
-  font-size: 11px;
-  color: var(--txt2);
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--accent);
+  font-family: var(--fm);
   word-break: break-word;
   line-height: 1.5;
 }
 .proc-proj-roll-result.proc-roll-net-zero {
   color: var(--result-pend);
+}
+.proc-proj-roll-result.proc-ritual-fail {
+  color: var(--txt2);
+  font-weight: 600;
 }
 
 .proc-proj-val-notation {
@@ -6061,7 +6160,8 @@ body {
   padding: 2px 7px;
   border-radius: 3px;
   border: 1px solid var(--bdr2);
-  background: var(--surf2);
+  /* #587: separate from the dark mod-panel it sits on. */
+  background: var(--surf);
   color: var(--txt3);
   cursor: pointer;
 }
@@ -6444,11 +6544,42 @@ html:not([data-theme="dark"]) .cc-audit-err {
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
 
+/* ── Targeting group — shared container for Target + Connected Characters ── */
+/* Let inner sections own their padding; overflow:hidden respects border-radius */
+.proc-targeting-group { padding: 0; overflow: hidden; }
+/* Strip chrome from a proc-feed-mod-panel that sits inside (investigate target) */
+.proc-targeting-group > .proc-feed-mod-panel {
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin-top: 0;
+  padding: 8px 12px 10px;
+}
+/* The typeahead inside the mod-panel already has the panel's 12px sides; strip its own */
+.proc-targeting-group > .proc-feed-mod-panel .proc-connected-section {
+  padding: 0;
+  margin-top: 6px;
+  border-top: none;
+}
+/* #587: fill-in text inputs read as light/editable parchment, not the dark panel
+   fill. Use the light base (var(--bg)) like the un-scoped .proc-conn-input. */
+.proc-targeting-group .proc-conn-input {
+  background: var(--bg);
+  border-color: var(--bdr);
+  border-radius: 3px;
+  padding: 6px 8px;
+}
+
 /* ── Connected Characters — typeahead ────────────────────────────────────── */
 .proc-connected-section {
   margin-top: 10px;
   padding: 8px 12px 10px;
   border-top: 1px solid var(--bdr);
+}
+/* First section inside the targeting group: flush with container top */
+.proc-targeting-group > .proc-connected-section:first-child {
+  margin-top: 0;
+  border-top: none;
 }
 .proc-conn-typeahead { margin-top: 6px; }
 .proc-conn-input-row { position: relative; }
@@ -6467,14 +6598,14 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
 .proc-conn-chip-x:hover { color: var(--result-pend); }
 .proc-conn-input {
   width: 100%; box-sizing: border-box;
-  padding: 5px 8px; background: var(--surf2);
+  padding: 5px 8px; background: var(--bg);
   border: 1px solid var(--bdr); border-radius: 4px;
   color: var(--text); font-size: 13px; font-family: var(--fl);
 }
 .proc-conn-input:focus { outline: none; border-color: var(--gold2); }
 .proc-conn-dropdown {
   position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
-  background: var(--surf2); border: 1px solid var(--bdr);
+  background: var(--bg); border: 1px solid var(--bdr);
   border-top: none; border-radius: 0 0 4px 4px;
   max-height: 180px; overflow-y: auto;
   box-shadow: 0 4px 12px rgba(0,0,0,.35);
@@ -7800,6 +7931,573 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 /* ── Deleted Actions Recovery (DT Processing) ── */
 .proc-deleted-section { border-color: var(--crim) !important; }
 .proc-deleted-section .proc-phase-header { color: var(--crim); }
+
+/* ── Processing filter bar ── */
+.proc-filter-bar {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proc-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.proc-filter-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+.proc-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.proc-char-chip.is-active {
+  border-color: var(--gold2);
+  background: var(--gold2-a12);
+}
+.proc-char-chip.is-active .proc-char-chip-name { color: var(--gold2); }
+.proc-char-chip.is-active .proc-char-chip-prog  { color: var(--gold2); }
+.proc-filter-clear-row { padding-top: 2px; }
+.proc-filter-clear {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.12s;
+}
+.proc-filter-clear:hover { color: var(--accent); }
+
+/* ── proto.5: Snapshot panel (This Cycle siblings) ── */
+.proc-snapshot-panel {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+.proc-snap-heading {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+.proc-snap-empty {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.proc-snap-row:hover { background: var(--surf3); }
+.proc-snap-row + .proc-snap-row { margin-top: 2px; }
+.proc-snap-phase {
+  font-size: 11px;
+  color: var(--txt3);
+  flex-shrink: 0;
+  width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-action {
+  font-size: 12px;
+  color: var(--txt2);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-status {
+  font-size: 10px;
+  font-family: var(--fl);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-status--pending {
+  color: var(--txt3);
+  background: var(--surf3);
+}
+.proc-snap-status--valid {
+  color: var(--gold2);
+  background: var(--gold2-a12);
+}
+.proc-snap-status--complete {
+  color: var(--accent);
+  background: var(--accent-a8);
+}
+@keyframes proc-snap-flash {
+  0%   { outline: 2px solid var(--gold2); outline-offset: 2px; }
+  80%  { outline: 2px solid var(--gold2); outline-offset: 2px; }
+  100% { outline: 2px solid transparent; outline-offset: 2px; }
+}
+.proc-card--flash { animation: proc-snap-flash 0.8s ease-out forwards; }
+
+/* ── proto.6: Snapshot discipline ratings ── */
+.proc-snap-subheading {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bdr);
+  margin-bottom: 4px;
+}
+.proc-snap-disc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 6px;
+}
+.proc-snap-disc-name {
+  font-size: 12px;
+  color: var(--txt2);
+}
+.proc-snap-disc-dots {
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+/* ── proto.8: Snapshot territory presence ── */
+.proc-snap-terr-section { margin-top: 8px; }
+.proc-snap-terr-name {
+  font-family: var(--fl);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--txt3);
+  margin: 4px 0 2px;
+}
+.proc-snap-terr-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-terr-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-terr-action {
+  font-size: 11px;
+  color: var(--txt3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-terr-hp .proc-snap-terr-action { color: var(--gold2); }
+
+/* ── proto.9: Snapshot block conflicts ── */
+.proc-snap-block-section { margin-top: 8px; }
+.proc-snap-block-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-block-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-block-level {
+  font-size: 11px;
+  color: var(--crim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── proto.10: Snapshot hide/protect disciplines ── */
+.proc-snap-hp-section { margin-top: 8px; }
+.proc-snap-hp-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-hp-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-hp-disc {
+  font-size: 11px;
+  color: var(--gold2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-hp-unknown { color: var(--txt3); font-style: italic; }
+
+/* ── proto.11: Snapshot investigate cross-reference ── */
+.proc-snap-inv-section { margin-top: 8px; }
+.proc-snap-inv-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-inv-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-inv-detail {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-inv-pending { color: var(--txt3); font-style: italic; }
+
+/* ── proto.12: Snapshot sorcery cross-reference ── */
+.proc-snap-sorc-section { margin-top: 8px; }
+.proc-snap-sorc-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-sorc-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-sorc-rite {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-sorc-done .proc-snap-sorc-char,
+.proc-snap-sorc-done .proc-snap-sorc-rite { color: var(--txt3); text-decoration: line-through; }
+
+/* ── proto.13: Snapshot feeding cross-reference ── */
+.proc-snap-feed-section { margin-top: 8px; }
+.proc-snap-feed-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-snap-feed-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proc-snap-feed-disc {
+  font-size: 11px;
+  color: var(--txt2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.proc-snap-feed-done .proc-snap-feed-char,
+.proc-snap-feed-done .proc-snap-feed-disc { color: var(--txt3); }
+
+/* ── Merit blocked warning ── */
+.proc-snap-merit-blocked {
+  background: color-mix(in srgb, var(--crim) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--crim) 40%, transparent);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+}
+.proc-snap-merit-blocked-hd {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--crim);
+  margin-bottom: 3px;
+}
+.proc-snap-merit-blocked-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  padding: 1px 0;
+}
+.proc-snap-merit-blocked-char { color: var(--txt2); }
+.proc-snap-merit-blocked-level { color: var(--crim); flex-shrink: 0; }
+.proc-snap-merit-blocked-terr { color: var(--txt3); font-size: 10px; }
+
+/* ── Patrol/scout snapshot panel ── */
+.proc-snap-patrol-list { display: flex; flex-direction: column; gap: 2px; }
+.proc-snap-patrol-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+}
+.proc-snap-patrol-char {
+  font-size: 12px;
+  color: var(--txt2);
+  min-width: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.proc-snap-patrol-action {
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.proc-snap-patrol-obf {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.proc-snap-patrol-empty {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-contacts-empty {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-contacts-sphere {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-snap-contacts-desc {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.proc-contacts-spheres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.proc-contacts-sphere-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: var(--gold-a12);
+  border: 1px solid var(--gold2-a25);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--gold2);
+  white-space: nowrap;
+}
+.proc-contacts-sphere-dots {
+  font-size: 10px;
+  color: var(--gold2);
+  opacity: 0.7;
+}
+.proc-contacts-detail-panel { margin-bottom: 0; }
+
+/* ── Target intelligence panel (investigate / attack) ── */
+.proc-snap-target-intel {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-snap-ti-section {
+  margin-top: 6px;
+}
+.proc-snap-ti-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 3px;
+}
+.proc-snap-ti-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 0;
+  flex-wrap: wrap;
+}
+.proc-snap-ti-badge {
+  font-size: 11px;
+  color: var(--txt2);
+  background: var(--surf3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.proc-snap-ti-badge--def {
+  color: var(--crim);
+}
+.proc-snap-ti-terr {
+  font-size: 11px;
+  color: var(--txt3);
+  white-space: nowrap;
+}
+.proc-snap-ti-succ {
+  font-size: 11px;
+  color: var(--txt2);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.proc-snap-ti-pending {
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-ti-done .proc-snap-ti-badge,
+.proc-snap-ti-done .proc-snap-ti-terr { color: var(--txt3); text-decoration: line-through; }
+.proc-snap-ti-detail {
+  font-size: 11px;
+  color: var(--txt2);
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.proc-snap-ti-method {
+  font-size: 11px;
+  color: var(--txt2);
+}
+.proc-snap-ti-disc { font-size: 12px; color: var(--txt2); }
+.proc-snap-ti-disc--obvious { color: var(--crim); }
+.proc-snap-ti-disc--subtle  { color: var(--gold2); }
+.proc-snap-ti-empty,
+.proc-snap-ti-none,
+.proc-snap-ti-unset {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 2px 0;
+}
+
+/* ── Feeding intelligence snapshot panel ── */
+.proc-snap-feed-method {
+  font-size: 12px;
+  color: var(--txt1);
+  padding: 2px 0;
+}
+.proc-snap-feed-discs {
+  font-size: 11px;
+  color: var(--txt2);
+}
+.proc-snap-terr-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+.proc-snap-terr-name {
+  font-size: 12px;
+  color: var(--txt1);
+  flex-shrink: 0;
+}
+.proc-snap-terr-status {
+  font-size: 10px;
+  font-family: var(--fl);
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-terr-claim  { color: var(--result-succ); border: 1px solid var(--result-succ); }
+.proc-snap-terr-poach  { color: var(--result-pend); border: 1px solid var(--result-pend); }
+.proc-snap-terr-badge {
+  font-size: 10px;
+  font-family: var(--fl);
+  color: var(--gold2);
+  border: 1px solid var(--gold2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.proc-snap-terr-ambience {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-feed-peers {
+  font-size: 11px;
+  color: var(--result-pend);
+  padding: 2px 0 4px 8px;
+}
+.proc-snap-none {
+  color: var(--txt3);
+  font-style: italic;
+}
+.proc-snap-amb-dir {
+  font-size: 11px;
+  font-family: var(--fl);
+  flex-shrink: 0;
+}
+.proc-snap-amb-up   { color: var(--result-succ); }
+.proc-snap-amb-down { color: var(--result-pend); }
 
 .proc-deleted-list {
   display: flex;

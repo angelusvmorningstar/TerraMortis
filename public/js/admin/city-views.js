@@ -7,7 +7,7 @@
 import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { displayName, cardName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
 import { setStatusTerritories } from '../data/accessors.js';
 import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
@@ -301,7 +301,7 @@ function renderFeedingChips(terrId) {
   if (!rights.length) return '<span class="terr-feed-empty">None assigned</span>';
   return rights.map((cid, i) => {
     const c = active.find(x => String(x._id) === String(cid));
-    const name = c ? esc(displayName(c)) : esc(String(cid));
+    const name = c ? esc(cardName(c)) : esc(String(cid));
     return `<span class="terr-chip">${name}<button class="terr-chip-rm" data-terr-feed-rm="${esc(terrId)}" data-feed-idx="${i}">&times;</button></span>`;
   }).join('');
 }
@@ -355,7 +355,7 @@ function renderTerritories() {
     const dispMod      = td?.ambienceMod !== undefined && td?.ambienceMod !== null ? td.ambienceMod : t.ambienceMod;
     const modSign = dispMod >= 0 ? '+' : '';
     const lt = td?.lieutenant_id ? active.find(c => String(c._id) === td.lieutenant_id) : null;
-    const ltDisplay = lt ? esc(displayName(lt)) : null;
+    const ltDisplay = lt ? esc(displayName(lt)) : null; // deliberate: court title shown in city view
     const open = _terrExpanded.has(t.id);
 
     h += `<div class="terr-card${open ? ' terr-card-open' : ''}" id="terr-card-${esc(t.id)}">`;
@@ -363,7 +363,7 @@ function renderTerritories() {
     h += `<div class="terr-hd-info">`;
     h += `<div class="terr-name">${esc(t.name)}</div>`;
     h += `<div class="terr-ambience">${esc(dispAmbience)} (${modSign}${dispMod})</div>`;
-    h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`;
+    h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`; // deliberate: court title shown in city view
     if (ltDisplay) h += `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>`;
     // Regent confirmation chip for active cycle.
     // Cycle confirmations carry territory_id as the territory's _id-string per ADR-002.
@@ -703,8 +703,14 @@ async function saveTerrAmbience(terrId) {
     // Invalidate processing mode's territory cache so it refetches on next render
     invalidateCachedTerritories();
 
-    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    // #634: re-render FIRST (it rebuilds the status span from the template), THEN set the
+    // "Saved" feedback on the fresh node — otherwise patchTerritories wiped it in the same tick.
     patchTerritories(document.getElementById('city-content'));
+    const savedStatus = document.getElementById('terr-amb-status-' + terrId);
+    if (savedStatus) {
+      savedStatus.textContent = 'Saved';
+      setTimeout(() => { const s = document.getElementById('terr-amb-status-' + terrId); if (s) s.textContent = ''; }, 2000);
+    }
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
   }

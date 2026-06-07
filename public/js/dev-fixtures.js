@@ -68,6 +68,10 @@ window.fetch=function devFix(url,opts){
   if(method==='GET'&&seg[0]==='tracker_state'&&seg[1]){var ts=TRACKER_STATE[seg[1]];return ts?_mock(ts):_mock(null,404);}
   if(method==='PUT'&&seg[0]==='tracker_state')return _mock(null,204);
   if(method==='GET'&&seg[0]==='downtime_cycles')return _mock(DT_CYCLES);
+  // #624: clan/covenant ranking ballot — echo-only in dev (no persistence).
+  if(method==='GET'&&seg[0]==='ranking_ballots'&&seg[1]==='mine')return _mock(null);
+  if(method==='GET'&&seg[0]==='ranking_ballots'&&seg[1]==='aggregate')return _mock({clan_points:{},covenant_points:{}});
+  if(method==='PUT'&&seg[0]==='ranking_ballots')return _mock({ok:true});
   if(method==='GET'&&seg[0]==='downtime_submissions'){var qCycle=new URLSearchParams(urlStr.indexOf('?')>=0?urlStr.slice(urlStr.indexOf('?')+1):'').get('cycle_id');return _mock(qCycle?DT_SUBS.filter(function(s){return String(s.cycle_id)===qCycle;}):DT_SUBS);}
   if(method==='POST'&&seg[0]==='downtime_submissions')return _mock({_id:'sub_dev',status:'submitted'},201);
   // DTSR-8/9: section flag create + recall/resolve. Echo-only — no persistence in dev mode.

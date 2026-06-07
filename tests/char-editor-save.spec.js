@@ -125,16 +125,6 @@ test.describe('Char Editor — Grid', () => {
     expect(text).toContain('Quinn Testwood');
   });
 
-  test('character card shows clan and blood potency', async ({ page }) => {
-    await loginAsST(page);
-    await page.goto('/admin.html');
-    await page.waitForSelector('[data-id="char-ces-001"]', { timeout: 5000 });
-
-    const card = page.locator('[data-id="char-ces-001"]');
-    const text = await card.textContent();
-    expect(text).toContain('Mekhet');
-    expect(text).toContain('2'); // blood potency
-  });
 });
 
 // ══════════════════════════════════════
@@ -151,6 +141,22 @@ test.describe('Char Editor — Detail Panel', () => {
     await expect(page.locator('#char-detail')).toBeVisible();
     const header = await page.locator('.cd-name').textContent();
     expect(header).toContain('Quinn Testwood');
+  });
+
+  test('editor sheet shows clan and blood potency', async ({ page }) => {
+    // Clan + blood potency moved off the minimal grid card; they render in the
+    // detail sheet. The view-mode sheet body depends on the rules cache (not
+    // available in this mocked harness), so assert against the edit-mode sheet,
+    // which renderSheet draws synchronously: clan is the selected clan dropdown,
+    // blood potency is a labelled stat cell.
+    await page.click('#cd-edit-toggle');
+    await page.waitForSelector('#cd-save-api:not([style*="display: none"])', { timeout: 5000 });
+    await expect(page.locator('#sh-content')).not.toBeEmpty();
+    // Clan: the dropdown carrying clan options has Mekhet selected
+    await expect(page.locator('#char-detail select').filter({ hasText: 'Mekhet' })).toHaveValue('Mekhet');
+    // Blood potency: the BP stat cell shows 2
+    const bpCell = page.locator('#char-detail .sh-stat-cell', { hasText: 'BP' });
+    await expect(bpCell.locator('.sh-stat-n')).toHaveText('2');
   });
 
   test('Edit button is visible; Save to DB is hidden initially', async ({ page }) => {

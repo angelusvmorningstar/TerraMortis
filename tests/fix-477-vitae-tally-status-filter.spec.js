@@ -121,7 +121,7 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
 
   // AC1: current term "feeding_rights" — Regent / Lieutenant / merit holder
   test('AC1: feeding_rights status → Academy ambience (+3), not Barrens', async ({ page }) => {
-    const sub = buildSub({ the_academy: 'feeding_rights' });
+    const sub = buildSub({ academy: 'feeding_rights' });
     const sandbox = await openFeedingTabSandbox(page, sub);
 
     await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
@@ -134,7 +134,7 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
 
   // AC2: current term "poaching"
   test('AC2: poaching status → Harbour ambience (−2), not Barrens', async ({ page }) => {
-    const sub = buildSub({ the_harbour: 'poaching' });
+    const sub = buildSub({ harbour: 'poaching' });
     const sandbox = await openFeedingTabSandbox(page, sub);
 
     await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
@@ -145,7 +145,7 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
 
   // AC3: legacy term "resident" — old submissions before the term was retired
   test('AC3: resident (legacy) → North Shore ambience (+2), not Barrens', async ({ page }) => {
-    const sub = buildSub({ the_north_shore: 'resident' });
+    const sub = buildSub({ northshore: 'resident' });
     const sandbox = await openFeedingTabSandbox(page, sub);
 
     await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
@@ -158,7 +158,7 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
 
   // AC4: legacy term "poacher" — old submissions before the term was retired
   test('AC4: poacher (legacy) → Second City ambience (+2), not Barrens', async ({ page }) => {
-    const sub = buildSub({ the_second_city: 'poacher' });
+    const sub = buildSub({ secondcity: 'poacher' });
     const sandbox = await openFeedingTabSandbox(page, sub);
 
     await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
@@ -172,8 +172,8 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
   // AC5: all territories "none" → Barrens default preserved
   test('AC5: all territories "none" → Barrens −4 default', async ({ page }) => {
     const sub = buildSub({
-      the_academy: 'none', the_harbour: 'none', the_dockyards: 'none',
-      the_second_city: 'none', the_north_shore: 'none', the_barrens_no_territory_: 'none',
+      academy: 'none', harbour: 'none', dockyards: 'none',
+      secondcity: 'none', northshore: 'none', the_barrens_no_territory_: 'none',
     });
     const sandbox = await openFeedingTabSandbox(page, sub);
 
@@ -181,6 +181,20 @@ test.describe('fix.477 — computeVitateTally status filter whitelist', () => {
     const ambRow = sandbox.locator('.fvt-card .fvt-row', { hasText: 'Barrens' });
     await expect(ambRow).toBeVisible();
     await expect(ambRow.locator('.fvt-val')).toHaveText('-4');
+  });
+
+  // QA (Quinn): multi-territory — the tally picks the BEST ambience among all declared
+  // feeding territories (computeVitateTally loops + keeps the max). Doubles as a regression
+  // guard on the slug-match fix: pre-fix this returned Barrens; now it must pick Academy (+3).
+  test('QA: best ambience wins across multiple feeding territories', async ({ page }) => {
+    const sub = buildSub({ academy: 'feeding_rights', harbour: 'poaching', dockyards: 'feeding_rights' });
+    const sandbox = await openFeedingTabSandbox(page, sub);
+
+    await expect(sandbox.locator('.fvt-card')).toBeVisible({ timeout: 8000 });
+    await expect(sandbox.locator('.fvt-card')).toContainText('Academy'); // best of +3 / -2 / 0
+    await expect(sandbox.locator('.fvt-card')).not.toContainText('Barrens');
+    const ambRowBest = sandbox.locator('.fvt-card .fvt-row', { hasText: 'Academy' });
+    await expect(ambRowBest.locator('.fvt-val')).toHaveText('+3');
   });
 
 });

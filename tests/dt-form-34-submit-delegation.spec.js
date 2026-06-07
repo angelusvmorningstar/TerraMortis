@@ -167,8 +167,12 @@ test.describe('dt-form.34: #dt-btn-submit handler survives re-renders', () => {
     await setupSuite(page, char);
     await openDowntimeForm(page, char);
 
+    // #dt-feed-custom-attr is only rendered in ADVANCED mode; switch first.
+    await page.locator('#dt-sandbox [data-dt-mode="advanced"]').click();
+    await page.waitForSelector('#dt-sandbox #dt-btn-submit-final', { timeout: 5000 });
+
     // The feed pool attribute selector (#dt-feed-custom-attr) is a <select> in
-    // the always-rendered feeding section. A change event on it triggers
+    // the advanced feeding section. A change event on it triggers
     // renderForm() via the container's delegated change listener.
     const selectorFound = await page.evaluate(() => {
       const sel = document.querySelector('#dt-sandbox #dt-feed-custom-attr');

@@ -3,7 +3,7 @@
  * Self-contained: character data, pool building, rolling, vitae application.
  */
 
-import { esc, displayName, dropdownName } from '../data/helpers.js';
+import { esc, displayName, cardName, dropdownName } from '../data/helpers.js';
 import { getAttrEffective as getAttrVal, skDots, skTotal, calcVitaeMax } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 
@@ -268,7 +268,7 @@ function renderResult() {
       h += '<div class="fe-warn">\u26A0 Draining beyond safe vitae \u2014 Humanity check required</div>';
     }
 
-    h += `<button class="feed-apply-btn" id="fe-apply">Apply ${applyAmount} Vitae to ${esc(displayName(feedChar))}</button>`;
+    h += `<button class="feed-apply-btn" id="fe-apply">Apply ${applyAmount} Vitae to ${esc(cardName(feedChar))}</button>`;
     h += '</div>';
   }
 
@@ -350,7 +350,7 @@ function wireEvents() {
 function updateApplyBtn() {
   const btn = document.getElementById('fe-apply');
   if (btn && feedChar) {
-    btn.textContent = `Apply ${applyAmount} Vitae to ${displayName(feedChar)}`;
+    btn.textContent = `Apply ${applyAmount} Vitae to ${cardName(feedChar)}`;
   }
   // Show/hide warning. Issue #176: keep the safe-vitae calc in sync with
   // renderResult — base from vessels × 2 plus ambience modifier, floored.

@@ -13,6 +13,7 @@
  */
 
 import { apiGet } from '../data/api.js';
+import { appendRankingSection } from './status-ranking.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
@@ -308,4 +309,5 @@ export async function renderStatusTab(el, activeChar, isST = false) {
   }
 
   el.innerHTML = h;
+  await appendRankingSection(el, { chars, activeChar, isST });
 }

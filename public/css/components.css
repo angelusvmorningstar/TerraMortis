@@ -5392,7 +5392,12 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   flex-wrap: wrap;
   gap: 6px;
   min-height: 0;
+  /* #587: breathing room so the selected chip is not flush against the
+     type buttons (Character/Territory/Other) above the picker. */
+  margin-top: 6px;
 }
+/* No selected chips -> no gap. */
+.char-picker__chips:empty { margin-top: 0; }
 
 .char-picker__chip,
 .char-picker__pill {

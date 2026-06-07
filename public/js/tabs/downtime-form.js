@@ -1560,8 +1560,12 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
   const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  // Scheduled auto-open: once auto_open_at has passed, players reach the form even while the
+  // cycle is still 'prep' (mirrors downtime-tab.js autoOpenPassed). Kept OUT of the deadline
+  // clause below — a passed auto-open must never reopen a window whose deadline has passed.
+  const _autoOpenPassed = !!(currentCycle?.auto_open_at && new Date(currentCycle.auto_open_at) <= new Date());
   const _gateBlocks = !currentCycle
-    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess)
+    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess && !_autoOpenPassed)
     || (_deadlinePast && !_hasWindowAccess);
 
   if (options.singleColumn) {
@@ -1678,6 +1682,7 @@ function renderCycleGatePage() {
     </div>`;
   }
   const label = esc(currentCycle.label || 'This cycle');
+  const isPrep         = currentCycle.status === 'prep';
   const isGame         = currentCycle.status === 'game';
   const isClosed       = currentCycle.status === 'closed';
   const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
@@ -1686,7 +1691,17 @@ function renderCycleGatePage() {
   let h = `<div class="reading-pane qf-gate-page">`;
   h += `<h3 class="qf-title">${label}</h3>`;
 
-  if (isGame) {
+  if (isPrep) {
+    const _openAt = currentCycle.auto_open_at ? new Date(currentCycle.auto_open_at) : null;
+    if (_openAt && _openAt > new Date()) {
+      // Scheduled to open later: show when, not "being prepared". data-open-at is emitted so a
+      // live ticker can be wired later without markup change (gate page is rebuilt on each load).
+      const openLabel = _openAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      h += `<p class="qf-gate-msg" data-open-at="${esc(currentCycle.auto_open_at)}">Downtimes opening soon. Opens <strong>${esc(openLabel)}</strong>.</p>`;
+    } else {
+      h += `<p class="qf-gate-msg">Downtime is being prepared \u2014 your ST will open submissions shortly.</p>`;
+    }
+  } else if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
     h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Archive</strong> tab once ready.</p>`;
@@ -2661,6 +2676,23 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // #589: Connected Characters — add via dropdown. Canonical-first write of the
+    // JSON id array, then re-render (resets the dropdown) and save.
+    const connAdd = e.target.closest('.dt-conn-add');
+    if (connAdd && connAdd.value) {
+      const slot = connAdd.dataset.connSlot;
+      const id   = String(connAdd.value);
+      const k    = `project_${slot}_connected_chars`;
+      const base = (responseDoc && responseDoc.responses) || {};
+      let arr = [];
+      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
+      if (!arr.includes(id)) arr.push(id);
+      const next = { ...base, [k]: JSON.stringify(arr) };
+      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // #508/#522: Carthian Pull — a change on the "new dot" row's target/sphere
     // writes the full allocation set to the character, then re-renders.
     if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
@@ -3050,6 +3082,22 @@ function renderForm(container) {
     // Previously the handler only mutated the local DOM; sibling slots couldn't
     // see the new selection until something else triggered a render, leaving
     // their disabled-chip state stale across add/remove/re-add cycles.
+    // #589: Connected Characters — remove a chip. Canonical-first write.
+    const connRemove = e.target.closest('.dt-conn-remove');
+    if (connRemove) {
+      const slot = connRemove.dataset.connSlot;
+      const id   = String(connRemove.dataset.connId);
+      const k    = `project_${slot}_connected_chars`;
+      const base = (responseDoc && responseDoc.responses) || {};
+      let arr = [];
+      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
+      arr = arr.filter(x => String(x) !== id);
+      const next = { ...base, [k]: JSON.stringify(arr) };
+      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
@@ -3749,6 +3797,11 @@ function renderProjectSlots(saved, mode = 'advanced') {
     if (fields.includes('target')) {
       h += renderTargetZone(n, actionVal, saved, allCharacters);
     }
+
+    // ── Connected characters (issue #589) — other PCs linked to this action.
+    // Shown for all project actions (rote-locked feed slots already `continue`
+    // above, matching the ST side which excludes feeding entries).
+    h += renderConnectedCharsZone(n, saved, allCharacters);
 
     // ── Investigate lead (mandatory for investigate) ──
     if (fields.includes('investigate_lead')) {
@@ -5676,6 +5729,53 @@ function renderTargetZone(n, actionVal, saved, chars) {
   return h;
 }
 
+/**
+ * Connected Characters multi-select for a project action (issue #589).
+ * Other PCs the player links to this action; flows to the ST Connected Characters
+ * box. Stores selected character _ids as a JSON array in
+ * `project_${n}_connected_chars`. Add via dropdown, remove via chip ✕.
+ */
+function renderConnectedCharsZone(n, saved, chars) {
+  const key = `project_${n}_connected_chars`;
+  const raw = saved[key];
+  let ids = [];
+  if (raw) {
+    if (typeof raw === 'string' && raw.startsWith('[')) {
+      try { const a = JSON.parse(raw); if (Array.isArray(a)) ids = a.map(String); } catch { ids = []; }
+    } else if (Array.isArray(raw)) { ids = raw.map(String); }
+    else { ids = [String(raw)]; }
+  }
+  // `chars` is the form's allCharacters: { id, name } (already self-excluded, name = moniker||name).
+  const others = chars || [];
+  const labelOf = (id) => {
+    const c = others.find(ch => String(ch.id) === String(id));
+    return c ? c.name : null; // unresolved -> dropped
+  };
+  const selected = ids.filter(Boolean).filter((id, i, a) => a.indexOf(id) === i);
+
+  let h = '<div class="qf-field dt-connected-zone">';
+  h += '<label class="qf-label">Connected Characters</label>';
+  h += '<p class="qf-desc">Other player characters involved in or linked to this action (optional).</p>';
+  h += '<div class="dt-conn-chips">';
+  for (const id of selected) {
+    const nm = labelOf(id);
+    if (!nm) continue;
+    h += `<span class="dt-conn-chip" data-conn-id="${esc(id)}">${esc(nm)} `
+       + `<button type="button" class="dt-conn-remove" data-conn-slot="${n}" data-conn-id="${esc(id)}" title="Remove">×</button></span>`;
+  }
+  h += '</div>';
+  const selectedSet = new Set(selected.map(String));
+  h += `<select class="dt-conn-add" data-conn-slot="${n}">`;
+  h += '<option value="">Add a character…</option>';
+  for (const c of others.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))) {
+    if (selectedSet.has(String(c.id))) continue;
+    h += `<option value="${esc(String(c.id))}">${esc(c.name)}</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  return h;
+}
+
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */
 function renderTargetCharOrOther(n, savedType, savedCharId, savedTerrId, savedOther, chars, opts = {}) {
   const { includeTerritory = false, includeOwnMerit = false } = opts;
@@ -6473,6 +6573,15 @@ function updateSectionTicks(container) {
       return;
     }
 
+    // #637: personal_story — match the submit gate (_hasPersonalStory = kind && text). The
+    // generic "all qf-fields filled" fallback would wrongly require the OPTIONAL NPC name too.
+    if (key === 'personal_story') {
+      const kindChecked = !!body.querySelector('input[name="dt-personal_story_kind"]:checked');
+      const textEl = document.getElementById('dt-personal_story_text');
+      tick.classList.toggle('visible', kindChecked && !!(textEl && textEl.value.trim()));
+      return;
+    }
+
     // Issue #163 (2026-05-08): Court > Last Game Session tick rule. Min reqs:
     //   - travel description present
     //   - at least one game_recount highlight slot populated
@@ -6973,7 +7082,20 @@ function renderQuestion(q, value) {
           if (bestAmb.mod >= 0) posMods.push({ label: lbl, val: bestAmb.mod });
           else negMods.push({ label: lbl, val: bestAmb.mod });
         }
-        if (herdDots > 0) posMods.push({ label: `Herd (${'●'.repeat(herdDots)})`, val: herdDots });
+        // #609: effectiveDomainDots('Herd') (via meritEffectiveRating, domain.js:265)
+        // ALREADY includes the SSJ and Flock bonuses, so herdDots is the true total and
+        // matches the ST (domMeritContrib). #599 erroneously re-added flock here, which
+        // double-counted it (Flock chars showed +8 not +5); do NOT add ssj/flock to the
+        // total. flockHerd is used only for the "(Flock)" label + "(+x)" breakdown.
+        const flockHerd = flockHerdBonus(c);
+        const herdTotal = herdDots;
+        if (herdTotal > 0) {
+          posMods.push({
+            label: flockHerd > 0 ? 'Herd (Flock)' : `Herd (${'●'.repeat(herdDots)})`,
+            val: herdTotal,
+            valSuffix: flockHerd > 0 ? ` (+${flockHerd})` : '',
+          });
+        }
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
@@ -6986,7 +7108,7 @@ function renderQuestion(q, value) {
         h += '<div class="dt-vitae-budget-title">Vitae Projection</div>';
         h += '<div class="dt-vitae-row"><span>Starting Vitae</span><span>0</span></div>';
         for (const mod of posMods) {
-          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}</span></div>`;
+          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}${esc(mod.valSuffix || '')}</span></div>`;
         }
         for (const mod of negMods) {
           h += `<div class="dt-vitae-row dt-vitae-cost"><span>${esc(mod.label)}</span><span>−${Math.abs(mod.val)}</span></div>`;
