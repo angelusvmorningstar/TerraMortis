@@ -8,7 +8,7 @@
  *   - GET /aggregate   ST ONLY — per-character clan/covenant points totals,
  *                      computed at request time (derived, never stored).
  *
- * Points: 1st = 3, 2nd = 2, 3rd = 1. Players never read the aggregate.
+ * Points: 1st = 5, 2nd = 4, 3rd = 3, 4th = 2, 5th = 1. Players never read the aggregate.
  */
 
 import { Router } from 'express';
@@ -22,7 +22,7 @@ const router  = Router();
 const col     = () => getCollection('ranking_ballots');
 const charCol = () => getCollection('characters');
 
-const SLOT_POINTS = { 1: 3, 2: 2, 3: 1 };
+const SLOT_POINTS = { 1: 5, 2: 4, 3: 3, 4: 2, 5: 1 };
 
 /** ST/dev may act on any character; a player only on their own. */
 function owns(req, charId) {
@@ -93,7 +93,7 @@ router.put('/', validate(rankingBallotSchema), async (req, res) => {
   function clean(ranking, isMember, label) {
     const out = {};
     const seen = new Set();
-    for (const slot of ['1', '2', '3']) {
+    for (const slot of ['1', '2', '3', '4', '5']) {
       const raw = ranking[slot];
       if (raw == null || raw === '') continue;        // empty slot — scores nothing
       const cid = String(raw);

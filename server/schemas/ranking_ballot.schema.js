@@ -16,6 +16,8 @@ const rankingShape = {
     1: { type: ['string', 'null'] },
     2: { type: ['string', 'null'] },
     3: { type: ['string', 'null'] },
+    4: { type: ['string', 'null'] },
+    5: { type: ['string', 'null'] },
   },
 };
 
