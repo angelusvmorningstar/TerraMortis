@@ -3440,7 +3440,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots, sub) {
   if (noisyAction.territory) lines.push(`Territory: ${noisyAction.territory}`);
   if (noisyAction.outcome)   lines.push(`Declared intent: ${noisyAction.outcome}`);
   lines.push('');
-  lines.push(`Write a vignette of no more than 80 words of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event. Begin with the rumour itself, not with the character receiving it.`);
+  lines.push(`Write a vignette of no more than 80 words of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event. Begin with the rumour itself, not with the character receiving it. Use house style.`);
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Third person \u2014 the character hears about someone else, not about themselves');

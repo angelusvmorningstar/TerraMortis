@@ -1509,11 +1509,11 @@ test.describe('DTS-2: Duplicate action', () => {
     await expect(page.locator('.proc-duplicate-btn').first()).toBeVisible({ timeout: 5000 });
   });
 
-  // fix.617 DEFERRED (confirmed harness limit): clicking Dup runs addStAction → updateSubmission
-  // (PUT) then re-renders, but the action-row count stays 1 in-test — the duplicate's persistence
-  // isn't reflected back (the stateless route mock returns the original submissions on re-read).
-  // Needs a stateful submissions mock. The poll assertion below is correct once that exists.
-  test.fixme('clicking duplicate creates a new ST sorcery entry in the phase', async ({ page }) => {
+  // Root cause (fix.617): player sorcery entries have actionType='resolve_first'; the dup handler
+  // was passing that as action_type, but ST_ACTION_PHASE_MAP only maps 'sorcery'->0. The new ST
+  // action was phased as misc and filtered out when the resolve_first pill was active.
+  // Fixed: stActionType normalises source='sorcery' entries to 'sorcery' (downtime-views.js:6328).
+  test('clicking duplicate creates a new ST sorcery entry in the phase', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_SORC_FOR_DUP], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
 
     // Flat wall (#581): activate the Rituals (resolve_first) filter pill so sorcery rows render.
