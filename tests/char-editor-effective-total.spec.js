@@ -295,6 +295,16 @@ async function openPTCharInEditMode(page, charId) {
   await page.waitForSelector('.sk-edit-cell', { timeout: 5000 });
 }
 
+async function openPTCharInViewMode(page, charId) {
+  await page.goto('/admin.html');
+  await page.waitForSelector('#admin-app:not([style*="display: none"])');
+  await page.waitForSelector(`[data-id="${charId}"]`, { timeout: 5000 });
+  await page.click(`[data-id="${charId}"]`);
+  // Sheet loaded in view mode — edit toggle present but NOT clicked
+  await page.waitForSelector('#char-detail #cd-edit-toggle', { timeout: 5000 });
+  await page.waitForSelector('.sh-skill-row', { timeout: 5000 });
+}
+
 test.describe('PT dot-4 render gate — sheet.js base<5 guard (#577)', () => {
   test('post-migration state: Intimidation renders ●●●●○ (4 filled + 1 hollow), corner = 5', async ({ page }) => {
     await loginAsSTWithPTChar(page, PT_CHAR);
@@ -314,5 +324,27 @@ test.describe('PT dot-4 render gate — sheet.js base<5 guard (#577)', () => {
     // Gate fires: (d=5 + bn=0) >= 5, so ptBn=0; dotStr = shDotsWithBonus(5, 0) = 5 filled, 0 hollow
     await expect(cell.locator('.pointed')).toHaveCount(5);
     await expect(cell.locator('.pointed.hollow')).toHaveCount(0);
+  });
+
+  // ── View mode (sheet.js ~547) — same gate, different code path ──────────────
+
+  test('view mode: post-migration Intimidation renders ●●●●○ (4 filled + 1 hollow)', async ({ page }) => {
+    await loginAsSTWithPTChar(page, PT_CHAR);
+    await openPTCharInViewMode(page, PT_CHAR._id);
+    const row = page.locator('.sh-skill-row', {
+      has: page.locator('.sh-skill-name', { hasText: 'Intimidation' }),
+    });
+    await expect(row.locator('.pointed')).toHaveCount(5);
+    await expect(row.locator('.pointed.hollow')).toHaveCount(1);
+  });
+
+  test('view mode gate regression: broken data (dots=5) renders 5 dots not 6', async ({ page }) => {
+    await loginAsSTWithPTChar(page, PT_CHAR_BROKEN);
+    await openPTCharInViewMode(page, PT_CHAR_BROKEN._id);
+    const row = page.locator('.sh-skill-row', {
+      has: page.locator('.sh-skill-name', { hasText: 'Intimidation' }),
+    });
+    await expect(row.locator('.pointed')).toHaveCount(5);
+    await expect(row.locator('.pointed.hollow')).toHaveCount(0);
   });
 });
