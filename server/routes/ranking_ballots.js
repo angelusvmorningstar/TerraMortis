@@ -43,22 +43,47 @@ router.get('/mine', async (req, res) => {
   res.json(doc || null);
 });
 
-// GET /api/ranking_ballots/aggregate?cycle_id= — ST ONLY: per-character points totals.
+// GET /api/ranking_ballots/aggregate?cycle_id=&mode= — ST ONLY: per-character points totals.
+// mode=ranked (default): 5/4/3/2/1 by slot position.
+// mode=political: each pick earns the voter's clan/covenant status regardless of position.
 // Computed at request time (derived-never-stored). Players have NO read path here.
 router.get('/aggregate', requireRole('st'), async (req, res) => {
   const cycleId = String(req.query.cycle_id || '');
+  const mode    = req.query.mode === 'political' ? 'political' : 'ranked';
   if (!cycleId) return res.status(400).json({ error: 'BAD_REQUEST', message: 'cycle_id is required' });
+
   const ballots = await col().find({ cycle_id: cycleId }).toArray();
   const clan_points = {};
   const covenant_points = {};
-  for (const b of ballots) {
-    for (const [slot, cid] of Object.entries(b.clan_ranking || {})) {
-      if (cid) clan_points[cid] = (clan_points[cid] || 0) + (SLOT_POINTS[slot] || 0);
+
+  if (mode === 'ranked') {
+    for (const b of ballots) {
+      for (const [slot, cid] of Object.entries(b.clan_ranking || {})) {
+        if (cid) clan_points[cid] = (clan_points[cid] || 0) + (SLOT_POINTS[slot] || 0);
+      }
+      for (const [slot, cid] of Object.entries(b.covenant_ranking || {})) {
+        if (cid) covenant_points[cid] = (covenant_points[cid] || 0) + (SLOT_POINTS[slot] || 0);
+      }
     }
-    for (const [slot, cid] of Object.entries(b.covenant_ranking || {})) {
-      if (cid) covenant_points[cid] = (covenant_points[cid] || 0) + (SLOT_POINTS[slot] || 0);
+  } else {
+    // Political: weight = voter's clan/covenant status; position is irrelevant.
+    const voterIds = [...new Set(ballots.map(b => b.voter_character_id))].map(toOid).filter(Boolean);
+    const voterDocs = voterIds.length ? await charCol().find({ _id: { $in: voterIds } }).toArray() : [];
+    const voterById = new Map(voterDocs.map(d => [String(d._id), d]));
+    for (const b of ballots) {
+      const voter = voterById.get(String(b.voter_character_id));
+      if (!voter) continue;
+      const clanWeight = voter.status?.clan || 0;
+      const covWeight  = voter.status?.covenant?.[voter.covenant] || 0;
+      for (const cid of Object.values(b.clan_ranking || {})) {
+        if (cid) clan_points[String(cid)] = (clan_points[String(cid)] || 0) + clanWeight;
+      }
+      for (const cid of Object.values(b.covenant_ranking || {})) {
+        if (cid) covenant_points[String(cid)] = (covenant_points[String(cid)] || 0) + covWeight;
+      }
     }
   }
+
   res.json({ clan_points, covenant_points });
 });
 
