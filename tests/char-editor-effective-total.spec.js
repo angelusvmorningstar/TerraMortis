@@ -10,6 +10,10 @@
  *   - Skill with zero bonus → corner unchanged (= cp + xp-derived)
  *   - Attribute with discipline auto-bonus + manual bonus → corner = tot + autoBonus + bonus
  *
+ * Also covers issue #577 PT dot-4 gate:
+ *   - Post-migration state (dots=4, free=0): PT hollow dot renders, corner = 5 = ●●●●○
+ *   - Gate regression: even with old folded data (dots=5), sheet never renders 6 dots
+ *
  * Fixtures keep `cp` aligned with stored `dots` so the corner's filled portion
  * (cp/xp-derived) matches the rendered dots (stored dots) — the change under test
  * only adds the bonus channel on top.
@@ -178,5 +182,137 @@ test.describe('Editor card effective total — Attributes (#573)', () => {
     const panel = page.locator('.attr-cell-edit', { hasText: 'Composure' })
       .locator('xpath=following-sibling::div[contains(@class,"attr-bd-panel")]');
     await expect(panel.locator('.bd-eq .bd-val')).toHaveText('2');
+  });
+});
+
+// ══════════════════════════════════════
+//  PT DOT-4 GATE (issue #577)
+// ══════════════════════════════════════
+
+// Minimal PT character: post-migration state (dots=4, free=0, cp=4).
+// PT merit dot4_skill = 'Intimidation'. PT rating=5 so tier-4 rule fires.
+const PT_CHAR = {
+  _id: 'char-577-edna',
+  name: 'Edna (PT-577 fixture)',
+  moniker: null, honorific: null,
+  clan: 'Nosferatu', covenant: 'Invictus',
+  player: 'Test Player', blood_potency: 2,
+  humanity: 7, humanity_base: 7,
+  court_title: null, clan_attribute: null, retired: false,
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
+  attributes: {
+    Intelligence: { dots: 2, bonus: 0, cp: 1, xp: 0 }, Wits: { dots: 2, bonus: 0, cp: 1, xp: 0 },
+    Resolve: { dots: 2, bonus: 0, cp: 1, xp: 0 }, Strength: { dots: 2, bonus: 0, cp: 1, xp: 0 },
+    Dexterity: { dots: 2, bonus: 0, cp: 1, xp: 0 }, Stamina: { dots: 2, bonus: 0, cp: 1, xp: 0 },
+    Presence: { dots: 2, bonus: 0, cp: 1, xp: 0 }, Manipulation: { dots: 2, bonus: 0, cp: 1, xp: 0 },
+    Composure: { dots: 2, bonus: 0, cp: 1, xp: 0 },
+  },
+  // Post-migration: dots=cp=4, free=0. PT hollow dot comes from rule engine only.
+  skills: {
+    Intimidation: { dots: 4, bonus: 0, cp: 4, xp: 0, free: 0, specs: [], nine_again: false },
+  },
+  merits: [
+    { name: 'Professional Training', category: 'standing', dots: 5, rating: 5,
+      cp: 5, xp: 0, dot4_skill: 'Intimidation', asset_skills: ['Intimidation', 'Subterfuge'] },
+  ],
+  disciplines: {},
+  powers: [], ordeals: [], xp_log: { spent: 0 },
+};
+
+// Same as PT_CHAR but with the old broken data shape (free folded into dots).
+const PT_CHAR_BROKEN = {
+  ...PT_CHAR,
+  _id: 'char-577-edna-broken',
+  name: 'Edna (PT-577 broken fixture)',
+  skills: {
+    Intimidation: { dots: 5, bonus: 0, cp: 4, xp: 0, free: 1, specs: [], nine_again: false },
+  },
+};
+
+// PT tier-4 skill-bonus rule — makes the rule engine add dot4_skill to _pt_dot4_bonus_skills.
+const PT_RULES = {
+  rule_skill_bonus: [{ source: 'Professional Training', tier: 4, target_skill: 'dot4_skill' }],
+  rule_grant: [], rule_nine_again: [], rule_speciality_grant: [],
+  rule_tier_budget: [], rule_disc_attr: [], rule_derived_stat_modifier: [],
+};
+
+async function loginAsSTWithPTChar(page, char) {
+  await page.route('**/api/auth/me', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
+  );
+  await page.route(/\/api\/characters$/, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([char]) })
+  );
+  await page.route('**/api/characters/names', route =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ _id: char._id, name: char.name, moniker: null, honorific: null }]) })
+  );
+  await page.route(new RegExp(`/api/characters/${char._id}$`), route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(char) })
+  );
+  await page.route('**/api/rules/aggregate*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PT_RULES) })
+  );
+  await page.route('**/api/st_mods*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+  );
+  await page.route(/\/api\/game_sessions\/next/, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
+  );
+  await page.route(/\/api\/game_sessions/, route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/downtime_cycles*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/downtime_submissions*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/territories*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/session_logs*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.route('**/api/players*', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  );
+  await page.addInitScript(({ user }) => {
+    localStorage.setItem('tm_auth_token', 'fake-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, { user: ST_USER });
+}
+
+async function openPTCharInEditMode(page, charId) {
+  await page.goto('/admin.html');
+  await page.waitForSelector('#admin-app:not([style*="display: none"])');
+  await page.waitForSelector(`[data-id="${charId}"]`, { timeout: 5000 });
+  await page.click(`[data-id="${charId}"]`);
+  await page.waitForSelector('#char-detail #cd-edit-toggle', { timeout: 5000 });
+  await page.click('#cd-edit-toggle');
+  await page.waitForSelector('#cd-save-api:not([style*="display: none"])', { timeout: 5000 });
+  await page.waitForSelector('.sk-edit-cell', { timeout: 5000 });
+}
+
+test.describe('PT dot-4 render gate — sheet.js base<5 guard (#577)', () => {
+  test('post-migration state: Intimidation renders ●●●●○ (4 filled + 1 hollow), corner = 5', async ({ page }) => {
+    await loginAsSTWithPTChar(page, PT_CHAR);
+    await openPTCharInEditMode(page, PT_CHAR._id);
+    const cell = page.locator('.sk-edit-cell', { hasText: 'Intimidation' });
+    // Corner total = cp(4) + ptBn(1, gate passes: 4+0 < 5) = 5
+    await expect(cell.locator('.bd-val')).toHaveText('5');
+    // Dots: 4 filled + 1 hollow = ●●●●○ (5 total)
+    await expect(cell.locator('.pointed')).toHaveCount(5);
+    await expect(cell.locator('.pointed.hollow')).toHaveCount(1);
+  });
+
+  test('gate regression: old folded data (dots=5, free=1) never renders 6 dots', async ({ page }) => {
+    await loginAsSTWithPTChar(page, PT_CHAR_BROKEN);
+    await openPTCharInEditMode(page, PT_CHAR_BROKEN._id);
+    const cell = page.locator('.sk-edit-cell', { hasText: 'Intimidation' });
+    // Gate fires: (d=5 + bn=0) >= 5, so ptBn=0; dotStr = shDotsWithBonus(5, 0) = 5 filled, 0 hollow
+    await expect(cell.locator('.pointed')).toHaveCount(5);
+    await expect(cell.locator('.pointed.hollow')).toHaveCount(0);
   });
 });
