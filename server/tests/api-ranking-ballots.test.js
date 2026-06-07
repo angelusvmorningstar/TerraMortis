@@ -3,7 +3,7 @@
  *
  * Per-cycle clan/covenant ranking ballot. Players write their OWN ballot
  * (ownership-gated); STs read an aggregate (points totals per character),
- * which players must NOT be able to read. Points: 1st=3, 2nd=2, 3rd=1.
+ * which players must NOT be able to read. Points: 1st=5, 2nd=4, 3rd=3, 4th=2, 5th=1.
  *
  * Seeds characters directly to DB (same pattern as the CRUD / safe-place suites).
  */
@@ -149,13 +149,13 @@ describe('GET /api/ranking_ballots/mine — own ballot', () => {
 });
 
 describe('GET /api/ranking_ballots/aggregate — ST only, points totals', () => {
-  it('sums 3/2/1 per character across all ballots in the cycle', async () => {
-    // voter ranks clanmate1 1st (3), clanmate2 2nd (2); covmate1 1st (3), covmate2 2nd (2)
+  it('sums 5/4/3/2/1 per character across all ballots in the cycle', async () => {
+    // voter ranks clanmate1 1st (5), clanmate2 2nd (4); covmate1 1st (5), covmate2 2nd (4)
     await request(app).put('/api/ranking_ballots').set('X-Test-User', playerUser([voter.id]))
       .send({ cycle_id: CYCLE, voter_character_id: voter.id,
         clan_ranking: { 1: clanmate1.id, 2: clanmate2.id },
         covenant_ranking: { 1: covmate1.id, 2: covmate2.id } });
-    // a second voter (clanmate1) ranks clanmate2 1st (+3 clan)
+    // a second voter (clanmate1) ranks clanmate2 1st (+5 clan)
     await request(app).put('/api/ranking_ballots').set('X-Test-User', playerUser([clanmate1.id]))
       .send({ cycle_id: CYCLE, voter_character_id: clanmate1.id, clan_ranking: { 1: clanmate2.id } });
 
@@ -163,11 +163,11 @@ describe('GET /api/ranking_ballots/aggregate — ST only, points totals', () => 
       .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    // clanmate2: 2 (from voter) + 3 (from clanmate1) = 5; clanmate1: 3
-    expect(res.body.clan_points[clanmate2.id]).toBe(5);
-    expect(res.body.clan_points[clanmate1.id]).toBe(3);
-    expect(res.body.covenant_points[covmate1.id]).toBe(3);
-    expect(res.body.covenant_points[covmate2.id]).toBe(2);
+    // clanmate2: 4 (from voter) + 5 (from clanmate1) = 9; clanmate1: 5
+    expect(res.body.clan_points[clanmate2.id]).toBe(9);
+    expect(res.body.clan_points[clanmate1.id]).toBe(5);
+    expect(res.body.covenant_points[covmate1.id]).toBe(5);
+    expect(res.body.covenant_points[covmate2.id]).toBe(4);
   });
 
   it('403 — a player cannot read the aggregate', async () => {

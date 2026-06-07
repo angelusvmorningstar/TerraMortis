@@ -25,9 +25,9 @@ function memberOptions(members, selectedId, activeId) {
 }
 
 function renderRankingSlots(rank, label, members, ballotRanking, activeId) {
-  const ords = { 1: '1st', 2: '2nd', 3: '3rd' };
+  const ords = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th' };
   let h = `<div class="status-ranking-col"><div class="status-ranking-col-head">${label}</div>`;
-  for (const slot of ['1', '2', '3']) {
+  for (const slot of ['1', '2', '3', '4', '5']) {
     const sel = ballotRanking && ballotRanking[slot] ? String(ballotRanking[slot]) : '';
     h += `<label class="status-ranking-slot"><span class="status-ranking-ord">${ords[slot]}</span>`;
     h += `<select class="status-ranking-sel" data-rank="${rank}" data-slot="${slot}">${memberOptions(members, sel, activeId)}</select></label>`;
@@ -38,7 +38,7 @@ function renderRankingSlots(rank, label, members, ballotRanking, activeId) {
 function renderRankingBallot(me, clanMembers, covMembers, ballot, activeId, hasCycle) {
   let h = `<div class="status-ranking-section">`;
   h += `<div class="status-section-head"><span class="status-section-title">Clan &amp; Covenant Ranking</span>`;
-  h += `<span class="status-section-caps">your top 3 this cycle — seen only by Storytellers</span></div>`;
+  h += `<span class="status-section-caps">your top 5 this cycle — seen only by Storytellers</span></div>`;
   if (!hasCycle) {
     h += `<p class="placeholder-msg status-empty">No active downtime cycle to rank in.</p></div>`;
     return h;
@@ -88,7 +88,7 @@ function renderRankingAggregate(chars, agg) {
 
   let h = `<div class="status-ranking-section">`;
   h += `<div class="status-section-head"><span class="status-section-title">Ranking Points — this cycle</span>`;
-  h += `<span class="status-section-caps">ST only · 1st=3 2nd=2 3rd=1</span></div>`;
+  h += `<span class="status-section-caps">ST only · 1st=5 2nd=4 3rd=3 4th=2 5th=1</span></div>`;
   h += `<div class="status-ranking-agg-grid">`;
   h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Clan points</div>${renderGroups(clanGroups)}</div>`;
   h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Covenant points</div>${renderGroups(covGroups)}</div>`;
