@@ -52,47 +52,100 @@ function renderRankingBallot(me, clanMembers, covMembers, ballot, activeId, hasC
   return h + `</div>`;
 }
 
-function renderRankingAggregate(chars, agg) {
-  const byId = new Map(chars.map(c => [String(c._id), c]));
-
-  function groupByOrg(points, orgKey) {
-    const groups = new Map();
-    for (const [id, pts] of Object.entries(points || {})) {
-      const c = byId.get(id);
-      if (!c || !pts) continue;
-      const org = c[orgKey] || 'Unknown';
-      if (!groups.has(org)) groups.set(org, []);
-      groups.get(org).push({ c, pts });
-    }
-    for (const rows of groups.values())
-      rows.sort((a, b) => b.pts - a.pts || sortName(a.c).localeCompare(sortName(b.c)));
-    return groups;
+// Returns Map<orgName, [{name, pts}]> — ALL chars in that org, pts desc then alpha.
+function buildOrgGroups(points, chars, orgKey) {
+  const orgs = new Map();
+  for (const c of chars) {
+    const org = c[orgKey];
+    if (!org) continue;
+    if (!orgs.has(org)) orgs.set(org, []);
+    orgs.get(org).push({ name: sortName(c), pts: Number((points || {})[String(c._id)] || 0) });
   }
+  for (const members of orgs.values())
+    members.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+  return orgs;
+}
 
-  function renderGroups(groups) {
-    if (!groups.size) return `<p class="placeholder-msg status-empty">No ballots cast yet.</p>`;
-    let h = '';
-    for (const [name, rows] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
-      h += `<div class="status-ranking-agg-group">`;
-      h += `<div class="status-ranking-agg-group-head">${esc(name)}</div>`;
-      h += `<div class="status-ranking-agg-list">`;
-      for (const r of rows)
-        h += `<div class="status-ranking-agg-row"><span class="status-ranking-agg-name">${esc(displayName(r.c))}</span><span class="status-ranking-agg-pts">${r.pts}</span></div>`;
-      h += `</div></div>`;
-    }
-    return h;
-  }
+function renderAggMemberList(members) {
+  if (!members || !members.length) return `<p class="placeholder-msg status-empty">No members.</p>`;
+  return members.map(m =>
+    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)}</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
+  ).join('');
+}
 
-  const clanGroups = groupByOrg(agg.clan_points, 'clan');
-  const covGroups  = groupByOrg(agg.covenant_points, 'covenant');
-
+function renderRankingAggShell() {
   let h = `<div class="status-ranking-section">`;
-  h += `<div class="status-section-head"><span class="status-section-title">Ranking Points — this cycle</span>`;
-  h += `<span class="status-section-caps">ST only · 1st=5 2nd=4 3rd=3 4th=2 5th=1</span></div>`;
-  h += `<div class="status-ranking-agg-grid">`;
-  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Clan points</div>${renderGroups(clanGroups)}</div>`;
-  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Covenant points</div>${renderGroups(covGroups)}</div>`;
-  return h + `</div></div>`;
+  h += `<div class="status-section-head">`;
+  h += `<span class="status-section-title">Ranking Points — this cycle</span>`;
+  h += `<span class="status-section-caps">ST only</span>`;
+  h += `<div class="rank-mode-toggle">`;
+  h += `<button class="rank-mode-btn active" data-mode="ranked">Ranked</button>`;
+  h += `<button class="rank-mode-btn" data-mode="political">Political</button>`;
+  h += `</div></div>`;
+  h += `<div class="rank-org-section"><div class="rank-org-label">Clan</div>`;
+  h += `<div class="rank-pills" id="rank-clan-pills"></div>`;
+  h += `<div class="rank-member-list" id="rank-clan-list"></div></div>`;
+  h += `<div class="rank-org-section"><div class="rank-org-label">Covenant</div>`;
+  h += `<div class="rank-pills" id="rank-cov-pills"></div>`;
+  h += `<div class="rank-member-list" id="rank-cov-list"></div></div>`;
+  return h + `</div>`;
+}
+
+function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
+  let mode       = 'ranked';
+  let activeClan = null;
+  let activeCov  = null;
+
+  const clanPillsEl = sectionEl.querySelector('#rank-clan-pills');
+  const clanListEl  = sectionEl.querySelector('#rank-clan-list');
+  const covPillsEl  = sectionEl.querySelector('#rank-cov-pills');
+  const covListEl   = sectionEl.querySelector('#rank-cov-list');
+
+  function getAgg() { return mode === 'ranked' ? rankedAgg : politicalAgg; }
+
+  function refreshPills(pillsEl, listEl, groups, activeKey, onSelect) {
+    const keys = [...groups.keys()].sort();
+    pillsEl.innerHTML = keys.map(k =>
+      `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${esc(k)}">${esc(k)}</button>`
+    ).join('');
+    pillsEl.querySelectorAll('.rank-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pillsEl.querySelectorAll('.rank-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onSelect(btn.dataset.key);
+      });
+    });
+    listEl.innerHTML = renderAggMemberList(groups.get(activeKey) || []);
+  }
+
+  function refresh() {
+    const agg        = getAgg();
+    const clanGroups = buildOrgGroups(agg.clan_points,     chars, 'clan');
+    const covGroups  = buildOrgGroups(agg.covenant_points, chars, 'covenant');
+    const firstClan  = [...clanGroups.keys()].sort()[0] || null;
+    const firstCov   = [...covGroups.keys()].sort()[0]  || null;
+    if (!activeClan || !clanGroups.has(activeClan)) activeClan = firstClan;
+    if (!activeCov  || !covGroups.has(activeCov))   activeCov  = firstCov;
+
+    refreshPills(clanPillsEl, clanListEl, clanGroups, activeClan, key => {
+      activeClan = key;
+      clanListEl.innerHTML = renderAggMemberList(clanGroups.get(key) || []);
+    });
+    refreshPills(covPillsEl, covListEl, covGroups, activeCov, key => {
+      activeCov = key;
+      covListEl.innerHTML = renderAggMemberList(covGroups.get(key) || []);
+    });
+  }
+
+  sectionEl.querySelectorAll('.rank-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mode = btn.dataset.mode;
+      sectionEl.querySelectorAll('.rank-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      refresh();
+    });
+  });
+
+  refresh();
 }
 
 function wireRankingSave(el, voterId, cycleId) {
@@ -138,16 +191,23 @@ async function resolveActiveCycleId() {
 export async function appendRankingSection(el, { chars, activeChar, isST }) {
   if (!el) return;
   const cycleId = await resolveActiveCycleId();
-  let html = '';
 
   if (isST) {
-    // ST aggregate is global (all characters' points) — no active char required.
-    if (!cycleId) return; // no cycle → nothing to aggregate
-    let agg = { clan_points: {}, covenant_points: {} };
-    try { agg = await apiGet(`/api/ranking_ballots/aggregate?cycle_id=${encodeURIComponent(cycleId)}`); } catch { /* ignore */ }
-    html = renderRankingAggregate(chars, agg);
+    if (!cycleId) return;
+    let rankedAgg    = { clan_points: {}, covenant_points: {} };
+    let politicalAgg = { clan_points: {}, covenant_points: {} };
+    try {
+      [rankedAgg, politicalAgg] = await Promise.all([
+        apiGet(`/api/ranking_ballots/aggregate?cycle_id=${encodeURIComponent(cycleId)}&mode=ranked`),
+        apiGet(`/api/ranking_ballots/aggregate?cycle_id=${encodeURIComponent(cycleId)}&mode=political`),
+      ]);
+    } catch { /* ignore */ }
+    const wrap = document.createElement('div');
+    wrap.innerHTML = renderRankingAggShell();
+    const node = wrap.firstElementChild;
+    if (node) { el.appendChild(node); wireRankingAggregate(node, chars, rankedAgg, politicalAgg); }
   } else {
-    if (!activeChar) return; // player ballot needs the voter
+    if (!activeChar) return;
     const activeId = String(activeChar._id);
     const me = resolveActiveChar(chars, activeChar);
     const clanMembers = (me?.clan ? clanRowsFor(chars, me.clan, sortName) : []).map(r => r.c).filter(c => String(c._id) !== activeId);
@@ -156,13 +216,11 @@ export async function appendRankingSection(el, { chars, activeChar, isST }) {
     if (cycleId) {
       try { ballot = await apiGet(`/api/ranking_ballots/mine?cycle_id=${encodeURIComponent(cycleId)}&voter=${encodeURIComponent(activeId)}`); } catch { /* ignore */ }
     }
-    html = renderRankingBallot(me || activeChar, clanMembers, covMembers, ballot, activeId, !!cycleId);
+    const html = renderRankingBallot(me || activeChar, clanMembers, covMembers, ballot, activeId, !!cycleId);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    const node = wrap.firstElementChild;
+    if (node) el.appendChild(node);
+    if (cycleId && activeChar) wireRankingSave(el, activeId, cycleId);
   }
-
-  if (!html) return;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  const node = wrap.firstElementChild;
-  if (node) el.appendChild(node);
-  if (!isST && cycleId && activeChar) wireRankingSave(el, String(activeChar._id), cycleId);
 }

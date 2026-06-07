@@ -192,15 +192,17 @@ h1 { font-family: var(--fh); font-size: 16px; letter-spacing: .08em; color: var(
     <div class="status-ranking-section">
       <div class="status-section-head">
         <span class="status-section-title">Ranking Points — this cycle</span>
-        <span class="status-section-caps">ST only · 1st=5 2nd=4 3rd=3 4th=2 5th=1</span>
+        <span class="status-section-caps">ST only</span>
+        <div class="rank-mode-toggle">
+          <button class="rank-mode-btn active" onclick="setMode('ranked',this)">Ranked</button>
+          <button class="rank-mode-btn" onclick="setMode('political',this)">Political</button>
+        </div>
       </div>
-
       <div class="rank-org-section">
         <div class="rank-org-label">Clan</div>
         <div class="rank-pills" id="clan-pills"></div>
         <div class="rank-member-list" id="clan-list"></div>
       </div>
-
       <div class="rank-org-section">
         <div class="rank-org-label">Covenant</div>
         <div class="rank-pills" id="cov-pills"></div>
@@ -212,44 +214,81 @@ h1 { font-family: var(--fh); font-size: 16px; letter-spacing: .08em; color: var(
 </div>
 
 <script>
-const CLANS = {
+// Ranked: 5/4/3/2/1 by position
+const CLANS_RANKED = {
   'Daeva':    [['Eve Lockridge',9],['Cyrus Reynolds',5],['René Meyer',3],['Aleksei',0],['Livia',0]],
   'Gangrel':  [['Brandy LaRoux',8],['Doc',6],['Ryan Ambrose',2],['Tegan Groves',0],['Ivana Horvat',0]],
   'Mekhet':   [['Dr Cazz',4],['Reed Justice',2],['Einar Solveig',0],['Xavier Boussade',0]],
-  'Nosferatu':[['Tegan Groves',7],['Ivana Horvat',4],['Laura',1],['Clarence von Schmidt',0],['Etsy',0],['Lord Gel',0],['Humongulus',0]],
+  'Nosferatu':[['Tegan Groves',7],['Ivana Horvat',4],['Laura',1],['Clarence von Schmidt',0],['Etsy',0],['Gel',0],['Humongulus',0]],
   'Ventrue':  [['Carver',10],['René St. Dominique',6],['Einar Solveig',3],['Reed Justice',0],['Hazel',0],['Benedict Wiesel',0],['Charles Mercer-Willows',0]],
 };
-const COVENANTS = {
+const COVS_RANKED = {
   'Carthian Movement':  [['Eve Lockridge',8],['Mac',5],['Dr Cazz',2],['Aleksei',0],['René Meyer',0]],
   'Circle of the Crone':[['Anichka',9],['Brandy LaRoux',4],['Keeper',2],['Jack Fallow',0]],
   'Invictus':           [['Jack Fallow',11],['Carver',7],['René St. Dominique',3],['Einar Solveig',0],['Livia',0]],
   'Lancea et Sanctum':  [['Edna Judge',12],['Carver',6],['Conrad Sondergaard',3],['Hazel',1],['Magda',0],['Tegan Groves',0],['Benedict Wiesel',0],['Julia Dolancia',0]],
 };
+// Political: weight = voter's status in the org (regardless of position)
+// e.g. Carver (Ventrue 4, Invictus 3) voting bumps every pick by 4/3 respectively
+const CLANS_POLITICAL = {
+  'Daeva':    [['Eve Lockridge',6],['Cyrus Reynolds',4],['René Meyer',4],['Aleksei',2],['Livia',0]],
+  'Gangrel':  [['Brandy LaRoux',7],['Doc',5],['Ryan Ambrose',3],['Tegan Groves',1],['Ivana Horvat',0]],
+  'Mekhet':   [['Dr Cazz',5],['Reed Justice',3],['Einar Solveig',1],['Xavier Boussade',0]],
+  'Nosferatu':[['Tegan Groves',5],['Ivana Horvat',3],['Laura',3],['Clarence von Schmidt',1],['Etsy',0],['Gel',0],['Humongulus',0]],
+  'Ventrue':  [['Carver',8],['René St. Dominique',6],['Einar Solveig',4],['Reed Justice',0],['Hazel',0],['Benedict Wiesel',0],['Charles Mercer-Willows',0]],
+};
+const COVS_POLITICAL = {
+  'Carthian Movement':  [['Eve Lockridge',6],['Mac',4],['Dr Cazz',2],['Aleksei',0],['René Meyer',0]],
+  'Circle of the Crone':[['Anichka',7],['Brandy LaRoux',4],['Keeper',2],['Jack Fallow',0]],
+  'Invictus':           [['Jack Fallow',9],['Carver',7],['René St. Dominique',5],['Einar Solveig',0],['Livia',0]],
+  'Lancea et Sanctum':  [['Edna Judge',10],['Carver',7],['Conrad Sondergaard',3],['Hazel',2],['Magda',0],['Tegan Groves',0],['Benedict Wiesel',0],['Julia Dolancia',0]],
+};
+
+let currentMode = 'ranked';
+let activeClan = 'Daeva';
+let activeCov  = 'Carthian Movement';
+
+function getClanData()  { return currentMode === 'ranked' ? CLANS_RANKED  : CLANS_POLITICAL; }
+function getCovData()   { return currentMode === 'ranked' ? COVS_RANKED   : COVS_POLITICAL; }
 
 function renderList(el, rows) {
-  el.innerHTML = rows.map(([name, pts]) => `
-    <div class="rank-member-row">
-      <span class="rank-member-name">${name}</span>
-      <span class="rank-member-pts${pts === 0 ? ' zero' : ''}">${pts}</span>
-    </div>`).join('');
+  el.innerHTML = rows.map(([name, pts]) =>
+    `<div class="rank-member-row"><span class="rank-member-name">${name}</span><span class="rank-member-pts${pts === 0 ? ' zero' : ''}">${pts}</span></div>`
+  ).join('');
 }
 
-function buildPills(pillEl, listEl, data, defaultKey) {
-  pillEl.innerHTML = Object.keys(data).map(k =>
-    `<button class="rank-pill${k === defaultKey ? ' active' : ''}" data-key="${k}">${k}</button>`
+function buildPills(pillsEl, listEl, data, activeKey, onSelect) {
+  pillsEl.innerHTML = Object.keys(data).map(k =>
+    `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${k}">${k}</button>`
   ).join('');
-  pillEl.querySelectorAll('.rank-pill').forEach(btn => {
+  pillsEl.querySelectorAll('.rank-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      pillEl.querySelectorAll('.rank-pill').forEach(b => b.classList.remove('active'));
+      pillsEl.querySelectorAll('.rank-pill').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderList(listEl, data[btn.dataset.key]);
+      onSelect(btn.dataset.key);
     });
   });
-  renderList(listEl, data[defaultKey]);
+  renderList(listEl, data[activeKey]);
 }
 
-buildPills(document.getElementById('clan-pills'), document.getElementById('clan-list'), CLANS, 'Daeva');
-buildPills(document.getElementById('cov-pills'), document.getElementById('cov-list'), COVENANTS, 'Carthian Movement');
+function refresh() {
+  buildPills(
+    document.getElementById('clan-pills'), document.getElementById('clan-list'),
+    getClanData(), activeClan, key => { activeClan = key; renderList(document.getElementById('clan-list'), getClanData()[key]); }
+  );
+  buildPills(
+    document.getElementById('cov-pills'), document.getElementById('cov-list'),
+    getCovData(), activeCov, key => { activeCov = key; renderList(document.getElementById('cov-list'), getCovData()[key]); }
+  );
+}
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.rank-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+  refresh();
+}
+
+refresh();
 
 function show(view) {
   document.getElementById('view-player').style.display = view === 'player' ? '' : 'none';
