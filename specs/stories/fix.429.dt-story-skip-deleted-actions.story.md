@@ -5,7 +5,7 @@ issue: 429
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/429
 branch: ms/issue-429-dt-story-skip-deleted-actions
 created: '2026-05-21'
-status: review
+status: done
 recommended_model: 'sonnet — affects 5–6 call sites across two functions, needs careful index tracking'
 context:
   - public/js/admin/downtime-story.js
