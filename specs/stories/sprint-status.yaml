@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-05-25 (proto.5 + proto.6 story files written at ready-for-dev: Snapshot panel — sibling cycle submissions + character discipline ratings; TASK-SA schema audit registered in-progress as prerequisite for any Snapshot write-back. Territory pill fix: suppressTerrPills now actually gates rendering in _renderActionTypeRow; _renderRightMechanics replaced projTerritory plain-text with editable _renderInlineTerrPills for rote and non-rote project actions. Earlier: proto.4 at review: roll mode toggle (Player Default/ST Override/No Roll Needed) on proc-pool-chips row; spec chips own flex row; pool builder prepended to top of right column; roll card second in right column; 60/40 feed column split)
+# last_updated: 2026-06-07 (DI-3 ordeal parity audit complete — Verdict A, no XP gaps; history-ordeal type mismatch for 3 chars flagged for ST manual check)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -340,7 +340,7 @@ development_status:
 
   di-1-import-dt1-narratives: review
   di-2-import-game1-letters: backlog        # needs-product-input — see story file front-matter
-  di-3-sync-ordeal-data: in-progress        # investigation spike — produces audit note, not code
+  di-3-sync-ordeal-data: done        # investigation spike — produces audit note, not code
 
   epic-di-retrospective: optional
 
