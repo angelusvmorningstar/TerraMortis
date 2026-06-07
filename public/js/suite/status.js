@@ -305,6 +305,9 @@ export async function renderSuiteStatusTab(el) {
     }
   }
 
+  // Ranking slot — rendered between summary pips and the carousel
+  h += `<div id="status-ranking-slot"></div>`;
+
   // Build the three hierarchy sections as separate cards for the carousel
   const cityCard = renderCitySection(chars, activeId, isST);
   let covCard = '', clanCard = '';
@@ -380,5 +383,5 @@ export async function renderSuiteStatusTab(el) {
   }
 
   // #624: clan/covenant ranking (player ballot / ST aggregate) — shared with tabs/status-tab.js
-  await appendRankingSection(el, { chars, activeChar, isST });
+  await appendRankingSection(el.querySelector('#status-ranking-slot'), { chars, activeChar, isST });
 }
