@@ -14,6 +14,7 @@ import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import attendanceRouter from '../../routes/attendance.js';
 import trackerRouter from '../../routes/tracker.js';
+import rankingBallotsRouter from '../../routes/ranking_ballots.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import ordealResponsesRouter from '../../routes/ordeal-responses.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
@@ -62,6 +63,7 @@ export function createTestApp() {
   app.use('/api/characters', mockAuth, noCache(), charactersRouter);
   app.use('/api/downtime_cycles', mockAuth, noCache(), cyclesRouter);
   app.use('/api/downtime_submissions', mockAuth, noCache(), submissionsRouter);
+  app.use('/api/ranking_ballots', mockAuth, noCache(), rankingBallotsRouter);
   app.use('/api/project_invitations', mockAuth, noCache(), projectInvitationsRouter);
   app.use('/api/players', mockAuth, noCache(), playersRouter);
   app.use('/api/attendance', mockAuth, noCache(), attendanceRouter);

@@ -506,7 +506,7 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       const ACTIVE_FEED_STATUSES = new Set(['feeding_rights', 'poaching', 'resident', 'poacher', 'poach']);
       for (const [tid, status] of Object.entries(grid)) {
         if (!ACTIVE_FEED_STATUSES.has(status)) continue;
-        const td = effectiveTerrs.find(t => String(t._id) === tid);
+        const td = effectiveTerrs.find(t => String(t.slug) === tid);
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;

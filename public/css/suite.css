@@ -2239,6 +2239,141 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .status-section-title{font-size:15px;}
 .status-col-head{font-size:15px;}
 
+/* ── #624 Clan/Covenant ranking ballot ── */
+.status-ranking-section {
+  margin: 8px 14px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: var(--surf);
+  overflow: hidden;
+}
+.status-ranking-section .status-section-head {
+  padding: 10px 14px;
+  margin-bottom: 0;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+}
+.status-ranking-grid {
+  display: flex;
+}
+.status-ranking-col {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--bdr);
+}
+.status-ranking-col:last-child { border-right: none; }
+.status-ranking-col-head {
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin-bottom: 10px;
+}
+.status-ranking-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.status-ranking-ord {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.status-ranking-sel {
+  flex: 1;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-family: var(--ft);
+  font-size: 13px;
+  color: var(--txt);
+  outline: none;
+  cursor: pointer;
+}
+.status-ranking-sel:focus { border-color: var(--bdr3); }
+.status-ranking-sel option { background: var(--surf); color: var(--txt); }
+.status-ranking-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--bdr);
+  background: var(--surf2);
+}
+.status-ranking-save {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1px solid var(--bdr3);
+  border-radius: 4px;
+  background: var(--gold-a12);
+  color: var(--gold);
+  cursor: pointer;
+  transition: background .15s;
+}
+.status-ranking-save:hover { background: var(--gold-a20); }
+.status-ranking-msg {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+}
+/* ST aggregate */
+.status-ranking-agg-grid { display: flex; }
+.status-ranking-agg-col {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--bdr);
+}
+.status-ranking-agg-col:last-child { border-right: none; }
+.status-ranking-agg-group { margin-bottom: 14px; }
+.status-ranking-agg-group:last-child { margin-bottom: 0; }
+.status-ranking-agg-group-head {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--bdr);
+}
+.status-ranking-agg-list { display: flex; flex-direction: column; gap: 4px; }
+.status-ranking-agg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--surf2);
+  border-radius: 4px;
+}
+.status-ranking-agg-name {
+  font-size: 13px;
+  color: var(--txt);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-ranking-agg-pts {
+  font-family: var(--fh);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ── Ordeals + XP breakdown (ported from player-layout.css) ── */
 .ordeals-container{display:flex;flex-direction:column;gap:24px;padding:16px;}
 .ordeals-heading{font-family:var(--fl);font-size:15px;color:var(--accent);font-weight:600;margin-bottom:12px;letter-spacing:.5px;}

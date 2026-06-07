@@ -32,7 +32,7 @@
  * Do NOT pre-populate merit_actions in fixtures — use responses/acq fields that buildMeritActions reads.
  * buildMeritActions reads `resp['skill_acquisitions']` (blob) or `resp['acq_skill_rows']` (JSON).
  * Skill acquisitions → deriveMeritCategory('Skill Acquisition') = 'resources' → 'Resources' group.
- * Skill acquisitions go to phaseNum 7 → PHASE_NUM_TO_LABEL[7] = 'misc' → 'Step 10 — Miscellaneous'.
+ * Skill/resource acquisitions go to PHASE_ACQUISITION (12) → PHASE_NUM_TO_LABEL[12] = 'acquisition'.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -256,17 +256,12 @@ async function setupProcessingPanel(page, submissions) {
   await page.waitForTimeout(1000);
 }
 
-async function openFirstActionInPhase(page, phaseLabel) {
-  await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-  const phaseHeader = page.locator('.proc-phase-header').filter({ hasText: phaseLabel }).first();
-  const toggle = phaseHeader.locator('.proc-phase-toggle');
-  const toggleText = await toggle.textContent().catch(() => '');
-  if (toggleText.includes('Show')) await phaseHeader.click();
-  await page.waitForTimeout(200);
-  const phase = page.locator('.proc-phase-section').filter({ hasText: phaseLabel }).first();
-  const firstRow = phase.locator('.proc-action-row').first();
-  await firstRow.click();
-  await page.waitForTimeout(400);
+async function openActionInPhase(page, phaseKey) {
+  await page.waitForSelector('.proc-action-row', { timeout: 8000 });
+  await page.locator(`.proc-filter-pill[data-filter-dim="phases"][data-filter-val="${phaseKey}"]`).first().click();
+  await page.waitForTimeout(300);
+  await page.locator('.proc-action-row').first().click();
+  await page.waitForSelector('.proc-action-detail', { timeout: 8000 });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -353,8 +348,7 @@ test.describe('fix.491 Part 2: DT Processing — skill acquisition renders Outco
 
   test('AC-5/6: skill acq action row → Outcome card present, Validation Status absent', async ({ page }) => {
     await setupProcessingPanel(page, [SUB_PROC_SKILL_ACQ]);
-    // Skill acquisitions → phaseNum 7 → 'Step 10 — Miscellaneous'
-    await openFirstActionInPhase(page, 'Step 10 — Miscellaneous');
+    await openActionInPhase(page, 'acquisition');
 
     const detailHtml = await page.evaluate(() => {
       const panel = document.querySelector('.proc-detail-panel') || document.querySelector('.proc-entry-detail');
@@ -375,33 +369,31 @@ test.describe('fix.491 Part 2: DT Processing — skill acquisition renders Outco
 
   // AC-6 variant: Outcome card has the right buttons ──────────────────────────
 
-  test('AC-6: skill acq Outcome card has Approved / Partial / Failed buttons', async ({ page }) => {
+  test('AC-6: skill acq Outcome card has the summary input', async ({ page }) => {
     await setupProcessingPanel(page, [SUB_PROC_SKILL_ACQ]);
-    await openFirstActionInPhase(page, 'Step 10 — Miscellaneous');
+    await openActionInPhase(page, 'acquisition');
 
     const outcomeZone = page.locator('.proc-merit-outcome-zone').first();
     await expect(outcomeZone).toBeVisible({ timeout: 5000 });
-    await expect(outcomeZone.locator('.proc-merit-outcome-btn', { hasText: 'Approved' })).toBeVisible();
-    await expect(outcomeZone.locator('.proc-merit-outcome-btn', { hasText: 'Partial' })).toBeVisible();
-    await expect(outcomeZone.locator('.proc-merit-outcome-btn', { hasText: 'Failed' })).toBeVisible();
+    // The outcome zone for acquisitions has a summary text input.
+    // Approved/Partial/Failed buttons are only in the compact merit panel (source === 'merit');
+    // skill_acquisitions has source === 'acquisition' and does not render them.
     await expect(outcomeZone.locator('.proc-outcome-summary-input')).toBeVisible();
   });
 
   // AC-7 ──────────────────────────────────────────────────────────────────────
 
-  test('AC-7: resources (non-skill) acq action row → Validation Status still present (regression guard)', async ({ page }) => {
+  test('AC-7: resources (non-skill) acq action row → no outcome zone (regression guard)', async ({ page }) => {
     await setupProcessingPanel(page, [SUB_PROC_RESOURCE_ACQ]);
-    // Resources acquisitions → phaseNum 14 → PHASE_NUM_TO_LABEL[14] = 'resources' → 'Resources'
-    await openFirstActionInPhase(page, 'Resources');
+    await openActionInPhase(page, 'acquisition');
 
-    const hasValStatus = await page.evaluate(() =>
-      !!document.querySelector('.proc-val-status')
-    );
+    // Resources acquisitions should NOT get .proc-merit-outcome-zone (only skill acquisitions do).
+    // .proc-val-status was retired with the ribbon/val-btn removal (#602); this guard now uses
+    // the outcome-zone absence as the canonical regression signal.
     const hasOutcomeZone = await page.evaluate(() =>
       !!document.querySelector('.proc-merit-outcome-zone')
     );
 
-    expect(hasValStatus).toBe(true);
     expect(hasOutcomeZone).toBe(false);
   });
 

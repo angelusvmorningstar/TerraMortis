@@ -703,8 +703,14 @@ async function saveTerrAmbience(terrId) {
     // Invalidate processing mode's territory cache so it refetches on next render
     invalidateCachedTerritories();
 
-    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    // #634: re-render FIRST (it rebuilds the status span from the template), THEN set the
+    // "Saved" feedback on the fresh node — otherwise patchTerritories wiped it in the same tick.
     patchTerritories(document.getElementById('city-content'));
+    const savedStatus = document.getElementById('terr-amb-status-' + terrId);
+    if (savedStatus) {
+      savedStatus.textContent = 'Saved';
+      setTimeout(() => { const s = document.getElementById('terr-amb-status-' + terrId); if (s) s.textContent = ''; }, 2000);
+    }
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
   }

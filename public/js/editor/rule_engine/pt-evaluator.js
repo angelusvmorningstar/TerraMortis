@@ -57,6 +57,10 @@ export function applyPTRulesFromDb(c, { grants = [], nineAgain = [], skillBonus 
 
       const targetSkill =
         rule.target_skill === 'dot4_skill' ? pt.dot4_skill : rule.target_skill;
+      // Invariant (issue #577): this ephemeral grant is the SOLE representation of the
+      // PT dot-4 bonus skill dot. Never fold it into skill.dots or skill.free — doing so
+      // causes a double-count (sheet renders filled+hollow). The sheet gate in sheet.js
+      // enforces this at render time; migrate-577-pt-dot4-free-cleanup.js is the data fix.
       if (targetSkill) c._pt_dot4_bonus_skills.add(targetSkill);
     }
   }

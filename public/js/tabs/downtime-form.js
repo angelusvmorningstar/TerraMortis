@@ -6573,6 +6573,15 @@ function updateSectionTicks(container) {
       return;
     }
 
+    // #637: personal_story — match the submit gate (_hasPersonalStory = kind && text). The
+    // generic "all qf-fields filled" fallback would wrongly require the OPTIONAL NPC name too.
+    if (key === 'personal_story') {
+      const kindChecked = !!body.querySelector('input[name="dt-personal_story_kind"]:checked');
+      const textEl = document.getElementById('dt-personal_story_text');
+      tick.classList.toggle('visible', kindChecked && !!(textEl && textEl.value.trim()));
+      return;
+    }
+
     // Issue #163 (2026-05-08): Court > Last Game Session tick rule. Min reqs:
     //   - travel description present
     //   - at least one game_recount highlight slot populated

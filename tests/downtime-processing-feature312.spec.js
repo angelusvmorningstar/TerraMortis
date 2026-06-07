@@ -151,16 +151,14 @@ async function setup(page, submissions, chars) {
   await page.waitForTimeout(300);
 }
 
+// Flat card wall (#581/#585): phase accordions (.proc-phase-section/.proc-phase-toggle)
+// were replaced by filter pills. Activate the Feeding phase pill, then open the first row.
 async function openFeedingPanel(page) {
-  await page.waitForSelector('.proc-phase-section', { state: 'visible', timeout: 8000 });
-  const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Feeding' }).first();
-  const toggle = feedHeader.locator('.proc-phase-toggle');
-  const toggleText = await toggle.textContent().catch(() => '');
-  if (toggleText.includes('Show')) await feedHeader.click();
-  await page.waitForTimeout(200);
-  const feedPhase = page.locator('.proc-phase-section').filter({ hasText: 'Feeding' }).first();
-  await feedPhase.locator('.proc-action-row').first().click();
-  await page.waitForTimeout(400);
+  await page.waitForSelector('.proc-action-row', { timeout: 8000 });
+  await page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="feeding"]').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('.proc-action-row').first().click();
+  await page.waitForSelector('.proc-action-detail', { timeout: 8000 });
 }
 
 // ── AC1: FG inflated (rating: 20) shows +5, not +20 ──────────────────────────
@@ -320,15 +318,16 @@ test.describe('F312-4: Pool builder initial modifier total respects the FG cap',
     expect(parseInt(fgAttr, 10)).toBeLessThanOrEqual(5);
   });
 
-  test('Mod total row value is consistent with capped FG contribution', async ({ page }) => {
+  // fix.617: the feeding mod-total is a hidden .proc-mod-total-val span (display:none), not a
+  // .proc-mod-total-row. Read its textContent directly (works on hidden/attached elements).
+  test('Mod total value is consistent with capped FG contribution', async ({ page }) => {
     await setup(page, [SUBMISSION_FG_INFLATED], [CHAR_FG_INFLATED]);
     await openFeedingPanel(page);
-    const totalRow = page.locator('.proc-mod-total-row').first();
-    await expect(totalRow).toBeVisible({ timeout: 5000 });
-    const totalVal = totalRow.locator('.proc-mod-total-val');
+    const totalVal = page.locator('.proc-mod-total-val').first();
+    await totalVal.waitFor({ state: 'attached', timeout: 5000 });
     const totalText = await totalVal.textContent();
     // With FG capped at 5 and no other modifiers, total should be +5 (or lower if unskilled applies)
-    const totalNum = parseInt(totalText.replace(/[^0-9-]/g, ''), 10);
+    const totalNum = parseInt((totalText || '').replace(/[^0-9-]/g, ''), 10);
     expect(totalNum).toBeLessThanOrEqual(5);
   });
 

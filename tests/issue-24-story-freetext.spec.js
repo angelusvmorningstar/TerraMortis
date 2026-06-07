@@ -121,11 +121,15 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await expect(select).toHaveCount(0);
   });
 
+  // #628: restored for the dt-form.18 personal_story design — `kind` radio +
+  // #dt-personal_story_npc_name (text, metadata-only) + #dt-personal_story_text (textarea).
+  // The section's complete-tick gate (_hasPersonalStory) is `kind && text`. The old
+  // #dt-personal_story_npc_name_free + #dt-personal_story_note + visible→hidden sync are gone.
   test('Story section has a free-text NPC name input', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    const nameInput = page.locator('#dt-personal_story_npc_name_free');
+    const nameInput = page.locator('#dt-personal_story_npc_name');
     await expect(nameInput).toBeVisible();
     await expect(nameInput).toHaveAttribute('type', 'text');
   });
@@ -134,28 +138,21 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    const noteArea = page.locator('#dt-personal_story_note');
+    const noteArea = page.locator('#dt-personal_story_text');
     await expect(noteArea).toBeVisible();
   });
 
-  test('typing an NPC name syncs to the hidden personal_story_npc_name field', async ({ page }) => {
+  // #628: RETIRED — 'typing an NPC name syncs to the hidden personal_story_npc_name field'.
+  // dt-form.18 uses #dt-personal_story_npc_name directly; there is no visible→hidden sync.
+
+  test('selecting a kind and filling text marks the tick visible (name optional)', async ({ page }) => {
     await loginAsPlayer(page);
     await openStorySection(page);
 
-    await page.fill('#dt-personal_story_npc_name_free', 'Marcus the Shepherd');
-    await page.press('#dt-personal_story_npc_name_free', 'Tab');
-    await page.waitForTimeout(200);
-
-    const hidden = page.locator('#dt-personal_story_npc_name');
-    await expect(hidden).toHaveValue('Marcus the Shepherd');
-  });
-
-  test('typing a name and note marks the section tick visible', async ({ page }) => {
-    await loginAsPlayer(page);
-    await openStorySection(page);
-
-    await page.fill('#dt-personal_story_npc_name_free', 'Marcus the Shepherd');
-    await page.fill('#dt-personal_story_note', 'A quiet conversation by the river.');
+    // #637: the tick now matches the submit gate (_hasPersonalStory = kind && text). The
+    // "(optional)" NPC name is NOT required — left blank here on purpose.
+    await page.locator('input[name="dt-personal_story_kind"][value="touchstone"]').check();
+    await page.fill('#dt-personal_story_text', 'A quiet conversation by the river.');
     await page.waitForTimeout(300);
 
     const tick = page.locator('.qf-section[data-section-key="personal_story"] .qf-section-tick');
@@ -177,14 +174,14 @@ test.describe('Issue #24: Story section free-text NPC fields', () => {
         body: JSON.stringify([{
           _id: 'sub-saved', cycle_id: ACTIVE_CYCLE._id,
           character_id: TEST_CHAR._id, status: 'draft',
-          responses: { personal_story_npc_name: 'Elara the Merchant', personal_story_note: 'Trade secrets.' },
+          responses: { personal_story_npc_name: 'Elara the Merchant', personal_story_text: 'Trade secrets.' },
         }]),
       });
     });
 
     await openStorySection(page);
 
-    await expect(page.locator('#dt-personal_story_npc_name_free')).toHaveValue('Elara the Merchant');
+    await expect(page.locator('#dt-personal_story_npc_name')).toHaveValue('Elara the Merchant');
   });
 
 });

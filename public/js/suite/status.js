@@ -17,6 +17,7 @@ import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
 import suiteState, { CITY_SVG, OTHER_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
 import { resolveActiveChar, covenantListFor, covenantRowsFor, clanRowsFor } from '../data/status-data.js';
+import { appendRankingSection } from '../tabs/status-ranking.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
 let _statusTabEl  = null;   // stored for re-renders after edits
@@ -268,7 +269,8 @@ export async function renderSuiteStatusTab(el) {
 
   const activeChar = suiteState.rollChar || null;
   const activeId   = activeChar ? String(activeChar._id) : '';
-  const isST       = getRole() === 'st';
+  const rawRole    = getRole();
+  const isST       = (rawRole === 'st' || rawRole === 'dev') && sessionStorage.getItem('tm_view_mode') !== 'player';
 
   // ── Compact personal status row ──
   let h = '';
@@ -302,6 +304,9 @@ export async function renderSuiteStatusTab(el) {
       ).join(' \u00B7 ')}</div>`;
     }
   }
+
+  // Ranking slot — rendered between summary pips and the carousel
+  h += `<div id="status-ranking-slot"></div>`;
 
   // Build the three hierarchy sections as separate cards for the carousel
   const cityCard = renderCitySection(chars, activeId, isST);
@@ -376,4 +381,7 @@ export async function renderSuiteStatusTab(el) {
       });
     });
   }
+
+  // #624: clan/covenant ranking (player ballot / ST aggregate) — shared with tabs/status-tab.js
+  await appendRankingSection(el.querySelector('#status-ranking-slot'), { chars, activeChar, isST });
 }
