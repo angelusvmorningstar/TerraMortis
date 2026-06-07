@@ -2336,6 +2336,18 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   border-right: 1px solid var(--bdr);
 }
 .status-ranking-agg-col:last-child { border-right: none; }
+.status-ranking-agg-group { margin-bottom: 14px; }
+.status-ranking-agg-group:last-child { margin-bottom: 0; }
+.status-ranking-agg-group-head {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--bdr);
+}
 .status-ranking-agg-list { display: flex; flex-direction: column; gap: 4px; }
 .status-ranking-agg-row {
   display: flex;

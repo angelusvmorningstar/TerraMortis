@@ -54,24 +54,44 @@ function renderRankingBallot(me, clanMembers, covMembers, ballot, activeId, hasC
 
 function renderRankingAggregate(chars, agg) {
   const byId = new Map(chars.map(c => [String(c._id), c]));
-  const list = (points) => {
-    const rows = Object.entries(points || {})
-      .map(([id, pts]) => ({ c: byId.get(id), pts }))
-      .filter(r => r.c && r.pts > 0)
-      .sort((a, b) => b.pts - a.pts || sortName(a.c).localeCompare(sortName(b.c)));
-    if (!rows.length) return `<p class="placeholder-msg status-empty">No ballots cast yet.</p>`;
-    let h = `<div class="status-ranking-agg-list">`;
-    for (const r of rows) {
-      h += `<div class="status-ranking-agg-row"><span class="status-ranking-agg-name">${esc(displayName(r.c))}</span><span class="status-ranking-agg-pts">${r.pts}</span></div>`;
+
+  function groupByOrg(points, orgKey) {
+    const groups = new Map();
+    for (const [id, pts] of Object.entries(points || {})) {
+      const c = byId.get(id);
+      if (!c || !pts) continue;
+      const org = c[orgKey] || 'Unknown';
+      if (!groups.has(org)) groups.set(org, []);
+      groups.get(org).push({ c, pts });
     }
-    return h + `</div>`;
-  };
+    for (const rows of groups.values())
+      rows.sort((a, b) => b.pts - a.pts || sortName(a.c).localeCompare(sortName(b.c)));
+    return groups;
+  }
+
+  function renderGroups(groups) {
+    if (!groups.size) return `<p class="placeholder-msg status-empty">No ballots cast yet.</p>`;
+    let h = '';
+    for (const [name, rows] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
+      h += `<div class="status-ranking-agg-group">`;
+      h += `<div class="status-ranking-agg-group-head">${esc(name)}</div>`;
+      h += `<div class="status-ranking-agg-list">`;
+      for (const r of rows)
+        h += `<div class="status-ranking-agg-row"><span class="status-ranking-agg-name">${esc(displayName(r.c))}</span><span class="status-ranking-agg-pts">${r.pts}</span></div>`;
+      h += `</div></div>`;
+    }
+    return h;
+  }
+
+  const clanGroups = groupByOrg(agg.clan_points, 'clan');
+  const covGroups  = groupByOrg(agg.covenant_points, 'covenant');
+
   let h = `<div class="status-ranking-section">`;
   h += `<div class="status-section-head"><span class="status-section-title">Ranking Points — this cycle</span>`;
   h += `<span class="status-section-caps">ST only · 1st=3 2nd=2 3rd=1</span></div>`;
   h += `<div class="status-ranking-agg-grid">`;
-  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Clan points</div>${list(agg.clan_points)}</div>`;
-  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Covenant points</div>${list(agg.covenant_points)}</div>`;
+  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Clan points</div>${renderGroups(clanGroups)}</div>`;
+  h += `<div class="status-ranking-agg-col"><div class="status-ranking-col-head">Covenant points</div>${renderGroups(covGroups)}</div>`;
   return h + `</div></div>`;
 }
 
