@@ -33,7 +33,7 @@ h1 { font-family: var(--fh); font-size: 16px; letter-spacing: .08em; color: var(
   background: var(--surf); overflow: hidden; margin: 8px 0;
 }
 .status-section-head {
-  display: flex; align-items: baseline; gap: 12px;
+  display: flex; align-items: center; gap: 12px;
   padding: 10px 14px; background: var(--surf2); border-bottom: 1px solid var(--bdr);
 }
 .status-section-title {
@@ -102,6 +102,17 @@ h1 { font-family: var(--fh); font-size: 16px; letter-spacing: .08em; color: var(
   color: var(--accent); flex-shrink: 0;
 }
 .rank-member-pts.zero { color: var(--txt3); font-size: 12px; font-family: var(--fl); font-weight: 400; }
+
+.rank-mode-toggle { display: flex; gap: 4px; margin-left: auto; }
+.rank-mode-btn {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; padding: 4px 12px;
+  border: 1px solid var(--bdr2); border-radius: 4px;
+  background: var(--surf); color: var(--txt2); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.rank-mode-btn:hover { border-color: var(--bdr3); color: var(--txt); }
+.rank-mode-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
 </style>
 </head>
 <body>

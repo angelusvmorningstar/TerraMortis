@@ -2252,6 +2252,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   margin-bottom: 0;
   background: var(--surf2);
   border-bottom: 1px solid var(--bdr);
+  align-items: center;
 }
 .status-ranking-grid {
   display: flex;
