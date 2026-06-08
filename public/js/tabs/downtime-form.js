@@ -4834,8 +4834,12 @@ function renderRegencySection() {
     h += `<p class="qf-desc">As regent, you must confirm <strong>this downtime</strong> who has feeding rights in ${esc(terrName)}. Manage your feeding-rights slots in the Regency tab; once your selections are set, return here and confirm to lock them in for the cycle.</p>`;
     h += '<div class="qf-actions">';
     h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
-    h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
-    h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
+    if (currentCycle?.status === 'active') {
+      h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
+      h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
+    } else {
+      h += '<p class="qf-desc">Downtimes are not yet open - use the Regency tab to prepare your feeding-rights selections.</p>';
+    }
     h += '</div>';
   }
 

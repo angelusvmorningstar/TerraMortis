@@ -71,7 +71,7 @@ export async function renderRegencyTab(container, char, territories) {
   try {
     const cycles = await apiGet('/api/downtime_cycles');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    _activeCycle = sorted.find(c => c.status === 'active') || null;
+    _activeCycle = sorted.find(c => ['active', 'game', 'prep'].includes(c.status)) || null;
   } catch { _activeCycle = null; }
 
   // Compute locked character IDs from this cycle's submitted downtimes
@@ -180,7 +180,7 @@ function render(container) {
   let h = '<div class="regency-wrap">';
 
   // CTA banner — show when cycle gate is pending and this Regent hasn't confirmed
-  if (_activeCycle && !cycleConfirmed && !myConfirmation) {
+  if (_activeCycle && _activeCycle.status === 'active' && !cycleConfirmed && !myConfirmation) {
     h += `<div class="reg-cta-banner">`;
     h += `<strong>Action required:</strong> The feeding rights gate for <em>${esc(_activeCycle.label || 'this cycle')}</em> is waiting on your confirmation. Use the "Confirm Feeding Rights" button below to lock in your territory's rights for this cycle.`;
     h += `</div>`;
@@ -251,9 +251,9 @@ function render(container) {
     h += '<button id="reg-add-right" class="qf-btn qf-btn-secondary">+ Add Feeding Right</button>';
   }
   h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
-  if (_activeCycle && !cycleConfirmed) {
+  if (_activeCycle && _activeCycle.status === 'active' && !cycleConfirmed) {
     h += '<button id="reg-confirm" class="qf-btn qf-btn-secondary">Confirm Feeding Rights</button>';
-  } else if (_activeCycle && cycleConfirmed && myConfirmation) {
+  } else if (_activeCycle && _activeCycle.status === 'active' && cycleConfirmed && myConfirmation) {
     h += '<span class="reg-confirmed-badge">Feeding rights confirmed for this cycle</span>';
   }
   h += '<span id="reg-save-status" class="qf-save-status"></span>';
