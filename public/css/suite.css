@@ -2353,6 +2353,8 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .rank-pill:hover { border-color: var(--bdr3); color: var(--txt); }
 .rank-pill.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+.rank-voter-count { font-size: 10px; font-weight: 400; font-family: var(--ft); color: var(--txt3); margin-left: 4px; }
+.rank-pill.active .rank-voter-count { color: var(--gold-a60); }
 .rank-member-list { display: flex; flex-direction: column; }
 .rank-member-row {
   display: flex; align-items: center; justify-content: space-between;
