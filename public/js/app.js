@@ -96,7 +96,7 @@ import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { applyOverlayToAll } from './data/st-mods.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
-import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
+import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -1177,6 +1177,8 @@ Object.assign(window, {
   clrHist,
   loadPool,
   effPool,
+  togEquipChip,
+  updWeaponRef,
 
   // Dice roller modal
   openDiceModal,

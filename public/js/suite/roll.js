@@ -7,6 +7,7 @@ import state from './data.js';
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
+import { getCatalogueEntry } from '../data/equipment-data.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -33,6 +34,8 @@ export function loadPool(total, name, pi) {
   state.PS = Math.max(0, total);
   state.MOD = 0;
   state.specBonuses = {};
+  state.activeEquipBonus = null;
+  state.activeWeaponId = null;
   state.POOL_INFO = pi || null;
   // Auto-set 9-Again when the pool source grants it
   if (pi?.nineAgain) setAgain(9);
@@ -130,7 +133,32 @@ export function updPool() {
     }
   }
 
+  // Equipment bonus chips (EQ-3): one-active-at-a-time gear bonuses
+  if (pi.skill && state.rollChar) {
+    const rc = state.rollChar;
+    const equip = (rc.equipment || []).filter(item => {
+      const entry = getCatalogueEntry(item.catalogue_id);
+      return entry && entry.bucket === 'equipment' &&
+             entry.bonus_dice > 0 &&
+             entry.skill_domain === pi.skill &&
+             (item.state === 'carried' || item.state === 'worn');
+    });
+    if (equip.length) {
+      html += '<div class="effpool-specs">' + equip.map(item => {
+        const entry = getCatalogueEntry(item.catalogue_id);
+        const isOn = state.activeEquipBonus &&
+                     state.activeEquipBonus.catalogueId === entry.id;
+        const cls = 'effpool-spec' + (isOn ? ' on' : '');
+        const safe = String(entry.id).replace(/"/g, '&quot;');
+        return `<span class="${cls}" data-equip="${safe}" data-bonus="${entry.bonus_dice}" `
+             + `onclick="togEquipChip(this)" title="${entry.name}">`
+             + `${entry.name} <span class="effpool-spec-bonus">+${entry.bonus_dice}</span></span>`;
+      }).join('') + '</div>';
+    }
+  }
+
   el.innerHTML = html;
+  updWeaponRef();
 }
 
 // ── SPECIALTY TOGGLE ──
@@ -155,6 +183,82 @@ export function togSpec(badge) {
     state.specBonuses[name] = bonus;
   }
   updPool();
+}
+
+// ── EQUIPMENT CHIP TOGGLE (EQ-3) ──
+
+export function togEquipChip(badge) {
+  if (!badge) return;
+  const id = badge.dataset.equip;
+  const bonus = parseInt(badge.dataset.bonus, 10) || 0;
+  if (!id || !bonus) return;
+
+  if (state.activeEquipBonus && state.activeEquipBonus.catalogueId === id) {
+    state.MOD -= state.activeEquipBonus.bonus;
+    state.activeEquipBonus = null;
+  } else {
+    if (state.activeEquipBonus) {
+      state.MOD -= state.activeEquipBonus.bonus;
+    }
+    state.MOD += bonus;
+    state.activeEquipBonus = { catalogueId: id, bonus };
+  }
+  updPool();
+}
+
+// ── WEAPON REFERENCE PANEL (EQ-3) ──
+
+const COMBAT_SKILLS = ['Weaponry', 'Brawl', 'Firearms', 'Archery'];
+
+export function updWeaponRef() {
+  const panel = document.getElementById('weapon-ref');
+  if (!panel) return;
+
+  // Capture live selection before rebuilding innerHTML
+  const liveSel = document.getElementById('weapon-sel');
+  if (liveSel && liveSel.value) state.activeWeaponId = liveSel.value;
+  else if (liveSel && !liveSel.value) state.activeWeaponId = null;
+
+  const pi = state.POOL_INFO;
+  if (!pi || !pi.skill || !COMBAT_SKILLS.includes(pi.skill) || !state.rollChar) {
+    panel.style.display = 'none';
+    return;
+  }
+  const weapons = (state.rollChar.equipment || []).filter(item => {
+    const entry = getCatalogueEntry(item.catalogue_id);
+    return entry && entry.bucket === 'weapon' &&
+           (item.state === 'carried' || item.state === 'worn');
+  });
+  if (!weapons.length) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = '';
+  const prevId = state.activeWeaponId;
+
+  const optionsHtml = weapons.map(item => {
+    const e = getCatalogueEntry(item.catalogue_id);
+    const sel = prevId === e.id ? ' selected' : '';
+    return `<option value="${e.id}"${sel}>${e.name}</option>`;
+  }).join('');
+
+  let statsHtml = '';
+  if (prevId) {
+    const e = getCatalogueEntry(prevId);
+    if (e) {
+      const DMGTYPE = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
+      const WPNTYPE = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
+      const mod = e.damage_mod > 0 ? '+' + e.damage_mod : String(e.damage_mod);
+      statsHtml = `<div class="trait-qual">`
+               + `${mod} · ${DMGTYPE[e.damage_type] || e.damage_type} · ${WPNTYPE[e.weapon_type] || e.weapon_type}`
+               + `</div>`;
+    }
+  }
+
+  panel.innerHTML = `<div class="slabel">Weapon</div>`
+    + `<select id="weapon-sel" class="resist-sel" onchange="updWeaponRef()">`
+    + `<option value="">-- select --</option>${optionsHtml}</select>${statsHtml}`;
 }
 
 // ── AGAIN / MODIFIER TOGGLES ──
