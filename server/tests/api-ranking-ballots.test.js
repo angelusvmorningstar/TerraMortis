@@ -177,16 +177,19 @@ describe('GET /api/ranking_ballots/aggregate — ST only, points totals', () => 
       .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE}`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    // clanmate2: slot-1 from clanmate1 (5pts) + slot-2 from voter (4pts) → sorted desc
-    expect(res.body.clan_votes[clanmate2.id]).toEqual([5, 4]);
+    // clanmate2: slot-1 from clanmate1 (5pts) + slot-2 from voter (4pts) → sorted desc by pts
+    expect(res.body.clan_votes[clanmate2.id]).toEqual([
+      { pts: 5, voter: 'Clanmate1' },
+      { pts: 4, voter: 'Voter' },
+    ]);
     // clanmate1: slot-1 from voter (5pts)
-    expect(res.body.clan_votes[clanmate1.id]).toEqual([5]);
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([{ pts: 5, voter: 'Voter' }]);
     // voter (Mekhet) and clanmate1 (Mekhet) both submitted ballots
     expect(res.body.clan_voter_count['Mekhet']).toBe(2);
     // only voter (Invictus) submitted a ballot; clanmate1 is Carthian Movement
     expect(res.body.covenant_voter_count['Invictus']).toBe(1);
-    expect(res.body.covenant_votes[covmate1.id]).toEqual([5]);
-    expect(res.body.covenant_votes[covmate2.id]).toEqual([4]);
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([{ pts: 5, voter: 'Voter' }]);
+    expect(res.body.covenant_votes[covmate2.id]).toEqual([{ pts: 4, voter: 'Voter' }]);
   });
 
   it('403 — a player cannot read the aggregate', async () => {
@@ -272,16 +275,19 @@ describe('GET /api/ranking_ballots/aggregate?mode=political — status-weighted 
       .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body.clan_votes[clanmate1.id]).toEqual([3]);
-    // highVoter gave 3, voter gave 1 — sorted desc
-    expect(res.body.clan_votes[clanmate2.id]).toEqual([3, 1]);
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([{ pts: 3, voter: 'HighStatusVoter' }]);
+    // highVoter gave 3, voter gave 1 — sorted desc by pts
+    expect(res.body.clan_votes[clanmate2.id]).toEqual([
+      { pts: 3, voter: 'HighStatusVoter' },
+      { pts: 1, voter: 'Voter' },
+    ]);
     // highVoter (Mekhet) and voter (Mekhet) both submitted ballots
     expect(res.body.clan_voter_count['Mekhet']).toBe(2);
     // highVoter (Invictus) and voter (Invictus) both submitted ballots
     expect(res.body.covenant_voter_count['Invictus']).toBe(2);
     // highVoter (cov status Invictus=2) gave each covmate 2pts
-    expect(res.body.covenant_votes[covmate1.id]).toEqual([2]);
-    expect(res.body.covenant_votes[covmate2.id]).toEqual([2]);
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([{ pts: 2, voter: 'HighStatusVoter' }]);
+    expect(res.body.covenant_votes[covmate2.id]).toEqual([{ pts: 2, voter: 'HighStatusVoter' }]);
   });
 
   it('mode defaults to ranked when ?mode is omitted', async () => {
@@ -323,9 +329,9 @@ describe('GET /api/ranking_ballots/aggregate — clan_voter_count and covenant_v
     // Daeva never submitted — should have no key
     expect(res.body.clan_voter_count['Daeva']).toBeUndefined();
     expect(res.body.covenant_voter_count['Invictus']).toBe(1);
-    // votes arrays reflect the single contribution
-    expect(res.body.clan_votes[clanmate1.id]).toEqual([5]);
-    expect(res.body.covenant_votes[covmate1.id]).toEqual([5]);
+    // votes arrays reflect the single contribution with voter name
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([{ pts: 5, voter: 'Voter' }]);
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([{ pts: 5, voter: 'Voter' }]);
   });
 
   it('empty cycle: all counts are empty objects', async () => {
