@@ -101,13 +101,23 @@ test.describe('#624 — player ranking ballot', () => {
 });
 
 test.describe('#624 — ST aggregate (ST-view)', () => {
-  test('ST sees per-character clan/covenant points', async ({ page }) => {
+  test('ST sees per-character clan points with inline tally (#647)', async ({ page }) => {
     await setup(page, ST_USER, { aggregate: { clan_points: { 'char-clan': 5 }, covenant_points: { 'char-cov': 3 } } });
-    const agg = page.locator('.status-ranking-agg-grid').first();
-    await expect(agg).toBeVisible({ timeout: 8000 });
-    await expect(agg).toContainText('Clanmate');
-    await expect(agg).toContainText('5');
-    await expect(agg).toContainText('Covmate');
-    await expect(agg).toContainText('3');
+    const clanList = page.locator('#rank-clan-list');
+    await expect(clanList).toBeVisible({ timeout: 8000 });
+    // Navigate to Mekhet (contains CLANMATE with 5 pts and VOTER with 0 pts)
+    await page.locator('#rank-clan-pills .rank-pill[data-key="Mekhet"]').click();
+    // Inline tally: points shown in parentheses after name
+    await expect(clanList).toContainText('Clanmate (5)');
+    // Zero-point entries also render with (0)
+    await expect(clanList).toContainText('Voter (0)');
+  });
+
+  test('ST covenant list shows inline tally after selecting pill (#647)', async ({ page }) => {
+    await setup(page, ST_USER, { aggregate: { clan_points: { 'char-clan': 5 }, covenant_points: { 'char-cov': 3 } } });
+    await page.locator('#rank-cov-pills .rank-pill[data-key="Invictus"]').click();
+    const covList = page.locator('#rank-cov-list');
+    await expect(covList).toContainText('Covmate (3)');
+    await expect(covList).toContainText('Voter (0)');
   });
 });

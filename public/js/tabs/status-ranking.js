@@ -70,7 +70,7 @@ function buildOrgGroups(points, chars, orgKey) {
 function renderAggMemberList(members) {
   if (!members || !members.length) return `<p class="placeholder-msg status-empty">No members.</p>`;
   return members.map(m =>
-    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)}</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
+    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)} (${m.pts})</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
   ).join('');
 }
 
@@ -149,6 +149,21 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
   refresh();
 }
 
+function wireDuplicateGuard(el, rank) {
+  const selects = [...el.querySelectorAll(`.status-ranking-sel[data-rank="${rank}"]`)];
+  function refresh() {
+    selects.forEach(sel => {
+      const others = new Set(selects.filter(s => s !== sel).map(s => s.value).filter(Boolean));
+      sel.querySelectorAll('option').forEach(opt => {
+        if (!opt.value) return;
+        opt.disabled = others.has(opt.value);
+      });
+    });
+  }
+  selects.forEach(sel => sel.addEventListener('change', refresh));
+  refresh();
+}
+
 function wireRankingSave(el, voterId, cycleId) {
   const btn = el.querySelector('.status-ranking-save');
   if (!btn) return;
@@ -222,6 +237,10 @@ export async function appendRankingSection(el, { chars, activeChar, isST }) {
     wrap.innerHTML = html;
     const node = wrap.firstElementChild;
     if (node) el.appendChild(node);
-    if (cycleId && activeChar) wireRankingSave(el, activeId, cycleId);
+    if (cycleId && activeChar) {
+      wireRankingSave(el, activeId, cycleId);
+      wireDuplicateGuard(el, 'clan');
+      wireDuplicateGuard(el, 'covenant');
+    }
   }
 }
