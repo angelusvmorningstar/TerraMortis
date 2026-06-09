@@ -75,8 +75,10 @@ function buildOrgGroups(points, votes, chars, orgKey) {
 function renderAggMemberList(members) {
   if (!members || !members.length) return `<p class="placeholder-msg status-empty">No members.</p>`;
   return members.map(m => {
-    const nonZero = (m.votes || []).filter(v => v > 0);
-    const breakdown = nonZero.length > 0 ? nonZero.join('+') : String(m.pts);
+    const nonZero = (m.votes || []).filter(v => v.pts > 0);
+    const breakdown = nonZero.length > 0
+      ? nonZero.map(v => `${esc(v.voter)}: ${v.pts}`).join(', ')
+      : String(m.pts);
     return `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)} (${breakdown})</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`;
   }).join('');
 }

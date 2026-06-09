@@ -47,24 +47,23 @@ function statusProjection(c) {
   };
 }
 
-// Ranked aggregate: Beta got contributions [5, 3] (two voters); Alpha got [0] (zero pts).
-// Gamma got [5] on covenant side.
+// Ranked aggregate: Beta got contributions from two voters; Alpha got zero; Gamma got one.
 const RANKED_AGG = {
   clan_points:          { 'char-clan-651': 8, 'char-voter-651': 0 },
-  clan_votes:           { 'char-clan-651': [5, 3] },
+  clan_votes:           { 'char-clan-651': [{ pts: 5, voter: 'VoterOne' }, { pts: 3, voter: 'VoterTwo' }] },
   clan_voter_count:     { Mekhet: 2 },
   covenant_points:      { 'char-cov-651': 5, 'char-voter-651': 0 },
-  covenant_votes:       { 'char-cov-651': [5] },
+  covenant_votes:       { 'char-cov-651': [{ pts: 5, voter: 'VoterOne' }] },
   covenant_voter_count: { Invictus: 2 },
 };
 
-// Political aggregate: Beta got [3, 1]; Alpha got [0]; Gamma got [3] on covenant.
+// Political aggregate: Beta got weighted contributions from two voters.
 const POLITICAL_AGG = {
   clan_points:          { 'char-clan-651': 4, 'char-voter-651': 0 },
-  clan_votes:           { 'char-clan-651': [3, 1] },
+  clan_votes:           { 'char-clan-651': [{ pts: 3, voter: 'HighVoter' }, { pts: 1, voter: 'LowVoter' }] },
   clan_voter_count:     { Mekhet: 2 },
   covenant_points:      { 'char-cov-651': 3, 'char-voter-651': 0 },
-  covenant_votes:       { 'char-cov-651': [3] },
+  covenant_votes:       { 'char-cov-651': [{ pts: 3, voter: 'HighVoter' }] },
   covenant_voter_count: { Invictus: 2 },
 };
 
@@ -93,14 +92,14 @@ async function setup(page, user, { mine = null } = {}) {
   await goToTab(page, 'status');
 }
 
-test.describe('#651 — ST ranked mode: vote breakdown in inline tally', () => {
-  test('AC1: character with two contributions shows breakdown (5+3), not just total', async ({ page }) => {
+test.describe('#651 — ST ranked mode: vote breakdown with voter names', () => {
+  test('AC1: character with two contributions shows "voter: pts" pairs', async ({ page }) => {
     await setup(page, ST_USER);
     await page.locator('#rank-clan-pills .rank-pill[data-key="Mekhet"]').click();
     const clanList = page.locator('#rank-clan-list');
     await expect(clanList).toBeVisible({ timeout: 8000 });
-    // Beta got contributions [5, 3] → should display "Beta (5+3)"
-    await expect(clanList).toContainText('Beta (5+3)');
+    // Beta got {pts:5,voter:'VoterOne'} and {pts:3,voter:'VoterTwo'} → "Beta (VoterOne: 5, VoterTwo: 3)"
+    await expect(clanList).toContainText('Beta (VoterOne: 5, VoterTwo: 3)');
   });
 
   test('AC3: zero-vote character still shows (0)', async ({ page }) => {
@@ -112,36 +111,35 @@ test.describe('#651 — ST ranked mode: vote breakdown in inline tally', () => {
     await expect(clanList).toContainText('Alpha (0)');
   });
 
-  test('AC1 covenant: single contribution shows plain number, not 5+0', async ({ page }) => {
+  test('AC1 covenant: single contribution shows "voter: pts"', async ({ page }) => {
     await setup(page, ST_USER);
     await page.locator('#rank-cov-pills .rank-pill[data-key="Invictus"]').click();
     const covList = page.locator('#rank-cov-list');
     await expect(covList).toBeVisible({ timeout: 8000 });
-    // Gamma got [5] → single non-zero contribution → shows "Gamma (5)"
-    await expect(covList).toContainText('Gamma (5)');
+    // Gamma got {pts:5,voter:'VoterOne'} → "Gamma (VoterOne: 5)"
+    await expect(covList).toContainText('Gamma (VoterOne: 5)');
   });
 });
 
-test.describe('#651 — ST political mode: breakdown after mode switch', () => {
-  test('AC2: switching to Political shows weighted breakdown (3+1)', async ({ page }) => {
+test.describe('#651 — ST political mode: named breakdown after mode switch', () => {
+  test('AC2: switching to Political shows weighted "voter: pts" pairs', async ({ page }) => {
     await setup(page, ST_USER);
-    // Switch to Political mode
     await page.locator('.rank-mode-btn[data-mode="political"]').click();
     await page.locator('#rank-clan-pills .rank-pill[data-key="Mekhet"]').click();
     const clanList = page.locator('#rank-clan-list');
     await expect(clanList).toBeVisible({ timeout: 8000 });
-    // Beta got political contributions [3, 1] → "Beta (3+1)"
-    await expect(clanList).toContainText('Beta (3+1)');
+    // Beta got {pts:3,voter:'HighVoter'} and {pts:1,voter:'LowVoter'} → "Beta (HighVoter: 3, LowVoter: 1)"
+    await expect(clanList).toContainText('Beta (HighVoter: 3, LowVoter: 1)');
   });
 
-  test('AC2 covenant: political covenant breakdown renders', async ({ page }) => {
+  test('AC2 covenant: political covenant named breakdown renders', async ({ page }) => {
     await setup(page, ST_USER);
     await page.locator('.rank-mode-btn[data-mode="political"]').click();
     await page.locator('#rank-cov-pills .rank-pill[data-key="Invictus"]').click();
     const covList = page.locator('#rank-cov-list');
     await expect(covList).toBeVisible({ timeout: 8000 });
-    // Gamma got [3] in political mode
-    await expect(covList).toContainText('Gamma (3)');
+    // Gamma got {pts:3,voter:'HighVoter'} → "Gamma (HighVoter: 3)"
+    await expect(covList).toContainText('Gamma (HighVoter: 3)');
   });
 });
 

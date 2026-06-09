@@ -69,13 +69,13 @@ router.get('/aggregate', requireRole('st'), async (req, res) => {
     if (v.covenant) covenant_voter_count[v.covenant] = (covenant_voter_count[v.covenant] || 0) + 1;
   }
 
-  // Accumulates both the running total and the per-ballot contribution list.
-  function addVote(pts, votes, cid, contribution) {
+  // Accumulates the running total and a per-ballot {pts, voter} contribution list.
+  function addVote(pts, votes, cid, contribution, voterName) {
     if (!cid) return;
     const k = String(cid);
     pts[k] = (pts[k] || 0) + contribution;
     if (!votes[k]) votes[k] = [];
-    votes[k].push(contribution);
+    votes[k].push({ pts: contribution, voter: voterName });
   }
 
   const clan_points = {}, clan_votes = {};
@@ -83,28 +83,31 @@ router.get('/aggregate', requireRole('st'), async (req, res) => {
 
   if (mode === 'ranked') {
     for (const b of ballots) {
+      const voterDoc  = voterById.get(String(b.voter_character_id));
+      const voterName = voterDoc ? (voterDoc.moniker || voterDoc.name || '') : '';
       for (const [slot, cid] of Object.entries(b.clan_ranking || {}))
-        addVote(clan_points, clan_votes, cid, SLOT_POINTS[slot] || 0);
+        addVote(clan_points, clan_votes, cid, SLOT_POINTS[slot] || 0, voterName);
       for (const [slot, cid] of Object.entries(b.covenant_ranking || {}))
-        addVote(covenant_points, covenant_votes, cid, SLOT_POINTS[slot] || 0);
+        addVote(covenant_points, covenant_votes, cid, SLOT_POINTS[slot] || 0, voterName);
     }
   } else {
     // Political: weight = voter's clan/covenant status; position is irrelevant.
     for (const b of ballots) {
       const voter = voterById.get(String(b.voter_character_id));
       if (!voter) continue;
+      const voterName  = voter.moniker || voter.name || '';
       const clanWeight = voter.status?.clan || 0;
       const covWeight  = voter.status?.covenant?.[voter.covenant] || 0;
       for (const cid of Object.values(b.clan_ranking || {}))
-        addVote(clan_points, clan_votes, cid, clanWeight);
+        addVote(clan_points, clan_votes, cid, clanWeight, voterName);
       for (const cid of Object.values(b.covenant_ranking || {}))
-        addVote(covenant_points, covenant_votes, cid, covWeight);
+        addVote(covenant_points, covenant_votes, cid, covWeight, voterName);
     }
   }
 
-  // Sort contributions descending so breakdown reads highest-first.
-  for (const arr of Object.values(clan_votes))     arr.sort((a, b) => b - a);
-  for (const arr of Object.values(covenant_votes)) arr.sort((a, b) => b - a);
+  // Sort contributions descending by pts so breakdown reads highest-first.
+  for (const arr of Object.values(clan_votes))     arr.sort((a, b) => b.pts - a.pts);
+  for (const arr of Object.values(covenant_votes)) arr.sort((a, b) => b.pts - a.pts);
 
   res.json({ clan_points, clan_votes, clan_voter_count, covenant_points, covenant_votes, covenant_voter_count });
 });
