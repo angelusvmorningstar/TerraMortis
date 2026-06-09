@@ -1,3 +1,64 @@
+# Test Automation Summary — feature.654 EQ-1: Equipment Schema, Catalogue, CRUD API
+
+**Date:** 2026-06-09
+**Author:** Quinn (QA)
+**Scope:** Full test coverage for EQ-1 -- EQUIPMENT_CATALOGUE module, character schema extension (equipment/assets), and CRUD API routes.
+
+## Generated Tests
+
+### API Tests (Vitest)
+- [x] `server/tests/equipment.test.js` -- 21 tests
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | GET /catalogue returns 200, array, no auth required | pass |
+| 2 | Every catalogue entry has required universal fields | pass |
+| 3 | Catalogue contains at least one entry per bucket | pass |
+| 4 | GET /:id/equipment returns 200, empty arrays for fresh char | pass |
+| 5 | GET /:id/equipment returns 404 for non-existent character | pass |
+| 6 | GET /:id/equipment returns 403 for player (ST only) | pass |
+| 7 | POST /:id/equipment -- valid item appended | pass |
+| 8 | POST /:id/equipment -- 400 invalid state enum | pass |
+| 9 | POST /:id/equipment -- 400 missing catalogue_id | pass |
+| 10 | POST /:id/equipment -- 400 missing acquired_cycle | pass |
+| 11 | POST /:id/equipment -- 400 float acquired_cycle | pass |
+| 12 | POST /:id/equipment -- notes defaults to null when omitted | pass |
+| 13 | POST /:id/equipment -- accepts acquired_cycle 0 (chargen) | pass |
+| 14 | DELETE /:id/equipment -- removes item at index | pass |
+| 15 | DELETE /:id/equipment -- 404 out of range | pass |
+| 16 | POST /:id/assets -- valid asset appended | pass |
+| 17 | POST /:id/assets -- 400 missing name | pass |
+| 18 | POST /:id/assets -- 400 missing description | pass |
+| 19 | POST /:id/assets -- 400 missing acquired_cycle | pass |
+| 20 | DELETE /:id/assets -- removes asset at index | pass |
+| 21 | DELETE /:id/assets -- 404 out of range | pass |
+
+### E2E Tests (Playwright)
+- [x] `tests/feature-654-equipment-schema.spec.js` -- 9 tests
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | EQUIPMENT_CATALOGUE browser-importable, non-empty array | pass |
+| 2 | Every entry has id, bucket, name, description, availability, tags | pass |
+| 3 | Catalogue has at least one entry per bucket | pass |
+| 4 | equipment entries have skill_domain+bonus_dice; weapon entries have damage fields | pass |
+| 5 | getCatalogueEntry() returns correct entry; undefined for missing id | pass |
+| 6 | getCatalogueByBucket() filters correctly | pass |
+| 7 | App boots without error with new equipment + assets fields | pass |
+| 8 | App boots without error for legacy chars with no equipment/assets | pass |
+| 9 | App tolerates old-schema flat equipment data (pre-EQ-1 shape) | pass |
+
+## Coverage
+
+- API endpoints: 7/7 (GET catalogue, GET/POST/DELETE equipment, POST/DELETE assets)
+- Schema validation: 8 error-path tests (invalid state, missing required fields, float cycle)
+- Browser module: 4 structural assertions on live EQUIPMENT_CATALOGUE in browser context
+- App regression: 3 character load scenarios (new fields, missing fields, old-schema data)
+
+**Total: 30 tests -- 21 Vitest + 9 Playwright -- all passing**
+
+---
+
 # Test Automation Summary — feature.489 Check-In vitae from last feed roll
 
 **Date:** 2026-05-22
