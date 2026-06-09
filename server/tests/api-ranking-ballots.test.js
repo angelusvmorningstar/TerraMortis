@@ -170,6 +170,25 @@ describe('GET /api/ranking_ballots/aggregate — ST only, points totals', () => 
     expect(res.body.covenant_points[covmate2.id]).toBe(4);
   });
 
+  it('returns clan_votes (sorted desc) and voter counts alongside points', async () => {
+    // Ballots in CYCLE: voter → { clan: {1:clanmate1, 2:clanmate2}, cov: {1:covmate1, 2:covmate2} }
+    //                  clanmate1 → { clan: {1:clanmate2} }
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // clanmate2: slot-1 from clanmate1 (5pts) + slot-2 from voter (4pts) → sorted desc
+    expect(res.body.clan_votes[clanmate2.id]).toEqual([5, 4]);
+    // clanmate1: slot-1 from voter (5pts)
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([5]);
+    // voter (Mekhet) and clanmate1 (Mekhet) both submitted ballots
+    expect(res.body.clan_voter_count['Mekhet']).toBe(2);
+    // only voter (Invictus) submitted a ballot; clanmate1 is Carthian Movement
+    expect(res.body.covenant_voter_count['Invictus']).toBe(1);
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([5]);
+    expect(res.body.covenant_votes[covmate2.id]).toEqual([4]);
+  });
+
   it('403 — a player cannot read the aggregate', async () => {
     const res = await request(app)
       .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE}`)
@@ -247,6 +266,24 @@ describe('GET /api/ranking_ballots/aggregate?mode=political — status-weighted 
     await getCollection('ranking_ballots').deleteMany({ cycle_id: CYCLE_ZERO });
   });
 
+  it('returns clan_votes and clan_voter_count in political mode', async () => {
+    // highVoter (clan=3) picked clanmate1 + clanmate2; voter (clan=1) picked clanmate2
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([3]);
+    // highVoter gave 3, voter gave 1 — sorted desc
+    expect(res.body.clan_votes[clanmate2.id]).toEqual([3, 1]);
+    // highVoter (Mekhet) and voter (Mekhet) both submitted ballots
+    expect(res.body.clan_voter_count['Mekhet']).toBe(2);
+    // highVoter (Invictus) and voter (Invictus) both submitted ballots
+    expect(res.body.covenant_voter_count['Invictus']).toBe(2);
+    // highVoter (cov status Invictus=2) gave each covmate 2pts
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([2]);
+    expect(res.body.covenant_votes[covmate2.id]).toEqual([2]);
+  });
+
   it('mode defaults to ranked when ?mode is omitted', async () => {
     // Ranked: highVoter 1st=5 for clanmate1, 2nd=4 for clanmate2; voter 1st=5 for clanmate2
     const res = await request(app)
@@ -262,5 +299,43 @@ describe('GET /api/ranking_ballots/aggregate?mode=political — status-weighted 
       .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_POL}&mode=political`)
       .set('X-Test-User', playerUser([voter.id]));
     expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/ranking_ballots/aggregate — clan_voter_count and covenant_voter_count edge cases', () => {
+  const CYCLE_BD = 'cycle-rank-breakdown-test';
+
+  afterAll(async () => {
+    await getCollection('ranking_ballots').deleteMany({ cycle_id: CYCLE_BD });
+  });
+
+  it('single voter: clan_voter_count has exactly one entry for that voter\'s clan', async () => {
+    // Only voter (Mekhet/Invictus) submits; no Daeva or Carthian ballots in this cycle.
+    await request(app).put('/api/ranking_ballots').set('X-Test-User', playerUser([voter.id]))
+      .send({ cycle_id: CYCLE_BD, voter_character_id: voter.id,
+        clan_ranking: { 1: clanmate1.id }, covenant_ranking: { 1: covmate1.id } });
+
+    const res = await request(app)
+      .get(`/api/ranking_ballots/aggregate?cycle_id=${CYCLE_BD}`)
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.clan_voter_count['Mekhet']).toBe(1);
+    // Daeva never submitted — should have no key
+    expect(res.body.clan_voter_count['Daeva']).toBeUndefined();
+    expect(res.body.covenant_voter_count['Invictus']).toBe(1);
+    // votes arrays reflect the single contribution
+    expect(res.body.clan_votes[clanmate1.id]).toEqual([5]);
+    expect(res.body.covenant_votes[covmate1.id]).toEqual([5]);
+  });
+
+  it('empty cycle: all counts are empty objects', async () => {
+    const res = await request(app)
+      .get('/api/ranking_ballots/aggregate?cycle_id=cycle-rank-empty-bd')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.clan_voter_count).toEqual({});
+    expect(res.body.covenant_voter_count).toEqual({});
+    expect(res.body.clan_votes).toEqual({});
+    expect(res.body.covenant_votes).toEqual({});
   });
 });
