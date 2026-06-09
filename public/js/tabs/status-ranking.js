@@ -70,7 +70,7 @@ function buildOrgGroups(points, chars, orgKey) {
 function renderAggMemberList(members) {
   if (!members || !members.length) return `<p class="placeholder-msg status-empty">No members.</p>`;
   return members.map(m =>
-    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)}</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
+    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)} (${m.pts})</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
   ).join('');
 }
 
