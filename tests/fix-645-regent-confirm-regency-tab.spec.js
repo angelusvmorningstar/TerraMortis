@@ -128,6 +128,26 @@ test.describe('fix.645: DT form Regency section — cycle status gating', () => 
     await expect(page.locator('[data-section-key="regency"]')).not.toContainText('not yet open');
   });
 
+  test('prep cycle + past auto_open_at: confirm button present (auto-opened)', async ({ page }) => {
+    // fix(645b): renderRegencySection now treats a cycle as effectively open when
+    // auto_open_at has passed, matching the form gate's _autoOpenPassed bypass.
+    // NOTE: on localhost the dev bypass (downtime-form.js:1391) coerces prep→active
+    // before renderRegencySection runs, so this test passes by both mechanisms.
+    // The new code path fires exclusively in production where the bypass is absent.
+    const CYCLE_PREP_AUTOOPENED = {
+      _id: 'cycle-645pa', cycle_number: 4, status: 'prep', label: 'DT4',
+      feeding_rights_confirmed: false, regent_confirmations: [],
+      auto_open_at: '2026-06-01T00:00:00Z', // past — auto-opened
+      phase_signoff: {}, created_at: '2026-06-01T00:00:00Z',
+    };
+    await setupRegent(page, { cycle: CYCLE_PREP_AUTOOPENED });
+    await openDtTab(page);
+
+    await expect(page.locator('[data-section-key="regency"]')).toBeVisible();
+    await expect(page.locator('#dt-btn-confirm-regency')).toBeVisible();
+    await expect(page.locator('[data-section-key="regency"]')).not.toContainText('not yet open');
+  });
+
   test('non-regent char: regency section is absent entirely', async ({ page }) => {
     // No territory has regent_id matching CHAR_NON_REGENT — section must not render.
     await setupRegent(page, { cycle: CYCLE_ACTIVE, char: CHAR_NON_REGENT, territories: [] });
