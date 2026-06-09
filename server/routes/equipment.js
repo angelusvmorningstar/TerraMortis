@@ -6,7 +6,7 @@
  */
 
 import { Router } from 'express';
-import { EQUIPMENT_CATALOGUE } from '../../public/js/data/equipment-data.js';
+import { EQUIPMENT_CATALOGUE } from '../data/equipment-catalogue.js';
 
 const router = Router();
 
