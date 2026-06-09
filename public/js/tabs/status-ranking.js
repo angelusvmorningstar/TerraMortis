@@ -52,15 +52,20 @@ function renderRankingBallot(me, clanMembers, covMembers, ballot, activeId, hasC
   return h + `</div>`;
 }
 
-// Returns Map<orgName, [{name, pts}]> — ALL chars in that org, pts desc then alpha.
-function buildOrgGroups(points, chars, orgKey) {
+// Returns Map<orgName, [{name, pts, votes}]> — ALL chars in that org, pts desc then alpha.
+function buildOrgGroups(points, votes, chars, orgKey) {
   const orgs = new Map();
   for (const c of chars) {
     const org = c[orgKey];
     if (!org) continue;
     if (!orgs.has(org)) orgs.set(org, []);
     const label = c.moniker || c.name || '';
-    orgs.get(org).push({ name: label, pts: Number((points || {})[String(c._id)] || 0) });
+    const cid = String(c._id);
+    orgs.get(org).push({
+      name: label,
+      pts: Number((points || {})[cid] || 0),
+      votes: (votes || {})[cid] || [],
+    });
   }
   for (const members of orgs.values())
     members.sort((a, b) => b.pts - a.pts || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
@@ -69,9 +74,11 @@ function buildOrgGroups(points, chars, orgKey) {
 
 function renderAggMemberList(members) {
   if (!members || !members.length) return `<p class="placeholder-msg status-empty">No members.</p>`;
-  return members.map(m =>
-    `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)} (${m.pts})</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`
-  ).join('');
+  return members.map(m => {
+    const nonZero = (m.votes || []).filter(v => v > 0);
+    const breakdown = nonZero.length > 0 ? nonZero.join('+') : String(m.pts);
+    return `<div class="rank-member-row"><span class="rank-member-name">${esc(m.name)} (${breakdown})</span><span class="rank-member-pts${m.pts === 0 ? ' zero' : ''}">${m.pts}</span></div>`;
+  }).join('');
 }
 
 function renderRankingAggShell() {
@@ -104,11 +111,13 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
 
   function getAgg() { return mode === 'ranked' ? rankedAgg : politicalAgg; }
 
-  function refreshPills(pillsEl, listEl, groups, activeKey, onSelect) {
+  function refreshPills(pillsEl, listEl, groups, voterCount, activeKey, onSelect) {
     const keys = [...groups.keys()].sort();
-    pillsEl.innerHTML = keys.map(k =>
-      `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${esc(k)}">${esc(k)}</button>`
-    ).join('');
+    pillsEl.innerHTML = keys.map(k => {
+      const cnt = voterCount?.[k];
+      const badge = cnt != null ? ` <span class="rank-voter-count">${cnt}</span>` : '';
+      return `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${esc(k)}">${esc(k)}${badge}</button>`;
+    }).join('');
     pillsEl.querySelectorAll('.rank-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         pillsEl.querySelectorAll('.rank-pill').forEach(b => b.classList.remove('active'));
@@ -121,18 +130,18 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
 
   function refresh() {
     const agg        = getAgg();
-    const clanGroups = buildOrgGroups(agg.clan_points,     chars, 'clan');
-    const covGroups  = buildOrgGroups(agg.covenant_points, chars, 'covenant');
+    const clanGroups = buildOrgGroups(agg.clan_points,     agg.clan_votes,     chars, 'clan');
+    const covGroups  = buildOrgGroups(agg.covenant_points, agg.covenant_votes, chars, 'covenant');
     const firstClan  = [...clanGroups.keys()].sort()[0] || null;
     const firstCov   = [...covGroups.keys()].sort()[0]  || null;
     if (!activeClan || !clanGroups.has(activeClan)) activeClan = firstClan;
     if (!activeCov  || !covGroups.has(activeCov))   activeCov  = firstCov;
 
-    refreshPills(clanPillsEl, clanListEl, clanGroups, activeClan, key => {
+    refreshPills(clanPillsEl, clanListEl, clanGroups, agg.clan_voter_count, activeClan, key => {
       activeClan = key;
       clanListEl.innerHTML = renderAggMemberList(clanGroups.get(key) || []);
     });
-    refreshPills(covPillsEl, covListEl, covGroups, activeCov, key => {
+    refreshPills(covPillsEl, covListEl, covGroups, agg.covenant_voter_count, activeCov, key => {
       activeCov = key;
       covListEl.innerHTML = renderAggMemberList(covGroups.get(key) || []);
     });
