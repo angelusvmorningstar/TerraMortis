@@ -36,6 +36,7 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
+import equipmentRouter from './routes/equipment.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -72,6 +73,9 @@ app.get('/api/health', (req, res) => {
 
 // Auth routes (public — no middleware)
 app.use('/api/auth', authRouter);
+
+// Equipment catalogue (public — no auth; DT form and player app both need access)
+app.use('/api/equipment', equipmentRouter);
 
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)

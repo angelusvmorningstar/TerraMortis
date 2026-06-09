@@ -29,6 +29,7 @@ import npcsRouter from '../../routes/npcs.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
 import appSettingsRouter from '../../routes/app-settings.js';
 import devlogRouter from '../../routes/devlog.js';
+import equipmentRouter from '../../routes/equipment.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -55,6 +56,9 @@ export function createTestApp() {
 
   // Health check
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+  // Equipment catalogue (public — no auth, mirrors prod mount order)
+  app.use('/api/equipment', equipmentRouter);
 
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert

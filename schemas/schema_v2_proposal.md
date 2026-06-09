@@ -179,6 +179,28 @@
   banes: [
     { name: "Lonely Curse",  effect: "With mortals, Humanity counts -2..." },
     { name: "Rat King/Queen", effect: "Surrounded by vermin..." }
+  ],
+
+  // ── Equipment (EQ-1, issue #654) ──
+  // Lean refs into EQUIPMENT_CATALOGUE (public/js/data/equipment-data.js).
+  // Full stats (name, bonus_dice, damage_mod, etc.) resolved at render time.
+  // acquired_cycle: game cycle integer; 0 = chargen/pre-campaign.
+  equipment: [
+    { catalogue_id: "knife",      state: "carried", acquired_cycle: 1, notes: null },
+    { catalogue_id: "flashlight", state: "stashed", acquired_cycle: 0, notes: "backup" }
+  ],
+
+  // ── Assets (EQ-1, issue #654) ──
+  // Annotation-first. mechanical_effect hook reserved for future rule integration.
+  assets: [
+    {
+      name: "Marrickville Safehouse",
+      description: "A discreet warehouse in the inner west.",
+      location: "Marrickville",
+      mechanical_effect: null,
+      acquired_cycle: 2,
+      notes: null
+    }
   ]
 }
 ```
