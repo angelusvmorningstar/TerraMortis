@@ -2412,6 +2412,10 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   color: var(--accent);
   flex-shrink: 0;
 }
+@media (max-width: 768px) {
+  .status-ranking-grid { flex-direction: column; }
+  .status-ranking-col  { border-right: none; }
+}
 
 /* ── Ordeals + XP breakdown (ported from player-layout.css) ── */
 .ordeals-container{display:flex;flex-direction:column;gap:24px;padding:16px;}

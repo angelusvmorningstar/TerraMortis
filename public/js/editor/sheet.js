@@ -19,6 +19,7 @@ import { auditCharacter } from '../data/audit.js';
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 import { markerFor } from './st-mod-popover.js';
+import { getCatalogueEntry } from '../data/equipment-data.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -1728,39 +1729,98 @@ export function shRenderManoeuvres(c, editMode) {
   return h;
 }
 
-// ── Equipment renderer (nav.10) ───────────────────────────────────────────────
+// ── Equipment & Assets renderer (EQ-2, issue #656) ───────────────────────────
+// Renders catalogue-ref equipment[] and freeform assets[] read-only.
+// Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
 export function shRenderEquipment(c, editMode) {
-  const equip = c.equipment || [];
-  if (!editMode && !equip.length) return '';
-  const SKILLS = ['Brawl', 'Weaponry', 'Firearms'];
-  const TYPES  = ['weapon', 'armour'];
-  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
-  if (editMode) {
-    equip.forEach((e, i) => {
-      const isWeapon = e.type === 'weapon';
-      const skillOpts = SKILLS.map(s => `<option${e.attack_skill === s ? ' selected' : ''}>${s}</option>`).join('');
-      const dmgOpts = ['B','L','A'].map(d => `<option${e.damage_type === d ? ' selected' : ''}>${d}</option>`).join('');
-      h += `<div class="equip-edit-row">`;
-      h += `<select class="gen-qual-input" style="width:70px" onchange="shEditEquip(${i},'type',this.value)"><option${e.type==='weapon'?' selected':''}>weapon</option><option${e.type==='armour'?' selected':''}>armour</option></select>`;
-      h += `<input class="sh-edit-input" value="${esc(e.name||'')}" placeholder="Name" onchange="shEditEquip(${i},'name',this.value)" style="flex:1">`;
-      if (isWeapon) {
-        h += `<select class="gen-qual-input" style="width:80px" onchange="shEditEquip(${i},'attack_skill',this.value)">${skillOpts}</select>`;
-        h += `<input class="attr-bd-input" type="number" value="${e.damage_rating||0}" title="Dmg bonus" onchange="shEditEquip(${i},'damage_rating',+this.value)" style="width:40px">`;
-        h += `<select class="gen-qual-input" style="width:40px" onchange="shEditEquip(${i},'damage_type',this.value)">${dmgOpts}</select>`;
-      } else {
-        h += `<input class="attr-bd-input" type="number" value="${e.general_ar||0}" title="General AR" onchange="shEditEquip(${i},'general_ar',+this.value)" style="width:40px">`;
-        h += `<input class="attr-bd-input" type="number" value="${e.ballistic_ar||0}" title="Ballistic AR" onchange="shEditEquip(${i},'ballistic_ar',+this.value)" style="width:40px">`;
-        h += `<input class="attr-bd-input" type="number" value="${e.mobility_penalty||0}" title="Mobility penalty" onchange="shEditEquip(${i},'mobility_penalty',+this.value)" style="width:40px">`;
-      }
-      h += `<button class="dev-rm-btn" onclick="shRemoveEquip(${i})" title="Remove">&times;</button>`;
-      h += `</div>`;
-    });
-    h += `<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddEquip('weapon')">+ Weapon</button><button class="dev-add-btn" onclick="shAddEquip('armour')" style="margin-left:4px">+ Armour</button></div>`;
-  } else {
-    equip.forEach(e => {
-      h += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(e.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${e.type === 'weapon' ? `${e.attack_skill||''} +${e.damage_rating||0}${e.damage_type||'L'}` : `AR ${e.general_ar||0}/${e.ballistic_ar||0}`}</span></div></div></div></div>`;
-    });
+  const equip  = c.equipment || [];
+  const assets = c.assets    || [];
+  if (!equip.length && !assets.length) return '';
+
+  const STATE_LABELS = { carried: 'Carried', worn: 'Worn', stashed: 'Stashed', lost: 'Lost', active: 'Active' };
+  const DMGTYPE      = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
+  const WPNTYPE      = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
+  const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
+  const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
+
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment &amp; Assets</div><div class="merit-list">';
+
+  // Group equipment items by bucket
+  const byBucket = { weapon: [], armour: [], equipment: [] };
+  for (const item of equip) {
+    const entry  = getCatalogueEntry(item.catalogue_id) || {};
+    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
+    byBucket[bucket].push({ item, entry });
   }
+
+  // ── Weapons ──
+  if (byBucket.weapon.length) {
+    h += '<div class="sh-sub-title">Weapons</div>';
+    for (const { item, entry } of byBucket.weapon) {
+      const name  = entry.name || item.catalogue_id;
+      const parts = [
+        entry.damage_mod != null ? `+${entry.damage_mod}` : null,
+        DMGTYPE[entry.damage_type] || entry.damage_type || null,
+        WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
+      ].filter(Boolean);
+      const qual = parts.join(' · ');
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` +
+        `</div></div>`;
+    }
+  }
+
+  // ── Armour ──
+  if (byBucket.armour.length) {
+    h += '<div class="sh-sub-title">Armour</div>';
+    const baseDefence = calcDefence(c);
+    for (const { item, entry } of byBucket.armour) {
+      const name  = entry.name || item.catalogue_id;
+      const parts = [
+        entry.armour_value   != null ? `AR ${entry.armour_value}` : null,
+        entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
+      ].filter(Boolean);
+      const qual = parts.join(' · ');
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Equipment (tools / tech) ──
+  if (byBucket.equipment.length) {
+    h += '<div class="sh-sub-title">Equipment</div>';
+    for (const { item, entry } of byBucket.equipment) {
+      const name = entry.name || item.catalogue_id;
+      const pool = (entry.skill_domain && entry.bonus_dice != null)
+        ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        (pool || item.notes ? `<div class="trait-sub">${pool ? `<span class="trait-qual">${esc(pool)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Assets ──
+  if (assets.length) {
+    h += '<div class="sh-sub-title">Assets</div>';
+    for (const asset of assets) {
+      const meta = [
+        asset.location       || null,
+        asset.mechanical_effect || null,
+        cycleLabel(asset.acquired_cycle),
+        asset.notes          || null,
+      ].filter(Boolean).join(' · ');
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span></div></div>` +
+        `<div class="trait-sub"><span class="trait-qual">${esc(asset.description)}</span></div>` +
+        (meta ? `<div class="trait-sub"><span class="trait-qual dim">${esc(meta)}</span></div>` : '') +
+        `</div></div>`;
+    }
+  }
+
   h += '</div></div>';
   return h;
 }

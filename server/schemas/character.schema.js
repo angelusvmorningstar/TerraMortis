@@ -304,25 +304,42 @@ export const characterSchema = {
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
-    // ── Equipment ─────────────────────────────────────────────
+    // ── Equipment (EQ-1, issue #654) ──────────────────────────
+    // Lean refs into EQUIPMENT_CATALOGUE — full stats resolved at render time.
     equipment: {
       type: 'array',
+      default: [],
       items: {
         type: 'object',
+        required: ['catalogue_id', 'state', 'acquired_cycle'],
         properties: {
-          type:             { type: 'string', enum: ['weapon', 'armour'] },
-          name:             { type: 'string' },
-          damage_rating:    { type: 'number' },
-          damage_type:      { type: 'string', enum: ['B', 'L', 'A'] },
-          attack_skill:     { type: 'string', enum: ['Brawl', 'Weaponry', 'Firearms'] },
-          general_ar:       { type: 'number' },
-          ballistic_ar:     { type: 'number' },
-          mobility_penalty: { type: 'number' },
-          tags:             { type: 'array', items: { type: 'string' } },
-          notes:            { type: 'string' }
+          catalogue_id:    { type: 'string' },
+          state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
+          acquired_cycle:  { type: 'integer', minimum: 0 },
+          notes:           { type: ['string', 'null'] },
         },
-        additionalProperties: false
-      }
+        additionalProperties: false,
+      },
+    },
+
+    // ── Assets (EQ-1, issue #654) ─────────────────────────────
+    // Annotation-first; mechanical_effect hook reserved for future rule integration.
+    assets: {
+      type: 'array',
+      default: [],
+      items: {
+        type: 'object',
+        required: ['name', 'description', 'acquired_cycle'],
+        properties: {
+          name:              { type: 'string' },
+          description:       { type: 'string' },
+          location:          { type: ['string', 'null'] },
+          mechanical_effect: { type: ['string', 'null'] },
+          acquired_cycle:    { type: 'integer', minimum: 0 },
+          notes:             { type: ['string', 'null'] },
+        },
+        additionalProperties: false,
+      },
     },
 
     // ── XP log ────────────────────────────────────────────────

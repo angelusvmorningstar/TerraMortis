@@ -733,4 +733,141 @@ router.patch('/:id/player_prefs', async (req, res) => {
   res.json(result);
 });
 
+// ── Equipment routes (EQ-1, issue #654) ─────────────────────────────────────
+//
+// All five routes require ST auth.
+// DELETE routes: client must refresh after delete to avoid stale indices.
+
+// GET /api/characters/:id/equipment — returns { equipment, assets } for the character.
+router.get('/:id/equipment', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json({ equipment: char.equipment || [], assets: char.assets || [] });
+});
+
+// POST /api/characters/:id/equipment — append a single equipment item.
+router.post('/:id/equipment', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const item = req.body;
+  const VALID_STATES = ['carried', 'worn', 'stashed', 'lost', 'active'];
+  if (!item || typeof item !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Request body must be an equipment item object' });
+  }
+  if (!item.catalogue_id || typeof item.catalogue_id !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'catalogue_id is required' });
+  }
+  if (!VALID_STATES.includes(item.state)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `state must be one of: ${VALID_STATES.join(', ')}` });
+  }
+  if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
+  }
+
+  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const cleanItem = {
+    catalogue_id:   item.catalogue_id,
+    state:          item.state,
+    acquired_cycle: item.acquired_cycle,
+    notes:          item.notes ?? null,
+  };
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $push: { equipment: cleanItem } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// DELETE /api/characters/:id/equipment/:itemIndex — remove by zero-based index.
+// Client must refresh after delete to avoid stale indices.
+router.delete('/:id/equipment/:itemIndex', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const idx = parseInt(req.params.itemIndex, 10);
+  const arr = char.equipment || [];
+  if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Equipment index out of range' });
+  }
+
+  arr.splice(idx, 1);
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { equipment: arr } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// POST /api/characters/:id/assets — append a single asset.
+router.post('/:id/assets', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const item = req.body;
+  if (!item || typeof item !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Request body must be an asset object' });
+  }
+  if (!item.name || typeof item.name !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'name is required' });
+  }
+  if (!item.description || typeof item.description !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'description is required' });
+  }
+  if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
+  }
+
+  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const cleanItem = {
+    name:              item.name,
+    description:       item.description,
+    location:          item.location ?? null,
+    mechanical_effect: item.mechanical_effect ?? null,
+    acquired_cycle:    item.acquired_cycle,
+    notes:             item.notes ?? null,
+  };
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $push: { assets: cleanItem } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// DELETE /api/characters/:id/assets/:itemIndex — remove by zero-based index.
+// Client must refresh after delete to avoid stale indices.
+router.delete('/:id/assets/:itemIndex', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const idx = parseInt(req.params.itemIndex, 10);
+  const arr = char.assets || [];
+  if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Asset index out of range' });
+  }
+
+  arr.splice(idx, 1);
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { assets: arr } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
 export default router;
