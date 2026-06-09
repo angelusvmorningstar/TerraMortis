@@ -312,6 +312,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .attr-derived-row .bd-eff .bd-val{color:var(--accent);font-weight:600;}
 
 /* ── Influence editing ── */
+/* 8px horizontal padding is intentional — slight indent matches the boxed-row visual. */
 .infl-edit-row{display:flex;gap:6px;align-items:center;padding:5px 8px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;margin-bottom:3px;}
 .infl-edit-row select,.infl-edit-row input[type=text]{background:var(--surf);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:10px;padding:3px 5px;outline:none;}
 .infl-edit-row select:focus,.infl-edit-row input:focus{border-color:var(--gold);}
@@ -368,7 +369,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .mci-unassigned{color:var(--txt3);font-style:italic;font-size:11px;}
 
 /* ── General merit editing ── */
-.gen-edit-row{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--w-a5);}
+.gen-edit-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--w-a5);}
 .gen-name-input{flex:1;min-width:0;background:var(--w-a6);border:1px solid var(--w-a12);color:var(--txt1);font-size:12px;padding:3px 6px;}
 .gen-name-select{flex:1;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:3px 4px;}
 .gen-granted-row{opacity:.75;}
