@@ -1,6 +1,6 @@
 # Story fix.677: Regency Confirm Fails with 'Cycle is not active' When Cycle Status is 'open'
 
-## Status: ready-for-dev
+## Status: done
 
 ---
 issue: 677
@@ -47,16 +47,16 @@ Both gates must be widened to accept any non-`'closed'` cycle.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Fix the backend status gate (`server/routes/downtime.js`)
-  - [ ] Change line 102: `cycle.status !== 'active'` → `cycle.status === 'closed'`
-  - [ ] Update the comment on line 99 to reflect the new intent: "must exist and not be closed"
-  - [ ] Update the error message to `'Cycle is closed'` for accuracy
+- [x] Task 1: Fix the backend status gate (`server/routes/downtime.js`)
+  - [x] Change line 102: `cycle.status !== 'active'` → `cycle.status === 'closed'`
+  - [x] Update the comment on line 99 to reflect the new intent: "must exist and not be closed"
+  - [x] Update the error message to `'Cycle is closed'` for accuracy
 
-- [ ] Task 2: Fix the regency tab frontend gates (`public/js/tabs/regency-tab.js`)
-  - [ ] Introduce a local `const cycleLive = !!(_activeCycle && _activeCycle.status !== 'closed');` near the top of `renderRegencyTab` (before the CTA banner block)
-  - [ ] Line 183: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
-  - [ ] Line 254: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
-  - [ ] Line 256: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
+- [x] Task 2: Fix the regency tab frontend gates (`public/js/tabs/regency-tab.js`)
+  - [x] Introduce a local `const cycleLive = !!(_activeCycle && _activeCycle.status !== 'closed');` near the top of `renderRegencyTab` (before the CTA banner block)
+  - [x] Line 183: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
+  - [x] Line 254: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
+  - [x] Line 256: replace `_activeCycle && _activeCycle.status === 'active'` with `cycleLive`
 
 ---
 
