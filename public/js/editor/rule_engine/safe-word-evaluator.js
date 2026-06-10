@@ -93,11 +93,14 @@ export function applySafeWordRulesFromDb(c, { grants = [] } = {}, allChars = [])
 }
 
 function _removeStaleSwMerit(c) {
+  // N-1: zero-checks consult the union (map OR legacy) so a post-N-2 merit
+  // whose dots live in `free_grants` isn't misread as phantom.
+  const _zero = (m, slug) => !((m.free_grants && m.free_grants[slug]) || m['free_' + slug]);
   const idx = (c.merits || []).findIndex(m =>
     m.granted_by === 'Safe Word' &&
     // inherent-intentional: zero-checks all dot channels to confirm merit is phantom (no purchased or derived dots remain)
-    !(m.cp) && !(m.xp) && !(m.free_mci) && !(m.free_vm) && !(m.free_bloodline) &&
-    !(m.free_pet) && !(m.free_lk) && !(m.free_ohm) && !(m.free_inv) && !(m.free_pt) && !(m.free_mdb),
+    !(m.cp) && !(m.xp) && _zero(m, 'mci') && _zero(m, 'vm') && _zero(m, 'bloodline') &&
+    _zero(m, 'pet') && _zero(m, 'lk') && _zero(m, 'ohm') && _zero(m, 'inv') && _zero(m, 'pt') && _zero(m, 'mdb'),
   );
   if (idx !== -1) c.merits.splice(idx, 1);
 }
@@ -109,10 +112,17 @@ function _removeStaleSwMerit(c) {
  * free_sw — adding a new free_* channel there must update both.
  */
 function _effectivePartnerRating(m) {
-  // inherent-intentional: effective partner rating sums all purchased + free dot sources except free_sw (cycle guard)
-  return (m.cp || 0) + (m.xp || 0) + (m.free || 0) +
-    (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) +
-    (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) +
-    (m.free_pt || 0) + (m.free_mdb || 0) +
-    (m.free_fwb || 0) + (m.free_attache || 0); // inherent-intentional: continuation
+  // inherent-intentional: effective partner rating sums all purchased + free dot sources except free_sw (cycle guard); N-1 per-slug reads inline the map-fallback so N-2 backfill doesn't drop dots
+  return (m.cp || 0) + (m.xp || 0) + (m.free || 0) + // inherent-intentional: continuation
+    ((m.free_grants?.bloodline) ?? m.free_bloodline ?? 0) +
+    ((m.free_grants?.pet)       ?? m.free_pet       ?? 0) +
+    ((m.free_grants?.mci)       ?? m.free_mci       ?? 0) +
+    ((m.free_grants?.vm)        ?? m.free_vm        ?? 0) +
+    ((m.free_grants?.lk)        ?? m.free_lk        ?? 0) +
+    ((m.free_grants?.ohm)       ?? m.free_ohm       ?? 0) +
+    ((m.free_grants?.inv)       ?? m.free_inv       ?? 0) +
+    ((m.free_grants?.pt)        ?? m.free_pt        ?? 0) +
+    ((m.free_grants?.mdb)       ?? m.free_mdb       ?? 0) +
+    ((m.free_grants?.fwb)       ?? m.free_fwb       ?? 0) +
+    ((m.free_grants?.attache)   ?? m.free_attache   ?? 0); // inherent-intentional: continuation
 }

@@ -9,6 +9,7 @@ import {
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
+import { freeOf } from '../data/rules-helpers.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
@@ -1001,25 +1002,25 @@ export function shEditMeritPt(realIdx, field, val) {
   if (field === 'free_mci') {
     const mciTotal = (c.merits || []).filter(m2 => m2.name === 'Mystery Cult Initiation' && m2.active !== false)
       .reduce((s, m2) => s + mciPoolTotal(m2), 0);
-    const otherFMCI = getMCIPoolUsed(c) - (m.free_mci || 0);
+    const otherFMCI = getMCIPoolUsed(c) - freeOf(m, 'mci');
     val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
   }
   // Cap free_vm edits by remaining VM pool (shared across Allies + Herd)
   if (field === 'free_vm') {
     const vmTotal = vmPool(c);
-    const otherFVM = vmUsed(c) - (m.free_vm || 0);
+    const otherFVM = vmUsed(c) - freeOf(m, 'vm');
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
   // Cap free_inv edits by remaining Invested pool
   if (field === 'free_inv') {
     const invTotal = investedPool(c);
-    const otherFINV = investedUsed(c) - (m.free_inv || 0);
+    const otherFINV = investedUsed(c) - freeOf(m, 'inv');
     val = Math.min(val, Math.max(0, invTotal - otherFINV));
   }
   // Cap free_lk edits by remaining Lorekeeper pool (rule-driven sum across LK rule_grant docs)
   if (field === 'free_lk') {
     const lkTotal = lorekeeperPool(c);
-    const otherFLK = lorekeeperUsed(c) - (m.free_lk || 0);
+    const otherFLK = lorekeeperUsed(c) - freeOf(m, 'lk');
     val = Math.min(val, Math.max(0, lkTotal - otherFLK));
   }
   m[field] = val;
