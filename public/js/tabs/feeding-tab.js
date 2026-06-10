@@ -16,7 +16,7 @@ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 import { domMeritContrib, effectiveInvictusStatus, calcTotalInfluence } from '../editor/domain.js';
-import { trackerAdj, trackerRead } from '../game/tracker.js';
+import { trackerAdj, trackerRead, trackerReadRaw } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -786,7 +786,8 @@ function render() {
         h += `<div class="feed-st-row-lbl">Influence Remaining</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-inf-adj-down">\u2212</button>`;
-        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${infMax}</span>`;
+        const _curInf = trackerRead(String(currentChar._id))?.inf ?? infMax;
+        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${_curInf}</span>`;
         h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${infMax}</div>`;
@@ -930,6 +931,9 @@ function wireEvents() {
     // Write vitae and influence to API — single source of truth for tracker state
     try {
       await apiPut('/api/tracker_state/' + charId, { vitae: n, influence: infAfter });
+      // Keep tracker.js in-memory cache in sync so the tracker card re-renders correctly
+      const _raw = trackerReadRaw(charId);
+      if (_raw) _raw.inf = infAfter;
       // vitae_confirmed used by trackerAdj to clear confirmed marker on manual ST override
       try {
         const key = 'tm_tracker_local_' + charId;

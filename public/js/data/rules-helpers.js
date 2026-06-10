@@ -230,11 +230,13 @@ export function resolveSharingScope(scope, c, chars, rule) {
 export function synthesiseCollectiveOwners(scope, c, chars, _rule) {
   if (!scope || !scope.merit) return null;
   const minDots = scope.min_dots == null ? 1 : scope.min_dots;
+  const scopeMerit = scope.merit.trim().toLowerCase();
   const list = Array.isArray(chars) ? chars : [];
   const owners = list.filter(other => {
     if (!other || !Array.isArray(other.merits)) return false;
     return other.merits.some(m =>
-      m && m.name === scope.merit && ((m.cp || 0) + (m.xp || 0)) >= minDots
+      m && typeof m.name === 'string' && m.name.trim().toLowerCase() === scopeMerit
+        && ((m.cp || 0) + (m.xp || 0)) >= minDots
     );
   });
   if (!owners.includes(c)) return null;

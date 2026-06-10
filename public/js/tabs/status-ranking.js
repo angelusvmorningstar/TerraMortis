@@ -14,6 +14,53 @@ import { clanRowsFor, covenantRowsFor, resolveActiveChar } from '../data/status-
 
 const LIVE_CYCLE_STATUSES = ['active', 'game', 'prep'];
 
+const SCORE_SESSION_KEY = 'tm_ranking_score_model';
+
+// Reverse-map server Borda pts back to ballot slot (server uses 5/4/3/2/1 for slots 1-5)
+const BORDA_TO_SLOT = { 5: 1, 4: 2, 3: 3, 2: 4, 1: 5 };
+
+const SCORE_MODELS = {
+  linear:       { label: 'Linear',   slotPts: { 1: 5, 2: 4, 3: 3, 4: 2, 5: 1 } },
+  tiered:       { label: 'Tiered',   slotPts: { 1: 2, 2: 2, 3: 1, 4: 1, 5: 1 } },
+  'first-only': { label: '1st Only', slotPts: { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 } },
+  flat:         { label: 'Flat',     slotPts: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 } },
+};
+const MODEL_KEYS = ['linear', 'tiered', 'first-only', 'flat'];
+
+// Re-score a server ranked aggregate using a different slot→pts mapping.
+// Returns a new object; never mutates the original.
+function applyScoreModel(agg, modelKey) {
+  const { slotPts } = SCORE_MODELS[modelKey] || SCORE_MODELS.linear;
+
+  function rescore(votes) {
+    const newPts = {}, newVotes = {};
+    for (const [cid, contributions] of Object.entries(votes || {})) {
+      let total = 0;
+      const newContribs = [];
+      for (const { pts: bordaPts, voter } of contributions) {
+        const slot  = BORDA_TO_SLOT[bordaPts] ?? 0;
+        const newPt = slotPts[slot] ?? 0;
+        total += newPt;
+        if (newPt > 0) newContribs.push({ pts: newPt, voter });
+      }
+      newPts[cid]   = total;
+      newVotes[cid] = newContribs.sort((a, b) => b.pts - a.pts);
+    }
+    return { pts: newPts, votes: newVotes };
+  }
+
+  const clan     = rescore(agg.clan_votes);
+  const covenant = rescore(agg.covenant_votes);
+  return {
+    clan_points:          clan.pts,
+    clan_votes:           clan.votes,
+    clan_voter_count:     agg.clan_voter_count,
+    covenant_points:      covenant.pts,
+    covenant_votes:       covenant.votes,
+    covenant_voter_count: agg.covenant_voter_count,
+  };
+}
+
 function memberOptions(members, selectedId, activeId) {
   let h = `<option value="">— none —</option>`;
   for (const c of members) {
@@ -92,6 +139,11 @@ function renderRankingAggShell() {
   h += `<button class="rank-mode-btn active" data-mode="ranked">Ranked</button>`;
   h += `<button class="rank-mode-btn" data-mode="political">Political</button>`;
   h += `</div></div>`;
+  // Scoring model row — visible only in ranked mode, hidden in political
+  h += `<div class="rank-score-row">`;
+  for (const key of MODEL_KEYS)
+    h += `<button class="rank-score-btn" data-score="${key}">${esc(SCORE_MODELS[key].label)}</button>`;
+  h += `</div>`;
   h += `<div class="rank-org-section"><div class="rank-org-label">Clan</div>`;
   h += `<div class="rank-pills" id="rank-clan-pills"></div>`;
   h += `<div class="rank-member-list" id="rank-clan-list"></div></div>`;
@@ -105,13 +157,27 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
   let mode       = 'ranked';
   let activeClan = null;
   let activeCov  = null;
+  let scoreModel = sessionStorage.getItem(SCORE_SESSION_KEY) || 'linear';
+  if (!SCORE_MODELS[scoreModel]) scoreModel = 'linear';
 
   const clanPillsEl = sectionEl.querySelector('#rank-clan-pills');
   const clanListEl  = sectionEl.querySelector('#rank-clan-list');
   const covPillsEl  = sectionEl.querySelector('#rank-cov-pills');
   const covListEl   = sectionEl.querySelector('#rank-cov-list');
+  const scoreRowEl  = sectionEl.querySelector('.rank-score-row');
+  const scoreBtns   = [...(scoreRowEl?.querySelectorAll('.rank-score-btn') || [])];
 
-  function getAgg() { return mode === 'ranked' ? rankedAgg : politicalAgg; }
+  function syncScoreBtns() {
+    scoreBtns.forEach(b => b.classList.toggle('active', b.dataset.score === scoreModel));
+  }
+
+  function syncScoreRowVisibility() {
+    if (scoreRowEl) scoreRowEl.style.display = mode === 'ranked' ? '' : 'none';
+  }
+
+  function getAgg() {
+    return mode === 'ranked' ? applyScoreModel(rankedAgg, scoreModel) : politicalAgg;
+  }
 
   function refreshPills(pillsEl, listEl, groups, voterCount, activeKey, onSelect) {
     const keys = [...groups.keys()].sort();
@@ -149,14 +215,28 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
     });
   }
 
+  // Wire mode toggle (Ranked / Political)
   sectionEl.querySelectorAll('.rank-mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       mode = btn.dataset.mode;
       sectionEl.querySelectorAll('.rank-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      syncScoreRowVisibility();
       refresh();
     });
   });
 
+  // Wire scoring model buttons
+  scoreBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      scoreModel = btn.dataset.score;
+      sessionStorage.setItem(SCORE_SESSION_KEY, scoreModel);
+      syncScoreBtns();
+      refresh();
+    });
+  });
+
+  syncScoreBtns();
+  syncScoreRowVisibility();
   refresh();
 }
 

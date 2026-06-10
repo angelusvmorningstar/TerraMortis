@@ -185,7 +185,7 @@ async function reconcileInfluenceDT() {
     const allCycles = await res.json();
     // Sort by game_number (not _id) to handle re-imported cycles — matches signin-tab.js pattern
     const lastClosed = (allCycles || [])
-      .filter(c => c.status && c.status !== 'open')
+      .filter(c => c.status === 'closed')
       .sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null;
     if (!lastClosed) return;
 
@@ -193,7 +193,7 @@ async function reconcileInfluenceDT() {
     if (_reconciledCycles.has(cycleId)) return;   // already run this session
 
     const subRes = await fetch(`${API_BASE}/api/downtime_submissions?cycle_id=${cycleId}`, { headers: authHeaders() });
-    if (!subRes.ok) { _reconciledCycles.add(cycleId); return; }
+    if (!subRes.ok) { return; }   // transient failure — do not mark done; next initTracker retries
     const subs = await subRes.json();
 
     // Build per-character spend totals (mirrors signin-tab.js loadLastCycleData)
@@ -219,9 +219,6 @@ async function reconcileInfluenceDT() {
       if (infMax === 0) continue;
       const cs = _cache[charId];
       if (!cs) continue;
-      // Between-session guard: if already below max, reconciliation already ran
-      // (or ST manually adjusted) — do not overwrite
-      if (cs.inf < infMax) continue;
       cs.inf = Math.max(0, infMax - spent);
       saveToApi(charId, { influence: cs.inf });
     }

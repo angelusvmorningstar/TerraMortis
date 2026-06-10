@@ -175,14 +175,14 @@ async function _enrichCollectiveSharing(chars) {
   const sourceMerits = [...new Set(collectiveRules.map(r => r?.sharing_scope?.merit).filter(Boolean))];
   let searchContext = chars;
   if (sourceMerits.length) {
-    const haveNames = new Set(chars.map(c => c.name).filter(Boolean));
+    const haveIds = new Set(chars.map(c => String(c._id)).filter(Boolean));
     const extras = await col()
       .find(
         { 'merits.name': { $in: sourceMerits } },
         { projection: { name: 1, merits: 1 } }
       )
       .toArray();
-    const missing = extras.filter(e => e && e.name && !haveNames.has(e.name));
+    const missing = extras.filter(e => e && e._id && !haveIds.has(String(e._id)));
     if (missing.length) searchContext = chars.concat(missing);
   }
 
