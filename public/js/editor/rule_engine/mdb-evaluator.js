@@ -44,5 +44,13 @@ export function applyMDBRulesFromDb(c, { grants = [] } = {}) {
  */
 function _effectivePartnerRating(m) {
   // inherent-intentional: effective Mentor rating sums all applicable dot sources (cp + free + free_mci/vm/lk/ohm/inv/pt + xp); matches legacy mentorRating formula
-  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.xp || 0); // inherent-intentional: continuation
+  // N-1: per-slug reads inline the map-fallback shape `m.free_grants?.<slug> ?? m.free_<slug> ?? 0` so N-2 backfill (legacy → map) doesn't silently drop dots. Inlined rather than imported to preserve the "no external imports" evaluator-purity convention.
+  return (m.cp || 0) + (m.free || 0) // inherent-intentional: continuation
+    + ((m.free_grants?.mci) ?? m.free_mci ?? 0)
+    + ((m.free_grants?.vm)  ?? m.free_vm  ?? 0)
+    + ((m.free_grants?.lk)  ?? m.free_lk  ?? 0)
+    + ((m.free_grants?.ohm) ?? m.free_ohm ?? 0)
+    + ((m.free_grants?.inv) ?? m.free_inv ?? 0)
+    + ((m.free_grants?.pt)  ?? m.free_pt  ?? 0)
+    + (m.xp || 0); // inherent-intentional: continuation
 }

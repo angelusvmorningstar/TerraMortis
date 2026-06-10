@@ -1,0 +1,242 @@
+/**
+ * Rules-engine helpers shared between client (editor / suite / admin) and server
+ * (character routes, evaluator-adjacent code). Pure ES module — NO browser-only
+ * imports — so vitest and Node-side server code can import directly.
+ *
+ * Lands as part of N-1 (issue #670, ADR-005 Rev 2). Single source of truth for:
+ *
+ *  - `normaliseAttachedTo`        — every read of `m.attached_to` goes through
+ *                                   this normaliser (Concern #11 verbatim).
+ *  - `meritFreeSum`               — sum of engine-granted free dots on a merit;
+ *                                   sums BOTH new `free_grants` map AND legacy
+ *                                   flat `free_<slug>` fields during the
+ *                                   transition (N-2 backfill removes the flat
+ *                                   fallback).
+ *  - `shareableSumForMerit`       — partner-shareable contribution from NEW
+ *                                   Collective Compound (rule_grant.partner_
+ *                                   shareable === true) sources only. Legacy
+ *                                   hardcoded subsets at `domain.js:48` and
+ *                                   `characters.js:195` STAY VERBATIM in N-1
+ *                                   (Concern #1 Rev 2 — divergence preserved
+ *                                   until the future MNEC-prerequisite audit).
+ *  - `resolveSharingScope`        — dispatches on `scope.type`; first instance
+ *                                   `collective_owners_of_merit`. Unknown types
+ *                                   degrade to `null` (consumer falls back to
+ *                                   persisted `m.shared_with`).
+ *  - `synthesiseCollectiveOwners` — pure function returning the synthesised
+ *                                   member list for a Collective Compound scope;
+ *                                   render-time only, NEVER persisted.
+ */
+
+// ── attached_to normaliser (Concern #11) ─────────────────────────────────────
+
+/**
+ * Canonicalise `m.attached_to` to `{ origin?, destination } | null`.
+ *
+ *  - `null` / `undefined` / `''`          → `null`
+ *  - legacy string `s`                    → `{ destination: s }`
+ *  - object `{ destination, origin? }`    → pass through (already canonical)
+ *  - object lacking `destination`         → `null` (defensive; malformed input)
+ *
+ * Every consumer that reads `m.attached_to` MUST call this and read from the
+ * normalised result. Bypassing the normaliser means consumer A sees a string
+ * and consumer B sees an object — the exact divergence pattern that bit
+ * `domMeritShareableSingle` vs `characters.js:195`.
+ *
+ * @param {string | { origin?: string, destination: string } | null | undefined} at
+ * @returns {{ origin?: string, destination: string } | null}
+ */
+export function normaliseAttachedTo(at) {
+  if (at == null || at === '') return null;
+  if (typeof at === 'string') return { destination: at };
+  if (typeof at === 'object' && typeof at.destination === 'string' && at.destination) {
+    // Pass through; origin may or may not be present (it's the bridge marker).
+    return at.origin
+      ? { origin: at.origin, destination: at.destination }
+      : { destination: at.destination };
+  }
+  return null;
+}
+
+// ── meritFreeSum (D1 runtime guard) ──────────────────────────────────────────
+
+/**
+ * The 14 legacy `m.free_<slug>` channels that exist in the schema and on
+ * persisted character docs pre-N-2 backfill. After N-2 these fields are
+ * unset and only `m.free_grants[slug]` populates; until then `meritFreeSum`
+ * sums BOTH so the transition is correctness-independent.
+ *
+ * Order is irrelevant (sum is commutative); listed alphabetically.
+ */
+const LEGACY_FREE_SLUGS = [
+  'attache', 'bloodline', 'carthian', 'fwb', 'inv', 'lk', 'mci', 'mdb',
+  'ohm', 'pet', 'pt', 'retainer', 'sw', 'vm',
+];
+
+/**
+ * Total engine-granted free dots on a merit, summing the new `free_grants`
+ * map AND the 14 legacy flat fields. During N-1 these populate disjointly —
+ * NEW Collective Compound grants write to the map; legacy LK/Inv/VM/MCI
+ * user-allocations stay in the flat fields; direct-write evaluators (OHM, PT,
+ * Bloodline, MDB, Style-Retainer, OTS, SafeWord, AutoBonus) likewise stay on
+ * flat. N-2 backfill moves persisted flat-field data to the map; once that
+ * lands the flat-field fallback contributes 0 on every read.
+ *
+ * `m.free` (the unprefixed, player-allocated channel) is OUT of this sum
+ * deliberately — it's player-allocated, not engine-granted, and is summed
+ * separately by the callers that need it (see `domain.js`).
+ *
+ * @param {object} m  - merit instance
+ * @returns {number}
+ */
+export function meritFreeSum(m) {
+  if (!m) return 0;
+  const fromMap = Object.values(m.free_grants || {}).reduce((s, n) => s + (n || 0), 0);
+  let fromLegacy = 0;
+  for (const slug of LEGACY_FREE_SLUGS) {
+    fromLegacy += (m['free_' + slug] || 0);
+  }
+  return fromMap + fromLegacy;
+}
+
+/**
+ * Per-slug free-dot lookup with the canonical map-fallback shape:
+ *   m.free_grants?.<slug> ?? m.free_<slug> ?? 0
+ *
+ * Use this for every per-slug read that previously wrote `(m.free_<slug> || 0)`
+ * inline. The map-fallback keeps the read correct across the N-1 → N-2
+ * transition: pre-N-2 the legacy flat field holds the value; post-N-2 the map
+ * does. The two channels are disjoint per slug by construction (evaluator
+ * writes to one or the other, never both), so `??` semantics are correct.
+ *
+ * NOT a behavioural change for N-1: when neither the map entry nor the legacy
+ * field is set, both paths return 0.
+ *
+ * @param {object} m   - merit instance (or anything with `free_grants` /
+ *                       `free_<slug>` keys, e.g. fighting_styles)
+ * @param {string} slug
+ * @returns {number}
+ */
+export function freeOf(m, slug) {
+  if (!m || !slug) return 0;
+  const fromMap = m.free_grants && m.free_grants[slug];
+  if (fromMap != null) return fromMap;
+  return m['free_' + slug] || 0;
+}
+
+// ── shareableSumForMerit (D2 — NEW Collective Compound sources only) ─────────
+
+/**
+ * Partner-shareable contribution to a merit's "partner side" total, computed
+ * from NEW Collective Compound rule_grant docs (`partner_shareable === true`).
+ *
+ * **Scope is intentionally narrow in N-1 (Concern #1 Rev 2):** the legacy
+ * hardcoded subsets at `domain.js#domMeritShareableSingle` (mci-only on
+ * client) and `server/routes/characters.js` (mci + bloodline + retainer on
+ * server) are NOT migrated to consult this helper — they stay verbatim with a
+ * minimal `(m.free_grants?.<slug> ?? m.free_<slug> ?? 0)` map-fallback so the
+ * transition doesn't silently drop dots. The divergence between client and
+ * server is deliberately preserved until the future MNEC-prerequisite audit
+ * story decides whether to normalise it.
+ *
+ * This helper is the seam for NEW code — Collective Compound synthesis and
+ * any future flag-driven path. The seeded `partner_shareable` values for
+ * legacy sources (LK/Inv/VM/MCI/Bloodline/Retainer) populate as canonical
+ * UNION-baseline data the audit will use; they are not consulted in N-1.
+ *
+ * @param {object} _c          - owning character (reserved for future scopes)
+ * @param {object} m           - merit instance
+ * @param {object} [ruleCache] - rules cache shape `{ rule_grant: [...] }`
+ * @returns {number}
+ */
+export function shareableSumForMerit(_c, m, ruleCache) {
+  if (!m) return 0;
+  const grants = (ruleCache && ruleCache.rule_grant) || [];
+  const bySlug = new Map();
+  for (const g of grants) {
+    if (g && typeof g.source_slug === 'string') bySlug.set(g.source_slug, g);
+  }
+  let total = 0;
+  for (const [slug, amount] of Object.entries(m.free_grants || {})) {
+    const rule = bySlug.get(slug);
+    if (rule && rule.partner_shareable === true) total += (amount || 0);
+  }
+  return total;
+}
+
+// ── resolveSharingScope (D3 / D5 discriminator dispatch) ─────────────────────
+
+/**
+ * Render-time sharing-scope resolver. Dispatches on `scope.type` from day one
+ * (Rev 2 D5). Returns:
+ *
+ *  - `null` for `partner_explicit` / missing scope / unknown type — consumer
+ *    falls back to persisted `m.shared_with`.
+ *  - synthesised `string[]` of partner names for collective scopes.
+ *
+ * The synthesised list is render-time only. Callers MUST write it to a
+ * `_`-prefixed transient field (e.g. `m._collective_shared_with`) so the
+ * save path strips it. Never mutate persisted `m.shared_with` for collective
+ * scope — see Concern #3.
+ *
+ * @param {{type?: string} | undefined | null} scope
+ * @param {object} c                       - owning character
+ * @param {object[]} chars                 - full chars array (cross-character context)
+ * @param {object} [rule]                  - the rule_grant doc this scope came from
+ * @returns {string[] | null}
+ */
+export function resolveSharingScope(scope, c, chars, rule) {
+  switch (scope && scope.type) {
+    case 'partner_explicit':
+    case undefined:
+    case null:
+      return null;
+    case 'collective_owners_of_merit':
+      return synthesiseCollectiveOwners(scope, c, chars, rule);
+    default:
+      // Safe degradation — log + null fallback (consumer reads persisted shared_with).
+      try { console.warn('[rules-helpers] unknown sharing_scope.type:', scope.type); } catch { /* console may be absent */ }
+      return null;
+  }
+}
+
+/**
+ * Pure synthesis for `{ type: 'collective_owners_of_merit', merit, min_dots }`.
+ *
+ *  - Walks `chars` for every character that owns `scope.merit` at >=
+ *    `scope.min_dots` (or 1 if omitted). "Owns at N dots" uses purchased
+ *    dots only (cp + xp) — collective membership should not depend on a
+ *    grant the collective itself confers.
+ *  - Returns:
+ *      `null`      — `c` is NOT a member of the collective. Orchestrator
+ *                    skips writing `_collective_shared_with` entirely (the
+ *                    field is absent on non-member chars, semantically "this
+ *                    merit is not a collective compound for me").
+ *      `string[]`  — `c` IS a member. The list contains the OTHER members'
+ *                    names; empty array means `c` is the only member.
+ *
+ * The `null` vs `[]` distinction is load-bearing: downstream consumers
+ * (rendering, the audit view) treat absence-of-field as "non-member" and
+ * an empty array as "member but solo".
+ *
+ * The `rule` parameter is reserved — future variants may consult it.
+ *
+ * @param {{merit: string, min_dots?: number}} scope
+ * @param {object} c
+ * @param {object[]} chars
+ * @param {object} [_rule]
+ * @returns {string[] | null}
+ */
+export function synthesiseCollectiveOwners(scope, c, chars, _rule) {
+  if (!scope || !scope.merit) return null;
+  const minDots = scope.min_dots == null ? 1 : scope.min_dots;
+  const list = Array.isArray(chars) ? chars : [];
+  const owners = list.filter(other => {
+    if (!other || !Array.isArray(other.merits)) return false;
+    return other.merits.some(m =>
+      m && m.name === scope.merit && ((m.cp || 0) + (m.xp || 0)) >= minDots
+    );
+  });
+  if (!owners.includes(c)) return null;
+  return owners.filter(o => o !== c).map(o => (o && o.name) || '').filter(Boolean);
+}

@@ -919,6 +919,22 @@ function buildSaveBody(c) {
     if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
+  // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
+  // (e.g. `_collective_shared_with` from Collective Compound synthesis,
+  // `_partner_dots` from the server-side enrichment) MUST NOT round-trip
+  // back through PUT. The render-time field is rebuilt on every read; if it
+  // ever persists, a stale list could survive a roster change. Shallow-clone
+  // the merits array and drop `_`-prefixed keys per merit.
+  if (Array.isArray(body.merits)) {
+    body.merits = body.merits.map(m => {
+      const cleaned = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (k.startsWith('_')) continue;
+        cleaned[k] = v;
+      }
+      return cleaned;
+    });
+  }
   return body;
 }
 
