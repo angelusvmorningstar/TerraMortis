@@ -9,10 +9,12 @@ import {
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
+import { freeOf } from '../data/rules-helpers.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
+import { getCatalogueByBucket } from '../data/equipment-data.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1000,25 +1002,25 @@ export function shEditMeritPt(realIdx, field, val) {
   if (field === 'free_mci') {
     const mciTotal = (c.merits || []).filter(m2 => m2.name === 'Mystery Cult Initiation' && m2.active !== false)
       .reduce((s, m2) => s + mciPoolTotal(m2), 0);
-    const otherFMCI = getMCIPoolUsed(c) - (m.free_mci || 0);
+    const otherFMCI = getMCIPoolUsed(c) - freeOf(m, 'mci');
     val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
   }
   // Cap free_vm edits by remaining VM pool (shared across Allies + Herd)
   if (field === 'free_vm') {
     const vmTotal = vmPool(c);
-    const otherFVM = vmUsed(c) - (m.free_vm || 0);
+    const otherFVM = vmUsed(c) - freeOf(m, 'vm');
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
   // Cap free_inv edits by remaining Invested pool
   if (field === 'free_inv') {
     const invTotal = investedPool(c);
-    const otherFINV = investedUsed(c) - (m.free_inv || 0);
+    const otherFINV = investedUsed(c) - freeOf(m, 'inv');
     val = Math.min(val, Math.max(0, invTotal - otherFINV));
   }
   // Cap free_lk edits by remaining Lorekeeper pool (rule-driven sum across LK rule_grant docs)
   if (field === 'free_lk') {
     const lkTotal = lorekeeperPool(c);
-    const otherFLK = lorekeeperUsed(c) - (m.free_lk || 0);
+    const otherFLK = lorekeeperUsed(c) - freeOf(m, 'lk');
     val = Math.min(val, Math.max(0, lkTotal - otherFLK));
   }
   m[field] = val;
@@ -1034,4 +1036,90 @@ export function shEditMeritPt(realIdx, field, val) {
 }
 
 
-// ── Equipment (nav.10) ────────────────────────────────────────────────────────
+// ── Equipment (EQ-4, issue #665) ─────────────────────────────────────────────
+
+export function shEquipBucketFilter() {
+  const bucket  = document.getElementById('eq-add-bucket')?.value;
+  const itemSel = document.getElementById('eq-add-item');
+  if (!itemSel) return;
+  const entries = bucket ? getCatalogueByBucket(bucket) : [];
+  itemSel.innerHTML = '<option value="">-- select item --</option>'
+    + entries.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+export async function shAddEquip() {
+  if (state.editIdx < 0) return;
+  const c          = state.chars[state.editIdx];
+  const charId     = String(c._id);
+  const catalogueId = document.getElementById('eq-add-item')?.value;
+  const itemState   = document.getElementById('eq-add-state')?.value;
+  const notes       = document.getElementById('eq-add-notes')?.value?.trim() || null;
+  if (!catalogueId || !itemState) return;
+  const cycle = parseInt(document.getElementById('eq-add-cycle')?.value ?? '0', 10) || 0;
+  try {
+    const result = await apiPost('/api/characters/' + charId + '/equipment', {
+      catalogue_id:   catalogueId,
+      state:          itemState,
+      acquired_cycle: cycle,
+      notes,
+    });
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[equipment] add error:', err);
+  }
+}
+
+export async function shRemoveEquip(idx) {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  try {
+    const result = await apiDelete('/api/characters/' + charId + '/equipment/' + idx);
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[equipment] remove error:', err);
+  }
+}
+
+export async function shAddAsset() {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  const name   = document.getElementById('asset-add-name')?.value?.trim();
+  const desc   = document.getElementById('asset-add-desc')?.value?.trim();
+  if (!name || !desc) return;
+  const cycle  = parseInt(document.getElementById('asset-add-cycle')?.value ?? '0', 10) || 0;
+  try {
+    const result = await apiPost('/api/characters/' + charId + '/assets', {
+      name,
+      description:       desc,
+      location:          document.getElementById('asset-add-loc')?.value?.trim()  || null,
+      mechanical_effect: document.getElementById('asset-add-mech')?.value?.trim() || null,
+      acquired_cycle:    cycle,
+      notes:             document.getElementById('asset-add-notes')?.value?.trim() || null,
+    });
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[asset] add error:', err);
+  }
+}
+
+export async function shRemoveAsset(idx) {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  try {
+    const result = await apiDelete('/api/characters/' + charId + '/assets/' + idx);
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[asset] remove error:', err);
+  }
+}

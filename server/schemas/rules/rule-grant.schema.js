@@ -42,6 +42,38 @@ export const ruleGrantSchema = {
     notes:      { type: 'string' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
+
+    // ── N-1 / ADR-005 Rev 2 additions ──
+    // `source_slug` is the canonical short identifier for the source (e.g. 'mci',
+    // 'lk', 'inv', 'vm', 'bloodline', 'retainer', 'necropolis_sepulcher').
+    // Used as the key in `m.free_grants[slug]` and as the lookup key in
+    // `shareableSumForMerit`. Optional today — only seeded on rule_grant docs
+    // that need flag-driven reads (Collective Compound + the UNION-baseline
+    // seed for LK/Inv/VM/MCI/Bloodline/Retainer).
+    source_slug: { type: 'string', minLength: 1 },
+    // Whether this source's granted dots count toward partner-shareable totals
+    // when the target merit is a shared domain merit. Default false on read.
+    // N-1 consults this ONLY for NEW Collective Compound code paths; the
+    // hardcoded subsets at `domain.js#domMeritShareableSingle` and
+    // `server/routes/characters.js` partner-enrichment STAY VERBATIM per
+    // Concern #1 Rev 2 (divergence preserved until the future MNEC-prerequisite
+    // audit).
+    partner_shareable: { type: 'boolean' },
+    // Discriminator-typed object generalising sharing-scope. First two variants
+    // (Rev 2): { type: 'partner_explicit' } and
+    // { type: 'collective_owners_of_merit', merit, min_dots }. Future variants
+    // (covenant / clan / bloodline membership, etc.) extend the `type` enum and
+    // carry their own neighbouring fields rather than overloading.
+    sharing_scope: {
+      type: 'object',
+      required: ['type'],
+      properties: {
+        type:     { type: 'string', enum: ['partner_explicit', 'collective_owners_of_merit'] },
+        merit:    { type: 'string', minLength: 1 },
+        min_dots: { type: 'integer', minimum: 1 },
+      },
+      additionalProperties: false,
+    },
   },
 
   allOf: [

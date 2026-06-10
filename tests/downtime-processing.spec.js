@@ -163,6 +163,100 @@ const SUBMISSION_FEEDING = {
   st_review: { territory_overrides: {} },
 };
 
+// ── Fixtures migrated from feature96 (#615) ───────────────────────────────────
+
+const SUBMISSION_PROJECT_PENDING = {
+  _id: 'sub-f96-proj-pending',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'pending', pool_validated: 'Strength 3 + Weaponry 4 = 7' }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_PROJECT_CONFIRMED = {
+  _id: 'sub-f96-proj-confirmed',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'confirmed', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST' }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_PROJECT_ROLLED = {
+  _id: 'sub-f310-proj-rolled',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'rolled', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_PROJECT_VALIDATED = {
+  _id: 'sub-f96-proj-validated',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [{ action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Scout the district.', primary_pool: { expression: 'Strength 3 + Weaponry 4 = 7' } }],
+    feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'ambience_increase', project_1_outcome: 'Increase ambience', project_1_description: 'Scout the district.', project_1_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [{ pool_status: 'validated', pool_validated: 'Strength 3 + Weaponry 4 = 7', pool_confirmed_by: 'Test ST', pool_validated_by: 'Test ST', roll: { dice_string: '[8,7,5]', successes: 2, exceptional: false } }],
+  feeding_review: null, merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_FEEDING_PENDING = {
+  _id: 'sub-f96-feed-pending',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: { method: 'predator', pool: { expression: 'Strength 3 + Weaponry 4 = 7' } },
+    sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: { feeding_method: 'predator', feeding_pool_expr: 'Strength 3 + Weaponry 4 = 7' },
+  projects_resolved: [],
+  feeding_review: {
+    pool_player: 'Strength 3 + Weaponry 4 = 7', pool_validated: 'Strength 3 + Weaponry 4 = 7',
+    pool_status: 'pending', nine_again: false, eight_again: false,
+    active_feed_specs: [], pool_mod_spec: 0, pool_mod_equipment: 0, notes_thread: [], player_feedback: '',
+  },
+  merit_actions_resolved: [], st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_AUTO_MERIT_PENDING = {
+  _id: 'sub-f96-auto-merit',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test', character_id: 'char-pt4', player_name: 'Test Player',
+  submitted_at: '2026-05-14T00:00:00Z',
+  _raw: {
+    projects: [], feeding: null,
+    sphere_actions: [{ merit_type: 'Allies 3 (Criminal)', action_type: 'ambience_decrease', description: 'Undermine the peace.', desired_outcome: 'Reduce ambience', primary_pool: { expression: '' } }],
+    contact_actions: { requests: [] }, retainer_actions: { actions: [] },
+  },
+  responses: {},
+  projects_resolved: [], feeding_review: null,
+  merit_actions_resolved: [{ pool_status: 'pending' }],
+  st_review: { territory_overrides: {} },
+};
+
 // ── Setup helpers ──────────────────────────────────────────────────────────────
 
 async function setupDowntimeProcessing(page, submissions) {
@@ -378,6 +472,182 @@ test.describe('Downtime Processing — Connected Characters position', () => {
     const connected = page.locator('.proc-action-detail .proc-connected-section').first();
     await expect(connected).toContainText('Connected Characters');
     await expect(connected.locator('.proc-conn-input')).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+// ── Migrated from feature96 (#615) ────────────────────────────────────────────
+
+test.describe('F96-4: Auto-merit compact panel unaffected by flat card wall', () => {
+
+  test('auto-merit action still renders compact panel (not val-status row)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_AUTO_MERIT_PENDING]);
+    await openActionInPhase(page, 'ambience');
+
+    await expect(page.locator('.proc-compact-merit-panel').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-val-status')).toHaveCount(0);
+  });
+
+});
+
+test.describe('F96-5: Roll buttons visible from pending state', () => {
+
+  test('project Roll button is visible when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openActionInPhase(page, 'ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('feeding Roll button is visible when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openActionInPhase(page, 'feeding');
+
+    const rollBtn = page.locator('.proc-feed-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project Roll Dice Pool button remains visible after pool_status advances to confirmed (no regression)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
+    await openActionInPhase(page, 'ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+test.describe('F96-7 / F310-2: Confirm Dice Pool button states', () => {
+
+  test('project panel shows Confirm Dice Pool button when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openActionInPhase(page, 'ambience');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project Confirm Dice Pool button is labelled correctly', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openActionInPhase(page, 'ambience');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toHaveText('Confirm Dice Pool');
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is confirmed', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_CONFIRMED]);
+    await openActionInPhase(page, 'ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+  test('feeding panel shows Confirm Dice Pool button when pool_status is pending', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openActionInPhase(page, 'feeding');
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project Roll Dice Pool button label is correct (first roll, no prior roll)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_PENDING]);
+    await openActionInPhase(page, 'ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is rolled', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openActionInPhase(page, 'ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+  test('project panel has NO Confirm Dice Pool button when pool_status is terminal (validated)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_VALIDATED]);
+    await openActionInPhase(page, 'ambience');
+
+    await expect(page.locator('.proc-confirm-pool-btn')).toHaveCount(0);
+  });
+
+});
+
+test.describe('F310-3: Confirm Dice Pool click triggers pool_status save', () => {
+
+  test('clicking Confirm Dice Pool on pending project triggers at least one API write', async ({ page }) => {
+    const writes = [];
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+        writes.push({ method, url });
+        return ok({ ok: true });
+      }
+
+      if (url.includes('/api/downtime_submissions'))    return ok([SUBMISSION_PROJECT_PENDING]);
+      if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+      if (url.includes('/api/characters/names'))        return ok([{ _id: CHAR_PT4._id, name: CHAR_PT4.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))              return ok([CHAR_PT4]);
+      if (url.includes('/api/territories'))             return ok([]);
+      if (url.includes('/api/game_sessions'))           return ok([]);
+      if (url.includes('/api/session_logs'))            return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openActionInPhase(page, 'ambience');
+
+    writes.length = 0;
+
+    const confirmBtn = page.locator('.proc-confirm-pool-btn').first();
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
+    await page.waitForTimeout(600);
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+test.describe('F310-5: Roll button labels and rolled-state coverage', () => {
+
+  test('feeding Roll Dice Pool button label is correct (first roll, no prior roll)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_FEEDING_PENDING]);
+    await openActionInPhase(page, 'feeding');
+
+    const rollBtn = page.locator('.proc-feed-roll-btn').first();
+    await expect(rollBtn).toHaveText('Roll Dice Pool');
+  });
+
+  test('project Roll button label is Re-roll when a prior roll exists', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openActionInPhase(page, 'ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toHaveText('Re-roll');
+  });
+
+  test('project Roll Dice Pool button visible from rolled state', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_ROLLED]);
+    await openActionInPhase(page, 'ambience');
+
+    const rollBtn = page.locator('.proc-proj-roll-btn').first();
+    await expect(rollBtn).toBeVisible({ timeout: 5000 });
   });
 
 });

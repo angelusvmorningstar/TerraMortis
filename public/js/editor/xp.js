@@ -4,6 +4,8 @@
  */
 
 import { getRuleByKey } from '../data/loader.js';
+// N-1: map-fallback shape for per-slug free reads (see rules-helpers.js).
+import { freeOf } from '../data/rules-helpers.js';
 
 /**
  * Convert XP spent into dot count (flat rate).
@@ -187,8 +189,8 @@ export function xpLeft(c) {
  */
 export function meritRating(c, m) {
   if (m.cp === undefined && m.xp === undefined) return m.rating || 0;
-  return (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.xp || 0);
+  return (m.cp || 0) + freeOf(m, 'bloodline') + freeOf(m, 'pet') + freeOf(m, 'mci') + freeOf(m, 'vm') + freeOf(m, 'lk')
+    + freeOf(m, 'ohm') + freeOf(m, 'inv') + freeOf(m, 'pt') + freeOf(m, 'mdb') + freeOf(m, 'sw') + (m.xp || 0);
 }
 
 /**
@@ -200,7 +202,7 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = mc.free_bloodline || 0, fret = mc.free_pet || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0, fsw = mc.free_sw || 0;
+  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = freeOf(mc, 'bloodline'), fret = freeOf(mc, 'pet'), fmci = freeOf(mc, 'mci'), fvm = freeOf(mc, 'vm'), flk = freeOf(mc, 'lk'), fohm = freeOf(mc, 'ohm'), finv = freeOf(mc, 'inv'), fpt = freeOf(mc, 'pt'), fmdb = freeOf(mc, 'mdb'), fsw = freeOf(mc, 'sw');
   const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + (opts.attachBonus || 0);
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;

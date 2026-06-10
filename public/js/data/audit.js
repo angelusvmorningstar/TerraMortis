@@ -20,6 +20,8 @@ import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS, CORE_DISCS, RITU
 import { isInClanDisc } from './accessors.js';
 import { meetsPrereq } from './prereq.js';
 import { getRuleByKey } from './loader.js';
+// N-1: per-slug free reads via the map-fallback helper (rules-helpers.js).
+import { freeOf } from './rules-helpers.js';
 import { domMeritAccess } from '../editor/domain.js';
 
 /**
@@ -185,7 +187,7 @@ export function auditCharacter(c) {
   // asset skills. Missing slots are a hard error.
   for (const m of (c.merits || [])) {
     if (m.name !== 'Professional Training' || m.active === false) continue;
-    const rating = (m.cp||0) + (m.xp||0) + (m.free_bloodline||0) + (m.free_pet||0) + (m.free_mci||0) + (m.free_vm||0);
+    const rating = (m.cp||0) + (m.xp||0) + freeOf(m, 'bloodline') + freeOf(m, 'pet') + freeOf(m, 'mci') + freeOf(m, 'vm');
     if (rating === 0) continue;
     const as = m.asset_skills || [];
     const validAs = as.filter(Boolean);
@@ -208,7 +210,7 @@ export function auditCharacter(c) {
     const _attStatusDots = (c.status || {}).covenant?.[c.covenant] || 0;
     const _attRetainers = (c.merits || []).filter(m => m.name === 'Retainer' && !m.granted_by && m.attache_key);
     for (const ret of _attRetainers) {
-      const used = (c.merits || []).reduce((s, m) => s + (m.retainer_source === ret.attache_key ? (m.free_attache || 0) : 0), 0);
+      const used = (c.merits || []).reduce((s, m) => s + (m.retainer_source === ret.attache_key ? freeOf(m, 'attache') : 0), 0);
       if (used > _attStatusDots) {
         errors.push({
           gate: 'attache_over',
