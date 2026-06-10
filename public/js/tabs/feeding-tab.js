@@ -930,13 +930,12 @@ function wireEvents() {
 
     // Write vitae and influence to API — single source of truth for tracker state
     try {
-      await apiPut('/api/tracker_state/' + charId, { vitae: n });
-      // Also write to localStorage so game app tracker picks it up without tab navigation
+      await apiPut('/api/tracker_state/' + charId, { vitae: n, influence: infAfter });
+      // vitae_confirmed used by trackerAdj to clear confirmed marker on manual ST override
       try {
         const key = 'tm_tracker_local_' + charId;
         const loc = JSON.parse(localStorage.getItem(key) || '{}');
         loc.vitae_confirmed = n;
-        loc.inf = infAfter;
         localStorage.setItem(key, JSON.stringify(loc));
       } catch { /* ignore */ }
       const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };

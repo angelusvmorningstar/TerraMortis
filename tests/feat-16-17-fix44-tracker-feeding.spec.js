@@ -788,6 +788,7 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await page.waitForTimeout(500);
       expect(trackerPutCalled).toBe(true);
       expect(trackerPutBody).toHaveProperty('vitae');
+      expect(trackerPutBody).toHaveProperty('influence');
     }
   });
 
@@ -825,7 +826,9 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
     }
   });
 
-  test('influence is written to localStorage on confirm', async ({ page }) => {
+  test('influence is sent to tracker_state API (not localStorage) on confirm', async ({ page }) => {
+    let putBody = null;
+
     await setupPlayer(page, FEED_CHAR, LIVE_TERRITORIES, SUBMISSION_WITH_REVIEW, ACTIVE_CYCLE);
     await page.route('**/api/auth/me', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
@@ -838,9 +841,15 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
         avatar: null, role: 'st', player_id: 'p-001', character_ids: ['char-fd-001'], is_dual_role: true,
       }));
     });
-    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
-    );
+    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putBody = route.request().postDataJSON();
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
     await page.route('**/api/downtime_submissions/**', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     );
@@ -852,12 +861,18 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await confirmBtn.click();
       await page.waitForTimeout(500);
 
-      // Check localStorage was written for this character's influence
+      // influence must be in the API PUT body, not localStorage
+      expect(putBody).not.toBeNull();
+      expect(putBody).toHaveProperty('influence');
+
+      // loc.inf must NOT be written to localStorage (removed in fix.667)
       const localKey = `tm_tracker_local_${FEED_CHAR._id}`;
       const stored = await page.evaluate(k => localStorage.getItem(k), localKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        expect(parsed).toHaveProperty('inf');
+        expect(parsed).not.toHaveProperty('inf');
+        // vitae_confirmed is still written (used by trackerAdj manual-override logic)
+        expect(parsed).toHaveProperty('vitae_confirmed');
       }
     }
   });
