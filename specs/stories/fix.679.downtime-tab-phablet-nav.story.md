@@ -1,6 +1,6 @@
 # Story fix.679: Player Suite Downtime Tab Missing from Nav on Phablet
 
-## Status: ready-for-dev
+## Status: done
 
 ---
 issue: 679
@@ -35,9 +35,9 @@ At 65px per button, 9 buttons = 585px — downtime fits within 599px without any
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Reduce `.nbtn` width at phablet breakpoint in `public/css/suite.css`
-  - [ ] Inside the existing `@media (max-width: 599px)` block, add: `.nbtn { flex: 0 0 65px; }`
-  - [ ] Reduce mask fade from 16px to 8px: change both `-webkit-mask-image` and `mask-image` values from `16px` / `calc(100% - 16px)` to `8px` / `calc(100% - 8px)`
+- [x] Task 1: Reduce `.nbtn` width at phablet breakpoint in `public/css/suite.css`
+  - [x] Inside the existing `@media (max-width: 599px)` block, add: `.nbtn { flex: 0 0 65px; }`
+  - [x] Reduce mask fade from 16px to 8px: change both `-webkit-mask-image` and `mask-image` values from `16px` / `calc(100% - 16px)` to `8px` / `calc(100% - 8px)`
 
 ---
 
