@@ -60,6 +60,16 @@ export function charsForSave() {
           copy.merits.splice(i, 1);
         }
       }
+      // N-1 (ADR-005 Rev 2, Concern #3): drop merit-level `_`-prefixed
+      // transient fields (e.g. `_collective_shared_with`) before persisting
+      // to localStorage. Mirrors the buildSaveBody strip on the API path so
+      // a localStorage round-trip + boot doesn't reload stale synthesised
+      // sharing data — applyDerivedMerits rebuilds it on each render anyway.
+      for (const m of copy.merits) {
+        for (const k of Object.keys(m)) {
+          if (k.startsWith('_')) delete m[k];
+        }
+      }
     }
     return copy;
   });

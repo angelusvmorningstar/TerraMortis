@@ -11,6 +11,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { applyPTRulesFromDb } from '../editor/rule_engine/pt-evaluator.js';
 import { applyBloodlineRulesFromDb } from '../editor/rule_engine/bloodline-evaluator.js';
 import { ALL_SKILLS } from '../data/constants.js';
+import { freeOf } from '../data/rules-helpers.js';
 
 // ── Family registry ──
 
@@ -523,14 +524,14 @@ function _renderPreviewDots(char, rule, proposed) {
 
   // Show merits that have any bonus-dot source
   const relevant = merits.filter(m =>
-    (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0) + (m.free_bloodline || 0) > 0 || m.free_pt !== undefined
+    freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline') > 0 || m.free_pt !== undefined
   );
   if (!relevant.length) return '<p class="rde-preview-empty">No bonus-dot merits on this character.</p>';
 
   let h = '<div class="rde-preview-merits">';
   for (const m of relevant) {
     const base = (m.cp || 0) + (m.xp || 0);
-    const bonus = (m.free_pt || 0) + (m.free_mci || 0) + (m.free || 0) + (m.free_mdb || 0) + (m.free_bloodline || 0);
+    const bonus = freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline');
     h += `<div class="rde-preview-merit-row">
       <span class="rde-preview-merit-name">${esc(m.name)}</span>
       <span class="rde-preview-merit-dots">${shDotsWithBonus(base, bonus)}</span>
