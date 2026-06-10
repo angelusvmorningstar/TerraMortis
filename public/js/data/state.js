@@ -5,7 +5,8 @@ const state = {
   editIdx: -1,
   dirty: new Set(),
   editMode: false,
-  openExpId: null
+  openExpId: null,
+  activeCycleNum: null,
 };
 
 export default state;
