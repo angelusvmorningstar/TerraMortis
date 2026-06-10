@@ -1,6 +1,6 @@
 # Story feature.665: EQ-4 — ST Admin UI for Assigning Equipment to Characters
 
-## Status: review
+## Status: done
 
 ---
 issue: 665
