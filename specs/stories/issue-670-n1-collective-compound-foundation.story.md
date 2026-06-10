@@ -1,6 +1,6 @@
 # Issue #670: N-1 — Collective Compound foundation (schema + helpers + atomic seed + evaluator retrofit)
 
-Status: Ready for Review
+Status: Done
 
 issue: 670
 issue_url: https://github.com/angelusvmorningstar/issues/670
