@@ -618,15 +618,14 @@ function render() {
       if (m) {
         buildPool(m, selectedDisc, selectedSpec);
 
-        // Discipline selector
-        const availDiscs = m.discs.filter(d => currentChar.disciplines?.[d]?.dots);
-        if (availDiscs.length) {
+        // Discipline selector — show all template disciplines; template is a preset, not a gate
+        if (m.discs.length) {
           h += '<div class="feeding-disc-row">';
           h += '<label>Discipline:</label>';
           h += '<select class="qf-select" id="feed-gen-disc">';
           h += '<option value="">None</option>';
-          for (const d of availDiscs) {
-            const dv = currentChar.disciplines[d].dots;
+          for (const d of m.discs) {
+            const dv = currentChar.disciplines?.[d]?.dots ?? 0;
             const sel = selectedDisc === d ? ' selected' : '';
             h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dv})</option>`;
           }
