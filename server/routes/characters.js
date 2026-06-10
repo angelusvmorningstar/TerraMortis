@@ -4,6 +4,12 @@ import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
 import { normalizeMeritsMiddleware, normalizeCharacterMerits } from '../lib/normalize-character.js';
+// N-1 (ADR-005 Rev 2): map-fallback shape for per-slug reads. Used in the
+// partner-dots enrichment below so the server's hardcoded subset survives
+// the N-2 backfill from `m.free_<slug>` to `m.free_grants.<slug>`. The
+// SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
+// Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
+import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -146,11 +152,59 @@ async function enrichTouchstoneNpcNames(chars, { forPlayer } = {}) {
   }
 }
 
+// N-1 (ADR-005 Rev 2 §D3): Collective Compound synthesis on the server side.
+// Mirrors the client-side pass in `mci.js#applyDerivedMerits` so the player
+// portal sees synthesised `_collective_shared_with` without needing to run
+// the full editor rule-engine in the browser. ST path uses its full `chars`
+// array as the search context (no extra fetch); player path augments its own
+// chars with any collective members it doesn't otherwise have access to (one
+// scoped fetch by source-merit name; reuses the existing partner projection
+// shape — `{ name: 1, merits: 1 }`). Never persists `_collective_shared_with`
+// — it lives only on the response, stripped by `buildSaveBody` on the save
+// path (per Concern #3).
+async function _enrichCollectiveSharing(chars) {
+  const grantsCol = getCollection('rule_grant');
+  const collectiveRules = await grantsCol
+    .find({ 'sharing_scope.type': 'collective_owners_of_merit' })
+    .toArray();
+  if (!collectiveRules.length) return;
+
+  // Build the search context: union of `chars` plus any collective-owner chars
+  // not already in the set. Player path needs the augmentation; ST path's
+  // `chars` already contains everyone (the union is a no-op there).
+  const sourceMerits = [...new Set(collectiveRules.map(r => r?.sharing_scope?.merit).filter(Boolean))];
+  let searchContext = chars;
+  if (sourceMerits.length) {
+    const haveNames = new Set(chars.map(c => c.name).filter(Boolean));
+    const extras = await col()
+      .find(
+        { 'merits.name': { $in: sourceMerits } },
+        { projection: { name: 1, merits: 1 } }
+      )
+      .toArray();
+    const missing = extras.filter(e => e && e.name && !haveNames.has(e.name));
+    if (missing.length) searchContext = chars.concat(missing);
+  }
+
+  for (const c of chars) {
+    for (const rule of collectiveRules) {
+      const synthesised = resolveSharingScope(rule.sharing_scope, c, searchContext, rule);
+      if (synthesised == null) continue;
+      const targets = Array.isArray(rule.pool_targets) ? rule.pool_targets : [];
+      if (!targets.length) continue;
+      for (const m of (c.merits || [])) {
+        if (targets.includes(m.name)) m._collective_shared_with = synthesised;
+      }
+    }
+  }
+}
+
 // GET /api/characters — ST gets all, player gets only their characters
 // ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
   if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
+    await _enrichCollectiveSharing(chars);
     await enrichTouchstoneNpcNames(chars, { forPlayer: false });
     return res.json(chars);
   }
@@ -185,8 +239,11 @@ router.get('/', async (req, res) => {
       const meritDots = {};
       for (const m of (p.merits || [])) {
         if (m.category !== 'domain') continue;
-        meritDots[m.name] = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
-                          + (m.free_retainer || 0) + (m.xp || 0);
+        // N-1 (Concern #1 Rev 2 VERBATIM): subset preserved verbatim — DO NOT
+        // narrow to match the client's mci-only subset. Per-slug reads via
+        // `freeOf` for N-2-backfill safety; behaviour identical pre-N-1.
+        meritDots[m.name] = (m.cp || 0) + freeOf(m, 'mci') + freeOf(m, 'bloodline')
+                          + freeOf(m, 'retainer') + (m.xp || 0);
       }
       partnerMap.set(p.name, meritDots);
     }
@@ -204,6 +261,7 @@ router.get('/', async (req, res) => {
     }
   }
 
+  await _enrichCollectiveSharing(chars);
   await enrichTouchstoneNpcNames(chars, { forPlayer: true });
   res.json(chars);
 });

@@ -17,6 +17,7 @@ import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEED
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
+import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
@@ -4580,7 +4581,7 @@ function renderCarthianPullSection(saved) {
 function _carthianCurrentAllocations() {
   const out = [];
   for (const m of (currentChar?.merits || [])) {
-    const fc = m.free_carthian || 0;
+    const fc = freeOf(m, 'carthian');
     if (m.category === 'influence' && m.name === 'Allies') {
       for (let i = 0; i < fc; i++) out.push({ target: 'allies', sphere: m.area || '' });
     } else if (m.category === 'influence' && m.name === 'Contacts') {
@@ -4761,7 +4762,9 @@ function renderSafePlaceLocationsSection(saved) {
 
   const haven = (currentChar?.merits || [])
     .find(m => m.category === 'domain' && m.name === 'Haven');
-  const havenKey = haven && haven.attached_to ? haven.attached_to : null;
+  // N-1 (Concern #11): normaliser pinpoints the destination Safe Place key.
+  const _havenAt = haven ? normaliseAttachedTo(haven.attached_to) : null;
+  const havenKey = _havenAt ? _havenAt.destination : null;
 
   let h = '<div class="qf-section collapsed" data-section-key="safe_place_locations">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;

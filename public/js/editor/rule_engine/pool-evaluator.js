@@ -69,7 +69,8 @@ function _vmPool(c) {
   (c.merits || []).forEach(m => {
     if (m.granted_by === 'VM') return;
     if (m.category === 'influence' && m.name === 'Allies') {
-      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: free_mci counts because MCI Allies are real influence resources
+      // inherent-intentional: free_mci counts because MCI Allies are real influence resources; N-1 map-fallback so N-2 backfill (legacy → map) doesn't drop dots
+      total += (m.cp || 0) + (m.xp || 0) + ((m.free_grants?.mci) ?? m.free_mci ?? 0);
     } else if (m.name === 'Herd') {
       if (m.derived) return;
       // inherent-intentional: Herd dice-pool contribution counts purchased dots only (cp+xp); derived/granted Herd is filtered above.

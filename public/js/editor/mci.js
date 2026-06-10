@@ -17,6 +17,13 @@ import { applyMDBRulesFromDb } from './rule_engine/mdb-evaluator.js';
 import { applySafeWordRulesFromDb } from './rule_engine/safe-word-evaluator.js';
 import { applyOTSRulesFromDb } from './rule_engine/ots-evaluator.js';
 import { applyAutoBonusRulesFromDb } from './rule_engine/auto-bonus-evaluator.js';
+// N-1 (ADR-005 Rev 2 §D3): Collective Compound sharing-scope synthesis.
+// `resolveSharingScope` dispatches on `rule.sharing_scope.type`; for
+// `collective_owners_of_merit` it returns the synthesised owner list which
+// we write into the dedicated transient `_collective_shared_with` field on
+// each target merit. NEVER mutate persisted `m.shared_with` for collective
+// scope — see Concern #3.
+import { resolveSharingScope } from '../data/rules-helpers.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -56,6 +63,10 @@ export function applyDerivedMerits(c, allChars = []) {
   c._grant_pools = [];
   c._mci_free_specs = [];
   c._bloodline_free_specs = [];
+  // N-1: Collective Compound synthesis is render-time only. Clear any stale
+  // `_collective_shared_with` from a previous applyDerivedMerits run so a
+  // removed Sepulcher dot retires its synthesised partner list.
+  (c.merits || []).forEach(m => { if ('_collective_shared_with' in m) delete m._collective_shared_with; });
 
   // ── MCI grant pools (evaluator reads from rule_grant / rule_speciality_grant / rule_skill_bonus / rule_tier_budget) ──
   applyMCIRulesFromDb(c, getRulesBySource('Mystery Cult Initiation'));
@@ -108,6 +119,32 @@ export function applyDerivedMerits(c, allChars = []) {
   //    a new auto-bonus merit is a seed change, not a code change. ──
   const _autoBonusRules = (getRulesCache()?.rule_grant || []).filter(r => r.grant_type === 'auto_bonus');
   applyAutoBonusRulesFromDb(c, { grants: _autoBonusRules });
+
+  // ── N-1 / ADR-005 Rev 2 §D3: Collective Compound sharing-scope synthesis ──
+  // For each rule_grant whose sharing_scope is collective-typed, resolve the
+  // synthesised member list and write it to the dedicated `_collective_shared_with`
+  // transient field on each target merit instance on this character. NEVER mutate
+  // `m.shared_with` (the persisted explicit list); the underscore-prefixed
+  // field is stripped on save by `buildSaveBody` (export-character.js).
+  //
+  // Empty-list contract: members get `_collective_shared_with = []` when they're
+  // the only owner; non-members get NO field set (so DOM reads naturally skip).
+  // No-op when `allChars` is empty (player-side single-arg render — same guard
+  // SafeWord already uses above): can't compute membership without the full
+  // chars context, and overwriting a stale list with [] would mis-blank.
+  if (Array.isArray(allChars) && allChars.length > 0) {
+    const _sharingRules = (getRulesCache()?.rule_grant || [])
+      .filter(r => r && r.sharing_scope && r.sharing_scope.type === 'collective_owners_of_merit');
+    for (const rule of _sharingRules) {
+      const synthesised = resolveSharingScope(rule.sharing_scope, c, allChars, rule);
+      if (synthesised == null) continue;          // unknown type / partner_explicit → fall back to persisted shared_with
+      const targets = Array.isArray(rule.pool_targets) ? rule.pool_targets : [];
+      if (!targets.length) continue;
+      for (const m of (c.merits || [])) {
+        if (targets.includes(m.name)) m._collective_shared_with = synthesised;
+      }
+    }
+  }
 
   // ── Sync ratings from inline creation fields (free + cp + xp) ──
   ensureMeritSync(c);

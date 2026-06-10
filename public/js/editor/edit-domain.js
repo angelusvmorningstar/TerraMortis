@@ -6,6 +6,7 @@ import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { pruneContactsSpheres, domKey } from './domain.js';
+import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -323,7 +324,10 @@ export function shRemoveDomMerit(idx) {
     if (removed && removed.name === 'Safe Place') {
       const key = domKey(removed);
       (c.merits || []).forEach(m2 => {
-        if (['Haven', 'Mandragora Garden'].includes(m2.name) && m2.attached_to === key) {
+        // N-1 (Concern #11): normaliser comparison so cascade-detach works
+        // even when m2.attached_to has been migrated to object form.
+        const _at = normaliseAttachedTo(m2.attached_to);
+        if (['Haven', 'Mandragora Garden'].includes(m2.name) && _at && _at.destination === key) {
           delete m2.attached_to;
         }
       });
@@ -475,8 +479,8 @@ export function shEditStyle(idx, field, val) {
   if (field === 'free_mci') {
     const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
       .reduce((s, m) => s + mciPoolTotal(m), 0);
-    const otherMCI = (c.merits || []).reduce((s, m) => s + (m.free_mci || 0), 0)
-      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_mci || 0)), 0);
+    const otherMCI = (c.merits || []).reduce((s, m) => s + freeOf(m, 'mci'), 0)
+      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : freeOf(fs2, 'mci')), 0);
     val = Math.min(val, Math.max(0, mciTotal - otherMCI));
   }
   if (field === 'free_ots') {
@@ -494,7 +498,7 @@ export function shAddPick(manName) {
   const c = state.chars[state.editIdx];
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
-    .reduce((s, fs) => s + (fs.cp||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
+    .reduce((s, fs) => s + (fs.cp||0) + freeOf(fs, 'mci') + freeOf(fs, 'ots') + (fs.xp||0), 0);
   const maxPicks = totalDots;
   if (c.fighting_picks.length >= maxPicks) return;
   const already = c.fighting_picks.some(pk =>

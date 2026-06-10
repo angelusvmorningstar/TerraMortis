@@ -240,7 +240,7 @@ test.describe('feature.656 EQ-2 — Equipment & Assets sheet display', () => {
     expect(html).toContain('Stashed');
   });
 
-  test('AC-10: edit mode shows same read-only view with no inline inputs', async ({ page }) => {
+  test('AC-10: edit mode still shows item name and state chip (EQ-4 adds management controls)', async ({ page }) => {
     const char = buildChar({
       equipment: [
         { catalogue_id: 'knife', state: 'carried', acquired_cycle: 1, notes: null },
@@ -248,19 +248,25 @@ test.describe('feature.656 EQ-2 — Equipment & Assets sheet display', () => {
     });
     await setupSuite(page, char);
 
-    // Render in edit mode via the editor's sheet function directly
+    // EQ-4 adds remove buttons + add forms in edit mode; old flat-schema inputs remain absent.
     const result = await page.evaluate(async (c) => {
       const { shRenderEquipment } = await import('/js/editor/sheet.js');
       const html = shRenderEquipment(c, true /* editMode */);
-      const hasInputs = /<input|<select/.test(html);
-      const hasAddBtn = /add.*equip|shAddEquip/i.test(html);
-      return { html, hasInputs, hasAddBtn };
+      return {
+        hasItem:      html.includes('Knife'),
+        hasStateChip: html.includes('Carried'),
+        hasRemoveBtn: html.includes('shRemoveEquip'),
+        hasAddForm:   html.includes('shAddEquip'),
+        // Old flat-schema inputs must not exist
+        hasOldInputs: /type="text".*damage_rating|attack_skill|general_ar/.test(html),
+      };
     }, char);
 
-    expect(result.hasInputs).toBe(false);
-    expect(result.hasAddBtn).toBe(false);
-    expect(result.html).toContain('Knife');
-    expect(result.html).toContain('Carried');
+    expect(result.hasItem).toBe(true);
+    expect(result.hasStateChip).toBe(true);
+    expect(result.hasRemoveBtn).toBe(true);
+    expect(result.hasAddForm).toBe(true);
+    expect(result.hasOldInputs).toBe(false);
   });
 
 });

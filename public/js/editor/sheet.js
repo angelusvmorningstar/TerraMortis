@@ -10,6 +10,8 @@ import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
+// N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
+import { normaliseAttachedTo } from '../data/rules-helpers.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
@@ -859,7 +861,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         const _attEligible = (c.merits || []).filter(m2 => ['Contacts', 'Resources', 'Safe Place'].includes(m2.name));
         const _attKey = m2 => m2.name + (m2.area ? ' (' + m2.area + ')' : '');
         const _attOpts = ['<option value="">(select target)</option>']
-          .concat(_attEligible.map(m2 => '<option value="' + esc(_attKey(m2)) + '"' + (m.attached_to === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'))
+          .concat(_attEligible.map(m2 => { const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(_attKey(m2)) + '"' + (_at && _at.destination === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'; }))
           .join('');
         _areaHtml = '<select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select>'
           + '<label class="infl-ghoul-lbl"><input type="checkbox"' + (m.ghoul ? ' checked' : '') + ' onchange="shEditInflMerit(' + idx + ',\'ghoul\',this.checked)"> Ghoul</label>';
@@ -993,7 +995,9 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCapped = ['Haven', 'Mandragora Garden'].includes(m.name);
       const _capEff = _isCapped ? meritEffectiveRating(c, m) : null;
       const _capStored = _isCapped ? ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) : null;
-      const _spM = _isCapped && m.attached_to ? (c.merits || []).find(sp => sp.category === 'domain' && sp.name === 'Safe Place' && domKey(sp) === m.attached_to) : null;
+      // N-1 (Concern #11): normaliser pinpoints the `.destination` for cap-target lookup.
+      const _mAt = normaliseAttachedTo(m.attached_to);
+      const _spM = _isCapped && _mAt ? (c.merits || []).find(sp => sp.category === 'domain' && sp.name === 'Safe Place' && domKey(sp) === _mAt.destination) : null;
       const _spCap = _spM ? meritEffectiveRating(c, _spM) : 0;
       const _capSharedEff = (parts.length > 0 && _spCap > 0) ? Math.min(eT, _spCap) : null;
       const _capTotalDots = _isCapped
@@ -1012,10 +1016,10 @@ export function shRenderDomainMerits(c, editMode) {
       if (_isCapped) {
         const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
         const _spOpts = ['<option value="">(select Safe Place)</option>']
-          .concat(_spInstances.map(sp => { const k = domKey(sp); return '<option value="' + esc(k) + '"' + (m.attached_to === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
+          .concat(_spInstances.map(sp => { const k = domKey(sp); const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(k) + '"' + (_at && _at.destination === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
           .join('');
         h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
-        if (!m.attached_to || _spInstances.length === 0) {
+        if (!normaliseAttachedTo(m.attached_to) || _spInstances.length === 0) {
           h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
         } else if (_capStored > _capEff) {
           h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
@@ -1046,7 +1050,9 @@ export function shRenderDomainMerits(c, editMode) {
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
       const mBon = m.bonus || 0;
-      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0, carthB = !dp ? (m.free_carthian || 0) : 0; // #508 carthB
+      // N-1: per-slug reads inline the map-fallback shape `m.free_grants?.<slug> ?? m.free_<slug> ?? 0` so N-2 backfill (legacy → map) doesn't drop dots on the read-only sheet path.
+      const _fg = m.free_grants || {};
+      const _dRaw = (m.cp || 0) + (_fg.bloodline ?? m.free_bloodline ?? 0) + (_fg.pet ?? m.free_pet ?? 0) + (_fg.mci ?? m.free_mci ?? 0) + (_fg.vm ?? m.free_vm ?? 0) + (_fg.lk ?? m.free_lk ?? 0) + (_fg.inv ?? m.free_inv ?? 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (_fg.fwb ?? m.free_fwb ?? 0) : 0, attB = !dp ? (_fg.attache ?? m.free_attache ?? 0) : 0, carthB = !dp ? (_fg.carthian ?? m.free_carthian ?? 0) : 0; // #508 carthB
       const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + mBon;
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
@@ -1069,11 +1075,15 @@ export function shRenderDomainMerits(c, editMode) {
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
       h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
       if (_isCappedView) {
-        if (!m.attached_to) {
+        // N-1 (Concern #11): normaliser keeps the rendered "Attached: X" string
+        // correct when `m.attached_to` is the new object form (would otherwise
+        // render [object Object]).
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        if (!_viewAt) {
           h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
         } else {
           if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
-          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(m.attached_to) + '</span></div>';
+          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(_viewAt.destination) + '</span></div>';
         }
       }
       h += '</div>';
@@ -1735,7 +1745,7 @@ export function shRenderManoeuvres(c, editMode) {
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
   const assets = c.assets    || [];
-  if (!equip.length && !assets.length) return '';
+  if (!editMode && !equip.length && !assets.length) return '';
 
   const STATE_LABELS = { carried: 'Carried', worn: 'Worn', stashed: 'Stashed', lost: 'Lost', active: 'Active' };
   const DMGTYPE      = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
@@ -1745,27 +1755,29 @@ export function shRenderEquipment(c, editMode) {
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment &amp; Assets</div><div class="merit-list">';
 
-  // Group equipment items by bucket
+  // Group equipment items by bucket, preserving flat-array index for remove buttons
   const byBucket = { weapon: [], armour: [], equipment: [] };
-  for (const item of equip) {
+  for (let i = 0; i < equip.length; i++) {
+    const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
     const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
-    byBucket[bucket].push({ item, entry });
+    byBucket[bucket].push({ item, entry, idx: i });
   }
 
   // ── Weapons ──
   if (byBucket.weapon.length) {
     h += '<div class="sh-sub-title">Weapons</div>';
-    for (const { item, entry } of byBucket.weapon) {
+    for (const { item, entry, idx } of byBucket.weapon) {
       const name  = entry.name || item.catalogue_id;
       const parts = [
         entry.damage_mod != null ? `+${entry.damage_mod}` : null,
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
       ].filter(Boolean);
-      const qual = parts.join(' · ');
+      const qual   = parts.join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` +
         `</div></div>`;
     }
@@ -1775,15 +1787,16 @@ export function shRenderEquipment(c, editMode) {
   if (byBucket.armour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
     const baseDefence = calcDefence(c);
-    for (const { item, entry } of byBucket.armour) {
+    for (const { item, entry, idx } of byBucket.armour) {
       const name  = entry.name || item.catalogue_id;
       const parts = [
-        entry.armour_value   != null ? `AR ${entry.armour_value}` : null,
+        entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
       ].filter(Boolean);
-      const qual = parts.join(' · ');
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
@@ -1792,12 +1805,13 @@ export function shRenderEquipment(c, editMode) {
   // ── Equipment (tools / tech) ──
   if (byBucket.equipment.length) {
     h += '<div class="sh-sub-title">Equipment</div>';
-    for (const { item, entry } of byBucket.equipment) {
-      const name = entry.name || item.catalogue_id;
-      const pool = (entry.skill_domain && entry.bonus_dice != null)
+    for (const { item, entry, idx } of byBucket.equipment) {
+      const name  = entry.name || item.catalogue_id;
+      const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         (pool || item.notes ? `<div class="trait-sub">${pool ? `<span class="trait-qual">${esc(pool)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
@@ -1806,19 +1820,54 @@ export function shRenderEquipment(c, editMode) {
   // ── Assets ──
   if (assets.length) {
     h += '<div class="sh-sub-title">Assets</div>';
-    for (const asset of assets) {
-      const meta = [
-        asset.location       || null,
+    for (let ai = 0; ai < assets.length; ai++) {
+      const asset  = assets[ai];
+      const meta   = [
+        asset.location          || null,
         asset.mechanical_effect || null,
         cycleLabel(asset.acquired_cycle),
-        asset.notes          || null,
+        asset.notes             || null,
       ].filter(Boolean).join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveAsset(${ai})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span></div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span>${rmBtn}</div></div>` +
         `<div class="trait-sub"><span class="trait-qual">${esc(asset.description)}</span></div>` +
         (meta ? `<div class="trait-sub"><span class="trait-qual dim">${esc(meta)}</span></div>` : '') +
         `</div></div>`;
     }
+  }
+
+  // ── Edit-mode add forms ──
+  if (editMode) {
+    const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
+    const BUCKETS  = ['weapon', 'armour', 'equipment'];
+    const defCycle = state.activeCycleNum ?? 0;
+
+    h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
+      + '<option value="">Bucket…</option>'
+      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + '</select>'
+      + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
+      + '<select id="eq-add-state" class="dev-add-btn">'
+      + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
+      + '</select>'
+      + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
+      + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'
+      + '</div>';
+
+    h += '<div class="sh-sub-title" style="margin-top:6px">Add Asset</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<input id="asset-add-name"  type="text" placeholder="Name*"         class="spec-input" style="width:120px">'
+      + '<input id="asset-add-desc"  type="text" placeholder="Description*"  class="spec-input" style="width:150px">'
+      + '<input id="asset-add-loc"   type="text" placeholder="Location"      class="spec-input" style="width:100px">'
+      + '<input id="asset-add-mech"  type="text" placeholder="Mech effect"   class="spec-input" style="width:120px">'
+      + `<input id="asset-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="asset-add-notes" type="text" placeholder="Notes"         class="spec-input" style="width:100px">'
+      + '<button class="sk-spec-add" onclick="shAddAsset()">Add</button>'
+      + '</div>';
   }
 
   h += '</div></div>';

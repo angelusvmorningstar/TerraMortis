@@ -663,6 +663,121 @@ test.describe('Tracker — influence row, retired filter, re-fetch', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  Tracker — DT influence reconciliation (fix.668)
+// ══════════════════════════════════════════════════════════════════════════════
+
+test.describe('Tracker — DT influence reconciliation (fix.668)', () => {
+
+  const CLOSED_CYCLE = {
+    _id: 'cycle-dt4', name: 'DT4', game_number: 4, status: 'closed',
+  };
+
+  const INFLUENCE_SUBMISSION = {
+    _id: 'sub-inf-001',
+    character_id: INFLUENCE_CHAR._id,
+    cycle_id: 'cycle-dt4',
+    responses: {
+      influence_spend: JSON.stringify({ academy: 2 }),
+    },
+  };
+
+  // INFLUENCE_CHAR: Allies(2) + Contacts(1) = 3 total influence
+  const INF_MAX = 3;
+  const INF_SPENT = 2;
+  const INF_AFTER = INF_MAX - INF_SPENT; // 1
+
+  async function setupTrackerWithReconcile(page, submissions = [INFLUENCE_SUBMISSION]) {
+    await setupSuite(page, [INFLUENCE_CHAR]);
+    await page.route('**/api/downtime_cycles*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CLOSED_CYCLE]) })
+    );
+    await page.route('**/api/downtime_submissions*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(submissions) })
+    );
+    // tracker_state GET: no influence field so cs.inf seeds at calcTotalInfluence (max)
+    await page.route('**/api/tracker_state/**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) })
+    );
+  }
+
+  test('tracker reconciles DT influence_spend on load', async ({ page }) => {
+    let putBody = null;
+    await setupTrackerWithReconcile(page);
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putBody = route.request().postDataJSON();
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+
+    expect(putBody).not.toBeNull();
+    expect(putBody).toHaveProperty('influence', INF_AFTER);
+  });
+
+  test('tracker shows max influence when character has no DT submission', async ({ page }) => {
+    let putFired = false;
+    await setupTrackerWithReconcile(page, []); // no submissions for this character
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putFired = true;
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+
+    // No reconcile PUT — character has no DT spend, stays at max
+    expect(putFired).toBe(false);
+    const header = page.locator('#t-tracker .trk-card-hd').first();
+    await expect(header).toBeVisible({ timeout: 3000 });
+    const html = await header.innerHTML();
+    expect(html).toContain(`Inf ${INF_MAX}/${INF_MAX}`);
+  });
+
+  test('tracker does not double-apply influence deduction on second tab open', async ({ page }) => {
+    let putCount = 0;
+    await setupTrackerWithReconcile(page);
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putCount++;
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    // First tracker tab open
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+    const afterFirstOpen = putCount;
+
+    // Navigate away then back — _reconciledCycles Set prevents second reconcile
+    await page.evaluate(() => window.goTab('status'));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.goTab('tracker'));
+    await page.waitForSelector('#t-tracker .trk-card', { timeout: 5000 });
+    await page.waitForTimeout(500);
+
+    expect(afterFirstOpen).toBe(1);  // first open fired exactly one PUT
+    expect(putCount).toBe(1);        // second open fired no additional PUTs
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  Feeding confirm — ST vitae write and influence localStorage
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -788,6 +903,7 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await page.waitForTimeout(500);
       expect(trackerPutCalled).toBe(true);
       expect(trackerPutBody).toHaveProperty('vitae');
+      expect(trackerPutBody).toHaveProperty('influence');
     }
   });
 
@@ -825,7 +941,9 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
     }
   });
 
-  test('influence is written to localStorage on confirm', async ({ page }) => {
+  test('influence is sent to tracker_state API (not localStorage) on confirm', async ({ page }) => {
+    let putBody = null;
+
     await setupPlayer(page, FEED_CHAR, LIVE_TERRITORIES, SUBMISSION_WITH_REVIEW, ACTIVE_CYCLE);
     await page.route('**/api/auth/me', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
@@ -838,9 +956,15 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
         avatar: null, role: 'st', player_id: 'p-001', character_ids: ['char-fd-001'], is_dual_role: true,
       }));
     });
-    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
-    );
+    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putBody = route.request().postDataJSON();
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
     await page.route('**/api/downtime_submissions/**', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     );
@@ -852,12 +976,18 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await confirmBtn.click();
       await page.waitForTimeout(500);
 
-      // Check localStorage was written for this character's influence
+      // influence must be in the API PUT body, not localStorage
+      expect(putBody).not.toBeNull();
+      expect(putBody).toHaveProperty('influence');
+
+      // loc.inf must NOT be written to localStorage (removed in fix.667)
       const localKey = `tm_tracker_local_${FEED_CHAR._id}`;
       const stored = await page.evaluate(k => localStorage.getItem(k), localKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        expect(parsed).toHaveProperty('inf');
+        expect(parsed).not.toHaveProperty('inf');
+        // vitae_confirmed is still written (used by trackerAdj manual-override logic)
+        expect(parsed).toHaveProperty('vitae_confirmed');
       }
     }
   });

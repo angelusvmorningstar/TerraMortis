@@ -96,11 +96,11 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'territory_id and rights[] are required' });
   }
 
-  // 1. Load cycle; must exist and be active
+  // 1. Load cycle; must exist and not be closed
   const cycle = await cycles().findOne({ _id: oid });
   if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
-  if (cycle.status !== 'active') {
-    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not active' });
+  if (cycle.status === 'closed') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is closed' });
   }
 
   // 2. Load territory by _id (ADR-002 strict cutover Q2 — slug rejected).

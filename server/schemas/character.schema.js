@@ -464,9 +464,40 @@ export const characterSchema = {
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },
         free_carthian:  { type: 'integer', minimum: 0 }, // #508: Carthian Pull dot-allocation bonus
+        // ── N-1 / ADR-005 Rev 2 (issue #670) ──
+        // `free_grants` is the new slug-keyed channel map that replaces the 14
+        // flat `free_<slug>` fields above. N-1 ships both shapes coexisting;
+        // `meritFreeSum` sums the union. N-2 backfill moves persisted flat-field
+        // data into the map and unsets the flat fields. Slugs MUST be stable:
+        // renaming a slug after N-1 ships requires a data migration.
+        free_grants:    { type: 'object', additionalProperties: { type: 'integer', minimum: 0 } },
         carthian_sphere: { type: ['string', 'null'] }, // #510: single sphere a Carthian dot pushed into an augmented Contacts merit (legacy single-dot; read on strip)
         carthian_spheres: { type: 'array', items: { type: 'string' } }, // #522: spheres Carthian Pull dots pushed into an augmented Contacts merit (multi-dot; for clean strip)
-        attached_to:    { type: ['string', 'null'] },
+        // `attached_to` accepts EITHER legacy string-form (single-target, pre-Rev-2,
+        // e.g. Haven / Mandragora Garden) OR the new object form for bridges
+        // (Trap Door: { origin: 'Necropolis Sepulcher', destination: <Safe Place> }).
+        // Every consumer reads via `normaliseAttachedTo(at)` (Concern #11) — no
+        // raw reads. N-2 backfill promotes string-form to `{ destination }`.
+        attached_to: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'null' },
+            {
+              type: 'object',
+              required: ['destination'],
+              properties: {
+                origin:      { type: 'string', minLength: 1 },
+                destination: { type: 'string', minLength: 1 },
+              },
+              additionalProperties: false,
+            },
+          ],
+        },
+        // Render-time synthesis of Collective Compound member names; NEVER
+        // persisted. `buildSaveBody` (export-character.js) strips `_`-prefixed
+        // merit fields before PUT/POST. Listed in the schema for completeness;
+        // server validation accepts it but the save path keeps it from leaking.
+        _collective_shared_with: { type: 'array', items: { type: 'string' } },
         rule_key: { type: ['string', 'null'] },
         bonus:    { type: 'integer', minimum: 0 }
       },
