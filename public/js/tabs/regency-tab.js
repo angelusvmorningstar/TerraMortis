@@ -176,11 +176,12 @@ function render(container) {
     ? (_activeCycle.regent_confirmations || []).find(c => c.territory_id === terrId)
     : null;
   const confirmedRights = myConfirmation?.rights || [];
+  const cycleLive = !!(_activeCycle && _activeCycle.status !== 'closed');
 
   let h = '<div class="regency-wrap">';
 
   // CTA banner — show when cycle gate is pending and this Regent hasn't confirmed
-  if (_activeCycle && _activeCycle.status === 'active' && !cycleConfirmed && !myConfirmation) {
+  if (cycleLive && !cycleConfirmed && !myConfirmation) {
     h += `<div class="reg-cta-banner">`;
     h += `<strong>Action required:</strong> The feeding rights gate for <em>${esc(_activeCycle.label || 'this cycle')}</em> is waiting on your confirmation. Use the "Confirm Feeding Rights" button below to lock in your territory's rights for this cycle.`;
     h += `</div>`;
@@ -251,9 +252,9 @@ function render(container) {
     h += '<button id="reg-add-right" class="qf-btn qf-btn-secondary">+ Add Feeding Right</button>';
   }
   h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
-  if (_activeCycle && _activeCycle.status === 'active' && !cycleConfirmed) {
+  if (cycleLive && !cycleConfirmed) {
     h += '<button id="reg-confirm" class="qf-btn qf-btn-secondary">Confirm Feeding Rights</button>';
-  } else if (_activeCycle && _activeCycle.status === 'active' && cycleConfirmed && myConfirmation) {
+  } else if (cycleLive && cycleConfirmed && myConfirmation) {
     h += '<span class="reg-confirmed-badge">Feeding rights confirmed for this cycle</span>';
   }
   h += '<span id="reg-save-status" class="qf-save-status"></span>';
