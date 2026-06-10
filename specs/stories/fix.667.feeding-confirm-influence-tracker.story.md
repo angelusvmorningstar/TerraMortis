@@ -1,6 +1,6 @@
 # Story fix.667: Feeding Confirm Should Write Influence to tracker_state, Not localStorage
 
-## Status: review
+## Status: done
 
 ---
 issue: 667
