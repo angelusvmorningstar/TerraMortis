@@ -1735,7 +1735,7 @@ export function shRenderManoeuvres(c, editMode) {
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
   const assets = c.assets    || [];
-  if (!equip.length && !assets.length) return '';
+  if (!editMode && !equip.length && !assets.length) return '';
 
   const STATE_LABELS = { carried: 'Carried', worn: 'Worn', stashed: 'Stashed', lost: 'Lost', active: 'Active' };
   const DMGTYPE      = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
@@ -1745,27 +1745,29 @@ export function shRenderEquipment(c, editMode) {
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment &amp; Assets</div><div class="merit-list">';
 
-  // Group equipment items by bucket
+  // Group equipment items by bucket, preserving flat-array index for remove buttons
   const byBucket = { weapon: [], armour: [], equipment: [] };
-  for (const item of equip) {
+  for (let i = 0; i < equip.length; i++) {
+    const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
     const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
-    byBucket[bucket].push({ item, entry });
+    byBucket[bucket].push({ item, entry, idx: i });
   }
 
   // ── Weapons ──
   if (byBucket.weapon.length) {
     h += '<div class="sh-sub-title">Weapons</div>';
-    for (const { item, entry } of byBucket.weapon) {
+    for (const { item, entry, idx } of byBucket.weapon) {
       const name  = entry.name || item.catalogue_id;
       const parts = [
         entry.damage_mod != null ? `+${entry.damage_mod}` : null,
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
       ].filter(Boolean);
-      const qual = parts.join(' · ');
+      const qual   = parts.join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` +
         `</div></div>`;
     }
@@ -1775,15 +1777,16 @@ export function shRenderEquipment(c, editMode) {
   if (byBucket.armour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
     const baseDefence = calcDefence(c);
-    for (const { item, entry } of byBucket.armour) {
+    for (const { item, entry, idx } of byBucket.armour) {
       const name  = entry.name || item.catalogue_id;
       const parts = [
-        entry.armour_value   != null ? `AR ${entry.armour_value}` : null,
+        entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
       ].filter(Boolean);
-      const qual = parts.join(' · ');
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
@@ -1792,12 +1795,13 @@ export function shRenderEquipment(c, editMode) {
   // ── Equipment (tools / tech) ──
   if (byBucket.equipment.length) {
     h += '<div class="sh-sub-title">Equipment</div>';
-    for (const { item, entry } of byBucket.equipment) {
-      const name = entry.name || item.catalogue_id;
-      const pool = (entry.skill_domain && entry.bonus_dice != null)
+    for (const { item, entry, idx } of byBucket.equipment) {
+      const name  = entry.name || item.catalogue_id;
+      const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}</div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
         (pool || item.notes ? `<div class="trait-sub">${pool ? `<span class="trait-qual">${esc(pool)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
@@ -1806,19 +1810,54 @@ export function shRenderEquipment(c, editMode) {
   // ── Assets ──
   if (assets.length) {
     h += '<div class="sh-sub-title">Assets</div>';
-    for (const asset of assets) {
-      const meta = [
-        asset.location       || null,
+    for (let ai = 0; ai < assets.length; ai++) {
+      const asset  = assets[ai];
+      const meta   = [
+        asset.location          || null,
         asset.mechanical_effect || null,
         cycleLabel(asset.acquired_cycle),
-        asset.notes          || null,
+        asset.notes             || null,
       ].filter(Boolean).join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveAsset(${ai})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span></div></div>` +
+        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span>${rmBtn}</div></div>` +
         `<div class="trait-sub"><span class="trait-qual">${esc(asset.description)}</span></div>` +
         (meta ? `<div class="trait-sub"><span class="trait-qual dim">${esc(meta)}</span></div>` : '') +
         `</div></div>`;
     }
+  }
+
+  // ── Edit-mode add forms ──
+  if (editMode) {
+    const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
+    const BUCKETS  = ['weapon', 'armour', 'equipment'];
+    const defCycle = state.activeCycleNum ?? 0;
+
+    h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
+      + '<option value="">Bucket…</option>'
+      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + '</select>'
+      + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
+      + '<select id="eq-add-state" class="dev-add-btn">'
+      + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
+      + '</select>'
+      + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
+      + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'
+      + '</div>';
+
+    h += '<div class="sh-sub-title" style="margin-top:6px">Add Asset</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<input id="asset-add-name"  type="text" placeholder="Name*"         class="spec-input" style="width:120px">'
+      + '<input id="asset-add-desc"  type="text" placeholder="Description*"  class="spec-input" style="width:150px">'
+      + '<input id="asset-add-loc"   type="text" placeholder="Location"      class="spec-input" style="width:100px">'
+      + '<input id="asset-add-mech"  type="text" placeholder="Mech effect"   class="spec-input" style="width:120px">'
+      + `<input id="asset-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="asset-add-notes" type="text" placeholder="Notes"         class="spec-input" style="width:100px">'
+      + '<button class="sk-spec-add" onclick="shAddAsset()">Add</button>'
+      + '</div>';
   }
 
   h += '</div></div>';

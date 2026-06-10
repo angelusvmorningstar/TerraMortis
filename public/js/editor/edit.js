@@ -13,6 +13,7 @@ import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
+import { getCatalogueByBucket } from '../data/equipment-data.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1034,4 +1035,90 @@ export function shEditMeritPt(realIdx, field, val) {
 }
 
 
-// ── Equipment (nav.10) ────────────────────────────────────────────────────────
+// ── Equipment (EQ-4, issue #665) ─────────────────────────────────────────────
+
+export function shEquipBucketFilter() {
+  const bucket  = document.getElementById('eq-add-bucket')?.value;
+  const itemSel = document.getElementById('eq-add-item');
+  if (!itemSel) return;
+  const entries = bucket ? getCatalogueByBucket(bucket) : [];
+  itemSel.innerHTML = '<option value="">-- select item --</option>'
+    + entries.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+export async function shAddEquip() {
+  if (state.editIdx < 0) return;
+  const c          = state.chars[state.editIdx];
+  const charId     = String(c._id);
+  const catalogueId = document.getElementById('eq-add-item')?.value;
+  const itemState   = document.getElementById('eq-add-state')?.value;
+  const notes       = document.getElementById('eq-add-notes')?.value?.trim() || null;
+  if (!catalogueId || !itemState) return;
+  const cycle = parseInt(document.getElementById('eq-add-cycle')?.value ?? '0', 10) || 0;
+  try {
+    const result = await apiPost('/api/characters/' + charId + '/equipment', {
+      catalogue_id:   catalogueId,
+      state:          itemState,
+      acquired_cycle: cycle,
+      notes,
+    });
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[equipment] add error:', err);
+  }
+}
+
+export async function shRemoveEquip(idx) {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  try {
+    const result = await apiDelete('/api/characters/' + charId + '/equipment/' + idx);
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[equipment] remove error:', err);
+  }
+}
+
+export async function shAddAsset() {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  const name   = document.getElementById('asset-add-name')?.value?.trim();
+  const desc   = document.getElementById('asset-add-desc')?.value?.trim();
+  if (!name || !desc) return;
+  const cycle  = parseInt(document.getElementById('asset-add-cycle')?.value ?? '0', 10) || 0;
+  try {
+    const result = await apiPost('/api/characters/' + charId + '/assets', {
+      name,
+      description:       desc,
+      location:          document.getElementById('asset-add-loc')?.value?.trim()  || null,
+      mechanical_effect: document.getElementById('asset-add-mech')?.value?.trim() || null,
+      acquired_cycle:    cycle,
+      notes:             document.getElementById('asset-add-notes')?.value?.trim() || null,
+    });
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[asset] add error:', err);
+  }
+}
+
+export async function shRemoveAsset(idx) {
+  if (state.editIdx < 0) return;
+  const c      = state.chars[state.editIdx];
+  const charId = String(c._id);
+  try {
+    const result = await apiDelete('/api/characters/' + charId + '/assets/' + idx);
+    c.equipment = result.equipment;
+    c.assets    = result.assets;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[asset] remove error:', err);
+  }
+}

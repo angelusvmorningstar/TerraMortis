@@ -36,6 +36,7 @@ import {
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -1139,6 +1140,7 @@ Object.assign(window, {
   shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating,
   shEditXP,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
 
   // Editor attributes & skills tab
   clickAttrDot,
@@ -2138,6 +2140,7 @@ async function _loadLifecycleData() {
     const activeCycle = Array.isArray(cycles)
       ? cycles.find(c => c.status === 'open' || c.status === 'active') || null
       : null;
+    editorState.activeCycleNum = activeCycle?.game_number ?? null;
     let mySubmission = null;
     if (activeCycle) {
       const subs = await apiGet('/api/downtime_submissions').catch(() => []);
