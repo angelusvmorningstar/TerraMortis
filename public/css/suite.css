@@ -2338,14 +2338,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   transition: background .12s, color .12s, border-color .12s;
 }
 .rank-mode-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
-.rank-score-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 14px 0; }
-.rank-score-btn {
-  font-family: var(--fl); font-size: 10px; font-weight: 600; letter-spacing: .06em;
-  text-transform: uppercase; padding: 3px 10px; border: 1px solid var(--bdr2);
-  border-radius: 20px; background: var(--surf2); color: var(--txt2); cursor: pointer;
-  transition: background .12s, color .12s, border-color .12s;
-}
-.rank-score-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
 /* ST aggregate — org sections + pill switcher */
 .rank-org-section { padding: 14px; border-bottom: 1px solid var(--bdr); }
 .rank-org-section:last-child { border-bottom: none; }
