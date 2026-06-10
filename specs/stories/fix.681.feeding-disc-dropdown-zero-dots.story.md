@@ -1,6 +1,6 @@
 # Story fix.681: Feeding Discipline Dropdown Hidden When Character Has Zero Relevant Discipline Dots
 
-## Status: ready-for-dev
+## Status: done
 
 ---
 issue: 681
@@ -32,10 +32,10 @@ players must be able to choose any discipline. The suggestions chips already cor
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Fix `feeding-tab.js:622-634`
-  - [ ] Remove the `.filter()` from `availDiscs` — use `m.discs` directly
-  - [ ] Change the `if` gate from `availDiscs.length` to `m.discs.length`
-  - [ ] Make the dot count read safe: `currentChar.disciplines?.[d]?.dots ?? 0` (handles undefined)
+- [x] Task 1: Fix `feeding-tab.js:622-634`
+  - [x] Remove the `.filter()` from `availDiscs` — use `m.discs` directly
+  - [x] Change the `if` gate from `availDiscs.length` to `m.discs.length`
+  - [x] Make the dot count read safe: `currentChar.disciplines?.[d]?.dots ?? 0` (handles undefined)
 
 ---
 
