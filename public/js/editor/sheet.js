@@ -141,6 +141,15 @@ function shDotsMixed(purchased, bonus) {
   return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
 
+/** Three-tier domain merit dot rendering: inherent (\u25CF), bonus (\u25CB), shared/underlined (\u25CB). */
+function shDotsThreeTier(inherent, bonus, shared) {
+  let h = '';
+  for (let i = 0; i < inherent; i++) h += '\u25CF';
+  for (let i = 0; i < bonus; i++)    h += '\u25CB';
+  for (let i = 0; i < shared; i++)   h += '<span class="dot-shared">\u25CB</span>';
+  return '<span class="trait-dots">' + h + '</span>';
+}
+
 /** Derived dot source notes on a merit. Only emits lines where the field > 0. */
 function _derivedNotes(m) {
   const _n = (v, lbl, why) => v ? '<div class="derived-note">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
@@ -1066,11 +1075,12 @@ export function shRenderDomainMerits(c, editMode) {
       } else {
         dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
       }
-      // Shared display: own dots filled + partner contribution hollow.
-      const _shPurch = (m.cp || 0) + (m.xp || 0);
-      const _shOwn = Math.min(de, _shPurch);
-      const _shPart = Math.max(0, de - _shOwn);
-      const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
+      // Shared display: three tiers \u2014 filled \u25CF inherent (cp+xp), hollow \u25CB bonus (free_*), underlined \u25CB shared (partner).
+      const _sh3Inherent = Math.min(de, (m.cp || 0) + (m.xp || 0));
+      const _sh3OwnAll   = Math.min(de, (m.cp || 0) + (m.xp || 0) + meritFreeSum(m));
+      const _sh3Bonus    = _sh3OwnAll - _sh3Inherent;
+      const _sh3Shared   = Math.max(0, de - _sh3OwnAll);
+      const _shHtml      = '<div class="dom-total-view" title="\u25CF inherent, \u25CB bonus, \u25CB\u0332 shared">' + shDotsThreeTier(_sh3Inherent, _sh3Bonus, _sh3Shared) + '</div>';
       // Display name includes qualifier when present
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
       h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
