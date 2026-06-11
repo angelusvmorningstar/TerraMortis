@@ -425,6 +425,17 @@ html:not([data-theme="dark"]) .edit-icon {
 .dom-attach-lbl{font-size:10px;font-family:var(--ft);color:var(--txt3);white-space:nowrap;}
 .dom-attach-sel{flex:1;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:2px 4px;outline:none;}
 .dom-attach-sel:focus{border-color:var(--gold);}
+/* N-4 (MNEC #696): White Ants Territory picker — one row per dot. */
+.wa-picker-block{padding:4px 8px 2px;display:flex;flex-direction:column;gap:3px;}
+.wa-picker-lbl{font-size:10px;font-family:var(--ft);color:var(--txt3);white-space:nowrap;}
+.wa-picker-row{display:flex;align-items:center;gap:6px;}
+.wa-picker-dot{font-size:10px;color:var(--txt3);min-width:14px;text-align:right;font-family:var(--ft);}
+.wa-picker-sel{flex:1;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:2px 4px;outline:none;}
+.wa-picker-sel:focus{border-color:var(--gold);}
+.wa-picker-row--empty .wa-picker-sel,
+.wa-picker-row--dup .wa-picker-sel{border-color:var(--warn-dk);}
+.wa-picker-warn{font-size:10px;color:var(--warn-dk);font-family:var(--ft);}
+.wa-picker-empty{font-size:10px;color:var(--txt3);font-style:italic;margin:0;padding:0 0 0 8px;}
 .dom-cap-warn{font-size:10px;color:var(--warn-dk);font-family:var(--ft);padding:1px 8px 2px;}
 .dom-cap-info{font-size:9px;color:var(--txt3);padding:0 8px 2px;}
 
