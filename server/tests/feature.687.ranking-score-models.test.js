@@ -247,46 +247,54 @@ describe('status-ranking.js — scoring model constants present', () => {
     expect(srcRanking).toMatch(/function applyScoreModel/);
   });
 
-  it('renderRankingAggShell includes rank-score-row', () => {
-    expect(srcRanking).toMatch(/rank-score-row/);
+  it('renderRankingAggShell renders all five mode buttons (unified toggle, #689)', () => {
+    // ALL_MODE_KEYS defines the five unified buttons; presence of all five keys in the array suffices
+    expect(srcRanking).toMatch(/ALL_MODE_KEYS\s*=\s*\[/);
+    expect(srcRanking).toMatch(/'linear'/);
+    expect(srcRanking).toMatch(/'tiered'/);
+    expect(srcRanking).toMatch(/'first-only'/);
+    expect(srcRanking).toMatch(/'flat'/);
+    expect(srcRanking).toMatch(/'political'/);
+    // the button template loop uses data-mode= attribute
+    expect(srcRanking).toMatch(/data-mode=.*key/);
   });
 
-  it('renderRankingAggShell includes rank-score-btn', () => {
-    expect(srcRanking).toMatch(/rank-score-btn/);
+  it('renderRankingAggShell sets active button from sessionStorage on initial render (#689)', () => {
+    expect(srcRanking).toMatch(/ALL_MODE_KEYS\.includes\(stored\)/);
   });
 
-  it('wireRankingAggregate reads scoreModel from sessionStorage', () => {
+  it('wireRankingAggregate reads activeKey from sessionStorage', () => {
     expect(srcRanking).toMatch(/sessionStorage\.getItem\(SCORE_SESSION_KEY\)/);
   });
 
-  it('wireRankingAggregate writes scoreModel to sessionStorage on click', () => {
+  it('wireRankingAggregate writes activeKey to sessionStorage on click', () => {
     expect(srcRanking).toMatch(/sessionStorage\.setItem\(SCORE_SESSION_KEY/);
   });
 
-  it('wireRankingAggregate calls applyScoreModel for ranked mode', () => {
-    expect(srcRanking).toMatch(/applyScoreModel\(rankedAgg,\s*scoreModel\)/);
+  it('wireRankingAggregate calls applyScoreModel with activeKey (#689)', () => {
+    expect(srcRanking).toMatch(/applyScoreModel\(rankedAgg,\s*activeKey\)/);
   });
 
-  it('score row visibility is toggled based on mode', () => {
-    expect(srcRanking).toMatch(/scoreRowEl.*style\.display/);
+  it('getAgg returns politicalAgg directly for political mode (#689)', () => {
+    expect(srcRanking).toMatch(/activeKey\s*===\s*['"]political['"]\s*\?\s*politicalAgg/);
   });
 
-  it('invalid sessionStorage model falls back to linear', () => {
-    expect(srcRanking).toMatch(/SCORE_MODELS\[scoreModel\]/);
-    expect(srcRanking).toMatch(/scoreModel\s*=\s*['"]linear['"]/);
+  it('sessionStorage validation uses ALL_MODE_KEYS (includes political, #689)', () => {
+    expect(srcRanking).toMatch(/ALL_MODE_KEYS/);
+    expect(srcRanking).toMatch(/ALL_MODE_KEYS\.includes\(stored\)/);
   });
 });
 
-describe('suite.css — scoring model styles present', () => {
-  it('defines .rank-score-row', () => {
-    expect(srcCss).toMatch(/\.rank-score-row\s*\{/);
+describe('suite.css — unified toggle styles present / removed styles absent', () => {
+  it('.rank-mode-btn style still defined (covers all five buttons, #689)', () => {
+    expect(srcCss).toMatch(/\.rank-mode-btn\s*\{/);
   });
 
-  it('defines .rank-score-btn', () => {
-    expect(srcCss).toMatch(/\.rank-score-btn\s*\{/);
+  it('.rank-mode-btn.active style still defined', () => {
+    expect(srcCss).toMatch(/\.rank-mode-btn\.active\s*\{/);
   });
 
-  it('defines .rank-score-btn.active', () => {
-    expect(srcCss).toMatch(/\.rank-score-btn\.active\s*\{/);
+  it('.rank-score-row removed by #689 — must NOT be present', () => {
+    expect(srcCss).not.toMatch(/\.rank-score-row\s*\{/);
   });
 });

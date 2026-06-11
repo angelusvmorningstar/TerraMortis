@@ -130,20 +130,21 @@ function renderAggMemberList(members) {
   }).join('');
 }
 
+const ALL_MODE_KEYS = ['linear', 'tiered', 'first-only', 'flat', 'political'];
+const MODE_LABELS   = { linear: 'Linear', tiered: 'Tiered', 'first-only': '1st Only', flat: 'Flat', political: 'Political' };
+
 function renderRankingAggShell() {
+  const stored    = sessionStorage.getItem(SCORE_SESSION_KEY) || 'linear';
+  const activeKey = ALL_MODE_KEYS.includes(stored) ? stored : 'linear';
+
   let h = `<div class="status-ranking-section">`;
   h += `<div class="status-section-head">`;
   h += `<span class="status-section-title">Ranking Points — this cycle</span>`;
   h += `<span class="status-section-caps">ST only</span>`;
   h += `<div class="rank-mode-toggle">`;
-  h += `<button class="rank-mode-btn active" data-mode="ranked">Ranked</button>`;
-  h += `<button class="rank-mode-btn" data-mode="political">Political</button>`;
+  for (const key of ALL_MODE_KEYS)
+    h += `<button class="rank-mode-btn${key === activeKey ? ' active' : ''}" data-mode="${key}">${MODE_LABELS[key]}</button>`;
   h += `</div></div>`;
-  // Scoring model row — visible only in ranked mode, hidden in political
-  h += `<div class="rank-score-row">`;
-  for (const key of MODEL_KEYS)
-    h += `<button class="rank-score-btn" data-score="${key}">${esc(SCORE_MODELS[key].label)}</button>`;
-  h += `</div>`;
   h += `<div class="rank-org-section"><div class="rank-org-label">Clan</div>`;
   h += `<div class="rank-pills" id="rank-clan-pills"></div>`;
   h += `<div class="rank-member-list" id="rank-clan-list"></div></div>`;
@@ -154,37 +155,26 @@ function renderRankingAggShell() {
 }
 
 function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
-  let mode       = 'ranked';
-  let activeClan = null;
-  let activeCov  = null;
-  let scoreModel = sessionStorage.getItem(SCORE_SESSION_KEY) || 'linear';
-  if (!SCORE_MODELS[scoreModel]) scoreModel = 'linear';
+  const stored    = sessionStorage.getItem(SCORE_SESSION_KEY) || 'linear';
+  let activeKey   = ALL_MODE_KEYS.includes(stored) ? stored : 'linear';
+  let activeClan  = null;
+  let activeCov   = null;
 
   const clanPillsEl = sectionEl.querySelector('#rank-clan-pills');
   const clanListEl  = sectionEl.querySelector('#rank-clan-list');
   const covPillsEl  = sectionEl.querySelector('#rank-cov-pills');
   const covListEl   = sectionEl.querySelector('#rank-cov-list');
-  const scoreRowEl  = sectionEl.querySelector('.rank-score-row');
-  const scoreBtns   = [...(scoreRowEl?.querySelectorAll('.rank-score-btn') || [])];
-
-  function syncScoreBtns() {
-    scoreBtns.forEach(b => b.classList.toggle('active', b.dataset.score === scoreModel));
-  }
-
-  function syncScoreRowVisibility() {
-    if (scoreRowEl) scoreRowEl.style.display = mode === 'ranked' ? '' : 'none';
-  }
 
   function getAgg() {
-    return mode === 'ranked' ? applyScoreModel(rankedAgg, scoreModel) : politicalAgg;
+    return activeKey === 'political' ? politicalAgg : applyScoreModel(rankedAgg, activeKey);
   }
 
-  function refreshPills(pillsEl, listEl, groups, voterCount, activeKey, onSelect) {
+  function refreshPills(pillsEl, listEl, groups, voterCount, activeOrgKey, onSelect) {
     const keys = [...groups.keys()].sort();
     pillsEl.innerHTML = keys.map(k => {
       const cnt = voterCount?.[k];
       const badge = cnt != null ? ` <span class="rank-voter-count">${cnt}</span>` : '';
-      return `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${esc(k)}">${esc(k)}${badge}</button>`;
+      return `<button class="rank-pill${k === activeOrgKey ? ' active' : ''}" data-key="${esc(k)}">${esc(k)}${badge}</button>`;
     }).join('');
     pillsEl.querySelectorAll('.rank-pill').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -193,7 +183,7 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
         onSelect(btn.dataset.key);
       });
     });
-    listEl.innerHTML = renderAggMemberList(groups.get(activeKey) || []);
+    listEl.innerHTML = renderAggMemberList(groups.get(activeOrgKey) || []);
   }
 
   function refresh() {
@@ -215,28 +205,15 @@ function wireRankingAggregate(sectionEl, chars, rankedAgg, politicalAgg) {
     });
   }
 
-  // Wire mode toggle (Ranked / Political)
   sectionEl.querySelectorAll('.rank-mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      mode = btn.dataset.mode;
+      activeKey = btn.dataset.mode;
+      sessionStorage.setItem(SCORE_SESSION_KEY, activeKey);
       sectionEl.querySelectorAll('.rank-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
-      syncScoreRowVisibility();
       refresh();
     });
   });
 
-  // Wire scoring model buttons
-  scoreBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      scoreModel = btn.dataset.score;
-      sessionStorage.setItem(SCORE_SESSION_KEY, scoreModel);
-      syncScoreBtns();
-      refresh();
-    });
-  });
-
-  syncScoreBtns();
-  syncScoreRowVisibility();
   refresh();
 }
 
