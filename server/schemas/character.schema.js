@@ -414,6 +414,11 @@ export const characterSchema = {
         asset_skills:  { type: 'array', items: { type: 'string' } },
         shared_with:   { type: 'array', items: { type: 'string' } },
         spheres:       { type: 'array', items: { type: 'string' } },
+        // N-4 (MNEC, issue #696): White Ants — Territory slugs picked per dot.
+        // Length-must-equal-rating is enforced at the route level (route can
+        // pull the merit's rating from cp+xp+free); JSON schema only enforces
+        // string-array shape since cross-field validation isn't representable here.
+        territories:   { type: 'array', items: { type: 'string' } },
         granted_by:    { type: 'string' },
         active:        { type: 'boolean' },
         location:      { type: ['string', 'null'] }, // #506: street+suburb for Safe Place instances; carries across DT cycles

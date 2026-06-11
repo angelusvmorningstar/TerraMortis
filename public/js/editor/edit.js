@@ -22,6 +22,7 @@ import {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
+  shSetWhiteAntsTerritory,
   registerCallbacks as registerDomainCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './edit-domain.js';
@@ -34,6 +35,7 @@ export {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
+  shSetWhiteAntsTerritory,
   getDirtyPartners, clearDirtyPartners
 };
 
