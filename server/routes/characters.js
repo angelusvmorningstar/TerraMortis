@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
-import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsTerritoriesMiddleware } from '../lib/normalize-character.js';
+import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware } from '../lib/normalize-character.js';
 // N-1 (ADR-005 Rev 2): map-fallback shape for per-slug reads. Used in the
 // partner-dots enrichment below so the server's hardcoded subset survives
 // the N-2 backfill from `m.free_<slug>` to `m.free_grants.<slug>`. The
@@ -405,7 +405,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters/wizard — player creates their own character
-router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, async (req, res) => {
+router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const players = getCollection('players');
   const player = await players.findOne({ _id: req.user.player_id });
   const existingIds = player?.character_ids || [];
@@ -432,7 +432,7 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 });
 
 // POST /api/characters — ST only
-router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, async (req, res) => {
+router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -444,7 +444,7 @@ router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalize
 // PUT /api/characters/:id — ST only
 // Uses partial schema validation: types/shapes checked but no field is required,
 // so both full document saves and partial updates (e.g. regent assignment) are valid.
-router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, async (req, res) => {
+router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 

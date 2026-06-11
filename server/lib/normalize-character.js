@@ -186,6 +186,59 @@ export function validateWhiteAntsTerritoriesMiddleware(req, res, next) {
   return next();
 }
 
+/**
+ * N-5 (MNEC, issue #697) — Trap Door schema-level presence guard.
+ *
+ * Per Khepri's resolution: schema-level check is just "attached_to.territory
+ * field present." The "is this Territory currently infected" check stays at
+ * render time (validateTrapDoorAnchor in rules-helpers.js, called from the
+ * sheet renderer). Reasons:
+ *   - the union changes over time (other Sepulcher owners add/remove White
+ *     Ants picks); a server-side hard-fail on save would force a coordination
+ *     dance that the persisted-not-removed semantics is designed to avoid.
+ *   - persisted-not-removed: an existing Trap Door whose Territory drops out
+ *     of the union stays saveable. The render flags it; the player fixes it.
+ *
+ * Partial-save tolerance: if `req.body.merits` is absent, this is a no-op
+ * (matches the validateWhiteAntsTerritoriesMiddleware shape).
+ *
+ * @returns {void} responds 400 if a Trap Door merit's `attached_to` lacks any
+ *   of origin / destination / territory. Otherwise calls next().
+ */
+export function validateTrapDoorAnchorMiddleware(req, res, next) {
+  const merits = req.body && Array.isArray(req.body.merits) ? req.body.merits : null;
+  if (!merits) return next();
+
+  for (let i = 0; i < merits.length; i++) {
+    const m = merits[i];
+    if (!m || m.name !== 'Trap Door') continue;
+
+    // Trap Door must use the object form of attached_to (the dual-anchor
+    // shape ADR-005 D7 ships). String-form (legacy single-anchor) doesn't
+    // carry origin or territory — structurally insufficient.
+    const at = m.attached_to;
+    if (at == null || typeof at !== 'object' || Array.isArray(at)) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Trap Door requires the object-form attached_to with origin / destination / territory.',
+        detail: { merit_index: i, merit: 'Trap Door' },
+      });
+    }
+    const missing = [];
+    if (typeof at.origin !== 'string' || !at.origin) missing.push('origin');
+    if (typeof at.destination !== 'string' || !at.destination) missing.push('destination');
+    if (typeof at.territory !== 'string' || !at.territory) missing.push('territory');
+    if (missing.length) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `Trap Door attached_to is missing required field(s): ${missing.join(', ')}.`,
+        detail: { merit_index: i, merit: 'Trap Door', missing },
+      });
+    }
+  }
+  return next();
+}
+
 function _effectiveMeritRating(m) {
   const cp = m.cp || 0;
   const xp = m.xp || 0;

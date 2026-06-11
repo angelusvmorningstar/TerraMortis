@@ -64,6 +64,7 @@ import {
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   registerCallbacks as registerEditCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
@@ -1326,6 +1327,7 @@ Object.assign(window, {
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

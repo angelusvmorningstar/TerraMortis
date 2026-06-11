@@ -11,7 +11,9 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
-import { normaliseAttachedTo } from '../data/rules-helpers.js';
+// N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
+// N-5: validateTrapDoorAnchor reports the render-time non-functional state.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor } from '../data/rules-helpers.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
@@ -1313,6 +1315,8 @@ export function shRenderGeneralMerits(c, editMode) {
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
         // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
         h += _whiteAntsTerritoriesBlock(m, rIdx);
+        // N-5 (MNEC #697): Trap Door triple-anchor picker (origin + destination + territory).
+        h += _trapDoorAnchorBlock(c, m, rIdx);
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }
@@ -1953,6 +1957,88 @@ function _whiteAntsTerritoriesBlock(m, realIdx) {
     else if (isDup) h += '<span class="wa-picker-warn">Duplicate</span>';
     h += '</div>';
   }
+  h += '</div>';
+  return h;
+}
+
+/**
+ * N-5 (MNEC, issue #697) — Trap Door triple-anchor picker block.
+ *
+ * Renders three controls:
+ *   • Origin       — read-only "Necropolis Sepulcher" label. Always locked;
+ *                    the merit's purchase prereq guarantees the character
+ *                    owns Sepulcher, so origin is invariant per character.
+ *   • Destination  — single-select from the character's existing Safe Place
+ *                    merit instances (uses `domKey` as the value, mirroring
+ *                    Haven's existing attached_to UX).
+ *   • Territory    — single-select FILTERED to currently-infected Territories
+ *                    (per Khepri 2026-06-11: filter at pick-time, prevents
+ *                    invalid selection upfront; if the union shrinks later
+ *                    and the picked slug drops out, the render-time validator
+ *                    flags it).
+ *
+ * Shows the persisted-not-removed warning when `validateTrapDoorAnchor`
+ * reports invalid. The merit stays in the merit list; only this block
+ * renders the non-functional state.
+ */
+function _trapDoorAnchorBlock(c, m, realIdx) {
+  if (!m || m.name !== 'Trap Door') return '';
+  const at = normaliseAttachedTo(m.attached_to);
+  const raw = (m.attached_to && typeof m.attached_to === 'object' && !Array.isArray(m.attached_to))
+    ? m.attached_to
+    : {};
+  const dest = (raw.destination || (at && at.destination) || '');
+  const terr = raw.territory || '';
+
+  // Destination options: character's existing Safe Place merits.
+  const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
+  const destOpts = ['<option value="">(pick a Safe Place)</option>']
+    .concat(_spInstances.map(sp => {
+      const k = domKey(sp);
+      return `<option value="${esc(k)}"${k === dest ? ' selected' : ''}>${esc(k)}</option>`;
+    }))
+    .join('');
+
+  // Territory options: only currently-infected Territories. Map to live names
+  // via `getStoredTerritories()` for display; value is the slug. If the picked
+  // slug is no longer in the union (post-shrink edge), keep it as an option
+  // with a "(no longer covered)" suffix so the user can see what was set.
+  const infected = getNecropolisInfectedTerritories(state.chars || []);
+  const allTerritories = getStoredTerritories() || [];
+  const tName = (slug) => {
+    const t = allTerritories.find(x => x && x.slug === slug);
+    return (t && (t.name || t.slug)) || slug;
+  };
+  let terrOpts = '<option value="">(pick a Territory)</option>';
+  for (const slug of infected) {
+    terrOpts += `<option value="${esc(slug)}"${slug === terr ? ' selected' : ''}>${esc(tName(slug))}</option>`;
+  }
+  if (terr && !infected.includes(terr)) {
+    terrOpts += `<option value="${esc(terr)}" selected>${esc(tName(terr))} (no longer covered)</option>`;
+  }
+  const noInfected = infected.length === 0;
+
+  // Render-time validation drives the non-functional indicator.
+  const v = validateTrapDoorAnchor(c, m, state.chars || []);
+
+  let h = '<div class="td-anchor-block">';
+  if (!v.valid) {
+    h += `<div class="td-anchor-warn">&#9888; Non-functional: ${esc(v.reason || 'anchor incomplete')}</div>`;
+  }
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Origin</span>'
+    + '<span class="td-anchor-locked">Necropolis Sepulcher</span>'
+    + '</div>';
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Destination</span>'
+    + `<select class="td-anchor-sel" onchange="shSetTrapDoorAnchor(${realIdx}, 'destination', this.value)">${destOpts}</select>`
+    + '</div>';
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Territory</span>'
+    + (noInfected
+        ? '<span class="td-anchor-empty">No Necropolis Territories yet &mdash; add a White Ants pick on any Sepulcher owner.</span>'
+        : `<select class="td-anchor-sel" onchange="shSetTrapDoorAnchor(${realIdx}, 'territory', this.value)">${terrOpts}</select>`)
+    + '</div>';
   h += '</div>';
   return h;
 }
