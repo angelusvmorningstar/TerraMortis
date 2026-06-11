@@ -1,6 +1,6 @@
 # Issue #696: N-4 — White Ants Territory linkage (picker UI + render union helper)
 
-Status: Ready for Review
+Status: Done
 
 issue: 696
 issue_url: https://github.com/angelusvmorningstar/issues/696
