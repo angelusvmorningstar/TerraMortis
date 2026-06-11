@@ -252,6 +252,53 @@ export async function suiteStatusAdjustCity(charId, delta) {
 }
 
 // ── Main render ──────────────────────────────────────────────────────────────
+const ACTION_LABELS = {
+  grant_first: 'Granted first dot to',
+  raise:       'Raised',
+  lower:       'Lowered',
+  strip_last:  'Stripped last dot from',
+};
+
+async function appendOfficeActionsLog(slotEl) {
+  if (!slotEl) return;
+  let session = null;
+  try { session = await apiGet('/api/office_actions/latest_session'); } catch { return; }
+  if (!session) return;
+
+  let actions = [];
+  try {
+    actions = await apiGet(`/api/office_actions?game_session_id=${encodeURIComponent(String(session._id))}`);
+  } catch { return; }
+
+  if (!actions.length) return;
+
+  const sessionTitle = session.title || (session.game_number ? `Game ${session.game_number}` : 'This session');
+  let h = `<div class="office-log-section status-ranking-section">`;
+  h += `<div class="status-section-head">`;
+  h += `<span class="status-section-title">City Status Changes — ${esc(sessionTitle)}</span>`;
+  h += `</div>`;
+  h += `<div class="office-log-list">`;
+  for (const a of actions) {
+    const label = ACTION_LABELS[a.action_type] || a.action_type;
+    const ts = new Date(a.timestamp).toLocaleTimeString('en-AU', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+    h += `<div class="office-log-row">`;
+    h += `<span class="office-log-actor">${esc(a.actor_name)}</span>`;
+    h += `<span class="office-log-verb">${label}</span>`;
+    h += `<span class="office-log-target">${esc(a.target_name)}</span>`;
+    h += `<span class="office-log-status">${a.old_status}&nbsp;→&nbsp;${a.new_status}</span>`;
+    h += `<span class="office-log-time">${ts}</span>`;
+    h += `</div>`;
+  }
+  h += `</div></div>`;
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  const node = wrap.firstElementChild;
+  if (node) slotEl.appendChild(node);
+}
+
 export async function renderSuiteStatusTab(el) {
   if (!el) return;
   _statusTabEl = el;
@@ -362,6 +409,7 @@ export async function renderSuiteStatusTab(el) {
   h += `<div class="attr-skills-card">${covCard}</div>`;
   h += `<div class="attr-skills-card">${clanCard}</div>`;
   h += `</div>`;
+  h += `<div id="office-log-slot"></div>`;
 
   el.innerHTML = h;
 
@@ -384,4 +432,6 @@ export async function renderSuiteStatusTab(el) {
 
   // #624: clan/covenant ranking (player ballot / ST aggregate) — shared with tabs/status-tab.js
   await appendRankingSection(el.querySelector('#status-ranking-slot'), { chars, activeChar, isST });
+  // #691: office actions public log (city status changes this session)
+  appendOfficeActionsLog(el.querySelector('#office-log-slot'));
 }
