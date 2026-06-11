@@ -97,7 +97,8 @@ async function _wireHosActions(el, char, chars) {
 
   function renderBudget() {
     if (!sessionId) {
-      budgetLine.textContent = 'No active game session found.';
+      budgetLine.textContent = `${budget} actions available per session — no active game session found`;
+      budgetLine.className = 'office-budget-line';
       return;
     }
     const remaining = Math.max(0, budget - paidUsed());
