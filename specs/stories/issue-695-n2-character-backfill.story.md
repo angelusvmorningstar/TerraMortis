@@ -1,6 +1,6 @@
 # Issue #695: N-2 — character-data backfill (legacy `free_<slug>` flat → `free_grants[<slug>]` map)
 
-Status: Ready for Review
+Status: Done
 
 issue: 695
 issue_url: https://github.com/angelusvmorningstar/issues/695
