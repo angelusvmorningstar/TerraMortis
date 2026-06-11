@@ -39,6 +39,7 @@ import { initRulesDataView } from './admin/rules-data-view.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
+import { initCycleView } from './admin/cycle-views.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -275,6 +276,7 @@ function switchDomain(domain) {
     // setup needed here.
     initDowntimeView(chars);
   }
+  if (domain === 'cycle') initCycleView(chars);
   if (domain === 'npcs') initNpcRegister(chars);
   if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
