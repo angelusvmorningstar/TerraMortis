@@ -201,6 +201,49 @@ export function resolveSharingScope(scope, c, chars, rule) {
 }
 
 /**
+ * N-4 (MNEC, issue #696) — render-side union of Territories the Necropolis
+ * has infected. Walks `chars`, finds every Necropolis Sepulcher owner
+ * (cp+xp ≥ 1), then for each owner aggregates the `territories[]` arrays on
+ * their White Ants merits, deduplicated.
+ *
+ * Used at render time:
+ *   - N-5 Trap Door anchor validation (destination Safe Place must be in a
+ *     Territory in this union).
+ *   - Any UI consumer that wants to display "the Necropolis touches X" maps.
+ *
+ * Pure function — no DB access, no module-level state. Caller passes the
+ * full chars array; on the client that's `editorState.chars` /
+ * `suiteState.chars`; on the server it's a fresh `characters.find().toArray()`.
+ *
+ * @param {object[]} chars
+ * @returns {string[]} deduplicated territory slugs, insertion order preserved
+ */
+export function getNecropolisInfectedTerritories(chars) {
+  if (!Array.isArray(chars)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const c of chars) {
+    if (!c || !Array.isArray(c.merits)) continue;
+    // Membership gate: owner has Sepulcher ≥ 1 purchased (cp+xp).
+    const isOwner = c.merits.some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
+    );
+    if (!isOwner) continue;
+    for (const m of c.merits) {
+      if (!m || m.name !== 'White Ants') continue;
+      if (!Array.isArray(m.territories)) continue;
+      for (const slug of m.territories) {
+        if (typeof slug !== 'string' || !slug) continue;
+        if (seen.has(slug)) continue;
+        seen.add(slug);
+        out.push(slug);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Pure synthesis for `{ type: 'collective_owners_of_merit', merit, min_dots }`.
  *
  *  - Walks `chars` for every character that owns `scope.merit` at >=

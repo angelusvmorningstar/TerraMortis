@@ -35,6 +35,7 @@ import {
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shSetWhiteAntsTerritory,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
   registerCallbacks as registerEditCallbacks
@@ -1129,6 +1130,7 @@ Object.assign(window, {
   shEditDomMerit,
   shRemoveDomMerit,
   shAddDomMerit,
+  shSetWhiteAntsTerritory,
   shAddDomainPartner,
   shRemoveDomainPartner,
   shEditGenMerit,

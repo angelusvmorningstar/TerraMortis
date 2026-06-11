@@ -12,6 +12,8 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
 import { normaliseAttachedTo } from '../data/rules-helpers.js';
+// N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
+import { getStoredTerritories } from '../data/accessors.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
@@ -1309,6 +1311,8 @@ export function shRenderGeneralMerits(c, editMode) {
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
+        // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
+        h += _whiteAntsTerritoriesBlock(m, rIdx);
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }
@@ -1887,6 +1891,70 @@ export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
     return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
   }
   return '<div class="merit-plain">' + _inner(false) + '</div>';
+}
+
+/**
+ * N-4 (MNEC, issue #696) — White Ants Territory picker block.
+ *
+ * Renders one `<select>` per dot of effective rating, each populated from the
+ * live territories store (`getStoredTerritories()`). Empty slots show a
+ * "Pick a Territory" warning; duplicate selections within the same merit show
+ * a duplicate warning. Returns '' for any non-White-Ants merit.
+ *
+ * The handler `shSetWhiteAntsTerritory(realIdx, dotIdx, value)` lives in
+ * edit-domain.js and is exposed on `window` by admin.js / app.js — see N-1's
+ * delegated-routing memory for why these inline-onchange handlers are safe
+ * when the global is reliably bound at module-load time.
+ */
+function _whiteAntsTerritoriesBlock(m, realIdx) {
+  if (!m || m.name !== 'White Ants') return '';
+  // Effective rating mirrors the meritFreeSum sum: cp + xp + sum(free_grants) + sum(legacy free_<slug>).
+  const fg = m.free_grants || {};
+  const fromMap = Object.values(fg).reduce((s, n) => s + (n || 0), 0);
+  const legacy = (m.free_attache || 0) + (m.free_bloodline || 0) + (m.free_carthian || 0)
+    + (m.free_fwb || 0) + (m.free_inv || 0) + (m.free_lk || 0) + (m.free_mci || 0)
+    + (m.free_mdb || 0) + (m.free_ohm || 0) + (m.free_pet || 0) + (m.free_pt || 0)
+    + (m.free_retainer || 0) + (m.free_sw || 0) + (m.free_vm || 0);
+  const rating = (m.cp || 0) + (m.xp || 0) + fromMap + legacy;
+  if (rating <= 0) return '';
+
+  const territories = getStoredTerritories();
+  const picked = Array.isArray(m.territories) ? m.territories : [];
+
+  // Empty store → placeholder only. The admin/suite apps load territories at
+  // boot via setStatusTerritories, so this branch is mostly a defensive
+  // fallback for a render that fires before the boot fetch resolves.
+  if (!territories || territories.length === 0) {
+    return '<div class="wa-picker-block"><label class="wa-picker-lbl">White Ants &mdash; Territories:</label><p class="wa-picker-empty">Loading territories…</p></div>';
+  }
+
+  // Pre-build option markup once; per-row mark which one is "selected".
+  const optsBare = '<option value="">(pick a Territory)</option>'
+    + territories.map(t => {
+      const slug = (t && t.slug) || '';
+      if (!slug) return '';
+      return `<option value="${esc(slug)}">${esc(t.name || slug)}</option>`;
+    }).join('');
+
+  let h = '<div class="wa-picker-block"><label class="wa-picker-lbl">White Ants &mdash; Territories the Necropolis has infected:</label>';
+  for (let i = 0; i < rating; i++) {
+    const current = picked[i] || '';
+    // Duplicate detection: this slug also appears at some other index in the same array.
+    const isDup = !!current && picked.some((s, j) => s === current && j !== i);
+    // Re-emit options with `selected` on the current pick.
+    const opts = current
+      ? optsBare.replace(`<option value="${esc(current)}">`, `<option value="${esc(current)}" selected>`)
+      : optsBare.replace('<option value="">', '<option value="" selected>');
+    const rowCls = !current ? 'wa-picker-row wa-picker-row--empty' : (isDup ? 'wa-picker-row wa-picker-row--dup' : 'wa-picker-row');
+    h += `<div class="${rowCls}">`
+      + `<span class="wa-picker-dot">${i + 1}.</span>`
+      + `<select class="wa-picker-sel" onchange="shSetWhiteAntsTerritory(${realIdx}, ${i}, this.value)">${opts}</select>`;
+    if (!current) h += '<span class="wa-picker-warn">Pick a Territory</span>';
+    else if (isDup) h += '<span class="wa-picker-warn">Duplicate</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
 }
 
 /* ── renderSheet orchestrator ── */

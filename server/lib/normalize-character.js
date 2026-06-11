@@ -134,3 +134,69 @@ export function normalizeMeritsMiddleware(req, _res, next) {
   }
   next();
 }
+
+/**
+ * N-4 (MNEC, issue #696) — cross-field validation for White Ants.
+ *
+ * JSON-Schema can't express "the array's length must equal a sibling field's
+ * computed value" so the rule lives here. Two invariants per White Ants merit:
+ *
+ *   1. `territories.length === effectiveRating` — every dot picks a Territory.
+ *   2. No duplicates within a single merit's territories array.
+ *
+ * Effective rating uses the same union-of-channels math as `meritFreeSum`:
+ *   cp + xp + sum(free_grants.*) + sum(free_<slug>)
+ * which mirrors the client-side `syncMeritRating` formula (domain.js). We
+ * recompute here rather than trusting `m.rating` because the API accepts
+ * partial bodies that may omit `m.rating` even when bumping the dot fields.
+ *
+ * Partial-save tolerance: if `req.body.merits` is absent, this middleware is a
+ * no-op (PATCH-style saves that only touch e.g. status are allowed).
+ */
+export function validateWhiteAntsTerritoriesMiddleware(req, res, next) {
+  const merits = req.body && Array.isArray(req.body.merits) ? req.body.merits : null;
+  if (!merits) return next();
+
+  for (let i = 0; i < merits.length; i++) {
+    const m = merits[i];
+    if (!m || m.name !== 'White Ants') continue;
+
+    const rating = _effectiveMeritRating(m);
+    const territories = Array.isArray(m.territories) ? m.territories : [];
+
+    if (territories.length !== rating) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `White Ants territories length (${territories.length}) must equal merit rating (${rating}). One Territory must be picked per dot.`,
+        detail: { merit_index: i, merit: 'White Ants', rating, territories_length: territories.length },
+      });
+    }
+    const seen = new Set();
+    for (const slug of territories) {
+      if (seen.has(slug)) {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: `White Ants territories must be distinct — '${slug}' appears more than once.`,
+          detail: { merit_index: i, merit: 'White Ants', duplicate: slug },
+        });
+      }
+      seen.add(slug);
+    }
+  }
+  return next();
+}
+
+function _effectiveMeritRating(m) {
+  const cp = m.cp || 0;
+  const xp = m.xp || 0;
+  const fromMap = m.free_grants && typeof m.free_grants === 'object'
+    ? Object.values(m.free_grants).reduce((s, n) => s + (n || 0), 0)
+    : 0;
+  // 14 legacy free_<slug> fields, summed verbatim (same shape as the
+  // LEGACY_FREE_SLUGS constant in public/js/data/rules-helpers.js).
+  const legacy = (m.free_attache || 0) + (m.free_bloodline || 0) + (m.free_carthian || 0)
+    + (m.free_fwb || 0) + (m.free_inv || 0) + (m.free_lk || 0) + (m.free_mci || 0)
+    + (m.free_mdb || 0) + (m.free_ohm || 0) + (m.free_pet || 0) + (m.free_pt || 0)
+    + (m.free_retainer || 0) + (m.free_sw || 0) + (m.free_vm || 0);
+  return cp + xp + fromMap + legacy;
+}
