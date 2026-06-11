@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * N-2 / ADR-005 Rev 2 D6 (issue #695) — character-data backfill.
  *
