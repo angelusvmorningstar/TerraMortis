@@ -23,7 +23,7 @@ export async function initCycleView(charList) {
 
   el.innerHTML = '';
   el.appendChild(buildChaptersPanel(chapters));
-  el.appendChild(buildCyclesPanel(cycles, chapters));
+  el.appendChild(buildCyclesPanel(cycles, chapters, charList));
 }
 
 // ── Chapters panel ──────────────────────────────────────────────────────────
@@ -199,9 +199,59 @@ function buildPhaseCell(cy) {
   return td;
 }
 
+// ── Prep Access section ──────────────────────────────────────────────────────
+
+function buildAccessSection(cy, charList) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:8px 0 4px;max-height:220px;overflow-y:auto';
+
+  const activeChars = charList
+    .filter(c => !c.retired)
+    .sort((a, b) => (a.moniker || a.name || '').localeCompare(b.moniker || b.name || ''));
+
+  if (!activeChars.length) {
+    wrap.textContent = 'No active characters.';
+    wrap.style.color = 'var(--txt2)';
+    return wrap;
+  }
+
+  const oowIds = new Set((cy.out_of_window_player_ids || []).map(String));
+
+  activeChars.forEach(c => {
+    const id = String(c._id);
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = oowIds.has(id);
+
+    const span = document.createElement('span');
+    span.textContent = c.moniker || c.name || String(c._id);
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    wrap.appendChild(label);
+
+    cb.addEventListener('change', async () => {
+      const current = new Set((cy.out_of_window_player_ids || []).map(String));
+      if (cb.checked) current.add(id); else current.delete(id);
+      const updated = [...current];
+      try {
+        await apiPut('/api/downtime_cycles/' + cy._id, { out_of_window_player_ids: updated });
+        cy.out_of_window_player_ids = updated;
+      } catch (_err) {
+        cb.checked = !cb.checked;
+      }
+    });
+  });
+
+  return wrap;
+}
+
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
-function buildCyclesPanel(cycles, chapters) {
+function buildCyclesPanel(cycles, chapters, charList = []) {
   const sorted = [...cycles].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
   const chapterMap = Object.fromEntries(chapters.map(c => [String(c._id), c]));
 
@@ -227,6 +277,7 @@ function buildCyclesPanel(cycles, chapters) {
     <th>Label</th>
     <th style="width:270px">Phase</th>
     <th style="width:200px">Chapter</th>
+    <th style="width:110px">Prep Access</th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
@@ -247,7 +298,32 @@ function buildCyclesPanel(cycles, chapters) {
     tdChapter.textContent = chapterLabel;
     tr.appendChild(tdChapter);
 
+    // Prep Access toggle
+    const tdAccess = document.createElement('td');
+    const accessBtn = document.createElement('button');
+    accessBtn.className = 'btn-sm';
+    accessBtn.textContent = 'Prep Access';
+    tdAccess.appendChild(accessBtn);
+    tr.appendChild(tdAccess);
+
+    // Detail row (hidden by default)
+    const detailTr = document.createElement('tr');
+    detailTr.style.display = 'none';
+    const detailTd = document.createElement('td');
+    detailTd.colSpan = 4;
+    detailTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
+    detailTd.appendChild(buildAccessSection(cy, charList));
+    detailTr.appendChild(detailTd);
+
+    accessBtn.addEventListener('click', () => {
+      const open = detailTr.style.display !== 'none';
+      detailTr.style.display = open ? 'none' : '';
+      accessBtn.style.borderColor = open ? '' : 'var(--gold2)';
+      accessBtn.style.color = open ? '' : 'var(--gold2)';
+    });
+
     tbody.appendChild(tr);
+    tbody.appendChild(detailTr);
   });
 
   table.appendChild(tbody);

@@ -2597,25 +2597,6 @@ function renderPrepPanel(cycle) {
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
   const finaleChecked = cycle.is_chapter_finale ? ' checked' : '';
 
-  const oowIds = new Set((cycle.out_of_window_player_ids || []).map(String));
-
-  // Active (non-retired) characters, sorted by display name
-  const activeChars = (characters || [])
-    .filter(c => !c.retired)
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-  const toggleHtml = activeChars.map(c => {
-    const id = String(c._id);
-    const checked = oowIds.has(id) ? ' checked' : '';
-    return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
-      <span class="dt-early-name">${esc(dropdownName(c))}</span>
-      <input type="checkbox" class="dt-early-toggle"${checked}>
-    </label>`;
-  }).join('');
-
-  const earlyContent = activeChars.length
-    ? toggleHtml
-    : `<p class="placeholder">No active characters.</p>`;
 
   panel.innerHTML =
     renderManualOpenBanner(cycle) +
@@ -2626,10 +2607,6 @@ function renderPrepPanel(cycle) {
     `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
     `<div class="dt-prep-field"><label class="dt-lbl" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">` +
     `<input type="checkbox" id="dt-chapter-finale-input"${finaleChecked}><span>Chapter Finale</span></label></div>` +
-    `</div>` +
-    `<div class="dt-prep-early">` +
-    `<div class="dt-prep-early-title">Out-of-Window Access</div>` +
-    `<div class="dt-early-list">${earlyContent}</div>` +
     `</div>` +
     `<div class="dt-prep-actions">` +
     renderSignoffButton('prep', cycle) +
@@ -2675,21 +2652,6 @@ function renderPrepPanel(cycle) {
       const key = cb.dataset.key;
       if (!charId || !key) return;
       await setMaintenanceAudit(cycle, charId, key, e.target.checked);
-    });
-  });
-
-  panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      const row = cb.closest('.dt-early-toggle-row');
-      const pid = row?.dataset.playerId;
-      if (!pid) return;
-      const current = new Set((cycle.out_of_window_player_ids || []).map(String));
-      if (cb.checked) current.add(pid); else current.delete(pid);
-      const updated = [...current];
-      await updateCycle(cycle._id, { out_of_window_player_ids: updated });
-      const idx = allCycles.findIndex(c => c._id === cycle._id);
-      if (idx >= 0) allCycles[idx].out_of_window_player_ids = updated;
-      cycle.out_of_window_player_ids = updated;
     });
   });
 
