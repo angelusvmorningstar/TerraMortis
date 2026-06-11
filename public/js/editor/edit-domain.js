@@ -367,6 +367,48 @@ function _whiteAntsFreeSum(m) {
   return fromMap + legacy;
 }
 
+/**
+ * N-5 (MNEC, issue #697) — Trap Door triple-anchor picker handler.
+ *
+ * Bound to `<select>` `onchange` for each of the three Trap Door pickers
+ * (origin / destination / territory) in `sheet.js#_trapDoorAnchorBlock`.
+ *
+ * Origin is auto-resolved + locked to 'Necropolis Sepulcher' — the picker
+ * displays it as a read-only label and never fires this handler with
+ * `field === 'origin'`, but the case is handled defensively.
+ *
+ * Auto-initialises `m.attached_to` to the object form on first edit if it's
+ * absent or in legacy string form. The save-path middleware
+ * (`validateTrapDoorAnchorMiddleware`) requires the object form with all
+ * three fields populated.
+ *
+ * @param {number} realIdx
+ * @param {'origin'|'destination'|'territory'} field
+ * @param {string} value
+ */
+export function shSetTrapDoorAnchor(realIdx, field, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = (c.merits || [])[realIdx];
+  if (!m || m.name !== 'Trap Door') return;
+  if (!['origin', 'destination', 'territory'].includes(field)) return;
+
+  // Upgrade attached_to to the object form on first edit. Legacy string-form
+  // attached_to (Haven/Mandragora) is N-1 D7 coexistence shape; Trap Door
+  // requires the object form for the triple anchor.
+  if (!m.attached_to || typeof m.attached_to !== 'object' || Array.isArray(m.attached_to)) {
+    m.attached_to = { origin: 'Necropolis Sepulcher', destination: '', territory: '' };
+  }
+  // Origin is locked but write defensively in case a future picker wants it.
+  if (field === 'origin') {
+    m.attached_to.origin = value || 'Necropolis Sepulcher';
+  } else {
+    m.attached_to[field] = value || '';
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shRemoveDomMerit(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];

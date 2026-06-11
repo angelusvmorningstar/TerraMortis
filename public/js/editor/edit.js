@@ -23,6 +23,7 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   registerCallbacks as registerDomainCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './edit-domain.js';
@@ -36,6 +37,7 @@ export {
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   getDirtyPartners, clearDirtyPartners
 };
 

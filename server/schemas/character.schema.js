@@ -493,6 +493,13 @@ export const characterSchema = {
               properties: {
                 origin:      { type: 'string', minLength: 1 },
                 destination: { type: 'string', minLength: 1 },
+                // N-5 (MNEC, issue #697) — Trap Door triple-anchor: the
+                // Territory slug carrying the constraint for THIS Trap Door's
+                // binding. Optional in the schema (Haven/Mandragora don't need
+                // it); the route middleware requires it when the merit is
+                // Trap Door specifically. "Is the Territory currently infected"
+                // stays a render-time check per ADR-005 D7.
+                territory:   { type: 'string', minLength: 1 },
               },
               additionalProperties: false,
             },

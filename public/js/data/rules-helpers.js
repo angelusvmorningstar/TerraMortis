@@ -244,6 +244,55 @@ export function getNecropolisInfectedTerritories(chars) {
 }
 
 /**
+ * N-5 (MNEC, issue #697) — Trap Door dual-anchor render-time validator.
+ *
+ * Trap Door's `attached_to` is a triple-anchor object per Option B (confirmed
+ * by Peter 2026-06-11): `{ origin, destination, territory }`. The `territory`
+ * field carries the Territory slug on this Trap Door's attachment — NOT a
+ * property of the destination Safe Place (Safe Places can be in or out of a
+ * Necropolis Territory; the constraint is specific to this Trap Door binding).
+ *
+ * Two checks, in order:
+ *   1. The attached_to.territory field is present.
+ *   2. That Territory is currently in the Necropolis-infected union — i.e.
+ *      some Sepulcher owner (possibly this character, possibly another) has
+ *      White Ants coverage on it.
+ *
+ * Persisted-not-removed semantics: when invalid, the merit stays on the
+ * sheet but renders non-functional with a warning. The player can fix the
+ * binding (or another Sepulcher owner picks up the Territory in their
+ * White Ants) without re-buying.
+ *
+ * @param {object} _c - the merit's owning character (reserved for future scopes)
+ * @param {object} m  - the Trap Door merit instance
+ * @param {object[]} chars - full chars array (cross-character context)
+ * @returns {{valid: boolean, reason?: string}}
+ */
+export function validateTrapDoorAnchor(_c, m, chars) {
+  if (!m) return { valid: false, reason: 'No merit provided' };
+  const at = normaliseAttachedTo(m.attached_to);
+  if (!at) {
+    return { valid: false, reason: 'Trap Door has no attached anchor' };
+  }
+  // origin + destination are checked at the picker UX level; the render-time
+  // validator focuses on the Territory constraint per MNEC §8.
+  const slug = m.attached_to && typeof m.attached_to === 'object'
+    ? m.attached_to.territory
+    : null;
+  if (typeof slug !== 'string' || !slug) {
+    return { valid: false, reason: 'No Territory selected for this Trap Door' };
+  }
+  const infected = getNecropolisInfectedTerritories(chars);
+  if (!infected.includes(slug)) {
+    return {
+      valid: false,
+      reason: 'No White Ants coverage on this Trap Door\'s Territory',
+    };
+  }
+  return { valid: true };
+}
+
+/**
  * Pure synthesis for `{ type: 'collective_owners_of_merit', merit, min_dots }`.
  *
  *  - Walks `chars` for every character that owns `scope.merit` at >=
