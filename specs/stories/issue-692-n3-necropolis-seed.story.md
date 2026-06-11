@@ -1,6 +1,6 @@
 # Issue #692: N-3 — Necropolis merit family seed + Collective Compound rule_grant + rating_of_source evaluator
 
-Status: Ready for Review
+Status: Done
 
 issue: 692
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/692
