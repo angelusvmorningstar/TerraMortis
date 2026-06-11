@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from '../data/api.js';
+import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
 
 const PHASE_LABELS = {
   game:       'Game',
@@ -139,6 +139,66 @@ function buildChaptersPanel(chapters) {
   return wrap;
 }
 
+// ── Phase controls ───────────────────────────────────────────────────────────
+
+const PHASES = ['game', 'downtime', 'processing'];
+
+async function setGamePhase(cycleId, phase) {
+  if (phase === 'game') {
+    if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return false;
+    try {
+      await apiDelete('/api/tracker_state');
+    } catch (err) {
+      throw new Error('Tracker reset failed: ' + err.message);
+    }
+  }
+  await apiPut('/api/downtime_cycles/' + cycleId, { game_phase: phase });
+  return true;
+}
+
+function buildPhaseCell(cy) {
+  const td = document.createElement('td');
+  td.style.cssText = 'white-space:nowrap';
+
+  const errEl = document.createElement('span');
+  errEl.style.cssText = 'color:var(--crim);font-size:11px;display:none;margin-left:6px';
+  td.appendChild(errEl);
+
+  PHASES.forEach(phase => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-sm';
+    btn.textContent = PHASE_LABELS[phase];
+    btn.dataset.phase = phase;
+    btn.style.marginRight = '4px';
+    const isActive = cy.game_phase === phase;
+    if (isActive) {
+      btn.style.borderColor = 'var(--gold2)';
+      btn.style.color = 'var(--gold2)';
+      btn.disabled = true;
+    }
+    btn.addEventListener('click', async () => {
+      errEl.style.display = 'none';
+      try {
+        const ok = await setGamePhase(cy._id, phase);
+        if (!ok) return;
+        cy.game_phase = phase;
+        td.querySelectorAll('button[data-phase]').forEach(b => {
+          const active = b.dataset.phase === phase;
+          b.disabled = active;
+          b.style.borderColor = active ? 'var(--gold2)' : '';
+          b.style.color = active ? 'var(--gold2)' : '';
+        });
+      } catch (err) {
+        errEl.textContent = 'Phase change failed: ' + err.message;
+        errEl.style.display = 'inline';
+      }
+    });
+    td.insertBefore(btn, errEl);
+  });
+
+  return td;
+}
+
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
 function buildCyclesPanel(cycles, chapters) {
@@ -164,21 +224,28 @@ function buildCyclesPanel(cycles, chapters) {
   table.style.width = '100%';
   table.innerHTML = `<thead><tr>
     <th>Label</th>
-    <th style="width:120px">Phase</th>
+    <th style="width:270px">Phase</th>
     <th style="width:200px">Chapter</th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
   cycles.forEach(cy => {
-    const phaseLabel = cy.game_phase ? (PHASE_LABELS[cy.game_phase] || cy.game_phase) : 'legacy';
     const chapter = cy.chapter_id ? chapterMap[cy.chapter_id] : null;
     const chapterLabel = chapter ? `${chapter.number} — ${chapter.label}` : '—';
 
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${cy.label || cy._id}</td>
-      <td style="color:${cy.game_phase ? 'var(--txt)' : 'var(--txt3,var(--txt2))'}">${phaseLabel}</td>
-      <td style="color:var(--txt2)">${chapterLabel}</td>`;
+
+    const tdLabel = document.createElement('td');
+    tdLabel.textContent = cy.label || cy._id;
+    tr.appendChild(tdLabel);
+
+    tr.appendChild(buildPhaseCell(cy));
+
+    const tdChapter = document.createElement('td');
+    tdChapter.style.color = 'var(--txt2)';
+    tdChapter.textContent = chapterLabel;
+    tr.appendChild(tdChapter);
+
     tbody.appendChild(tr);
   });
 

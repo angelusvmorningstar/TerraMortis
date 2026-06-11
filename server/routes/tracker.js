@@ -46,4 +46,12 @@ router.put('/:character_id', async (req, res) => {
   res.json(result);
 });
 
+// DELETE /api/tracker_state — ST/dev only, bulk wipe for game-start reset
+router.delete('/', async (req, res) => {
+  const role = req.user?.role;
+  if (role !== 'st' && role !== 'dev') return res.status(403).json({ error: 'FORBIDDEN' });
+  const result = await col().deleteMany({});
+  res.json({ deleted: result.deletedCount });
+});
+
 export default router;
