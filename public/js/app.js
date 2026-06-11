@@ -417,7 +417,7 @@ function goTab(t) {
   if (t === 'office') {
     const el = document.getElementById('t-office');
     const char = _activeMoreChar();
-    if (el && char) renderOfficeTab(el, char);
+    if (el && char) renderOfficeTab(el, char, suiteState.chars || []);
   }
   if (t === 'archive') {
     const el = document.getElementById('t-archive');
