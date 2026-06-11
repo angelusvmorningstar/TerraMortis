@@ -10,11 +10,12 @@ export async function initCycleView(charList) {
   const el = document.getElementById('cycle-content');
   el.innerHTML = '<p style="padding:16px;color:var(--txt2)">Loading…</p>';
 
-  let chapters, cycles;
+  let chapters, cycles, sessions;
   try {
-    [chapters, cycles] = await Promise.all([
+    [chapters, cycles, sessions] = await Promise.all([
       apiGet('/api/chapters'),
       apiGet('/api/downtime_cycles'),
+      apiGet('/api/game_sessions'),
     ]);
   } catch (err) {
     el.innerHTML = `<p style="padding:16px;color:var(--crim)">Failed to load cycle data: ${err.message}</p>`;
@@ -23,7 +24,7 @@ export async function initCycleView(charList) {
 
   el.innerHTML = '';
   el.appendChild(buildChaptersPanel(chapters));
-  el.appendChild(buildCyclesPanel(cycles, chapters, charList));
+  el.appendChild(buildCyclesPanel(cycles, chapters, charList, sessions));
 }
 
 // ── Chapters panel ──────────────────────────────────────────────────────────
@@ -249,9 +250,142 @@ function buildAccessSection(cy, charList) {
   return wrap;
 }
 
+// ── Attendance section ───────────────────────────────────────────────────────
+
+function buildAttendanceSection(cy, sessions) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:8px 0 4px';
+
+  const selectWrap = document.createElement('div');
+  selectWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+
+  const lbl = document.createElement('label');
+  lbl.style.cssText = 'font-size:13px;color:var(--txt2)';
+  lbl.textContent = 'Linked Session:';
+
+  const sel = document.createElement('select');
+  sel.style.cssText = 'background:var(--surf);border:1px solid var(--bdr);color:var(--txt);border-radius:4px;padding:3px 6px;font-size:13px';
+
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = '— not linked —';
+  sel.appendChild(blank);
+
+  const sorted = [...sessions].sort((a, b) => (a.game_number ?? 999) - (b.game_number ?? 999));
+  sorted.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = String(s._id);
+    let label = s.game_number ? 'Game ' + s.game_number : '';
+    if (s.title) label += (label ? ' — ' : '') + s.title;
+    if (!label) label = s.session_date || String(s._id);
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+
+  sel.value = cy.session_id || '';
+
+  const errEl = document.createElement('span');
+  errEl.style.cssText = 'color:var(--crim);font-size:11px;display:none';
+
+  selectWrap.appendChild(lbl);
+  selectWrap.appendChild(sel);
+  selectWrap.appendChild(errEl);
+  wrap.appendChild(selectWrap);
+
+  const tableWrap = document.createElement('div');
+  wrap.appendChild(tableWrap);
+
+  function renderTable() {
+    tableWrap.innerHTML = '';
+    const session = sessions.find(s => String(s._id) === sel.value);
+    if (!session) return;
+    const att = session.attendance || [];
+    if (!att.length) {
+      const msg = document.createElement('p');
+      msg.style.cssText = 'font-size:13px;color:var(--txt2);margin:4px 0';
+      msg.textContent = 'No attendance recorded for this session.';
+      tableWrap.appendChild(msg);
+      return;
+    }
+
+    const rows = [...att].sort((a, b) => {
+      const na = (a.character_display || a.character_name || '').toLowerCase();
+      const nb = (b.character_display || b.character_name || '').toLowerCase();
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    });
+
+    const table = document.createElement('table');
+    table.className = 'infl-table';
+    table.style.cssText = 'width:100%;font-size:13px';
+    table.innerHTML = `<thead><tr>
+      <th>Character</th>
+      <th style="width:70px;text-align:center">Attend</th>
+      <th style="width:80px;text-align:center">Costuming</th>
+      <th style="width:50px;text-align:center">DT</th>
+      <th style="width:50px;text-align:center">Extra</th>
+      <th style="width:60px;text-align:center">XP</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement('tbody');
+    let totAtt = 0, totCos = 0, totDT = 0, totExtra = 0, totXP = 0;
+
+    rows.forEach(a => {
+      const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
+      totAtt   += a.attended  ? 1 : 0;
+      totCos   += a.costuming ? 1 : 0;
+      totDT    += a.downtime  ? 1 : 0;
+      totExtra += (a.extra || 0);
+      totXP    += xp;
+
+      const name = a.character_display || a.character_name || a.character_id || '?';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${name}</td>
+        <td style="text-align:center">${a.attended  ? '●' : '○'}</td>
+        <td style="text-align:center">${a.costuming ? '●' : '○'}</td>
+        <td style="text-align:center">${a.downtime  ? '●' : '○'}</td>
+        <td style="text-align:center">${a.extra || 0}</td>
+        <td style="text-align:center;font-weight:600">${xp}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    const totTr = document.createElement('tr');
+    totTr.style.cssText = 'font-weight:700;border-top:1px solid var(--bdr)';
+    totTr.innerHTML = `
+      <td style="color:var(--txt2)">Total (${rows.length})</td>
+      <td style="text-align:center">${totAtt}</td>
+      <td style="text-align:center">${totCos}</td>
+      <td style="text-align:center">${totDT}</td>
+      <td style="text-align:center">${totExtra}</td>
+      <td style="text-align:center">${totXP}</td>`;
+    tbody.appendChild(totTr);
+
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+  }
+
+  renderTable();
+
+  sel.addEventListener('change', async () => {
+    errEl.style.display = 'none';
+    const newId = sel.value || null;
+    try {
+      await apiPut('/api/downtime_cycles/' + cy._id, { session_id: newId });
+      cy.session_id = newId;
+      renderTable();
+    } catch (err) {
+      sel.value = cy.session_id || '';
+      errEl.textContent = 'Link failed: ' + err.message;
+      errEl.style.display = 'inline';
+    }
+  });
+
+  return wrap;
+}
+
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
-function buildCyclesPanel(cycles, chapters, charList = []) {
+function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
   const sorted = [...cycles].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
   const chapterMap = Object.fromEntries(chapters.map(c => [String(c._id), c]));
 
@@ -279,6 +413,7 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
     <th style="width:200px">Chapter</th>
     <th style="width:110px">Prep Access</th>
     <th style="width:130px">Publish</th>
+    <th style="width:110px">Attendance</th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
@@ -311,7 +446,7 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
     const detailTr = document.createElement('tr');
     detailTr.style.display = 'none';
     const detailTd = document.createElement('td');
-    detailTd.colSpan = 5;
+    detailTd.colSpan = 6;
     detailTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
     detailTd.appendChild(buildAccessSection(cy, charList));
     detailTr.appendChild(detailTd);
@@ -354,8 +489,32 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
       }
     });
 
+    // Attendance toggle
+    const tdAtt = document.createElement('td');
+    const attBtn = document.createElement('button');
+    attBtn.className = 'btn-sm';
+    attBtn.textContent = 'Attendance';
+    tdAtt.appendChild(attBtn);
+    tr.appendChild(tdAtt);
+
+    const attendTr = document.createElement('tr');
+    attendTr.style.display = 'none';
+    const attendTd = document.createElement('td');
+    attendTd.colSpan = 6;
+    attendTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
+    attendTd.appendChild(buildAttendanceSection(cy, sessions));
+    attendTr.appendChild(attendTd);
+
+    attBtn.addEventListener('click', () => {
+      const open = attendTr.style.display !== 'none';
+      attendTr.style.display = open ? 'none' : '';
+      attBtn.style.borderColor = open ? '' : 'var(--gold2)';
+      attBtn.style.color     = open ? '' : 'var(--gold2)';
+    });
+
     tbody.appendChild(tr);
     tbody.appendChild(detailTr);
+    tbody.appendChild(attendTr);
   });
 
   table.appendChild(tbody);

@@ -572,6 +572,7 @@ export const downtimeCycleSchema = {
     // null = derive from phase_signoff (legacy cycles). See deriveCycleStatus.
     game_phase: { type: ['string', 'null'], enum: ['game', 'downtime', 'processing', null] },
     chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
+    session_id: { type: ['string', 'null'] },  // ref to game_sessions _id as string
 
     // Issue #231 — Manual "open downtimes" override (DT Prep tab).
     // Latched flag that forces effective status to 'active' regardless of

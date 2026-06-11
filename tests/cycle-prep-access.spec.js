@@ -251,8 +251,9 @@ test.describe('Cycle tab — Prep Access: toggle behaviour', () => {
     const btn = page.locator('#cycle-content button', { hasText: 'Prep Access' }).nth(1);
     await btn.click();
 
-    // Scope to the cyc-002 detail row (4th <tr> in tbody: main1, detail1, main2, detail2)
-    const cyc002Detail = page.locator('#cycle-content table').last().locator('tbody tr').nth(3);
+    // Scope to the cyc-002 prep-access detail row.
+    // tbody order: main1(0), prep1(1), attend1(2), main2(3), prep2(4), attend2(5)
+    const cyc002Detail = page.locator('#cycle-content table').last().locator('tbody tr').nth(4);
     const bobLabel = cyc002Detail.locator('label', { hasText: 'Bob Crane' });
     const cb = bobLabel.locator('input[type="checkbox"]');
     await expect(cb).toBeVisible({ timeout: 3000 });
