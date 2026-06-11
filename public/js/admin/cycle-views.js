@@ -278,6 +278,7 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
     <th style="width:270px">Phase</th>
     <th style="width:200px">Chapter</th>
     <th style="width:110px">Prep Access</th>
+    <th style="width:130px">Publish</th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
@@ -310,7 +311,7 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
     const detailTr = document.createElement('tr');
     detailTr.style.display = 'none';
     const detailTd = document.createElement('td');
-    detailTd.colSpan = 4;
+    detailTd.colSpan = 5;
     detailTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
     detailTd.appendChild(buildAccessSection(cy, charList));
     detailTr.appendChild(detailTd);
@@ -320,6 +321,37 @@ function buildCyclesPanel(cycles, chapters, charList = []) {
       detailTr.style.display = open ? 'none' : '';
       accessBtn.style.borderColor = open ? '' : 'var(--gold2)';
       accessBtn.style.color = open ? '' : 'var(--gold2)';
+    });
+
+    // Publish Reports button
+    const tdPublish = document.createElement('td');
+    const publishBtn = document.createElement('button');
+    publishBtn.className = 'btn-sm';
+    publishBtn.textContent = 'Publish Reports';
+    const publishResult = document.createElement('span');
+    publishResult.style.cssText = 'display:block;font-size:11px;margin-top:3px;color:var(--txt2)';
+    tdPublish.appendChild(publishBtn);
+    tdPublish.appendChild(publishResult);
+    tr.appendChild(tdPublish);
+
+    publishBtn.addEventListener('click', async () => {
+      publishBtn.disabled = true;
+      publishResult.style.color = 'var(--txt2)';
+      publishResult.textContent = 'Publishing…';
+      try {
+        const result = await apiPost('/api/downtime_cycles/' + cy._id + '/publish', {});
+        if (result.published === 0) {
+          publishResult.textContent = 'No compiled reports found.';
+        } else {
+          publishResult.style.color = 'var(--gold2)';
+          publishResult.textContent = result.published + ' report' + (result.published === 1 ? '' : 's') + ' published.';
+        }
+      } catch (err) {
+        publishResult.style.color = 'var(--crim)';
+        publishResult.textContent = 'Publish failed: ' + err.message;
+      } finally {
+        publishBtn.disabled = false;
+      }
     });
 
     tbody.appendChild(tr);
