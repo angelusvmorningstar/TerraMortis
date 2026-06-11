@@ -93,3 +93,5 @@ chaptersRouter.delete('/:id', requireRole('st'), async (req, res) => {
   if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Chapter not found' });
   res.json({ deleted: true, _id: req.params.id });
 });
+
+export default chaptersRouter;
