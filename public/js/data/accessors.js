@@ -315,6 +315,17 @@ export function getRegentTerritoryFor(c) {
   return findRegentTerritory(_currentTerritories, c);
 }
 
+/**
+ * Read the module-level territories store. Returns the live list (loaded by
+ * the app at boot via `setStatusTerritories`) or an empty array if not yet
+ * populated. Single source of truth for any consumer that needs the full
+ * territory list (N-4 White Ants picker, etc.) — avoids each call site
+ * re-fetching `/api/territories`.
+ */
+export function getStoredTerritories() {
+  return _currentTerritories;
+}
+
 // Lieutenants intentionally receive no ambience bonus (issue #13 Q-A, 2026-05-05).
 // Bonus is regent-only by design; do not extend to lieutenant_id without an
 // explicit game-rules decision.

@@ -201,6 +201,98 @@ export function resolveSharingScope(scope, c, chars, rule) {
 }
 
 /**
+ * N-4 (MNEC, issue #696) — render-side union of Territories the Necropolis
+ * has infected. Walks `chars`, finds every Necropolis Sepulcher owner
+ * (cp+xp ≥ 1), then for each owner aggregates the `territories[]` arrays on
+ * their White Ants merits, deduplicated.
+ *
+ * Used at render time:
+ *   - N-5 Trap Door anchor validation (destination Safe Place must be in a
+ *     Territory in this union).
+ *   - Any UI consumer that wants to display "the Necropolis touches X" maps.
+ *
+ * Pure function — no DB access, no module-level state. Caller passes the
+ * full chars array; on the client that's `editorState.chars` /
+ * `suiteState.chars`; on the server it's a fresh `characters.find().toArray()`.
+ *
+ * @param {object[]} chars
+ * @returns {string[]} deduplicated territory slugs, insertion order preserved
+ */
+export function getNecropolisInfectedTerritories(chars) {
+  if (!Array.isArray(chars)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const c of chars) {
+    if (!c || !Array.isArray(c.merits)) continue;
+    // Membership gate: owner has Sepulcher ≥ 1 purchased (cp+xp).
+    const isOwner = c.merits.some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
+    );
+    if (!isOwner) continue;
+    for (const m of c.merits) {
+      if (!m || m.name !== 'White Ants') continue;
+      if (!Array.isArray(m.territories)) continue;
+      for (const slug of m.territories) {
+        if (typeof slug !== 'string' || !slug) continue;
+        if (seen.has(slug)) continue;
+        seen.add(slug);
+        out.push(slug);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * N-5 (MNEC, issue #697) — Trap Door dual-anchor render-time validator.
+ *
+ * Trap Door's `attached_to` is a triple-anchor object per Option B (confirmed
+ * by Peter 2026-06-11): `{ origin, destination, territory }`. The `territory`
+ * field carries the Territory slug on this Trap Door's attachment — NOT a
+ * property of the destination Safe Place (Safe Places can be in or out of a
+ * Necropolis Territory; the constraint is specific to this Trap Door binding).
+ *
+ * Two checks, in order:
+ *   1. The attached_to.territory field is present.
+ *   2. That Territory is currently in the Necropolis-infected union — i.e.
+ *      some Sepulcher owner (possibly this character, possibly another) has
+ *      White Ants coverage on it.
+ *
+ * Persisted-not-removed semantics: when invalid, the merit stays on the
+ * sheet but renders non-functional with a warning. The player can fix the
+ * binding (or another Sepulcher owner picks up the Territory in their
+ * White Ants) without re-buying.
+ *
+ * @param {object} _c - the merit's owning character (reserved for future scopes)
+ * @param {object} m  - the Trap Door merit instance
+ * @param {object[]} chars - full chars array (cross-character context)
+ * @returns {{valid: boolean, reason?: string}}
+ */
+export function validateTrapDoorAnchor(_c, m, chars) {
+  if (!m) return { valid: false, reason: 'No merit provided' };
+  const at = normaliseAttachedTo(m.attached_to);
+  if (!at) {
+    return { valid: false, reason: 'Trap Door has no attached anchor' };
+  }
+  // origin + destination are checked at the picker UX level; the render-time
+  // validator focuses on the Territory constraint per MNEC §8.
+  const slug = m.attached_to && typeof m.attached_to === 'object'
+    ? m.attached_to.territory
+    : null;
+  if (typeof slug !== 'string' || !slug) {
+    return { valid: false, reason: 'No Territory selected for this Trap Door' };
+  }
+  const infected = getNecropolisInfectedTerritories(chars);
+  if (!infected.includes(slug)) {
+    return {
+      valid: false,
+      reason: 'No White Ants coverage on this Trap Door\'s Territory',
+    };
+  }
+  return { valid: true };
+}
+
+/**
  * Pure synthesis for `{ type: 'collective_owners_of_merit', merit, min_dots }`.
  *
  *  - Walks `chars` for every character that owns `scope.merit` at >=
