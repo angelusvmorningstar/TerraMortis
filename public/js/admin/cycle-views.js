@@ -202,6 +202,7 @@ function buildPhaseCell(cy) {
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
 function buildCyclesPanel(cycles, chapters) {
+  const sorted = [...cycles].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
   const chapterMap = Object.fromEntries(chapters.map(c => [String(c._id), c]));
 
   const wrap = document.createElement('div');
@@ -211,7 +212,7 @@ function buildCyclesPanel(cycles, chapters) {
   hdr.textContent = 'Game Cycles';
   wrap.appendChild(hdr);
 
-  if (!cycles.length) {
+  if (!sorted.length) {
     const empty = document.createElement('p');
     empty.style.cssText = 'color:var(--txt2);font-size:13px';
     empty.textContent = 'No downtime cycles found.';
@@ -229,7 +230,7 @@ function buildCyclesPanel(cycles, chapters) {
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
-  cycles.forEach(cy => {
+  sorted.forEach(cy => {
     const chapter = cy.chapter_id ? chapterMap[cy.chapter_id] : null;
     const chapterLabel = chapter ? `${chapter.number} — ${chapter.label}` : '—';
 
