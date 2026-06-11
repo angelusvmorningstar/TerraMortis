@@ -568,6 +568,11 @@ export const downtimeCycleSchema = {
     out_of_window_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
 
+    // CYCLE epic (#708) — manual game phase control. Replaces auto-derive when set.
+    // null = derive from phase_signoff (legacy cycles). See deriveCycleStatus.
+    game_phase: { type: ['string', 'null'], enum: ['game', 'downtime', 'processing', null] },
+    chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
+
     // Issue #231 — Manual "open downtimes" override (DT Prep tab).
     // Latched flag that forces effective status to 'active' regardless of
     // phase_signoff state (closed gate still wins). See public/js/downtime/db.js
