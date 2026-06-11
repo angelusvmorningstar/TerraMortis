@@ -1,6 +1,6 @@
 # Issue #697: N-5 — Trap Door dual-anchor picker UI + render-time White Ants Territory validation
 
-Status: Ready for Review
+Status: Done
 
 issue: 697
 issue_url: https://github.com/angelusvmorningstar/issues/697
