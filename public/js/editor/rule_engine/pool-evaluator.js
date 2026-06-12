@@ -52,6 +52,13 @@ function _computeAmount(c, rule) {
         : (rule.partner_merit_name ? [rule.partner_merit_name] : []);
       return names.reduce((sum, n) => sum + _ratingOfPartner(c, n), 0);
     }
+    case 'rating_of_source':
+      // N-3 / MNEC (issue #692): pool size = the source merit's own purchased
+      // rating. Necropolis Sepulcher 3 → 3 free dots distributable across the
+      // Collective Compound's six target merits via `free_grants.necro`.
+      // Reads cp+xp directly (matches _ratingOfPartner semantics — pool basis
+      // is purchased dots only, not free grants — to avoid feedback loops).
+      return _ratingOfPartner(c, rule.source);
     case 'flat':
       return rule.amount ?? 0;
     default:

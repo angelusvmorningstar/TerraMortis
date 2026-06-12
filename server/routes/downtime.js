@@ -554,6 +554,39 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// POST /api/downtime_cycles/:id/publish — ST only; bulk-promote compiled DT reports
+cyclesRouter.post('/:id/publish', requireRole('st'), async (req, res) => {
+  const cycleOid = parseId(req.params.id);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const subs = getCollection('downtime_submissions');
+  const all = await subs.find({ cycle_id: cycleOid }).toArray();
+
+  let published = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (const sub of all) {
+    const text = sub.st_review?.outcome_text;
+    if (!text) { skipped++; continue; }
+    if (sub.st_review?.outcome_visibility === 'published' && sub.published_outcome) {
+      skipped++;
+      continue;
+    }
+    await subs.updateOne(
+      { _id: sub._id },
+      { $set: {
+          published_outcome: text,
+          'st_review.outcome_visibility': 'published',
+          'st_review.published_at': now,
+      }}
+    );
+    published++;
+  }
+
+  res.json({ published, skipped });
+});
+
 // --- Submissions: /api/downtime_submissions ---
 
 export const submissionsRouter = Router();

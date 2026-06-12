@@ -134,3 +134,122 @@ export function normalizeMeritsMiddleware(req, _res, next) {
   }
   next();
 }
+
+/**
+ * N-4 (MNEC, issue #696) — cross-field validation for White Ants.
+ *
+ * JSON-Schema can't express "the array's length must equal a sibling field's
+ * computed value" so the rule lives here. Two invariants per White Ants merit:
+ *
+ *   1. `territories.length === effectiveRating` — every dot picks a Territory.
+ *   2. No duplicates within a single merit's territories array.
+ *
+ * Effective rating uses the same union-of-channels math as `meritFreeSum`:
+ *   cp + xp + sum(free_grants.*) + sum(free_<slug>)
+ * which mirrors the client-side `syncMeritRating` formula (domain.js). We
+ * recompute here rather than trusting `m.rating` because the API accepts
+ * partial bodies that may omit `m.rating` even when bumping the dot fields.
+ *
+ * Partial-save tolerance: if `req.body.merits` is absent, this middleware is a
+ * no-op (PATCH-style saves that only touch e.g. status are allowed).
+ */
+export function validateWhiteAntsTerritoriesMiddleware(req, res, next) {
+  const merits = req.body && Array.isArray(req.body.merits) ? req.body.merits : null;
+  if (!merits) return next();
+
+  for (let i = 0; i < merits.length; i++) {
+    const m = merits[i];
+    if (!m || m.name !== 'White Ants') continue;
+
+    const rating = _effectiveMeritRating(m);
+    const territories = Array.isArray(m.territories) ? m.territories : [];
+
+    if (territories.length !== rating) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `White Ants territories length (${territories.length}) must equal merit rating (${rating}). One Territory must be picked per dot.`,
+        detail: { merit_index: i, merit: 'White Ants', rating, territories_length: territories.length },
+      });
+    }
+    const seen = new Set();
+    for (const slug of territories) {
+      if (seen.has(slug)) {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: `White Ants territories must be distinct — '${slug}' appears more than once.`,
+          detail: { merit_index: i, merit: 'White Ants', duplicate: slug },
+        });
+      }
+      seen.add(slug);
+    }
+  }
+  return next();
+}
+
+/**
+ * N-5 (MNEC, issue #697) — Trap Door schema-level presence guard.
+ *
+ * Per Khepri's resolution: schema-level check is just "attached_to.territory
+ * field present." The "is this Territory currently infected" check stays at
+ * render time (validateTrapDoorAnchor in rules-helpers.js, called from the
+ * sheet renderer). Reasons:
+ *   - the union changes over time (other Sepulcher owners add/remove White
+ *     Ants picks); a server-side hard-fail on save would force a coordination
+ *     dance that the persisted-not-removed semantics is designed to avoid.
+ *   - persisted-not-removed: an existing Trap Door whose Territory drops out
+ *     of the union stays saveable. The render flags it; the player fixes it.
+ *
+ * Partial-save tolerance: if `req.body.merits` is absent, this is a no-op
+ * (matches the validateWhiteAntsTerritoriesMiddleware shape).
+ *
+ * @returns {void} responds 400 if a Trap Door merit's `attached_to` lacks any
+ *   of origin / destination / territory. Otherwise calls next().
+ */
+export function validateTrapDoorAnchorMiddleware(req, res, next) {
+  const merits = req.body && Array.isArray(req.body.merits) ? req.body.merits : null;
+  if (!merits) return next();
+
+  for (let i = 0; i < merits.length; i++) {
+    const m = merits[i];
+    if (!m || m.name !== 'Trap Door') continue;
+
+    // Trap Door must use the object form of attached_to (the dual-anchor
+    // shape ADR-005 D7 ships). String-form (legacy single-anchor) doesn't
+    // carry origin or territory — structurally insufficient.
+    const at = m.attached_to;
+    if (at == null || typeof at !== 'object' || Array.isArray(at)) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Trap Door requires the object-form attached_to with origin / destination / territory.',
+        detail: { merit_index: i, merit: 'Trap Door' },
+      });
+    }
+    const missing = [];
+    if (typeof at.origin !== 'string' || !at.origin) missing.push('origin');
+    if (typeof at.destination !== 'string' || !at.destination) missing.push('destination');
+    if (typeof at.territory !== 'string' || !at.territory) missing.push('territory');
+    if (missing.length) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: `Trap Door attached_to is missing required field(s): ${missing.join(', ')}.`,
+        detail: { merit_index: i, merit: 'Trap Door', missing },
+      });
+    }
+  }
+  return next();
+}
+
+function _effectiveMeritRating(m) {
+  const cp = m.cp || 0;
+  const xp = m.xp || 0;
+  const fromMap = m.free_grants && typeof m.free_grants === 'object'
+    ? Object.values(m.free_grants).reduce((s, n) => s + (n || 0), 0)
+    : 0;
+  // 14 legacy free_<slug> fields, summed verbatim (same shape as the
+  // LEGACY_FREE_SLUGS constant in public/js/data/rules-helpers.js).
+  const legacy = (m.free_attache || 0) + (m.free_bloodline || 0) + (m.free_carthian || 0)
+    + (m.free_fwb || 0) + (m.free_inv || 0) + (m.free_lk || 0) + (m.free_mci || 0)
+    + (m.free_mdb || 0) + (m.free_ohm || 0) + (m.free_pet || 0) + (m.free_pt || 0)
+    + (m.free_retainer || 0) + (m.free_sw || 0) + (m.free_vm || 0);
+  return cp + xp + fromMap + legacy;
+}
