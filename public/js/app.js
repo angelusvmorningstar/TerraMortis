@@ -35,6 +35,8 @@ import {
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
   registerCallbacks as registerEditCallbacks
@@ -417,7 +419,7 @@ function goTab(t) {
   if (t === 'office') {
     const el = document.getElementById('t-office');
     const char = _activeMoreChar();
-    if (el && char) renderOfficeTab(el, char);
+    if (el && char) renderOfficeTab(el, char, suiteState.chars || []);
   }
   if (t === 'archive') {
     const el = document.getElementById('t-archive');
@@ -1129,6 +1131,8 @@ Object.assign(window, {
   shEditDomMerit,
   shRemoveDomMerit,
   shAddDomMerit,
+  shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   shAddDomainPartner,
   shRemoveDomainPartner,
   shEditGenMerit,

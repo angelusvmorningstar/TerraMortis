@@ -30,6 +30,7 @@ import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_m
 import appSettingsRouter from '../../routes/app-settings.js';
 import devlogRouter from '../../routes/devlog.js';
 import equipmentRouter from '../../routes/equipment.js';
+import { chaptersRouter } from '../../routes/chapters.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -105,6 +106,8 @@ export function createTestApp() {
   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
   // Issue #502: devlog entries (player read, ST write)
   app.use('/api/devlog', mockAuth, noCache(), devlogRouter);
+  // CYCLE epic (#708): chapter management
+  app.use('/api/chapters', mockAuth, noCache(), chaptersRouter);
 
   return app;
 }

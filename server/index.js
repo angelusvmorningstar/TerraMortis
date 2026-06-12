@@ -27,6 +27,7 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
+import officeActionsRouter from './routes/office-actions.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -37,6 +38,7 @@ import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.
 import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
 import equipmentRouter from './routes/equipment.js';
+import chaptersRouter from './routes/chapters.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -171,7 +173,9 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
-app.use('/api/devlog',   requireAuth, noCache(), devlogRouter);
+app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
+app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
