@@ -752,7 +752,7 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
       const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
       if (cycleOid) {
         const cycle = await cycles().findOne({ _id: cycleOid });
-        if (cycle?.deadline_at && new Date(cycle.deadline_at) < new Date()) {
+        if (!cycle?.manual_open && cycle?.deadline_at && new Date(cycle.deadline_at) < new Date()) {
           return res.status(403).json({ error: 'DEADLINE_PASSED', message: 'Submissions for this cycle are closed.' });
         }
       }

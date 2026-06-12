@@ -1561,13 +1561,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
   const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const _manualOpen   = currentCycle?.manual_open === true;
   // Scheduled auto-open: once auto_open_at has passed, players reach the form even while the
   // cycle is still 'prep' (mirrors downtime-tab.js autoOpenPassed). Kept OUT of the deadline
   // clause below — a passed auto-open must never reopen a window whose deadline has passed.
   const _autoOpenPassed = !!(currentCycle?.auto_open_at && new Date(currentCycle.auto_open_at) <= new Date());
   const _gateBlocks = !currentCycle
     || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess && !_autoOpenPassed)
-    || (_deadlinePast && !_hasWindowAccess);
+    || (_deadlinePast && !_hasWindowAccess && !_manualOpen);
 
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
@@ -2059,7 +2060,9 @@ function renderForm(container) {
       const dl = new Date(currentCycle.deadline_at);
       const past = dl < new Date();
       const dlStr = dl.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      h += `<p class="qf-deadline${past ? ' qf-deadline-closed' : ''}">${past ? 'Submissions closed' : 'Open until ' + dlStr}</p>`;
+      const _overrideOpen = currentCycle.manual_open === true;
+      const _showClosed = past && !_overrideOpen;
+      h += `<p class="qf-deadline${_showClosed ? ' qf-deadline-closed' : ''}">${_showClosed ? 'Submissions closed' : _overrideOpen && past ? 'Open — ST override active' : 'Open until ' + dlStr}</p>`;
     }
   }
   h += '<div class="qf-meta">';
