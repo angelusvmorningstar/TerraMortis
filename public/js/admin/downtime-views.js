@@ -3188,12 +3188,25 @@ function buildProcessingQueue(subs) {
     let spheres  = raw.sphere_actions || [];
     if (!spheres.length) {
       // App-form submissions store sphere actions as flat response keys (sphere_N_merit etc.)
-      // Guard: require both merit label AND a non-empty action so existing submissions
-      // with phantom labels (player never toggled gate) are retroactively suppressed.
+      // Guard: require a non-empty action. Merit label may be absent for submissions
+      // made with the tabbed sphere UI (issue #713 — gate removed); derive from
+      // character data in that case so existing DT4 submissions surface correctly.
       for (let n = 1; n <= 5; n++) {
-        const meritType = resp[`sphere_${n}_merit`];
+        let meritType = resp[`sphere_${n}_merit`];
         const actionVal = resp[`sphere_${n}_action`];
-        if (!meritType || !actionVal) continue;
+        if (!actionVal) continue;
+        if (!meritType) {
+          const sphereChar = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
+          const alliesMerits = (sphereChar?.merits || [])
+            .filter(m => m.category === 'influence' && m.name === 'Allies');
+          const am = alliesMerits[n - 1];
+          if (am) {
+            const dots = (am.rating || am.dots || 0) + (am.bonus || 0);
+            const area = am.area || am.qualifier || '';
+            meritType = area ? `Allies ${'●'.repeat(dots)} (${area})` : `Allies ${'●'.repeat(dots)}`;
+          }
+        }
+        if (!meritType) continue;
         spheres = [...spheres, {
           merit_type:      meritType,
           action_type:     resp[`sphere_${n}_action`]      || 'misc',

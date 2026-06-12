@@ -842,10 +842,12 @@ function collectResponses() {
       const el = document.getElementById(`dt-sphere_${n}_target_value`);
       if (el) responses[`sphere_${n}_target_value`] = el.value;
     }
-    // Merit label — only written when player opted in (gate = 'yes').
-    // Absent label means admin queue builder skips this slot entirely.
+    // Merit label — written whenever the player has picked an action.
+    // Issue #713: old form had a merit-toggle gate ('yes'/'no') that set
+    // gateValues; the tabbed sphere UI removed that toggle, so the gate is
+    // never 'yes'. Match the Status pattern (line ~885): write when action set.
     const m = detectedMerits.spheres[n - 1];
-    if (m && gateValues[`merit_${meritKey(m)}`] === 'yes') {
+    if (m && responses[`sphere_${n}_action`]) {
       responses[`sphere_${n}_merit`] = meritLabel(m);
     }
     // Cast hidden inputs (legacy — kept for backwards compat)
