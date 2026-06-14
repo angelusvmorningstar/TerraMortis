@@ -5,7 +5,7 @@ issue: 718
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/718
 branch: ms/issue-718-sorc-rite-custom-fallback
 created: '2026-06-14'
-status: review
+status: done
 recommended_model: 'sonnet — two targeted edits in one file; moderate scope'
 context:
   - public/js/admin/downtime-views.js
