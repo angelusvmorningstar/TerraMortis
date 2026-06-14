@@ -2865,6 +2865,24 @@ function buildProcessingQueue(subs) {
       });
     }
 
+    // Hoist primary feed pool label so the rote queue entry can inherit it (fix.725)
+    const _feedMethod      = resp['_feed_method'] || '';
+    const _feedDisc        = resp['_feed_disc']   || '';
+    const _feedCustomAttr  = resp['_feed_custom_attr']  || '';
+    const _feedCustomSkill = resp['_feed_custom_skill'] || '';
+    const _feedCustomDisc  = resp['_feed_custom_disc']  || '';
+    const _feedDesc        = sub._raw?.feeding?.method || resp['feeding_description'] || '';
+    const _feedTrunc       = _feedDesc.length > 40 ? _feedDesc.slice(0, 40) + '…' : _feedDesc;
+    const _feedBaseLabel   = FEED_METHOD_LABELS_MAP[_feedMethod] || _feedMethod;
+    const _feedMethodLabel = _feedMethod === 'other' && _feedTrunc
+      ? _feedTrunc
+      : (_feedTrunc && _feedTrunc !== _feedBaseLabel
+          ? `${_feedBaseLabel} — ${_feedTrunc}`
+          : _feedBaseLabel);
+    const feedPoolLabel = _feedMethod === 'other' && (_feedCustomAttr || _feedCustomSkill)
+      ? [_feedCustomAttr, _feedCustomSkill, _feedCustomDisc || _feedDisc].filter(Boolean).join(' + ')
+      : [_feedMethodLabel, _feedDisc].filter(Boolean).join(' + ');
+
     // ── Feeding (all submissions get an entry; no-method submissions show as undeclared) ──
     {
       const feedMethod      = resp['_feed_method'] || '';
@@ -2904,9 +2922,7 @@ function buildProcessingQueue(subs) {
         }
       }
       // For "other" method, use the player's custom attr/skill/disc as the pool label
-      const poolLabel = feedMethod === 'other' && (feedCustomAttr || feedCustomSkill)
-        ? [feedCustomAttr, feedCustomSkill, feedCustomDisc || feedDisc].filter(Boolean).join(' + ')
-        : [methodLabel, feedDisc].filter(Boolean).join(' + ');
+      const poolLabel = feedPoolLabel; // hoisted above the feeding block; same computation
       queue.push({
         key: `${sub._id}:feeding`,
         subId: sub._id,
@@ -3002,7 +3018,7 @@ function buildProcessingQueue(subs) {
           source: 'project',
           actionIdx: idx,
           projSlot: slot,
-          poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
+          poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || feedPoolLabel,
           projTitle:       resp[`project_${slot}_title`]     || '',
           projOutcome:     proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
           projDescription: descWithMethod,
