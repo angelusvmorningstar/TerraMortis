@@ -2259,6 +2259,10 @@ function renderForm(container) {
   // Update section completion ticks on initial render
   updateSectionTicks(container);
 
+  // Wire Connected Characters typeahead widgets — must re-run after every
+  // renderForm because innerHTML wipes prior mounts (issue #727).
+  initConnectedCharsTypeaheads(container);
+
   // Ensure rote feeding data is set in saved responses (no re-render)
   if (feedRoteAction && feedMethodId) {
     const s = responseDoc?.responses;
@@ -2682,23 +2686,6 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
-    // #589: Connected Characters — add via dropdown. Canonical-first write of the
-    // JSON id array, then re-render (resets the dropdown) and save.
-    const connAdd = e.target.closest('.dt-conn-add');
-    if (connAdd && connAdd.value) {
-      const slot = connAdd.dataset.connSlot;
-      const id   = String(connAdd.value);
-      const k    = `project_${slot}_connected_chars`;
-      const base = (responseDoc && responseDoc.responses) || {};
-      let arr = [];
-      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
-      if (!arr.includes(id)) arr.push(id);
-      const next = { ...base, [k]: JSON.stringify(arr) };
-      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
     // #508/#522: Carthian Pull — a change on the "new dot" row's target/sphere
     // writes the full allocation set to the character, then re-renders.
     if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
@@ -3088,22 +3075,6 @@ function renderForm(container) {
     // Previously the handler only mutated the local DOM; sibling slots couldn't
     // see the new selection until something else triggered a render, leaving
     // their disabled-chip state stale across add/remove/re-add cycles.
-    // #589: Connected Characters — remove a chip. Canonical-first write.
-    const connRemove = e.target.closest('.dt-conn-remove');
-    if (connRemove) {
-      const slot = connRemove.dataset.connSlot;
-      const id   = String(connRemove.dataset.connId);
-      const k    = `project_${slot}_connected_chars`;
-      const base = (responseDoc && responseDoc.responses) || {};
-      let arr = [];
-      try { const a = JSON.parse(base[k] || '[]'); if (Array.isArray(a)) arr = a.map(String); } catch { arr = []; }
-      arr = arr.filter(x => String(x) !== id);
-      const next = { ...base, [k]: JSON.stringify(arr) };
-      if (responseDoc) responseDoc.responses = next; else responseDoc = { responses: next };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
     const maintChip = e.target.closest('[data-maintenance-target]');
     if (maintChip && !maintChip.disabled) {
       const slotNum = maintChip.dataset.maintenanceTarget;
@@ -5744,10 +5715,10 @@ function renderTargetZone(n, actionVal, saved, chars) {
 }
 
 /**
- * Connected Characters multi-select for a project action (issue #589).
+ * Connected Characters multi-select for a project action (issue #589 / #727).
  * Other PCs the player links to this action; flows to the ST Connected Characters
  * box. Stores selected character _ids as a JSON array in
- * `project_${n}_connected_chars`. Add via dropdown, remove via chip ✕.
+ * `project_${n}_connected_chars`. Add via typeahead, remove via chip ✕.
  */
 function renderConnectedCharsZone(n, saved, chars) {
   const key = `project_${n}_connected_chars`;
@@ -5770,6 +5741,11 @@ function renderConnectedCharsZone(n, saved, chars) {
   let h = '<div class="qf-field dt-connected-zone">';
   h += '<label class="qf-label">Connected Characters</label>';
   h += '<p class="qf-desc">Other player characters involved in or linked to this action (optional).</p>';
+  h += `<div class="dt-conn-typeahead" data-conn-slot="${n}">`;
+  h += '<div class="dt-conn-input-row">';
+  h += `<input type="text" class="dt-conn-input" data-conn-slot="${n}" placeholder="Add a character…" autocomplete="off">`;
+  h += '<div class="dt-conn-dropdown" style="display:none"></div>';
+  h += '</div>';
   h += '<div class="dt-conn-chips">';
   for (const id of selected) {
     const nm = labelOf(id);
@@ -5778,16 +5754,103 @@ function renderConnectedCharsZone(n, saved, chars) {
        + `<button type="button" class="dt-conn-remove" data-conn-slot="${n}" data-conn-id="${esc(id)}" title="Remove">×</button></span>`;
   }
   h += '</div>';
-  const selectedSet = new Set(selected.map(String));
-  h += `<select class="dt-conn-add" data-conn-slot="${n}">`;
-  h += '<option value="">Add a character…</option>';
-  for (const c of others.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))) {
-    if (selectedSet.has(String(c.id))) continue;
-    h += `<option value="${esc(String(c.id))}">${esc(c.name)}</option>`;
-  }
-  h += '</select>';
+  h += '</div>';
   h += '</div>';
   return h;
+}
+
+/**
+ * Wire typeahead behaviour on all .dt-conn-typeahead widgets in container.
+ * Must be called after every renderForm() because innerHTML wipes prior mounts.
+ */
+function initConnectedCharsTypeaheads(container) {
+  container.querySelectorAll('.dt-conn-typeahead').forEach(wrap => {
+    const slot     = wrap.dataset.connSlot;
+    const key      = `project_${slot}_connected_chars`;
+    const input    = wrap.querySelector('.dt-conn-input');
+    const dropdown = wrap.querySelector('.dt-conn-dropdown');
+    const chipsEl  = wrap.querySelector('.dt-conn-chips');
+    if (!input || !dropdown || !chipsEl) return;
+
+    const others = (allCharacters || []).slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    function getSelectedIds() {
+      return new Set([...chipsEl.querySelectorAll('.dt-conn-chip')].map(c => c.dataset.connId));
+    }
+
+    function showDropdown(query) {
+      const selected = getSelectedIds();
+      const q = query.trim().toLowerCase();
+      const matches = others.filter(c =>
+        !selected.has(String(c.id)) && (!q || String(c.name).toLowerCase().includes(q))
+      );
+      if (!matches.length) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = '';
+      for (const c of matches.slice(0, 10)) {
+        const item = document.createElement('div');
+        item.className = 'dt-conn-dd-item';
+        item.dataset.connId = String(c.id);
+        item.textContent = c.name;
+        dropdown.appendChild(item);
+      }
+      dropdown.style.display = '';
+    }
+
+    function addChip(id, name) {
+      const chip = document.createElement('span');
+      chip.className = 'dt-conn-chip';
+      chip.dataset.connId = id;
+      chip.appendChild(document.createTextNode(name + ' '));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dt-conn-remove';
+      btn.dataset.connSlot = slot;
+      btn.dataset.connId = id;
+      btn.title = 'Remove';
+      btn.textContent = '×';
+      chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    }
+
+    function saveToResponseDoc() {
+      const ids = [...chipsEl.querySelectorAll('.dt-conn-chip')].map(c => c.dataset.connId);
+      const base = (responseDoc && responseDoc.responses) || {};
+      const next = { ...base, [key]: JSON.stringify(ids) };
+      if (responseDoc) responseDoc.responses = next;
+      else responseDoc = { responses: next };
+      scheduleSave();
+    }
+
+    input.addEventListener('focus', () => showDropdown(input.value));
+    input.addEventListener('input', () => showDropdown(input.value));
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { dropdown.style.display = 'none'; input.value = ''; }
+    });
+    input.addEventListener('blur', () =>
+      setTimeout(() => { dropdown.style.display = 'none'; }, 150)
+    );
+
+    wrap.addEventListener('click', e => {
+      const ddItem = e.target.closest('.dt-conn-dd-item');
+      if (ddItem) {
+        const id   = ddItem.dataset.connId;
+        const char = others.find(c => String(c.id) === id);
+        if (char && !getSelectedIds().has(id)) {
+          addChip(id, char.name);
+          input.value = '';
+          dropdown.style.display = 'none';
+          saveToResponseDoc();
+        }
+        return;
+      }
+      const removeBtn = e.target.closest('.dt-conn-remove');
+      if (removeBtn) {
+        removeBtn.closest('.dt-conn-chip')?.remove();
+        saveToResponseDoc();
+      }
+    });
+  });
 }
 
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */

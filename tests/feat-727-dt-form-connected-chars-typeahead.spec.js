@@ -1,12 +1,13 @@
 /**
- * Feature #589 (player capture half) — Connected Characters selector on a Project
- * action persists to responses.project_N_connected_chars (JSON array of _ids).
+ * feat.727 — DT form: Connected Characters typeahead multi-select
  *
- * Mounts the DT form in a sandbox overlay (same pattern as
- * dt-form-35-feed-violence-default.spec.js). Covers: pre-seeded value renders a
- * chip (round-trip), add via typeahead, remove via chip ✕.
- *
- * Updated for issue #727: .dt-conn-add select replaced by .dt-conn-typeahead.
+ * Acceptance criteria:
+ *   AC1: Focusing the input shows a filtered character dropdown
+ *   AC2: Clicking a dropdown item adds a chip; input clears
+ *   AC3: A second character can be added (both chips present)
+ *   AC4: Already-chipped characters are absent from the dropdown (dedup)
+ *   AC5: Clicking chip × removes the chip
+ *   AC6: Legacy single-char submission renders the chip correctly (backwards compat)
  */
 
 const { test, expect } = require('@playwright/test');
@@ -18,9 +19,9 @@ const PLAYER_USER = {
 };
 
 const ACTIVE_CYCLE = {
-  _id: 'cycle-dt589', status: 'active', label: 'Test Cycle DT589',
+  _id: 'cycle-dt727', status: 'active', label: 'Test Cycle DT727',
   feeding_rights_confirmed: true, is_chapter_finale: false,
-  created_at: '2026-05-07T00:00:00.000Z',
+  created_at: '2026-06-14T00:00:00.000Z',
 };
 
 function buildChar() {
@@ -34,20 +35,18 @@ function buildChar() {
       Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
       Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
     },
-    skills: { Investigation: { dots: 3, bonus: 0, specs: [], nine_again: false } },
-    disciplines: { Auspex: { dots: 2 } }, merits: [], powers: [], ordeals: [],
+    skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
   };
 }
 
-// /api/characters/names — self + two others so the connected dropdown has options.
 const NAMES = [
   { _id: 'char-001', name: 'Test Subject', moniker: null, player: 'Test Player' },
-  { _id: 'char-002', name: 'Ally One', moniker: null, player: 'P2' },
-  { _id: 'char-003', name: 'Ally Two', moniker: null, player: 'P3' },
+  { _id: 'char-002', name: 'Ally One',     moniker: null, player: 'P2' },
+  { _id: 'char-003', name: 'Ally Two',     moniker: null, player: 'P3' },
 ];
 
 function priorSub(responses) {
-  return { _id: 'sub-dt589', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses };
+  return { _id: 'sub-dt727', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses };
 }
 
 async function setupSuite(page, char, sub) {
@@ -66,9 +65,9 @@ async function setupSuite(page, char, sub) {
   await page.route('**/api/downtime_cycles', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([ACTIVE_CYCLE]) }));
   await page.route(/\/api\/downtime_submissions($|\?)/, r => {
     if (r.request().method() === 'GET') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sub ? [sub] : []) });
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-dt589', cycle_id: ACTIVE_CYCLE._id, character_id: 'char-001', status: 'draft', responses: {} }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-dt727', status: 'draft', responses: {} }) });
   });
-  await page.route(/\/api\/downtime_submissions\/sub-dt589/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-dt589', status: 'draft' }) }));
+  await page.route(/\/api\/downtime_submissions\/sub-dt727/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'sub-dt727', status: 'draft' }) }));
 
   await page.goto('/');
   await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
@@ -83,7 +82,6 @@ async function openForm(page, char) {
     const mod = await import('/js/tabs/downtime-form.js');
     await mod.renderDowntimeTab(sandbox, c, []);
   }, char);
-  // The "Projects: Personal Actions" section starts collapsed — expand it.
   const projTitle = page.locator('#dt-sandbox .qf-section[data-section-key="projects"] .qf-section-title');
   await projTitle.waitFor({ state: 'attached', timeout: 10000 });
   await projTitle.click();
@@ -91,59 +89,98 @@ async function openForm(page, char) {
 }
 
 const connZone = (page) => page.locator('#dt-sandbox .dt-connected-zone').first();
+const connInput = (page) => page.locator('#dt-sandbox .dt-conn-input[data-conn-slot="1"]');
+const ddItems   = (page) => page.locator('#dt-sandbox .dt-conn-dd-item');
 
-test.describe('dt-form #589: connected characters capture on project actions', () => {
+// ── Tests ──────────────────────────────────────────────────────────────────────
 
-  test('connected zone renders for an investigate project action', async ({ page }) => {
+test.describe('feat.727 — Connected Characters typeahead multi-select', () => {
+
+  test('AC1: focusing the input shows a character dropdown', async ({ page }) => {
     const char = buildChar();
     await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
     await openForm(page, char);
-    await expect(connZone(page)).toBeVisible({ timeout: 5000 });
-    await expect(connZone(page).locator('.dt-conn-input')).toHaveCount(1);
+
+    await connInput(page).focus();
+    await expect(ddItems(page).first()).toBeVisible({ timeout: 3000 });
+    // Self is excluded; only Ally One and Ally Two in dropdown
+    const texts = await ddItems(page).allTextContents();
+    expect(texts).not.toContain('Test Subject');
+    expect(texts).toContain('Ally One');
+    expect(texts).toContain('Ally Two');
   });
 
-  test('pre-seeded connected character renders as a chip (round-trip)', async ({ page }) => {
+  test('AC2: clicking a dropdown item adds a chip and clears the input', async ({ page }) => {
     const char = buildChar();
-    await setupSuite(page, char, priorSub({ project_1_action: 'investigate', project_1_connected_chars: '["char-002"]' }));
+    await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
     await openForm(page, char);
+
+    await connInput(page).fill('Ally');
+    await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
+    await ddItems(page).filter({ hasText: 'Ally One' }).click();
+
     await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(1);
     await expect(connZone(page).locator('.dt-conn-chip')).toContainText('Ally One');
+    await expect(connInput(page)).toHaveValue('');
+    await expect(page.locator('#dt-sandbox .dt-conn-dropdown').first()).toBeHidden();
   });
 
-  test('adding via the typeahead creates a chip', async ({ page }) => {
+  test('AC3: a second character can be added (both chips present)', async ({ page }) => {
     const char = buildChar();
     await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
     await openForm(page, char);
-    await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(0);
-    const input = page.locator('#dt-sandbox .dt-conn-input[data-conn-slot="1"]');
-    await input.fill('Ally Two');
+
+    // Add first
+    await connInput(page).fill('Ally One');
     await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
-    await page.locator('#dt-sandbox .dt-conn-dd-item').filter({ hasText: 'Ally Two' }).click();
+    await ddItems(page).filter({ hasText: 'Ally One' }).click();
     await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(1);
-    await expect(connZone(page).locator('.dt-conn-chip')).toContainText('Ally Two');
+
+    // Add second
+    await connInput(page).fill('Ally Two');
+    await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
+    await ddItems(page).filter({ hasText: 'Ally Two' }).click();
+    await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(2);
+    await expect(connZone(page)).toContainText('Ally One');
+    await expect(connZone(page)).toContainText('Ally Two');
   });
 
-  test('removing a chip clears it', async ({ page }) => {
+  test('AC4: already-chipped character is absent from dropdown (dedup)', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
+    await openForm(page, char);
+
+    // Add Ally One
+    await connInput(page).fill('Ally One');
+    await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
+    await ddItems(page).filter({ hasText: 'Ally One' }).click();
+
+    // Re-open dropdown — Ally One must not appear
+    await connInput(page).focus();
+    await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
+    const texts = await ddItems(page).allTextContents();
+    expect(texts).not.toContain('Ally One');
+    expect(texts).toContain('Ally Two');
+  });
+
+  test('AC5: clicking chip × removes the chip', async ({ page }) => {
     const char = buildChar();
     await setupSuite(page, char, priorSub({ project_1_action: 'investigate', project_1_connected_chars: '["char-002"]' }));
     await openForm(page, char);
+
     await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(1);
-    await page.locator('#dt-sandbox .dt-conn-remove[data-conn-id="char-002"]').click();
-    await page.waitForTimeout(400);
+    await connZone(page).locator('.dt-conn-remove[data-conn-id="char-002"]').click();
     await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(0);
   });
 
-  // QA top-up: the acting character must NOT be a connect option (no self-connect).
-  test('the acting character is not an option in the typeahead dropdown', async ({ page }) => {
+  test('AC6: legacy single-char submission renders chip correctly', async ({ page }) => {
     const char = buildChar();
-    await setupSuite(page, char, priorSub({ project_1_action: 'investigate' }));
+    // Legacy shape: JSON string of one ID
+    await setupSuite(page, char, priorSub({ project_1_action: 'investigate', project_1_connected_chars: '["char-003"]' }));
     await openForm(page, char);
-    const input = page.locator('#dt-sandbox .dt-conn-input[data-conn-slot="1"]');
-    await input.focus();
-    await page.waitForSelector('#dt-sandbox .dt-conn-dd-item', { timeout: 3000 });
-    const items = await page.locator('#dt-sandbox .dt-conn-dd-item').allTextContents();
-    expect(items).not.toContain('Test Subject');   // self excluded
-    expect(items).toContain('Ally One');            // others present
+
+    await expect(connZone(page).locator('.dt-conn-chip')).toHaveCount(1);
+    await expect(connZone(page).locator('.dt-conn-chip')).toContainText('Ally Two');
   });
 
 });
