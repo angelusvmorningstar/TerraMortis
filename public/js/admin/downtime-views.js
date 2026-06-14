@@ -5677,7 +5677,9 @@ function renderProcessingMode(container) {
       const match = poolValidated.match(/(\d+)\s*$/);
       let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
-      diceCount += (review?.pool_mod_spec || 0);
+      const _specSub = submissions.find(s => s._id === entry.subId);
+      const _specChar = _charForSub(_specSub);
+      diceCount += (review?.active_feed_specs || []).reduce((sum, sp) => sum + (_specChar && hasAoE(_specChar, sp) ? 2 : 1), 0);
       // Read toggle states from sidebar
       const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
       const roteChecked      = rightPanel?.querySelector('.proc-pool-rote')?.checked  || false;
@@ -6906,13 +6908,13 @@ function _updateFeedBuilderMeta(container, key) {
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
-      const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+      const bon = hasAoE(char, sp) ? 2 : 1;
       h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
       if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
-      const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+      const bon = hasAoE(char, isSp) ? 2 : 1;
       h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
     }
     metaEl.innerHTML = h;
@@ -6926,7 +6928,7 @@ function _updateFeedBuilderMeta(container, key) {
         const isNowActive = btn.classList.toggle('is-active');
         if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
         else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
+        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
         _updatePoolTotal(container, btn.dataset.procKey);
       });
@@ -6950,13 +6952,13 @@ function _updateFeedBuilderMeta(container, key) {
   let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
-    const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+    const bon = hasAoE(char, sp) ? 2 : 1;
     h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
-    const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+    const bon = hasAoE(char, isSp) ? 2 : 1;
     h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
   }
   metaEl.innerHTML = h;
@@ -6970,7 +6972,7 @@ function _updateFeedBuilderMeta(container, key) {
       const isNowActive = btn.classList.toggle('is-active');
       if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
       else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
+      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
       _updatePoolTotal(container, btn.dataset.procKey);
     });
@@ -8653,8 +8655,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
@@ -8677,8 +8680,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
