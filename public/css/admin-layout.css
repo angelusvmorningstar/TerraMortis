@@ -5942,6 +5942,8 @@ body {
   margin-bottom: 5px;
 }
 .proc-mod-row:last-child { margin-bottom: 0; }
+.proc-feed-chips-row { align-items: flex-start; }
+.proc-feed-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .proc-mod-label {
   color: var(--txt3);
