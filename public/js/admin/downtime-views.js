@@ -7970,6 +7970,43 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   h += `</div>`;
 
 
+  // ── Territory pill ──
+  {
+    const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
+    let _feedSet;
+    if (Array.isArray(_stOvrArr)) {
+      _feedSet = new Set(_stOvrArr);
+    } else {
+      _feedSet = new Set();
+      try {
+        const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
+        for (const [slug, status] of Object.entries(_grid)) {
+          if (!status || status === 'none' || status === 'Not feeding here') continue;
+          let tid;
+          if (/^[a-f0-9]{24}$/i.test(slug)) {
+            const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+            tid = terrDoc?.slug || null;
+          } else {
+            tid = TERRITORY_SLUG_MAP[slug];
+          }
+          if (tid) _feedSet.add(tid);
+        }
+      } catch { /* ignore malformed JSON */ }
+      if (_feedSet.size === 0) {
+        const _rawTerrs = _normTerrKeys(feedSub?._raw?.feeding?.territories || {});
+        for (const [_slug, status] of Object.entries(_rawTerrs)) {
+          if (!status || status === 'Not feeding here' || status === 'none') continue;
+          const tid = TERRITORY_SLUG_MAP[_slug];
+          if (tid) _feedSet.add(tid);
+        }
+      }
+    }
+    h += `<div class="proc-feed-mod-panel">`;
+    h += `<div class="proc-mod-panel-title">Territory</div>`;
+    h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
+    h += `</div>`;
+  }
+
   // ── DTFP-5: feed-violence + blood-type ST overrides ──
   const playerVi      = feedSub?.responses?.feed_violence || '';
   const stViOverride  = feedSub?.st_review?.feed_violence_st_override || '';
@@ -9666,44 +9703,6 @@ function renderActionPanel(entry, review) {
         h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
       }
     }
-    // Territory row — label + ST override pills on one row
-    {
-      const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
-      let _feedSet;
-      if (Array.isArray(_stOvrArr)) {
-        _feedSet = new Set(_stOvrArr);
-      } else {
-        // No ST override — pre-select from player's submitted territories
-        _feedSet = new Set();
-        try {
-          const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
-          for (const [slug, status] of Object.entries(_grid)) {
-            if (!status || status === 'none' || status === 'Not feeding here') continue;
-            let tid;
-            if (/^[a-f0-9]{24}$/i.test(slug)) {
-              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
-              tid = terrDoc?.slug || null;
-            } else {
-              tid = TERRITORY_SLUG_MAP[slug];
-            }
-            if (tid) _feedSet.add(tid);
-          }
-        } catch { /* ignore malformed JSON */ }
-        if (_feedSet.size === 0) {
-          const _rawTerrs = _normTerrKeys(feedSub?._raw?.feeding?.territories || {});
-          for (const [key, status] of Object.entries(_rawTerrs)) {
-            if (!status || status === 'Not feeding here' || status === 'none') continue;
-            const tid = TERRITORY_SLUG_MAP[key];
-            if (tid) _feedSet.add(tid);
-          }
-        }
-      }
-      h += `<div class="proc-feed-mod-panel">`;
-      h += `<div class="proc-mod-panel-title">Territory</div>`;
-      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
-      h += `</div>`;
-    }
-
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
     if (feedRoll) {
