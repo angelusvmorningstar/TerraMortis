@@ -8609,8 +8609,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
@@ -8633,8 +8634,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
