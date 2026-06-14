@@ -6076,8 +6076,22 @@ function renderProcessingMode(container) {
 
       const rev      = (sub.sorcery_review || {})[entry.actionIdx] || {};
       const riteName = rev.rite_override || entry.riteName || '';
-      const ritInfo  = riteName ? _getRiteInfo(riteName) : null;
-      if (!ritInfo) { alert(`Rite "${riteName}" not found in the rules database.`); return; }
+      let ritInfo    = riteName ? _getRiteInfo(riteName) : null;
+      if (!ritInfo) {
+        const _isCustom = riteName === '__custom__'
+          || (riteName && !(_getRulesDB() || []).some(r => r.category === 'rite' && r.name === riteName));
+        if (_isCustom) {
+          const _trad     = entry.tradition || rev.sorc_tradition || '';
+          const _tradPool = TRADITION_POOL[_trad] || null;
+          const _level    = parseInt(rev.rite_custom_level || '0', 10);
+          if (!_tradPool) { alert('Select a tradition before rolling a custom rite.'); return; }
+          if (!_level)    { alert('Set a rite level before rolling a custom rite.'); return; }
+          ritInfo = { attr: _tradPool.attr, skill: _tradPool.skill, disc: _tradPool.disc,
+                      target: _level, poolExpr: [_tradPool.attr, _tradPool.skill, _tradPool.disc].filter(Boolean).join(' + ') };
+        } else {
+          alert(`Rite "${riteName}" not found in the rules database.`); return;
+        }
+      }
 
       // Resolve character
       const charIdStr   = sub.character_id ? String(sub.character_id) : null;
@@ -9264,9 +9278,13 @@ function renderActionPanel(entry, review) {
   // ── Sorcery: rite header row (mirrors action type row structure) ──
   if (isSorcery) {
     const _allRites     = (_getRulesDB() || []).filter(r => r.category === 'rite');
-    const _selectedRite = rev.rite_override || entry.riteName || '';
-    const _overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
-    const _shortRite    = entry.riteName && entry.riteName.length <= 60;
+    const _selectedRiteRaw = rev.rite_override || entry.riteName || '';
+    const _riteInDB        = _selectedRiteRaw && _selectedRiteRaw !== '__custom__'
+                             && _allRites.some(r => r.name === _selectedRiteRaw);
+    const _selectedRite    = _riteInDB ? _selectedRiteRaw : (_selectedRiteRaw ? '__custom__' : '');
+    const _overridden      = rev.rite_override && rev.rite_override !== entry.riteName;
+    const _autoCustom      = !_riteInDB && !!_selectedRiteRaw && _selectedRiteRaw !== '__custom__';
+    const _shortRite       = entry.riteName && entry.riteName.length <= 60;
     const _tradOrder    = ['Cruac', 'Theban'];
     const _byTrad       = {};
     for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
@@ -9283,7 +9301,7 @@ function renderActionPanel(entry, review) {
       const _lvl = rev.rite_custom_level || '';
       h += `<label class="proc-rite-custom-lbl">Level <input type="number" class="proc-rite-custom-level-input dt-num-input-sm" min="1" max="5" data-proc-key="${esc(entry.key)}" value="${esc(String(_lvl))}"></label>`;
     }
-    if (_overridden && _shortRite) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
+    if ((_overridden || _autoCustom) && _shortRite) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
     h += _renderActionRibbon(rev);
     h += `</div>`;
   }
