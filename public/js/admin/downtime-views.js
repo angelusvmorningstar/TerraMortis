@@ -6728,12 +6728,9 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
  */
 function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null, noLabel = false) {
   const TERR_PILLS = [
-    { id: 'academy',   label: 'Academy' },
-    { id: 'harbour',   label: 'Harbour' },
-    { id: 'dockyards', label: 'Dockyards' },
-    { id: 'northshore', label: 'N. Shore' },
-    { id: 'barrens',   label: 'Barrens' },
-    { id: '',          label: 'N/A' },
+    ...TERRITORY_DATA.map(t => ({ id: t.slug, label: t.shortLabel })),
+    { id: 'barrens', label: 'Barrens' },
+    { id: '',        label: 'N/A' },
   ];
   let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
   if (!noLabel) h += `<span class="proc-feed-lbl">Terr.</span>`;
