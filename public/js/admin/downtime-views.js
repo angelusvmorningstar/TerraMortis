@@ -7034,6 +7034,9 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
             if (tid) _rtPillSet.add(tid);
           }
         } catch { /* ignore */ }
+        if (_rtPillSet.size === 0 && entry.projTerritory) {
+          _rtPillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+        }
       }
       h += `<div class="proc-feed-mod-panel">`;
       h += `<div class="proc-mod-panel-title">Territory</div>`;
@@ -8195,11 +8198,15 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
 
   h += `<div class="proc-recat-row${suppressTerrPills ? ' proc-recat-row-top' : ''}">`;
   h += `<span class="proc-feed-lbl">Action Type</span>`;
-  h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
-  for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
-    h += `<option value="${esc(val)}"${actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+  if (entry.originalActionType === 'rote') {
+    h += `<span class="proc-merit-cat-chip proc-action-type-rote">Rote Feed</span>`;
+  } else {
+    h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
+    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
+      h += `<option value="${esc(val)}"${actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
   }
-  h += `</select>`;
 
   // Project only: show original action type badge when overridden
   if (!isMerit) {
@@ -8258,6 +8265,9 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
             if (tid) _rotePillSet.add(tid);
           }
         } catch { /* ignore */ }
+        if (_rotePillSet.size === 0 && entry.projTerritory) {
+          _rotePillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+        }
       }
       h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
     } else {

@@ -6098,6 +6098,7 @@ body {
 .proc-merit-cat-retainer { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
 .proc-merit-cat-staff    { background: var(--surf1); color: var(--txt3); border: 1px solid var(--bdr); }
 .proc-merit-cat-contacts { background: var(--surf2); color: var(--gold2); border: 1px solid var(--bdr2); }
+.proc-action-type-rote   { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
 
 .proc-merit-qualifier {
   font-size: 12px;
