@@ -9478,8 +9478,8 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-feed-desc-card">`;
     h += `<div class="proc-feed-desc-card-hd"><span class="proc-mod-panel-title">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
     // View mode (hidden when editing)
-    const _effectVal = rev.ritual_result_note
-      || (riteVal ? (_getRulesDB() || []).find(r => r.category === 'rite' && r.name === riteVal)?.description : '')
+    const _effectVal =
+      (riteVal ? (_getRulesDB() || []).find(r => r.category === 'rite' && r.name === riteVal)?.description : '')
       || '';
     h += `<div class="proc-feed-desc-view">`;
     if (_effectVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Effect</span> ${esc(_effectVal)}</div>`;
