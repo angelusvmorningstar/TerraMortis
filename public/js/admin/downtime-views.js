@@ -5653,8 +5653,9 @@ function renderProcessingMode(container) {
       }
       if (!poolValidated) return;
       const match = poolValidated.match(/(\d+)\s*$/);
-      const diceCount = match ? parseInt(match[1], 10) : 0;
+      let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      diceCount += (review?.pool_mod_spec || 0);
       // Read toggle states from sidebar
       const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
       const roteChecked      = rightPanel?.querySelector('.proc-pool-rote')?.checked  || false;
