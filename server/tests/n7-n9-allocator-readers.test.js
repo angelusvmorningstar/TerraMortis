@@ -169,9 +169,13 @@ describe('N-7 — meritBdRow showNECRO + free_grants.necro write path', () => {
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('_renderPoolCounters surfaces the necro pool in the general section', () => {
+  it('_renderPoolCounters surfaces the necro pool in the domain section (N-7a corrected the section gate)', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toMatch(/necroPools\s*=\s*category === 'general'/);
+    // N-7a (issue #766) corrected the section gate: necro targets are
+    // sub_category='domain', so the pool counter lives in the domain section
+    // (alongside lk/inv), not general. Pre-N-7a this checked 'general' —
+    // assertion updated to match the corrected gate.
+    expect(src).toMatch(/necroPools\s*=\s*category === 'domain'/);
     expect(src).toMatch(/p\.category === 'necro'/);
   });
 });
