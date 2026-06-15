@@ -3952,7 +3952,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const savedSkill = saved[`${prefix}_skill`] || '';
   const savedDisc  = saved[`${prefix}_disc`]  || '';
   const savedSpec  = saved[`${prefix}_spec`]  || '';
-  const bestSpecs  = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
+  const nativeSpecs = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
+  const isSpecsList  = savedSkill ? isSpecs(currentChar).filter(({ spec }) => !nativeSpecs.includes(spec)) : [];
+  const bestSpecs    = [...nativeSpecs, ...isSpecsList.map(s => s.spec)];
 
   // Calculate total from saved selections
   let total = 0;
