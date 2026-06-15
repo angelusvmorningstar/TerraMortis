@@ -116,7 +116,12 @@ function _renderPoolCounters(c, category) {
   // N-7 (issue #760): Necropolis pool targets sit in the general merit
   // section — surface the counter in 'general' so the read-side summary
   // matches the per-target allocator stepper below.
-  const necroPools = category === 'general' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
+  // N-7a (issue #766): Necropolis targets are sub_category='domain' — surface
+  // the pool counter in the domain section, matching where the per-target
+  // steppers actually render. Pre-N-7a this filtered on 'general' (the
+  // mistake that surfaced as part of the broader showNECRO-in-wrong-renderer
+  // bug — the original N-7 wiring went into the general renderer too).
+  const necroPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
   const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...necroPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
@@ -981,6 +986,16 @@ export function shRenderDomainMerits(c, editMode) {
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c); const _hasVM = hasViralMythology(c);
+    // N-7a (issue #766): Necropolis target merits are sub_category='domain'
+    // and render through THIS function — the general-renderer wiring at
+    // sheet.js:1325/1342 from N-7 (PR #765) doesn't reach them. Mirrors the
+    // LK/Inv/VM precedent which threads the same flags into both the domain
+    // renderer (here) AND the influence renderer (line 887). All six
+    // Necropolis targets (Catacombs / Caldarium / Garbage Pit / Labyrinth
+    // Guardians / Dark Temple / White Ants) live in the domain section, so
+    // domain-only wiring is sufficient.
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
@@ -1049,7 +1064,7 @@ export function shRenderDomainMerits(c, editMode) {
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _necroTargets.includes(m.name), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
