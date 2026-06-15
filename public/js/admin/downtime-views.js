@@ -7726,13 +7726,20 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
       : null;
     const _priorCycleId = _priorCycle?._id || '';
     const _charId       = sub?.character_id || '';
-    h += `<div class="proc-mg-prior-outcome mg-prior-loading"
-                data-prior-cycle-id="${esc(String(_priorCycleId))}"
-                data-char-id="${esc(String(_charId))}"
-                data-rite-name="${esc(entry.riteName || '')}">`;
-    h += `<div class="proc-mod-panel-title">Prior cycle resolution</div>`;
-    h += `<div class="mg-prior-text"><em>Loading…</em></div>`;
-    h += `</div>`;
+    if (_priorCycleId) {
+      h += `<div class="proc-mg-prior-outcome mg-prior-loading"
+                  data-prior-cycle-id="${esc(String(_priorCycleId))}"
+                  data-char-id="${esc(String(_charId))}"
+                  data-rite-name="${esc(entry.riteName || '')}">`;
+      h += `<div class="proc-mod-panel-title">Prior cycle resolution</div>`;
+      h += `<div class="mg-prior-text"><em>Loading…</em></div>`;
+      h += `</div>`;
+    } else {
+      h += `<div class="proc-mg-prior-outcome">`;
+      h += `<div class="proc-mod-panel-title">Prior cycle resolution</div>`;
+      h += `<div class="mg-prior-text"><em>No prior resolution recorded</em></div>`;
+      h += `</div>`;
+    }
   }
 
   // ── Dice Pool Builder (no attr/skill/disc dropdowns — pool is fixed by rite rules) ──

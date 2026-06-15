@@ -250,4 +250,65 @@ test.describe('feat.741: prior cycle resolution for parked Mandragora rites', ()
     await expect(rightPanel.locator('.proc-mg-prior-outcome')).toHaveCount(0);
   });
 
+  // AC-7 ──────────────────────────────────────────────────────────────────────
+
+  test('AC-7: prior outcome section is read-only — no inputs, textareas, or buttons inside it', async ({ page }) => {
+    await setupProcessing741(page, [SUB_PARKED], [SUB_PRIOR_WITH_RESOLUTION]);
+    await openSorceryAction741(page);
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel).toBeVisible({ timeout: 5000 });
+
+    const priorOutcome = rightPanel.locator('.proc-mg-prior-outcome');
+    await expect(priorOutcome).toBeVisible({ timeout: 5000 });
+
+    // No interactive elements inside the prior outcome section
+    await expect(priorOutcome.locator('input')).toHaveCount(0);
+    await expect(priorOutcome.locator('textarea')).toHaveCount(0);
+    await expect(priorOutcome.locator('button')).toHaveCount(0);
+  });
+
+  // AC-Edge: no prior cycle ───────────────────────────────────────────────────
+
+  test('AC-Edge: first cycle (no prior cycle) shows "No prior resolution recorded" immediately — no perpetual Loading', async ({ page }) => {
+    // Only one cycle exists — no prior cycle possible
+    const CYCLE_ONLY = { _id: 'cycle-741-only', cycle_number: 1, status: 'active', confirmed_ambience: {}, narrative_notes: '' };
+    const SUB_FIRST_CYCLE = { ...SUB_PARKED, cycle_id: 'cycle-741-only' };
+
+    await page.addInitScript(({ user }) => {
+      localStorage.setItem('tm_auth_token', 'local-test-token');
+      localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+      localStorage.setItem('tm_auth_user', JSON.stringify(user));
+    }, { user: ST_USER_741 });
+
+    await page.route('http://localhost:3000/**', route => {
+      const url = route.request().url();
+      const method = route.request().method();
+      const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+      if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
+      if (url.includes('/api/downtime_submissions')) return ok([SUB_FIRST_CYCLE]);
+      if (url.includes('/api/downtime_cycles'))      return ok([CYCLE_ONLY]);
+      if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR_741._id, name: CHAR_741.name, moniker: null, honorific: null }]);
+      if (url.includes('/api/characters'))           return ok([CHAR_741]);
+      if (url.includes('/api/territories'))          return ok([TERRITORY_ACADEMY_741]);
+      if (url.includes('/api/game_sessions'))        return ok([]);
+      if (url.includes('/api/session_logs'))         return ok([]);
+      return ok([]);
+    });
+
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
+    await page.click('[data-domain="downtime"]');
+    await page.waitForTimeout(1000);
+    await openSorceryAction741(page);
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel).toBeVisible({ timeout: 5000 });
+
+    const priorText = rightPanel.locator('.mg-prior-text');
+    await expect(priorText).toContainText('No prior resolution recorded', { timeout: 3000 });
+    // Must NOT stay as "Loading…"
+    await expect(priorText).not.toContainText('Loading');
+  });
+
 });
