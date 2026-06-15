@@ -1018,15 +1018,26 @@ export function shRenderDomainMerits(c, editMode) {
       }
       // Attached-to selector for Haven / Mandragora Garden
       if (_isCapped) {
-        const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
-        const _spOpts = ['<option value="">(select Safe Place)</option>']
+        // N-8 (issue #761, Peter decision B 2026-06-15): Mandragora Garden's
+        // attached_to picker accepts Necropolis Sepulcher as an alternative
+        // destination alongside Safe Place. Single-picker option-set \u2014 NOT
+        // dual-anchor (Sepulcher's purchase prereq carries the clan check;
+        // there's no second anchor field to populate). Haven stays
+        // Safe-Place-only \u2014 only Mandragora gets the expansion.
+        const _isMandragora = m.name === 'Mandragora Garden';
+        const _spInstances = (c.merits || []).filter(sp =>
+          (sp.category === 'domain' && sp.name === 'Safe Place')
+          || (_isMandragora && sp.name === 'Necropolis Sepulcher')
+        );
+        const _placeholderLabel = _isMandragora ? '(select Safe Place or Sepulcher)' : '(select Safe Place)';
+        const _spOpts = ['<option value="">' + _placeholderLabel + '</option>']
           .concat(_spInstances.map(sp => { const k = domKey(sp); const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(k) + '"' + (_at && _at.destination === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
           .join('');
         h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
         if (!normaliseAttachedTo(m.attached_to) || _spInstances.length === 0) {
-          h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
+          h += '<div class="dom-cap-warn">\u26A0 Needs an attached ' + (_isMandragora ? 'Safe Place or Sepulcher' : 'Safe Place') + ' \u2014 contributes 0 dots until linked.</div>';
         } else if (_capStored > _capEff) {
-          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
+          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached ' + (_isMandragora ? 'anchor' : 'Safe Place') + ' is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if upgraded)</div>';
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
