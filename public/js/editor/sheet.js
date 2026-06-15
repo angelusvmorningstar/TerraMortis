@@ -995,7 +995,13 @@ export function shRenderDomainMerits(c, editMode) {
     // Guardians / Dark Temple / White Ants) live in the domain section, so
     // domain-only wiring is sufficient.
     const _hasNecroSep = hasNecropolisSepulcher(c);
-    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
+    // N-7b (issue #768): _necroTargets must populate UNCONDITIONALLY — option 3
+    // suppression is "categorically by merit name, regardless of Sepulcher
+    // ownership." The stepper render is still gated on _hasNecroSep below
+    // (showNECRO: _hasNecroSep && _isNecroTarget), but the hide-* flags fire
+    // even for non-Sepulcher characters who somehow have a Necropolis target
+    // merit on their sheet.
+    const _necroTargets = getNecropolisTargets(getRulesCache());
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
@@ -1064,7 +1070,13 @@ export function shRenderDomainMerits(c, editMode) {
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _necroTargets.includes(m.name), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // N-7b (issue #768, Peter decision option 3, 2026-06-16): Necropolis
+      // target merits are pool-funded only. Suppress CP / XP / MCI / Bonus
+      // categorically by merit name (regardless of Sepulcher ownership —
+      // the row exists because the merit is on the sheet, but it must NEVER
+      // be hand-funded). The NECRO stepper is the only allocation surface.
+      const _isNecroTarget = _necroTargets.includes(m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isNecroTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _isNecroTarget, hideCP: _isNecroTarget, hideXP: _isNecroTarget, hideMCI: _isNecroTarget, hideBonus: _isNecroTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
