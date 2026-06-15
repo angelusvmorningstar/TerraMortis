@@ -241,4 +241,50 @@ test.describe('feat.745: Mandragora parked rite indicator on character sheet', (
     expect(html).toContain('rite-mg-tag');
   });
 
+  // ── Edge cases ───────────────────────────────────────────────────────────────
+
+  test('isolation (suite): mixed parked/non-parked — chip appears exactly once', async ({ page }) => {
+    const char = buildChar({
+      merits: [{ name: 'Mandragora Garden', rating: 1, dots: 1, bonus: 0, category: 'general' }],
+      powers: [
+        { name: 'Rite of the Fallow Field', category: 'rite', level: 1, tradition: 'Cruac', free: true, mandragora_parked: true },
+        { name: 'Rite of the Verdant Spring', category: 'rite', level: 1, tradition: 'Cruac', free: true },
+      ],
+    });
+    await setupSuite(page, char);
+    await renderSheetDesktop(page, char);
+
+    const html = await suiteSheetHtml(page);
+    const count = (html.match(/rite-mg-tag/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  test('isolation (admin): mixed parked/non-parked — chip appears exactly once', async ({ page }) => {
+    const char = buildChar({
+      merits: [{ name: 'Mandragora Garden', rating: 1, dots: 1, bonus: 0, category: 'general' }],
+      powers: [
+        { name: 'Rite of the Fallow Field', category: 'rite', level: 1, tradition: 'Cruac', free: true, mandragora_parked: true },
+        { name: 'Rite of the Verdant Spring', category: 'rite', level: 1, tradition: 'Cruac', free: true },
+      ],
+    });
+    await setupAdmin(page, char);
+
+    const html = await adminSheetDiscHtml(page, char);
+    const count = (html.match(/rite-mg-tag/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  test('no-tradition guard (suite): parked rite with no tradition still shows chip', async ({ page }) => {
+    const char = buildChar({
+      powers: [
+        { name: 'Rite of the Fallow Field', category: 'rite', level: 1, tradition: '', free: true, mandragora_parked: true },
+      ],
+    });
+    await setupSuite(page, char);
+    await renderSheetDesktop(page, char);
+
+    const html = await suiteSheetHtml(page);
+    expect(html).toContain('rite-mg-tag');
+  });
+
 });
