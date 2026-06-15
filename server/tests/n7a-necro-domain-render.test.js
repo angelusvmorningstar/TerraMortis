@@ -156,7 +156,11 @@ describe('N-7a — placement sanity guards', () => {
     const fnBody = src.slice(fnStart, nextExport > 0 ? nextExport : src.length);
     expect(fnBody).toMatch(/_hasNecroSep\s*=\s*hasNecropolisSepulcher\(c\)/);
     expect(fnBody).toMatch(/_necroTargets/);
-    expect(fnBody).toMatch(/showNECRO:\s*_hasNecroSep\s*&&\s*_necroTargets\.includes\(m\.name\)/);
+    // N-7b (issue #768) introduced `_isNecroTarget = _necroTargets.includes(m.name)`
+    // as a local intermediate so the same boolean threads into hideCP/XP/MCI/
+    // Bonus alongside showNECRO. Semantic check stays the same: showNECRO is
+    // gated on Sepulcher ownership AND target-name membership.
+    expect(fnBody).toMatch(/showNECRO:\s*_hasNecroSep\s*&&\s*(_necroTargets\.includes\(m\.name\)|_isNecroTarget)/);
   });
 
   it('_renderPoolCounters surfaces necro in domain section, not general', () => {

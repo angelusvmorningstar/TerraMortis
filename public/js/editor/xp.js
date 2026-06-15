@@ -208,16 +208,25 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
     ? '<span class="bd-needs-hint">' + total + ' / ' + fixedAt + ' needed</span>' : '';
-  let h = '<div class="merit-bd-row">'
-    + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>'
-    + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>'
-    + '<div class="bd-sep"></div>';
+  // N-7b (issue #768): Necropolis target merits are pool-funded only — the
+  // domain-renderer call site suppresses CP / XP / MCI / Bonus on these rows
+  // via opts.hideCP / opts.hideXP / opts.hideMCI (this block) + opts.hideBonus
+  // (below). Same opts-flag pattern as N-9's hideBonus on standing merits.
+  // The pre-N-7b shape rendered CP + XP + sep unconditionally; the guards
+  // here are defaults-false so existing call sites that don't pass the
+  // hide-flags get the legacy behaviour unchanged.
+  let h = '<div class="merit-bd-row">';
+  if (!opts.hideCP) h += '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>';
+  if (!opts.hideXP) h += '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>';
+  if (!opts.hideCP || !opts.hideXP) h += '<div class="bd-sep"></div>';
   // N-9 (issue #762, Bug 1 "adjacent finding"): MCI input writes the map-shape
   // `free_grants.mci` per the ADR-005 allocator-write-path amendment. The
   // handler (shEditMeritPt) detects the `free_grants.` prefix and routes to
   // the map. Pre-N-9 this wrote `free_mci`, creating a fresh divergence on
   // every edit after the N-2 backfill.
-  if (opts.showMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.mci\',+this.value)"></div>';
+  // N-7b: showMCI is AND'd with !hideMCI at the call site so Necropolis
+  // targets don't surface the MCI allocator even when there's pool capacity.
+  if (opts.showMCI && !opts.hideMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.mci\',+this.value)"></div>';
   if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
   if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
   if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
