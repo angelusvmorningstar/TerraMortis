@@ -234,7 +234,11 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   // N-7 (issue #760): Necropolis allocator — writes directly to
   // m.free_grants.necro (map shape, no new legacy free_necro field) per the
   // ADR-005 allocator-write-path amendment.
-  if (opts.showNECRO) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">NECRO</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fnecro + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.necro\',+this.value)"></div>';
+  // N-7c (issue #771): id + aria-label so browsers don't flag "form field
+  // element should have an id or name attribute / No label associated with a
+  // form field". Existing LK/INV/VM/OHM/MCI steppers share the same gap —
+  // filed as separate follow-up to keep N-7c scoped.
+  if (opts.showNECRO) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-necro-lbl-' + realIdx + '">NECRO</span><input id="bd-necro-' + realIdx + '" name="bd-necro-' + realIdx + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fnecro + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.necro\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
   // N-9 (issue #762, Bug 2): standing-merit render paths (MCI, PT) don't read

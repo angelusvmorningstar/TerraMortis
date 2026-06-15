@@ -111,6 +111,15 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── Lorekeeper grant pool (evaluator reads from rule_grant) ──
   applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
 
+  // ── Necropolis Sepulcher grant pool (N-7c, issue #771): pool=Sepulcher
+  //    rating, distributable across the six Collective Compound targets via
+  //    `free_grants.necro`. Same pool-evaluator dispatch shape as LK/Inv/VM —
+  //    its absence from N-7 left `_grant_pools` empty for necro, which silently
+  //    broke the domain counter render AND clamped the per-target stepper to 0
+  //    via poolAvailableFor. The helpers + write-path landed in N-7; this is
+  //    the producer call that fills the pool. ──
+  applyPoolRulesFromDb(c, getRulesBySource('Necropolis Sepulcher'));
+
   // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
   applyOTSRulesFromDb(c, getRulesBySource('Oath of the Scapegoat'));
 
