@@ -5,7 +5,7 @@ issue: 746
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/746
 branch: ms/issue-746-dt-form-mg-parked-prefill
 created: '2026-06-15'
-status: ready-for-dev
+status: done
 recommended_model: 'sonnet — targeted changes to one file, async fetch for AC-2'
 context:
   - public/js/tabs/downtime-form.js
@@ -301,8 +301,12 @@ The `.rite-mg-tag` class already exists in `components.css` (added by #745). Reu
 
 ### Files changed
 
-_To be filled by dev agent._
+- `public/js/tabs/downtime-form.js` — T1 seeding cap, T2/T3/T4 slot rendering, T5 hydration, collectResponses preserve-prior fix
+- `public/css/components.css` — `.rite-mg-tag`, `.qf-mg-locked-rite`, `.dt-mg-prior-outcome`, `.dt-mg-prior-loading`
+- `tests/feat-746-dt-form-mg-parked-prefill.spec.js` — 10 Playwright tests, all passing
 
 ### Completion notes
 
-_To be filled by dev agent._
+T1 seeding cap uses `m.dots || m.rating` instead of `effectiveDomainDots` because the latter requires `attached_to` → Safe Place link (CAP_DOMAIN path via `_havenCap`) which is absent from fresh characters and test fixtures.
+
+collectResponses() had a pre-existing issue: sorcery fields (`sorcery_N_rite`, `sorcery_N_mandragora`) were overwritten with `''`/`'no'` when the sorcery section was absent from the DOM (minimal mode). This broke seeded locked slots on mode switch. Fixed by preserving `_prior` values when elements are null.
