@@ -292,6 +292,41 @@ test.describe('feat.746 — DT form: Mandragora Garden locked rite slots', () =>
     await expect(page.locator('#dt-sandbox-746 .qf-mg-locked-rite')).toHaveCount(0);
   });
 
+  test('AC-6-addslot: player can add a non-locked slot alongside a pre-filled locked slot', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char, lockedSub());
+    await openForm(page, char);
+    await openSorcerySection(page);
+
+    // 1 locked slot initially
+    await expect(page.locator('#dt-sandbox-746 .dt-sorcery-slot')).toHaveCount(1);
+
+    // Click + Add Rite
+    const addBtn = page.locator('#dt-sandbox-746 #dt-add-rite');
+    await addBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await addBtn.click();
+
+    // Now 2 slots
+    await expect(page.locator('#dt-sandbox-746 .dt-sorcery-slot')).toHaveCount(2);
+
+    // Slot 1 still locked
+    await expect(page.locator('#dt-sandbox-746 #dt-sorcery-slot-1 .qf-mg-locked-rite')).toBeVisible();
+    // Slot 2 is a normal editable select
+    await expect(page.locator('#dt-sandbox-746 select#dt-sorcery_2_rite')).toBeVisible();
+    // Slot 2 has a Remove button (n > 1, not locked)
+    await expect(page.locator('#dt-sandbox-746 #dt-sorcery-slot-2 .dt-sorcery-remove')).toBeVisible();
+  });
+
+  test('AC-1-savepath: hidden input value equals rite name (save path contract)', async ({ page }) => {
+    const char = buildChar();
+    await setupSuite(page, char, lockedSub());
+    await openForm(page, char);
+    await openSorcerySection(page);
+
+    const hiddenVal = await page.locator('#dt-sandbox-746 #dt-sorcery_1_rite').inputValue();
+    expect(hiddenVal).toBe('Rite of Warding');
+  });
+
   test('AC-7: existing server submission is not overwritten by seeding', async ({ page }) => {
     const char = buildChar();
     // Existing draft with different rite chosen
