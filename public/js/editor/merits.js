@@ -260,7 +260,7 @@ export function meritQualifies(c, prereqStr, structuredPrereq) {
 
   // If a structured prereq tree was passed directly, use the new engine
   if (structuredPrereq !== undefined) {
-    return _meetsPrereq(c, structuredPrereq);
+    return meritPrereqOK(c, { prereq: structuredPrereq });
   }
 
   // Fallback: regex-based parsing for legacy callers
@@ -269,6 +269,31 @@ export function meritQualifies(c, prereqStr, structuredPrereq) {
     const orParts = part.split(/\s+or\s+/i);
     return orParts.some(t => checkSinglePrereq(c, t.trim()));
   });
+}
+
+/**
+ * N-9 (issue #762, Bug 3) — single seam for the prereq check across all
+ * sub-category dropdown filters (buildMeritOptions, buildSubCategoryMeritOptions,
+ * buildMCIGrantOptions). Wraps `_meetsPrereq` so future evolutions of the
+ * prereq-check semantics happen in one place instead of three.
+ *
+ * Returns true when the character meets the rule's `prereq` tree. Empty /
+ * missing prereq trees pass (existing `_meetsPrereq` semantics).
+ *
+ * Note: current-row passthrough — when a row's currently-selected merit name
+ * fails its prereq (e.g. ST removed a prereq merit elsewhere on the sheet),
+ * the picker keeps the selection visible per Ma'at's directive (legitimate
+ * editing affordance). Callers handle that case inline with their `curLow`
+ * check, and emit a `console.warn` so the situation surfaces in QA testing
+ * instead of silently passing. The warn lives on the caller side because
+ * "current row" is dropdown-builder concern, not a property of the rule.
+ *
+ * @param {object} c
+ * @param {object} rule - merit rule doc (with optional `prereq` tree)
+ * @returns {boolean}
+ */
+export function meritPrereqOK(c, rule) {
+  return _meetsPrereq(c, rule && rule.prereq);
 }
 
 /**
@@ -286,7 +311,7 @@ export function buildMeritOptions(c, currentName) {
       if (rule.sub_category && rule.sub_category !== 'general') continue;
       if (INFLUENCE_MERIT_TYPES.includes(rule.name)) continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
-      if (!_meetsPrereq(c, rule.prereq)) continue;
+      if (!meritPrereqOK(c, rule)) continue;
       const excl = _isExcluded(c, rule.name);
       if (excl && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
       qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
@@ -328,8 +353,19 @@ export function buildSubCategoryMeritOptions(c, subCategory, currentName, extraN
   const seen = new Set();
   for (const rule of rulesDB) {
     if (rule.sub_category !== subCategory) continue;
-    if (!_meetsPrereq(c, rule.prereq) && rule.name.toLowerCase() !== curLow) continue;
-    if (_isExcluded(c, rule.name) && rule.name.toLowerCase() !== curLow) continue;
+    // N-9 (issue #762, Bug 3): single-seam prereq check; current-row
+    // passthrough preserved (legitimate editing affordance) but a
+    // failing-prereq passthrough now emits a diagnostic warn so the
+    // situation surfaces in QA testing instead of silently passing.
+    const passes = meritPrereqOK(c, rule);
+    const isCurrentRow = rule.name.toLowerCase() === curLow;
+    if (!passes && !isCurrentRow) continue;
+    if (!passes && isCurrentRow) {
+      try {
+        console.warn(`[meritPrereqOK] current selection "${rule.name}" (sub_category=${subCategory}) passes through filter but fails its prereq — investigate.`);
+      } catch { /* console may be absent in test contexts */ }
+    }
+    if (_isExcluded(c, rule.name) && !isCurrentRow) continue;
     if (seen.has(rule.name)) continue;
     seen.add(rule.name);
     qualified.push(rule.name);
@@ -365,7 +401,7 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
     for (const rule of rulesDB) {
       if (rule.sub_category === 'standing') continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
-      if (!_meetsPrereq(c, rule.prereq)) continue;
+      if (!meritPrereqOK(c, rule)) continue;
       if (_isExcluded(c, rule.name) && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
       const rr = rule.rating_range;
       if (rr) {

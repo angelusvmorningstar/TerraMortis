@@ -13,7 +13,9 @@ import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOpti
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
 // N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
 // N-5: validateTrapDoorAnchor reports the render-time non-functional state.
-import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor } from '../data/rules-helpers.js';
+// N-7: hasNecropolisSepulcher + getNecropolisTargets drive the allocator stepper.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf } from '../data/rules-helpers.js';
+import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
@@ -111,12 +113,16 @@ function _renderPoolCounters(c, category) {
   // Lorekeeper pools target Herd/Retainer — show in the domain section (Herd lives there;
   // Retainer is influence but pool is unified). One row keeps the summary uncluttered.
   const lkPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'lk') : [];
-  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools];
+  // N-7 (issue #760): Necropolis pool targets sit in the general merit
+  // section — surface the counter in 'general' so the read-side summary
+  // matches the per-target allocator stepper below.
+  const necroPools = category === 'general' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
+  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...necroPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
   const seen = new Set();
   allPools.forEach(p => {
-    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.name);
+    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.category === 'necro' ? 'Necropolis targets (Catacombs/Caldarium/Garbage Pit/Labyrinth Guardians/Dark Temple/White Ants)' : p.name);
     const key = p.source + '|' + label;
     if (seen.has(key)) return;
     seen.add(key);
@@ -126,6 +132,8 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'lk') { pTotal = p.amount; pUsed = lorekeeperUsed(c); }
     else if (p.category === 'ohm') { pTotal = p.amount; pUsed = ohmUsed(c); }
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
+    // N-7 (issue #760): necro pool — sum freeOf(m, 'necro') across all merits.
+    else if (p.category === 'necro') { pTotal = p.amount; pUsed = (c.merits || []).reduce((s, m) => s + freeOf(m, 'necro'), 0); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
     h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
@@ -1151,7 +1159,9 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name)); h += _prereqWarn(c, m.name);
+    // N-9 (issue #762, Bug 2): standing merits (MCI/PT) don't read m.bonus,
+    // so the Bonus row is no-op clutter; hideBonus suppresses it.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { hideBonus: true }); h += _prereqWarn(c, m.name);
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
     for (let d = 0; d < 5 && d < eDots; d++) {
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><div class="mci-dot-content">';
@@ -1225,7 +1235,8 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0 });
+    // N-9 (issue #762, Bug 2): PT standing — hideBonus.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0, hideBonus: true });
     h += _prereqWarn(c, m.name);
     h += '<div class="pt-skills-edit">';
     if (eDots >= 1) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF</span><span class="mci-benefit-text">Networking: 2 free Contacts' + (m.role ? ' (' + esc(m.role) + ')' : '') + '</span></div>';
@@ -1296,6 +1307,11 @@ export function shRenderGeneralMerits(c, editMode) {
       + '</div>';
     h += _renderPoolCounters(c, 'general') + _renderPoolCounters(c, 'influence') + _renderPoolCounters(c, 'domain');
     const _genMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    // N-7 (issue #760): Necropolis allocator wiring — _hasNecroSep gates the
+    // stepper render; _necroTargets sources the target merit list from the
+    // rule_grant doc (NOT hardcoded — picks up future pool_targets edits).
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
     const _KERBEROS_ASPECTS = ['Monstrous', 'Competitive', 'Seductive'];
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
@@ -1306,7 +1322,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1323,7 +1339,7 @@ export function shRenderGeneralMerits(c, editMode) {
         const _mBonus = m.bonus || 0;
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
-        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
+        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) });
         // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
         h += _whiteAntsTerritoriesBlock(m, rIdx);
         // N-5 (MNEC #697): Trap Door triple-anchor picker (origin + destination + territory).

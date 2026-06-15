@@ -6,6 +6,9 @@
 
 import { addMerit, ensureMeritSync } from './merits.js';
 import { syncMeritRating, pruneContactsSpheres } from './domain.js';
+// N-9 (issue #762): pool readers consume freeOf so they union-read map +
+// legacy fields (post-N-2 backfill the persisted data lives in the map).
+import { freeOf } from '../data/rules-helpers.js';
 import { getRulesBySource, getRulesCache } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
@@ -186,17 +189,25 @@ export function mciPoolTotal(mci, budgets = _MCI_DEFAULT_BUDGETS) {
   return pool;
 }
 
-/** Sum all free_mci dots allocated across every merit and fighting style. */
+/** Sum all free_mci dots allocated across every merit and fighting style.
+ *
+ *  N-9 (issue #762, Bug 1): consumes `freeOf` (union-read map + legacy) so the
+ *  pool counter at top of merits reads correct numerator on backfilled data.
+ *  Pre-N-9 this read only `m.free_mci`, missing every grant that had been
+ *  migrated into `m.free_grants.mci` by N-2's backfill — the counter showed
+ *  0/Y while the denominator moved as MCI XP shifted, making the per-row
+ *  selectors look broken when they were actually wired correctly. */
 export function getMCIPoolUsed(c) {
   let total = 0;
-  (c.merits || []).forEach(m => { total += m.free_mci || 0; });
-  (c.fighting_styles || []).forEach(fs => { total += fs.free_mci || 0; });
+  (c.merits || []).forEach(m => { total += freeOf(m, 'mci'); });
+  (c.fighting_styles || []).forEach(fs => { total += freeOf(fs, 'mci'); });
   return total;
 }
 
-/** Sum all free_ots dots allocated across fighting styles (Oath of the Scapegoat pool). */
+/** Sum all free_ots dots allocated across fighting styles (Oath of the Scapegoat pool).
+ *  N-9 (issue #762): freeOf union-read for N-2-backfill safety. */
 export function getOTSPoolUsed(c) {
-  return (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
+  return (c.fighting_styles || []).reduce((s, fs) => s + freeOf(fs, 'ots'), 0);
 }
 
 /** Check if a pool matches a merit name (supports single `name` or multi `names`). */
@@ -222,18 +233,40 @@ export function getPoolTotal(c, meritName) {
 export function getPoolUsed(c, meritName) {
   // Find all pools that include this merit
   const matchedPools = (c._grant_pools || []).filter(p => _poolMatchesName(p, meritName));
-  // Collect all merit names covered by these pools
+  // Collect all merit names + slugs (pool categories) covered.
   const allNames = new Set();
+  const slugs = new Set();
   matchedPools.forEach(p => {
     if (p.names) p.names.forEach(n => allNames.add(n));
     else if (p.name) allNames.add(p.name);
+    if (p.category) slugs.add(p.category);
   });
-  // Sum all named grant fields across all covered merits
+  // Sum all named grant fields across all covered merits.
+  //
+  // N-9 (issue #762, Bug 1): the legacy implementation iterated
+  // `Object.entries(m)` for `free_*` keys — caught legacy flat fields but
+  // NOT the new `m.free_grants` map. For each matched-pool category we now
+  // also read `freeOf(m, slug)` so the map entries are picked up. The
+  // legacy `free_*` enumeration is retained for transitional safety on the
+  // few channels (free / free_fwb / free_attache / free_carthian) that
+  // aren't pool categories tracked in `_grant_pools.category` — those
+  // continue to count as before, but for the categories that DO have a
+  // pool the freeOf union-read becomes the canonical source.
   let total = 0;
   (c.merits || []).forEach(m => {
     if (!allNames.has(m.name)) return;
+    for (const slug of slugs) total += freeOf(m, slug);
+    // Anything else that starts with `free_` but isn't a pool category
+    // (free, free_fwb, free_attache, free_carthian, etc.) — keep the
+    // legacy enumeration so this helper's pre-N-9 behaviour for non-pool
+    // free fields is preserved. Pool categories are skipped here because
+    // `freeOf` already consumed both their map and legacy values above.
     for (const [k, v] of Object.entries(m)) {
-      if (k.startsWith('free_') && typeof v === 'number') total += v;
+      if (!k.startsWith('free_') || k === 'free_grants') continue;
+      if (typeof v !== 'number') continue;
+      const slug = k.slice('free_'.length);
+      if (slugs.has(slug)) continue; // already counted via freeOf above
+      total += v;
     }
   });
   return total;
