@@ -4,6 +4,9 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+// #751: writes state.activeCycleNum when the active cycle resolves so the
+// editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
+import state from '../data/state.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
@@ -1193,6 +1196,9 @@ async function loadAllCycles() {
 
   // Auto-select active cycle
   activeCycle = allCycles.find(c => c.status === 'active') || null;
+  // #751: plumb the cycle number into shared state for the editor's
+  // Add Equipment / Add Asset pre-fill.
+  state.activeCycleNum = (activeCycle && activeCycle.cycle_number) ?? null;
   if (activeCycle) {
     selectedCycleId = activeCycle._id;
     sel.value = activeCycle._id;
