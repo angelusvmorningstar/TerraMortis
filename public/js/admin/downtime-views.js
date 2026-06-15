@@ -5615,6 +5615,21 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire feeding roll clear button
+  container.querySelectorAll('.proc-feed-clear-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId   = btn.dataset.subId;
+      const procKey = btn.dataset.procKey;
+      const entry   = _getQueueEntry(procKey);
+      const sub     = submissions.find(s => s._id === subId);
+      await updateSubmission(subId, { feeding_roll: null, feeding_vitae_tally: null });
+      if (sub) { sub.feeding_roll = null; sub.feeding_vitae_tally = null; }
+      if (entry) await saveEntryReview(entry, { pool_status: 'confirmed' });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire project 9-Again sidebar toggle
   container.querySelectorAll('.proc-proj-9a').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());
@@ -7804,6 +7819,9 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
       canRoll:      _showRollBtn,
       noRollMsg:    'Confirm pool first',
       showConfirm:  _poolStatus === 'pending',
+      clearBtnHtml: _feedRollObj
+        ? `<button class="dt-btn proc-feed-clear-roll-btn" data-sub-id="${esc(entry.subId)}" data-proc-key="${esc(key)}">Clear Roll</button>`
+        : '',
     });
   }
 
@@ -8073,6 +8091,7 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
     contestedRoll   = null, // DTR-2: defender roll object (for net calculation)
     showConfirm     = false,
     contestedData   = null, // DTR-2: { isContested, contestedChar, contestedPool, contestedRoll } \u2014 renders toggle+controls inside roll card
+    clearBtnHtml    = '',   // optional button HTML injected after Re-roll (opt-in per call site)
   } = opts;
 
   const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
@@ -8124,6 +8143,7 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
     }
     const btnLabel = roll ? 'Re-roll' : 'Roll Dice Pool';
     h += `<button class="dt-btn ${esc(btnClass)}" data-proc-key="${esc(key)}"${btnDataAttrs}>${btnLabel}</button>`;
+    if (clearBtnHtml) h += clearBtnHtml;
     if (roll) {
       const dStr   = _formatDiceString(roll.dice_string);
       const suc    = roll.successes ?? 0;
