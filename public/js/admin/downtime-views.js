@@ -5684,6 +5684,26 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire Mandragora Garden ack button
+  container.querySelectorAll('.proc-mg-ack-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const procKey = btn.dataset.procKey;
+      const entry   = _getQueueEntry(procKey);
+      if (!entry) return;
+      const sub = submissions.find(s => s._id === entry.subId);
+      if (!sub) return;
+      const n = entry.actionIdx;
+
+      await saveEntryReview(entry, { pool_status: 'skipped' });
+      await updateSubmission(entry.subId, { [`responses.sorcery_${n}_mg_acked`]: 'yes' });
+      if (!sub.responses) sub.responses = {};
+      sub.responses[`sorcery_${n}_mg_acked`] = 'yes';
+
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire project 9-Again sidebar toggle
   container.querySelectorAll('.proc-proj-9a').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());
@@ -7740,6 +7760,16 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
       h += `<div class="mg-prior-text"><em>No prior resolution recorded</em></div>`;
       h += `</div>`;
     }
+
+    // ── Parked Mandragora rite — Acknowledge control ──────────────────────────
+    const _mgAcked = sub?.responses?.[`sorcery_${entry.actionIdx}_mg_acked`] === 'yes';
+    h += `<div class="proc-mg-ack">`;
+    if (_mgAcked) {
+      h += `<span class="proc-mg-ack-done">&#10003; Noted &#8212; still running</span>`;
+    } else {
+      h += `<button type="button" class="dt-btn proc-mg-ack-btn" data-proc-key="${esc(key)}">Noted &#8212; still running</button>`;
+    }
+    h += `</div>`;
   }
 
   // ── Dice Pool Builder (no attr/skill/disc dropdowns — pool is fixed by rite rules) ──
