@@ -278,6 +278,31 @@ test.describe('feat.742: acknowledge action for parked Mandragora rite slots', (
     await expect(ackDone).toContainText('Noted');
   });
 
+  // AC-2-UI: immediate transition after click ────────────────────────────────
+
+  test('AC-2-UI: after clicking ack button, button is replaced by .proc-mg-ack-done in the same session', async ({ page }) => {
+    await setupProcessing742(page, [SUB_PARKED_742]);
+    await openSorceryAction742(page);
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel).toBeVisible({ timeout: 5000 });
+
+    // Button present before click
+    const ackBtn = rightPanel.locator('.proc-mg-ack-btn');
+    await expect(ackBtn).toBeVisible({ timeout: 5000 });
+
+    await ackBtn.click();
+    await page.waitForTimeout(1000); // allow two API calls + renderProcessingMode
+
+    // Button must be gone
+    await expect(page.locator('.proc-mg-ack-btn')).toHaveCount(0);
+
+    // Confirmation text must appear in its place
+    const ackDone = page.locator('.proc-mg-ack-done');
+    await expect(ackDone).toBeVisible({ timeout: 3000 });
+    await expect(ackDone).toContainText('Noted');
+  });
+
   // AC-4 ──────────────────────────────────────────────────────────────────────
 
   test('AC-4: non-parked rite slot shows no .proc-mg-ack element', async ({ page }) => {
