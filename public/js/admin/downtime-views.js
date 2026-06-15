@@ -71,6 +71,7 @@ const procExpandedKeys = new Set(); // tracks which action rows are expanded in 
 let _procFilters = { statuses: new Set(), chars: new Set(), phases: new Set(), territories: new Set(), sources: new Set() };
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let _sorcByTarget = new Map(); // built in renderProcessingMode; maps lowercased charName → [{entry, riteName, tradition, resultNote}]
+let _mgPriorSubCache = new Map(); // keyed by prior cycle_id → array of submissions; cleared on each renderProcessingMode
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
 let _procCtxMap   = null;      // Map<key, ctxObj> built once per renderProcessingMode call; proto.8-13 populate ctxObj
@@ -2862,6 +2863,7 @@ function buildProcessingQueue(subs) {
         riteName: rite,
         tradition,
         targetsText,
+        mandragora: resp[`sorcery_${n}_mandragora`] === 'yes',
       });
     }
 
@@ -4622,6 +4624,58 @@ function renderProcFilterBar(queue) {
 
   h += '</div>'; // proc-filter-bar
   return h;
+}
+
+async function _hydrateMgPriorOutcomes() {
+  const placeholders = document.querySelectorAll('.proc-mg-prior-outcome.mg-prior-loading');
+  if (!placeholders.length) return;
+
+  // Group by priorCycleId so we fetch each prior cycle at most once
+  const byPriorCycle = new Map();
+  placeholders.forEach(el => {
+    const cid = el.dataset.priorCycleId;
+    if (!cid) return;
+    if (!byPriorCycle.has(cid)) byPriorCycle.set(cid, []);
+    byPriorCycle.get(cid).push(el);
+  });
+
+  for (const [priorCycleId, els] of byPriorCycle) {
+    if (!_mgPriorSubCache.has(priorCycleId)) {
+      try {
+        const subs = await getSubmissionsForCycle(priorCycleId);
+        _mgPriorSubCache.set(priorCycleId, subs);
+      } catch {
+        _mgPriorSubCache.set(priorCycleId, []);
+      }
+    }
+    const priorSubs = _mgPriorSubCache.get(priorCycleId) || [];
+
+    els.forEach(el => {
+      const charId   = el.dataset.charId;
+      const riteName = el.dataset.riteName;
+      const textEl   = el.querySelector('.mg-prior-text');
+      if (!textEl) return;
+
+      const priorSub = priorSubs.find(s => String(s.character_id) === String(charId));
+      let resolutionText = '';
+
+      if (priorSub && priorSub.sorcery_review) {
+        const r = priorSub.responses || {};
+        const slotCount = parseInt(r.sorcery_slot_count || '3', 10);
+        for (let n = 1; n <= slotCount; n++) {
+          if (r[`sorcery_${n}_rite`] === riteName && r[`sorcery_${n}_mandragora`] === 'yes') {
+            resolutionText = (priorSub.sorcery_review[n] || {}).ritual_result_note || '';
+            break;
+          }
+        }
+      }
+
+      textEl.innerHTML = resolutionText
+        ? esc(resolutionText)
+        : '<em>No prior resolution recorded</em>';
+      el.classList.remove('mg-prior-loading');
+    });
+  }
 }
 
 function renderProcessingMode(container) {
@@ -6473,6 +6527,10 @@ function renderProcessingMode(container) {
     renderProcessingMode(container);
   });
 
+  // Async: fill parked-rite prior-outcome placeholders (Mandragora Garden, feat #741)
+  _mgPriorSubCache.clear();
+  _hydrateMgPriorOutcomes(); // intentionally not awaited
+
 }
 
 function _renderAddStActionForm(subs) {
@@ -7658,6 +7716,24 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const total        = base + 3 + mgDots + eqMod;
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Parked Mandragora rite — prior cycle resolution (async-filled by _hydrateMgPriorOutcomes) ──
+  if (entry.mandragora) {
+    const _priorCycle = currentCycle
+      ? allCycles
+          .filter(c => c.cycle_number < currentCycle.cycle_number)
+          .sort((a, b) => b.cycle_number - a.cycle_number)[0] || null
+      : null;
+    const _priorCycleId = _priorCycle?._id || '';
+    const _charId       = sub?.character_id || '';
+    h += `<div class="proc-mg-prior-outcome mg-prior-loading"
+                data-prior-cycle-id="${esc(String(_priorCycleId))}"
+                data-char-id="${esc(String(_charId))}"
+                data-rite-name="${esc(entry.riteName || '')}">`;
+    h += `<div class="proc-mod-panel-title">Prior cycle resolution</div>`;
+    h += `<div class="mg-prior-text"><em>Loading…</em></div>`;
+    h += `</div>`;
+  }
 
   // ── Dice Pool Builder (no attr/skill/disc dropdowns — pool is fixed by rite rules) ──
   {
