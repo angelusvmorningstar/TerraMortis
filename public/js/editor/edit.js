@@ -9,7 +9,7 @@ import {
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
-import { freeOf } from '../data/rules-helpers.js';
+import { freeOf, poolAvailableFor } from '../data/rules-helpers.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
@@ -1026,6 +1026,31 @@ export function shEditMeritPt(realIdx, field, val) {
     const lkTotal = lorekeeperPool(c);
     const otherFLK = lorekeeperUsed(c) - freeOf(m, 'lk');
     val = Math.min(val, Math.max(0, lkTotal - otherFLK));
+  }
+  // N-7 / N-9: post-N-1 allocator write path. Field shape `free_grants.<slug>`
+  // routes to the map; cap enforced by `poolAvailableFor` (which union-reads
+  // map + legacy via freeOf across all merits, then subtracts from the
+  // category's _grant_pools capacity). Adding the CURRENT row's own value
+  // back into the cap so editing your own slot doesn't double-count.
+  //
+  //   ADR-005 amendment (under D6): allocators introduced post-N-1 write
+  //   `m.free_grants[slug]` directly; no new legacy flat field. MCI was
+  //   migrated to the map shape in N-9 (the input still says "MCI" but the
+  //   write target is now `free_grants.mci`). LK / Inv / VM retain their
+  //   legacy field writes until the deferred MNEC-prerequisite audit.
+  if (typeof field === 'string' && field.startsWith('free_grants.')) {
+    const slug = field.slice('free_grants.'.length);
+    const current = (m.free_grants && m.free_grants[slug]) || 0;
+    const avail = poolAvailableFor(c, slug) + current;
+    val = Math.min(val, Math.max(0, avail));
+    m.free_grants = m.free_grants || {};
+    if (val > 0) m.free_grants[slug] = val;
+    else delete m.free_grants[slug];
+    m.rating = syncMeritRating(m);
+    pruneContactsSpheres(m);
+    _markDirty();
+    _renderSheet(c);
+    return;
   }
   m[field] = val;
   // Sync stored rating via shared helper — never hand-roll the sum or new
