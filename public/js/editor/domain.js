@@ -91,19 +91,31 @@ function domMeritTotalSingle(c, m) {
 }
 
 /**
- * Cap for Haven / Mandragora Garden: effective rating of the attached Safe Place instance.
- * Returns 0 if no attached_to set or Safe Place not found.
+ * Cap for Haven / Mandragora Garden: effective rating of the attached anchor.
+ *
+ * Haven anchors to a Safe Place only. Mandragora Garden anchors to either a
+ * Safe Place or — per N-8 (issue #761, Peter decision B 2026-06-15) — a
+ * Necropolis Sepulcher merit instance. Returns 0 if no anchor set or anchor
+ * not found.
  */
 function _havenCap(c, m) {
   // N-1 (Concern #11): every read of m.attached_to goes through the normaliser.
-  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the Safe Place key.
+  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the anchor key.
   const at = normaliseAttachedTo(m.attached_to);
   if (!at) return 0;
-  const sp = (c.merits || []).find(sp2 =>
-    sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination
-  );
-  if (!sp) return 0;
-  return domMeritTotalSingle(c, sp);
+  const isMandragora = m.name === 'Mandragora Garden';
+  const anchor = (c.merits || []).find(sp2 => {
+    // Safe Place is the legacy anchor for both Haven and Mandragora.
+    if (sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination) return true;
+    // N-8: Mandragora can additionally anchor to Necropolis Sepulcher. The
+    // permissive `sp2.name` check (no category constraint) mirrors the
+    // picker filter at sheet.js — Sepulcher could be in any category on
+    // the character; matching by name is the canonical lookup.
+    if (isMandragora && sp2.name === 'Necropolis Sepulcher' && domKey(sp2) === at.destination) return true;
+    return false;
+  });
+  if (!anchor) return 0;
+  return domMeritTotalSingle(c, anchor);
 }
 
 /**
