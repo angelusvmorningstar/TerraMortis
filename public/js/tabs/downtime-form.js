@@ -776,7 +776,10 @@ function collectResponses() {
   responses['sorcery_slot_count'] = String(sorcerySlotCount);
   for (let n = 1; n <= sorcerySlotCount; n++) {
     const riteEl = document.getElementById(`dt-sorcery_${n}_rite`);
-    responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : '';
+    // When the sorcery section is not rendered (e.g. minimal mode), preserve the
+    // prior value rather than overwriting with '' — this keeps seeded/locked rites
+    // intact across a minimal→advanced mode switch.
+    responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : (_prior[`sorcery_${n}_rite`] ?? '');
     // DTFP-6: collect structured target rows for this sorcery slot.
     // Persisted shape: array of {type, value} objects, omitting empty rows.
     const targetsBlock = document.querySelector(`[data-sorcery-slot-targets="${n}"]`);
@@ -798,7 +801,8 @@ function collectResponses() {
     const notesEl = document.getElementById(`dt-sorcery_${n}_notes`);
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
-    responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
+    // Same preserve-prior logic: when section is absent, keep the prior value.
+    responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : (_prior[`sorcery_${n}_mandragora`] ?? 'no');
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -1450,11 +1454,17 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       p => p.category === 'rite' && p.mandragora_parked === true,
     );
     if (parked.length > 0) {
-      const seeded = { sorcery_slot_count: String(parked.length) };
-      parked.forEach((rite, i) => {
+      // Cap uses stored dots/rating (not effectiveDomainDots which requires
+      // attached_to → Safe Place to compute the haven-cap override).
+      const mgMerit = currentChar.merits?.find(m => m.category === 'domain' && m.name === 'Mandragora Garden');
+      const mgCap = mgMerit ? (mgMerit.dots || mgMerit.rating || parked.length) : parked.length;
+      const toSeed = parked.slice(0, mgCap);
+      const seeded = { sorcery_slot_count: String(toSeed.length) };
+      toSeed.forEach((rite, i) => {
         const n = i + 1;
-        seeded[`sorcery_${n}_rite`] = rite.name;
+        seeded[`sorcery_${n}_rite`]      = rite.name;
         seeded[`sorcery_${n}_mandragora`] = 'yes';
+        seeded[`sorcery_${n}_mg_locked`]  = 'yes';
       });
       responseDoc = { responses: seeded };
     }
@@ -2245,6 +2255,20 @@ function renderForm(container) {
   });
 
   container.innerHTML = h;
+
+  // T5: hydrate prior-outcome placeholders for Mandragora-locked sorcery slots.
+  const mgLockedSlots = [];
+  container.querySelectorAll('.dt-sorcery-slot[data-mg-locked="yes"]').forEach(el => {
+    const n = parseInt(el.id.replace('dt-sorcery-slot-', ''), 10);
+    const riteName = el.dataset.riteName;
+    if (n && riteName) mgLockedSlots.push({ n, riteName });
+  });
+  if (mgLockedSlots.length) _hydrateMgPriorOutcomesForm(mgLockedSlots).catch(() => {
+    mgLockedSlots.forEach(({ n }) => {
+      const el = document.getElementById(`dt-mg-prior-${n}`);
+      if (el) { el.textContent = 'No prior resolution recorded.'; el.classList.remove('dt-mg-prior-loading'); }
+    });
+  });
 
   // Restore expanded state
   expandedSections.forEach(key => {
@@ -4897,13 +4921,21 @@ function renderSorcerySection(saved) {
     const rite = rites.find(r => r.name === selectedRite);
     const isCruac = rite?.tradition === 'Cruac';
     const mandSaved = saved[`sorcery_${n}_mandragora`] === 'yes';
+    const mgLocked  = saved[`sorcery_${n}_mg_locked`]  === 'yes';
 
-    h += `<div class="dt-sorcery-slot" id="dt-sorcery-slot-${n}">`;
+    h += `<div class="dt-sorcery-slot" id="dt-sorcery-slot-${n}" data-mg-locked="${mgLocked ? 'yes' : ''}" data-rite-name="${esc(selectedRite)}">`;
     h += `<div class="dt-sorcery-slot-hd"><span class="dt-sorcery-slot-num">Rite ${n}</span>`;
-    if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-rite="${n}" title="Remove this rite">\u00D7 Remove</button>`;
+    if (n > 1 && !mgLocked) h += `<button type="button" class="dt-sorcery-remove" data-remove-rite="${n}" title="Remove this rite">\u00D7 Remove</button>`;
     h += '</div>';
 
     h += '<div class="qf-field">';
+    if (mgLocked && selectedRite) {
+      // T2: locked slot — show rite name as text; hidden input preserves the
+      // value so the existing save path reads .value identically to a select.
+      h += `<p class="qf-mg-locked-rite">${esc(selectedRite)}<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span></p>`;
+      h += `<input type="hidden" id="dt-sorcery_${n}_rite" value="${esc(selectedRite)}">`;
+      h += `<div class="dt-mg-prior-outcome"><span class="dt-sorcery-label">Prior outcome:</span> <span id="dt-mg-prior-${n}" class="dt-mg-prior-loading">Loading…</span></div>`;
+    } else {
     h += `<select id="dt-sorcery_${n}_rite" class="qf-select" data-sorcery-slot="${n}">`;
     h += '<option value="">\u2014 No Rite \u2014</option>';
     let lastTradition = '';
@@ -4919,6 +4951,7 @@ function renderSorcerySection(saved) {
     }
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
+    } // end else (not mgLocked)
 
     // Mandragora Garden checkbox — Cruac rites only, when character has the merit.
     // Storage only: the +3 dice bonus is automatic (shown above the slots) and
@@ -4929,10 +4962,12 @@ function renderSorcerySection(saved) {
       // 2c: disable when not Cruac, OR when capacity is full and this rite
       // isn't already parked (so unticking remains possible to free a slot).
       const overCap = capacityReached && !mandSaved;
-      const mandDisabled = (!isCruac || overCap) ? ' disabled' : '';
-      const mandTitle = overCap
-        ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
-        : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+      const mandDisabled = (mgLocked || !isCruac || overCap) ? ' disabled' : '';
+      const mandTitle = mgLocked
+        ? 'This rite is permanently parked in your Mandragora Garden and cannot be removed via the form.'
+        : overCap
+          ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+          : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
       h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
@@ -4995,6 +5030,49 @@ function renderSorcerySection(saved) {
   h += `<button type="button" class="dt-add-rite-btn" id="dt-add-rite">\u002B Add Rite</button>`;
   h += '</div></div>';
   return h;
+}
+
+// Async hydration for Mandragora-locked sorcery slots: fetches the prior cycle's
+// submission and populates each locked slot's "Prior outcome" placeholder.
+// Fire-and-forget — caller must .catch(() => {}) to swallow network failures.
+async function _hydrateMgPriorOutcomesForm(lockedSlots) {
+  if (!lockedSlots.length || !currentCycle) return;
+
+  const allCycles = await apiGet('/api/downtime_cycles');
+  const sortedCycles = allCycles
+    .filter(c => c.cycle_number < currentCycle.cycle_number)
+    .sort((a, b) => b.cycle_number - a.cycle_number);
+  const priorCycle = sortedCycles[0];
+  if (!priorCycle) {
+    lockedSlots.forEach(({ n }) => {
+      const el = document.getElementById(`dt-mg-prior-${n}`);
+      if (el) { el.textContent = 'No prior resolution recorded.'; el.classList.remove('dt-mg-prior-loading'); }
+    });
+    return;
+  }
+
+  const priorSubs = await apiGet(
+    `/api/downtime_submissions?cycle_id=${priorCycle._id}&character_id=${currentChar._id}`,
+  );
+  const priorSub = priorSubs[0];
+
+  for (const { n, riteName } of lockedSlots) {
+    let priorNote = null;
+    if (priorSub) {
+      const priorSlotCount = parseInt(priorSub.responses?.sorcery_slot_count || '0', 10);
+      for (let pn = 1; pn <= priorSlotCount; pn++) {
+        if (priorSub.responses?.[`sorcery_${pn}_rite`] === riteName) {
+          priorNote = priorSub.sorcery_review?.[pn]?.ritual_result_note || null;
+          break;
+        }
+      }
+    }
+    const el = document.getElementById(`dt-mg-prior-${n}`);
+    if (el) {
+      el.textContent = priorNote || 'No prior resolution recorded.';
+      el.classList.remove('dt-mg-prior-loading');
+    }
+  }
 }
 
 // ── Acquisitions (custom render) ──
