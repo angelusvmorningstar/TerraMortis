@@ -136,8 +136,8 @@ is still correct.
 ### Files changed
 
 - `public/js/tabs/downtime-form.js` — line 3955: replaced single-line `bestSpecs` with 3-line merge that calls `isSpecs(currentChar)` and appends interdisciplinary specs to native skill specs
-- `tests/fix-773-dt-form-interdisciplinary-specs.spec.js` — 5 Playwright tests, all passing
+- `tests/fix-773-dt-form-interdisciplinary-specs.spec.js` — 6 Playwright tests, all passing
 
 ### Completion notes
 
-Single call-site change at `downtime-form.js:3955`. `isSpecs()` was already imported (line 14) and already used correctly at lines 5164-5168 (skill-acq) and 5453-5454 (feeding pool) — this was purely a missing call at the project pool render site. The fix follows the feeding pool pattern: `isSpecs()` is gated on `savedSkill` so interdisciplinary specs only show when a skill is active in the pool (consistent with other pool sites). The chip render loop at lines 4013-4016 required no changes — `bestSpecs` remains a flat string array. 5/5 Playwright tests passing: IS spec appears with Weaponry, native specs coexist, chip click adds +1 to total, IS spec persists when skill changes to Occult, regression guard for characters without IS merit.
+Single call-site change at `downtime-form.js:3955`. `isSpecs()` was already imported (line 14) and already used correctly at lines 5164-5168 (skill-acq) and 5453-5454 (feeding pool) — this was purely a missing call at the project pool render site. The fix follows the feeding pool pattern: `isSpecs()` is gated on `savedSkill` so interdisciplinary specs only show when a skill is active in the pool (consistent with other pool sites). The chip render loop at lines 4013-4016 required no changes — `bestSpecs` remains a flat string array. 6/6 Playwright tests passing: IS spec appears with Weaponry, native specs coexist, chip click adds +1 to total, chip click again deselects and restores baseline, IS spec persists when skill changes to Occult, regression guard for characters without IS merit.

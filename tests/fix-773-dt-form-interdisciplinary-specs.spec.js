@@ -176,6 +176,31 @@ test.describe('fix.773 — IS spec chips in project dice pool', () => {
     expect(newTotal).toBe(baseTotal + 1);
   });
 
+  // AC-3b ─────────────────────────────────────────────────────────────────────
+
+  test('AC-3b: clicking active Coward Punch chip again deselects it and removes bonus', async ({ page }) => {
+    const char = buildChar(true);
+    const sub  = buildSub('Weaponry');
+    await setupSuite(page, char, sub);
+    await openProjectPool(page, char);
+
+    const baseTotalText = await poolTotal(page).textContent();
+    const baseTotal = parseInt(baseTotalText, 10);
+
+    // First click — select
+    await specChip(page, 'Coward Punch').click();
+    await expect(specChip(page, 'Coward Punch')).toHaveClass(/dt-feed-spec-on/);
+
+    // Second click — deselect
+    await specChip(page, 'Coward Punch').click();
+    await expect(specChip(page, 'Coward Punch')).not.toHaveClass(/dt-feed-spec-on/);
+
+    // Total should be back to baseline
+    const restoredTotalText = await poolTotal(page).textContent();
+    const restoredTotal = parseInt(restoredTotalText, 10);
+    expect(restoredTotal).toBe(baseTotal);
+  });
+
   // AC-4 ──────────────────────────────────────────────────────────────────────
 
   test('AC-4: Coward Punch chip appears after changing pool skill to unrelated Occult', async ({ page }) => {
