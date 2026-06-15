@@ -4814,12 +4814,12 @@ function renderProcessingMode(container) {
     });
   });
 
-  // DTFP-5: Wire feed-violence ST override selects
-  container.querySelectorAll('.proc-feed-violence-st-override').forEach(sel => {
-    sel.addEventListener('change', async e => {
+  // DTFP-5: Wire feeding method override chips
+  container.querySelectorAll('.proc-feed-vi-chip').forEach(btn => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const subId = sel.dataset.subId;
-      const newVal = sel.value || null;
+      const subId = btn.dataset.subId;
+      const newVal = btn.dataset.value || null;
       const sub = submissions.find(s => s._id === subId);
       if (sub) {
         if (!sub.st_review) sub.st_review = {};
@@ -4827,6 +4827,28 @@ function renderProcessingMode(container) {
         else delete sub.st_review.feed_violence_st_override;
       }
       await updateSubmission(subId, { 'st_review.feed_violence_st_override': newVal });
+      container.querySelectorAll(`.proc-feed-vi-chip[data-sub-id="${subId}"]`).forEach(b => {
+        b.classList.toggle('is-active', b.dataset.value === (newVal || ''));
+      });
+    });
+  });
+
+  // DTFP-5: Wire blood type override chips
+  container.querySelectorAll('.proc-feed-bt-chip').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const newVal = btn.dataset.value || null;
+      const sub = submissions.find(s => s._id === subId);
+      if (sub) {
+        if (!sub.st_review) sub.st_review = {};
+        if (newVal) sub.st_review.feed_blood_type_st_override = newVal;
+        else delete sub.st_review.feed_blood_type_st_override;
+      }
+      await updateSubmission(subId, { 'st_review.feed_blood_type_st_override': newVal });
+      container.querySelectorAll(`.proc-feed-bt-chip[data-sub-id="${subId}"]`).forEach(b => {
+        b.classList.toggle('is-active', b.dataset.value === (newVal || ''));
+      });
     });
   });
 
@@ -5670,7 +5692,9 @@ function renderProcessingMode(container) {
       const match = poolValidated.match(/(\d+)\s*$/);
       let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
-      diceCount += (review?.pool_mod_spec || 0);
+      const _specSub = submissions.find(s => s._id === entry.subId);
+      const _specChar = _charForSub(_specSub);
+      diceCount += (review?.active_feed_specs || []).reduce((sum, sp) => sum + (_specChar && hasAoE(_specChar, sp) ? 2 : 1), 0);
       // Read toggle states from sidebar
       const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
       const roteChecked      = rightPanel?.querySelector('.proc-pool-rote')?.checked  || false;
@@ -6899,13 +6923,13 @@ function _updateFeedBuilderMeta(container, key) {
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
-      const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+      const bon = hasAoE(char, sp) ? 2 : 1;
       h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
       if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
-      const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+      const bon = hasAoE(char, isSp) ? 2 : 1;
       h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
     }
     metaEl.innerHTML = h;
@@ -6919,7 +6943,7 @@ function _updateFeedBuilderMeta(container, key) {
         const isNowActive = btn.classList.toggle('is-active');
         if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
         else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
+        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
         _updatePoolTotal(container, btn.dataset.procKey);
       });
@@ -6943,13 +6967,13 @@ function _updateFeedBuilderMeta(container, key) {
   let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
-    const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+    const bon = hasAoE(char, sp) ? 2 : 1;
     h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(sp)}">${esc(sp)} +${bon}</button>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
-    const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+    const bon = hasAoE(char, isSp) ? 2 : 1;
     h += `<button type="button" class="proc-spec-chip${checked ? ' is-active' : ''}" data-proc-key="${key}" data-spec="${esc(isSp)}">${esc(isSp)} (${esc(fromSkill)}) +${bon}</button>`;
   }
   metaEl.innerHTML = h;
@@ -6963,7 +6987,7 @@ function _updateFeedBuilderMeta(container, key) {
       const isNowActive = btn.classList.toggle('is-active');
       if (isNowActive) { if (!activeSpecs2.includes(btn.dataset.spec)) activeSpecs2.push(btn.dataset.spec); }
       else { const i = activeSpecs2.indexOf(btn.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
+      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
       _updatePoolTotal(container, btn.dataset.procKey);
     });
@@ -7964,22 +7988,46 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   h += `</div>`;
 
 
-  // ── DTFP-5: feed-violence ST override ──
-  // Player declared (read-only) + ST override dropdown.
-  const playerVi   = feedSub?.responses?.feed_violence || '';
-  const stViOverride = feedSub?.st_review?.feed_violence_st_override || '';
+  // ── DTFP-5: feed-violence + blood-type ST overrides ──
+  const playerVi      = feedSub?.responses?.feed_violence || '';
+  const stViOverride  = feedSub?.st_review?.feed_violence_st_override || '';
+  const playerBtRaw   = feedSub?.responses?.['_feed_blood_types'] || '[]';
+  let   playerBtArr   = [];
+  try   { playerBtArr = JSON.parse(playerBtRaw); } catch { playerBtArr = []; }
+  const playerBtLabel = playerBtArr.length
+    ? playerBtArr.map(v => v.charAt(0).toUpperCase() + v.slice(1)).join(' / ')
+    : '';
+  const stBtOverride  = feedSub?.st_review?.feed_blood_type_st_override || '';
   const _viLabel = (v) => v === 'kiss' ? 'The Kiss (subtle)' : v === 'violent' ? 'Violent' : '';
+
   h += `<div class="proc-feed-mod-panel proc-feed-violence-block" data-proc-key="${esc(key)}">`;
   h += `<div class="proc-mod-panel-title">Feed declaration</div>`;
-  h += `<div class="proc-mod-row"><span class="proc-mod-label">Player declared</span><span class="proc-feed-violence-val">${esc(_viLabel(playerVi)) || '<em>Not specified</em>'}</span></div>`;
-  h += `<div class="proc-mod-row"><span class="proc-mod-label">ST override</span>`;
-  h += `<select class="proc-feed-violence-st-override" data-sub-id="${esc(entry.subId)}">`;
-  h += `<option value="">No override</option>`;
-  h += `<option value="kiss"${stViOverride === 'kiss' ? ' selected' : ''}>The Kiss (subtle)</option>`;
-  h += `<option value="violent"${stViOverride === 'violent' ? ' selected' : ''}>Violent</option>`;
-  h += `</select>`;
-  h += `</div>`;
-  h += `</div>`;
+
+  // Blood type row
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Blood type</span>`;
+  h += `<span class="proc-feed-violence-val">${esc(playerBtLabel) || '<em>Not specified</em>'}</span></div>`;
+  h += `<div class="proc-mod-row proc-feed-chips-row">`;
+  h += `<span class="proc-mod-label">ST override</span>`;
+  h += `<div class="proc-feed-chips">`;
+  for (const [val, lbl] of [['', 'No override'], ['animal', 'Animal'], ['human', 'Human'], ['kindred', 'Kindred']]) {
+    const active = (val === '' ? !stBtOverride : stBtOverride === val) ? ' is-active' : '';
+    h += `<button type="button" class="proc-spec-chip proc-feed-bt-chip${active}" data-sub-id="${esc(entry.subId)}" data-value="${esc(val)}">${esc(lbl)}</button>`;
+  }
+  h += `</div></div>`;
+
+  // Feeding method row
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Player declared</span>`;
+  h += `<span class="proc-feed-violence-val">${esc(_viLabel(playerVi)) || '<em>Not specified</em>'}</span></div>`;
+  h += `<div class="proc-mod-row proc-feed-chips-row">`;
+  h += `<span class="proc-mod-label">ST override</span>`;
+  h += `<div class="proc-feed-chips">`;
+  for (const [val, lbl] of [['', 'No override'], ['kiss', 'The Kiss (subtle)'], ['violent', 'Violent']]) {
+    const active = (val === '' ? !stViOverride : stViOverride === val) ? ' is-active' : '';
+    h += `<button type="button" class="proc-spec-chip proc-feed-vi-chip${active}" data-sub-id="${esc(entry.subId)}" data-value="${esc(val)}">${esc(lbl)}</button>`;
+  }
+  h += `</div></div>`;
+
+  h += `</div>`; // proc-feed-violence-block
 
   h += `</div>`; // proc-feed-right
   return h;
@@ -8627,8 +8675,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
@@ -8651,8 +8700,9 @@ function _renderSnapshotFeedingPanel(entry, feedChar) {
       h += '<div class="proc-snap-subheading">Territories</div>';
       const STATUS_LABELS = { feeding_rights: 'Rights', resident: 'Resident', poaching: 'Poaching', poacher: 'Poaching' };
       for (const [slug, status] of activeTerrs) {
-        const terrRec = terrList.find(t => t.slug === slug || t.name?.toLowerCase().replace(/\s+/g, '_') === slug);
-        const terrName = terrRec?.name || slug.replace(/_/g, ' ');
+        const resolvedSlug = resolveTerrId(slug) || slug;
+        const terrRec = terrList.find(t => t.slug === resolvedSlug || t.name?.toLowerCase().replace(/\s+/g, '_') === resolvedSlug);
+        const terrName = terrRec?.name || resolvedSlug.replace(/_/g, ' ');
         const statusLabel = STATUS_LABELS[status] || status;
         const statusMod = (status === 'poaching' || status === 'poacher') ? ' proc-snap-terr-poach' : ' proc-snap-terr-claim';
         h += _terrRow(terrName, terrRec, statusLabel, statusMod);
@@ -9668,8 +9718,8 @@ function renderActionPanel(entry, review) {
           }
         }
       }
-      h += `<div class="proc-recat-row">`;
-      h += `<span class="proc-feed-lbl">Territories</span>`;
+      h += `<div class="proc-feed-mod-panel">`;
+      h += `<div class="proc-mod-panel-title">Territory</div>`;
       h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
       h += `</div>`;
     }
