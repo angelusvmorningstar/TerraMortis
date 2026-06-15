@@ -183,6 +183,21 @@ describe('POST /api/characters/:id/equipment', () => {
     expect(res.status).toBe(200);
     expect(res.body.equipment[0].acquired_cycle).toBe(0);
   });
+
+  // #753 — catalogue_id existence check
+  it('400 with VALIDATION_ERROR when catalogue_id is not in the catalogue', async () => {
+    const char4 = await seedChar({ name: 'EQ BadCat' });
+    const res = await request(app)
+      .post(`/api/characters/${char4.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: 'definitely-not-a-real-item-slug', state: 'carried', acquired_cycle: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/Unknown catalogue_id/);
+    // No write occurred — the equipment array stays empty.
+    const fresh = await getCollection('characters').findOne({ _id: char4._id }, { projection: { equipment: 1 } });
+    expect(fresh.equipment || []).toHaveLength(0);
+  });
 });
 
 // ── DELETE /:id/equipment/:itemIndex ─────────────────────────────────────────
