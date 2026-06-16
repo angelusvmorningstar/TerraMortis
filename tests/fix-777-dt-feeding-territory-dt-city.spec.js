@@ -196,6 +196,17 @@ async function openRoteFeedAction(page) {
   await page.waitForTimeout(400);
 }
 
+async function openMainFeedAction(page) {
+  await page.click('#dt-phase-ribbon .pr-tab[data-phase="projects"]');
+  await page.waitForTimeout(400);
+
+  // "Feeding" is distinct from "Rote Feed" — "Feeding" is not a substring of "Rote Feed".
+  const feedRow = page.locator('.proc-action-row').filter({ hasText: 'Feeding' }).first();
+  await feedRow.waitFor({ state: 'visible', timeout: 8000 });
+  await feedRow.click();
+  await page.waitForTimeout(400);
+}
+
 /**
  * Returns 1-based column index of a TAAG header cell by its text content.
  * Returns 0 if not found (findIndex returns -1 → -1+1=0).
@@ -340,6 +351,51 @@ test.describe('Fix #777 — Legacy slug keys: regression', () => {
 
     const chip = feedingRow.locator(`td:nth-child(${colIdx}) .dt-taag-chip`).filter({ hasText: 'Hazel' });
     await expect(chip).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+// ── AC-1 (main feed): OID key pill pre-selection in DT Processing ─────────────
+
+test.describe('Fix #777 — Main feed OID key: pill pre-selection in DT Processing', () => {
+
+  test('AC-1-mainpill-1: North Shore pill is active when main feed grid uses OID key', async ({ page }) => {
+    await setup(page, makeMainFeedOidSub());
+    await openMainFeedAction(page);
+
+    const nshorePill = page.locator(
+      '.proc-terr-pill-row[data-terr-context="feeding"] .proc-terr-pill[data-terr-id="northshore"]'
+    );
+    await expect(nshorePill).toBeVisible({ timeout: 5000 });
+    await expect(nshorePill).toHaveClass(/active/);
+  });
+
+  test('AC-1-mainpill-2: Academy pill is NOT active when OID maps only to northshore', async ({ page }) => {
+    await setup(page, makeMainFeedOidSub());
+    await openMainFeedAction(page);
+
+    const academyPill = page.locator(
+      '.proc-terr-pill-row[data-terr-context="feeding"] .proc-terr-pill[data-terr-id="academy"]'
+    );
+    await expect(academyPill).toBeVisible({ timeout: 5000 });
+    await expect(academyPill).not.toHaveClass(/active/);
+  });
+
+});
+
+// ── AC-6 (main feed, DT Processing): legacy slug key regression ───────────────
+
+test.describe('Fix #777 — Main feed legacy slug: DT Processing pill regression', () => {
+
+  test('AC-6-proc: North Shore pill is active with legacy northshore slug key in DT Processing', async ({ page }) => {
+    await setup(page, makeLegacySlugSub());
+    await openMainFeedAction(page);
+
+    const nshorePill = page.locator(
+      '.proc-terr-pill-row[data-terr-context="feeding"] .proc-terr-pill[data-terr-id="northshore"]'
+    );
+    await expect(nshorePill).toBeVisible({ timeout: 5000 });
+    await expect(nshorePill).toHaveClass(/active/);
   });
 
 });
