@@ -1115,10 +1115,30 @@ export function shRenderDomainMerits(c, editMode) {
       } else if (m.name === 'White Ants' && _necroTerritoryUnion) {
         _subtitleInline = '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>';
       }
+      // Issue #832: expand-on-click for domain merits \u2014 same exp-row /
+      // exp-body shell as shRenderMeritRow uses for general + influence
+      // merits. The click is on the infl-edit-row (the visual row containing
+      // name + dots); the rest of the dom-edit-block (qualifier / attach /
+      // bd-row pickers / partners) is below and does not toggle. Interactive
+      // controls inside the infl-edit-row (select.infl-type + remove button)
+      // get event.stopPropagation() so changing the merit type or removing
+      // it doesn't accidentally toggle the description.
+      const _expId = 'dom-' + rIdx;
+      const _expDb = meritLookup(m.name);
+      const _expDesc = _expDb && _expDb.desc ? esc(_expDb.desc) : '';
+      const _expPrereq = _expDb && _expDb.prereq ? prereqLabel(_expDb.prereq) : '';
+      const _hasExpBody = !!_expDesc;
+      const _expClass = _hasExpBody ? ' exp-row' : '';
+      const _expArr = _hasExpBody ? '<span class="exp-arr">\u203A</span>' : '';
+      const _expOnclick = _hasExpBody ? ' onclick="toggleExp(\'' + _expId + '\')"' : '';
+      const _expIdAttr = _hasExpBody ? ' id="exp-row-' + _expId + '"' : '';
+      // stopPropagation prefix for interactive controls (avoids double-event
+      // when the row click also fires from the bubble).
+      const _sp = _hasExpBody ? 'event.stopPropagation();' : '';
       if (_isNecroTargetHere) {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -1199,6 +1219,14 @@ export function shRenderDomainMerits(c, editMode) {
       const _canShare = ['Safe Place', 'Haven'];
       if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Issue #832: exp-body sibling at the end of dom-edit-block holds the
+      // collapsible description + prereq. Only emitted when the merit has a
+      // description in the rules cache (matches shRenderMeritRow's gate).
+      if (_hasExpBody) {
+        h += '<div class="exp-body" id="exp-body-' + _expId + '"><div>' + _expDesc + '</div>'
+          + (_expPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_expPrereq) + '</div>' : '')
+          + '</div>';
+      }
       h += '</div>';
     };
     // Virtual-row emitter \u2014 same pattern as _emitDomRow but for synthesised
@@ -1213,20 +1241,41 @@ export function shRenderDomainMerits(c, editMode) {
       const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnion)
         ? '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>'
         : '';
+      // Issue #832: virtual rows get the same expand-on-click affordance as
+      // owned rows. Look up the merit's description by name (the merit isn't
+      // on c.merits yet, but the rules cache has the doc keyed by name slug).
+      // The NECRO stepper inside the bd-row gets stopPropagation so clicking
+      // the input doesn't toggle the expand.
+      const _vExpId = 'dom-v-' + _vSlug;
+      const _vDb = meritLookup(vName);
+      const _vDesc = _vDb && _vDb.desc ? esc(_vDb.desc) : '';
+      const _vPrereq = _vDb && _vDb.prereq ? prereqLabel(_vDb.prereq) : '';
+      const _vHasExp = !!_vDesc;
+      const _vExpClass = _vHasExp ? ' exp-row' : '';
+      const _vExpArr = _vHasExp ? '<span class="exp-arr">\u203A</span>' : '';
+      const _vExpOnclick = _vHasExp ? ' onclick="toggleExp(\'' + _vExpId + '\')"' : '';
+      const _vExpIdAttr = _vHasExp ? ' id="exp-row-' + _vExpId + '"' : '';
+      const _vSp = _vHasExp ? 'event.stopPropagation();' : '';
       h += '<div class="dom-edit-block dom-edit-block--virtual">'
-        + '<div class="infl-edit-row">'
+        + '<div class="infl-edit-row' + _vExpClass + '"' + _vExpIdAttr + _vExpOnclick + '>'
         + '<span class="infl-type infl-type--virtual" title="Partner-only \u2014 click NECRO to allocate your own dots">' + esc(vName) + '</span>'
         + _vSubtitle
         + '<span class="dom-contrib-lbl">My dots: </span>'
         + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
+        + _vExpArr
         + '</div>'
         + '<div class="merit-bd-row">'
         + '<div class="bd-grp">'
         + '<span class="bd-lbl bd-bonus-lbl" id="bd-necro-vlbl-' + _vSlug + '">NECRO</span>'
-        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
+        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onclick="' + _vSp + '" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
         + '</div>'
         + '<div class="bd-eq"><span class="bd-val">' + _vPartner + ' partner dot' + (_vPartner === 1 ? '' : 's') + '</span></div>'
         + '</div>';
+      if (_vHasExp) {
+        h += '<div class="exp-body" id="exp-body-' + _vExpId + '"><div>' + _vDesc + '</div>'
+          + (_vPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_vPrereq) + '</div>' : '')
+          + '</div>';
+      }
       h += '</div>';
     };
     // Issue #793: sorted iteration with inherited-card grouping.
@@ -1372,20 +1421,45 @@ export function shRenderDomainMerits(c, editMode) {
       } else if (m.name === 'White Ants' && _necroTerritoryUnionView) {
         _subtitleInlineView = '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>';
       }
-      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      // Issue #832: view-mode expand-on-click. Mirrors shRenderMeritRow's
+      // exp-row { trait-row + trait-sub } + sibling exp-body shell. Read-
+      // only path has no interactive controls so no stopPropagation needed.
+      // Derived-note warnings (Capped / Needs attached) emit as further
+      // siblings after the exp-body \u2014 same visual intent as the existing
+      // pattern (cap warning sits beneath the row).
+      const _viewExpId = 'dom-' + c.merits.indexOf(m);
+      const _viewDb = meritLookup(m.name);
+      const _viewDesc = _viewDb && _viewDb.desc ? esc(_viewDb.desc) : '';
+      const _viewPrereq = _viewDb && _viewDb.prereq ? prereqLabel(_viewDb.prereq) : '';
+      const _viewHasExp = !!_viewDesc;
+      const _viewSharedSub = dp
+        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
+        : '';
+      const _viewArr = _viewHasExp ? '<span class="exp-arr">\u203A</span>' : '';
+      // Inner row body \u2014 trait-row + trait-main + trait-right + optional
+      // shared trait-sub. Self-contained: opens 3 divs (trait-row,
+      // trait-main, trait-right) and closes them all inline.
+      const _viewInner = '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + _viewArr + '</div></div></div>' + _viewSharedSub;
+      // Capped-view warnings (Needs Attached / Capped at N) \u2014 derived-note
+      // siblings after the exp-body. Hoisted out so both branches share.
+      let _viewCappedNote = '';
       if (_isCappedView) {
-        // The "Needs an attached Safe Place" warning and "Capped at N" notes
-        // remain as derived-note sub-rows (they're warnings, not subtitles).
-        // The "Attached: X" success label moved INLINE above per #827.
         const _viewAt = normaliseAttachedTo(m.attached_to);
         if (!_viewAt) {
-          h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
+          _viewCappedNote = '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
         } else if (_viewStored > de) {
-          h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
+          _viewCappedNote = '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
         }
       }
-      // Issue #827: wa-territory-union sub-row removed \u2014 moved inline above.
-      h += '</div>';
+      if (_viewHasExp) {
+        h += '<div class="exp-row" id="exp-row-' + _viewExpId + '" onclick="toggleExp(\'' + _viewExpId + '\')">' + _viewInner + '</div>';
+        h += '<div class="exp-body" id="exp-body-' + _viewExpId + '"><div>' + _viewDesc + '</div>'
+          + (_viewPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_viewPrereq) + '</div>' : '')
+          + '</div>';
+        h += _viewCappedNote;
+      } else {
+        h += '<div class="merit-plain">' + _viewInner + _viewCappedNote + '</div>';
+      }
     };
     const _emitVirtualViewRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
@@ -1395,13 +1469,29 @@ export function shRenderDomainMerits(c, editMode) {
       const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnionView)
         ? '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>'
         : '';
-      h += '<div class="merit-plain merit-plain--virtual">'
-        + '<div class="trait-row"><div class="trait-main">'
+      // Issue #832: virtual view row also gets expand-on-click. ID prefix
+      // matches the edit-mode virtual row pattern (`dom-v-<slug>`); merit
+      // looked up by name from the rules cache.
+      const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const _vViewExpId = 'dom-v-' + _vSlug;
+      const _vViewDb = meritLookup(vName);
+      const _vViewDesc = _vViewDb && _vViewDb.desc ? esc(_vViewDb.desc) : '';
+      const _vViewPrereq = _vViewDb && _vViewDb.prereq ? prereqLabel(_vViewDb.prereq) : '';
+      const _vViewHasExp = !!_vViewDesc;
+      const _vViewArr = _vViewHasExp ? '<span class="exp-arr">›</span>' : '';
+      const _vViewInner = '<div class="trait-row"><div class="trait-main">'
         + '<span class="trait-name">' + esc(vName) + '</span>'
         + _vSubtitle
-        + '<div class="trait-right">' + _vDots + '</div>'
+        + '<div class="trait-right">' + _vDots + _vViewArr + '</div>'
         + '</div></div>';
-      h += '</div>';
+      if (_vViewHasExp) {
+        h += '<div class="exp-row merit-plain--virtual" id="exp-row-' + _vViewExpId + '" onclick="toggleExp(\'' + _vViewExpId + '\')">' + _vViewInner + '</div>';
+        h += '<div class="exp-body" id="exp-body-' + _vViewExpId + '"><div>' + _vViewDesc + '</div>'
+          + (_vViewPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_vViewPrereq) + '</div>' : '')
+          + '</div>';
+      } else {
+        h += '<div class="merit-plain merit-plain--virtual">' + _vViewInner + '</div>';
+      }
     };
     const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
     const _ownedTargetsView = _sortedDomView.filter(mm => _necroTargetSetView.has(mm.name));
