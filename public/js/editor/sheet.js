@@ -984,6 +984,28 @@ function _inflArea(m, idx, isC) {
 
 export function shRenderDomainMerits(c, editMode) {
   const chars = state.chars, domM = (c.merits || []).filter(m => m.category === 'domain');
+
+  const _necroTargets = getNecropolisTargets(getRulesCache());
+    const sortedDomM = [...domM].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '')
+  );
+
+  const _sepulcher = sortedDomM.find(
+  m => m.name === 'Necropolis Sepulcher'
+);
+
+const _necroMerits = sortedDomM
+  .filter(m => _necroTargets.includes(m.name))
+  .sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '')
+  );
+
+if (!_sepulcher && _necroMerits.length) {
+  console.warn(
+    '[N-793] Necropolis targets found without Necropolis Sepulcher'
+  );
+}
+
   if (!editMode && !domM.length) return '';
   const _domLkPools = (c._grant_pools || []).filter(p => p.category === 'lk');
   const _domInvPools = (c._grant_pools || []).filter(p => p.category === 'inv');
@@ -1010,8 +1032,10 @@ export function shRenderDomainMerits(c, editMode) {
     // (showNECRO: _hasNecroSep && _isNecroTarget), but the hide-* flags fire
     // even for non-Sepulcher characters who somehow have a Necropolis target
     // merit on their sheet.
-    const _necroTargets = getNecropolisTargets(getRulesCache());
-    domM.forEach((m, di) => {
+    sortedDomM.forEach((m, di) => {
+      if (_sepulcher && _necroTargets.includes(m.name)) {
+  return;
+}
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
       // rule layered on top. Mandragora Garden's prereq is enforced by the helper.
@@ -1121,6 +1145,20 @@ export function shRenderDomainMerits(c, editMode) {
       if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
+
+      if (
+  m.name === 'Necropolis Sepulcher' &&
+  _necroMerits.length
+) {
+  h += '<div class="necro-inherited-block">';
+  h += '<div class="necro-inherited-title">Inherited from Necropolis Sepulcher</div>';
+
+  _necroMerits.forEach(nm => {
+    h += '<div class="derived-note">• ' + esc(nm.name) + '</div>';
+  });
+
+  h += '</div>';
+}
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
@@ -1130,7 +1168,10 @@ export function shRenderDomainMerits(c, editMode) {
     // suppressed from display (no destructive migration; future cleanup is a
     // separate story).
     const _canShareView = ['Safe Place', 'Haven'];
-    domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
+    sortedDomM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
+      if (_sepulcher && _necroTargets.includes(m.name)) {
+  return;
+}
       const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
@@ -1173,6 +1214,19 @@ export function shRenderDomainMerits(c, editMode) {
         }
       }
       h += '</div>';
+      if (
+  m.name === 'Necropolis Sepulcher' &&
+  _necroMerits.length
+) {
+  h += '<div class="necro-inherited-block">';
+  h += '<div class="necro-inherited-title">Inherited from Necropolis Sepulcher</div>';
+
+  _necroMerits.forEach(nm => {
+    h += '<div class="derived-note">• ' + esc(nm.name) + '</div>';
+  });
+
+  h += '</div>';
+}
     });
   }
   h += '</div></div>'; return h;

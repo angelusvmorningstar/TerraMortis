@@ -6078,3 +6078,14 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
   font-size: 13px; color: var(--text);
 }
 .dt-conn-dd-item:hover { background: var(--gold-a10); color: var(--gold2); }
+
+.necro-inherited-block {
+  margin: 8px 0 8px 20px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--accent);
+}
+
+.necro-inherited-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
