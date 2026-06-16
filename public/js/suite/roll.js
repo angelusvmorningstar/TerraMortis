@@ -138,10 +138,13 @@ export function updPool() {
     const rc = state.rollChar;
     const equip = (rc.equipment || []).filter(item => {
       const entry = getCatalogueEntry(item.catalogue_id);
+      // #752: 'active' is the strongest in-use state — treat it identically
+      // to carried/worn for chip eligibility (Khepri's option (a) — preserves
+      // 'active' as a semantically-stronger marker an ST may have already used).
       return entry && entry.bucket === 'equipment' &&
              entry.bonus_dice > 0 &&
              entry.skill_domain === pi.skill &&
-             (item.state === 'carried' || item.state === 'worn');
+             (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
     });
     if (equip.length) {
       html += '<div class="effpool-specs">' + equip.map(item => {
@@ -225,9 +228,11 @@ export function updWeaponRef() {
     return;
   }
   const weapons = (state.rollChar.equipment || []).filter(item => {
+    // #752: 'active' is the strongest in-use state — include it in weapon-ref
+    // eligibility (matches the chip predicate above).
     const entry = getCatalogueEntry(item.catalogue_id);
     return entry && entry.bucket === 'weapon' &&
-           (item.state === 'carried' || item.state === 'worn');
+           (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
   });
   if (!weapons.length) {
     panel.style.display = 'none';
