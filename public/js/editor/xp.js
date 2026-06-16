@@ -202,24 +202,57 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = freeOf(mc, 'bloodline'), fret = freeOf(mc, 'pet'), fmci = freeOf(mc, 'mci'), fvm = freeOf(mc, 'vm'), flk = freeOf(mc, 'lk'), fohm = freeOf(mc, 'ohm'), finv = freeOf(mc, 'inv'), fpt = freeOf(mc, 'pt'), fmdb = freeOf(mc, 'mdb'), fsw = freeOf(mc, 'sw');
-  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + (opts.attachBonus || 0);
+  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = freeOf(mc, 'bloodline'), fret = freeOf(mc, 'pet'), fmci = freeOf(mc, 'mci'), fvm = freeOf(mc, 'vm'), flk = freeOf(mc, 'lk'), fohm = freeOf(mc, 'ohm'), finv = freeOf(mc, 'inv'), fpt = freeOf(mc, 'pt'), fmdb = freeOf(mc, 'mdb'), fsw = freeOf(mc, 'sw'), fnecro = freeOf(mc, 'necro');
+  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + fnecro + (opts.attachBonus || 0);
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
     ? '<span class="bd-needs-hint">' + total + ' / ' + fixedAt + ' needed</span>' : '';
-  let h = '<div class="merit-bd-row">'
-    + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>'
-    + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>'
-    + '<div class="bd-sep"></div>';
-  if (opts.showMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_mci\',+this.value)"></div>';
-  if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
-  if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
-  if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
-  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
+  // N-7b (issue #768): Necropolis target merits are pool-funded only — the
+  // domain-renderer call site suppresses CP / XP / MCI / Bonus on these rows
+  // via opts.hideCP / opts.hideXP / opts.hideMCI (this block) + opts.hideBonus
+  // (below). Same opts-flag pattern as N-9's hideBonus on standing merits.
+  // The pre-N-7b shape rendered CP + XP + sep unconditionally; the guards
+  // here are defaults-false so existing call sites that don't pass the
+  // hide-flags get the legacy behaviour unchanged.
+  let h = '<div class="merit-bd-row">';
+  if (!opts.hideCP) h += '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>';
+  if (!opts.hideXP) h += '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>';
+  if (!opts.hideCP || !opts.hideXP) h += '<div class="bd-sep"></div>';
+  // N-9 (issue #762, Bug 1 "adjacent finding"): MCI input writes the map-shape
+  // `free_grants.mci` per the ADR-005 allocator-write-path amendment. The
+  // handler (shEditMeritPt) detects the `free_grants.` prefix and routes to
+  // the map. Pre-N-9 this wrote `free_mci`, creating a fresh divergence on
+  // every edit after the N-2 backfill.
+  // N-7b: showMCI is AND'd with !hideMCI at the call site so Necropolis
+  // targets don't surface the MCI allocator even when there's pool capacity.
+  // Issue #774: a11y — every stepper input carries id + name + aria-label
+  // matching the NECRO precedent at line 241 (added by N-7c #771). Same
+  // browser warning ("form field element should have an id or name
+  // attribute / No label associated with a form field") was firing on
+  // these 5 sibling steppers. Single-line additions per stepper.
+  if (opts.showMCI && !opts.hideMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-mci-lbl-' + realIdx + '">MCI</span><input id="bd-mci-' + realIdx + '" name="bd-mci-' + realIdx + '" aria-label="Mystery Cult Initiation pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.mci\',+this.value)"></div>';
+  if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-vm-lbl-' + realIdx + '">VM</span><input id="bd-vm-' + realIdx + '" name="bd-vm-' + realIdx + '" aria-label="Viral Mythology pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
+  if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-lk-lbl-' + realIdx + '">LK</span><input id="bd-lk-' + realIdx + '" name="bd-lk-' + realIdx + '" aria-label="Lorekeeper pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
+  if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-ohm-lbl-' + realIdx + '">OHM</span><input id="bd-ohm-' + realIdx + '" name="bd-ohm-' + realIdx + '" aria-label="Oath of the Hard Motherfucker pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
+  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-inv-lbl-' + realIdx + '">INV</span><input id="bd-inv-' + realIdx + '" name="bd-inv-' + realIdx + '" aria-label="Invested pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
+  // N-7 (issue #760): Necropolis allocator — writes directly to
+  // m.free_grants.necro (map shape, no new legacy free_necro field) per the
+  // ADR-005 allocator-write-path amendment.
+  // N-7c (issue #771): id + aria-label so browsers don't flag "form field
+  // element should have an id or name attribute / No label associated with a
+  // form field". The 5 sibling steppers (LK/INV/VM/OHM/MCI) got the same
+  // treatment in #774 — see lines above.
+  if (opts.showNECRO) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-necro-lbl-' + realIdx + '">NECRO</span><input id="bd-necro-' + realIdx + '" name="bd-necro-' + realIdx + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fnecro + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.necro\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
-  const bon = mc.bonus || 0;
-  h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',-1)"' + (bon === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bon > 0 ? '+' + bon : '0') + '</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',1)">&#x25B2;</button></div>';
+  // N-9 (issue #762, Bug 2): standing-merit render paths (MCI, PT) don't read
+  // m.bonus, so the Bonus row was visible-but-no-op. Standing call sites pass
+  // opts.hideBonus=true to suppress the row entirely. Default behaviour
+  // (general/influence/domain/style merits) is unchanged.
+  if (!opts.hideBonus) {
+    const bon = mc.bonus || 0;
+    h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',-1)"' + (bon === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bon > 0 ? '+' + bon : '0') + '</span><button class="sh-stat-adj" onclick="shAdjMeritBonus(' + realIdx + ',1)">&#x25B2;</button></div>';
+  }
   return h;
 }

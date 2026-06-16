@@ -13,7 +13,9 @@ import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOpti
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
 // N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
 // N-5: validateTrapDoorAnchor reports the render-time non-functional state.
-import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor } from '../data/rules-helpers.js';
+// N-7: hasNecropolisSepulcher + getNecropolisTargets drive the allocator stepper.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf } from '../data/rules-helpers.js';
+import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
@@ -111,12 +113,21 @@ function _renderPoolCounters(c, category) {
   // Lorekeeper pools target Herd/Retainer — show in the domain section (Herd lives there;
   // Retainer is influence but pool is unified). One row keeps the summary uncluttered.
   const lkPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'lk') : [];
-  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools];
+  // N-7 (issue #760): Necropolis pool targets sit in the general merit
+  // section — surface the counter in 'general' so the read-side summary
+  // matches the per-target allocator stepper below.
+  // N-7a (issue #766): Necropolis targets are sub_category='domain' — surface
+  // the pool counter in the domain section, matching where the per-target
+  // steppers actually render. Pre-N-7a this filtered on 'general' (the
+  // mistake that surfaced as part of the broader showNECRO-in-wrong-renderer
+  // bug — the original N-7 wiring went into the general renderer too).
+  const necroPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
+  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...necroPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
   const seen = new Set();
   allPools.forEach(p => {
-    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.name);
+    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.category === 'necro' ? 'Necropolis targets (Catacombs/Caldarium/Garbage Pit/Labyrinth Guardians/Dark Temple/White Ants)' : p.name);
     const key = p.source + '|' + label;
     if (seen.has(key)) return;
     seen.add(key);
@@ -126,6 +137,8 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'lk') { pTotal = p.amount; pUsed = lorekeeperUsed(c); }
     else if (p.category === 'ohm') { pTotal = p.amount; pUsed = ohmUsed(c); }
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
+    // N-7 (issue #760): necro pool — sum freeOf(m, 'necro') across all merits.
+    else if (p.category === 'necro') { pTotal = p.amount; pUsed = (c.merits || []).reduce((s, m) => s + freeOf(m, 'necro'), 0); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
     h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
@@ -143,6 +156,15 @@ function _alertBadge(lvl) {
 function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
   return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+}
+
+/** Three-tier domain merit dot rendering: inherent (\u25CF), bonus (\u25CB), shared/underlined (\u25CB). */
+function shDotsThreeTier(inherent, bonus, shared) {
+  let h = '';
+  for (let i = 0; i < inherent; i++) h += '\u25CF';
+  for (let i = 0; i < bonus; i++)    h += '\u25CB';
+  for (let i = 0; i < shared; i++)   h += '<span class="dot-shared">\u25CB</span>';
+  return '<span class="trait-dots">' + h + '</span>';
 }
 
 /** Derived dot source notes on a merit. Only emits lines where the field > 0. */
@@ -697,9 +719,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.mandragora_parked ? '<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + (p.mandragora_parked ? '<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -973,6 +995,22 @@ export function shRenderDomainMerits(c, editMode) {
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c); const _hasVM = hasViralMythology(c);
+    // N-7a (issue #766): Necropolis target merits are sub_category='domain'
+    // and render through THIS function — the general-renderer wiring at
+    // sheet.js:1325/1342 from N-7 (PR #765) doesn't reach them. Mirrors the
+    // LK/Inv/VM precedent which threads the same flags into both the domain
+    // renderer (here) AND the influence renderer (line 887). All six
+    // Necropolis targets (Catacombs / Caldarium / Garbage Pit / Labyrinth
+    // Guardians / Dark Temple / White Ants) live in the domain section, so
+    // domain-only wiring is sufficient.
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    // N-7b (issue #768): _necroTargets must populate UNCONDITIONALLY — option 3
+    // suppression is "categorically by merit name, regardless of Sepulcher
+    // ownership." The stepper render is still gated on _hasNecroSep below
+    // (showNECRO: _hasNecroSep && _isNecroTarget), but the hide-* flags fire
+    // even for non-Sepulcher characters who somehow have a Necropolis target
+    // merit on their sheet.
+    const _necroTargets = getNecropolisTargets(getRulesCache());
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
@@ -1018,39 +1056,82 @@ export function shRenderDomainMerits(c, editMode) {
       }
       // Attached-to selector for Haven / Mandragora Garden
       if (_isCapped) {
-        const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
-        const _spOpts = ['<option value="">(select Safe Place)</option>']
+        // N-8 (issue #761, Peter decision B 2026-06-15): Mandragora Garden's
+        // attached_to picker accepts Necropolis Sepulcher as an alternative
+        // destination alongside Safe Place. Single-picker option-set \u2014 NOT
+        // dual-anchor (Sepulcher's purchase prereq carries the clan check;
+        // there's no second anchor field to populate). Haven stays
+        // Safe-Place-only \u2014 only Mandragora gets the expansion.
+        const _isMandragora = m.name === 'Mandragora Garden';
+        const _spInstances = (c.merits || []).filter(sp =>
+          (sp.category === 'domain' && sp.name === 'Safe Place')
+          || (_isMandragora && sp.name === 'Necropolis Sepulcher')
+        );
+        const _placeholderLabel = _isMandragora ? '(select Safe Place or Sepulcher)' : '(select Safe Place)';
+        const _spOpts = ['<option value="">' + _placeholderLabel + '</option>']
           .concat(_spInstances.map(sp => { const k = domKey(sp); const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(k) + '"' + (_at && _at.destination === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
           .join('');
         h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
         if (!normaliseAttachedTo(m.attached_to) || _spInstances.length === 0) {
-          h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
+          h += '<div class="dom-cap-warn">\u26A0 Needs an attached ' + (_isMandragora ? 'Safe Place or Sepulcher' : 'Safe Place') + ' \u2014 contributes 0 dots until linked.</div>';
         } else if (_capStored > _capEff) {
-          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
+          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached ' + (_isMandragora ? 'anchor' : 'Safe Place') + ' is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if upgraded)</div>';
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // N-7b (issue #768, Peter decision option 3, 2026-06-16): Necropolis
+      // target merits are pool-funded only. Suppress CP / XP / MCI / Bonus
+      // categorically by merit name (regardless of Sepulcher ownership —
+      // the row exists because the merit is on the sheet, but it must NEVER
+      // be hand-funded). The NECRO stepper is the only allocation surface.
+      const _isNecroTarget = _necroTargets.includes(m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isNecroTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _isNecroTarget, hideCP: _isNecroTarget, hideXP: _isNecroTarget, hideMCI: _isNecroTarget, hideBonus: _isNecroTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // N-4a (issue #781): White Ants Territory picker + Trap Door triple-anchor
+      // picker. Both target merits are sub_category='domain', so the pickers
+      // must render in the domain loop here — not in shRenderGeneralMerits.
+      // The N-4 / N-5 wiring originally lifted the integration point from a
+      // general-merit precedent; same blind spot as N-7a (NECRO stepper in
+      // wrong renderer) and N-7c (orchestrator dispatch missing). Production
+      // symptom pre-fix: ST cannot pick territories → save fails 400.
+      h += _whiteAntsTerritoriesBlock(m, rIdx);
+      h += _trapDoorAnchorBlock(c, m, rIdx);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
-      // Issue #160 (2026-05-08): Mandragora Garden gains the shared quality
-      // per published errata — direct partner sharing on the Mandragora
-      // instance, semantically identical to Safe Place's existing treatment.
-      // Removed from _noShare here. The attached-to-Safe-Place cap stays
-      // (CAP_DOMAIN in editor/domain.js); per-instance shared_with sums
-      // partner contributions through the existing domMeritShareable path.
-      // Issue #313 (2026-05-15): Haven also gains direct shared quality --
-      // same mechanism as Mandragora Garden above.
-      const _noShare = ['Herd', 'Feeding Grounds'];
-      if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Issue #782 (Peter decision (a), 2026-06-16): partner_explicit shared_with
+      // picker is restricted to Safe Place and Haven only. Inverted from the
+      // previous negative `_noShare` exclusion (['Herd', 'Feeding Grounds']) to
+      // a positive include list — every other domain merit (Mandragora Garden,
+      // Necropolis Sepulcher, all 6 Necropolis targets, Trap Door, future
+      // additions) defaults to NOT shareable via this picker.
+      //
+      // Audit trail of prior decisions reversed/preserved:
+      // - Issue #160 (2026-05-08): added Mandragora Garden to shareable per
+      //   published errata. REVERSED by #782 — Peter's framing returns the
+      //   game to "only Safe Place and Haven share".
+      // - Issue #313 (2026-05-15): added Haven to shareable. PRESERVED.
+      // - Necropolis family auto-shares via _collective_shared_with synthesis
+      //   (ADR-005 Rev 2 §D3) — that's the correct mechanism, orthogonal to
+      //   this partner_explicit picker UI.
+      //
+      // Existing `m.shared_with` data on non-shareable merits is preserved in
+      // the DB as inert (no destructive migration in this scope); the gate
+      // below suppresses display + add-partner UI on the editor surface.
+      const _canShare = ['Safe Place', 'Haven'];
+      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
+    // Issue #782: read-only view shares the same partner-display gate as the
+    // editor surface — only Safe Place and Haven render the "Shared · ..." line.
+    // Stored `m.shared_with` on other merits is treated as inert data and
+    // suppressed from display (no destructive migration; future cleanup is a
+    // separate story).
+    const _canShareView = ['Safe Place', 'Haven'];
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null;
+      const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
       const mBon = m.bonus || 0;
@@ -1070,11 +1151,12 @@ export function shRenderDomainMerits(c, editMode) {
       } else {
         dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
       }
-      // Shared display: own dots filled + partner contribution hollow.
-      const _shPurch = (m.cp || 0) + (m.xp || 0);
-      const _shOwn = Math.min(de, _shPurch);
-      const _shPart = Math.max(0, de - _shOwn);
-      const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
+      // Shared display: three tiers \u2014 filled \u25CF inherent (cp+xp), hollow \u25CB bonus (free_*), underlined \u25CB shared (partner).
+      const _sh3Inherent = Math.min(de, (m.cp || 0) + (m.xp || 0));
+      const _sh3OwnAll   = Math.min(de, (m.cp || 0) + (m.xp || 0) + meritFreeSum(m));
+      const _sh3Bonus    = _sh3OwnAll - _sh3Inherent;
+      const _sh3Shared   = Math.max(0, de - _sh3OwnAll);
+      const _shHtml      = '<div class="dom-total-view" title="\u25CF inherent, \u25CB bonus, \u25CB\u0332 shared">' + shDotsThreeTier(_sh3Inherent, _sh3Bonus, _sh3Shared) + '</div>';
       // Display name includes qualifier when present
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
       h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
@@ -1140,7 +1222,9 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name)); h += _prereqWarn(c, m.name);
+    // N-9 (issue #762, Bug 2): standing merits (MCI/PT) don't read m.bonus,
+    // so the Bonus row is no-op clutter; hideBonus suppresses it.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { hideBonus: true }); h += _prereqWarn(c, m.name);
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
     for (let d = 0; d < 5 && d < eDots; d++) {
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><div class="mci-dot-content">';
@@ -1214,7 +1298,8 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0 });
+    // N-9 (issue #762, Bug 2): PT standing — hideBonus.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0, hideBonus: true });
     h += _prereqWarn(c, m.name);
     h += '<div class="pt-skills-edit">';
     if (eDots >= 1) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF</span><span class="mci-benefit-text">Networking: 2 free Contacts' + (m.role ? ' (' + esc(m.role) + ')' : '') + '</span></div>';
@@ -1285,6 +1370,11 @@ export function shRenderGeneralMerits(c, editMode) {
       + '</div>';
     h += _renderPoolCounters(c, 'general') + _renderPoolCounters(c, 'influence') + _renderPoolCounters(c, 'domain');
     const _genMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    // N-7 (issue #760): Necropolis allocator wiring — _hasNecroSep gates the
+    // stepper render; _necroTargets sources the target merit list from the
+    // rule_grant doc (NOT hardcoded — picks up future pool_targets edits).
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
     const _KERBEROS_ASPECTS = ['Monstrous', 'Competitive', 'Seductive'];
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
@@ -1295,7 +1385,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1312,11 +1402,11 @@ export function shRenderGeneralMerits(c, editMode) {
         const _mBonus = m.bonus || 0;
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
-        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
-        // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
-        h += _whiteAntsTerritoriesBlock(m, rIdx);
-        // N-5 (MNEC #697): Trap Door triple-anchor picker (origin + destination + territory).
-        h += _trapDoorAnchorBlock(c, m, rIdx);
+        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) });
+        // N-4a (issue #781): White Ants + Trap Door pickers moved to
+        // shRenderDomainMerits (their merits are sub_category='domain').
+        // Calls removed here — would never have fired in the general renderer
+        // since both merits route to the domain branch by sub_category.
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }

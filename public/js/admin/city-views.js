@@ -5,6 +5,9 @@
  */
 
 import { apiGet, apiPut, apiPost } from '../data/api.js';
+// #751: writes state.activeCycleNum when the active cycle resolves so the
+// editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
+import state from '../data/state.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, cardName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
@@ -58,7 +61,10 @@ export async function initCityView() {
     const cycles = await apiGet('/api/downtime_cycles');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     _activeCycle = sorted.find(c => c.status === 'active') || null;
-  } catch { _activeCycle = null; }
+    // #751: plumb the cycle number into shared state for the editor's
+    // Add Equipment / Add Asset pre-fill (read in sheet.js + edit.js).
+    state.activeCycleNum = (_activeCycle && _activeCycle.cycle_number) ?? null;
+  } catch { _activeCycle = null; state.activeCycleNum = null; }
 
   try {
     const sessions = await apiGet('/api/game_sessions');
