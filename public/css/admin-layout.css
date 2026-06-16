@@ -5268,6 +5268,23 @@ body {
 }
 .proc-note-textarea:focus { border-color: var(--accent); outline: none; }
 
+.proc-outcome-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--ft);
+  resize: vertical;
+  min-height: 44px;
+}
+.proc-outcome-input:focus { border-color: var(--accent); outline: none; }
+.proc-confirm-outcome-btn { margin-top: 6px; }
+
 /* ── DTX-3: notes / feedback visual hierarchy ── */
 /* Chrome (background/border/radius/padding) now comes from the canonical CSS-6 rule.
    Only label spacing is overridden here. */
