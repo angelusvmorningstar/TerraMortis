@@ -203,8 +203,8 @@ function _ambienceDirection(actionType, projN, responses) {
     const dir = responses[`project_${projN}_ambience_direction`]
       || responses[`project_${projN}_ambience_dir`]
       || '';
-    if (dir === 'improve') return 'increase';
-    if (dir === 'degrade') return 'decrease';
+    if (dir === 'improve' || dir === 'up') return 'increase';
+    if (dir === 'degrade' || dir === 'down') return 'decrease';
   }
   return null;
 }
@@ -3840,7 +3840,7 @@ function _computeMatrixFeederCounts() {
     const fedMap = _getSubFedTerrs(s);
     for (const [csvKey, count] of fedMap) {
       if (byCsvKey[csvKey] !== undefined) byCsvKey[csvKey] += count;
-      const tid = resolveTerrId(csvKey);
+      const tid = TERRITORY_SLUG_MAP[csvKey];
       if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + count;
     }
   }
@@ -3916,7 +3916,7 @@ function _gatherProjectAmbience(subs) {
       const terrRaw = resp[`project_${n}_ambience_target`] || resp[`project_${n}_territory`] || '';
       const desc    = resp[`project_${n}_description`] || proj.detail || '';
       const outcome = proj.desired_outcome || resp[`project_${n}_outcome`] || '';
-      const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      const tid = terrOverride || (TERRITORY_SLUG_MAP[terrRaw] ?? resolveTerrId(terrRaw)) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = resolved.roll.successes ?? 0;
       const contrib = successes >= 5 ? 4 : successes > 0 ? 2 : 0;
@@ -4915,19 +4915,11 @@ function renderProcessingMode(container) {
   // Wire filter pills — character chips use replace shortcut (proto.3); others toggle
   container.querySelectorAll('.proc-filter-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.stripChar) {
-        _procFilters.statuses    = new Set();
-        _procFilters.chars       = new Set([btn.dataset.stripChar]);
-        _procFilters.phases      = btn.dataset.stripPhase ? new Set([btn.dataset.stripPhase]) : new Set();
-        _procFilters.territories = new Set();
-        _procFilters.sources     = new Set();
-      } else {
-        const dim = btn.dataset.filterDim;
-        const val = btn.dataset.filterVal;
-        if (!dim || !val || !_procFilters[dim]) return;
-        if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
-        else _procFilters[dim].add(val);
-      }
+      const dim = btn.dataset.filterDim;
+      const val = btn.dataset.filterVal;
+      if (!dim || !val || !_procFilters[dim]) return;
+      if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
+      else _procFilters[dim].add(val);
       renderProcessingMode(container);
     });
   });
@@ -7551,7 +7543,7 @@ function _renderCompactMeritPanel(entry, rev) {
   if (entry.isAlliesAction) {
     const _mCtx = `allies_${entry.actionIdx}`;
     const _mSub = submissions.find(s => s._id === entry.subId);
-    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || resolveTerrId(entry.projTerritory) || '';
     h += `<div class="proc-feed-mod-panel proc-merit-terr-panel">`;
     h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     h += `</div>`;
@@ -7667,7 +7659,7 @@ function _renderMeritRightPanel(entry, rev) {
   if (entry.isAlliesAction) {
     const _mCtx = `allies_${entry.actionIdx}`;
     const _mSub = submissions.find(s => s._id === entry.subId);
-    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || resolveTerrId(entry.projTerritory) || '';
     h += `<div class="proc-feed-mod-panel proc-merit-terr-panel">`;
     h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     h += `</div>`;
@@ -9704,7 +9696,13 @@ function renderActionPanel(entry, review) {
       }
 
       // Territory (read-only — set via territory pills elsewhere)
-      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projTerritory) {
+        const _tCanon   = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+        const _tDisplay = (cachedTerritories || []).find(t => t.slug === _tCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === _tCanon)?.name
+                       || _tCanon;
+        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(_tDisplay)}</div>`;
+      }
       // For feed projects, show player's nominated main feeding territories
       if (entry.actionType === 'feed') {
         const _nomText = _playerFeedTerrsText(projSub2);
