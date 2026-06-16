@@ -5,7 +5,7 @@ issue: 797
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/797
 branch: ms/issue-797-dt-proc-confirm-outcome-revert
 created: '2026-06-16'
-status: review
+status: done
 recommended_model: 'sonnet — one-line blur guard + test'
 context:
   - public/js/admin/downtime-views.js
