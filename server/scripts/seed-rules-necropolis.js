@@ -97,6 +97,7 @@ const MERITS = [
     key: 'necropolis-sepulcher',
     name: 'Necropolis Sepulcher',
     rating_range: [1, 5],
+    sub_category: 'domain',
     prereq: PREREQ_CLAN,
     description:
       "Prerequisites: Nosferatu Status •\n\n" +
@@ -110,6 +111,7 @@ const MERITS = [
     key: 'catacombs',
     name: 'Catacombs',
     rating_range: [1, 5],
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "Navigating the tunnels necessitates an extended Wits + Investigation roll, with ten successes required. " +
@@ -125,6 +127,7 @@ const MERITS = [
     key: 'caldarium',
     name: 'Caldarium',
     rating_range: [1, 3],
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "The Caldaria is the one location in the Necropolis that strangers may be allowed to visit, it is, in a way, a Nosferatu Elysium: one shall not bring violence here.\n\n" +
@@ -139,6 +142,7 @@ const MERITS = [
     key: 'garbage-pit',
     name: 'Garbage Pit',
     rating_range: [1, 3],
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "The Garbage Pit provides 2 distinct benefits that Haunts have learnt not to look too closely at: " +
@@ -153,6 +157,7 @@ const MERITS = [
     key: 'labyrinth-guardians',
     name: 'Labyrinth Guardians',
     rating_range: [1, 5],
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "Guardian Swarms are packs or hordes of mutant animals that live in the Warren. " +
@@ -168,6 +173,7 @@ const MERITS = [
     name: 'Dark Temple',
     rating_range: [2, 2],
     xp_fixed: 2,
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "A Haunt spending time in the Dark Temple has their Beast quietened; they take the Sated Condition (+1 on Frenzy checks) and are considered to have meditated (+1 on Breakpoint checks). " +
@@ -180,6 +186,7 @@ const MERITS = [
     key: 'white-ants',
     name: 'White Ants',
     rating_range: [1, 5],
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       "The Necropolis sprawls and opens into Territories far beyond what is reasonable. " +
@@ -196,6 +203,7 @@ const MERITS = [
     name: 'Trap Door',
     rating_range: [1, 1],
     xp_fixed: 1,
+    sub_category: 'domain',
     prereq: PREREQ_FAMILY,
     description:
       // VERBATIM TYPOS PRESERVED ("a entrance" → "an entrance"; "above group" → "above ground") per Peter 2026-06-10 ack.
@@ -211,6 +219,7 @@ const MERITS = [
     name: 'True Worm',
     rating_range: [2, 2],
     xp_fixed: 2,
+    sub_category: 'general',
     prereq: PREREQ_CLAN,
     description:
       "So used to the dark, the Nosferatu no longer feels the draw of day sleep when in the tunnels of the Necropolis that lay more than 10 meters below the earth where there is no possibility of sunlight. " +
@@ -228,6 +237,13 @@ const MERITS = [
 const NECRO_RULE_GRANT = {
   source: 'Necropolis Sepulcher',
   source_slug: 'necro',
+  // Issue #775: belt-and-braces — write both `category` (N-1 convention,
+  // read directly by _renderPoolCounters filters at sheet.js:124) and
+  // `source_slug` (legacy field). Pool-evaluator now bridges both at write
+  // time via `rule.category ?? rule.source_slug` so future rule_grant docs
+  // don't need this dual field, but keeping it explicit here matches the
+  // shape consumers expect and survives a re-seed without surprise.
+  category: 'necro',
   grant_type: 'pool',
   condition: 'merit_present',
   amount_basis: 'rating_of_source',

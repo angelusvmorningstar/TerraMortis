@@ -602,7 +602,8 @@ export function renderSheet() {
         const _riteHasRoll = _ritePool && !_ritePool.noRoll && _ritePool.total !== undefined;
         const _riteDice = (_showDice && _riteHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>` : '';
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
-        const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
+        const mgChip = p.mandragora_parked ? `<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>` : '';
+        const tradSub = (p.tradition || mgChip) ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition || ''}</span>${mgChip}</div>` : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">

@@ -10,7 +10,7 @@
 
 import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName, sortName } from '../data/helpers.js';
-import { clanRowsFor, covenantRowsFor, resolveActiveChar } from '../data/status-data.js';
+import { clanRowsFor, resolveActiveChar } from '../data/status-data.js';
 
 const LIVE_CYCLE_STATUSES = ['active', 'game', 'prep'];
 
@@ -295,7 +295,7 @@ export async function appendRankingSection(el, { chars, activeChar, isST }) {
     const activeId = String(activeChar._id);
     const me = resolveActiveChar(chars, activeChar);
     const clanMembers = (me?.clan ? clanRowsFor(chars, me.clan, sortName) : []).map(r => r.c).filter(c => String(c._id) !== activeId);
-    const covMembers  = (me?.covenant ? covenantRowsFor(chars, me.covenant, sortName) : []).map(r => r.c).filter(c => String(c._id) !== activeId);
+    const covMembers  = me?.covenant ? chars.filter(c => c.covenant === me.covenant && String(c._id) !== activeId) : [];
     let ballot = null;
     if (cycleId) {
       try { ballot = await apiGet(`/api/ranking_ballots/mine?cycle_id=${encodeURIComponent(cycleId)}&voter=${encodeURIComponent(activeId)}`); } catch { /* ignore */ }

@@ -75,35 +75,49 @@ function domMeritTotalSingle(c, m) {
   const partners = m.shared_with || [];
   const key = domKey(m);
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) {
-      const pm = (p.merits || []).find(pm2 =>
-        pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
-      );
-      if (pm) partnerTotal += domMeritShareableSingle(pm);
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) {
+        const pm = (p.merits || []).find(pm2 =>
+          pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
+        );
+        if (pm) partnerTotal += domMeritShareableSingle(pm);
+      }
     }
-  }
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   return Math.min(5, own + partnerTotal);
 }
 
 /**
- * Cap for Haven / Mandragora Garden: effective rating of the attached Safe Place instance.
- * Returns 0 if no attached_to set or Safe Place not found.
+ * Cap for Haven / Mandragora Garden: effective rating of the attached anchor.
+ *
+ * Haven anchors to a Safe Place only. Mandragora Garden anchors to either a
+ * Safe Place or — per N-8 (issue #761, Peter decision B 2026-06-15) — a
+ * Necropolis Sepulcher merit instance. Returns 0 if no anchor set or anchor
+ * not found.
  */
 function _havenCap(c, m) {
   // N-1 (Concern #11): every read of m.attached_to goes through the normaliser.
-  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the Safe Place key.
+  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the anchor key.
   const at = normaliseAttachedTo(m.attached_to);
   if (!at) return 0;
-  const sp = (c.merits || []).find(sp2 =>
-    sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination
-  );
-  if (!sp) return 0;
-  return domMeritTotalSingle(c, sp);
+  const isMandragora = m.name === 'Mandragora Garden';
+  const anchor = (c.merits || []).find(sp2 => {
+    // Safe Place is the legacy anchor for both Haven and Mandragora.
+    if (sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination) return true;
+    // N-8: Mandragora can additionally anchor to Necropolis Sepulcher. The
+    // permissive `sp2.name` check (no category constraint) mirrors the
+    // picker filter at sheet.js — Sepulcher could be in any category on
+    // the character; matching by name is the canonical lookup.
+    if (isMandragora && sp2.name === 'Necropolis Sepulcher' && domKey(sp2) === at.destination) return true;
+    return false;
+  });
+  if (!anchor) return 0;
+  return domMeritTotalSingle(c, anchor);
 }
 
 /**
@@ -177,15 +191,17 @@ export function domMeritTotal(c, name) {
   const own = domMeritContribSingle(c, m);
   const partners = m.shared_with || [];
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) partnerTotal += domMeritShareable(p, name);
-  }
-  // Fallback: if no partner chars were found in state.chars (player portal
-  // only has the player's own characters), use _partner_dots which the
-  // server pre-computed on the ?mine=1 fetch path.
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) partnerTotal += domMeritShareable(p, name);
+    }
+    // Fallback: if no partner chars were found in state.chars (player portal
+    // only has the player's own characters), use _partner_dots which the
+    // server pre-computed on the ?mine=1 fetch path.
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   const total = own + partnerTotal;
   // Herd can exceed 5 when Flock is present
@@ -203,7 +219,28 @@ export function domMeritTotal(c, name) {
  * contributions for shared domain merits). Those are summed in by
  * meritEffectiveRating, not by this helper.
  */
+// Issue #790: Necropolis target merit names — pool-funded only. meritFreeSum
+// must categorically ignore m.free + every legacy flat free_<slug> + every
+// non-necro entry in free_grants for these rows. The only legitimate funding
+// channel is m.free_grants.necro. Same categorical-by-name pattern as N-7b's
+// input suppression; static set is acceptable for v1 since the targets are
+// stable from N-3 (matches N-7b's static set at sheet.js _necroTargets).
+const NECRO_TARGETS_FOR_SUM = new Set([
+  'Catacombs', 'Caldarium', 'Garbage Pit',
+  'Labyrinth Guardians', 'Dark Temple', 'White Ants',
+]);
+
 export function meritFreeSum(m) {
+  // Issue #790: Necropolis-target categorical exclusion. Without this gate,
+  // any stray write to m.free or any legacy m.free_<slug> field on a target
+  // merit silently double-counts on top of the legitimate pool allocation.
+  // Yusuf hit this 2026-06-16 — 4 merits showed +1 too high because of legacy
+  // m.free=1 contamination of unknown origin (no current main code path
+  // writes m.free positive on these rows, but the cleanup script was one-shot
+  // and the class needs a permanent gate).
+  if (m && NECRO_TARGETS_FOR_SUM.has(m.name)) {
+    return (m.free_grants && m.free_grants.necro) || 0;
+  }
   // N-1 / ADR-005 Rev 2: delegate to the shared helper which sums BOTH the
   // new `m.free_grants` map AND every legacy `m.free_<slug>` field. The
   // shared helper EXCLUDES `m.free` (the unprefixed player-allocated channel)
@@ -278,9 +315,13 @@ export function meritEffectiveRating(c, m) {
       return domMeritTotal(c, m.name);
     }
   }
-  // N-1: delegate the 14-channel enumeration to the shared helper. `m.free`
-  // (unprefixed) added separately per the meritFreeSum public contract.
-  const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0) + _meritFreeSumHelper(m);
+  // Issue #790: route through meritFreeSum so the Necropolis-target
+  // categorical exclusion applies here too (it would otherwise be bypassed by
+  // the inline 14-channel sum). Pre-#790 this was hand-rolled as
+  // `(m.cp||0) + (m.xp||0) + (m.free||0) + _meritFreeSumHelper(m)` — a
+  // duplicate of meritFreeSum's body plus cp+xp — and silently summed every
+  // free channel even on Necropolis target rows.
+  const sum = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }
@@ -298,6 +339,7 @@ export function meritEffectiveRating(c, m) {
 export function domMeritAccess(c, name) {
   const own = domMeritTotal(c, name);
   if (own > 0) return own;
+  if (domMeritContrib(c, name) < 1) return 0;
   for (const partner of (state.chars || [])) {
     const pm = (partner.merits || []).find(m =>
       m.category === 'domain' && m.name === name &&

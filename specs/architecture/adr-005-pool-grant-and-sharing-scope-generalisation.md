@@ -250,6 +250,24 @@ This is the explicit cost of Thoth's deferral: **the latent divergence persists*
 
 **(d) Idempotent backfill script (N-2)** moves each legacy `m.free_<slug>` to `m.free_grants.<slug>` and unsets the legacy field. Skip on already-migrated docs. Light enough for in-place Render run. Separate PR from N-1 for independent revertibility per the STM-13 discipline ([feedback_bookkeeping_default](memory/feedback_bookkeeping_default.md) precedent). N-2 also includes the `attached_to` normalisation per D7 below.
 
+#### D6 amendment — Allocator write path. (Inline amendment 2026-06-15, authorised by Peter on N-7 dispatch; no Rev bump, mirrors ADR-004's auth-amendment convention.)
+
+Source-merit **allocators** introduced post-N-1 (Necropolis Sepulcher first; future Collective Compound families subsequently) write directly to `m.free_grants[slug]`. They do **NOT** introduce new legacy `m.free_<slug>` flat fields. Existing **LK / Inv / VM** allocators retain their legacy-field writes until the deferred MNEC-prerequisite audit migrates them. **MCI** (N-9 issue #762, Bug 1 "adjacent finding") migrated to the map shape alongside this amendment landing — its `meritBdRow` input now emits `'free_grants.mci'` rather than `'free_mci'`.
+
+Until the LK/Inv/VM migration ships, allocator writes are **heterogeneous by source**:
+
+| Source | Write target | Read | Status |
+|---|---|---|---|
+| Necropolis Sepulcher (N-7) | `m.free_grants.necro` (map) | union via `meritFreeSum` / `freeOf` | post-N-1 convention |
+| MCI (N-9) | `m.free_grants.mci` (map) | union via `meritFreeSum` / `freeOf` | post-N-1 convention |
+| Lorekeeper (LK) | `m.free_lk` (legacy flat) | union via `meritFreeSum` / `freeOf` | pre-audit; legacy |
+| Invested (INV) | `m.free_inv` (legacy flat) | union via `meritFreeSum` / `freeOf` | pre-audit; legacy |
+| Viral Mythology (VM) | `m.free_vm` (legacy flat) | union via `meritFreeSum` / `freeOf` | pre-audit; legacy |
+
+The runtime read-guards (`meritFreeSum` / `freeOf` legacy fallback) absorb the heterogeneity correctly — every read site sees the canonical total regardless of which channel a given value lives in. The handler `shEditMeritPt` accepts the new `field === 'free_grants.<slug>'` shape and routes to the map; the existing `field === 'free_<slug>'` shape continues to route to the flat field for the legacy allocators.
+
+This amendment exists to make the heterogeneity explicit and to set the convention for the next Collective Compound family — there is no Rev bump because Rev 2's D6 already authorised the migration's hybrid shape; the amendment just names the allocator write-path branch of that hybrid.
+
 ### D7 — Dual-anchor `attached_to`: coexistence pattern with runtime-guard normaliser. (Rev 2, architecturally novel per Thoth)
 
 Trap Door is structurally a **bridge** between two compounds, not just bookkeeping on a single anchor. It needs to name BOTH:

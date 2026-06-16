@@ -1,4 +1,29 @@
 services:
+  - type: worker
+    name: tm-suite-bot
+    runtime: node
+    plan: free
+    rootDir: bot
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISCORD_BOT_TOKEN
+        sync: false  # set manually in Render dashboard (secret)
+      - key: DISCORD_CLIENT_ID
+        value: 1516048999365218314
+      - key: DISCORD_GUILD_ID
+        sync: false  # set manually in Render dashboard
+      - key: TM_API_URL
+        value: https://tm-suite-api.onrender.com
+      - key: ANNOUNCE_DEVLOG_CHANNEL_ID
+        sync: false
+      - key: ANNOUNCE_DOWNTIME_CHANNEL_ID
+        sync: false
+      - key: ANNOUNCE_GAME_CHANNEL_ID
+        sync: false
+
   - type: web
     name: tm-suite-api
     runtime: node
