@@ -63,6 +63,21 @@ function backfillChannel(merit) {
 function sumChannels(merit) {
   let s = 0;
   for (const ch of MERIT_CHANNELS) s += (merit[ch] || 0);
+  // Issue #811 (root-cause fix): sum the post-N-1 `free_grants` map too.
+  // Pre-fix this iterated only the legacy flat channels, so a merit whose
+  // free dots had been backfilled to the map (post-N-2) looked like sum=0
+  // and triggered the `if (sum === 0 && rating > 0)` backfill branch on
+  // every save — writing `m.free = rating` AND leaving the map populated.
+  // The two channels then read additively (client `meritFreeSum` union-
+  // sums both), doubling the dot display. Mechanism documented in
+  // specs/investigations/2026-06-16-free-channel-contamination.md. The
+  // same file's `_effectiveMeritRating` (~line 242) already sums the map
+  // — proving the canonical formula was known; sumChannels just wasn't
+  // updated when N-1 landed. Adding it here aligns with the client
+  // syncMeritRating / meritFreeSum shape too.
+  if (merit.free_grants && typeof merit.free_grants === 'object') {
+    for (const v of Object.values(merit.free_grants)) s += (v || 0);
+  }
   return s;
 }
 
