@@ -44,8 +44,6 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
-const APPLY = process.argv.includes('--apply');
-const DRY_RUN = !APPLY;
 const DB_NAME = process.env.MONGODB_DB || 'tm_suite';
 
 // 14 legacy free_<slug> fields (matches LEGACY_FREE_SLUGS in
@@ -97,7 +95,12 @@ export function cleanupMerit(merit) {
   };
 }
 
-async function main() {
+export async function main() {
+  // Issue #826: compute APPLY / DRY_RUN inside main so integration tests can
+  // toggle without re-importing the module (pre-fix these were module-scoped
+  // and frozen on first import).
+  const APPLY = process.argv.includes('--apply');
+  const DRY_RUN = !APPLY;
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
     console.error('MONGODB_URI not set. Ensure server/.env is present and the script is run from server/.');
@@ -149,7 +152,21 @@ async function main() {
           }
         }
         if (!DRY_RUN) {
-          await characters.replaceOne({ _id: doc._id }, doc);
+          // Issue #826 (HOTFIX): write ONLY the merits field via $set. The
+          // pre-fix `replaceOne({_id}, doc)` was destructive because `doc` is
+          // a projection (only _id + name + merits) — `replaceOne` overwrote
+          // each character document with the projected shape, deleting every
+          // unprojected field (attributes / skills / disciplines / clan /
+          // covenant / status / xp / humanity / blood_potency / aspirations
+          // / etc). Hit prod 2026-06-16 — 13 characters required JSON-backup
+          // recovery. Same blind-spot class as N-7c (helpers tested in
+          // isolation; integration path not). See memory
+          // [[feedback_script_integration_test]] for the discipline going
+          // forward.
+          await characters.updateOne(
+            { _id: doc._id },
+            { $set: { merits: doc.merits } }
+          );
         }
       }
     }
