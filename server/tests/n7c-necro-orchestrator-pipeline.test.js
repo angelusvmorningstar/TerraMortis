@@ -143,6 +143,14 @@ describe('N-7c — applyDerivedMerits dispatches Necropolis pool evaluator', () 
     expect(necroEntry.source).toBe('Necropolis Sepulcher');
     expect(necroEntry.amount).toBe(3); // rating_of_source: Sepulcher cp=3 xp=0
     expect(necroEntry.names).toEqual(expect.arrayContaining(['Catacombs', 'Caldarium', 'White Ants']));
+    // Issue #775: assert on the full entry SHAPE, not just presence. category
+    // must always be set — pre-#775 a rule_grant doc that omits `category`
+    // (using only `source_slug`) silently pushed an entry with
+    // `category: undefined`, breaking downstream filters at sheet.js:124
+    // (_renderPoolCounters) and the poolAvailableFor cap math. The
+    // pool-evaluator now bridges via `rule.category ?? rule.source_slug`;
+    // this assertion catches a regression of that bridge.
+    expect(necroEntry.category).toBe('necro');
   });
 
   it('emits no necro pool entry when Sepulcher is absent', () => {
