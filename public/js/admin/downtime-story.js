@@ -1033,7 +1033,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
 
   // Discipline profile for this territory
-  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  // discipline_profile is _id-keyed (ADR-002); read with terrOidStr, not the slug terrId (#814).
+  const discProfile = cycleData?.discipline_profile?.[terrOidStr] || {};
   const discProfileStr = Object.entries(discProfile).length
     ? Object.entries(discProfile).map(([d, n]) => `${d}${n > 1 ? ` (\u00d7${n})` : ''}`).join(', ')
     : 'None detected';
@@ -2484,7 +2485,8 @@ function getContestingActions(sub, char, allSubmissions) {
  */
 function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
   const rawOverride = sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '';
-  const terrId = resolveTerrId(rawOverride);
+  // #814: override is a slug; resolve slug-first with OID fallback.
+  const terrId = TERRITORY_SLUG_MAP[rawOverride] ?? resolveTerrId(rawOverride);
   if (!terrId) return [];
   const overlaps = [];
   for (const s of allSubmissions) {
@@ -2494,7 +2496,9 @@ function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
       const meritType = (s.merit_actions || [])[idx]?.merit_type || '';
       const cat = deriveMeritCategory(meritType);
       if (!['allies', 'status', 'retainer'].includes(cat)) return;
-      const otherTerr = resolveTerrId(s.st_review?.territory_overrides?.[`allies_${idx}`] || '');
+      // #814: override is a slug; resolve slug-first so both sides use the same normalisation.
+      const _otherRaw = s.st_review?.territory_overrides?.[`allies_${idx}`] || '';
+      const otherTerr = TERRITORY_SLUG_MAP[_otherRaw] ?? resolveTerrId(_otherRaw);
       if (otherTerr !== terrId) return;
       overlaps.push({ characterName: s.character_name || 'Unknown', meritType });
     });
@@ -2575,7 +2579,8 @@ function buildActionContext(char, sub, idx) {
     : '';
 
   // Cross-action context (A1)
-  const terrId    = territory ? resolveTerrId(territory) : null;
+  // #814: territory is an allies_N override slug; resolve slug-first with OID fallback.
+  const terrId    = territory ? (TERRITORY_SLUG_MAP[territory] ?? resolveTerrId(territory)) : null;
   const covered   = getHideProtectCover(sub, terrId);
   const contested = getContestingActions(sub, char, _allSubmissions);
   const overlaps  = getTerritoryOverlap(sub, idx, _allSubmissions, _allCharacters);
@@ -2960,7 +2965,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   }
 
   // Discipline activity in territory
-  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  // discipline_profile is _id-keyed (ADR-002); read with terrOidStr, not the slug terrId (#814).
+  const discProfile = cycleData?.discipline_profile?.[terrOidStr] || {};
   const discEntries = Object.entries(discProfile).filter(([, n]) => n > 0);
 
   // Actions in territory this cycle by phase (all submissions)
@@ -3138,7 +3144,9 @@ function territoryReportsComplete(sub) {
  * Excludes hidden actions (hide_protect with successes > 0) and skipped.
  */
 function _homeTerrActivity(territoryName, thisSub, allSubmissions) {
-  const terrId = resolveTerrId(territoryName);
+  // #814: char.home_territory is a display-name (e.g. "The Academy"); resolve via the slug map,
+  // not OID-only resolveTerrId (which always returned null for a display-name).
+  const terrId = TERRITORY_SLUG_MAP[territoryName] ?? resolveTerrId(territoryName);
   const events = [];
 
   for (const s of allSubmissions) {
