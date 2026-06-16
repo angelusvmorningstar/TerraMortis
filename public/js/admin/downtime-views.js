@@ -5545,7 +5545,9 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
-      const poolValidated = review?.pool_validated || '';
+      const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      const builtExpr = builderEl ? _readBuilderExpr(builderEl) : null;
+      const poolValidated = builtExpr || review?.pool_validated || '';
       if (!poolValidated) return;
       const match = poolValidated.match(/(\d+)\s*$/);
       const diceCount = match ? parseInt(match[1], 10) : 0;
@@ -5601,23 +5603,16 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
-      let poolValidated = review?.pool_validated || '';
-      if (!poolValidated) {
-        const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
-        if (builderEl) {
-          const builtExpr = _readBuilderExpr(builderEl);
-          if (builtExpr) {
-            const rpanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
-            const _naV = rpanel?.querySelector('.proc-proj-9a')?.checked  || false;
-            const _8aV = rpanel?.querySelector('.proc-proj-8a')?.checked  || false;
-            const _user = getUser();
-            const _stName = _user?.global_name || _user?.username || 'ST';
-            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, eight_again: _8aV, pool_confirmed_by: _stName });
-            poolValidated = builtExpr;
-          }
-        }
-      }
-      if (!poolValidated) return;
+      const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      const builtExpr = builderEl ? _readBuilderExpr(builderEl) : null;
+      if (!builtExpr) return;
+      const rpanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+      const _naV = rpanel?.querySelector('.proc-proj-9a')?.checked  || false;
+      const _8aV = rpanel?.querySelector('.proc-proj-8a')?.checked  || false;
+      const _user = getUser();
+      const _stName = _user?.global_name || _user?.username || 'ST';
+      await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, eight_again: _8aV, pool_confirmed_by: _stName });
+      let poolValidated = builtExpr;
       const match = poolValidated.match(/(\d+)\s*$/);
       let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
@@ -5744,25 +5739,17 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
-      // Prefer the refreshed expression baked into the button's data attribute at render time
-      let poolValidated = btn.dataset.poolValidated || review?.pool_validated || '';
-      if (!poolValidated) {
-        const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
-        if (builderEl) {
-          const builtExpr = _readBuilderExpr(builderEl);
-          if (builtExpr) {
-            const rpanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
-            const _roteV = rpanel?.querySelector('.proc-pool-rote')?.checked  || false;
-            const _naV   = rpanel?.querySelector('.proc-proj-9a')?.checked    || false;
-            const _8aV   = rpanel?.querySelector('.proc-proj-8a')?.checked    || false;
-            const _user = getUser();
-            const _stName = _user?.global_name || _user?.username || 'ST';
-            await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, rote: _roteV, eight_again: _8aV, pool_confirmed_by: _stName });
-            poolValidated = builtExpr;
-          }
-        }
-      }
-      if (!poolValidated) return;
+      const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      const builtExpr = builderEl ? _readBuilderExpr(builderEl) : null;
+      if (!builtExpr) return;
+      const rpanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+      const _roteV = rpanel?.querySelector('.proc-pool-rote')?.checked  || false;
+      const _naV   = rpanel?.querySelector('.proc-proj-9a')?.checked    || false;
+      const _8aV   = rpanel?.querySelector('.proc-proj-8a')?.checked    || false;
+      const _user = getUser();
+      const _stName = _user?.global_name || _user?.username || 'ST';
+      await saveEntryReview(entry, { pool_validated: builtExpr, nine_again: _naV, rote: _roteV, eight_again: _8aV, pool_confirmed_by: _stName });
+      let poolValidated = builtExpr;
       const match = poolValidated.match(/(\d+)\s*$/);
       let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
