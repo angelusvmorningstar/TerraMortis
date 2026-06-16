@@ -30,7 +30,14 @@ export function applyPoolRulesFromDb(c, { grants = [] } = {}) {
     c._grant_pools.push({
       source: rule.source,
       names: rule.pool_targets,
-      category: rule.category,
+      // Issue #775: bridge rule_grant docs that use `source_slug` (N-1
+      // convention) without an explicit `category` field. Older docs set
+      // only `category`; N-3-era and post-MNEC docs may set only
+      // `source_slug`. Fall back so consumers downstream (sheet.js:124
+      // `_renderPoolCounters` filters, poolAvailableFor cap math) always
+      // see a non-undefined category. Belt-and-braces with the seed which
+      // writes both fields explicitly.
+      category: rule.category ?? rule.source_slug,
       amount,
     });
   }

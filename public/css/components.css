@@ -772,6 +772,10 @@ html:not([data-theme="dark"]) .edit-icon {
 .rite-free-badge:hover{background:var(--accent-a25);}
 .rite-xp-badge{background:rgba(139,0,0,.15);color:var(--crim);border-color:var(--crim);}
 .rite-xp-badge:hover{background:rgba(139,0,0,.3);}
+.rite-mg-tag{font-family:var(--fl);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);background:var(--accent-a8);border:1px solid var(--accent-a40);padding:1px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0;}
+.qf-mg-locked-rite{display:flex;align-items:center;gap:6px;font-family:var(--ft);font-size:13px;color:var(--txt1);padding:6px 0;}
+.dt-mg-prior-outcome{font-family:var(--ft);font-size:12px;color:var(--txt3);margin:4px 0 0;line-height:1.5;}
+.dt-mg-prior-loading{font-style:italic;opacity:.6;}
 
 /* ── Pact oaths ── */
 .pact-edit-block{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
@@ -800,6 +804,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .trait-main{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .trait-name{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--label-secondary);}
 .trait-dots{font-size:15px;color:var(--accent);letter-spacing:2.5px;line-height:1;flex-shrink:0;}
+.dot-shared{text-decoration:underline;}
 .trait-sub{display:flex;align-items:center;gap:4px;}
 .trait-qual{font-family:var(--fl);font-size:11px;letter-spacing:.04em;color:var(--txt2);flex:1;}
 .trait-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
