@@ -772,6 +772,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .rite-free-badge:hover{background:var(--accent-a25);}
 .rite-xp-badge{background:rgba(139,0,0,.15);color:var(--crim);border-color:var(--crim);}
 .rite-xp-badge:hover{background:rgba(139,0,0,.3);}
+.rite-mg-tag{font-family:var(--fl);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);background:var(--accent-a8);border:1px solid var(--accent-a40);padding:1px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0;}
 
 /* ── Pact oaths ── */
 .pact-edit-block{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
