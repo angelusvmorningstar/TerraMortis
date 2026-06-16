@@ -10,6 +10,10 @@ import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsT
 // SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
 // Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
 import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
+// #753: POST /equipment must reject catalogue_ids that aren't in the catalogue
+// (type/presence is checked inline; existence is checked against this Set).
+import { EQUIPMENT_CATALOGUE } from '../data/equipment-catalogue.js';
+const _CATALOGUE_IDS = new Set(EQUIPMENT_CATALOGUE.map(e => e.id));
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -817,6 +821,12 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   }
   if (!item.catalogue_id || typeof item.catalogue_id !== 'string') {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'catalogue_id is required' });
+  }
+  // #753: existence check against the catalogue. Without this the client-side
+  // fallback (`entry.name || item.catalogue_id`) silently renders the raw slug
+  // instead of a real name — a clearly broken sheet that no test was catching.
+  if (!_CATALOGUE_IDS.has(item.catalogue_id)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Unknown catalogue_id: ${item.catalogue_id}` });
   }
   if (!VALID_STATES.includes(item.state)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `state must be one of: ${VALID_STATES.join(', ')}` });

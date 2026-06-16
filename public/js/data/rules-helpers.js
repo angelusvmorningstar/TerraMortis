@@ -204,6 +204,74 @@ export function resolveSharingScope(scope, c, chars, rule) {
   }
 }
 
+// ── N-7 (MNEC, issue #760) — Necropolis allocator helpers ──────────────────
+
+/**
+ * True if the character owns Necropolis Sepulcher with ≥ 1 purchased dot.
+ * Purchased = cp + xp (matches the membership semantics in N-1's
+ * synthesiseCollectiveOwners — grants from the collective itself don't count
+ * toward membership / pool eligibility).
+ *
+ * @param {object} c
+ * @returns {boolean}
+ */
+export function hasNecropolisSepulcher(c) {
+  if (!c || !Array.isArray(c.merits)) return false;
+  return c.merits.some(m =>
+    m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
+  );
+}
+
+/**
+ * Remaining pool capacity for an allocator slug on this character.
+ *
+ *   pool capacity = sum of `_grant_pools[*].amount` where category === slug
+ *   used          = sum of `freeOf(m, slug)` across all merits (union-reads
+ *                   map + legacy per N-1's runtime guard)
+ *   available     = max(0, capacity - used)
+ *
+ * Generalises the inline cap logic at `edit.js:1019-1022`. Allocator
+ * handlers compute the cap as `poolAvailableFor(c, slug) + currentValue`
+ * (so the row being edited contributes its OWN current value back into
+ * the cap rather than treating it as a reservation).
+ *
+ * @param {object} c
+ * @param {string} slug
+ * @returns {number}
+ */
+export function poolAvailableFor(c, slug) {
+  if (!c || !slug) return 0;
+  const capacity = (c._grant_pools || [])
+    .filter(p => p && p.category === slug)
+    .reduce((s, p) => s + (p.amount || 0), 0);
+  let used = 0;
+  for (const m of (c.merits || [])) {
+    used += freeOf(m, slug);
+  }
+  return Math.max(0, capacity - used);
+}
+
+/**
+ * Necropolis target merit names from the rules cache.
+ *
+ * Caller passes the rules cache (from `editor/rule_engine/load-rules.js`)
+ * so this helper stays free of the rules-cache + api.js import chain —
+ * rules-helpers.js MUST remain pure / no-browser-imports per the N-1
+ * convention. Returns the `pool_targets` array on the
+ * `source: 'Necropolis Sepulcher'` rule_grant doc, or `[]` if the cache
+ * is empty / the rule isn't seeded.
+ *
+ * @param {object} [ruleCache] - rules cache shape `{ rule_grant: [...] }`
+ * @returns {string[]}
+ */
+export function getNecropolisTargets(ruleCache) {
+  const grants = (ruleCache && ruleCache.rule_grant) || [];
+  const rule = grants.find(r =>
+    r && r.source === 'Necropolis Sepulcher' && r.grant_type === 'pool'
+  );
+  return (rule && Array.isArray(rule.pool_targets)) ? rule.pool_targets : [];
+}
+
 /**
  * N-4 (MNEC, issue #696) — render-side union of Territories the Necropolis
  * has infected. Walks `chars`, finds every Necropolis Sepulcher owner

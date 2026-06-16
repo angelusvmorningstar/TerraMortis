@@ -4,6 +4,9 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+// #751: writes state.activeCycleNum when the active cycle resolves so the
+// editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
+import state from '../data/state.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
@@ -1193,6 +1196,9 @@ async function loadAllCycles() {
 
   // Auto-select active cycle
   activeCycle = allCycles.find(c => c.status === 'active') || null;
+  // #751: plumb the cycle number into shared state for the editor's
+  // Add Equipment / Add Asset pre-fill.
+  state.activeCycleNum = (activeCycle && activeCycle.cycle_number) ?? null;
   if (activeCycle) {
     selectedCycleId = activeCycle._id;
     sel.value = activeCycle._id;
@@ -7164,12 +7170,22 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
           const _rtGrid = JSON.parse(_rtSub?.responses?.feeding_territories_rote || '{}');
           for (const [slug, status] of Object.entries(_rtGrid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _rtPillSet.add(tid);
           }
         } catch { /* ignore */ }
         if (_rtPillSet.size === 0 && entry.projTerritory) {
-          _rtPillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+          const _rpt = entry.projTerritory;
+          const _rptTid = /^[a-f0-9]{24}$/i.test(_rpt)
+            ? ((cachedTerritories || []).find(t => String(t._id) === _rpt)?.slug || null)
+            : (TERRITORY_SLUG_MAP[_rpt] ?? _rpt);
+          if (_rptTid) _rtPillSet.add(_rptTid);
         }
       }
       h += `<div class="proc-feed-mod-panel">`;
@@ -8101,6 +8117,43 @@ function _renderFeedRightPanel(entry, char, rev, prependHtml = '') {
   h += `</div>`;
 
 
+  // ── Territory pill ──
+  {
+    const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
+    let _feedSet;
+    if (Array.isArray(_stOvrArr)) {
+      _feedSet = new Set(_stOvrArr);
+    } else {
+      _feedSet = new Set();
+      try {
+        const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
+        for (const [slug, status] of Object.entries(_grid)) {
+          if (!status || status === 'none' || status === 'Not feeding here') continue;
+          let tid;
+          if (/^[a-f0-9]{24}$/i.test(slug)) {
+            const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+            tid = terrDoc?.slug || null;
+          } else {
+            tid = TERRITORY_SLUG_MAP[slug];
+          }
+          if (tid) _feedSet.add(tid);
+        }
+      } catch { /* ignore malformed JSON */ }
+      if (_feedSet.size === 0) {
+        const _rawTerrs = _normTerrKeys(feedSub?._raw?.feeding?.territories || {});
+        for (const [_slug, status] of Object.entries(_rawTerrs)) {
+          if (!status || status === 'Not feeding here' || status === 'none') continue;
+          const tid = TERRITORY_SLUG_MAP[_slug];
+          if (tid) _feedSet.add(tid);
+        }
+      }
+    }
+    h += `<div class="proc-feed-mod-panel">`;
+    h += `<div class="proc-mod-panel-title">Territory</div>`;
+    h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
+    h += `</div>`;
+  }
+
   // ── DTFP-5: feed-violence + blood-type ST overrides ──
   const playerVi      = feedSub?.responses?.feed_violence || '';
   const stViOverride  = feedSub?.st_review?.feed_violence_st_override || '';
@@ -8464,7 +8517,11 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
           }
         } catch { /* ignore */ }
         if (_rotePillSet.size === 0 && entry.projTerritory) {
-          _rotePillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+          const _rptR = entry.projTerritory;
+          const _rptRTid = /^[a-f0-9]{24}$/i.test(_rptR)
+            ? ((cachedTerritories || []).find(t => String(t._id) === _rptR)?.slug || null)
+            : (TERRITORY_SLUG_MAP[_rptR] ?? _rptR);
+          if (_rptRTid) _rotePillSet.add(_rptRTid);
         }
       }
       h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
@@ -9799,44 +9856,6 @@ function renderActionPanel(entry, review) {
         h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
       }
     }
-    // Territory row — label + ST override pills on one row
-    {
-      const _stOvrArr = feedSub?.st_review?.territory_overrides?.feeding;
-      let _feedSet;
-      if (Array.isArray(_stOvrArr)) {
-        _feedSet = new Set(_stOvrArr);
-      } else {
-        // No ST override — pre-select from player's submitted territories
-        _feedSet = new Set();
-        try {
-          const _grid = JSON.parse(feedSub?.responses?.feeding_territories || '{}');
-          for (const [slug, status] of Object.entries(_grid)) {
-            if (!status || status === 'none' || status === 'Not feeding here') continue;
-            let tid;
-            if (/^[a-f0-9]{24}$/i.test(slug)) {
-              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
-              tid = terrDoc?.slug || null;
-            } else {
-              tid = TERRITORY_SLUG_MAP[slug];
-            }
-            if (tid) _feedSet.add(tid);
-          }
-        } catch { /* ignore malformed JSON */ }
-        if (_feedSet.size === 0) {
-          const _rawTerrs = _normTerrKeys(feedSub?._raw?.feeding?.territories || {});
-          for (const [key, status] of Object.entries(_rawTerrs)) {
-            if (!status || status === 'Not feeding here' || status === 'none') continue;
-            const tid = TERRITORY_SLUG_MAP[key];
-            if (tid) _feedSet.add(tid);
-          }
-        }
-      }
-      h += `<div class="proc-feed-mod-panel">`;
-      h += `<div class="proc-mod-panel-title">Territory</div>`;
-      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet, true);
-      h += `</div>`;
-    }
-
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
     if (feedRoll) {
@@ -12076,12 +12095,17 @@ export function renderCityOverview() {
       if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
       matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
     } else if (entry.source === 'feeding') {
-      for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
-        if (!val || val === 'none') continue;
-        const terrId = resolveTerrId(terrKey);
-        if (!terrId) continue;
-        if (!matrix['feeding'][terrId]) matrix['feeding'][terrId] = [];
-        matrix['feeding'][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+      const _feedSub = submissions.find(s => s._id === entry.subId);
+      if (_feedSub) {
+        const _fedMap = _getSubFedTerrs(_feedSub);
+        for (const [csvKey] of _fedMap) {
+          const _mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
+          if (!_mt) continue;
+          const terrId = TERRITORY_SLUG_MAP[_mt.csvKey];
+          if (!terrId) continue;
+          if (!matrix['feeding'][terrId]) matrix['feeding'][terrId] = [];
+          matrix['feeding'][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+        }
       }
     }
   }
