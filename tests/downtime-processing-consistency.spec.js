@@ -22,7 +22,7 @@ const ST_USER = {
 };
 
 const TEST_CYCLE = {
-  _id: 'cycle-001', cycle_number: 2, status: 'open',
+  _id: 'cycle-001', cycle_number: 2, status: 'active',
   confirmed_ambience: {}, narrative_notes: '',
 };
 
@@ -243,17 +243,12 @@ async function setup(page, submissions, chars = [CHAR_ALLIES, CHAR_SORC]) {
   await page.waitForTimeout(600);
 }
 
-async function openFirstActionInPhase(page, phaseLabel) {
-  await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-  const phaseHeader = page.locator('.proc-phase-header').filter({ hasText: phaseLabel }).first();
-  const toggle = phaseHeader.locator('.proc-phase-toggle');
-  const toggleText = await toggle.textContent().catch(() => '');
-  if (toggleText.includes('Show')) await phaseHeader.click();
-  await page.waitForTimeout(200);
-  const phase = page.locator('.proc-phase-section').filter({ hasText: phaseLabel }).first();
-  const firstRow = phase.locator('.proc-action-row').first();
-  await firstRow.click();
-  await page.waitForTimeout(400);
+async function openActionInPhase(page, phaseKey) {
+  await page.waitForSelector('.proc-action-row', { timeout: 8000 });
+  await page.locator(`.proc-filter-pill[data-filter-dim="phases"][data-filter-val="${phaseKey}"]`).first().click();
+  await page.waitForTimeout(300);
+  await page.locator('.proc-action-row').first().click();
+  await page.waitForSelector('.proc-action-detail', { timeout: 8000 });
 }
 
 /** Click the Details edit button on a proc-action-detail card to reveal the hidden edit section. */
@@ -271,7 +266,7 @@ test.describe('B1 — Blood type selector', () => {
 
   test('blood type field is a select element, not a text input', async ({ page }) => {
     await setup(page, [makeFeedingSubmission()]);
-    await openFirstActionInPhase(page, 'Step 2');
+    await openActionInPhase(page, 'feeding');
 
     const card = page.locator('.proc-action-detail').first();
     await openDetailsEdit(card, page);
@@ -284,7 +279,7 @@ test.describe('B1 — Blood type selector', () => {
 
   test('blood type select has exactly four options: Human, Animal, Kindred, Ghoul', async ({ page }) => {
     await setup(page, [makeFeedingSubmission()]);
-    await openFirstActionInPhase(page, 'Step 2');
+    await openActionInPhase(page, 'feeding');
 
     const card = page.locator('.proc-action-detail').first();
     await openDetailsEdit(card, page);
@@ -294,7 +289,7 @@ test.describe('B1 — Blood type selector', () => {
 
   test('blood type select reflects saved blood_type value', async ({ page }) => {
     await setup(page, [makeFeedingSubmission({ blood_type: 'Kindred' })]);
-    await openFirstActionInPhase(page, 'Step 2');
+    await openActionInPhase(page, 'feeding');
 
     const card = page.locator('.proc-action-detail').first();
     await openDetailsEdit(card, page);
@@ -317,7 +312,7 @@ test.describe('B1 — Blood type selector', () => {
       }
     });
 
-    await openFirstActionInPhase(page, 'Step 2');
+    await openActionInPhase(page, 'feeding');
     const card = page.locator('.proc-action-detail').first();
     await openDetailsEdit(card, page);
     await card.locator('.proc-feed-blood-sel').selectOption('Animal');
@@ -341,47 +336,36 @@ test.describe('B2 — Sorcery selectors', () => {
 
   test('sorcery panel renders for a submission with a rite', async ({ page }) => {
     await setup(page, [makeSorcSubmission()]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const sorcPhase = page.locator('.proc-phase-section').filter({ hasText: 'Blood Sorcery' });
-    await expect(sorcPhase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="resolve_first"]')).toBeVisible({ timeout: 8000 });
   });
 
-  test('tradition selector is a select element with Cruac and Theban Sorcery options', async ({ page }) => {
-    await setup(page, [makeSorcSubmission()]);
-    await openFirstActionInPhase(page, 'Blood Sorcery');
-
-    const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const tradSel = card.locator('.proc-sorc-tradition-sel');
-    await expect(tradSel).toBeVisible({ timeout: 5000 });
-
-    const options = await tradSel.locator('option').allTextContents();
-    expect(options).toContain('Cruac');
-    expect(options).toContain('Theban Sorcery');
-  });
-
+  // fix.617 (Angelus ruling): the sorcery panel was consolidated — tradition is no longer a
+  // separate selector; Cruac/Theban appear as <optgroup>s inside the single Rite <select>.
+  // The per-tradition options can't be asserted in this harness (rites reference data isn't
+  // mocked, so _allRites is empty → no optgroups), so that assertion is retired; the rite
+  // dropdown itself is covered by the next test.
+  // fix.617: the rite selector is now .proc-rite-select (was .proc-sorc-rite-sel).
   test('rite selector is a select element', async ({ page }) => {
     await setup(page, [makeSorcSubmission()]);
-    await openFirstActionInPhase(page, 'Blood Sorcery');
+    await openActionInPhase(page, 'resolve_first');
 
     const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const riteSel = card.locator('.proc-sorc-rite-sel');
+    const riteSel = card.locator('.proc-rite-select');
     await expect(riteSel).toBeVisible({ timeout: 5000 });
     const tagName = await riteSel.evaluate(el => el.tagName.toLowerCase());
     expect(tagName).toBe('select');
   });
 
-  test('targets field is a multi-select', async ({ page }) => {
+  // fix.617: sorcery targets now use the unified Connected-Characters typeahead picker
+  // (.proc-conn-typeahead / .proc-conn-input), not a multi-select.
+  test('targets use the Connected Characters picker', async ({ page }) => {
     await setup(page, [makeSorcSubmission()]);
-    await openFirstActionInPhase(page, 'Blood Sorcery');
+    await openActionInPhase(page, 'resolve_first');
 
     const card = page.locator('.proc-action-detail').first();
-    await openDetailsEdit(card, page);
-    const targetsSel = card.locator('.proc-sorc-targets-sel');
-    await expect(targetsSel).toBeVisible({ timeout: 5000 });
-    const isMultiple = await targetsSel.evaluate(el => el.multiple);
-    expect(isMultiple).toBe(true);
+    const picker = card.locator('.proc-conn-typeahead').first();
+    await expect(picker).toBeVisible({ timeout: 5000 });
+    await expect(picker.locator('.proc-conn-input')).toBeVisible();
   });
 
 });
@@ -394,14 +378,12 @@ test.describe('B3 — Contacts info-type selector', () => {
 
   test('contacts panel renders in the Contacts phase', async ({ page }) => {
     await setup(page, [makeContactsSubmission()]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const contactsPhase = page.locator('.proc-phase-section').filter({ hasText: 'Contacts' });
-    await expect(contactsPhase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="contacts"]')).toBeVisible({ timeout: 8000 });
   });
 
   test('info-type selector is a select with the four secrecy tiers', async ({ page }) => {
     await setup(page, [makeContactsSubmission()]);
-    await openFirstActionInPhase(page, 'Contacts');
+    await openActionInPhase(page, 'contacts');
 
     const card = page.locator('.proc-action-detail').first();
     const infoTypeSel = card.locator('.proc-contacts-info-type-sel');
@@ -414,20 +396,21 @@ test.describe('B3 — Contacts info-type selector', () => {
     expect(options).toContain('Restricted');
   });
 
-  test('subject field is a text input', async ({ page }) => {
+  // fix.617: the "Subject" field was renamed to "Target" (.proc-contacts-target-input).
+  test('target field is a text input', async ({ page }) => {
     await setup(page, [makeContactsSubmission()]);
-    await openFirstActionInPhase(page, 'Contacts');
+    await openActionInPhase(page, 'contacts');
 
     const card = page.locator('.proc-action-detail').first();
-    const subjectInput = card.locator('.proc-contacts-subject-input');
-    await expect(subjectInput).toBeVisible({ timeout: 5000 });
-    const tagName = await subjectInput.evaluate(el => el.tagName.toLowerCase());
+    const targetInput = card.locator('.proc-contacts-target-input');
+    await expect(targetInput).toBeVisible({ timeout: 5000 });
+    const tagName = await targetInput.evaluate(el => el.tagName.toLowerCase());
     expect(tagName).toBe('input');
   });
 
   test('info-type selector reflects saved value', async ({ page }) => {
     await setup(page, [makeContactsSubmission('Tell me about murders', { contacts_info_type: 'Confidential' })]);
-    await openFirstActionInPhase(page, 'Contacts');
+    await openActionInPhase(page, 'contacts');
 
     const card = page.locator('.proc-action-detail').first();
     const selected = await card.locator('.proc-contacts-info-type-sel').inputValue();
@@ -444,14 +427,12 @@ test.describe('C1 — Patrol/scout outcome recording', () => {
 
   test('patrol panel renders in Support & Patrol phase', async ({ page }) => {
     await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const phase = page.locator('.proc-phase-section').filter({ hasText: 'Step 7' });
-    await expect(phase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="patrol"]')).toBeVisible({ timeout: 8000 });
   });
 
   test('detail level selector is present', async ({ page }) => {
     await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await openFirstActionInPhase(page, 'Step 7');
+    await openActionInPhase(page, 'patrol');
 
     const card = page.locator('.proc-action-detail').first();
     const detailSel = card.locator('.proc-patrol-detail-sel');
@@ -460,7 +441,7 @@ test.describe('C1 — Patrol/scout outcome recording', () => {
 
   test('observed textarea is present', async ({ page }) => {
     await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await openFirstActionInPhase(page, 'Step 7');
+    await openActionInPhase(page, 'patrol');
 
     const card = page.locator('.proc-action-detail').first();
     const observedTa = card.locator('.proc-patrol-observed-ta');
@@ -469,7 +450,7 @@ test.describe('C1 — Patrol/scout outcome recording', () => {
 
   test('detail level options cover 1 through 5+', async ({ page }) => {
     await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await openFirstActionInPhase(page, 'Step 7');
+    await openActionInPhase(page, 'patrol');
 
     const card = page.locator('.proc-action-detail').first();
     const options = await card.locator('.proc-patrol-detail-sel option').allTextContents();
@@ -488,14 +469,12 @@ test.describe('C2 — Rumour outcome recording', () => {
 
   test('rumour panel renders in Miscellaneous phase', async ({ page }) => {
     await setup(page, [makeMeritSubmission('rumour')]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const phase = page.locator('.proc-phase-section').filter({ hasText: 'Step 8' });
-    await expect(phase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="misc"]')).toBeVisible({ timeout: 8000 });
   });
 
   test('rumour detail level selector is present', async ({ page }) => {
     await setup(page, [makeMeritSubmission('rumour')]);
-    await openFirstActionInPhase(page, 'Step 8');
+    await openActionInPhase(page, 'misc');
 
     const card = page.locator('.proc-action-detail').first();
     const detailSel = card.locator('.proc-rumour-detail-sel');
@@ -504,7 +483,7 @@ test.describe('C2 — Rumour outcome recording', () => {
 
   test('rumour content textarea is present', async ({ page }) => {
     await setup(page, [makeMeritSubmission('rumour')]);
-    await openFirstActionInPhase(page, 'Step 8');
+    await openActionInPhase(page, 'misc');
 
     const card = page.locator('.proc-action-detail').first();
     const contentTa = card.locator('.proc-rumour-content-ta');
@@ -513,7 +492,7 @@ test.describe('C2 — Rumour outcome recording', () => {
 
   test('saved rumour content pre-fills the textarea', async ({ page }) => {
     await setup(page, [makeMeritSubmission('rumour', { rumour_content: 'The Prince is meeting someone tonight.' })]);
-    await openFirstActionInPhase(page, 'Step 8');
+    await openActionInPhase(page, 'misc');
 
     const card = page.locator('.proc-action-detail').first();
     const content = await card.locator('.proc-rumour-content-ta').inputValue();
@@ -530,14 +509,12 @@ test.describe('C3 — Support target selector', () => {
 
   test('support panel renders in Support & Patrol phase', async ({ page }) => {
     await setup(page, [makeMeritSubmission('support')]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const phase = page.locator('.proc-phase-section').filter({ hasText: 'Step 7' });
-    await expect(phase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="support"]')).toBeVisible({ timeout: 8000 });
   });
 
   test('support target selector is a select element', async ({ page }) => {
     await setup(page, [makeMeritSubmission('support')]);
-    await openFirstActionInPhase(page, 'Step 7');
+    await openActionInPhase(page, 'support');
 
     const card = page.locator('.proc-action-detail').first();
     const targetSel = card.locator('.proc-support-target-sel');
@@ -554,15 +531,8 @@ test.describe('C3 — Support target selector', () => {
     await setup(page, [projectSub, supportSub]);
     await page.waitForTimeout(500);
 
-    // Open support action (in Step 7)
-    const phase7 = page.locator('.proc-phase-section').filter({ hasText: 'Step 7' });
-    await expect(phase7).toBeVisible({ timeout: 8000 });
-    const toggle = phase7.locator('.proc-phase-toggle');
-    const toggleText = await toggle.textContent().catch(() => '');
-    if (toggleText.includes('Show')) await phase7.locator('.proc-phase-header').click();
-    await page.waitForTimeout(200);
-    await phase7.locator('.proc-action-row').first().click();
-    await page.waitForTimeout(400);
+    // Open support action via flat-wall filter pill
+    await openActionInPhase(page, 'support');
 
     const card = page.locator('.proc-action-detail').first();
     const targetSel = card.locator('.proc-support-target-sel');
@@ -582,191 +552,36 @@ test.describe('C4 — Block resolution display', () => {
 
   test('block panel renders in Miscellaneous phase', async ({ page }) => {
     await setup(page, [makeMeritSubmission('block')]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-    const phase = page.locator('.proc-phase-section').filter({ hasText: 'Step 8' });
-    await expect(phase).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-filter-pill[data-filter-dim="phases"][data-filter-val="misc"]')).toBeVisible({ timeout: 8000 });
   });
 
-  test('block panel shows Auto-blocks label', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block')]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const card = page.locator('.proc-action-detail').first();
-    await expect(card).toContainText('Auto-blocks', { timeout: 5000 });
-  });
-
-  test('Confirm Block button is visible when not yet confirmed', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'pending' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const card = page.locator('.proc-action-detail').first();
-    const confirmBtn = card.locator('.proc-block-confirm-btn');
-    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-    await expect(confirmBtn).toContainText('Confirm Block');
-  });
-
-  test('block confirmed state shows tick instead of button when pool_status is no_roll', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'no_roll' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const card = page.locator('.proc-action-detail').first();
-    // Confirm Block button should NOT be visible
-    await expect(card.locator('.proc-block-confirm-btn')).toHaveCount(0);
-    // Confirmed tick text should be visible
-    await expect(card).toContainText('Block confirmed', { timeout: 5000 });
-  });
-
-  test('clicking Confirm Block triggers a PATCH save', async ({ page }) => {
-    await setup(page, [makeMeritSubmission('block', { pool_status: 'pending' })]);
-
-    // Register PUT/PATCH intercept AFTER setup so it takes priority (Playwright LIFO routing)
-    // updateSubmission uses PUT via apiPut
-    let patchCalled = false;
-    await page.route('**/api/downtime_submissions/**', route => {
-      if (['PATCH', 'PUT'].includes(route.request().method())) {
-        patchCalled = true;
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
-      } else {
-        route.continue();
-      }
-    });
-
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const card = page.locator('.proc-action-detail').first();
-    await card.locator('.proc-block-confirm-btn').click();
-    await page.waitForTimeout(500);
-    expect(patchCalled).toBe(true);
-  });
+  // fix.617 (Angelus ruling): the explicit "Confirm Block" step was intentionally removed —
+  // blocks now auto-resolve and render as an automatic effect. The former tests for the
+  // Block Resolution panel / Confirm Block button / "Auto-blocks" label / PATCH-on-confirm
+  // are retired. Follow-up product issue (separate): a player block must surface in relevant
+  // cross-reference intelligence, with STs always able to override.
 
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  E2 — Committed pool status
+//  E2 — Block has no pool builder (Committed pool-status state removed — fix.617)
 // ══════════════════════════════════════════════════════════════════════════════
+//
+// fix.617 (Angelus ruling): the "Committed" pool-status state (badge, Committed button,
+// locked pool builder, committed row chip) was intentionally removed from DT processing.
+// Every test asserting that surface is retired. The one durable behaviour kept is that an
+// auto action (block) has no pool builder.
 
-test.describe('E2 — Committed pool status — button presence', () => {
-
-  test('project panel status buttons include Committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission()]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-    await expect(committedBtn).toContainText('Committed');
-  });
-
-  test('sorcery panel status buttons include Committed', async ({ page }) => {
-    await setup(page, [makeSorcSubmission()]);
-    await openFirstActionInPhase(page, 'Blood Sorcery');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  test('merit (rolled) panel status buttons include Committed', async ({ page }) => {
-    // patrol_scout uses dots2plus2 formula — it has a roll card and a pool
-    await setup(page, [makeMeritSubmission('patrol_scout')]);
-    await openFirstActionInPhase(page, 'Step 7');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn[data-status="committed"]');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
+test.describe('E2 — Block has no pool builder', () => {
 
   test('block panel (no roll) does NOT have a pool builder', async ({ page }) => {
     // block uses mode: auto, poolFormula: none — right panel shows block resolution, not pool builder
     await setup(page, [makeMeritSubmission('block')]);
-    await openFirstActionInPhase(page, 'Step 8');
+    await openActionInPhase(page, 'misc');
 
     const leftCol = page.locator('.proc-feed-left').first();
     // No pool builder should be present for a block entry
     await expect(leftCol.locator('.proc-pool-builder')).toHaveCount(0);
-  });
-
-});
-
-test.describe('E2 — Committed pool status — pool builder locked', () => {
-
-  test('project pool builder selects are disabled when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toBeVisible({ timeout: 5000 });
-
-    // All selects within the builder should be disabled
-    const selects = builder.locator('select');
-    const count = await selects.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(selects.nth(i)).toBeDisabled();
-    }
-  });
-
-  test('[Committed] badge appears on pool builder heading when committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toContainText('[Committed]', { timeout: 5000 });
-  });
-
-  test('project pool builder selects are enabled when pool_status is pending', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'pending' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const leftCol = page.locator('.proc-feed-left').first();
-    const builder = leftCol.locator('.proc-pool-builder');
-    await expect(builder).toBeVisible({ timeout: 5000 });
-
-    const selects = builder.locator('select');
-    const count = await selects.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(selects.nth(i)).toBeEnabled();
-    }
-  });
-
-  test('committed button shows as active when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await openFirstActionInPhase(page, 'Step 8');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const committedBtn = rightPanel.locator('.proc-val-btn.active.committed');
-    await expect(committedBtn).toBeVisible({ timeout: 5000 });
-  });
-
-  test('sorcery modifier panel has committed class when pool_status is committed', async ({ page }) => {
-    await setup(page, [makeSorcSubmission({ pool_status: 'committed' })]);
-    await openFirstActionInPhase(page, 'Blood Sorcery');
-
-    const rightPanel = page.locator('.proc-feed-right').first();
-    const modPanel = rightPanel.locator('.proc-feed-mod-panel.proc-pool-committed');
-    await expect(modPanel).toBeVisible({ timeout: 5000 });
-  });
-
-});
-
-test.describe('E2 — Committed pool status — not counted as done', () => {
-
-  test('committed entry does not count toward done in phase header', async ({ page }) => {
-    await setup(page, [makeProjectSubmission({ pool_status: 'committed', pool_validated: 'Presence 2 + Persuasion 2 = 4' })]);
-    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
-
-    // The phase header shows a ✓ badge only when ALL entries are done.
-    // committed is not done, so the badge must be absent — confirming committed is not counted.
-    const phase = page.locator('.proc-phase-section').filter({ hasText: 'Step 8' });
-    await expect(phase).toBeVisible({ timeout: 5000 });
-    const header = phase.locator('.proc-phase-header');
-    // No all-done checkmark
-    await expect(header.locator('.dt-narr-badge')).toHaveCount(0);
-    // And no partial-progress badge (0 done → nothing shown)
-    await expect(header.locator('.proc-narr-progress')).toHaveCount(0);
   });
 
 });

@@ -97,15 +97,16 @@ const FEED_CHAR = {
     Stealth: { dots: 3, bonus: 0, specs: ['Crowds'], nine_again: false },
   },
   disciplines: { Obfuscate: 2 },
-  merits: [], powers: [], ordeals: {},
+  merits: [], powers: [], ordeals: [], // array per schema — unified app renders sheet on boot
 };
 
 const LIVE_TERRITORIES = [
-  { _id: 'terr-ac',  id: 'academy',    name: 'The Academy',    ambience: 'Verdant',  ambienceMod: 4, regent_id: null },
-  { _id: 'terr-dk',  id: 'dockyards',  name: 'The Dockyards',  ambience: 'Tended',   ambienceMod: 2, regent_id: null },
-  { _id: 'terr-hb',  id: 'harbour',    name: 'The Harbour',    ambience: 'Neglected',ambienceMod: -3, regent_id: null },
-  { _id: 'terr-ns',  id: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: 2, regent_id: null },
-  { _id: 'terr-sc',  id: 'secondcity', name: 'The Second City', ambience: 'Curated', ambienceMod: 3, regent_id: null },
+  // #627: live territory docs carry `slug` (production resolves them via _terrDoc = find(d => d.slug === terrId)).
+  { _id: 'terr-ac',  id: 'academy',    slug: 'academy',    name: 'The Academy',    ambience: 'Verdant',  ambienceMod: 4, regent_id: null },
+  { _id: 'terr-dk',  id: 'dockyards',  slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Tended',   ambienceMod: 2, regent_id: null },
+  { _id: 'terr-hb',  id: 'harbour',    slug: 'harbour',    name: 'The Harbour',    ambience: 'Neglected',ambienceMod: -3, regent_id: null },
+  { _id: 'terr-ns',  id: 'northshore', slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: 2, regent_id: null },
+  { _id: 'terr-sc',  id: 'secondcity', slug: 'secondcity', name: 'The Second City', ambience: 'Curated', ambienceMod: 3, regent_id: null },
 ];
 
 // ── Setup helpers ─────────────────────────────────────────────────────────────
@@ -194,6 +195,9 @@ async function setupSuite(page, chars, territories = []) {
 
 async function setupPlayer(page, char, territories = [], submission = null, cycle = null) {
   const user = { ...PLAYER_USER, character_ids: [char._id] };
+  // #626: catch-all FIRST so unmocked unified-app boot calls don't escape to localhost:3000
+  // (the specific routes below register after, so they win — Playwright is last-registered-first).
+  await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/api/auth/me', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
   );
@@ -243,7 +247,7 @@ async function openSuiteStatusTab(page) {
   await page.goto('/index.html');
   await page.waitForSelector('#app:not([style*="display: none"])');
   await page.waitForFunction(() => window._charNames !== undefined, { timeout: 10000 });
-  await page.click('#n-status');
+  await page.evaluate(() => window.goTab('status'));
   await page.waitForSelector('#t-status', { timeout: 5000 });
   await page.waitForTimeout(800);
 }
@@ -252,7 +256,7 @@ async function openSuiteTrackerTab(page) {
   await page.goto('/index.html');
   await page.waitForSelector('#app:not([style*="display: none"])');
   await page.waitForFunction(() => window._charNames !== undefined, { timeout: 10000 });
-  await page.click('#n-tracker');
+  await page.evaluate(() => window.goTab('tracker'));
   await page.waitForSelector('#t-tracker', { timeout: 5000 });
   await page.waitForTimeout(1000);
 }
@@ -261,7 +265,7 @@ async function openSuiteRulesTab(page) {
   await page.goto('/index.html');
   await page.waitForSelector('#app:not([style*="display: none"])');
   await page.waitForFunction(() => window._charNames !== undefined, { timeout: 10000 });
-  await page.click('#n-rules');
+  await page.evaluate(() => window.goTab('rules'));
   await page.waitForSelector('#t-rules', { timeout: 5000 });
   await page.waitForTimeout(600);
 }
@@ -592,8 +596,8 @@ test.describe('Tracker — influence row, retired filter, re-fetch', () => {
     await openSuiteTrackerTab(page);
 
     const cards = page.locator('#t-tracker .trk-card');
-    const count = await cards.count();
-    expect(count).toBe(1);
+    await expect(cards).toHaveCount(1); // auto-retry: the tracker renders cards async after the fetch
+
   });
 
   test('tracker card shows Vitae and Willpower in header summary', async ({ page }) => {
@@ -646,9 +650,9 @@ test.describe('Tracker — influence row, retired filter, re-fetch', () => {
     const firstCallCount = callCount;
 
     // Navigate away then back
-    await page.click('#n-status');
+    await page.evaluate(() => window.goTab('status'));
     await page.waitForTimeout(300);
-    await page.click('#n-tracker');
+    await page.evaluate(() => window.goTab('tracker'));
     await page.waitForSelector('#t-tracker .trk-card', { timeout: 5000 });
     await page.waitForTimeout(500);
 
@@ -657,6 +661,121 @@ test.describe('Tracker — influence row, retired filter, re-fetch', () => {
   });
 
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Tracker — DT influence reconciliation (fix.668)
+// ══════════════════════════════════════════════════════════════════════════════
+
+test.describe('Tracker — DT influence reconciliation (fix.668)', () => {
+
+  const CLOSED_CYCLE = {
+    _id: 'cycle-dt4', name: 'DT4', game_number: 4, status: 'closed',
+  };
+
+  const INFLUENCE_SUBMISSION = {
+    _id: 'sub-inf-001',
+    character_id: INFLUENCE_CHAR._id,
+    cycle_id: 'cycle-dt4',
+    responses: {
+      influence_spend: JSON.stringify({ academy: 2 }),
+    },
+  };
+
+  // INFLUENCE_CHAR: Allies(2) + Contacts(1) = 3 total influence
+  const INF_MAX = 3;
+  const INF_SPENT = 2;
+  const INF_AFTER = INF_MAX - INF_SPENT; // 1
+
+  async function setupTrackerWithReconcile(page, submissions = [INFLUENCE_SUBMISSION]) {
+    await setupSuite(page, [INFLUENCE_CHAR]);
+    await page.route('**/api/downtime_cycles*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CLOSED_CYCLE]) })
+    );
+    await page.route('**/api/downtime_submissions*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(submissions) })
+    );
+    // tracker_state GET: no influence field so cs.inf seeds at calcTotalInfluence (max)
+    await page.route('**/api/tracker_state/**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) })
+    );
+  }
+
+  test('tracker reconciles DT influence_spend on load', async ({ page }) => {
+    let putBody = null;
+    await setupTrackerWithReconcile(page);
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putBody = route.request().postDataJSON();
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+
+    expect(putBody).not.toBeNull();
+    expect(putBody).toHaveProperty('influence', INF_AFTER);
+  });
+
+  test('tracker shows max influence when character has no DT submission', async ({ page }) => {
+    let putFired = false;
+    await setupTrackerWithReconcile(page, []); // no submissions for this character
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putFired = true;
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+
+    // No reconcile PUT — character has no DT spend, stays at max
+    expect(putFired).toBe(false);
+    const header = page.locator('#t-tracker .trk-card-hd').first();
+    await expect(header).toBeVisible({ timeout: 3000 });
+    const html = await header.innerHTML();
+    expect(html).toContain(`Inf ${INF_MAX}/${INF_MAX}`);
+  });
+
+  test('tracker does not double-apply influence deduction on second tab open', async ({ page }) => {
+    let putCount = 0;
+    await setupTrackerWithReconcile(page);
+    await page.route(`**/api/tracker_state/${INFLUENCE_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putCount++;
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
+
+    // First tracker tab open
+    await openSuiteTrackerTab(page);
+    await page.waitForTimeout(500);
+    const afterFirstOpen = putCount;
+
+    // Navigate away then back — _reconciledCycles Set prevents second reconcile
+    await page.evaluate(() => window.goTab('status'));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.goTab('tracker'));
+    await page.waitForSelector('#t-tracker .trk-card', { timeout: 5000 });
+    await page.waitForTimeout(500);
+
+    expect(afterFirstOpen).toBe(1);  // first open fired exactly one PUT
+    expect(putCount).toBe(1);        // second open fired no additional PUTs
+  });
+
+});
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  Feeding confirm — ST vitae write and influence localStorage
@@ -685,11 +804,11 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
   };
 
   async function openFeedingTab(page) {
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])');
+    await page.goto('/index.html');
+    await page.waitForSelector('#app:not([style*="display: none"])');
     await page.waitForTimeout(500);
-    await page.click('.sidebar-btn[data-tab="feeding"]');
-    await page.waitForSelector('#tab-feeding.active', { timeout: 5000 });
+    await page.evaluate(() => window.goTab('feeding'));
+    await page.waitForSelector('#t-feeding.active', { timeout: 5000 });
     await page.waitForTimeout(600);
   }
 
@@ -784,6 +903,7 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await page.waitForTimeout(500);
       expect(trackerPutCalled).toBe(true);
       expect(trackerPutBody).toHaveProperty('vitae');
+      expect(trackerPutBody).toHaveProperty('influence');
     }
   });
 
@@ -821,7 +941,9 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
     }
   });
 
-  test('influence is written to localStorage on confirm', async ({ page }) => {
+  test('influence is sent to tracker_state API (not localStorage) on confirm', async ({ page }) => {
+    let putBody = null;
+
     await setupPlayer(page, FEED_CHAR, LIVE_TERRITORIES, SUBMISSION_WITH_REVIEW, ACTIVE_CYCLE);
     await page.route('**/api/auth/me', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
@@ -834,9 +956,15 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
         avatar: null, role: 'st', player_id: 'p-001', character_ids: ['char-fd-001'], is_dual_role: true,
       }));
     });
-    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
-    );
+    await page.route(`**/api/tracker_state/${FEED_CHAR._id}`, route => {
+      if (route.request().method() === 'PUT') {
+        putBody = route.request().postDataJSON();
+        route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      } else {
+        route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ vitae: 5, willpower: 3, bashing: 0, lethal: 0, aggravated: 0 }) });
+      }
+    });
     await page.route('**/api/downtime_submissions/**', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     );
@@ -848,12 +976,18 @@ test.describe('Feeding confirm — vitae API write and influence localStorage', 
       await confirmBtn.click();
       await page.waitForTimeout(500);
 
-      // Check localStorage was written for this character's influence
+      // influence must be in the API PUT body, not localStorage
+      expect(putBody).not.toBeNull();
+      expect(putBody).toHaveProperty('influence');
+
+      // loc.inf must NOT be written to localStorage (removed in fix.667)
       const localKey = `tm_tracker_local_${FEED_CHAR._id}`;
       const stored = await page.evaluate(k => localStorage.getItem(k), localKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        expect(parsed).toHaveProperty('inf');
+        expect(parsed).not.toHaveProperty('inf');
+        // vitae_confirmed is still written (used by trackerAdj manual-override logic)
+        expect(parsed).toHaveProperty('vitae_confirmed');
       }
     }
   });
@@ -913,6 +1047,9 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(opts).toContain('The Rack');
   });
 
+  // #627: restored. The admin City ambience flow is correct; the spec just needed (1) `slug` on the
+  // live mock docs (production resolves them via _terrDoc = find(d => d.slug === terrId)), and (2) the
+  // save tests must click the explicit "Save Ambience" button — ambience is NOT auto-saved on change.
   test('live territory ambience is reflected in select (pre-selected value)', async ({ page }) => {
     // LIVE_TERRITORIES has academy = 'Verdant'
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
@@ -925,7 +1062,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     expect(val).toBe('Verdant');
   });
 
-  test('changing ambience fires a PUT to territories API', async ({ page }) => {
+  test('changing ambience + Save fires a write to territories API', async ({ page }) => {
     let putCalled = false;
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await page.route('**/api/territories*', route => {
@@ -941,6 +1078,7 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     const academySel = page.locator('.terr-amb-level-sel[data-terr-id="academy"]');
     await expect(academySel).toBeVisible({ timeout: 5000 });
     await academySel.selectOption('Tended');
+    await page.locator('[data-terr-amb-save="academy"]').click(); // explicit Save Ambience button
     await page.waitForTimeout(500);
 
     expect(putCalled).toBe(true);
@@ -968,20 +1106,20 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
 
     await setupPlayer(page, FEED_CHAR, LIVE_TERRITORIES, SUBMISSION, ACTIVE_CYCLE);
 
-    await page.goto('/player.html');
-    await page.waitForSelector('#player-app:not([style*="display: none"])');
-    await page.click('.sidebar-btn[data-tab="feeding"]');
-    await page.waitForSelector('#tab-feeding.active', { timeout: 5000 });
+    await page.goto('/index.html');
+    await page.waitForSelector('#app:not([style*="display: none"])');
+    await page.evaluate(() => window.goTab('feeding'));
+    await page.waitForSelector('#t-feeding.active', { timeout: 5000 });
     await page.waitForTimeout(800);
 
-    const feedTab = page.locator('#tab-feeding');
+    const feedTab = page.locator('#t-feeding');
     await expect(feedTab).toBeVisible({ timeout: 5000 });
     const html = await feedTab.innerHTML();
     // Tab rendered — either tally or loading state, just verify it isn't empty
     expect(html.length).toBeGreaterThan(10);
   });
 
-  test('ambience save shows feedback (auto-save on change)', async ({ page }) => {
+  test('ambience Save shows "Saved" feedback and fires a write', async ({ page }) => {
     let putCalled = false;
     await setupAdmin(page, [INVICTUS_CHAR], LIVE_TERRITORIES);
     await page.route('**/api/territories*', route => {
@@ -997,9 +1135,10 @@ test.describe('Ambience — 9-level dropdown and live territory vitae tally', ()
     const dockyardsSel = page.locator('.terr-amb-level-sel[data-terr-id="dockyards"]');
     await expect(dockyardsSel).toBeVisible({ timeout: 5000 });
     await dockyardsSel.selectOption('Curated');
+    await page.locator('[data-terr-amb-save="dockyards"]').click(); // explicit Save Ambience button
+    await expect(page.locator('#terr-amb-status-dockyards')).toHaveText('Saved'); // #634: feedback now persists (clears after 2s)
     await page.waitForTimeout(600);
 
-    // Auto-save should have fired
     expect(putCalled).toBe(true);
   });
 

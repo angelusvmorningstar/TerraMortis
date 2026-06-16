@@ -65,6 +65,11 @@ export async function openGamePhase(id) {
 export const DTUX_PHASES = ['prep', 'city', 'projects', 'story', 'ready'];
 
 export function deriveCycleStatus(cycle) {
+  // CYCLE epic (#708): manual game_phase overrides legacy derivation when set.
+  if (cycle?.game_phase === 'game')        return 'game';
+  if (cycle?.game_phase === 'downtime')    return 'active';
+  if (cycle?.game_phase === 'processing')  return 'closed';
+  // Legacy derivation — covers cycles predating #708.
   const ps = cycle?.phase_signoff || {};
   // Closed wins regardless of override (issue #231 AC-4): once projects
   // are signed off the ST is processing; no late submissions.

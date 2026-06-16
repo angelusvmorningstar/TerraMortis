@@ -55,6 +55,7 @@ export const characterSchema = {
     retired:          { type: 'boolean' },
     pending_approval: { type: 'boolean' },
     created_at:       { type: 'string' },
+    current:          { type: ['object', 'null'], additionalProperties: true },
 
     clan: {
       type: ['string', 'null'],
@@ -285,28 +286,60 @@ export const characterSchema = {
       }
     },
 
+    // ── Player Preferences (#542) ─────────────────────────────
+    player_prefs: {
+      type: 'object',
+      properties: {
+        combat_action:            { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        horror_dread:             { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        institutional_corruption: { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        mysticism_mystery:        { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        personal_story:           { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        political_intrigue:       { type: 'object', properties: { rating: { type: ['integer', 'null'], minimum: 1, maximum: 5 } }, additionalProperties: false },
+        updated_at:               { type: ['string', 'null'] },
+      },
+      additionalProperties: false,
+    },
+
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
-    // ── Equipment ─────────────────────────────────────────────
+    // ── Equipment (EQ-1, issue #654) ──────────────────────────
+    // Lean refs into EQUIPMENT_CATALOGUE — full stats resolved at render time.
     equipment: {
       type: 'array',
+      default: [],
       items: {
         type: 'object',
+        required: ['catalogue_id', 'state', 'acquired_cycle'],
         properties: {
-          type:             { type: 'string', enum: ['weapon', 'armour'] },
-          name:             { type: 'string' },
-          damage_rating:    { type: 'number' },
-          damage_type:      { type: 'string', enum: ['B', 'L', 'A'] },
-          attack_skill:     { type: 'string', enum: ['Brawl', 'Weaponry', 'Firearms'] },
-          general_ar:       { type: 'number' },
-          ballistic_ar:     { type: 'number' },
-          mobility_penalty: { type: 'number' },
-          tags:             { type: 'array', items: { type: 'string' } },
-          notes:            { type: 'string' }
+          catalogue_id:    { type: 'string' },
+          state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
+          acquired_cycle:  { type: 'integer', minimum: 0 },
+          notes:           { type: ['string', 'null'] },
         },
-        additionalProperties: false
-      }
+        additionalProperties: false,
+      },
+    },
+
+    // ── Assets (EQ-1, issue #654) ─────────────────────────────
+    // Annotation-first; mechanical_effect hook reserved for future rule integration.
+    assets: {
+      type: 'array',
+      default: [],
+      items: {
+        type: 'object',
+        required: ['name', 'description', 'acquired_cycle'],
+        properties: {
+          name:              { type: 'string' },
+          description:       { type: 'string' },
+          location:          { type: ['string', 'null'] },
+          mechanical_effect: { type: ['string', 'null'] },
+          acquired_cycle:    { type: 'integer', minimum: 0 },
+          notes:             { type: ['string', 'null'] },
+        },
+        additionalProperties: false,
+      },
     },
 
     // ── XP log ────────────────────────────────────────────────
@@ -381,8 +414,14 @@ export const characterSchema = {
         asset_skills:  { type: 'array', items: { type: 'string' } },
         shared_with:   { type: 'array', items: { type: 'string' } },
         spheres:       { type: 'array', items: { type: 'string' } },
+        // N-4 (MNEC, issue #696): White Ants — Territory slugs picked per dot.
+        // Length-must-equal-rating is enforced at the route level (route can
+        // pull the merit's rating from cp+xp+free); JSON schema only enforces
+        // string-array shape since cross-field validation isn't representable here.
+        territories:   { type: 'array', items: { type: 'string' } },
         granted_by:    { type: 'string' },
         active:        { type: 'boolean' },
+        location:      { type: ['string', 'null'] }, // #506: street+suburb for Safe Place instances; carries across DT cycles
         narrow:        { type: ['string', 'boolean', 'null'] },
         ghoul:         { type: 'boolean' },
         derived:       { type: 'boolean' },
@@ -429,7 +468,48 @@ export const characterSchema = {
         free_bloodline: { type: 'integer', minimum: 0 },
         free_pet:       { type: 'integer', minimum: 0 },
         free_retainer:  { type: 'integer', minimum: 0 },
-        attached_to:    { type: ['string', 'null'] },
+        free_carthian:  { type: 'integer', minimum: 0 }, // #508: Carthian Pull dot-allocation bonus
+        // ── N-1 / ADR-005 Rev 2 (issue #670) ──
+        // `free_grants` is the new slug-keyed channel map that replaces the 14
+        // flat `free_<slug>` fields above. N-1 ships both shapes coexisting;
+        // `meritFreeSum` sums the union. N-2 backfill moves persisted flat-field
+        // data into the map and unsets the flat fields. Slugs MUST be stable:
+        // renaming a slug after N-1 ships requires a data migration.
+        free_grants:    { type: 'object', additionalProperties: { type: 'integer', minimum: 0 } },
+        carthian_sphere: { type: ['string', 'null'] }, // #510: single sphere a Carthian dot pushed into an augmented Contacts merit (legacy single-dot; read on strip)
+        carthian_spheres: { type: 'array', items: { type: 'string' } }, // #522: spheres Carthian Pull dots pushed into an augmented Contacts merit (multi-dot; for clean strip)
+        // `attached_to` accepts EITHER legacy string-form (single-target, pre-Rev-2,
+        // e.g. Haven / Mandragora Garden) OR the new object form for bridges
+        // (Trap Door: { origin: 'Necropolis Sepulcher', destination: <Safe Place> }).
+        // Every consumer reads via `normaliseAttachedTo(at)` (Concern #11) — no
+        // raw reads. N-2 backfill promotes string-form to `{ destination }`.
+        attached_to: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'null' },
+            {
+              type: 'object',
+              required: ['destination'],
+              properties: {
+                origin:      { type: 'string', minLength: 1 },
+                destination: { type: 'string', minLength: 1 },
+                // N-5 (MNEC, issue #697) — Trap Door triple-anchor: the
+                // Territory slug carrying the constraint for THIS Trap Door's
+                // binding. Optional in the schema (Haven/Mandragora don't need
+                // it); the route middleware requires it when the merit is
+                // Trap Door specifically. "Is the Territory currently infected"
+                // stays a render-time check per ADR-005 D7.
+                territory:   { type: 'string', minLength: 1 },
+              },
+              additionalProperties: false,
+            },
+          ],
+        },
+        // Render-time synthesis of Collective Compound member names; NEVER
+        // persisted. `buildSaveBody` (export-character.js) strips `_`-prefixed
+        // merit fields before PUT/POST. Listed in the schema for completeness;
+        // server validation accepts it but the save path keeps it from leaking.
+        _collective_shared_with: { type: 'array', items: { type: 'string' } },
         rule_key: { type: ['string', 'null'] },
         bonus:    { type: 'integer', minimum: 0 }
       },

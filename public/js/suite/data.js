@@ -90,6 +90,8 @@ const state = {
   // Specialty toggle state for the current pool. Map of spec name → bonus
   // applied to MOD. Populated by togSpec, cleared by loadPool.
   specBonuses: {},
+  activeEquipBonus: null,
+  activeWeaponId: null,
   hist: [],
   chars: [],
   rollChar: null,

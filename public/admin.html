@@ -52,6 +52,7 @@
       <button class="sidebar-btn" data-domain="city">City</button>
       <button class="sidebar-btn" data-domain="spheres">Spheres</button>
       <button class="sidebar-btn" data-domain="downtime">Downtime</button>
+      <button class="sidebar-btn" data-domain="cycle">Cycle</button>
       <button class="sidebar-btn" data-domain="ordeals">Ordeals</button>
       <button class="sidebar-btn" data-domain="attendance">Attendance</button>
       <button class="sidebar-btn" data-domain="data">Data</button>
@@ -61,6 +62,7 @@
       <button class="sidebar-btn" data-domain="rde">Rules Engine</button>
       <button class="sidebar-btn" data-domain="st-mods">ST Mods</button>
       <button class="sidebar-btn" data-domain="st-mods-audit">ST Mods Audit</button>
+      <button class="sidebar-btn" data-domain="devlog">Devlog</button>
     </div>
     <div class="sidebar-footer-nav" id="sidebar-footer-nav"></div>
     <div class="sidebar-user" id="sidebar-user"></div>
@@ -136,6 +138,12 @@
       <div id="dt-ready-panel" class="dt-panel" style="display:none"></div>
     </section>
 
+    <!-- Cycle domain (#708) -->
+    <section id="d-cycle" class="domain">
+      <div class="domain-header"><h2>Cycle</h2></div>
+      <div id="cycle-content"></div>
+    </section>
+
     <!-- NPC Register domain (NPCR.1) — hidden from sidebar; data preserved in MongoDB
     <section id="d-npcs" class="domain">
       <div class="domain-header">
@@ -194,6 +202,11 @@
 
     <section id="d-st-mods-audit" class="domain">
       <div id="st-mods-audit-content"></div>
+    </section>
+
+    <section id="d-devlog" class="domain">
+      <div class="domain-header"><h2>Devlog</h2></div>
+      <div id="devlog-admin-content"></div>
     </section>
 
   </main>

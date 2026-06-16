@@ -253,6 +253,36 @@ describe('PUT /api/downtime_submissions/:id', () => {
     expect(res.body.st_review.outcome_text).toBe('ST verdict');
   });
 
+  // Issue #497: PUT coerces a string cycle_id in the update body to ObjectId
+  // before write (mirrors the POST path), so a PUT can never re-introduce the
+  // mixed-type split.
+  it('coerces a string cycle_id in the update body to ObjectId', async () => {
+    const { ObjectId } = await import('mongodb');
+    const sub = await insertSub(testChars[0].id); // starts with cycle_id: null
+    const cycleIdStr = new ObjectId().toString();
+    const res = await request(app)
+      .put(`/api/downtime_submissions/${sub._id}`)
+      .set('X-Test-User', stUser())
+      .send({ cycle_id: cycleIdStr });
+    expect(res.status).toBe(200);
+    const doc = await getCollection('downtime_submissions').findOne({ _id: sub._id });
+    expect(doc.cycle_id).toBeInstanceOf(ObjectId);
+    expect(String(doc.cycle_id)).toBe(cycleIdStr);
+  });
+
+  // Issue #497: a malformed cycle_id is left untouched (no 500) — the coercion
+  // guard only rewrites when parseId succeeds, mirroring POST's behaviour.
+  it('leaves a malformed cycle_id in the update body untouched (no crash)', async () => {
+    const sub = await insertSub(testChars[0].id);
+    const res = await request(app)
+      .put(`/api/downtime_submissions/${sub._id}`)
+      .set('X-Test-User', stUser())
+      .send({ cycle_id: 'not-an-object-id' });
+    expect(res.status).toBe(200);
+    const doc = await getCollection('downtime_submissions').findOne({ _id: sub._id });
+    expect(doc.cycle_id).toBe('not-an-object-id');
+  });
+
   it('returns 404 for non-existent submission', async () => {
     const res = await request(app)
       .put('/api/downtime_submissions/000000000000000000000000')

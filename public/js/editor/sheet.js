@@ -10,6 +10,14 @@ import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
+// N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
+// N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
+// N-5: validateTrapDoorAnchor reports the render-time non-functional state.
+// N-7: hasNecropolisSepulcher + getNecropolisTargets drive the allocator stepper.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf } from '../data/rules-helpers.js';
+import { getRulesCache } from './rule_engine/load-rules.js';
+// N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
+import { getStoredTerritories } from '../data/accessors.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed, effectiveInvictusStatus, attacheBonusDots, meritFreeSum, syncMeritRating, meritEffectiveRating, domKey } from './domain.js';
@@ -19,6 +27,7 @@ import { auditCharacter } from '../data/audit.js';
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 import { markerFor } from './st-mod-popover.js';
+import { getCatalogueEntry } from '../data/equipment-data.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -104,12 +113,21 @@ function _renderPoolCounters(c, category) {
   // Lorekeeper pools target Herd/Retainer — show in the domain section (Herd lives there;
   // Retainer is influence but pool is unified). One row keeps the summary uncluttered.
   const lkPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'lk') : [];
-  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools];
+  // N-7 (issue #760): Necropolis pool targets sit in the general merit
+  // section — surface the counter in 'general' so the read-side summary
+  // matches the per-target allocator stepper below.
+  // N-7a (issue #766): Necropolis targets are sub_category='domain' — surface
+  // the pool counter in the domain section, matching where the per-target
+  // steppers actually render. Pre-N-7a this filtered on 'general' (the
+  // mistake that surfaced as part of the broader showNECRO-in-wrong-renderer
+  // bug — the original N-7 wiring went into the general renderer too).
+  const necroPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
+  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...necroPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
   const seen = new Set();
   allPools.forEach(p => {
-    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.name);
+    const label = p.names ? p.names.join('/') : (p.category === 'any' ? 'any merit' : p.category === 'vm' ? 'Allies (VM bonus)' : p.category === 'ohm' ? 'OHM: auto Contacts+Resources, pick Allies sphere' : p.category === 'inv' ? 'Herd/Mentor/Resources/Retainer (Invested)' : p.category === 'necro' ? 'Necropolis targets (Catacombs/Caldarium/Garbage Pit/Labyrinth Guardians/Dark Temple/White Ants)' : p.name);
     const key = p.source + '|' + label;
     if (seen.has(key)) return;
     seen.add(key);
@@ -119,6 +137,8 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'lk') { pTotal = p.amount; pUsed = lorekeeperUsed(c); }
     else if (p.category === 'ohm') { pTotal = p.amount; pUsed = ohmUsed(c); }
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
+    // N-7 (issue #760): necro pool — sum freeOf(m, 'necro') across all merits.
+    else if (p.category === 'necro') { pTotal = p.amount; pUsed = (c.merits || []).reduce((s, m) => s + freeOf(m, 'necro'), 0); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
     h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
@@ -136,6 +156,15 @@ function _alertBadge(lvl) {
 function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
   return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+}
+
+/** Three-tier domain merit dot rendering: inherent (\u25CF), bonus (\u25CB), shared/underlined (\u25CB). */
+function shDotsThreeTier(inherent, bonus, shared) {
+  let h = '';
+  for (let i = 0; i < inherent; i++) h += '\u25CF';
+  for (let i = 0; i < bonus; i++)    h += '\u25CB';
+  for (let i = 0; i < shared; i++)   h += '<span class="dot-shared">\u25CB</span>';
+  return '<span class="trait-dots">' + h + '</span>';
 }
 
 /** Derived dot source notes on a merit. Only emits lines where the field > 0. */
@@ -443,10 +472,10 @@ export function shRenderAttributes(c, editMode) {
         const autoBonus = (c.disciplines?.[BONUS_SOURCE[a]]?.dots || 0);
         const ao = c.attributes[a] || {}, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (ao.cp || 0), xd = xpToDots(ao.xp || 0, ab, 4), tot = ab + xd;
         h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
-        h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
-        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '', effTotal = tot + autoBonus + bonus;
+        h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + (tot + autoBonus + bonus) + '</span></div></div>';
+        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '';
           if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src">+' + autoBonus + '</span></div>';
-          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (autoBonus > 0 || bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + effTotal + '</span></div>' : '') + '</div>'; }
+          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button></div>'; }
         h += '</div></div>';
       }); h += '</div>';
     });
@@ -530,10 +559,10 @@ export function shRenderSkills(c, editMode) {
     for (let ri = 0; ri < 8; ri++) {
       SKILL_COLS.forEach(col => {
         const s = col[ri];
-        const sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
+        const sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) && (d + bn) < 5 ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) && (d + bn) < 5 ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
         h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
-        const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd;
-        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>'
+        const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd, skEff = st2 + bn + ptBn + mciBn;
+        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + skEff + '</span></div></div>'
           + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',-1)"' + (bn === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',1)">&#x25B2;</button></div>';
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
@@ -544,7 +573,7 @@ export function shRenderSkills(c, editMode) {
   } else {
     for (let ri = 0; ri < 8; ri++) {
       SKILL_COLS.forEach(col => {
-        const s = col[ri], sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0;
+        const s = col[ri], sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) && (d + bn) < 5 ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) && (d + bn) < 5 ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0;
         // Epic STM #408: modded sub-ranges tagged on the dots themselves.
         // Skill hollow-stream layout: bn first, then ptBn / mciBn \u2014 so modded
         // skills.X.bonus sub-range starts at hollow position ovBonus.base
@@ -690,9 +719,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.mandragora_parked ? '<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + (p.mandragora_parked ? '<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (costLine ? '<div class="disc-power-stats">Cost: ' + esc(costLine) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(ruleEntry?.description || p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -858,7 +887,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         const _attEligible = (c.merits || []).filter(m2 => ['Contacts', 'Resources', 'Safe Place'].includes(m2.name));
         const _attKey = m2 => m2.name + (m2.area ? ' (' + m2.area + ')' : '');
         const _attOpts = ['<option value="">(select target)</option>']
-          .concat(_attEligible.map(m2 => '<option value="' + esc(_attKey(m2)) + '"' + (m.attached_to === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'))
+          .concat(_attEligible.map(m2 => { const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(_attKey(m2)) + '"' + (_at && _at.destination === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'; }))
           .join('');
         _areaHtml = '<select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select>'
           + '<label class="infl-ghoul-lbl"><input type="checkbox"' + (m.ghoul ? ' checked' : '') + ' onchange="shEditInflMerit(' + idx + ',\'ghoul\',this.checked)"> Ghoul</label>';
@@ -966,6 +995,22 @@ export function shRenderDomainMerits(c, editMode) {
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c); const _hasVM = hasViralMythology(c);
+    // N-7a (issue #766): Necropolis target merits are sub_category='domain'
+    // and render through THIS function — the general-renderer wiring at
+    // sheet.js:1325/1342 from N-7 (PR #765) doesn't reach them. Mirrors the
+    // LK/Inv/VM precedent which threads the same flags into both the domain
+    // renderer (here) AND the influence renderer (line 887). All six
+    // Necropolis targets (Catacombs / Caldarium / Garbage Pit / Labyrinth
+    // Guardians / Dark Temple / White Ants) live in the domain section, so
+    // domain-only wiring is sufficient.
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    // N-7b (issue #768): _necroTargets must populate UNCONDITIONALLY — option 3
+    // suppression is "categorically by merit name, regardless of Sepulcher
+    // ownership." The stepper render is still gated on _hasNecroSep below
+    // (showNECRO: _hasNecroSep && _isNecroTarget), but the hide-* flags fire
+    // even for non-Sepulcher characters who somehow have a Necropolis target
+    // merit on their sheet.
+    const _necroTargets = getNecropolisTargets(getRulesCache());
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
@@ -992,7 +1037,9 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCapped = ['Haven', 'Mandragora Garden'].includes(m.name);
       const _capEff = _isCapped ? meritEffectiveRating(c, m) : null;
       const _capStored = _isCapped ? ((m.cp || 0) + (m.xp || 0) + meritFreeSum(m)) : null;
-      const _spM = _isCapped && m.attached_to ? (c.merits || []).find(sp => sp.category === 'domain' && sp.name === 'Safe Place' && domKey(sp) === m.attached_to) : null;
+      // N-1 (Concern #11): normaliser pinpoints the `.destination` for cap-target lookup.
+      const _mAt = normaliseAttachedTo(m.attached_to);
+      const _spM = _isCapped && _mAt ? (c.merits || []).find(sp => sp.category === 'domain' && sp.name === 'Safe Place' && domKey(sp) === _mAt.destination) : null;
       const _spCap = _spM ? meritEffectiveRating(c, _spM) : 0;
       const _capSharedEff = (parts.length > 0 && _spCap > 0) ? Math.min(eT, _spCap) : null;
       const _capTotalDots = _isCapped
@@ -1009,19 +1056,36 @@ export function shRenderDomainMerits(c, editMode) {
       }
       // Attached-to selector for Haven / Mandragora Garden
       if (_isCapped) {
-        const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
-        const _spOpts = ['<option value="">(select Safe Place)</option>']
-          .concat(_spInstances.map(sp => { const k = domKey(sp); return '<option value="' + esc(k) + '"' + (m.attached_to === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
+        // N-8 (issue #761, Peter decision B 2026-06-15): Mandragora Garden's
+        // attached_to picker accepts Necropolis Sepulcher as an alternative
+        // destination alongside Safe Place. Single-picker option-set \u2014 NOT
+        // dual-anchor (Sepulcher's purchase prereq carries the clan check;
+        // there's no second anchor field to populate). Haven stays
+        // Safe-Place-only \u2014 only Mandragora gets the expansion.
+        const _isMandragora = m.name === 'Mandragora Garden';
+        const _spInstances = (c.merits || []).filter(sp =>
+          (sp.category === 'domain' && sp.name === 'Safe Place')
+          || (_isMandragora && sp.name === 'Necropolis Sepulcher')
+        );
+        const _placeholderLabel = _isMandragora ? '(select Safe Place or Sepulcher)' : '(select Safe Place)';
+        const _spOpts = ['<option value="">' + _placeholderLabel + '</option>']
+          .concat(_spInstances.map(sp => { const k = domKey(sp); const _at = normaliseAttachedTo(m.attached_to); return '<option value="' + esc(k) + '"' + (_at && _at.destination === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }))
           .join('');
         h += '<div class="dom-attach-row"><label class="dom-attach-lbl">Attached to:</label><select class="dom-attach-sel" onchange="shEditDomMerit(' + di + ',\'attached_to\',this.value||null)">' + _spOpts + '</select></div>';
-        if (!m.attached_to || _spInstances.length === 0) {
-          h += '<div class="dom-cap-warn">\u26A0 Needs an attached Safe Place \u2014 contributes 0 dots until linked.</div>';
+        if (!normaliseAttachedTo(m.attached_to) || _spInstances.length === 0) {
+          h += '<div class="dom-cap-warn">\u26A0 Needs an attached ' + (_isMandragora ? 'Safe Place or Sepulcher' : 'Safe Place') + ' \u2014 contributes 0 dots until linked.</div>';
         } else if (_capStored > _capEff) {
-          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached Safe Place is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if Safe Place upgraded)</div>';
+          h += '<div class="dom-cap-warn">\u26A0 Capped at ' + _capEff + ' (attached ' + (_isMandragora ? 'anchor' : 'Safe Place') + ' is ' + _capEff + ' \u2014 ' + (_capStored - _capEff) + ' dot' + (_capStored - _capEff !== 1 ? 's' : '') + ' over-allocated, will count if upgraded)</div>';
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // N-7b (issue #768, Peter decision option 3, 2026-06-16): Necropolis
+      // target merits are pool-funded only. Suppress CP / XP / MCI / Bonus
+      // categorically by merit name (regardless of Sepulcher ownership —
+      // the row exists because the merit is on the sheet, but it must NEVER
+      // be hand-funded). The NECRO stepper is the only allocation surface.
+      const _isNecroTarget = _necroTargets.includes(m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isNecroTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _isNecroTarget, hideCP: _isNecroTarget, hideXP: _isNecroTarget, hideMCI: _isNecroTarget, hideBonus: _isNecroTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
@@ -1045,7 +1109,9 @@ export function shRenderDomainMerits(c, editMode) {
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
       const mBon = m.bonus || 0;
-      const _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (m.free_fwb || 0) : 0, attB = !dp ? (m.free_attache || 0) : 0;
+      // N-1: per-slug reads inline the map-fallback shape `m.free_grants?.<slug> ?? m.free_<slug> ?? 0` so N-2 backfill (legacy → map) doesn't drop dots on the read-only sheet path.
+      const _fg = m.free_grants || {};
+      const _dRaw = (m.cp || 0) + (_fg.bloodline ?? m.free_bloodline ?? 0) + (_fg.pet ?? m.free_pet ?? 0) + (_fg.mci ?? m.free_mci ?? 0) + (_fg.vm ?? m.free_vm ?? 0) + (_fg.lk ?? m.free_lk ?? 0) + (_fg.inv ?? m.free_inv ?? 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, fwbB = !dp ? (_fg.fwb ?? m.free_fwb ?? 0) : 0, attB = !dp ? (_fg.attache ?? m.free_attache ?? 0) : 0, carthB = !dp ? (_fg.carthian ?? m.free_carthian ?? 0) : 0; // #508 carthB
       const _viewStored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + mBon;
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
@@ -1053,26 +1119,31 @@ export function shRenderDomainMerits(c, editMode) {
       if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
-      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0) {
+      } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0 || carthB > 0) {
         const dPurch = _dRaw;
         dotHtml = shDotsMixed(dPurch, Math.max(0, de - dPurch) + mBon);
       } else {
         dotHtml = '<span class="trait-dots">' + shDots(de) + '</span>';
       }
-      // Shared display: own dots filled + partner contribution hollow.
-      const _shPurch = (m.cp || 0) + (m.xp || 0);
-      const _shOwn = Math.min(de, _shPurch);
-      const _shPart = Math.max(0, de - _shOwn);
-      const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
+      // Shared display: three tiers \u2014 filled \u25CF inherent (cp+xp), hollow \u25CB bonus (free_*), underlined \u25CB shared (partner).
+      const _sh3Inherent = Math.min(de, (m.cp || 0) + (m.xp || 0));
+      const _sh3OwnAll   = Math.min(de, (m.cp || 0) + (m.xp || 0) + meritFreeSum(m));
+      const _sh3Bonus    = _sh3OwnAll - _sh3Inherent;
+      const _sh3Shared   = Math.max(0, de - _sh3OwnAll);
+      const _shHtml      = '<div class="dom-total-view" title="\u25CF inherent, \u25CB bonus, \u25CB\u0332 shared">' + shDotsThreeTier(_sh3Inherent, _sh3Bonus, _sh3Shared) + '</div>';
       // Display name includes qualifier when present
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
       h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
       if (_isCappedView) {
-        if (!m.attached_to) {
+        // N-1 (Concern #11): normaliser keeps the rendered "Attached: X" string
+        // correct when `m.attached_to` is the new object form (would otherwise
+        // render [object Object]).
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        if (!_viewAt) {
           h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
         } else {
           if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
-          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(m.attached_to) + '</span></div>';
+          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(_viewAt.destination) + '</span></div>';
         }
       }
       h += '</div>';
@@ -1125,7 +1196,9 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name)); h += _prereqWarn(c, m.name);
+    // N-9 (issue #762, Bug 2): standing merits (MCI/PT) don't read m.bonus,
+    // so the Bonus row is no-op clutter; hideBonus suppresses it.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { hideBonus: true }); h += _prereqWarn(c, m.name);
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
     for (let d = 0; d < 5 && d < eDots; d++) {
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><div class="mci-dot-content">';
@@ -1199,7 +1272,8 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
   h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
-    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0 });
+    // N-9 (issue #762, Bug 2): PT standing — hideBonus.
+    h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0, hideBonus: true });
     h += _prereqWarn(c, m.name);
     h += '<div class="pt-skills-edit">';
     if (eDots >= 1) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF</span><span class="mci-benefit-text">Networking: 2 free Contacts' + (m.role ? ' (' + esc(m.role) + ')' : '') + '</span></div>';
@@ -1270,6 +1344,11 @@ export function shRenderGeneralMerits(c, editMode) {
       + '</div>';
     h += _renderPoolCounters(c, 'general') + _renderPoolCounters(c, 'influence') + _renderPoolCounters(c, 'domain');
     const _genMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    // N-7 (issue #760): Necropolis allocator wiring — _hasNecroSep gates the
+    // stepper render; _necroTargets sources the target merit list from the
+    // rule_grant doc (NOT hardcoded — picks up future pool_targets edits).
+    const _hasNecroSep = hasNecropolisSepulcher(c);
+    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
     const _KERBEROS_ASPECTS = ['Monstrous', 'Competitive', 'Seductive'];
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
@@ -1280,7 +1359,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1297,7 +1376,11 @@ export function shRenderGeneralMerits(c, editMode) {
         const _mBonus = m.bonus || 0;
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
-        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
+        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) });
+        // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
+        h += _whiteAntsTerritoriesBlock(m, rIdx);
+        // N-5 (MNEC #697): Trap Door triple-anchor picker (origin + destination + territory).
+        h += _trapDoorAnchorBlock(c, m, rIdx);
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }
@@ -1728,39 +1811,137 @@ export function shRenderManoeuvres(c, editMode) {
   return h;
 }
 
-// ── Equipment renderer (nav.10) ───────────────────────────────────────────────
+// ── Equipment & Assets renderer (EQ-2, issue #656) ───────────────────────────
+// Renders catalogue-ref equipment[] and freeform assets[] read-only.
+// Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
 export function shRenderEquipment(c, editMode) {
-  const equip = c.equipment || [];
-  if (!editMode && !equip.length) return '';
-  const SKILLS = ['Brawl', 'Weaponry', 'Firearms'];
-  const TYPES  = ['weapon', 'armour'];
-  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
-  if (editMode) {
-    equip.forEach((e, i) => {
-      const isWeapon = e.type === 'weapon';
-      const skillOpts = SKILLS.map(s => `<option${e.attack_skill === s ? ' selected' : ''}>${s}</option>`).join('');
-      const dmgOpts = ['B','L','A'].map(d => `<option${e.damage_type === d ? ' selected' : ''}>${d}</option>`).join('');
-      h += `<div class="equip-edit-row">`;
-      h += `<select class="gen-qual-input" style="width:70px" onchange="shEditEquip(${i},'type',this.value)"><option${e.type==='weapon'?' selected':''}>weapon</option><option${e.type==='armour'?' selected':''}>armour</option></select>`;
-      h += `<input class="sh-edit-input" value="${esc(e.name||'')}" placeholder="Name" onchange="shEditEquip(${i},'name',this.value)" style="flex:1">`;
-      if (isWeapon) {
-        h += `<select class="gen-qual-input" style="width:80px" onchange="shEditEquip(${i},'attack_skill',this.value)">${skillOpts}</select>`;
-        h += `<input class="attr-bd-input" type="number" value="${e.damage_rating||0}" title="Dmg bonus" onchange="shEditEquip(${i},'damage_rating',+this.value)" style="width:40px">`;
-        h += `<select class="gen-qual-input" style="width:40px" onchange="shEditEquip(${i},'damage_type',this.value)">${dmgOpts}</select>`;
-      } else {
-        h += `<input class="attr-bd-input" type="number" value="${e.general_ar||0}" title="General AR" onchange="shEditEquip(${i},'general_ar',+this.value)" style="width:40px">`;
-        h += `<input class="attr-bd-input" type="number" value="${e.ballistic_ar||0}" title="Ballistic AR" onchange="shEditEquip(${i},'ballistic_ar',+this.value)" style="width:40px">`;
-        h += `<input class="attr-bd-input" type="number" value="${e.mobility_penalty||0}" title="Mobility penalty" onchange="shEditEquip(${i},'mobility_penalty',+this.value)" style="width:40px">`;
-      }
-      h += `<button class="dev-rm-btn" onclick="shRemoveEquip(${i})" title="Remove">&times;</button>`;
-      h += `</div>`;
-    });
-    h += `<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddEquip('weapon')">+ Weapon</button><button class="dev-add-btn" onclick="shAddEquip('armour')" style="margin-left:4px">+ Armour</button></div>`;
-  } else {
-    equip.forEach(e => {
-      h += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(e.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${e.type === 'weapon' ? `${e.attack_skill||''} +${e.damage_rating||0}${e.damage_type||'L'}` : `AR ${e.general_ar||0}/${e.ballistic_ar||0}`}</span></div></div></div></div>`;
-    });
+  const equip  = c.equipment || [];
+  const assets = c.assets    || [];
+  if (!editMode && !equip.length && !assets.length) return '';
+
+  const STATE_LABELS = { carried: 'Carried', worn: 'Worn', stashed: 'Stashed', lost: 'Lost', active: 'Active' };
+  const DMGTYPE      = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
+  const WPNTYPE      = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
+  const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
+  const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
+
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment &amp; Assets</div><div class="merit-list">';
+
+  // Group equipment items by bucket, preserving flat-array index for remove buttons
+  const byBucket = { weapon: [], armour: [], equipment: [] };
+  for (let i = 0; i < equip.length; i++) {
+    const item   = equip[i];
+    const entry  = getCatalogueEntry(item.catalogue_id) || {};
+    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
+    byBucket[bucket].push({ item, entry, idx: i });
   }
+
+  // ── Weapons ──
+  if (byBucket.weapon.length) {
+    h += '<div class="sh-sub-title">Weapons</div>';
+    for (const { item, entry, idx } of byBucket.weapon) {
+      const name  = entry.name || item.catalogue_id;
+      const parts = [
+        entry.damage_mod != null ? `+${entry.damage_mod}` : null,
+        DMGTYPE[entry.damage_type] || entry.damage_type || null,
+        WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
+      ].filter(Boolean);
+      const qual   = parts.join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` +
+        `</div></div>`;
+    }
+  }
+
+  // ── Armour ──
+  if (byBucket.armour.length) {
+    h += '<div class="sh-sub-title">Armour</div>';
+    const baseDefence = calcDefence(c);
+    for (const { item, entry, idx } of byBucket.armour) {
+      const name  = entry.name || item.catalogue_id;
+      const parts = [
+        entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
+        entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
+      ].filter(Boolean);
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Equipment (tools / tech) ──
+  if (byBucket.equipment.length) {
+    h += '<div class="sh-sub-title">Equipment</div>';
+    for (const { item, entry, idx } of byBucket.equipment) {
+      const name  = entry.name || item.catalogue_id;
+      const pool  = (entry.skill_domain && entry.bonus_dice != null)
+        ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (pool || item.notes ? `<div class="trait-sub">${pool ? `<span class="trait-qual">${esc(pool)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Assets ──
+  if (assets.length) {
+    h += '<div class="sh-sub-title">Assets</div>';
+    for (let ai = 0; ai < assets.length; ai++) {
+      const asset  = assets[ai];
+      const meta   = [
+        asset.location          || null,
+        asset.mechanical_effect || null,
+        cycleLabel(asset.acquired_cycle),
+        asset.notes             || null,
+      ].filter(Boolean).join(' · ');
+      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveAsset(${ai})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span>${rmBtn}</div></div>` +
+        `<div class="trait-sub"><span class="trait-qual">${esc(asset.description)}</span></div>` +
+        (meta ? `<div class="trait-sub"><span class="trait-qual dim">${esc(meta)}</span></div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Edit-mode add forms ──
+  if (editMode) {
+    const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
+    const BUCKETS  = ['weapon', 'armour', 'equipment'];
+    const defCycle = state.activeCycleNum ?? 0;
+
+    h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
+      + '<option value="">Bucket…</option>'
+      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + '</select>'
+      + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
+      + '<select id="eq-add-state" class="dev-add-btn">'
+      + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
+      + '</select>'
+      + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
+      + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'
+      + '</div>';
+
+    h += '<div class="sh-sub-title" style="margin-top:6px">Add Asset</div>';
+    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
+      + '<input id="asset-add-name"  type="text" placeholder="Name*"         class="spec-input" style="width:120px">'
+      + '<input id="asset-add-desc"  type="text" placeholder="Description*"  class="spec-input" style="width:150px">'
+      + '<input id="asset-add-loc"   type="text" placeholder="Location"      class="spec-input" style="width:100px">'
+      + '<input id="asset-add-mech"  type="text" placeholder="Mech effect"   class="spec-input" style="width:120px">'
+      + `<input id="asset-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
+      + '<input id="asset-add-notes" type="text" placeholder="Notes"         class="spec-input" style="width:100px">'
+      + '<button class="sk-spec-add" onclick="shAddAsset()">Add</button>'
+      + '</div>';
+  }
+
   h += '</div></div>';
   return h;
 }
@@ -1778,6 +1959,152 @@ export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
     return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
   }
   return '<div class="merit-plain">' + _inner(false) + '</div>';
+}
+
+/**
+ * N-4 (MNEC, issue #696) — White Ants Territory picker block.
+ *
+ * Renders one `<select>` per dot of effective rating, each populated from the
+ * live territories store (`getStoredTerritories()`). Empty slots show a
+ * "Pick a Territory" warning; duplicate selections within the same merit show
+ * a duplicate warning. Returns '' for any non-White-Ants merit.
+ *
+ * The handler `shSetWhiteAntsTerritory(realIdx, dotIdx, value)` lives in
+ * edit-domain.js and is exposed on `window` by admin.js / app.js — see N-1's
+ * delegated-routing memory for why these inline-onchange handlers are safe
+ * when the global is reliably bound at module-load time.
+ */
+function _whiteAntsTerritoriesBlock(m, realIdx) {
+  if (!m || m.name !== 'White Ants') return '';
+  // Effective rating mirrors the meritFreeSum sum: cp + xp + sum(free_grants) + sum(legacy free_<slug>).
+  const fg = m.free_grants || {};
+  const fromMap = Object.values(fg).reduce((s, n) => s + (n || 0), 0);
+  const legacy = (m.free_attache || 0) + (m.free_bloodline || 0) + (m.free_carthian || 0)
+    + (m.free_fwb || 0) + (m.free_inv || 0) + (m.free_lk || 0) + (m.free_mci || 0)
+    + (m.free_mdb || 0) + (m.free_ohm || 0) + (m.free_pet || 0) + (m.free_pt || 0)
+    + (m.free_retainer || 0) + (m.free_sw || 0) + (m.free_vm || 0);
+  const rating = (m.cp || 0) + (m.xp || 0) + fromMap + legacy;
+  if (rating <= 0) return '';
+
+  const territories = getStoredTerritories();
+  const picked = Array.isArray(m.territories) ? m.territories : [];
+
+  // Empty store → placeholder only. The admin/suite apps load territories at
+  // boot via setStatusTerritories, so this branch is mostly a defensive
+  // fallback for a render that fires before the boot fetch resolves.
+  if (!territories || territories.length === 0) {
+    return '<div class="wa-picker-block"><label class="wa-picker-lbl">White Ants &mdash; Territories:</label><p class="wa-picker-empty">Loading territories…</p></div>';
+  }
+
+  // Pre-build option markup once; per-row mark which one is "selected".
+  const optsBare = '<option value="">(pick a Territory)</option>'
+    + territories.map(t => {
+      const slug = (t && t.slug) || '';
+      if (!slug) return '';
+      return `<option value="${esc(slug)}">${esc(t.name || slug)}</option>`;
+    }).join('');
+
+  let h = '<div class="wa-picker-block"><label class="wa-picker-lbl">White Ants &mdash; Territories the Necropolis has infected:</label>';
+  for (let i = 0; i < rating; i++) {
+    const current = picked[i] || '';
+    // Duplicate detection: this slug also appears at some other index in the same array.
+    const isDup = !!current && picked.some((s, j) => s === current && j !== i);
+    // Re-emit options with `selected` on the current pick.
+    const opts = current
+      ? optsBare.replace(`<option value="${esc(current)}">`, `<option value="${esc(current)}" selected>`)
+      : optsBare.replace('<option value="">', '<option value="" selected>');
+    const rowCls = !current ? 'wa-picker-row wa-picker-row--empty' : (isDup ? 'wa-picker-row wa-picker-row--dup' : 'wa-picker-row');
+    h += `<div class="${rowCls}">`
+      + `<span class="wa-picker-dot">${i + 1}.</span>`
+      + `<select class="wa-picker-sel" onchange="shSetWhiteAntsTerritory(${realIdx}, ${i}, this.value)">${opts}</select>`;
+    if (!current) h += '<span class="wa-picker-warn">Pick a Territory</span>';
+    else if (isDup) h += '<span class="wa-picker-warn">Duplicate</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+/**
+ * N-5 (MNEC, issue #697) — Trap Door triple-anchor picker block.
+ *
+ * Renders three controls:
+ *   • Origin       — read-only "Necropolis Sepulcher" label. Always locked;
+ *                    the merit's purchase prereq guarantees the character
+ *                    owns Sepulcher, so origin is invariant per character.
+ *   • Destination  — single-select from the character's existing Safe Place
+ *                    merit instances (uses `domKey` as the value, mirroring
+ *                    Haven's existing attached_to UX).
+ *   • Territory    — single-select FILTERED to currently-infected Territories
+ *                    (per Khepri 2026-06-11: filter at pick-time, prevents
+ *                    invalid selection upfront; if the union shrinks later
+ *                    and the picked slug drops out, the render-time validator
+ *                    flags it).
+ *
+ * Shows the persisted-not-removed warning when `validateTrapDoorAnchor`
+ * reports invalid. The merit stays in the merit list; only this block
+ * renders the non-functional state.
+ */
+function _trapDoorAnchorBlock(c, m, realIdx) {
+  if (!m || m.name !== 'Trap Door') return '';
+  const at = normaliseAttachedTo(m.attached_to);
+  const raw = (m.attached_to && typeof m.attached_to === 'object' && !Array.isArray(m.attached_to))
+    ? m.attached_to
+    : {};
+  const dest = (raw.destination || (at && at.destination) || '');
+  const terr = raw.territory || '';
+
+  // Destination options: character's existing Safe Place merits.
+  const _spInstances = (c.merits || []).filter(sp => sp.category === 'domain' && sp.name === 'Safe Place');
+  const destOpts = ['<option value="">(pick a Safe Place)</option>']
+    .concat(_spInstances.map(sp => {
+      const k = domKey(sp);
+      return `<option value="${esc(k)}"${k === dest ? ' selected' : ''}>${esc(k)}</option>`;
+    }))
+    .join('');
+
+  // Territory options: only currently-infected Territories. Map to live names
+  // via `getStoredTerritories()` for display; value is the slug. If the picked
+  // slug is no longer in the union (post-shrink edge), keep it as an option
+  // with a "(no longer covered)" suffix so the user can see what was set.
+  const infected = getNecropolisInfectedTerritories(state.chars || []);
+  const allTerritories = getStoredTerritories() || [];
+  const tName = (slug) => {
+    const t = allTerritories.find(x => x && x.slug === slug);
+    return (t && (t.name || t.slug)) || slug;
+  };
+  let terrOpts = '<option value="">(pick a Territory)</option>';
+  for (const slug of infected) {
+    terrOpts += `<option value="${esc(slug)}"${slug === terr ? ' selected' : ''}>${esc(tName(slug))}</option>`;
+  }
+  if (terr && !infected.includes(terr)) {
+    terrOpts += `<option value="${esc(terr)}" selected>${esc(tName(terr))} (no longer covered)</option>`;
+  }
+  const noInfected = infected.length === 0;
+
+  // Render-time validation drives the non-functional indicator.
+  const v = validateTrapDoorAnchor(c, m, state.chars || []);
+
+  let h = '<div class="td-anchor-block">';
+  if (!v.valid) {
+    h += `<div class="td-anchor-warn">&#9888; Non-functional: ${esc(v.reason || 'anchor incomplete')}</div>`;
+  }
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Origin</span>'
+    + '<span class="td-anchor-locked">Necropolis Sepulcher</span>'
+    + '</div>';
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Destination</span>'
+    + `<select class="td-anchor-sel" onchange="shSetTrapDoorAnchor(${realIdx}, 'destination', this.value)">${destOpts}</select>`
+    + '</div>';
+  h += '<div class="td-anchor-row">'
+    + '<span class="td-anchor-lbl">Territory</span>'
+    + (noInfected
+        ? '<span class="td-anchor-empty">No Necropolis Territories yet &mdash; add a White Ants pick on any Sepulcher owner.</span>'
+        : `<select class="td-anchor-sel" onchange="shSetTrapDoorAnchor(${realIdx}, 'territory', this.value)">${terrOpts}</select>`)
+    + '</div>';
+  h += '</div>';
+  return h;
 }
 
 /* ── renderSheet orchestrator ── */

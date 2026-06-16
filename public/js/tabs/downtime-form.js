@@ -16,8 +16,9 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS } from '../data/constants.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown } from '../editor/domain.js';
+import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
+import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
@@ -137,6 +138,7 @@ function _terrGridVal(grid, displayName, legacyKey) {
   if (!grid) return undefined;
   const oid = _terrOidForName(displayName);
   if (oid && grid[oid] !== undefined) return grid[oid];
+  if (legacyKey && grid[legacyKey] !== undefined) return grid[legacyKey];
   return undefined;
 }
 let saveTimer = null;
@@ -310,9 +312,10 @@ function detectMerits() {
     }
   }
 
-  detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
-    m.category === 'influence' && m.name === 'Allies'
-  ));
+  // #510: Allies + Contacts action lists come from the shared derivation so the
+  // init detection and the live Carthian re-render cannot diverge.
+  const _ia = deriveInfluenceActionMerits(merits);
+  detectedMerits.spheres = _ia.spheres;
   // Issue #194 (2026-05-08): the standing-merit name is canonically
   // 'Mystery Cult Initiation' across the codebase (sheet, editor, admin,
   // audit). Filtering on 'MCI' here meant any character whose MCI was
@@ -323,31 +326,7 @@ function detectMerits() {
   detectedMerits.status = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && m.name === 'Status'
   )).concat(merits.filter(m => m.category === 'standing' && m.name === 'Mystery Cult Initiation'));
-  // Contacts: expand spheres array into individual entries for toggle rendering
-  const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
-    m.category === 'influence' && m.name === 'Contacts'
-  ));
-  detectedMerits.contacts = [];
-  for (const m of rawContacts) {
-    // New format: spheres array
-    if (m.spheres && m.spheres.length) {
-      for (const sp of m.spheres) {
-        detectedMerits.contacts.push({ ...m, area: sp, rating: 1 });
-      }
-    } else {
-      // Legacy format: comma-separated area/qualifier string
-      const areas = (m.area || m.qualifier || '').split(/,\s*/).filter(Boolean);
-      if (areas.length > 1) {
-        for (const a of areas) {
-          detectedMerits.contacts.push({ ...m, area: a.trim(), rating: 1 });
-        }
-      } else if (areas.length === 1) {
-        detectedMerits.contacts.push({ ...m, area: areas[0] });
-      } else {
-        detectedMerits.contacts.push(m);
-      }
-    }
-  }
+  detectedMerits.contacts = _ia.contacts;
   // Attaché (*) merits are functionally Retainers (per sheet.js:900); also walk
   // expandedInfluence so any benefit_grants-sourced Retainer is picked up.
   detectedMerits.retainers = deduplicateMerits(expandedInfluence.filter(m =>
@@ -559,6 +538,25 @@ function collectResponses() {
   if (psKindEl) responses['personal_story_kind'] = psKindEl.value;
   if (psNpcEl)  responses['personal_story_npc_name'] = psNpcEl.value;
   if (psTextEl) responses['personal_story_text'] = psTextEl.value;
+
+  // #504: Safe Places and Havens locations. Recompute the Safe Place list the
+  // same way the renderer does so indices align, then read each input. Gate on
+  // element presence (silent-leave) so a save when the section isn't rendered
+  // (zero safe places) leaves any pre-existing keys on the spread base intact.
+  const _safePlaces = (currentChar?.merits || [])
+    .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+  _safePlaces.forEach((sp, i) => {
+    const spEl = document.getElementById('dt-safe_place_location_' + i);
+    if (spEl) responses['safe_place_location_' + i] = spEl.value;
+  });
+
+  // #508: Carthian Pull allocation — record the choice in the submission too
+  // (the canonical state is the free_carthian bonus on the character; this is a
+  // per-cycle audit copy, presence-gated like the safe-place collector).
+  const cpTargetEl = document.getElementById('dt-carthian_target');
+  if (cpTargetEl) responses['carthian_pull_target'] = cpTargetEl.value;
+  const cpSphereEl = document.getElementById('dt-carthian_sphere');
+  if (cpSphereEl) responses['carthian_pull_sphere'] = cpSphereEl.value;
 
   // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
   // fields are no longer written from new submissions; legacy submissions in
@@ -778,7 +776,10 @@ function collectResponses() {
   responses['sorcery_slot_count'] = String(sorcerySlotCount);
   for (let n = 1; n <= sorcerySlotCount; n++) {
     const riteEl = document.getElementById(`dt-sorcery_${n}_rite`);
-    responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : '';
+    // When the sorcery section is not rendered (e.g. minimal mode), preserve the
+    // prior value rather than overwriting with '' — this keeps seeded/locked rites
+    // intact across a minimal→advanced mode switch.
+    responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : (_prior[`sorcery_${n}_rite`] ?? '');
     // DTFP-6: collect structured target rows for this sorcery slot.
     // Persisted shape: array of {type, value} objects, omitting empty rows.
     const targetsBlock = document.querySelector(`[data-sorcery-slot-targets="${n}"]`);
@@ -800,7 +801,8 @@ function collectResponses() {
     const notesEl = document.getElementById(`dt-sorcery_${n}_notes`);
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
-    responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
+    // Same preserve-prior logic: when section is absent, keep the prior value.
+    responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : (_prior[`sorcery_${n}_mandragora`] ?? 'no');
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -844,10 +846,12 @@ function collectResponses() {
       const el = document.getElementById(`dt-sphere_${n}_target_value`);
       if (el) responses[`sphere_${n}_target_value`] = el.value;
     }
-    // Merit label — only written when player opted in (gate = 'yes').
-    // Absent label means admin queue builder skips this slot entirely.
+    // Merit label — written whenever the player has picked an action.
+    // Issue #713: old form had a merit-toggle gate ('yes'/'no') that set
+    // gateValues; the tabbed sphere UI removed that toggle, so the gate is
+    // never 'yes'. Match the Status pattern (line ~885): write when action set.
     const m = detectedMerits.spheres[n - 1];
-    if (m && gateValues[`merit_${meritKey(m)}`] === 'yes') {
+    if (m && responses[`sphere_${n}_action`]) {
       responses[`sphere_${n}_merit`] = meritLabel(m);
     }
     // Cast hidden inputs (legacy — kept for backwards compat)
@@ -1250,6 +1254,29 @@ async function submitForm() {
         submitted_at: new Date().toISOString(),
       });
     }
+    // #506: write-through Safe Place locations to the character so they persist
+    // across cycles. Submit-time only (not autosave). Soft-fail in its own
+    // try/catch — a location write error must never undo or block the
+    // already-saved submission. Values come from `responses` (collected at
+    // collectResponses), falling back to the merit's stored location.
+    try {
+      const _safePlaces = (currentChar?.merits || [])
+        .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+      if (_safePlaces.length && currentChar?._id) {
+        const locations = _safePlaces.map((sp, i) => {
+          const v = responses['safe_place_location_' + i];
+          return (v !== undefined && v !== null) ? v : (sp.location || '');
+        });
+        const updated = await apiPatch(
+          `/api/characters/${encodeURIComponent(String(currentChar._id))}/safe_place_locations`,
+          { locations },
+        );
+        // Refresh in-memory merits so a same-session re-render shows stored values.
+        if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
+      }
+    } catch (locErr) {
+      console.warn('Safe-place location persist failed (submission still saved):', locErr);
+    }
     showToast('Downtime submitted successfully!', 'success');
     // DTU-2: submission completed, local mirror no longer needed.
     _clearLocalSnapshot();
@@ -1427,11 +1454,17 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       p => p.category === 'rite' && p.mandragora_parked === true,
     );
     if (parked.length > 0) {
-      const seeded = { sorcery_slot_count: String(parked.length) };
-      parked.forEach((rite, i) => {
+      // Cap uses stored dots/rating (not effectiveDomainDots which requires
+      // attached_to → Safe Place to compute the haven-cap override).
+      const mgMerit = currentChar.merits?.find(m => m.category === 'domain' && m.name === 'Mandragora Garden');
+      const mgCap = mgMerit ? (mgMerit.dots || mgMerit.rating || parked.length) : parked.length;
+      const toSeed = parked.slice(0, mgCap);
+      const seeded = { sorcery_slot_count: String(toSeed.length) };
+      toSeed.forEach((rite, i) => {
         const n = i + 1;
-        seeded[`sorcery_${n}_rite`] = rite.name;
+        seeded[`sorcery_${n}_rite`]      = rite.name;
         seeded[`sorcery_${n}_mandragora`] = 'yes';
+        seeded[`sorcery_${n}_mg_locked`]  = 'yes';
       });
       responseDoc = { responses: seeded };
     }
@@ -1540,9 +1573,14 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const _hasWindowAccess = (currentCycle?.out_of_window_player_ids || [])
     .map(String).includes(String(currentChar._id));
   const _deadlinePast = !!(currentCycle?.deadline_at && new Date(currentCycle.deadline_at) < new Date());
+  const _manualOpen   = currentCycle?.manual_open === true;
+  // Scheduled auto-open: once auto_open_at has passed, players reach the form even while the
+  // cycle is still 'prep' (mirrors downtime-tab.js autoOpenPassed). Kept OUT of the deadline
+  // clause below — a passed auto-open must never reopen a window whose deadline has passed.
+  const _autoOpenPassed = !!(currentCycle?.auto_open_at && new Date(currentCycle.auto_open_at) <= new Date());
   const _gateBlocks = !currentCycle
-    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess)
-    || (_deadlinePast && !_hasWindowAccess);
+    || (!_formStatuses.includes(currentCycle.status) && !_hasWindowAccess && !_autoOpenPassed)
+    || (_deadlinePast && !_hasWindowAccess && !_manualOpen);
 
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
@@ -1658,6 +1696,7 @@ function renderCycleGatePage() {
     </div>`;
   }
   const label = esc(currentCycle.label || 'This cycle');
+  const isPrep         = currentCycle.status === 'prep';
   const isGame         = currentCycle.status === 'game';
   const isClosed       = currentCycle.status === 'closed';
   const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
@@ -1666,7 +1705,17 @@ function renderCycleGatePage() {
   let h = `<div class="reading-pane qf-gate-page">`;
   h += `<h3 class="qf-title">${label}</h3>`;
 
-  if (isGame) {
+  if (isPrep) {
+    const _openAt = currentCycle.auto_open_at ? new Date(currentCycle.auto_open_at) : null;
+    if (_openAt && _openAt > new Date()) {
+      // Scheduled to open later: show when, not "being prepared". data-open-at is emitted so a
+      // live ticker can be wired later without markup change (gate page is rebuilt on each load).
+      const openLabel = _openAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      h += `<p class="qf-gate-msg" data-open-at="${esc(currentCycle.auto_open_at)}">Downtimes opening soon. Opens <strong>${esc(openLabel)}</strong>.</p>`;
+    } else {
+      h += `<p class="qf-gate-msg">Downtime is being prepared \u2014 your ST will open submissions shortly.</p>`;
+    }
+  } else if (isGame) {
     h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
   } else if (isClosed) {
     h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Archive</strong> tab once ready.</p>`;
@@ -1935,6 +1984,12 @@ async function handleSubmitFinalConfirm(container) {
 }
 
 function renderForm(container) {
+  // Guard against a detached/missing container: renderDowntimeTab renders into
+  // `document.getElementById('dt-container')`, which is briefly null if the tab
+  // is re-rendered while a prior async render is still in flight. No container
+  // means nothing to draw (a newer render owns the live DOM); bail rather than
+  // throw an uncaught TypeError on container.querySelectorAll.
+  if (!container) return;
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
   const isST = isSTRole();
@@ -2017,7 +2072,9 @@ function renderForm(container) {
       const dl = new Date(currentCycle.deadline_at);
       const past = dl < new Date();
       const dlStr = dl.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      h += `<p class="qf-deadline${past ? ' qf-deadline-closed' : ''}">${past ? 'Submissions closed' : 'Open until ' + dlStr}</p>`;
+      const _overrideOpen = currentCycle.manual_open === true;
+      const _showClosed = past && !_overrideOpen;
+      h += `<p class="qf-deadline${_showClosed ? ' qf-deadline-closed' : ''}">${_showClosed ? 'Submissions closed' : _overrideOpen && past ? 'Open — ST override active' : 'Open until ' + dlStr}</p>`;
     }
   }
   h += '<div class="qf-meta">';
@@ -2069,6 +2126,8 @@ function renderForm(container) {
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
     if (section.key === 'personal_story') continue; // rendered explicitly below
+    if (section.key === 'safe_place_locations') continue; // #504: rendered explicitly below (custom per-merit inputs)
+    if (section.key === 'carthian_pull') continue; // #508: rendered explicitly below (custom allocation control)
     // dt-form.17: hide non-minimal sections when in MINIMAL mode (court is in
     // MINIMAL so it falls through; trust/harm/aspirations live in admin).
     if (!_isSectionVisibleInMode(section.key, mode)) continue;
@@ -2089,8 +2148,14 @@ function renderForm(container) {
     h += '</div></div>';
   }
 
+  // ── Safe Places and Havens — ungated; renders after Court regardless of attendance (#504) ──
+  h += renderSafePlaceLocationsSection(saved);
+
   // ── Personal Story — Touchstone-or-Correspondence binary (dt-form.18, both modes) ──
   h += renderPersonalStorySection(saved);
+
+  // ── Carthian Pull — single-dot bonus allocation; ungated, before Feeding (#508) ──
+  h += renderCarthianPullSection(saved);
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
   for (const key of ['territory', 'feeding']) {
@@ -2191,6 +2256,20 @@ function renderForm(container) {
 
   container.innerHTML = h;
 
+  // T5: hydrate prior-outcome placeholders for Mandragora-locked sorcery slots.
+  const mgLockedSlots = [];
+  container.querySelectorAll('.dt-sorcery-slot[data-mg-locked="yes"]').forEach(el => {
+    const n = parseInt(el.id.replace('dt-sorcery-slot-', ''), 10);
+    const riteName = el.dataset.riteName;
+    if (n && riteName) mgLockedSlots.push({ n, riteName });
+  });
+  if (mgLockedSlots.length) _hydrateMgPriorOutcomesForm(mgLockedSlots).catch(() => {
+    mgLockedSlots.forEach(({ n }) => {
+      const el = document.getElementById(`dt-mg-prior-${n}`);
+      if (el) { el.textContent = 'No prior resolution recorded.'; el.classList.remove('dt-mg-prior-loading'); }
+    });
+  });
+
   // Restore expanded state
   expandedSections.forEach(key => {
     const el = container.querySelector(`.qf-section[data-section-key="${key}"]`);
@@ -2203,6 +2282,10 @@ function renderForm(container) {
 
   // Update section completion ticks on initial render
   updateSectionTicks(container);
+
+  // Wire Connected Characters typeahead widgets — must re-run after every
+  // renderForm because innerHTML wipes prior mounts (issue #727).
+  initConnectedCharsTypeaheads(container);
 
   // Ensure rote feeding data is set in saved responses (no re-render)
   if (feedRoteAction && feedMethodId) {
@@ -2218,6 +2301,13 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // #522: remove an applied Carthian Pull dot, then re-render.
+    const cpRemove = e.target.closest('[data-carthian-remove]');
+    if (cpRemove) {
+      e.preventDefault();
+      _onCarthianRemove(container, Number(cpRemove.getAttribute('data-carthian-remove')));
+      return;
+    }
     // dt-form.17: Mode pill toggle. Persist on responses._mode and re-render.
     // Switching preserves entered data (per ADR §Q1 Resolutions): non-MINIMAL
     // fields stay in responses; only their UI is hidden.
@@ -2620,6 +2710,12 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // #508/#522: Carthian Pull — a change on the "new dot" row's target/sphere
+    // writes the full allocation set to the character, then re-renders.
+    if (e.target.id === 'dt-carthian_target' || e.target.id === 'dt-carthian_sphere') {
+      _onCarthianNewRowChange(container);
+      return;
+    }
     // dt-form.33: NPCR.12/13 relationship-picker change handler removed.
     // The story-moment relationship picker (a DB-relational element) was
     // suppressed under the broader NPC-interaction policy alongside the
@@ -3703,6 +3799,11 @@ function renderProjectSlots(saved, mode = 'advanced') {
       h += renderTargetZone(n, actionVal, saved, allCharacters);
     }
 
+    // ── Connected characters (issue #589) — other PCs linked to this action.
+    // Shown for all project actions (rote-locked feed slots already `continue`
+    // above, matching the ST side which excludes feeding entries).
+    h += renderConnectedCharsZone(n, saved, allCharacters);
+
     // ── Investigate lead (mandatory for investigate) ──
     if (fields.includes('investigate_lead')) {
       h += renderQuestion({
@@ -3875,7 +3976,9 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const savedSkill = saved[`${prefix}_skill`] || '';
   const savedDisc  = saved[`${prefix}_disc`]  || '';
   const savedSpec  = saved[`${prefix}_spec`]  || '';
-  const bestSpecs  = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
+  const nativeSpecs = savedSkill ? (currentChar.skills?.[savedSkill]?.specs || []) : [];
+  const isSpecsList  = savedSkill ? isSpecs(currentChar).filter(({ spec }) => !nativeSpecs.includes(spec)) : [];
+  const bestSpecs    = [...nativeSpecs, ...isSpecsList.map(s => s.spec)];
 
   // Calculate total from saved selections
   let total = 0;
@@ -4407,6 +4510,289 @@ function renderPersonalStorySection(saved) {
   return h;
 }
 
+// #508: Carthian Pull — single-dot allocation to a one-cycle bonus dot on
+// Allies/Contacts/Haven/Herd. The dot is written LIVE to the character (the
+// `free_carthian` channel) so it shows on the sheet via the existing bonus-dot
+// model, and is read back here. Returns '' unless the character holds Carthian
+// Pull. Allies/Contacts require a sphere; the choice is disabled at the 5-action
+// cap. Because the bonus is a real merit, the existing detection produces the
+// action slot — no synthetic slot is injected (no double-up).
+function renderCarthianPullSection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'carthian_pull');
+  if (!section) return '';
+  const hasCP = (currentChar?.merits || []).some(m => m.name === 'Carthian Pull');
+  if (!hasCP) return '';
+  // #522: the pool is the character's Carthian (Covenant) Status (0–5).
+  const pool = Number(currentChar?.status?.covenant?.['Carthian Movement']) || 0;
+  if (pool < 1) return '';
+
+  const allocs = _carthianCurrentAllocations(); // applied dots, derived from the character
+  const used = allocs.length;
+  // One in-progress "new dot" row, driven by the pending target/sphere in
+  // responses so a target chosen before its sphere survives the re-render.
+  const pendTarget = (used < pool) ? (saved['carthian_pull_target'] || '') : '';
+  const pendSphere = saved['carthian_pull_sphere'] || '';
+
+  let h = '<div class="qf-section collapsed" data-section-key="carthian_pull">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+  h += `<p class="qf-carthian-pool"><strong>${used} of ${pool}</strong> dot${pool === 1 ? '' : 's'} allocated (Carthian Status ${pool}).</p>`;
+
+  // Applied dots — display + remove.
+  if (used) {
+    h += '<div class="qf-carthian-applied">';
+    allocs.forEach((a, i) => {
+      h += `<div class="qf-carthian-chip" data-carthian-idx="${i}">`;
+      h += `<span>${esc(_carthianLabel(a))}</span>`;
+      h += `<button type="button" class="qf-carthian-remove" data-carthian-remove="${i}" title="Remove this dot">✕</button>`;
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // New-dot row — only while there is pool left.
+  if (used < pool) {
+    const opt = (val, label) => `<option value="${val}"${pendTarget === val ? ' selected' : ''}>${esc(label)}</option>`;
+    h += '<div class="qf-carthian-new" style="margin-top:12px;">';
+    h += '<div class="qf-field"><label class="qf-label" for="dt-carthian_target">Allocate a dot to</label>';
+    h += '<select id="dt-carthian_target" class="qf-input" data-carthian-target>';
+    h += opt('', '— select —');
+    h += opt('allies', 'Allies');
+    h += opt('contacts', 'Contacts');
+    h += opt('haven', 'Haven');
+    h += opt('herd', 'Herd');
+    h += '</select></div>';
+    if (pendTarget === 'allies' || pendTarget === 'contacts') {
+      // #510: sphere is a fixed-enum dropdown, filtered for the target.
+      h += '<div class="qf-field" style="margin-top:8px;"><label class="qf-label" for="dt-carthian_sphere">Sphere</label>';
+      h += `<select id="dt-carthian_sphere" class="qf-input" data-carthian-sphere>${_carthianSphereOptions(pendTarget, pendSphere)}</select></div>`;
+    }
+    h += '</div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+// #522: derive the applied Carthian Pull dots from the character's
+// free_carthian-bearing merits. Returns an ordered list of {target, sphere}.
+// Allies stacks (free_carthian dots on one area); Contacts tracks pushed
+// spheres via carthian_spheres[] (plural #522) / carthian_sphere (legacy
+// single #510) / a bonus-only Contacts' own spheres[] (pre-marker #508).
+function _carthianCurrentAllocations() {
+  const out = [];
+  for (const m of (currentChar?.merits || [])) {
+    const fc = freeOf(m, 'carthian');
+    if (m.category === 'influence' && m.name === 'Allies') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'allies', sphere: m.area || '' });
+    } else if (m.category === 'influence' && m.name === 'Contacts') {
+      let cs = Array.isArray(m.carthian_spheres) ? m.carthian_spheres.slice()
+             : (m.carthian_sphere ? [m.carthian_sphere] : []);
+      if (!cs.length && m.granted_by === 'Carthian Pull' && Array.isArray(m.spheres)) cs = m.spheres.slice();
+      for (const sp of cs) out.push({ target: 'contacts', sphere: sp });
+    } else if (m.category === 'domain' && m.name === 'Haven') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'haven', sphere: '' });
+    } else if (m.category === 'domain' && m.name === 'Herd') {
+      for (let i = 0; i < fc; i++) out.push({ target: 'herd', sphere: '' });
+    }
+  }
+  return out;
+}
+
+function _carthianLabel(a) {
+  const names = { allies: 'Allies', contacts: 'Contacts', haven: 'Haven', herd: 'Herd' };
+  const n = names[a.target] || a.target;
+  return a.sphere ? `${n} (${a.sphere})` : n;
+}
+
+// #510: options for the Carthian sphere <select>, filtered by target.
+//  - Allies: all INFLUENCE_SPHERES; a sphere whose existing Allies merit is at
+//    5 dots is disabled, and (when at the 5-Allies-slot cap) a NEW sphere that
+//    would create a 6th slot is disabled. The current selection stays selectable.
+//  - Contacts: exclude spheres already in the character's Contacts spheres[]
+//    (mirrors the sheet editor's exclusion), except the current selection.
+function _carthianSphereOptions(target, curSphere) {
+  const merits = currentChar?.merits || [];
+  let avail = INFLUENCE_SPHERES.slice();
+  const disabled = new Set();
+  if (target === 'contacts') {
+    const cm = merits.find(m => m.category === 'influence' && m.name === 'Contacts');
+    const held = new Set((cm?.spheres || []).filter(s => s !== curSphere));
+    avail = avail.filter(sp => !held.has(sp));
+  } else if (target === 'allies') {
+    const alliesMerits = merits.filter(m => m.category === 'influence' && m.name === 'Allies');
+    const slotCount = alliesMerits.filter(m => (m.area || '') !== curSphere).length;
+    for (const sp of avail) {
+      if (sp === curSphere) continue;
+      const ex = alliesMerits.find(m => (m.area || '') === sp);
+      if (ex && meritEffectiveRating(currentChar, ex) >= 5) disabled.add(sp);      // sphere already at 5 dots
+      else if (!ex && slotCount >= 5) disabled.add(sp);                            // new sphere would exceed 5 Allies slots
+    }
+  }
+  let h = '<option value="">— select sphere —</option>';
+  for (const sp of avail) {
+    const dis = disabled.has(sp);
+    h += `<option value="${esc(sp)}"${sp === curSphere ? ' selected' : ''}${dis ? ' disabled' : ''}>${esc(sp)}${dis ? ' (at 5)' : ''}</option>`;
+  }
+  return h;
+}
+
+// Derive the Allies (spheres) + Contacts action-merit lists from a merits array,
+// using the same expansion/dedup as detectMerits. Shared so the init detection
+// and the live Carthian re-render cannot diverge (#510).
+function deriveInfluenceActionMerits(merits) {
+  const list = (merits || []).filter(m => m.category);
+  const directInfluenceNames = new Set(list.filter(m => m.category === 'influence').map(m => m.name));
+  const exp = [...list];
+  for (const m of list) {
+    if (m.category !== 'standing') continue;
+    const grants = Array.isArray(m.tier_grants) ? m.tier_grants
+                 : Array.isArray(m.benefit_grants) ? m.benefit_grants
+                 : [];
+    for (const g of grants) {
+      if (g.category !== 'influence') continue;
+      if (directInfluenceNames.has(g.name)) continue;
+      exp.push({ ...g, _from_mci: m.cult_name || m.name });
+    }
+  }
+  const spheres = deduplicateMerits(exp.filter(m => m.category === 'influence' && m.name === 'Allies'));
+  const rawContacts = deduplicateMerits(exp.filter(m => m.category === 'influence' && m.name === 'Contacts'));
+  const contacts = [];
+  for (const m of rawContacts) {
+    if (m.spheres && m.spheres.length) {
+      for (const sp of m.spheres) contacts.push({ ...m, area: sp, rating: 1 });
+    } else {
+      const areas = (m.area || m.qualifier || '').split(/,\s*/).filter(Boolean);
+      if (areas.length > 1) { for (const a of areas) contacts.push({ ...m, area: a.trim(), rating: 1 }); }
+      else if (areas.length === 1) contacts.push({ ...m, area: areas[0] });
+      else contacts.push(m);
+    }
+  }
+  return { spheres, contacts };
+}
+
+// #510: after a live Carthian write, re-derive the Allies/Contacts action lists
+// from the (possibly augmented) character. detectMerits() is init-only and has
+// side effects, so we re-derive ONLY these two arrays here. This replaces the
+// #508 strip-and-push, which broke once augmented merits (no granted_by) became
+// possible. One merit -> one slot, no double-up.
+function _syncCarthianDetected() {
+  const ia = deriveInfluenceActionMerits(currentChar?.merits || []);
+  detectedMerits.spheres = ia.spheres;
+  detectedMerits.contacts = ia.contacts;
+}
+
+// #522: apply a full Carthian Pull allocation SET to the character (live), then
+// re-render. Soft-fail with a toast (#512). Clears the pending new-row markers
+// after any attempt so the section reflects the character's actual saved state.
+async function _applyCarthianSet(container, allocations) {
+  try {
+    const updated = await apiPatch(
+      `/api/characters/${encodeURIComponent(String(currentChar._id))}/carthian_pull`,
+      { allocations },
+    );
+    if (updated && Array.isArray(updated.merits)) currentChar.merits = updated.merits;
+    _syncCarthianDetected();
+  } catch (err) {
+    // #512: surface the failure instead of silently reverting; the section
+    // derives its rows from the character, so a failed write must not be left
+    // to fall back to a stale pending choice.
+    console.warn('Carthian Pull allocation write failed:', err);
+    showToast('Could not save your Carthian Pull allocation. Please try again.', 'error');
+  }
+  if (responseDoc?.responses) {
+    delete responseDoc.responses.carthian_pull_target;
+    delete responseDoc.responses.carthian_pull_sphere;
+  }
+  renderForm(container);
+}
+
+// #522: handle a change on the "new dot" row. Builds the full set = the applied
+// dots plus this new one, and writes it. Allies/Contacts defer until a sphere
+// is chosen (persisting the pending target so the re-render reveals the sphere
+// select). Selecting "— select —" just drops the pending row.
+function _onCarthianNewRowChange(container) {
+  const tEl = document.getElementById('dt-carthian_target');
+  const sEl = document.getElementById('dt-carthian_sphere');
+  const target = tEl ? tEl.value : '';
+  const sphere = sEl ? sEl.value.trim() : '';
+  if (target === '') {
+    if (responseDoc?.responses) {
+      delete responseDoc.responses.carthian_pull_target;
+      delete responseDoc.responses.carthian_pull_sphere;
+    }
+    renderForm(container);
+    return;
+  }
+  if ((target === 'allies' || target === 'contacts') && !sphere) {
+    // Need a sphere first — persist the pending target so the re-render keeps it.
+    const responses = collectResponses();
+    responses.carthian_pull_target = target;
+    if (responseDoc) responseDoc.responses = responses;
+    else responseDoc = { responses };
+    renderForm(container);
+    return;
+  }
+  _applyCarthianSet(container, [..._carthianCurrentAllocations(), { target, sphere }]);
+}
+
+// #522: remove one applied dot (by index into the derived allocation list) and
+// write the reduced set.
+function _onCarthianRemove(container, idx) {
+  const applied = _carthianCurrentAllocations();
+  if (!Number.isInteger(idx) || idx < 0 || idx >= applied.length) return;
+  _applyCarthianSet(container, applied.filter((_, i) => i !== idx));
+}
+
+// #504: Safe Places and Havens — one street+suburb text input per Safe Place
+// merit instance. A Haven is always built on a Safe Place (its rating is
+// capped by the attached Safe Place via `attached_to` === domKey(safePlace)),
+// so it is NOT a separate input: the safe place hosting the haven is marked
+// "(Haven)" in its label. With zero safe places the whole section is omitted
+// (a haven cannot exist without one). Locations are optional and deliberately
+// NOT wired into the completeness gate. Custom renderer + manual collector
+// mirror renderPersonalStorySection; index-keyed responses
+// (safe_place_location_${i}) match the form's slot convention.
+function renderSafePlaceLocationsSection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'safe_place_locations');
+  if (!section) return '';
+
+  const safePlaces = (currentChar?.merits || [])
+    .filter(m => m.category === 'domain' && m.name === 'Safe Place');
+  if (safePlaces.length === 0) return ''; // AC#4 — nothing to ask about
+
+  const haven = (currentChar?.merits || [])
+    .find(m => m.category === 'domain' && m.name === 'Haven');
+  // N-1 (Concern #11): normaliser pinpoints the destination Safe Place key.
+  const _havenAt = haven ? normaliseAttachedTo(haven.attached_to) : null;
+  const havenKey = _havenAt ? _havenAt.destination : null;
+
+  let h = '<div class="qf-section collapsed" data-section-key="safe_place_locations">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  safePlaces.forEach((sp, i) => {
+    const key = domKey(sp);
+    const isHaven = havenKey !== null && havenKey === key;
+    const label = esc(key) + (isHaven ? ' <span class="qf-haven-tag">(Haven)</span>' : '');
+    // #506: prefer an in-progress submission edit, then the persisted character
+    // value (sp.location, carried across cycles), then blank. An explicit
+    // null/undefined check (not `||`) so a deliberately-cleared ('') in-cycle
+    // edit is not overridden by the stored sp.location.
+    const _saved = saved['safe_place_location_' + i];
+    const val = (_saved !== undefined && _saved !== null) ? _saved : (sp.location || '');
+    h += '<div class="qf-field" style="margin-top:12px;">';
+    h += `<label class="qf-label" for="dt-safe_place_location_${i}">${label}</label>`;
+    h += `<input type="text" id="dt-safe_place_location_${i}" class="qf-input" data-safe-place-location="${i}" value="${esc(val)}" placeholder="Street and suburb">`;
+    h += '</div>';
+  });
+
+  h += '</div></div>';
+  return h;
+}
+
 // dt-form.33: legacy `_legacyRenderPersonalStorySection` deleted. The
 // function rendered the DB-relational `dt-npc-cards` picker driven by
 // `currentChar.npcs`; suppressed under the broader NPC-interaction
@@ -4453,8 +4839,14 @@ function renderRegencySection() {
     h += `<p class="qf-desc">As regent, you must confirm <strong>this downtime</strong> who has feeding rights in ${esc(terrName)}. Manage your feeding-rights slots in the Regency tab; once your selections are set, return here and confirm to lock them in for the cycle.</p>`;
     h += '<div class="qf-actions">';
     h += '<button type="button" class="qf-btn qf-btn-secondary" data-open-regency-tab>Open Regency tab</button>';
-    h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
-    h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
+    const _cycleIsEffectivelyOpen = currentCycle?.status === 'active'
+      || !!(currentCycle?.auto_open_at && new Date(currentCycle.auto_open_at) <= new Date());
+    if (_cycleIsEffectivelyOpen) {
+      h += '<button type="button" class="qf-btn qf-btn-submit" id="dt-btn-confirm-regency">Confirm regency this cycle</button>';
+      h += '<span id="dt-regency-confirm-status" class="qf-save-status"></span>';
+    } else {
+      h += '<p class="qf-desc">Downtimes are not yet open - use the Regency tab to prepare your feeding-rights selections.</p>';
+    }
     h += '</div>';
   }
 
@@ -4531,13 +4923,21 @@ function renderSorcerySection(saved) {
     const rite = rites.find(r => r.name === selectedRite);
     const isCruac = rite?.tradition === 'Cruac';
     const mandSaved = saved[`sorcery_${n}_mandragora`] === 'yes';
+    const mgLocked  = saved[`sorcery_${n}_mg_locked`]  === 'yes';
 
-    h += `<div class="dt-sorcery-slot" id="dt-sorcery-slot-${n}">`;
+    h += `<div class="dt-sorcery-slot" id="dt-sorcery-slot-${n}" data-mg-locked="${mgLocked ? 'yes' : ''}" data-rite-name="${esc(selectedRite)}">`;
     h += `<div class="dt-sorcery-slot-hd"><span class="dt-sorcery-slot-num">Rite ${n}</span>`;
-    if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-rite="${n}" title="Remove this rite">\u00D7 Remove</button>`;
+    if (n > 1 && !mgLocked) h += `<button type="button" class="dt-sorcery-remove" data-remove-rite="${n}" title="Remove this rite">\u00D7 Remove</button>`;
     h += '</div>';
 
     h += '<div class="qf-field">';
+    if (mgLocked && selectedRite) {
+      // T2: locked slot — show rite name as text; hidden input preserves the
+      // value so the existing save path reads .value identically to a select.
+      h += `<p class="qf-mg-locked-rite">${esc(selectedRite)}<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span></p>`;
+      h += `<input type="hidden" id="dt-sorcery_${n}_rite" value="${esc(selectedRite)}">`;
+      h += `<div class="dt-mg-prior-outcome"><span class="dt-sorcery-label">Prior outcome:</span> <span id="dt-mg-prior-${n}" class="dt-mg-prior-loading">Loading…</span></div>`;
+    } else {
     h += `<select id="dt-sorcery_${n}_rite" class="qf-select" data-sorcery-slot="${n}">`;
     h += '<option value="">\u2014 No Rite \u2014</option>';
     let lastTradition = '';
@@ -4553,6 +4953,7 @@ function renderSorcerySection(saved) {
     }
     if (lastTradition) h += '</optgroup>';
     h += '</select>';
+    } // end else (not mgLocked)
 
     // Mandragora Garden checkbox — Cruac rites only, when character has the merit.
     // Storage only: the +3 dice bonus is automatic (shown above the slots) and
@@ -4563,10 +4964,12 @@ function renderSorcerySection(saved) {
       // 2c: disable when not Cruac, OR when capacity is full and this rite
       // isn't already parked (so unticking remains possible to free a slot).
       const overCap = capacityReached && !mandSaved;
-      const mandDisabled = (!isCruac || overCap) ? ' disabled' : '';
-      const mandTitle = overCap
-        ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
-        : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
+      const mandDisabled = (mgLocked || !isCruac || overCap) ? ' disabled' : '';
+      const mandTitle = mgLocked
+        ? 'This rite is permanently parked in your Mandragora Garden and cannot be removed via the form.'
+        : overCap
+          ? `Garden capacity reached (${mandragoraCap}). Untick another parked rite to free a slot.`
+          : `If ticked, this rite is parked in your Mandragora Garden: it costs no vitae for this casting and is sustained by the garden until next month.`;
       h += `<label class="dt-mand-label" title="${esc(mandTitle)}">`;
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Park in Mandragora Garden (sustained, no vitae cost)`;
@@ -4629,6 +5032,49 @@ function renderSorcerySection(saved) {
   h += `<button type="button" class="dt-add-rite-btn" id="dt-add-rite">\u002B Add Rite</button>`;
   h += '</div></div>';
   return h;
+}
+
+// Async hydration for Mandragora-locked sorcery slots: fetches the prior cycle's
+// submission and populates each locked slot's "Prior outcome" placeholder.
+// Fire-and-forget — caller must .catch(() => {}) to swallow network failures.
+async function _hydrateMgPriorOutcomesForm(lockedSlots) {
+  if (!lockedSlots.length || !currentCycle) return;
+
+  const allCycles = await apiGet('/api/downtime_cycles');
+  const sortedCycles = allCycles
+    .filter(c => c.cycle_number < currentCycle.cycle_number)
+    .sort((a, b) => b.cycle_number - a.cycle_number);
+  const priorCycle = sortedCycles[0];
+  if (!priorCycle) {
+    lockedSlots.forEach(({ n }) => {
+      const el = document.getElementById(`dt-mg-prior-${n}`);
+      if (el) { el.textContent = 'No prior resolution recorded.'; el.classList.remove('dt-mg-prior-loading'); }
+    });
+    return;
+  }
+
+  const priorSubs = await apiGet(
+    `/api/downtime_submissions?cycle_id=${priorCycle._id}&character_id=${currentChar._id}`,
+  );
+  const priorSub = priorSubs[0];
+
+  for (const { n, riteName } of lockedSlots) {
+    let priorNote = null;
+    if (priorSub) {
+      const priorSlotCount = parseInt(priorSub.responses?.sorcery_slot_count || '0', 10);
+      for (let pn = 1; pn <= priorSlotCount; pn++) {
+        if (priorSub.responses?.[`sorcery_${pn}_rite`] === riteName) {
+          priorNote = priorSub.sorcery_review?.[pn]?.ritual_result_note || null;
+          break;
+        }
+      }
+    }
+    const el = document.getElementById(`dt-mg-prior-${n}`);
+    if (el) {
+      el.textContent = priorNote || 'No prior resolution recorded.';
+      el.classList.remove('dt-mg-prior-loading');
+    }
+  }
 }
 
 // ── Acquisitions (custom render) ──
@@ -5346,6 +5792,145 @@ function renderTargetZone(n, actionVal, saved, chars) {
 
   h += '</div>';
   return h;
+}
+
+/**
+ * Connected Characters multi-select for a project action (issue #589 / #727).
+ * Other PCs the player links to this action; flows to the ST Connected Characters
+ * box. Stores selected character _ids as a JSON array in
+ * `project_${n}_connected_chars`. Add via typeahead, remove via chip ✕.
+ */
+function renderConnectedCharsZone(n, saved, chars) {
+  const key = `project_${n}_connected_chars`;
+  const raw = saved[key];
+  let ids = [];
+  if (raw) {
+    if (typeof raw === 'string' && raw.startsWith('[')) {
+      try { const a = JSON.parse(raw); if (Array.isArray(a)) ids = a.map(String); } catch { ids = []; }
+    } else if (Array.isArray(raw)) { ids = raw.map(String); }
+    else { ids = [String(raw)]; }
+  }
+  // `chars` is the form's allCharacters: { id, name } (already self-excluded, name = moniker||name).
+  const others = chars || [];
+  const labelOf = (id) => {
+    const c = others.find(ch => String(ch.id) === String(id));
+    return c ? c.name : null; // unresolved -> dropped
+  };
+  const selected = ids.filter(Boolean).filter((id, i, a) => a.indexOf(id) === i);
+
+  let h = '<div class="qf-field dt-connected-zone">';
+  h += '<label class="qf-label">Connected Characters</label>';
+  h += '<p class="qf-desc">Other player characters involved in or linked to this action (optional).</p>';
+  h += `<div class="dt-conn-typeahead" data-conn-slot="${n}">`;
+  h += '<div class="dt-conn-input-row">';
+  h += `<input type="text" class="dt-conn-input" data-conn-slot="${n}" placeholder="Add a character…" autocomplete="off">`;
+  h += '<div class="dt-conn-dropdown" style="display:none"></div>';
+  h += '</div>';
+  h += '<div class="dt-conn-chips">';
+  for (const id of selected) {
+    const nm = labelOf(id);
+    if (!nm) continue;
+    h += `<span class="dt-conn-chip" data-conn-id="${esc(id)}">${esc(nm)} `
+       + `<button type="button" class="dt-conn-remove" data-conn-slot="${n}" data-conn-id="${esc(id)}" title="Remove">×</button></span>`;
+  }
+  h += '</div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
+/**
+ * Wire typeahead behaviour on all .dt-conn-typeahead widgets in container.
+ * Must be called after every renderForm() because innerHTML wipes prior mounts.
+ */
+function initConnectedCharsTypeaheads(container) {
+  container.querySelectorAll('.dt-conn-typeahead').forEach(wrap => {
+    const slot     = wrap.dataset.connSlot;
+    const key      = `project_${slot}_connected_chars`;
+    const input    = wrap.querySelector('.dt-conn-input');
+    const dropdown = wrap.querySelector('.dt-conn-dropdown');
+    const chipsEl  = wrap.querySelector('.dt-conn-chips');
+    if (!input || !dropdown || !chipsEl) return;
+
+    const others = (allCharacters || []).slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    function getSelectedIds() {
+      return new Set([...chipsEl.querySelectorAll('.dt-conn-chip')].map(c => c.dataset.connId));
+    }
+
+    function showDropdown(query) {
+      const selected = getSelectedIds();
+      const q = query.trim().toLowerCase();
+      const matches = others.filter(c =>
+        !selected.has(String(c.id)) && (!q || String(c.name).toLowerCase().includes(q))
+      );
+      if (!matches.length) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = '';
+      for (const c of matches.slice(0, 10)) {
+        const item = document.createElement('div');
+        item.className = 'dt-conn-dd-item';
+        item.dataset.connId = String(c.id);
+        item.textContent = c.name;
+        dropdown.appendChild(item);
+      }
+      dropdown.style.display = '';
+    }
+
+    function addChip(id, name) {
+      const chip = document.createElement('span');
+      chip.className = 'dt-conn-chip';
+      chip.dataset.connId = id;
+      chip.appendChild(document.createTextNode(name + ' '));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dt-conn-remove';
+      btn.dataset.connSlot = slot;
+      btn.dataset.connId = id;
+      btn.title = 'Remove';
+      btn.textContent = '×';
+      chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    }
+
+    function saveToResponseDoc() {
+      const ids = [...chipsEl.querySelectorAll('.dt-conn-chip')].map(c => c.dataset.connId);
+      const base = (responseDoc && responseDoc.responses) || {};
+      const next = { ...base, [key]: JSON.stringify(ids) };
+      if (responseDoc) responseDoc.responses = next;
+      else responseDoc = { responses: next };
+      scheduleSave();
+    }
+
+    input.addEventListener('focus', () => showDropdown(input.value));
+    input.addEventListener('input', () => showDropdown(input.value));
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { dropdown.style.display = 'none'; input.value = ''; }
+    });
+    input.addEventListener('blur', () =>
+      setTimeout(() => { dropdown.style.display = 'none'; }, 150)
+    );
+
+    wrap.addEventListener('click', e => {
+      const ddItem = e.target.closest('.dt-conn-dd-item');
+      if (ddItem) {
+        const id   = ddItem.dataset.connId;
+        const char = others.find(c => String(c.id) === id);
+        if (char && !getSelectedIds().has(id)) {
+          addChip(id, char.name);
+          input.value = '';
+          dropdown.style.display = 'none';
+          saveToResponseDoc();
+        }
+        return;
+      }
+      const removeBtn = e.target.closest('.dt-conn-remove');
+      if (removeBtn) {
+        removeBtn.closest('.dt-conn-chip')?.remove();
+        saveToResponseDoc();
+      }
+    });
+  });
 }
 
 /** Character-or-Other (or Character/Territory/Other) target sub-widget. */
@@ -6145,6 +6730,15 @@ function updateSectionTicks(container) {
       return;
     }
 
+    // #637: personal_story — match the submit gate (_hasPersonalStory = kind && text). The
+    // generic "all qf-fields filled" fallback would wrongly require the OPTIONAL NPC name too.
+    if (key === 'personal_story') {
+      const kindChecked = !!body.querySelector('input[name="dt-personal_story_kind"]:checked');
+      const textEl = document.getElementById('dt-personal_story_text');
+      tick.classList.toggle('visible', kindChecked && !!(textEl && textEl.value.trim()));
+      return;
+    }
+
     // Issue #163 (2026-05-08): Court > Last Game Session tick rule. Min reqs:
     //   - travel description present
     //   - at least one game_recount highlight slot populated
@@ -6645,7 +7239,20 @@ function renderQuestion(q, value) {
           if (bestAmb.mod >= 0) posMods.push({ label: lbl, val: bestAmb.mod });
           else negMods.push({ label: lbl, val: bestAmb.mod });
         }
-        if (herdDots > 0) posMods.push({ label: `Herd (${'●'.repeat(herdDots)})`, val: herdDots });
+        // #609: effectiveDomainDots('Herd') (via meritEffectiveRating, domain.js:265)
+        // ALREADY includes the SSJ and Flock bonuses, so herdDots is the true total and
+        // matches the ST (domMeritContrib). #599 erroneously re-added flock here, which
+        // double-counted it (Flock chars showed +8 not +5); do NOT add ssj/flock to the
+        // total. flockHerd is used only for the "(Flock)" label + "(+x)" breakdown.
+        const flockHerd = flockHerdBonus(c);
+        const herdTotal = herdDots;
+        if (herdTotal > 0) {
+          posMods.push({
+            label: flockHerd > 0 ? 'Herd (Flock)' : `Herd (${'●'.repeat(herdDots)})`,
+            val: herdTotal,
+            valSuffix: flockHerd > 0 ? ` (+${flockHerd})` : '',
+          });
+        }
         if (oathBonus > 0) posMods.push({ label: `Oath of Fealty (Invictus Status ${invStatusForOath})`, val: oathBonus });
         if (ghoulCost > 0) negMods.push({ label: 'Ghoul Retainers', val: -ghoulCost });
         if (riteVitaeCost > 0) negMods.push({ label: 'Cruac Rites', val: -riteVitaeCost });
@@ -6658,7 +7265,7 @@ function renderQuestion(q, value) {
         h += '<div class="dt-vitae-budget-title">Vitae Projection</div>';
         h += '<div class="dt-vitae-row"><span>Starting Vitae</span><span>0</span></div>';
         for (const mod of posMods) {
-          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}</span></div>`;
+          h += `<div class="dt-vitae-row dt-vitae-pos"><span>${esc(mod.label)}</span><span>+${mod.val}${esc(mod.valSuffix || '')}</span></div>`;
         }
         for (const mod of negMods) {
           h += `<div class="dt-vitae-row dt-vitae-cost"><span>${esc(mod.label)}</span><span>−${Math.abs(mod.val)}</span></div>`;

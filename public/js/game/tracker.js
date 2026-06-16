@@ -29,6 +29,9 @@ const _confirmed = new Set();
 // UI-only — which cards are currently expanded
 const _expanded = new Set();
 
+// Guards against re-applying DT influence reconciliation for a cycle already processed this session
+const _reconciledCycles = new Set();
+
 // ── Storage helpers ──
 
 function defaults(c) {
@@ -175,6 +178,57 @@ export function trackerToggle(charId) {
   patchCard(charId, c, fromCache(c));
 }
 
+async function reconcileInfluenceDT() {
+  try {
+    const res = await fetch(`${API_BASE}/api/downtime_cycles`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const allCycles = await res.json();
+    // Sort by game_number (not _id) to handle re-imported cycles — matches signin-tab.js pattern
+    const lastClosed = (allCycles || [])
+      .filter(c => c.status === 'closed')
+      .sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null;
+    if (!lastClosed) return;
+
+    const cycleId = String(lastClosed._id);
+    if (_reconciledCycles.has(cycleId)) return;   // already run this session
+
+    const subRes = await fetch(`${API_BASE}/api/downtime_submissions?cycle_id=${cycleId}`, { headers: authHeaders() });
+    if (!subRes.ok) { return; }   // transient failure — do not mark done; next initTracker retries
+    const subs = await subRes.json();
+
+    // Build per-character spend totals (mirrors signin-tab.js loadLastCycleData)
+    const infSpent = new Map();
+    for (const sub of (subs || [])) {
+      const charId = String(sub.character_id);
+      const raw = sub.responses?.influence_spend;
+      if (!raw) continue;
+      let obj = null;
+      try { obj = JSON.parse(raw); } catch { continue; }
+      const total = Object.values(obj).reduce((s, v) => s + Math.abs(Number(v) || 0), 0);
+      if (total > 0) infSpent.set(charId, total);
+    }
+
+    if (!infSpent.size) { _reconciledCycles.add(cycleId); return; }
+
+    const chars = (suiteState.chars || []).filter(c => !c.retired);
+    for (const c of chars) {
+      const charId = String(c._id);
+      const spent = infSpent.get(charId) || 0;
+      if (spent === 0) continue;
+      const infMax = calcTotalInfluence(c);
+      if (infMax === 0) continue;
+      const cs = _cache[charId];
+      if (!cs) continue;
+      cs.inf = Math.max(0, infMax - spent);
+      saveToApi(charId, { influence: cs.inf });
+    }
+
+    _reconciledCycles.add(cycleId);
+  } catch (err) {
+    console.warn('[tracker] DT influence reconcile failed', err);
+  }
+}
+
 export async function initTracker(el) {
   _el = el;
   el.innerHTML = '<div class="dtl-empty">Loading tracker\u2026</div>';
@@ -182,6 +236,7 @@ export async function initTracker(el) {
   // picks up vitae changes written by player.html feeding confirm
   _confirmed.clear();
   await Promise.all((suiteState.chars || []).filter(c => !c.retired).map(c => ensureLoaded(c)));
+  await reconcileInfluenceDT();
   renderAll();
 }
 

@@ -52,6 +52,13 @@ function _computeAmount(c, rule) {
         : (rule.partner_merit_name ? [rule.partner_merit_name] : []);
       return names.reduce((sum, n) => sum + _ratingOfPartner(c, n), 0);
     }
+    case 'rating_of_source':
+      // N-3 / MNEC (issue #692): pool size = the source merit's own purchased
+      // rating. Necropolis Sepulcher 3 → 3 free dots distributable across the
+      // Collective Compound's six target merits via `free_grants.necro`.
+      // Reads cp+xp directly (matches _ratingOfPartner semantics — pool basis
+      // is purchased dots only, not free grants — to avoid feedback loops).
+      return _ratingOfPartner(c, rule.source);
     case 'flat':
       return rule.amount ?? 0;
     default:
@@ -69,7 +76,8 @@ function _vmPool(c) {
   (c.merits || []).forEach(m => {
     if (m.granted_by === 'VM') return;
     if (m.category === 'influence' && m.name === 'Allies') {
-      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0); // inherent-intentional: free_mci counts because MCI Allies are real influence resources
+      // inherent-intentional: free_mci counts because MCI Allies are real influence resources; N-1 map-fallback so N-2 backfill (legacy → map) doesn't drop dots
+      total += (m.cp || 0) + (m.xp || 0) + ((m.free_grants?.mci) ?? m.free_mci ?? 0);
     } else if (m.name === 'Herd') {
       if (m.derived) return;
       // inherent-intentional: Herd dice-pool contribution counts purchased dots only (cp+xp); derived/granted Herd is filtered above.

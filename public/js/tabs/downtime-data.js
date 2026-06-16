@@ -120,11 +120,11 @@ export const AMBIENCE_MODS = {
 // (renamed from `id` in ADR-002 / story #3c). TERRITORY_DATA is reference
 // data only — never used as a foreign key.
 export const TERRITORY_DATA = [
-  { slug: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
-  { slug: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
-  { slug: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
-  { slug: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
-  { slug: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
+  { slug: 'academy',    name: 'The Academy',    shortLabel: 'Academy',      ambience: 'Curated',  ambienceMod: +3 },
+  { slug: 'dockyards',  name: 'The Dockyards',  shortLabel: 'Dockyards',    ambience: 'Settled',  ambienceMod:  0 },
+  { slug: 'harbour',    name: 'The Harbour',    shortLabel: 'Harbour',      ambience: 'Untended', ambienceMod: -2 },
+  { slug: 'northshore', name: 'The North Shore', shortLabel: 'N. Shore',    ambience: 'Tended',   ambienceMod: +2 },
+  { slug: 'secondcity', name: 'The Second City', shortLabel: 'Second City', ambience: 'Tended',   ambienceMod: +2 },
 ];
 
 // Helper: generate select options for a numeric range (inclusive)
@@ -222,6 +222,21 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
+  // 1b. Safe Places and Havens — always shown (gate: null), regardless of
+  // attendance, so locations are captured even when the Court section is
+  // hidden. Custom-rendered (renderSafePlaceLocationsSection in downtime-
+  // form.js) because it emits one input per Safe Place merit instance and a
+  // fixed questions[] cannot express a per-merit dynamic count. Empty
+  // questions[] keeps the generic render/collect loops inert; the explicit
+  // renderer + collector own this section. See issue #504.
+  {
+    key: 'safe_place_locations',
+    title: 'Safe Places and Havens',
+    gate: null,
+    intro: 'For each of your safe places, tell us the street and suburb where it is located. If you have a haven, it sits on one of these safe places.',
+    questions: [],
+  },
+
   // 2. Personal Story — always shown; player selects an NPC to interact with.
   // DTR.2: correspondence moved here from the Court section (where it
   // historically lived). Rendered by the custom personal-story renderer.
@@ -267,6 +282,17 @@ export const DOWNTIME_SECTIONS = [
         desc: 'Positive values improve a Territory\'s Ambience. Negative values degrade it. Each point spent (positive or negative) costs 1 Influence from your monthly budget.',
       },
     ],
+  },
+
+  // 3b. Carthian Pull — single-dot allocation to a one-cycle bonus dot (#508).
+  // Custom renderer (renderCarthianPullSection); only shown when the character
+  // holds Carthian Pull. Rendered explicitly before Feeding.
+  {
+    key: 'carthian_pull',
+    title: 'Carthian Pull',
+    gate: null,
+    intro: 'Spend your Carthian Pull dot as a bonus dot on one of your merits for this cycle. You can change it at any time and it moves with your choice.',
+    questions: [],
   },
 
   // 4. Feeding — territory declaration, then method selection, pool, rote, description

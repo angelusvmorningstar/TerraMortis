@@ -76,14 +76,21 @@ export const ordealSubmissionSchema = {
   },
 };
 
+// Validates the POST /api/ordeal-responses REQUEST body, which is
+// { type, responses }. The handler maps `type` → the stored `ordeal_type`
+// field and adds player_id/status/timestamps server-side (issue #525). It must
+// therefore require `type`, not `ordeal_type` — requiring the stored-doc field
+// 400'd every create. `ordeal_type` is kept as an allowed property (it
+// describes the stored doc) but is NOT required on the request.
 export const ordealResponseSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'TM Ordeal Response',
   type: 'object',
-  required: ['ordeal_type'],
+  required: ['type'],
   additionalProperties: true,
 
   properties: {
+    type:         { type: 'string', enum: ['rules', 'lore', 'covenant'] },
     player_id:    { type: 'string' },
     ordeal_type:  { type: 'string', enum: ['rules', 'lore', 'covenant'] },
     status:       { type: 'string', enum: ['draft', 'submitted', 'approved'] },

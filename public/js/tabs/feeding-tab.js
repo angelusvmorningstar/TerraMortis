@@ -16,7 +16,7 @@ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 import { domMeritContrib, effectiveInvictusStatus, calcTotalInfluence } from '../editor/domain.js';
-import { trackerAdj, trackerRead } from '../game/tracker.js';
+import { trackerAdj, trackerRead, trackerReadRaw } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -113,7 +113,14 @@ export async function renderFeedingTab(el, char) {
         .filter(s => String(s.character_id) === charId &&
           (s.published_outcome || s.feeding_roll_player || s.feeding_deferred))
         .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
-      if (candidateSub) {
+      // Guard: only use candidateSub if its cycle is the newest non-closed cycle.
+      // A newer live cycle (e.g. DT4 in 'active') means we are between downtimes —
+      // surfacing a previous cycle's confirmed roll would let players act on stale
+      // vitae numbers before the current game session has occurred. (#537)
+      const newestLiveCycle = allCycles
+        .filter(c => c.status !== 'closed')
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
+      if (candidateSub && (!newestLiveCycle || String(candidateSub.cycle_id) === String(newestLiveCycle._id))) {
         activeCycle = allCycles.find(c => String(c._id) === String(candidateSub.cycle_id)) || null;
         mySub = candidateSub;
       }
@@ -499,7 +506,7 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       const ACTIVE_FEED_STATUSES = new Set(['feeding_rights', 'poaching', 'resident', 'poacher', 'poach']);
       for (const [tid, status] of Object.entries(grid)) {
         if (!ACTIVE_FEED_STATUSES.has(status)) continue;
-        const td = effectiveTerrs.find(t => String(t._id) === tid);
+        const td = effectiveTerrs.find(t => String(t.slug) === tid);
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;
@@ -611,15 +618,14 @@ function render() {
       if (m) {
         buildPool(m, selectedDisc, selectedSpec);
 
-        // Discipline selector
-        const availDiscs = m.discs.filter(d => currentChar.disciplines?.[d]?.dots);
-        if (availDiscs.length) {
+        // Discipline selector — show all template disciplines; template is a preset, not a gate
+        if (m.discs.length) {
           h += '<div class="feeding-disc-row">';
           h += '<label>Discipline:</label>';
           h += '<select class="qf-select" id="feed-gen-disc">';
           h += '<option value="">None</option>';
-          for (const d of availDiscs) {
-            const dv = currentChar.disciplines[d].dots;
+          for (const d of m.discs) {
+            const dv = currentChar.disciplines?.[d]?.dots ?? 0;
             const sel = selectedDisc === d ? ' selected' : '';
             h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dv})</option>`;
           }
@@ -780,7 +786,8 @@ function render() {
         h += `<div class="feed-st-row-lbl">Influence Remaining</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-inf-adj-down">\u2212</button>`;
-        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${infMax}</span>`;
+        const _curInf = trackerRead(String(currentChar._id))?.inf ?? infMax;
+        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${_curInf}</span>`;
         h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${infMax}</div>`;
@@ -923,13 +930,15 @@ function wireEvents() {
 
     // Write vitae and influence to API — single source of truth for tracker state
     try {
-      await apiPut('/api/tracker_state/' + charId, { vitae: n });
-      // Also write to localStorage so game app tracker picks it up without tab navigation
+      await apiPut('/api/tracker_state/' + charId, { vitae: n, influence: infAfter });
+      // Keep tracker.js in-memory cache in sync so the tracker card re-renders correctly
+      const _raw = trackerReadRaw(charId);
+      if (_raw) _raw.inf = infAfter;
+      // vitae_confirmed used by trackerAdj to clear confirmed marker on manual ST override
       try {
         const key = 'tm_tracker_local_' + charId;
         const loc = JSON.parse(localStorage.getItem(key) || '{}');
         loc.vitae_confirmed = n;
-        loc.inf = infAfter;
         localStorage.setItem(key, JSON.stringify(loc));
       } catch { /* ignore */ }
       const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };

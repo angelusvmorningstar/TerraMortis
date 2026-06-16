@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ranking Preview — #624</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;600;700;900&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F4EFE4; --surf:#EDE7D8; --surf2:#E5DEC9; --surf3:#DBD3BC;
+  --bdr:rgba(120,90,40,.20); --bdr2:rgba(120,90,40,.38); --bdr3:rgba(120,90,40,.55);
+  --gold:#8B6010; --gold2:#7A5208;
+  --gold-a12:rgba(120,90,40,.12); --gold-a20:rgba(120,90,40,.20);
+  --txt:#1C1410; --txt2:#4A3A28; --txt3:#6A5238;
+  --accent:#7A0000;
+  --fh:'Cinzel',serif; --fl:'Lato',sans-serif; --ft:'Libre Baskerville',serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--txt); font-family: var(--ft); padding: 32px 16px; }
+h1 { font-family: var(--fh); font-size: 16px; letter-spacing: .08em; color: var(--accent); margin-bottom: 24px; }
+
+.toggle-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+.toggle-btn {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; padding: 7px 14px; border: 1px solid var(--bdr2);
+  border-radius: 4px; background: var(--surf); color: var(--txt2); cursor: pointer;
+}
+.toggle-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+
+.preview-panel { max-width: 720px; }
+
+.status-ranking-section {
+  border: 1px solid var(--bdr); border-radius: 6px;
+  background: var(--surf); overflow: hidden; margin: 8px 0;
+}
+.status-section-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--surf2); border-bottom: 1px solid var(--bdr);
+}
+.status-section-title {
+  font-family: var(--fl); font-size: 13px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent);
+}
+.status-section-caps { font-size: 11px; color: var(--txt3); font-style: italic; }
+
+/* Player ballot */
+.status-ranking-grid { display: flex; }
+.status-ranking-col { flex: 1; min-width: 0; padding: 14px; border-right: 1px solid var(--bdr); }
+.status-ranking-col:last-child { border-right: none; }
+.status-ranking-col-head {
+  font-family: var(--fl); font-size: 12px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--txt2); margin-bottom: 10px;
+}
+.status-ranking-slot { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.status-ranking-ord {
+  font-family: var(--fl); font-size: 11px; color: var(--txt3);
+  min-width: 26px; text-align: right; flex-shrink: 0;
+}
+.status-ranking-sel {
+  flex: 1; background: var(--surf2); border: 1px solid var(--bdr);
+  border-radius: 5px; padding: 6px 10px; font-family: var(--ft);
+  font-size: 13px; color: var(--txt); outline: none; cursor: pointer;
+}
+.status-ranking-sel:focus { border-color: var(--bdr3); }
+.status-ranking-actions {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-top: 1px solid var(--bdr); background: var(--surf2);
+}
+.status-ranking-save {
+  font-family: var(--fl); font-size: 10px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; padding: 8px 16px; border: 1px solid var(--bdr3);
+  border-radius: 4px; background: var(--gold-a12); color: var(--gold);
+  cursor: pointer; transition: background .15s;
+}
+.status-ranking-save:hover { background: var(--gold-a20); }
+.status-ranking-msg { font-size: 12px; color: var(--txt3); font-style: italic; }
+
+/* ST aggregate */
+.rank-org-section { padding: 14px; border-bottom: 1px solid var(--bdr); }
+.rank-org-section:last-child { border-bottom: none; }
+.rank-org-label {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt2); margin-bottom: 8px;
+}
+.rank-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rank-pill {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; letter-spacing: .05em;
+  padding: 4px 12px; border: 1px solid var(--bdr2); border-radius: 20px;
+  background: var(--surf2); color: var(--txt2); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.rank-pill:hover { border-color: var(--bdr3); color: var(--txt); }
+.rank-pill.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+
+.rank-member-list { display: flex; flex-direction: column; }
+.rank-member-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 5px 10px;
+}
+.rank-member-name { font-size: 13px; color: var(--txt); }
+.rank-member-pts {
+  font-family: var(--fh); font-size: 14px; font-weight: 700;
+  color: var(--accent); flex-shrink: 0;
+}
+.rank-member-pts.zero { color: var(--txt3); font-size: 12px; font-family: var(--fl); font-weight: 400; }
+
+.rank-mode-toggle { display: flex; gap: 4px; margin-left: auto; }
+.rank-mode-btn {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; padding: 4px 12px;
+  border: 1px solid var(--bdr2); border-radius: 4px;
+  background: var(--surf); color: var(--txt2); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.rank-mode-btn:hover { border-color: var(--bdr3); color: var(--txt); }
+.rank-mode-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<h1>Clan &amp; Covenant Ranking — Preview</h1>
+
+<div class="toggle-bar">
+  <button class="toggle-btn active" onclick="show('player')">Player view</button>
+  <button class="toggle-btn" onclick="show('st')">ST view</button>
+</div>
+
+<div class="preview-panel">
+
+  <!-- ── PLAYER BALLOT ── -->
+  <div id="view-player">
+    <div class="status-ranking-section">
+      <div class="status-section-head">
+        <span class="status-section-title">Clan &amp; Covenant Ranking</span>
+        <span class="status-section-caps">your top 5 this cycle — seen only by Storytellers</span>
+      </div>
+      <div class="status-ranking-grid">
+        <div class="status-ranking-col">
+          <div class="status-ranking-col-head">Clan (Nosferatu)</div>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">1st</span>
+            <select class="status-ranking-sel">
+              <option>— none —</option><option selected>Ryan Ambrose</option>
+              <option>Tegan Groves</option><option>Ivana Horvat</option><option>Laura</option><option>Clarence von Schmidt</option><option>Etsy</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">2nd</span>
+            <select class="status-ranking-sel">
+              <option>— none —</option><option>Ryan Ambrose</option>
+              <option>Tegan Groves</option><option selected>Ivana Horvat</option><option>Laura</option><option>Clarence von Schmidt</option><option>Etsy</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">3rd</span>
+            <select class="status-ranking-sel">
+              <option selected>— none —</option><option>Ryan Ambrose</option>
+              <option>Tegan Groves</option><option>Ivana Horvat</option><option>Laura</option><option>Clarence von Schmidt</option><option>Etsy</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">4th</span>
+            <select class="status-ranking-sel">
+              <option selected>— none —</option><option>Ryan Ambrose</option>
+              <option>Tegan Groves</option><option>Ivana Horvat</option><option>Laura</option><option>Clarence von Schmidt</option><option>Etsy</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">5th</span>
+            <select class="status-ranking-sel">
+              <option selected>— none —</option><option>Ryan Ambrose</option>
+              <option>Tegan Groves</option><option>Ivana Horvat</option><option>Laura</option><option>Clarence von Schmidt</option><option>Etsy</option>
+            </select></label>
+        </div>
+        <div class="status-ranking-col">
+          <div class="status-ranking-col-head">Covenant (Lancea et Sanctum)</div>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">1st</span>
+            <select class="status-ranking-sel">
+              <option>— none —</option><option selected>Edna Judge</option>
+              <option>Carver</option><option>Conrad Sondergaard</option><option>Hazel</option><option>Livia</option><option>Magda</option><option>Tegan Groves</option><option>Benedict Wiesel</option><option>Julia Dolancia</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">2nd</span>
+            <select class="status-ranking-sel">
+              <option>— none —</option><option>Edna Judge</option>
+              <option selected>Carver</option><option>Conrad Sondergaard</option><option>Hazel</option><option>Livia</option><option>Magda</option><option>Tegan Groves</option><option>Benedict Wiesel</option><option>Julia Dolancia</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">3rd</span>
+            <select class="status-ranking-sel">
+              <option>— none —</option><option>Edna Judge</option>
+              <option>Carver</option><option>Conrad Sondergaard</option><option selected>Hazel</option><option>Livia</option><option>Magda</option><option>Tegan Groves</option><option>Benedict Wiesel</option><option>Julia Dolancia</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">4th</span>
+            <select class="status-ranking-sel">
+              <option selected>— none —</option><option>Edna Judge</option>
+              <option>Carver</option><option>Conrad Sondergaard</option><option>Hazel</option><option>Livia</option><option>Magda</option><option>Tegan Groves</option><option>Benedict Wiesel</option><option>Julia Dolancia</option>
+            </select></label>
+          <label class="status-ranking-slot"><span class="status-ranking-ord">5th</span>
+            <select class="status-ranking-sel">
+              <option selected>— none —</option><option>Edna Judge</option>
+              <option>Carver</option><option>Conrad Sondergaard</option><option>Hazel</option><option>Livia</option><option>Magda</option><option>Tegan Groves</option><option>Benedict Wiesel</option><option>Julia Dolancia</option>
+            </select></label>
+        </div>
+      </div>
+      <div class="status-ranking-actions">
+        <button class="status-ranking-save" onclick="this.nextElementSibling.textContent='Saved.'">Save Ranking</button>
+        <span class="status-ranking-msg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ST AGGREGATE ── -->
+  <div id="view-st" style="display:none">
+    <div class="status-ranking-section">
+      <div class="status-section-head">
+        <span class="status-section-title">Ranking Points — this cycle</span>
+        <span class="status-section-caps">ST only</span>
+        <div class="rank-mode-toggle">
+          <button class="rank-mode-btn active" onclick="setMode('ranked',this)">Ranked</button>
+          <button class="rank-mode-btn" onclick="setMode('political',this)">Political</button>
+        </div>
+      </div>
+      <div class="rank-org-section">
+        <div class="rank-org-label">Clan</div>
+        <div class="rank-pills" id="clan-pills"></div>
+        <div class="rank-member-list" id="clan-list"></div>
+      </div>
+      <div class="rank-org-section">
+        <div class="rank-org-label">Covenant</div>
+        <div class="rank-pills" id="cov-pills"></div>
+        <div class="rank-member-list" id="cov-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Ranked: 5/4/3/2/1 by position
+const CLANS_RANKED = {
+  'Daeva':    [['Eve Lockridge',9],['Cyrus Reynolds',5],['René Meyer',3],['Aleksei',0],['Livia',0]],
+  'Gangrel':  [['Brandy LaRoux',8],['Doc',6],['Ryan Ambrose',2],['Tegan Groves',0],['Ivana Horvat',0]],
+  'Mekhet':   [['Dr Cazz',4],['Reed Justice',2],['Einar Solveig',0],['Xavier Boussade',0]],
+  'Nosferatu':[['Tegan Groves',7],['Ivana Horvat',4],['Laura',1],['Clarence von Schmidt',0],['Etsy',0],['Gel',0],['Humongulus',0]],
+  'Ventrue':  [['Carver',10],['René St. Dominique',6],['Einar Solveig',3],['Reed Justice',0],['Hazel',0],['Benedict Wiesel',0],['Charles Mercer-Willows',0]],
+};
+const COVS_RANKED = {
+  'Carthian Movement':  [['Eve Lockridge',8],['Mac',5],['Dr Cazz',2],['Aleksei',0],['René Meyer',0]],
+  'Circle of the Crone':[['Anichka',9],['Brandy LaRoux',4],['Keeper',2],['Jack Fallow',0]],
+  'Invictus':           [['Jack Fallow',11],['Carver',7],['René St. Dominique',3],['Einar Solveig',0],['Livia',0]],
+  'Lancea et Sanctum':  [['Edna Judge',12],['Carver',6],['Conrad Sondergaard',3],['Hazel',1],['Magda',0],['Tegan Groves',0],['Benedict Wiesel',0],['Julia Dolancia',0]],
+};
+// Political: weight = voter's status in the org (regardless of position)
+// e.g. Carver (Ventrue 4, Invictus 3) voting bumps every pick by 4/3 respectively
+const CLANS_POLITICAL = {
+  'Daeva':    [['Eve Lockridge',6],['Cyrus Reynolds',4],['René Meyer',4],['Aleksei',2],['Livia',0]],
+  'Gangrel':  [['Brandy LaRoux',7],['Doc',5],['Ryan Ambrose',3],['Tegan Groves',1],['Ivana Horvat',0]],
+  'Mekhet':   [['Dr Cazz',5],['Reed Justice',3],['Einar Solveig',1],['Xavier Boussade',0]],
+  'Nosferatu':[['Tegan Groves',5],['Ivana Horvat',3],['Laura',3],['Clarence von Schmidt',1],['Etsy',0],['Gel',0],['Humongulus',0]],
+  'Ventrue':  [['Carver',8],['René St. Dominique',6],['Einar Solveig',4],['Reed Justice',0],['Hazel',0],['Benedict Wiesel',0],['Charles Mercer-Willows',0]],
+};
+const COVS_POLITICAL = {
+  'Carthian Movement':  [['Eve Lockridge',6],['Mac',4],['Dr Cazz',2],['Aleksei',0],['René Meyer',0]],
+  'Circle of the Crone':[['Anichka',7],['Brandy LaRoux',4],['Keeper',2],['Jack Fallow',0]],
+  'Invictus':           [['Jack Fallow',9],['Carver',7],['René St. Dominique',5],['Einar Solveig',0],['Livia',0]],
+  'Lancea et Sanctum':  [['Edna Judge',10],['Carver',7],['Conrad Sondergaard',3],['Hazel',2],['Magda',0],['Tegan Groves',0],['Benedict Wiesel',0],['Julia Dolancia',0]],
+};
+
+let currentMode = 'ranked';
+let activeClan = 'Daeva';
+let activeCov  = 'Carthian Movement';
+
+function getClanData()  { return currentMode === 'ranked' ? CLANS_RANKED  : CLANS_POLITICAL; }
+function getCovData()   { return currentMode === 'ranked' ? COVS_RANKED   : COVS_POLITICAL; }
+
+function renderList(el, rows) {
+  el.innerHTML = rows.map(([name, pts]) =>
+    `<div class="rank-member-row"><span class="rank-member-name">${name}</span><span class="rank-member-pts${pts === 0 ? ' zero' : ''}">${pts}</span></div>`
+  ).join('');
+}
+
+function buildPills(pillsEl, listEl, data, activeKey, onSelect) {
+  pillsEl.innerHTML = Object.keys(data).map(k =>
+    `<button class="rank-pill${k === activeKey ? ' active' : ''}" data-key="${k}">${k}</button>`
+  ).join('');
+  pillsEl.querySelectorAll('.rank-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pillsEl.querySelectorAll('.rank-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(btn.dataset.key);
+    });
+  });
+  renderList(listEl, data[activeKey]);
+}
+
+function refresh() {
+  buildPills(
+    document.getElementById('clan-pills'), document.getElementById('clan-list'),
+    getClanData(), activeClan, key => { activeClan = key; renderList(document.getElementById('clan-list'), getClanData()[key]); }
+  );
+  buildPills(
+    document.getElementById('cov-pills'), document.getElementById('cov-list'),
+    getCovData(), activeCov, key => { activeCov = key; renderList(document.getElementById('cov-list'), getCovData()[key]); }
+  );
+}
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.rank-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+  refresh();
+}
+
+refresh();
+
+function show(view) {
+  document.getElementById('view-player').style.display = view === 'player' ? '' : 'none';
+  document.getElementById('view-st').style.display     = view === 'st'     ? '' : 'none';
+  document.querySelectorAll('.toggle-btn').forEach((b, i) =>
+    b.classList.toggle('active', (i === 0 && view === 'player') || (i === 1 && view === 'st')));
+}
+</script>
+</body>
+</html>

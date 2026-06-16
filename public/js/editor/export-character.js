@@ -8,6 +8,7 @@
  */
 
 import { displayName, displayNameRaw, getWillpower, findRegentTerritory } from '../data/helpers.js';
+import { freeOf } from '../data/rules-helpers.js';
 import {
   getAttrEffective, getAttrBonus, skDots, skBonus, skTotal, skSpecs, skNineAgain,
   calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence, calcVitaeMax,
@@ -278,7 +279,7 @@ export function serialiseForPrint(c, territories) {
   // ── Fighting styles ──
   const fighting_styles = (c.fighting_styles || []).map(fs => ({
     name: fs.name,
-    dots: (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0),
+    dots: (fs.cp || 0) + (fs.free || 0) + freeOf(fs, 'mci') + freeOf(fs, 'ots') + (fs.xp || 0),
     tags: STYLE_TAGS[fs.name] || [],
     picks: fs.picks || [],
   }));

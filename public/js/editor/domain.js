@@ -6,6 +6,12 @@
 import { INFLUENCE_SPHERES } from '../data/constants.js';
 import state from '../data/state.js';
 import { getRulesCache } from './rule_engine/load-rules.js';
+// N-1 (ADR-005 Rev 2): per-slug reads use the canonical map-fallback shape
+// `freeOf(m, slug) = m.free_grants?.<slug> ?? m.free_<slug> ?? 0`. This keeps
+// reads correct across the N-1 → N-2 transition (pre-N-2 legacy populates;
+// post-N-2 the map populates). `meritFreeSum` delegates to the shared helper
+// so the 14-channel enumeration lives in exactly one place.
+import { meritFreeSum as _meritFreeSumHelper, freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
 
 /* ══════════════════════════════════════════════════════
    Multi-instance domain type sets
@@ -36,17 +42,27 @@ export function domKey(m) {
  */
 export function domMeritContribSingle(c, m) {
   if (!m) return 0;
-  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0)
+  const purchased = (m.cp || 0) + (m.free || 0) + freeOf(m, 'mci') + (m.xp || 0)
     + (m.bonus || 0);
   return purchased
     + (m.name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0)
-    + (m.free_fwb || 0) + (m.free_attache || 0);
+    + freeOf(m, 'fwb') + freeOf(m, 'attache') + freeOf(m, 'carthian'); // #508
+
 }
 
-/** Partner-shareable dots for a specific merit instance (cp + free + xp, no auto-bonuses). */
+/** Partner-shareable dots for a specific merit instance (cp + free + xp, no auto-bonuses).
+ *
+ * N-1 (Concern #1 Rev 2 VERBATIM): the HARDCODED SUBSET (cp + free + free_mci + xp)
+ * is preserved verbatim — DO NOT add bloodline/retainer/etc. here even though the
+ * server's `characters.js` partner-enrichment includes them. The divergence between
+ * this client read and that server read is deliberately preserved until the future
+ * MNEC-prerequisite audit story decides whether to normalise it. The only change
+ * vs pre-N-1: the `free_mci` read goes through `freeOf(m, 'mci')` so the value
+ * survives the N-2 backfill when persisted data moves from `m.free_mci` to
+ * `m.free_grants.mci`. Surgical, exact-behaviour-preserving map-fallback. */
 function domMeritShareableSingle(m) {
   if (!m) return 0;
-  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
+  return (m.cp || 0) + (m.free || 0) + freeOf(m, 'mci') + (m.xp || 0);
 }
 
 /**
@@ -59,32 +75,49 @@ function domMeritTotalSingle(c, m) {
   const partners = m.shared_with || [];
   const key = domKey(m);
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) {
-      const pm = (p.merits || []).find(pm2 =>
-        pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
-      );
-      if (pm) partnerTotal += domMeritShareableSingle(pm);
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) {
+        const pm = (p.merits || []).find(pm2 =>
+          pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
+        );
+        if (pm) partnerTotal += domMeritShareableSingle(pm);
+      }
     }
-  }
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   return Math.min(5, own + partnerTotal);
 }
 
 /**
- * Cap for Haven / Mandragora Garden: effective rating of the attached Safe Place instance.
- * Returns 0 if no attached_to set or Safe Place not found.
+ * Cap for Haven / Mandragora Garden: effective rating of the attached anchor.
+ *
+ * Haven anchors to a Safe Place only. Mandragora Garden anchors to either a
+ * Safe Place or — per N-8 (issue #761, Peter decision B 2026-06-15) — a
+ * Necropolis Sepulcher merit instance. Returns 0 if no anchor set or anchor
+ * not found.
  */
 function _havenCap(c, m) {
-  if (!m.attached_to) return 0;
-  const sp = (c.merits || []).find(sp2 =>
-    sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === m.attached_to
-  );
-  if (!sp) return 0;
-  return domMeritTotalSingle(c, sp);
+  // N-1 (Concern #11): every read of m.attached_to goes through the normaliser.
+  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the anchor key.
+  const at = normaliseAttachedTo(m.attached_to);
+  if (!at) return 0;
+  const isMandragora = m.name === 'Mandragora Garden';
+  const anchor = (c.merits || []).find(sp2 => {
+    // Safe Place is the legacy anchor for both Haven and Mandragora.
+    if (sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination) return true;
+    // N-8: Mandragora can additionally anchor to Necropolis Sepulcher. The
+    // permissive `sp2.name` check (no category constraint) mirrors the
+    // picker filter at sheet.js — Sepulcher could be in any category on
+    // the character; matching by name is the canonical lookup.
+    if (isMandragora && sp2.name === 'Necropolis Sepulcher' && domKey(sp2) === at.destination) return true;
+    return false;
+  });
+  if (!anchor) return 0;
+  return domMeritTotalSingle(c, anchor);
 }
 
 /**
@@ -158,15 +191,17 @@ export function domMeritTotal(c, name) {
   const own = domMeritContribSingle(c, m);
   const partners = m.shared_with || [];
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) partnerTotal += domMeritShareable(p, name);
-  }
-  // Fallback: if no partner chars were found in state.chars (player portal
-  // only has the player's own characters), use _partner_dots which the
-  // server pre-computed on the ?mine=1 fetch path.
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) partnerTotal += domMeritShareable(p, name);
+    }
+    // Fallback: if no partner chars were found in state.chars (player portal
+    // only has the player's own characters), use _partner_dots which the
+    // server pre-computed on the ?mine=1 fetch path.
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   const total = own + partnerTotal;
   // Herd can exceed 5 when Flock is present
@@ -185,11 +220,14 @@ export function domMeritTotal(c, name) {
  * meritEffectiveRating, not by this helper.
  */
 export function meritFreeSum(m) {
-  return (m.free || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-    + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0)
-    + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_fwb || 0)
-    + (m.free_attache || 0);
+  // N-1 / ADR-005 Rev 2: delegate to the shared helper which sums BOTH the
+  // new `m.free_grants` map AND every legacy `m.free_<slug>` field. The
+  // shared helper EXCLUDES `m.free` (the unprefixed player-allocated channel)
+  // per D1 — but the public `meritFreeSum` contract has historically included
+  // it, so we add it back here. Single source of truth for the 14-channel
+  // enumeration lives in `rules-helpers.js`; N-2 cleanup removes the legacy
+  // fallback there in one place rather than per call site.
+  return (m.free || 0) + _meritFreeSumHelper(m);
 }
 
 /**
@@ -256,11 +294,9 @@ export function meritEffectiveRating(c, m) {
       return domMeritTotal(c, m.name);
     }
   }
-  const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0)
-    + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0)
-    + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0)
-    + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0)
-    + (m.free_fwb || 0) + (m.free_attache || 0);
+  // N-1: delegate the 14-channel enumeration to the shared helper. `m.free`
+  // (unprefixed) added separately per the meritFreeSum public contract.
+  const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0) + _meritFreeSumHelper(m);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }
@@ -278,6 +314,7 @@ export function meritEffectiveRating(c, m) {
 export function domMeritAccess(c, name) {
   const own = domMeritTotal(c, name);
   if (own > 0) return own;
+  if (domMeritContrib(c, name) < 1) return 0;
   for (const partner of (state.chars || [])) {
     const pm = (partner.merits || []).find(m =>
       m.category === 'domain' && m.name === name &&
@@ -365,7 +402,7 @@ export function vmPool(c) {
   (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
     if (m.category === 'influence' && m.name === 'Allies') {
-      total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
+      total += (m.cp || 0) + (m.xp || 0) + freeOf(m, 'mci');
     } else if (m.name === 'Herd') {
       if (m.derived) return;
       total += (m.cp || 0) + (m.xp || 0);
@@ -380,7 +417,7 @@ export function vmUsed(c) {
   (c.merits || []).forEach((m) => {
     if (m.granted_by === 'VM') return;
     if ((m.category === 'influence' && m.name === 'Allies') || m.name === 'Herd') {
-      total += (m.free_vm || 0);
+      total += freeOf(m, 'vm');
     }
   });
   return total;
@@ -397,7 +434,7 @@ export function ohmUsed(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence') return;
     if (m.name !== 'Allies' && m.name !== 'Contacts' && m.name !== 'Resources') return;
-    total += (m.free_ohm || 0);
+    total += freeOf(m, 'ohm');
   });
   return total;
 }
@@ -420,7 +457,7 @@ export function investedUsed(c) {
     const isInvictusTarget = ['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)
       || (m.name && m.name.startsWith('Attach\u00e9 ('));  // variants count as Retainer-equivalent
     if (!isInvictusTarget) return;
-    total += (m.free_inv || 0);
+    total += freeOf(m, 'inv');
   });
   return total;
 }
@@ -434,7 +471,12 @@ export function effectiveInvictusStatus(c) {
 
 /** Dots granted by an Attaché merit linked to the named target merit. */
 export function attacheBonusDots(c, meritName) {
-  const att = (c.merits || []).find(m => m.name === 'Attach\u00e9' && m.attached_to === meritName);
+  // N-1 (Concern #11): every read of m.attached_to goes through the normaliser.
+  const att = (c.merits || []).find(m => {
+    if (m.name !== 'Attach\u00e9') return false;
+    const at = normaliseAttachedTo(m.attached_to);
+    return !!(at && at.destination === meritName);
+  });
   if (!att) return 0;
   return effectiveInvictusStatus(c);
 }
@@ -459,7 +501,7 @@ export function lorekeeperUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.name !== 'Herd' && m.name !== 'Retainer') return;
-    total += (m.free_lk || 0);
+    total += freeOf(m, 'lk');
   });
   return total;
 }

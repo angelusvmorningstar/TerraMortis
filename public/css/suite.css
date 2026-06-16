@@ -77,11 +77,24 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 #t-dice.active,#t-roll.active,#t-st.active{display:flex;}
 
 /* ── BOTTOM NAV ── */
-#bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px;overscroll-behavior-x:contain;touch-action:pan-x;}
+/* Phone bottom nav (issue #596): +25% size, safe-area-inset reservation, and an
+ * edge-gradient scroll affordance. Affordance is pure CSS (mask-image, option b
+ * in the issue) — no JS, no z-index/pointer-events trap on the nav buttons. The
+ * fade is phone-scoped (≤599px) so the ≥600px flex-start layout doesn't get a
+ * cosmetic fade over its empty right gutter. Safe-area uses the .cr-box pattern
+ * at line 683; on desktop the inset evaluates to 0 so only the 8px buffer adds. */
+#bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px calc(8px + env(safe-area-inset-bottom));overscroll-behavior-x:contain;touch-action:pan-x;}
 @media (min-width: 600px) { #bnav { justify-content: flex-start; } }
+@media (max-width: 599px) {
+  #bnav {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+  }
+  .nbtn { flex: 0 0 65px; }
+}
 #bnav::-webkit-scrollbar{display:none;}
-.nbtn{flex:0 0 68px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:4px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;}
-.nbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.nbtn{flex:0 0 85px;min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 5px 15px;gap:5px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;}
+.nbtn svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
 .nbtn:hover{color:var(--txt2);}
 .nbtn-disabled{opacity:.3;cursor:default;pointer-events:none;}
 .nbtn-seasonal{color:var(--crim);}.nbtn-seasonal svg{stroke:var(--crim);}
@@ -1121,6 +1134,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .si-rate-label { font-family: var(--fl); font-size: 12px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
 .si-rate-input { width: 80px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 13px; padding: 6px 8px; min-height: 36px; text-transform: none; letter-spacing: 0; }
 .si-footer { padding: 10px 16px; border-top: 1px solid var(--bdr); font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); }
+.si-session-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 12px; padding: 6px 8px; flex: 1; min-height: 36px; cursor: pointer; }
 
 /* ── Finance Tab ── */
 #t-finance.active { display: flex; flex-direction: column; overflow-y: auto; padding: 12px; }
@@ -1879,6 +1893,12 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 #t-downtime .qf-label { color: var(--txt2); font-family: var(--ft); }
 #t-downtime .qf-section-body { background: transparent; }
 #t-downtime .qf-tag { background: var(--accent-a8); color: var(--accent); border-color: var(--accent-a25); }
+/* #522: Carthian Pull multi-dot allocation — pool counter + applied-dot chips. */
+#t-downtime .qf-carthian-pool { color: var(--txt2); font-family: var(--ft); font-size: 13px; margin: 8px 0 0; }
+#t-downtime .qf-carthian-applied { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#t-downtime .qf-carthian-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--bdr2); border-radius: 999px; background: var(--surf2); color: var(--txt); font-size: 13px; }
+#t-downtime .qf-carthian-remove { border: none; background: none; cursor: pointer; color: var(--txt3); font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 50%; }
+#t-downtime .qf-carthian-remove:hover { color: var(--crim); background: var(--surf3); }
 #t-downtime .qf-radio-label,
 #t-downtime .qf-checkbox-label { color: var(--txt); }
 #t-downtime .qf-radio-label:hover,
@@ -2220,6 +2240,184 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .status-section-title{font-size:15px;}
 .status-col-head{font-size:15px;}
 
+/* ── #624 Clan/Covenant ranking ballot ── */
+.status-ranking-section {
+  margin: 8px 14px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: var(--surf);
+  overflow: hidden;
+}
+.status-ranking-section .status-section-head {
+  padding: 10px 14px;
+  margin-bottom: 0;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+  align-items: center;
+}
+.status-ranking-grid {
+  display: flex;
+}
+.status-ranking-col {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--bdr);
+}
+.status-ranking-col:last-child { border-right: none; }
+.status-ranking-col-head {
+  font-family: var(--fl);
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  margin-bottom: 10px;
+}
+.status-ranking-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.status-ranking-ord {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.status-ranking-sel {
+  flex: 1;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-family: var(--ft);
+  font-size: 13px;
+  color: var(--txt);
+  outline: none;
+  cursor: pointer;
+}
+.status-ranking-sel:focus { border-color: var(--bdr3); }
+.status-ranking-sel option { background: var(--surf); color: var(--txt); }
+.status-ranking-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--bdr);
+  background: var(--surf2);
+}
+.status-ranking-save {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1px solid var(--bdr3);
+  border-radius: 4px;
+  background: var(--gold-a12);
+  color: var(--gold);
+  cursor: pointer;
+  transition: background .15s;
+}
+.status-ranking-save:hover { background: var(--gold-a20); }
+.status-ranking-msg {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+}
+/* ST aggregate — mode toggle */
+.rank-mode-toggle { display: flex; gap: 4px; margin-left: auto; }
+.rank-mode-btn {
+  font-family: var(--fl); font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; padding: 3px 10px; border: 1px solid var(--bdr2);
+  border-radius: 20px; background: var(--surf2); color: var(--txt2); cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.rank-mode-btn.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+/* ST aggregate — org sections + pill switcher */
+.rank-org-section { padding: 14px; border-bottom: 1px solid var(--bdr); }
+.rank-org-section:last-child { border-bottom: none; }
+.rank-org-label {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt2); margin-bottom: 8px;
+}
+.rank-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rank-pill {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; letter-spacing: .05em;
+  padding: 4px 12px; border: 1px solid var(--bdr2); border-radius: 20px;
+  background: var(--surf2); color: var(--txt2); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.rank-pill:hover { border-color: var(--bdr3); color: var(--txt); }
+.rank-pill.active { background: var(--gold-a12); border-color: var(--bdr3); color: var(--gold); }
+.rank-voter-count { font-size: 10px; font-weight: 400; font-family: var(--ft); color: var(--txt3); margin-left: 4px; }
+.rank-pill.active .rank-voter-count { color: var(--gold-a60); }
+.rank-member-list { display: flex; flex-direction: column; }
+.rank-member-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 5px 10px;
+}
+.rank-member-name { font-size: 13px; color: var(--txt); }
+.rank-member-pts {
+  font-family: var(--fh); font-size: 14px; font-weight: 700;
+  color: var(--accent); flex-shrink: 0;
+}
+.rank-member-pts.zero { color: var(--txt3); font-size: 12px; font-family: var(--fl); font-weight: 400; }
+/* ST aggregate (legacy — kept for reference) */
+.status-ranking-agg-grid { display: flex; }
+.status-ranking-agg-col {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--bdr);
+}
+.status-ranking-agg-col:last-child { border-right: none; }
+.status-ranking-agg-group { margin-bottom: 14px; }
+.status-ranking-agg-group:last-child { margin-bottom: 0; }
+.status-ranking-agg-group-head {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--bdr);
+}
+.status-ranking-agg-list { display: flex; flex-direction: column; gap: 4px; }
+.status-ranking-agg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--surf2);
+  border-radius: 4px;
+}
+.status-ranking-agg-name {
+  font-size: 13px;
+  color: var(--txt);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-ranking-agg-pts {
+  font-family: var(--fh);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .status-ranking-grid { flex-direction: column; }
+  .status-ranking-col  { border-right: none; }
+}
+
 /* ── Ordeals + XP breakdown (ported from player-layout.css) ── */
 .ordeals-container{display:flex;flex-direction:column;gap:24px;padding:16px;}
 .ordeals-heading{font-family:var(--fl);font-size:15px;color:var(--accent);font-weight:600;margin-bottom:12px;letter-spacing:.5px;}
@@ -2509,3 +2707,97 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-hist-res.e { color: var(--accent); }
 .dm-hist-res.f { color: var(--err); }
 .dm-hist-res.d { color: var(--dmg-agg); }
+
+/* ── Devlog Tab (player-facing) ──
+   Recovered from issue #502 (commit 30f0490, never merged). Status names
+   reconciled to the live schema: the orphaned 'drafted' becomes 'in_progress'
+   (same amber treatment). All colours are theme vars, so it works in both the
+   dark and parchment themes. */
+.devlog-tab { padding: 16px 18px 32px; max-width: 700px; }
+.devlog-section { margin-bottom: 32px; }
+.devlog-section-heading {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .14em; color: var(--gold2);
+  border-bottom: 1px solid var(--bdr2); padding-bottom: 6px; margin: 0 0 14px;
+}
+.devlog-card {
+  background: var(--surf2); border: 1px solid var(--bdr2);
+  border-left: 3px solid var(--bdr3); border-radius: 6px;
+  padding: 13px 16px 11px; margin-bottom: 10px;
+}
+.devlog-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.devlog-title {
+  font-family: var(--fh); font-size: 14px; font-weight: 600;
+  color: var(--txt); line-height: 1.35; flex: 1;
+}
+.devlog-status {
+  flex-shrink: 0; align-self: flex-start; display: inline-block;
+  padding: 3px 9px; border-radius: 4px; font-family: var(--fl);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .4px; white-space: nowrap;
+}
+/* Left-border accent matches status colour. */
+.devlog-card:has(.devlog-status--considering) { border-left-color: var(--crim); }
+.devlog-card:has(.devlog-status--in_progress) { border-left-color: var(--warn-orange); }
+.devlog-card:has(.devlog-status--confirmed)   { border-left-color: var(--green-dk); }
+/* RAG status chips. */
+.devlog-status--considering { background: var(--crim-a8);        color: var(--crim2);       border: 1px solid var(--crim-a15); }
+.devlog-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border: 1px solid var(--warn-orange-bdr); }
+.devlog-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
+.devlog-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
+.devlog-status--deferred    { background: transparent;           color: var(--txt3);        border: 1px solid var(--bdr2); }
+.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; white-space: pre-wrap; }
+.devlog-target { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .03em; }
+.devlog-resolved { margin-top: 4px; border-top: 1px solid var(--bdr); padding-top: 16px; }
+.devlog-resolved-toggle {
+  font-family: var(--fl); font-size: 12px; color: var(--txt3);
+  cursor: pointer; user-select: none; letter-spacing: .04em; padding-bottom: 10px;
+}
+.devlog-resolved .devlog-card { opacity: .68; border-left-color: var(--bdr2) !important; }
+
+/* "Recently Shipped" — prominent, full-opacity, gold-accented so just-shipped
+   entries read as news rather than archive (issue: implemented = looks old). */
+.devlog-recent-heading { color: var(--gold); }
+.devlog-recent .devlog-card { border-left-color: var(--gold2); }
+
+/* ── Office tab (suite app — #691) ── */
+/* Note: player-layout.css has these too but index.html only loads suite.css */
+
+.office-tab { padding: 20px; max-width: 680px; }
+.office-header { margin-bottom: 20px; }
+.office-title { font-family: var(--fh); font-size: 22px; color: var(--gold); letter-spacing: .06em; }
+.office-role  { font-family: var(--fl); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--txt2); margin-top: 2px; }
+
+.office-section { margin-bottom: 24px; }
+.office-section-hd { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); border-bottom: 1px solid var(--bdr); padding-bottom: 4px; margin-bottom: 12px; }
+
+.office-status-power { font-family: var(--fb); font-size: 14px; color: var(--txt); line-height: 1.7; padding: 14px 16px; background: var(--gold-a6); border: 1px solid var(--gold2); border-radius: 6px; }
+
+.office-manoeuvre-list { display: flex; flex-direction: column; gap: 10px; }
+.office-manoeuvre { padding: 10px 14px; background: var(--surf2); border-radius: 5px; }
+.office-manoeuvre-name { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: .04em; margin-bottom: 4px; }
+.office-manoeuvre-effect { font-family: var(--fb); font-size: 13px; color: var(--txt2); line-height: 1.5; }
+
+.office-merit-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.office-merit-chip { font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; padding: 3px 8px; }
+
+/* HoS interactive actions */
+.office-budget-line { font-family: var(--fb); font-size: 14px; color: var(--txt); margin-bottom: 12px; }
+.office-budget-line.exhausted { color: var(--crim); }
+
+.office-action-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.office-action-msg { font-family: var(--fb); font-size: 13px; color: var(--txt2); margin-top: 8px; min-height: 20px; }
+
+/* Office actions log (status tab) */
+.office-log-section { margin-top: 16px; }
+.office-log-list { display: flex; flex-direction: column; gap: 6px; }
+.office-log-row { display: flex; align-items: center; gap: 10px; font-family: var(--fb); font-size: 13px; padding: 6px 10px; background: var(--surf2); border-radius: 4px; flex-wrap: wrap; }
+.office-log-actor  { color: var(--gold2); font-weight: 600; min-width: 90px; }
+.office-log-verb   { color: var(--txt2); }
+.office-log-target { color: var(--txt); flex: 1; min-width: 80px; }
+.office-log-status { color: var(--txt2); font-size: 12px; white-space: nowrap; }
+.office-log-time   { color: var(--txt2); font-size: 11px; opacity: .7; white-space: nowrap; }

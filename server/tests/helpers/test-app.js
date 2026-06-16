@@ -14,7 +14,9 @@ import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import attendanceRouter from '../../routes/attendance.js';
 import trackerRouter from '../../routes/tracker.js';
+import rankingBallotsRouter from '../../routes/ranking_ballots.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
+import ordealResponsesRouter from '../../routes/ordeal-responses.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
 import {
@@ -26,6 +28,9 @@ import npcFlagsRouter from '../../routes/npc-flags.js';
 import npcsRouter from '../../routes/npcs.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
 import appSettingsRouter from '../../routes/app-settings.js';
+import devlogRouter from '../../routes/devlog.js';
+import equipmentRouter from '../../routes/equipment.js';
+import { chaptersRouter } from '../../routes/chapters.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -53,6 +58,9 @@ export function createTestApp() {
   // Health check
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+  // Equipment catalogue (public — no auth, mirrors prod mount order)
+  app.use('/api/equipment', equipmentRouter);
+
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert
   // the headers are wired correctly through the same middleware stack.
@@ -60,6 +68,7 @@ export function createTestApp() {
   app.use('/api/characters', mockAuth, noCache(), charactersRouter);
   app.use('/api/downtime_cycles', mockAuth, noCache(), cyclesRouter);
   app.use('/api/downtime_submissions', mockAuth, noCache(), submissionsRouter);
+  app.use('/api/ranking_ballots', mockAuth, noCache(), rankingBallotsRouter);
   app.use('/api/project_invitations', mockAuth, noCache(), projectInvitationsRouter);
   app.use('/api/players', mockAuth, noCache(), playersRouter);
   app.use('/api/attendance', mockAuth, noCache(), attendanceRouter);
@@ -71,6 +80,7 @@ export function createTestApp() {
   app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);
   app.use('/api/tracker_state', mockAuth, requireRole('st'), noCache(), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, noCache(), ordealSubmissionsRouter);
+  app.use('/api/ordeal-responses', mockAuth, noCache(), ordealResponsesRouter);
   app.use('/api/archive_documents', mockAuth, noCache(), archiveDocumentsRouter);
   // Rules engine — must mount before /api/rules (purchasable_powers)
   const reRoleST = requireRole('st');
@@ -94,6 +104,10 @@ export function createTestApp() {
   app.use('/api/st_mod_audit', mockAuth, noCache(), stModAuditRouter);
   // Epic STM (issue #378): app settings (global kill-switch)
   app.use('/api/settings', mockAuth, noCache(), appSettingsRouter);
+  // Issue #502: devlog entries (player read, ST write)
+  app.use('/api/devlog', mockAuth, noCache(), devlogRouter);
+  // CYCLE epic (#708): chapter management
+  app.use('/api/chapters', mockAuth, noCache(), chaptersRouter);
 
   return app;
 }

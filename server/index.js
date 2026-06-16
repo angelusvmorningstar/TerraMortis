@@ -9,6 +9,7 @@ import { cacheControl, noCache } from './middleware/cache-control.js';
 import charactersRouter from './routes/characters.js';
 import territoriesRouter from './routes/territories.js';
 import trackerRouter from './routes/tracker.js';
+import rankingBallotsRouter from './routes/ranking_ballots.js';
 import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter, projectInvitationsRouter } from './routes/downtime.js';
 import investigationsRouter from './routes/investigations.js';
@@ -26,6 +27,7 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
+import officeActionsRouter from './routes/office-actions.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -34,6 +36,9 @@ import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
+import devlogRouter from './routes/devlog.js';
+import equipmentRouter from './routes/equipment.js';
+import chaptersRouter from './routes/chapters.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -71,6 +76,9 @@ app.get('/api/health', (req, res) => {
 // Auth routes (public — no middleware)
 app.use('/api/auth', authRouter);
 
+// Equipment catalogue (public — no auth; DT form and player app both need access)
+app.use('/api/equipment', equipmentRouter);
+
 // Protected routes — require valid token (role resolved from players collection)
 // Characters and downtime submissions have internal role filtering (ST vs player)
 //
@@ -82,6 +90,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/characters', requireAuth, noCache(), charactersRouter);
 app.use('/api/downtime_cycles', requireAuth, noCache(), cyclesRouter);
 app.use('/api/downtime_submissions', requireAuth, noCache(), submissionsRouter);
+app.use('/api/ranking_ballots', requireAuth, noCache(), rankingBallotsRouter);
 app.use('/api/project_invitations', requireAuth, noCache(), projectInvitationsRouter);
 app.use('/api/players', requireAuth, noCache(), playersRouter);
 app.use('/api/questionnaire', requireAuth, noCache(), questionnaireRouter);
@@ -164,6 +173,9 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 // PATCH from the STM-5 admin panel needs to surface to all readers without
 // stale-cache lag.
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
+app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
+app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

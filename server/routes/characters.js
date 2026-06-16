@@ -3,10 +3,25 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
-import { normalizeMeritsMiddleware } from '../lib/normalize-character.js';
+import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware } from '../lib/normalize-character.js';
+// N-1 (ADR-005 Rev 2): map-fallback shape for per-slug reads. Used in the
+// partner-dots enrichment below so the server's hardcoded subset survives
+// the N-2 backfill from `m.free_<slug>` to `m.free_grants.<slug>`. The
+// SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
+// Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
+import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
+// #753: POST /equipment must reject catalogue_ids that aren't in the catalogue
+// (type/presence is checked inline; existence is checked against this Set).
+import { EQUIPMENT_CATALOGUE } from '../data/equipment-catalogue.js';
+const _CATALOGUE_IDS = new Set(EQUIPMENT_CATALOGUE.map(e => e.id));
 
 const router = Router();
 const col = () => getCollection('characters');
+
+// #510: canonical influence spheres (mirrors public/js/data/constants.js:123).
+// Carthian Pull allocations to Allies/Contacts must pick from this fixed set so
+// downstream systems recognise the qualifier.
+const INFLUENCE_SPHERES = ['Bureaucracy', 'Church', 'Finance', 'Health', 'High Society', 'Industry', 'Legal', 'Media', 'Military', 'Occult', 'Police', 'Politics', 'Street', 'Transportation', 'University', 'Underworld'];
 
 /** Strip ephemeral underscore-prefixed fields from req.body before validation. */
 function stripEphemeral(req, res, next) {
@@ -141,11 +156,59 @@ async function enrichTouchstoneNpcNames(chars, { forPlayer } = {}) {
   }
 }
 
+// N-1 (ADR-005 Rev 2 §D3): Collective Compound synthesis on the server side.
+// Mirrors the client-side pass in `mci.js#applyDerivedMerits` so the player
+// portal sees synthesised `_collective_shared_with` without needing to run
+// the full editor rule-engine in the browser. ST path uses its full `chars`
+// array as the search context (no extra fetch); player path augments its own
+// chars with any collective members it doesn't otherwise have access to (one
+// scoped fetch by source-merit name; reuses the existing partner projection
+// shape — `{ name: 1, merits: 1 }`). Never persists `_collective_shared_with`
+// — it lives only on the response, stripped by `buildSaveBody` on the save
+// path (per Concern #3).
+async function _enrichCollectiveSharing(chars) {
+  const grantsCol = getCollection('rule_grant');
+  const collectiveRules = await grantsCol
+    .find({ 'sharing_scope.type': 'collective_owners_of_merit' })
+    .toArray();
+  if (!collectiveRules.length) return;
+
+  // Build the search context: union of `chars` plus any collective-owner chars
+  // not already in the set. Player path needs the augmentation; ST path's
+  // `chars` already contains everyone (the union is a no-op there).
+  const sourceMerits = [...new Set(collectiveRules.map(r => r?.sharing_scope?.merit).filter(Boolean))];
+  let searchContext = chars;
+  if (sourceMerits.length) {
+    const haveIds = new Set(chars.map(c => String(c._id)).filter(Boolean));
+    const extras = await col()
+      .find(
+        { 'merits.name': { $in: sourceMerits } },
+        { projection: { name: 1, merits: 1 } }
+      )
+      .toArray();
+    const missing = extras.filter(e => e && e._id && !haveIds.has(String(e._id)));
+    if (missing.length) searchContext = chars.concat(missing);
+  }
+
+  for (const c of chars) {
+    for (const rule of collectiveRules) {
+      const synthesised = resolveSharingScope(rule.sharing_scope, c, searchContext, rule);
+      if (synthesised == null) continue;
+      const targets = Array.isArray(rule.pool_targets) ? rule.pool_targets : [];
+      if (!targets.length) continue;
+      for (const m of (c.merits || [])) {
+        if (targets.includes(m.name)) m._collective_shared_with = synthesised;
+      }
+    }
+  }
+}
+
 // GET /api/characters — ST gets all, player gets only their characters
 // ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
   if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
+    await _enrichCollectiveSharing(chars);
     await enrichTouchstoneNpcNames(chars, { forPlayer: false });
     return res.json(chars);
   }
@@ -180,8 +243,11 @@ router.get('/', async (req, res) => {
       const meritDots = {};
       for (const m of (p.merits || [])) {
         if (m.category !== 'domain') continue;
-        meritDots[m.name] = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
-                          + (m.free_retainer || 0) + (m.xp || 0);
+        // N-1 (Concern #1 Rev 2 VERBATIM): subset preserved verbatim — DO NOT
+        // narrow to match the client's mci-only subset. Per-slug reads via
+        // `freeOf` for N-2-backfill safety; behaviour identical pre-N-1.
+        meritDots[m.name] = (m.cp || 0) + freeOf(m, 'mci') + freeOf(m, 'bloodline')
+                          + freeOf(m, 'retainer') + (m.xp || 0);
       }
       partnerMap.set(p.name, meritDots);
     }
@@ -199,6 +265,7 @@ router.get('/', async (req, res) => {
     }
   }
 
+  await _enrichCollectiveSharing(chars);
   await enrichTouchstoneNpcNames(chars, { forPlayer: true });
   res.json(chars);
 });
@@ -342,7 +409,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters/wizard — player creates their own character
-router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, async (req, res) => {
+router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const players = getCollection('players');
   const player = await players.findOne({ _id: req.user.player_id });
   const existingIds = player?.character_ids || [];
@@ -369,7 +436,7 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 });
 
 // POST /api/characters — ST only
-router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, async (req, res) => {
+router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -381,7 +448,7 @@ router.post('/', requireRole('st'), stripEphemeral, validateCharacter, normalize
 // PUT /api/characters/:id — ST only
 // Uses partial schema validation: types/shapes checked but no field is required,
 // so both full document saves and partial updates (e.g. regent assignment) are valid.
-router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, normalizeMeritsMiddleware, async (req, res) => {
+router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, normalizeMeritsMiddleware, validateWhiteAntsTerritoriesMiddleware, validateTrapDoorAnchorMiddleware, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
@@ -448,6 +515,219 @@ router.patch('/:id/st_mods_suppressed', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// PATCH /api/characters/:id/safe_place_locations — player (own char) or ST.
+// #506: persist per-Safe-Place street+suburb on the character so locations carry
+// across downtime cycles. Narrowly scoped: only the `location` field on `Safe
+// Place` domain merits is touched; every other merit and field is left exactly
+// as-is. The player-facing downtime form cannot use PUT /:id (ST-only), so this
+// is the sole player write path. Ownership mirrors GET /:id (:331-333).
+router.patch('/:id/safe_place_locations', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  // Ownership: players may only write their own character; ST may write any.
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const { locations } = req.body || {};
+  if (!Array.isArray(locations)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'locations must be an array' });
+  }
+  const MAX_LEN = 200;
+  const clean = locations.map(v => {
+    if (v == null) return '';
+    if (typeof v !== 'string') return null; // sentinel: invalid entry
+    return v.slice(0, MAX_LEN);
+  });
+  if (clean.some(v => v === null)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'each location must be a string' });
+  }
+
+  const char = await col().findOne({ _id: oid });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  // Apply positionally to Safe Place domain merits in document order — the same
+  // filter the downtime form renders/collects by, so index i aligns within a
+  // single load->submit. A shorter array leaves trailing safe places untouched.
+  let spIndex = 0;
+  const merits = (char.merits || []).map(m => {
+    if (m.category === 'domain' && m.name === 'Safe Place') {
+      const loc = clean[spIndex];
+      spIndex += 1;
+      if (loc !== undefined) return { ...m, location: loc };
+    }
+    return m;
+  });
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { merits } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
+// PATCH /api/characters/:id/carthian_pull — player (own char) or ST.
+// #508: allocate the single Carthian Pull dot to Allies/Contacts/Haven/Herd as a
+// live bonus dot (the `free_carthian` channel) on the character, so it shows on
+// the sheet via the existing bonus-dot model. At most one Carthian-Pull bonus
+// exists at a time, so every write is strip-then-apply: bonus-only instances we
+// created (tagged `granted_by:'Carthian Pull'`) are deleted, an augmented
+// existing Herd/Haven has its `free_carthian` cleared, then the new allocation
+// is applied. Player-scoped (the ST-only PUT cannot be used by players);
+// ownership mirrors GET /:id (:331-333). `target:''` clears the allocation.
+router.patch('/:id/carthian_pull', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  // #522: accept a SET of allocations { allocations: [{ target, sphere }, ...] }.
+  // The legacy single { target, sphere } is normalised to a one-element set
+  // (and target:'' to an empty set = cleared) for back-compat. The pool size is
+  // the character's Carthian (Covenant) Status, read from the doc — never
+  // trusted from the client.
+  const body = req.body || {};
+  let rawAllocations;
+  if (Array.isArray(body.allocations)) {
+    rawAllocations = body.allocations;
+  } else if (typeof body.target === 'string') {
+    rawAllocations = body.target ? [{ target: body.target, sphere: body.sphere }] : [];
+  } else {
+    rawAllocations = [];
+  }
+
+  const VALID_TARGETS = ['allies', 'contacts', 'haven', 'herd'];
+  const allocations = [];
+  for (const a of rawAllocations) {
+    const target = a && typeof a.target === 'string' ? a.target : '';
+    if (target === '') continue; // empty rows are no-ops
+    if (!VALID_TARGETS.includes(target)) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'invalid target' });
+    }
+    let sphereStr = '';
+    if (target === 'allies' || target === 'contacts') {
+      sphereStr = typeof a.sphere === 'string' ? a.sphere.trim().slice(0, 120) : '';
+      if (!sphereStr) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere required for allies/contacts' });
+      // #510: sphere must be a recognised influence sphere, not free text.
+      if (!INFLUENCE_SPHERES.includes(sphereStr)) {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'sphere must be a valid influence sphere' });
+      }
+    }
+    allocations.push({ target, sphere: sphereStr });
+  }
+
+  const char = await col().findOne({ _id: oid });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  // Pool = Carthian Movement covenant Status (0–5). #522.
+  const pool = Number(char.status?.covenant?.['Carthian Movement']) || 0;
+  if (allocations.length > pool) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Carthian Pull allows ${pool} dot(s) (your Carthian Status); ${allocations.length} requested` });
+  }
+
+  // 1) Strip ALL prior Carthian-Pull residue, leaving zero trace:
+  //    - delete bonus-only instances we created (granted_by:'Carthian Pull');
+  //    - clear free_carthian from any merit we augmented in place;
+  //    - pop every Contacts sphere a Carthian dot pushed (carthian_spheres[]
+  //      plural #522, or the legacy single carthian_sphere #510) so rating
+  //      stays equal to spheres.length.
+  let merits = (char.merits || [])
+    .filter(m => m.granted_by !== 'Carthian Pull')
+    .map(m => {
+      const hasPushed = (Array.isArray(m.carthian_spheres) && m.carthian_spheres.length) || m.carthian_sphere;
+      if (!m.free_carthian && !hasPushed) return m;
+      const rest = { ...m };
+      delete rest.free_carthian;
+      const popped = [];
+      if (Array.isArray(rest.carthian_spheres)) { popped.push(...rest.carthian_spheres); delete rest.carthian_spheres; }
+      if (rest.carthian_sphere) { popped.push(rest.carthian_sphere); delete rest.carthian_sphere; }
+      if (popped.length && Array.isArray(rest.spheres)) rest.spheres = rest.spheres.filter(s => !popped.includes(s));
+      return rest;
+    });
+
+  // Normalize once so ratings reflect the stripped base (rating = sum of
+  // channels) before we cap-check against the base.
+  const baseDoc = { merits };
+  normalizeCharacterMerits(baseDoc);
+  merits = baseDoc.merits;
+
+  // 2) Tally the requested dots per target (stacking allowed — PO 2026-06-01).
+  const alliesAdds = new Map();   // area -> dot count
+  const contactsAdds = [];        // ordered, distinct spheres to push
+  let havenAdds = 0, herdAdds = 0;
+  for (const { target, sphere } of allocations) {
+    if (target === 'allies') alliesAdds.set(sphere, (alliesAdds.get(sphere) || 0) + 1);
+    else if (target === 'contacts') contactsAdds.push(sphere);
+    else if (target === 'haven') havenAdds++;
+    else herdAdds++;
+  }
+
+  // 3) Validate caps against the stripped base (reject over-cap — PO 2026-06-01).
+  //    Allies: base(area) + added <= 5 per sphere. Herd/Haven uncapped here.
+  for (const [area, cnt] of alliesAdds) {
+    const ex = merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === area);
+    const base = ex ? (ex.rating || 0) : 0;
+    if (base + cnt > 5) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Allies (${area}) would exceed 5 dots` });
+    }
+  }
+  //    Contacts: each pushed sphere distinct + not already held; total <= 5.
+  const contactsEx = merits.find(m => m.category === 'influence' && m.name === 'Contacts');
+  const existingContactSpheres = contactsEx && Array.isArray(contactsEx.spheres) ? contactsEx.spheres : [];
+  const seenContact = new Set();
+  for (const sp of contactsAdds) {
+    if (existingContactSpheres.includes(sp)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Contacts sphere already held: ${sp}` });
+    if (seenContact.has(sp)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: `a Contacts sphere can only be held once: ${sp}` });
+    seenContact.add(sp);
+  }
+  if (existingContactSpheres.length + contactsAdds.length > 5) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Contacts would exceed 5 spheres' });
+  }
+
+  // 4) Apply. Match the existing merit by qualifier (Allies → area, Contacts →
+  //    spheres[]); augment it, or create a bonus-only instance if absent.
+  for (const [area, cnt] of alliesAdds) {
+    const ex = merits.find(m => m.category === 'influence' && m.name === 'Allies' && (m.area || '') === area);
+    if (ex) ex.free_carthian = (ex.free_carthian || 0) + cnt;
+    else merits.push({ category: 'influence', name: 'Allies', area, granted_by: 'Carthian Pull', free_carthian: cnt, rating: cnt });
+  }
+  if (contactsAdds.length) {
+    if (contactsEx) {
+      contactsEx.spheres = [...existingContactSpheres, ...contactsAdds];
+      contactsEx.free_carthian = (contactsEx.free_carthian || 0) + contactsAdds.length;
+      contactsEx.carthian_spheres = [...(Array.isArray(contactsEx.carthian_spheres) ? contactsEx.carthian_spheres : []), ...contactsAdds];
+    } else {
+      merits.push({ category: 'influence', name: 'Contacts', spheres: [...contactsAdds], carthian_spheres: [...contactsAdds], granted_by: 'Carthian Pull', free_carthian: contactsAdds.length, rating: contactsAdds.length });
+    }
+  }
+  for (const [name, cnt] of [['Haven', havenAdds], ['Herd', herdAdds]]) {
+    if (!cnt) continue;
+    const ex = merits.find(m => m.category === 'domain' && m.name === name);
+    if (ex) ex.free_carthian = (ex.free_carthian || 0) + cnt;
+    else merits.push({ category: 'domain', name, granted_by: 'Carthian Pull', free_carthian: cnt, rating: cnt });
+  }
+
+  // 5) Re-sync ratings (rating = sum of channels) so the doc stays consistent.
+  const docForNorm = { merits };
+  normalizeCharacterMerits(docForNorm);
+  merits = docForNorm.merits;
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { merits } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
 // DELETE /api/characters/:id — ST only (hard-delete with cascade)
 router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
@@ -470,6 +750,192 @@ router.delete('/:id', requireRole('st'), async (req, res) => {
     console.error('Hard-delete cascade failed:', err);
     res.status(500).json({ error: 'CASCADE_FAILED', message: err.message });
   }
+});
+
+// PATCH /api/characters/:id/player_prefs — player (own char) or ST.
+// #542: persist player preference ratings. Narrowly scoped: only the
+// `player_prefs` subdocument is touched. Ownership mirrors GET /:id.
+router.patch('/:id/player_prefs', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  if (!isStRole(req.user)) {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const { player_prefs } = req.body || {};
+  if (!player_prefs || typeof player_prefs !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'player_prefs must be an object' });
+  }
+
+  const VALID_KEYS = [
+    'combat_action', 'horror_dread', 'institutional_corruption',
+    'mysticism_mystery', 'personal_story', 'political_intrigue',
+  ];
+  const prefs = {};
+  for (const key of VALID_KEYS) {
+    const v = player_prefs[key];
+    if (v === undefined) continue;
+    const rating = (v && typeof v === 'object') ? v.rating : v;
+    if (rating !== null && rating !== undefined &&
+        (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: `${key}.rating must be 1–5 integer or null` });
+    }
+    prefs[key] = { rating: rating ?? null };
+  }
+  prefs.updated_at = new Date().toISOString();
+
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { player_prefs: prefs } },
+    { returnDocument: 'after' },
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json(result);
+});
+
+// ── Equipment routes (EQ-1, issue #654) ─────────────────────────────────────
+//
+// All five routes require ST auth.
+// DELETE routes: client must refresh after delete to avoid stale indices.
+
+// GET /api/characters/:id/equipment — returns { equipment, assets } for the character.
+router.get('/:id/equipment', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+  res.json({ equipment: char.equipment || [], assets: char.assets || [] });
+});
+
+// POST /api/characters/:id/equipment — append a single equipment item.
+router.post('/:id/equipment', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const item = req.body;
+  const VALID_STATES = ['carried', 'worn', 'stashed', 'lost', 'active'];
+  if (!item || typeof item !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Request body must be an equipment item object' });
+  }
+  if (!item.catalogue_id || typeof item.catalogue_id !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'catalogue_id is required' });
+  }
+  // #753: existence check against the catalogue. Without this the client-side
+  // fallback (`entry.name || item.catalogue_id`) silently renders the raw slug
+  // instead of a real name — a clearly broken sheet that no test was catching.
+  if (!_CATALOGUE_IDS.has(item.catalogue_id)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Unknown catalogue_id: ${item.catalogue_id}` });
+  }
+  if (!VALID_STATES.includes(item.state)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `state must be one of: ${VALID_STATES.join(', ')}` });
+  }
+  if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
+  }
+
+  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const cleanItem = {
+    catalogue_id:   item.catalogue_id,
+    state:          item.state,
+    acquired_cycle: item.acquired_cycle,
+    notes:          item.notes ?? null,
+  };
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $push: { equipment: cleanItem } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// DELETE /api/characters/:id/equipment/:itemIndex — remove by zero-based index.
+// Client must refresh after delete to avoid stale indices.
+router.delete('/:id/equipment/:itemIndex', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const idx = parseInt(req.params.itemIndex, 10);
+  const arr = char.equipment || [];
+  if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Equipment index out of range' });
+  }
+
+  arr.splice(idx, 1);
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { equipment: arr } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// POST /api/characters/:id/assets — append a single asset.
+router.post('/:id/assets', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const item = req.body;
+  if (!item || typeof item !== 'object') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Request body must be an asset object' });
+  }
+  if (!item.name || typeof item.name !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'name is required' });
+  }
+  if (!item.description || typeof item.description !== 'string') {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'description is required' });
+  }
+  if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
+  }
+
+  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const cleanItem = {
+    name:              item.name,
+    description:       item.description,
+    location:          item.location ?? null,
+    mechanical_effect: item.mechanical_effect ?? null,
+    acquired_cycle:    item.acquired_cycle,
+    notes:             item.notes ?? null,
+  };
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $push: { assets: cleanItem } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+});
+
+// DELETE /api/characters/:id/assets/:itemIndex — remove by zero-based index.
+// Client must refresh after delete to avoid stale indices.
+router.delete('/:id/assets/:itemIndex', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
+
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
+
+  const idx = parseInt(req.params.itemIndex, 10);
+  const arr = char.assets || [];
+  if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Asset index out of range' });
+  }
+
+  arr.splice(idx, 1);
+  const result = await col().findOneAndUpdate(
+    { _id: oid },
+    { $set: { assets: arr } },
+    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+  );
+  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
 });
 
 export default router;

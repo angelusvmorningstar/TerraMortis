@@ -59,7 +59,9 @@ const feedMethodEnum = [
   '', 'seduction', 'stalking', 'force', 'familiar', 'intimidation', 'other'
 ];
 
-const territoryOid = { type: 'string', pattern: '^[a-f0-9]{24}$' };
+// #514: optional ObjectId — matches a 24-hex ObjectId OR '' (the territory
+// pill's "--" / no-territory option), still rejecting slugs and other garbage.
+const territoryOid = { type: 'string', pattern: '^([a-f0-9]{24})?$' };
 
 const bloodTypeEnum = ['Animal', 'Human', 'Kindred'];
 
@@ -186,6 +188,14 @@ export const downtimeSubmissionSchema = {
   properties: {
 
     // ── Document wrapper ─────────────────────────────────────
+    // FK type note (issue #497): canonical STORAGE for character_id and
+    // cycle_id is ObjectId. The inbound REQUEST shape is always a JSON string,
+    // so the validator must accept 'string' here; the server coerces string →
+    // ObjectId before write (POST /downtime_submissions and PUT /:id). Reads
+    // tolerate both types during the grace window (dual-type $in / $or
+    // filters) until the one-time #497 migration normalises stored cycle_id.
+    // Do NOT tighten these to reject strings — that would 400 every client
+    // write. See migrate-submission-cycle-id-to-oid.js.
     character_id:    { type: ['string', 'null'], minLength: 1 },
     character_name:  { type: 'string' },
     cycle_id:        { type: ['string', 'null'] },
@@ -557,6 +567,12 @@ export const downtimeCycleSchema = {
     submission_count: { type: 'integer', minimum: 0 },
     out_of_window_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
+
+    // CYCLE epic (#708) — manual game phase control. Replaces auto-derive when set.
+    // null = derive from phase_signoff (legacy cycles). See deriveCycleStatus.
+    game_phase: { type: ['string', 'null'], enum: ['game', 'downtime', 'processing', null] },
+    chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
+    session_id: { type: ['string', 'null'] },  // ref to game_sessions _id as string
 
     // Issue #231 — Manual "open downtimes" override (DT Prep tab).
     // Latched flag that forces effective status to 'active' regardless of

@@ -6,6 +6,7 @@ import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { pruneContactsSpheres, domKey } from './domain.js';
+import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -314,6 +315,100 @@ export function shEditDomMerit(idx, field, val) {
   _renderSheet(c);
 }
 
+/**
+ * N-4 (MNEC, issue #696) — White Ants Territory picker handler.
+ *
+ * Bound to `<select>` `onchange` for each per-dot picker on a White Ants merit.
+ * Writes the picked Territory slug into `m.territories[dotIdx]`, trims any
+ * tail beyond the merit's current effective rating (covers the case where the
+ * player dropped a Sepulcher dot and the rating shrank), and re-renders.
+ *
+ * Duplicate detection lives in the renderer (`sheet.js#_whiteAntsTerritoriesBlock`):
+ * a duplicate slug renders the row with a warning + disables Save via the
+ * existing dirty-state path. Save backstop is the server middleware
+ * `validateWhiteAntsTerritoriesMiddleware`.
+ *
+ * @param {number} realIdx - index into c.merits
+ * @param {number} dotIdx  - which dot's picker fired (0-indexed)
+ * @param {string} value   - selected Territory slug, or '' for the placeholder
+ */
+export function shSetWhiteAntsTerritory(realIdx, dotIdx, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = (c.merits || [])[realIdx];
+  if (!m || m.name !== 'White Ants') return;
+
+  if (!Array.isArray(m.territories)) m.territories = [];
+  // Grow the array to dotIdx with empty slots if the picker is for a slot we
+  // haven't created yet (just added a dot, etc.).
+  while (m.territories.length <= dotIdx) m.territories.push('');
+  m.territories[dotIdx] = value || '';
+
+  // Trim trailing slots if rating shrank (e.g. Sepulcher dropped) — keeps the
+  // territories length aligned with rating without losing user picks.
+  const rating = (m.cp || 0) + (m.xp || 0) + _whiteAntsFreeSum(m);
+  if (m.territories.length > rating) m.territories.length = rating;
+
+  _markDirty();
+  _renderSheet(c);
+}
+
+// Inline sum mirroring `meritFreeSum` (rules-helpers.js) — kept here to avoid
+// a cross-import dance just for one merit's rating calc. Union of new map
+// + 14 legacy flat fields per N-1.
+function _whiteAntsFreeSum(m) {
+  const fromMap = m.free_grants && typeof m.free_grants === 'object'
+    ? Object.values(m.free_grants).reduce((s, n) => s + (n || 0), 0)
+    : 0;
+  const legacy = (m.free_attache || 0) + (m.free_bloodline || 0) + (m.free_carthian || 0)
+    + (m.free_fwb || 0) + (m.free_inv || 0) + (m.free_lk || 0) + (m.free_mci || 0)
+    + (m.free_mdb || 0) + (m.free_ohm || 0) + (m.free_pet || 0) + (m.free_pt || 0)
+    + (m.free_retainer || 0) + (m.free_sw || 0) + (m.free_vm || 0);
+  return fromMap + legacy;
+}
+
+/**
+ * N-5 (MNEC, issue #697) — Trap Door triple-anchor picker handler.
+ *
+ * Bound to `<select>` `onchange` for each of the three Trap Door pickers
+ * (origin / destination / territory) in `sheet.js#_trapDoorAnchorBlock`.
+ *
+ * Origin is auto-resolved + locked to 'Necropolis Sepulcher' — the picker
+ * displays it as a read-only label and never fires this handler with
+ * `field === 'origin'`, but the case is handled defensively.
+ *
+ * Auto-initialises `m.attached_to` to the object form on first edit if it's
+ * absent or in legacy string form. The save-path middleware
+ * (`validateTrapDoorAnchorMiddleware`) requires the object form with all
+ * three fields populated.
+ *
+ * @param {number} realIdx
+ * @param {'origin'|'destination'|'territory'} field
+ * @param {string} value
+ */
+export function shSetTrapDoorAnchor(realIdx, field, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = (c.merits || [])[realIdx];
+  if (!m || m.name !== 'Trap Door') return;
+  if (!['origin', 'destination', 'territory'].includes(field)) return;
+
+  // Upgrade attached_to to the object form on first edit. Legacy string-form
+  // attached_to (Haven/Mandragora) is N-1 D7 coexistence shape; Trap Door
+  // requires the object form for the triple anchor.
+  if (!m.attached_to || typeof m.attached_to !== 'object' || Array.isArray(m.attached_to)) {
+    m.attached_to = { origin: 'Necropolis Sepulcher', destination: '', territory: '' };
+  }
+  // Origin is locked but write defensively in case a future picker wants it.
+  if (field === 'origin') {
+    m.attached_to.origin = value || 'Necropolis Sepulcher';
+  } else {
+    m.attached_to[field] = value || '';
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shRemoveDomMerit(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
@@ -323,7 +418,10 @@ export function shRemoveDomMerit(idx) {
     if (removed && removed.name === 'Safe Place') {
       const key = domKey(removed);
       (c.merits || []).forEach(m2 => {
-        if (['Haven', 'Mandragora Garden'].includes(m2.name) && m2.attached_to === key) {
+        // N-1 (Concern #11): normaliser comparison so cascade-detach works
+        // even when m2.attached_to has been migrated to object form.
+        const _at = normaliseAttachedTo(m2.attached_to);
+        if (['Haven', 'Mandragora Garden'].includes(m2.name) && _at && _at.destination === key) {
           delete m2.attached_to;
         }
       });
@@ -475,8 +573,8 @@ export function shEditStyle(idx, field, val) {
   if (field === 'free_mci') {
     const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
       .reduce((s, m) => s + mciPoolTotal(m), 0);
-    const otherMCI = (c.merits || []).reduce((s, m) => s + (m.free_mci || 0), 0)
-      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_mci || 0)), 0);
+    const otherMCI = (c.merits || []).reduce((s, m) => s + freeOf(m, 'mci'), 0)
+      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : freeOf(fs2, 'mci')), 0);
     val = Math.min(val, Math.max(0, mciTotal - otherMCI));
   }
   if (field === 'free_ots') {
@@ -494,7 +592,7 @@ export function shAddPick(manName) {
   const c = state.chars[state.editIdx];
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
-    .reduce((s, fs) => s + (fs.cp||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
+    .reduce((s, fs) => s + (fs.cp||0) + freeOf(fs, 'mci') + freeOf(fs, 'ots') + (fs.xp||0), 0);
   const maxPicks = totalDots;
   if (c.fighting_picks.length >= maxPicks) return;
   const already = c.fighting_picks.some(pk =>

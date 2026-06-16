@@ -78,9 +78,20 @@ router.post('/', validate(ordealResponseSchema), async (req, res) => {
   const existing = await col().findOne({ player_id: playerId, ordeal_type: type });
   if (existing) return res.status(409).json({ error: 'CONFLICT', message: 'Response already exists — use PUT to update' });
 
+  // Resolve character_id even when the session's character_ids is stale or empty.
+  let characterId = req.user.character_ids?.[0] ?? null;
+  if (!characterId) {
+    const player = await getCollection('players').findOne(
+      { _id: req.user.player_id },
+      { projection: { character_ids: 1 } }
+    );
+    characterId = player?.character_ids?.[0] ?? null;
+  }
+
   const now = new Date().toISOString();
   const doc = {
     player_id: playerId,
+    character_id: characterId,
     ordeal_type: type,
     status: 'draft',
     responses: responses || {},
@@ -115,6 +126,14 @@ router.put('/:id', async (req, res) => {
   const updates = { updated_at: new Date().toISOString() };
   if (req.body.responses !== undefined) updates.responses = req.body.responses;
 
+  if (req.body.marking !== undefined && isStRole(req.user)) {
+    updates.marking = req.body.marking;
+    if (req.body.marking?.status === 'complete') {
+      updates.marking.marked_at  = updates.updated_at;
+      updates.marking.xp_awarded = 3;
+    }
+  }
+
   if (req.body.status === 'submitted') {
     updates.status = 'submitted';
     updates.submitted_at = updates.updated_at;
@@ -138,6 +157,11 @@ router.put('/:id', async (req, res) => {
     await cascadePlayerOrdealXp(existing.player_id, existing.ordeal_type);
   }
 
+  // Also cascade when ST marks complete via the admin marking panel
+  if (updates.marking?.status === 'complete' && existing.marking?.status !== 'complete') {
+    await cascadePlayerOrdealXp(existing.player_id, existing.ordeal_type);
+  }
+
   res.json(result);
 });
 
@@ -146,6 +170,41 @@ router.get('/all', requireRole('st'), async (req, res) => {
   const filter = {};
   if (req.query.type) filter.ordeal_type = req.query.type;
   const docs = await col().find(filter).toArray();
+
+  // Batch-enrich: for docs with null character_id, resolve via player lookup.
+  // Mutates in-memory docs only — never writes back to MongoDB.
+  const nullCharDocs = docs.filter(d => !d.character_id && d.player_id);
+  if (nullCharDocs.length) {
+    const playerIds = [...new Set(nullCharDocs.map(d => d.player_id))];
+    const players = await getCollection('players').find(
+      { _id: { $in: playerIds } },
+      { projection: { _id: 1, character_ids: 1 } }
+    ).toArray();
+    const playerMap = new Map(players.map(p => [String(p._id), p.character_ids?.[0] ?? null]));
+    docs.forEach(d => {
+      if (!d.character_id && d.player_id) {
+        d.character_id = playerMap.get(String(d.player_id)) ?? null;
+      }
+    });
+  }
+
+  // Snapshot character_name for all docs that have a character_id — includes
+  // retired characters which may not appear in the admin's active chars[] array.
+  const charIds = [...new Set(docs.filter(d => d.character_id).map(d => d.character_id))];
+  if (charIds.length) {
+    const charDocs = await getCollection('characters').find(
+      { _id: { $in: charIds } },
+      { projection: { _id: 1, name: 1, moniker: 1, honorific: 1 } }
+    ).toArray();
+    const charMap = new Map(charDocs.map(c => [String(c._id), c]));
+    docs.forEach(d => {
+      if (d.character_id && !d.character_name) {
+        const c = charMap.get(String(d.character_id));
+        if (c) d.character_name = [c.honorific, c.moniker || c.name].filter(Boolean).join(' ');
+      }
+    });
+  }
+
   res.json(docs);
 });
 

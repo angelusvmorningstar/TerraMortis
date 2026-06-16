@@ -37,7 +37,9 @@ import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
+import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
+import { initCycleView } from './admin/cycle-views.js';
 import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -62,6 +64,8 @@ import {
   shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   registerCallbacks as registerEditCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
@@ -272,6 +276,7 @@ function switchDomain(domain) {
     // setup needed here.
     initDowntimeView(chars);
   }
+  if (domain === 'cycle') initCycleView(chars);
   if (domain === 'npcs') initNpcRegister(chars);
   if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
@@ -281,6 +286,7 @@ function switchDomain(domain) {
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
+  if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
     // STM-5 (issue #386): panel works on the currently-selected character.
     // editorState.editIdx tracks the open sheet; null/-1 → "select a char"
@@ -917,6 +923,22 @@ function buildSaveBody(c) {
     if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
+  // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
+  // (e.g. `_collective_shared_with` from Collective Compound synthesis,
+  // `_partner_dots` from the server-side enrichment) MUST NOT round-trip
+  // back through PUT. The render-time field is rebuilt on every read; if it
+  // ever persists, a stale list could survive a roster change. Shallow-clone
+  // the merits array and drop `_`-prefixed keys per merit.
+  if (Array.isArray(body.merits)) {
+    body.merits = body.merits.map(m => {
+      const cleaned = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (k.startsWith('_')) continue;
+        cleaned[k] = v;
+      }
+      return cleaned;
+    });
+  }
   return body;
 }
 
@@ -1306,6 +1328,8 @@ Object.assign(window, {
   shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shSetWhiteAntsTerritory,
+  shSetTrapDoorAnchor,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

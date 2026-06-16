@@ -13,12 +13,32 @@ function esc(s) {
   return d.innerHTML;
 }
 
+const PLAYER_PREF_AXES = [
+  { key: 'combat_action',            label: 'Combat & Action' },
+  { key: 'horror_dread',             label: 'Horror & Dread' },
+  { key: 'institutional_corruption', label: 'Institutional Corruption' },
+  { key: 'mysticism_mystery',        label: 'Mysticism & Mystery' },
+  { key: 'personal_story',           label: 'Personal Story' },
+  { key: 'political_intrigue',       label: 'Political Intrigue' },
+];
+
 const ORDEAL_LABELS = {
   lore_mastery:           'Lore Mastery',
   rules_mastery:          'Rules Mastery',
   covenant_questionnaire: 'Covenant Questionnaire',
   character_history:      'Character History',
 };
+
+// ordeal_responses stores short-form types; admin tabs and rubric use long-form.
+const ORDEAL_TYPE_NORM = {
+  rules:    'rules_mastery',
+  lore:     'lore_mastery',
+  covenant: 'covenant_questionnaire',
+};
+
+function normType(t) {
+  return ORDEAL_TYPE_NORM[t] || t;
+}
 
 const ORDEAL_TYPES = Object.keys(ORDEAL_LABELS);
 
@@ -45,10 +65,16 @@ export async function initOrdealsAdminView(chars) {
   container.innerHTML = '<p class="placeholder">Loading ordeals\u2026</p>';
 
   try {
-    [submissions, rubrics] = await Promise.all([
+    const [responses, legacy, rubricsData] = await Promise.all([
+      apiGet('/api/ordeal-responses/all'),
       apiGet('/api/ordeal_submissions'),
       apiGet('/api/ordeal_rubrics'),
     ]);
+    rubrics = rubricsData;
+    submissions = [
+      ...(responses || []).map(r => ({ ...r, _source: 'responses' })),
+      ...(legacy   || []).map(l => ({ ...l, _source: 'submissions' })),
+    ];
   } catch (err) {
     container.innerHTML = `<p class="placeholder">Failed to load: ${esc(err.message)}</p>`;
     return;
@@ -73,10 +99,13 @@ function render(container) {
   h += '<div class="or-view-toggle">';
   h += `<button class="or-toggle-btn${activeView === 'marking' ? ' on' : ''}" data-view="marking">Marking</button>`;
   h += `<button class="or-toggle-btn${activeView === 'rubric' ? ' on' : ''}" data-view="rubric">Rubric Editor</button>`;
+  h += `<button class="or-toggle-btn${activeView === 'prefs' ? ' on' : ''}" data-view="prefs">Player Preferences</button>`;
   h += '</div>';
 
   if (activeView === 'marking') {
     h += renderMarkingView();
+  } else if (activeView === 'prefs') {
+    h += renderPrefsView();
   } else {
     h += renderRubricView();
   }
@@ -100,7 +129,7 @@ function renderLeft() {
   // Type filter tabs
   const visible = activeType === 'all'
     ? submissions
-    : submissions.filter(s => s.ordeal_type === activeType);
+    : submissions.filter(s => normType(s.ordeal_type) === activeType);
 
   const sorted = [...visible].sort((a, b) => {
     const nameA = charNameForSub(a);
@@ -131,7 +160,7 @@ function renderLeft() {
     let lastType = null;
     for (const sub of sorted) {
       if (activeType === 'all' && sub.ordeal_type !== lastType) {
-        h += `<div class="or-list-heading">${esc(ORDEAL_LABELS[sub.ordeal_type] || sub.ordeal_type)}</div>`;
+        h += `<div class="or-list-heading">${esc(ORDEAL_LABELS[normType(sub.ordeal_type)] || sub.ordeal_type)}</div>`;
         lastType = sub.ordeal_type;
       }
       const status = sub.marking?.status || 'unmarked';
@@ -150,7 +179,7 @@ function renderLeft() {
 function tabBtn(type, label) {
   const count = type === 'all'
     ? submissions.length
-    : submissions.filter(s => s.ordeal_type === type).length;
+    : submissions.filter(s => normType(s.ordeal_type) === type).length;
   return `<button class="or-tab-btn${activeType === type ? ' on' : ''}" data-type="${esc(type)}">${esc(label)} <span class="or-tab-count">${count}</span></button>`;
 }
 
@@ -167,14 +196,15 @@ function renderRight() {
 
   const char    = characters.find(c => String(c._id) === String(sub.character_id));
   const charName = char ? cardName(char) : (sub.character_name || 'Unknown');
-  const typeLabel = ORDEAL_LABELS[sub.ordeal_type] || sub.ordeal_type;
+  const typeLabel = ORDEAL_LABELS[normType(sub.ordeal_type)] || sub.ordeal_type;
   const status  = sub.marking?.status || 'unmarked';
   const isComplete = status === 'complete';
 
-  // Find matching rubric
+  // Find matching rubric (normalise short-form ordeal_type from ordeal_responses)
+  const normOrdealType = normType(sub.ordeal_type);
   const rubric = rubrics.find(r =>
-    r.ordeal_type === sub.ordeal_type &&
-    (sub.ordeal_type !== 'covenant_questionnaire' || r.covenant === sub.covenant || !r.covenant)
+    r.ordeal_type === normOrdealType &&
+    (normOrdealType !== 'covenant_questionnaire' || r.covenant === sub.covenant || !r.covenant)
   );
   const rubricQs = rubric?.questions || [];
 
@@ -191,8 +221,10 @@ function renderRight() {
   }
   h += '</div>';
 
-  // Q&A table
-  const responses = sub.responses || [];
+  // Q&A table — ordeal_responses stores { key: value }; ordeal_submissions stores [{ question, answer }]
+  const responses = Array.isArray(sub.responses)
+    ? sub.responses
+    : Object.entries(sub.responses || {}).map(([key, answer]) => ({ question: key, answer }));
   const savedAnswers  = sub.marking?.answers || [];
   const pending       = pendingAnswers[sub._id] || {};
 
@@ -413,10 +445,21 @@ async function handleSave(subId, markComplete) {
     },
   };
 
+  const endpoint = sub._source === 'submissions'
+    ? '/api/ordeal_submissions/' + subId
+    : '/api/ordeal-responses/' + subId;
+
+  // ordeal_responses needs status:'approved' to trigger XP cascade;
+  // ordeal_submissions handles XP server-side via its own cascadeComplete.
+  if (markComplete && sub._source !== 'submissions') {
+    updates.status = 'approved';
+  }
+
   try {
-    const updated = await apiPut('/api/ordeal_submissions/' + subId, updates);
+    const updated = await apiPut(endpoint, updates);
     const idx = submissions.findIndex(s => s._id === subId);
-    if (idx >= 0) submissions[idx] = updated;
+    // Re-attach _source — server response won't include it
+    if (idx >= 0) submissions[idx] = { ...updated, _source: sub._source };
     delete pendingAnswers[subId];
     delete pendingOverall[subId];
     render();
@@ -449,9 +492,81 @@ async function handleRubricSave(rubricId, qIdx) {
   }
 }
 
+// ── Player Preferences View (#542) ───────────────────────────────────────────
+
+function renderPrefsView() {
+  const active = characters.filter(c => !c.retired);
+  const withPrefs = active.filter(c => {
+    const p = c.player_prefs || {};
+    return PLAYER_PREF_AXES.some(a => p[a.key]?.rating != null);
+  });
+
+  const averages = {};
+  for (const axis of PLAYER_PREF_AXES) {
+    const vals = withPrefs.map(c => c.player_prefs[axis.key]?.rating).filter(v => v != null);
+    averages[axis.key] = vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+  }
+
+  let h = '<div class="or-prefs-shell">';
+
+  // Campaign aggregate
+  h += '<div class="or-prefs-aggregate">';
+  h += `<h3 class="or-prefs-heading">Campaign Average <span class="or-prefs-meta">${withPrefs.length} of ${active.length} players responded</span></h3>`;
+  h += '<table class="or-prefs-table">';
+  h += '<thead><tr><th>Preference</th><th>Avg</th><th>Visual</th></tr></thead><tbody>';
+  for (const axis of PLAYER_PREF_AXES) {
+    const avg = averages[axis.key];
+    const avgStr = avg !== null ? avg.toFixed(1) : '—';
+    const filled = avg !== null ? Math.round(avg) : 0;
+    const dots = Array.from({ length: 5 }, (_, i) => i < filled ? '●' : '○').join('');
+    h += `<tr><td>${esc(axis.label)}</td><td class="or-prefs-avg">${esc(avgStr)}</td><td class="or-prefs-dots">${dots}</td></tr>`;
+  }
+  h += '</tbody></table>';
+  h += '</div>';
+
+  // Per-character breakdown
+  h += '<div class="or-prefs-chars">';
+  h += '<h3 class="or-prefs-heading">Per Character</h3>';
+  if (!withPrefs.length) {
+    h += '<p class="placeholder">No characters have set preferences yet.</p>';
+  } else {
+    h += '<table class="or-prefs-table or-prefs-chars-table">';
+    h += '<thead><tr><th>Character</th>';
+    for (const axis of PLAYER_PREF_AXES) {
+      h += `<th class="or-prefs-axis-head" title="${esc(axis.label)}">${esc(axis.label.split(' ')[0])}</th>`;
+    }
+    h += '</tr></thead><tbody>';
+    const sorted = [...withPrefs].sort((a, b) => cardName(a).localeCompare(cardName(b)));
+    for (const c of sorted) {
+      const p = c.player_prefs || {};
+      const updatedAt = p.updated_at
+        ? new Date(p.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : null;
+      h += `<tr><td>${esc(cardName(c))}${updatedAt ? `<br><small class="or-prefs-date">${esc(updatedAt)}</small>` : ''}</td>`;
+      for (const axis of PLAYER_PREF_AXES) {
+        const rating = p[axis.key]?.rating ?? null;
+        h += `<td class="or-prefs-cell">${rating !== null ? rating : '<span class="or-prefs-null">—</span>'}</td>`;
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function charNameForSub(sub) {
-  const char = characters.find(c => String(c._id) === String(sub.character_id));
-  return char ? cardName(char) : (sub.character_name || 'Unknown');
+  if (sub.character_id) {
+    const char = characters.find(c => String(c._id) === String(sub.character_id));
+    if (char) return cardName(char);
+  }
+  if (sub.player_id) {
+    const char = characters.find(c => String(c.player_id) === String(sub.player_id));
+    if (char) return cardName(char);
+  }
+  return sub.character_name || 'Unknown';
 }

@@ -96,11 +96,11 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'territory_id and rights[] are required' });
   }
 
-  // 1. Load cycle; must exist and be active
+  // 1. Load cycle; must exist and not be closed
   const cycle = await cycles().findOne({ _id: oid });
   if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
-  if (cycle.status !== 'active') {
-    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not active' });
+  if (cycle.status === 'closed') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is closed' });
   }
 
   // 2. Load territory by _id (ADR-002 strict cutover Q2 — slug rejected).
@@ -554,6 +554,39 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// POST /api/downtime_cycles/:id/publish — ST only; bulk-promote compiled DT reports
+cyclesRouter.post('/:id/publish', requireRole('st'), async (req, res) => {
+  const cycleOid = parseId(req.params.id);
+  if (!cycleOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const subs = getCollection('downtime_submissions');
+  const all = await subs.find({ cycle_id: cycleOid }).toArray();
+
+  let published = 0;
+  let skipped = 0;
+  const now = new Date().toISOString();
+
+  for (const sub of all) {
+    const text = sub.st_review?.outcome_text;
+    if (!text) { skipped++; continue; }
+    if (sub.st_review?.outcome_visibility === 'published' && sub.published_outcome) {
+      skipped++;
+      continue;
+    }
+    await subs.updateOne(
+      { _id: sub._id },
+      { $set: {
+          published_outcome: text,
+          'st_review.outcome_visibility': 'published',
+          'st_review.published_at': now,
+      }}
+    );
+    published++;
+  }
+
+  res.json({ published, skipped });
+});
+
 // --- Submissions: /api/downtime_submissions ---
 
 export const submissionsRouter = Router();
@@ -752,7 +785,7 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
       const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
       if (cycleOid) {
         const cycle = await cycles().findOne({ _id: cycleOid });
-        if (cycle?.deadline_at && new Date(cycle.deadline_at) < new Date()) {
+        if (!cycle?.manual_open && cycle?.deadline_at && new Date(cycle.deadline_at) < new Date()) {
           return res.status(403).json({ error: 'DEADLINE_PASSED', message: 'Submissions for this cycle are closed.' });
         }
       }
@@ -785,6 +818,18 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
   }
 
   const { _id, ...updates } = req.body;
+  // Issue #497: coerce FK strings → ObjectId before write, mirroring the POST
+  // path (above). PUT bodies rarely carry cycle_id/character_id, but if they
+  // do, a string value would re-introduce the mixed-type split. Malformed
+  // (non-24-hex) values are left untouched, matching the POST guard.
+  if (updates.cycle_id) {
+    const cidOid = parseId(String(updates.cycle_id));
+    if (cidOid) updates.cycle_id = cidOid;
+  }
+  if (updates.character_id) {
+    const charOid = parseId(String(updates.character_id));
+    if (charOid) updates.character_id = charOid;
+  }
   const result = await submissions().findOneAndUpdate(
     { _id: oid },
     { $set: updates },
@@ -1160,8 +1205,12 @@ projectInvitationsRouter.post('/:id/accept', async (req, res) => {
   const charOid = parseId(inv.invited_character_id);
   let sub = null;
   if (charOid) {
+    // Issue #497: tolerate both ObjectId and string cycle_id. (Joints are a
+    // DT2+ feature so a string-typed DT1 submission can't actually be a joint
+    // invitee, but this keeps every submission-by-cycle_id read uniformly
+    // dual-type during the migration grace window.)
     sub = await submissions().findOne({
-      cycle_id: cycleOid,
+      cycle_id: { $in: [cycleOid, String(cycleOid)] },
       $or: [{ character_id: charOid }, { character_id: String(inv.invited_character_id) }],
     });
   }

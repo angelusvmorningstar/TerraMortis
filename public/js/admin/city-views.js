@@ -5,6 +5,9 @@
  */
 
 import { apiGet, apiPut, apiPost } from '../data/api.js';
+// #751: writes state.activeCycleNum when the active cycle resolves so the
+// editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
+import state from '../data/state.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, cardName, dropdownName, sortName, clanIcon, covIcon } from '../data/helpers.js';
@@ -58,7 +61,10 @@ export async function initCityView() {
     const cycles = await apiGet('/api/downtime_cycles');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     _activeCycle = sorted.find(c => c.status === 'active') || null;
-  } catch { _activeCycle = null; }
+    // #751: plumb the cycle number into shared state for the editor's
+    // Add Equipment / Add Asset pre-fill (read in sheet.js + edit.js).
+    state.activeCycleNum = (_activeCycle && _activeCycle.cycle_number) ?? null;
+  } catch { _activeCycle = null; state.activeCycleNum = null; }
 
   try {
     const sessions = await apiGet('/api/game_sessions');
@@ -703,8 +709,14 @@ async function saveTerrAmbience(terrId) {
     // Invalidate processing mode's territory cache so it refetches on next render
     invalidateCachedTerritories();
 
-    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    // #634: re-render FIRST (it rebuilds the status span from the template), THEN set the
+    // "Saved" feedback on the fresh node — otherwise patchTerritories wiped it in the same tick.
     patchTerritories(document.getElementById('city-content'));
+    const savedStatus = document.getElementById('terr-amb-status-' + terrId);
+    if (savedStatus) {
+      savedStatus.textContent = 'Saved';
+      setTimeout(() => { const s = document.getElementById('terr-amb-status-' + terrId); if (s) s.textContent = ''; }, 2000);
+    }
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
   }
