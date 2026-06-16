@@ -176,6 +176,24 @@ For each rule with `sharing_scope.type === 'collective_owners_of_merit'`, the sy
 
 The synthesised `shared_with` must be **marked transient** (e.g. via a non-enumerable property or by stripping it in the buildSaveBody path — same `_`-prefix convention from ADR-004 §D13 would apply if a name change is preferred, e.g. `_shared_with_synthesised`). The simplest contract: persisted `shared_with` is the explicit list; synthesised entries overwrite it in memory for collective targets and are stripped on save. STM-12 used the `_st_mod_overlay` strip path as the precedent.
 
+#### D3 — inline amendment (COLLECTIVE-1, issue #800, 2026-06-16): virtual row synthesis for partner-only merits
+
+The original D3 specification covered the **partner enrichment** case — adding the synthesised member list to a merit instance the character *already owns*. The MNEC epic intent was broader: for the `collective_owners_of_merit` scope, every member of the collective should see every target merit any member has, rendered on their sheet, with the cumulative dot total split as own (solid) + cross-owner (hollow). This generalises the "share what you both own" partner_explicit pattern to a "share what any member has" Collective Compound pattern.
+
+The renderer-side primitive — added in COLLECTIVE-1 — synthesises the **target-merit name union** across the collective at render time (not persisted, no schema change):
+
+- `synthesiseCollectiveNecroNames(c, allChars, necroTargets)` walks all Sepulcher-owners (the collective for the first Collective Compound instance) and returns the union of target merit names any owner has *with at least one allocated dot*. Empty target rows on a single owner are excluded — they're meaningless to surface elsewhere.
+- For each name in the union that the current character does NOT own, the renderer emits a **virtual row**: zero own dots solid + cumulative-other-owners dots hollow. The row is editable; clicking the NECRO stepper invokes the new `shAllocateNecroVirtual(meritName, value)` handler which materialises the merit on `c.merits` (idempotent — does nothing if already present) and writes via the standard `free_grants.necro` path (no new write target).
+- `collectiveNecroDots(allChars, meritName)` returns the cumulative `free_grants.necro` sum across all Sepulcher-owners; used for both own-row partner-hollow extension and virtual-row total display. **Not capped at the merit's `rating_range`** — per Peter 2026-06-16, cumulative across owners can exceed the per-instance 5-dot cap.
+
+**Sepulcher boundary (membership gate):** virtual row synthesis fires ONLY for characters who themselves own Necropolis Sepulcher at ≥ 1 purchased dot (`cp + xp ≥ 1`). Non-Sepulcher characters never see virtual rows; they are not members of the collective. This matches the existing membership semantics in `synthesiseCollectiveOwners` and the pool-evaluator: collective grants don't grant collective membership.
+
+**Persistence invariant unchanged:** virtual rows are pure render-time synthesis. The candidate name list is recomputed every render from the live `state.chars` snapshot. Nothing about the virtual-row mechanism modifies persisted character documents; the only DB write happens when a player actively allocates via the NECRO stepper (which materialises the merit and routes through the standard write path).
+
+**Future Collective Compound variants** (`collective_members_of_covenant`, `collective_members_of_clan`, etc.) inherit this pattern: each variant adds a per-scope synthesis function returning the target-merit name union for its collective, and the renderer dispatches on `scope.type` the same way `resolveSharingScope` does for the enrichment side.
+
+The amendment does NOT change the persistence schema, the rule_grant doc shape, or any other ADR-005 decision (D1–D7 stand unchanged). It documents what the MNEC epic intended for the cross-owner cumulative view that the original D3 enrichment-only synthesis left unspecified. No Rev bump — mirrors the in-place D6 allocator-write-path amendment from N-7.
+
 **Per ADR-004 §D8 cache-entry invariant:** any in-memory character cache feeding accessor reads must have `applyDerivedMerits` applied to its entries. Collective sharing synthesis rides the existing precondition; no new cache discipline is introduced.
 
 ### D4 — Multi-source contributions to one merit sum natively via the map. (Khepri Q4)
