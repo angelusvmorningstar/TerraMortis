@@ -200,8 +200,8 @@ function _ambienceDirection(actionType, projN, responses) {
     const dir = responses[`project_${projN}_ambience_direction`]
       || responses[`project_${projN}_ambience_dir`]
       || '';
-    if (dir === 'improve') return 'increase';
-    if (dir === 'degrade') return 'decrease';
+    if (dir === 'improve' || dir === 'up') return 'increase';
+    if (dir === 'degrade' || dir === 'down') return 'decrease';
   }
   return null;
 }
@@ -3834,7 +3834,7 @@ function _computeMatrixFeederCounts() {
     const fedMap = _getSubFedTerrs(s);
     for (const [csvKey, count] of fedMap) {
       if (byCsvKey[csvKey] !== undefined) byCsvKey[csvKey] += count;
-      const tid = resolveTerrId(csvKey);
+      const tid = TERRITORY_SLUG_MAP[csvKey];
       if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + count;
     }
   }
@@ -3910,7 +3910,7 @@ function _gatherProjectAmbience(subs) {
       const terrRaw = resp[`project_${n}_ambience_target`] || resp[`project_${n}_territory`] || '';
       const desc    = resp[`project_${n}_description`] || proj.detail || '';
       const outcome = proj.desired_outcome || resp[`project_${n}_outcome`] || '';
-      const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      const tid = terrOverride || (TERRITORY_SLUG_MAP[terrRaw] ?? resolveTerrId(terrRaw)) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = resolved.roll.successes ?? 0;
       const contrib = successes >= 5 ? 4 : successes > 0 ? 2 : 0;
