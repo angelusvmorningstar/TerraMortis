@@ -230,6 +230,7 @@ Verify live impact with:
 ### Files changed
 
 - `public/js/data/rules-helpers.js` — rewrote `meritFreeSum` (lines 92–100)
+- `server/tests/fix-779-merit-free-sum.test.js` — 18 vitest tests (AC-1 through AC-4, guard, edges)
 
 ### Completion notes
 
