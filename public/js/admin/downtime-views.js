@@ -3907,7 +3907,9 @@ function _gatherProjectAmbience(subs) {
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
-      const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
+      // #814: overrides are stored as slugs (pill-written); resolve slug-first, OID fallback.
+      const _ovrRaw = sub.st_review?.territory_overrides?.[String(idx)] || '';
+      const terrOverride = TERRITORY_SLUG_MAP[_ovrRaw] ?? resolveTerrId(_ovrRaw);
       // Issue #196 — dt-form.25 writes `_ambience_target` (territory slug)
       // for ambience-change actions; the legacy `_territory` key is no
       // longer set on those rows. Prefer the new key, fall back for
@@ -3972,8 +3974,11 @@ function _gatherMeritAmbience(subs) {
           if (resolvedAct?.pool_status === 'resolved') {
             // Prefer ST-linked qualifier over parsed submission text; used for territory fallback too
             const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '')
-                     || resolveTerrId(linkedQual || '');
+            // #814: override is a slug; linkedQual may be a territory display-name or a sphere.
+            // Resolve both slug-first with OID fallback; a non-territory qualifier stays null.
+            const _ovrRaw = sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '';
+            const tid = (TERRITORY_SLUG_MAP[_ovrRaw] ?? resolveTerrId(_ovrRaw))
+                     || (TERRITORY_SLUG_MAP[linkedQual || ''] ?? resolveTerrId(linkedQual || ''));
             if (tid) {
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
