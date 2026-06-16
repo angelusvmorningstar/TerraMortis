@@ -1033,7 +1033,31 @@ export function shRenderDomainMerits(c, editMode) {
       });
       return names.join(', ');
     })();
-    domM.forEach((m, di) => {
+    // Issue #793: alphabetical sort + Necropolis inherited-card grouping.
+    // Preserve handler semantics by mapping each merit object back to its
+    // ORIGINAL domain-filtered index (the `di` parameter that
+    // shEditDomMerit / shRemoveDomMerit / shAddDomainPartner /
+    // shRemoveDomainPartner all consume via meritByCategory). Sorting only
+    // affects render order, not c.merits or its filtered view.
+    const _domIdxByMerit = new Map();
+    domM.forEach((m, i) => _domIdxByMerit.set(m, i));
+    const _necroTargetSet = new Set(_necroTargets);
+    const _sortedDom = [...domM].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Stray-target degradation: target merit present on a non-Sepulcher
+    // character (legacy/unexpected state). Render in alphabetical position
+    // and console.warn for QA visibility per the issue spec.
+    if (!_hasNecroSep) {
+      const _strays = _sortedDom.filter(m => _necroTargetSet.has(m.name));
+      if (_strays.length) {
+        console.warn('[#793] Necropolis target merits present on non-Sepulcher character:',
+          _strays.map(m => m.name).join(', '),
+          '— rendering in alphabetical position (no inherited-card parent).');
+      }
+    }
+    // Per-row emitter — extracted closure so the inherited-card pass can
+    // reuse the exact same row HTML for grouped Necro target merits without
+    // duplicating the 130-line body. Appends to outer-scope `h`.
+    const _emitDomRow = (m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
       // rule layered on top. Mandragora Garden's prereq is enforced by the helper.
@@ -1163,30 +1187,20 @@ export function shRenderDomainMerits(c, editMode) {
       if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
-    });
-    // COLLECTIVE-1 (issue #800): virtual row synthesis. For every Necropolis
-    // target merit name in the collective (synthesised from all
-    // Sepulcher-owners' allocations) that the current character does NOT own,
-    // render a virtual row: cumulative-other dots displayed hollow, NECRO
-    // stepper enabled at 0. Clicking the stepper materialises the merit on
-    // c.merits via shAllocateNecroVirtual and routes through the standard
-    // free_grants.necro write path. White Ants virtual row gets the territory
-    // union label too.
-    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
-    for (const vName of _virtualNecroNames) {
+    };
+    // Virtual-row emitter \u2014 same pattern as _emitDomRow but for synthesised
+    // partner-only Necro target rows that the current character doesn't own.
+    // Materialisation routes through shAllocateNecroVirtual; no realIdx exists.
+    const _emitVirtualNecroRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
       const _vOwn = 0;
       const _vDots = shDotsMixed(_vOwn, _vPartner);
-      // Stable id for the virtual row's input — uses the merit name slug so
-      // it survives re-renders. No realIdx exists (the merit hasn't been
-      // materialised yet); the shAllocateNecroVirtual handler resolves the
-      // name → c.merits index, adding if absent.
       const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       h += '<div class="dom-edit-block dom-edit-block--virtual">'
         + '<div class="infl-edit-row">'
-        + '<span class="infl-type infl-type--virtual" title="Partner-only — click NECRO to allocate your own dots">' + esc(vName) + '</span>'
+        + '<span class="infl-type infl-type--virtual" title="Partner-only \u2014 click NECRO to allocate your own dots">' + esc(vName) + '</span>'
         + '<span class="dom-contrib-lbl">My dots: </span>'
-        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (● own, ○ partners)">Total: ' + _vDots + '</span>'
+        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
         + '</div>'
         + '<div class="merit-bd-row">'
         + '<div class="bd-grp">'
@@ -1199,7 +1213,67 @@ export function shRenderDomainMerits(c, editMode) {
         h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
       }
       h += '</div>';
+    };
+    // Issue #793: sorted iteration with inherited-card grouping.
+    // - Necro target merits skip the main pass when char has Sepulcher
+    //   (they render inside the inherited card after Sepulcher's row).
+    // - Necro target merits on a non-Sepulcher character render in
+    //   alphabetical position (no parent to anchor under; degrades gracefully).
+    // - Sepulcher row triggers the inherited card if there's anything to show
+    //   (owned target merits + virtual target rows from COLLECTIVE-1).
+    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
+    const _ownedTargets = _sortedDom.filter(mm => _necroTargetSet.has(mm.name));
+    const _hasCardContent = _hasNecroSep && (_ownedTargets.length > 0 || _virtualNecroNames.length > 0);
+    const _emitInheritedCard = () => {
+      h += '<div class="dom-inherited-card">';
+      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      // Combined alphabetical: owned target names + virtual names. Owned
+      // rows render via _emitDomRow (full editor row with stepper); virtual
+      // rows render via _emitVirtualNecroRow (no realIdx).
+      const _cardEntries = [
+        ..._ownedTargets.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ..._virtualNecroNames.map(n => ({ kind: 'virtual', name: n })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of _cardEntries) {
+        if (entry.kind === 'owned') {
+          _emitDomRow(entry.m, _domIdxByMerit.get(entry.m));
+        } else {
+          _emitVirtualNecroRow(entry.name);
+        }
+      }
+      h += '</div>';
+    };
+    let _cardRendered = false;
+    for (const m of _sortedDom) {
+      const di = _domIdxByMerit.get(m);
+      const _isTarget = _necroTargetSet.has(m.name);
+      if (_isTarget && _hasNecroSep) {
+        // Skip \u2014 will render inside the inherited card.
+        continue;
+      }
+      // Sepulcher OR non-Necro-target OR stray target on non-owner: emit normally.
+      _emitDomRow(m, di);
+      // If we just rendered Sepulcher AND the character is an owner AND
+      // there's anything to show, emit the inherited card immediately after.
+      if (m.name === 'Necropolis Sepulcher' && _hasCardContent) {
+        _emitInheritedCard();
+        _cardRendered = true;
+      }
     }
+    // Edge case: character has Sepulcher (anywhere \u2014 possibly mis-categorised
+    // as general on a legacy merit doc) but Sepulcher's instance isn't in
+    // domM, so the loop above never anchored the card. Emit at end so target
+    // merits + virtual rows still render. Production data should have
+    // Sepulcher in domM post-#770 (seed sub_category='domain'), but the
+    // editor must degrade gracefully on legacy / test-fixture shapes.
+    if (_hasCardContent && !_cardRendered) {
+      _emitInheritedCard();
+    }
+    // Issue #793: virtual rows now render inside the inherited card above.
+    // The pre-#793 standalone virtual-row loop has been removed \u2014 it would
+    // double-render targets already placed in the card. Sepulcher-owner
+    // gates the synthesis (COLLECTIVE-1) and the card consumes both owned
+    // + virtual names in one alphabetical pass.
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     // Issue #782: read-only view shares the same partner-display gate as the
@@ -1222,7 +1296,18 @@ export function shRenderDomainMerits(c, editMode) {
         return (t && (t.name || t.slug)) || slug;
       }).join(', ');
     })();
-    domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
+    // Issue #793: view-mode inherited-card grouping. Same pattern as
+    // edit-mode: sort alphabetically; skip Necro target merits when char
+    // owns Sepulcher; emit Sepulcher row + inherited card containing the
+    // target rows + virtual rows. Non-Sepulcher chars render any stray
+    // target merits in alphabetical position (no card, no warn — read-only
+    // path; the edit-mode warn is the appropriate surface for QA).
+    const _hasNecroSepView = (c.merits || []).some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
+    );
+    const _necroTargetSetView = new Set(_necroTargetsView);
+    const _sortedDomView = domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const _emitViewRow = (m) => {
       const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
@@ -1279,14 +1364,8 @@ export function shRenderDomainMerits(c, editMode) {
         h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
       }
       h += '</div>';
-    });
-    // COLLECTIVE-1 (issue #800): view-mode virtual row synthesis. For each
-    // Necropolis target merit in the collective the character doesn't own,
-    // render a read-only row showing the cumulative cross-owner dots hollow.
-    // White Ants virtual row gets the territory union label too. No editor
-    // controls \u2014 view mode never surfaces the NECRO stepper here.
-    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
-    for (const vName of _virtualNamesView) {
+    };
+    const _emitVirtualViewRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
       const _vDots = shDotsMixed(0, _vPartner);
       h += '<div class="merit-plain merit-plain--virtual">'
@@ -1298,6 +1377,41 @@ export function shRenderDomainMerits(c, editMode) {
         h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
       }
       h += '</div>';
+    };
+    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
+    const _ownedTargetsView = _sortedDomView.filter(mm => _necroTargetSetView.has(mm.name));
+    const _hasCardContentView = _hasNecroSepView && (_ownedTargetsView.length > 0 || _virtualNamesView.length > 0);
+    const _emitInheritedCardView = () => {
+      h += '<div class="dom-inherited-card">';
+      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      const _cardEntries = [
+        ..._ownedTargetsView.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ..._virtualNamesView.map(n => ({ kind: 'virtual', name: n })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of _cardEntries) {
+        if (entry.kind === 'owned') {
+          _emitViewRow(entry.m);
+        } else {
+          _emitVirtualViewRow(entry.name);
+        }
+      }
+      h += '</div>';
+    };
+    let _cardRenderedView = false;
+    for (const m of _sortedDomView) {
+      const _isTarget = _necroTargetSetView.has(m.name);
+      if (_isTarget && _hasNecroSepView) continue; // rendered in card below
+      _emitViewRow(m);
+      if (m.name === 'Necropolis Sepulcher' && _hasCardContentView) {
+        _emitInheritedCardView();
+        _cardRenderedView = true;
+      }
+    }
+    // Edge-case fallback (mirror of edit mode): if Sepulcher isn't in domM
+    // but the character owns it (legacy mis-categorisation or test fixtures),
+    // still emit the card so target merits don't disappear.
+    if (_hasCardContentView && !_cardRenderedView) {
+      _emitInheritedCardView();
     }
   }
   h += '</div></div>'; return h;
