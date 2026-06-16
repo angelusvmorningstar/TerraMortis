@@ -9421,7 +9421,7 @@ function renderNormalisedCard(entry, review) {
   h += '<div class="proc-mod-panel-title">Outcome</div>';
   h += '<div class="proc-note-add">';
   h += `<textarea class="proc-outcome-input" data-proc-key="${esc(entry.key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
-  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm Outcome</button>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm</button>`;
   h += '</div>';
   h += '</div>';
 
@@ -10177,8 +10177,10 @@ function renderActionPanel(entry, review) {
   // ── Outcome ──
   h += '<div class="proc-section proc-player-note-section">';
   h += '<div class="proc-mod-panel-title">Outcome</div>';
+  h += '<div class="proc-note-add">';
   h += `<textarea class="proc-outcome-input" data-proc-key="${esc(entry.key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
-  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm Outcome</button>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm</button>`;
+  h += '</div>';
   h += '</div>';
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)
