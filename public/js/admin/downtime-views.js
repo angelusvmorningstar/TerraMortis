@@ -5468,6 +5468,21 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire confirm-outcome buttons
+  container.querySelectorAll('.proc-confirm-outcome-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const ta = container.querySelector(`.proc-outcome-input[data-proc-key="${key}"]`);
+      const text = ta ? ta.value.trim() : '';
+      if (!text) return;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { outcome: text });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire player_facing_note textarea (save on blur)
   container.querySelectorAll('.proc-player-note-input').forEach(ta => {
     ta.addEventListener('click', e => e.stopPropagation());
@@ -9352,7 +9367,8 @@ function renderNormalisedCard(entry, review) {
   // ── Outcome ──
   h += '<div class="proc-section proc-player-note-section">';
   h += '<div class="proc-mod-panel-title">Outcome</div>';
-  h += `<textarea class="proc-outcome-input proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<textarea class="proc-outcome-input" data-proc-key="${esc(entry.key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm Outcome</button>`;
   h += '</div>';
 
   // ── Player Feedback ──
@@ -10145,7 +10161,8 @@ function renderActionPanel(entry, review) {
   // ── Outcome ──
   h += '<div class="proc-section proc-player-note-section">';
   h += '<div class="proc-mod-panel-title">Outcome</div>';
-  h += `<textarea class="proc-outcome-input proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<textarea class="proc-outcome-input" data-proc-key="${esc(entry.key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm Outcome</button>`;
   h += '</div>';
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)
