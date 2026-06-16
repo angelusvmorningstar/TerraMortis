@@ -440,6 +440,43 @@ export function shAddDomMerit(name = 'Safe Place') {
   _renderSheet(c);
 }
 
+/**
+ * COLLECTIVE-1 (issue #800) — allocator handler for virtual Necropolis target
+ * rows. When the player allocates a NECRO dot to a target merit they don't
+ * yet own (the row exists virtually because OTHER Sepulcher-owners have it),
+ * this handler ensures the merit is materialised on c.merits and routes the
+ * allocation through the standard `free_grants.necro` write path.
+ *
+ * Why a wrapper handler: virtual rows by definition have no realIdx into
+ * c.merits. The existing `shEditMeritPt(realIdx, 'free_grants.necro', val)`
+ * write path requires the index. This handler adds the merit if absent
+ * (idempotent — does nothing if it's already there), then resolves the now-
+ * present index and writes via the standard path. No new write target; same
+ * `m.free_grants.necro` destination per ADR-005 D6 (allocator write-path).
+ *
+ * `value=0` on a previously-empty virtual row is a no-op (nothing to do).
+ * `value=0` on a materialised row drops free_grants.necro to 0 but keeps the
+ * (now-empty) merit on c.merits — render-time synthesis will keep it visible
+ * if it still appears on another owner's sheet.
+ */
+export function shAllocateNecroVirtual(meritName, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c) return;
+  const val = Math.max(0, parseInt(value) || 0);
+  let existing = (c.merits || []).find(m => m && m.name === meritName && m.category === 'domain');
+  if (!existing) {
+    if (val === 0) return; // no-op: don't materialise a zero-allocation row
+    addMerit(c, { category: 'domain', name: meritName, rating: 0 });
+    existing = (c.merits || []).find(m => m && m.name === meritName && m.category === 'domain');
+    if (!existing) return; // defensive — addMerit failed
+  }
+  if (!existing.free_grants) existing.free_grants = {};
+  existing.free_grants.necro = val;
+  _markDirty();
+  _renderSheet(c);
+}
+
 /* ══════════════════════════════════════════════════════════
    DOMAIN PARTNER SHARING
 ══════════════════════════════════════════════════════════ */

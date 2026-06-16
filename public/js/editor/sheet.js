@@ -14,7 +14,7 @@ import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOpti
 // N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
 // N-5: validateTrapDoorAnchor reports the render-time non-functional state.
 // N-7: hasNecropolisSepulcher + getNecropolisTargets drive the allocator stepper.
-import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf } from '../data/rules-helpers.js';
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf, collectiveNecroDots, synthesiseCollectiveNecroNames } from '../data/rules-helpers.js';
 import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
@@ -1011,6 +1011,28 @@ export function shRenderDomainMerits(c, editMode) {
     // even for non-Sepulcher characters who somehow have a Necropolis target
     // merit on their sheet.
     const _necroTargets = getNecropolisTargets(getRulesCache());
+    // COLLECTIVE-1 (issue #800): synthesise the union of Necro target merit
+    // names ANY Sepulcher-owner allocates dots to. Used below to (a) augment
+    // the dot display on owned target rows with cumulative cross-owner dots,
+    // and (b) render virtual rows after the owned-merit loop for targets the
+    // current character doesn't own but another owner does. Returns [] for
+    // non-Sepulcher owners — they never see virtual rows (Sepulcher boundary
+    // per ADR-005 §D3 amendment, this PR).
+    const _collectiveNames = synthesiseCollectiveNecroNames(c, chars, _necroTargets);
+    const _ownedNecroSet = new Set(domM.filter(m => _necroTargets.includes(m.name)).map(m => m.name));
+    // COLLECTIVE-1: territory union string for White Ants. Reuses N-4's
+    // getNecropolisInfectedTerritories. Flat union, no attribution (Peter
+    // decision (a), 2026-06-16).
+    const _necroTerritoryUnion = (() => {
+      const slugs = getNecropolisInfectedTerritories(chars);
+      if (!slugs.length) return '';
+      const all = getStoredTerritories() || [];
+      const names = slugs.map(slug => {
+        const t = all.find(x => x && x.slug === slug);
+        return (t && (t.name || t.slug)) || slug;
+      });
+      return names.join(', ');
+    })();
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
@@ -1047,7 +1069,20 @@ export function shRenderDomainMerits(c, editMode) {
             ? shDotsMixed(Math.min(_capSharedEff, _dPurch), Math.max(0, _capSharedEff - Math.min(_capSharedEff, _dPurch)))
             : shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))))
         : _totalDots;
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // COLLECTIVE-1 (issue #800): Necropolis target rows show own (solid)
+      // + cumulative cross-owner (hollow) dots. NOT capped at 5 \u2014 the spec
+      // explicitly allows cumulative to exceed the per-instance rating_range.
+      // Falls through to the default display for non-target merits.
+      const _isNecroTargetHere = _necroTargets.includes(m.name);
+      const _necroOwn = _isNecroTargetHere ? ((m.free_grants && m.free_grants.necro) || 0) : 0;
+      const _necroCumulative = _isNecroTargetHere ? collectiveNecroDots(chars, m.name) : 0;
+      const _necroPartner = Math.max(0, _necroCumulative - _necroOwn);
+      const _necroDotsHtml = shDotsMixed(_necroOwn, _necroPartner);
+      if (_isNecroTargetHere) {
+        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      } else {
+        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
         const _qErr = c._domQualError && !m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : (c._domQualError && m.qualifier ? '<span class="dom-qual-error">' + esc(c._domQualError) + '</span>' : '');
@@ -1094,6 +1129,13 @@ export function shRenderDomainMerits(c, editMode) {
       // wrong renderer) and N-7c (orchestrator dispatch missing). Production
       // symptom pre-fix: ST cannot pick territories → save fails 400.
       h += _whiteAntsTerritoriesBlock(m, rIdx);
+      // COLLECTIVE-1 (issue #800): flat territory union under the White Ants
+      // row — every Sepulcher-owner's sheet shows the same union. No
+      // attribution per Peter decision (a) 2026-06-16. Renders only on the
+      // owner's own White Ants row (virtual row handles it separately below).
+      if (m.name === 'White Ants' && _necroTerritoryUnion) {
+        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
+      }
       h += _trapDoorAnchorBlock(c, m, rIdx);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
@@ -1122,6 +1164,42 @@ export function shRenderDomainMerits(c, editMode) {
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
+    // COLLECTIVE-1 (issue #800): virtual row synthesis. For every Necropolis
+    // target merit name in the collective (synthesised from all
+    // Sepulcher-owners' allocations) that the current character does NOT own,
+    // render a virtual row: cumulative-other dots displayed hollow, NECRO
+    // stepper enabled at 0. Clicking the stepper materialises the merit on
+    // c.merits via shAllocateNecroVirtual and routes through the standard
+    // free_grants.necro write path. White Ants virtual row gets the territory
+    // union label too.
+    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
+    for (const vName of _virtualNecroNames) {
+      const _vPartner = collectiveNecroDots(chars, vName);
+      const _vOwn = 0;
+      const _vDots = shDotsMixed(_vOwn, _vPartner);
+      // Stable id for the virtual row's input — uses the merit name slug so
+      // it survives re-renders. No realIdx exists (the merit hasn't been
+      // materialised yet); the shAllocateNecroVirtual handler resolves the
+      // name → c.merits index, adding if absent.
+      const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      h += '<div class="dom-edit-block dom-edit-block--virtual">'
+        + '<div class="infl-edit-row">'
+        + '<span class="infl-type infl-type--virtual" title="Partner-only — click NECRO to allocate your own dots">' + esc(vName) + '</span>'
+        + '<span class="dom-contrib-lbl">My dots: </span>'
+        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (● own, ○ partners)">Total: ' + _vDots + '</span>'
+        + '</div>'
+        + '<div class="merit-bd-row">'
+        + '<div class="bd-grp">'
+        + '<span class="bd-lbl bd-bonus-lbl" id="bd-necro-vlbl-' + _vSlug + '">NECRO</span>'
+        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
+        + '</div>'
+        + '<div class="bd-eq"><span class="bd-val">' + _vPartner + ' partner dot' + (_vPartner === 1 ? '' : 's') + '</span></div>'
+        + '</div>';
+      if (vName === 'White Ants' && _necroTerritoryUnion) {
+        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
+      }
+      h += '</div>';
+    }
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     // Issue #782: read-only view shares the same partner-display gate as the
@@ -1130,6 +1208,20 @@ export function shRenderDomainMerits(c, editMode) {
     // suppressed from display (no destructive migration; future cleanup is a
     // separate story).
     const _canShareView = ['Safe Place', 'Haven'];
+    // COLLECTIVE-1 (issue #800): view-mode synthesis mirrors edit-mode logic.
+    // Computed once outside the per-row loop.
+    const _necroTargetsView = getNecropolisTargets(getRulesCache());
+    const _collectiveNamesView = synthesiseCollectiveNecroNames(c, chars, _necroTargetsView);
+    const _ownedNecroSetView = new Set(domM.filter(m => _necroTargetsView.includes(m.name)).map(m => m.name));
+    const _necroTerritoryUnionView = (() => {
+      const slugs = getNecropolisInfectedTerritories(chars);
+      if (!slugs.length) return '';
+      const all = getStoredTerritories() || [];
+      return slugs.map(slug => {
+        const t = all.find(x => x && x.slug === slug);
+        return (t && (t.name || t.slug)) || slug;
+      }).join(', ');
+    })();
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
       const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
@@ -1142,7 +1234,16 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
       let dotHtml;
-      if (_isCappedView) {
+      // COLLECTIVE-1 (issue #800): Necropolis target rows take precedence —
+      // own (free_grants.necro) solid + cumulative-other hollow. Bypasses
+      // _isCappedView / ssjB / etc. since target merits have none of those.
+      const _isNecroTargetView = _necroTargetsView.includes(m.name);
+      if (_isNecroTargetView) {
+        const _own = (m.free_grants && m.free_grants.necro) || 0;
+        const _cumul = collectiveNecroDots(chars, m.name);
+        const _partner = Math.max(0, _cumul - _own);
+        dotHtml = shDotsMixed(_own, _partner);
+      } else if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
       } else if (ssjB > 0 || flockB > 0 || fwbB > 0 || attB > 0 || mBon > 0 || carthB > 0) {
@@ -1172,8 +1273,32 @@ export function shRenderDomainMerits(c, editMode) {
           h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(_viewAt.destination) + '</span></div>';
         }
       }
+      // COLLECTIVE-1: White Ants row gets the territory union label in view
+      // mode too. No attribution per Peter decision (a) 2026-06-16.
+      if (m.name === 'White Ants' && _necroTerritoryUnionView) {
+        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
+      }
       h += '</div>';
     });
+    // COLLECTIVE-1 (issue #800): view-mode virtual row synthesis. For each
+    // Necropolis target merit in the collective the character doesn't own,
+    // render a read-only row showing the cumulative cross-owner dots hollow.
+    // White Ants virtual row gets the territory union label too. No editor
+    // controls \u2014 view mode never surfaces the NECRO stepper here.
+    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
+    for (const vName of _virtualNamesView) {
+      const _vPartner = collectiveNecroDots(chars, vName);
+      const _vDots = shDotsMixed(0, _vPartner);
+      h += '<div class="merit-plain merit-plain--virtual">'
+        + '<div class="trait-row"><div class="trait-main">'
+        + '<span class="trait-name">' + esc(vName) + '</span>'
+        + '<div class="trait-right">' + _vDots + '</div>'
+        + '</div></div>';
+      if (vName === 'White Ants' && _necroTerritoryUnionView) {
+        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
+      }
+      h += '</div>';
+    }
   }
   h += '</div></div>'; return h;
 }

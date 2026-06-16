@@ -402,3 +402,91 @@ export function synthesiseCollectiveOwners(scope, c, chars, _rule) {
   if (!owners.includes(c)) return null;
   return owners.filter(o => o !== c).map(o => (o && o.name) || '').filter(Boolean);
 }
+
+// ── COLLECTIVE-1 (issue #800) — virtual row synthesis primitives ─────────────
+
+/**
+ * Cumulative `free_grants.necro` allocation for a single target merit across
+ * ALL Necropolis Sepulcher owners in `allChars` (including the current
+ * character if they own Sepulcher).
+ *
+ * Used by the renderer to compute the per-row partner-dots split: own dots
+ * (solid) + (cumulative - own) (hollow). The result is NOT capped at the
+ * merit's rating_range — per Peter 2026-06-16, cumulative across owners can
+ * exceed the per-instance 5-dot cap.
+ *
+ * Owner gate uses purchased Sepulcher dots only (cp + xp ≥ minSepulcherDots)
+ * — consistent with `hasNecropolisSepulcher` and the pool-evaluator
+ * membership semantics.
+ *
+ * @param {object[]} allChars  - full chars array
+ * @param {string} meritName   - target merit name (e.g. 'Catacombs')
+ * @param {number} [minSepulcherDots=1]
+ * @returns {number} cumulative dots allocated to this target across owners
+ */
+export function collectiveNecroDots(allChars, meritName, minSepulcherDots = 1) {
+  if (!Array.isArray(allChars) || !meritName) return 0;
+  let sum = 0;
+  for (const ch of allChars) {
+    if (!ch || !Array.isArray(ch.merits)) continue;
+    const isOwner = ch.merits.some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
+    );
+    if (!isOwner) continue;
+    const target = ch.merits.find(m => m && m.name === meritName);
+    if (!target) continue;
+    sum += (target.free_grants && target.free_grants.necro) || 0;
+  }
+  return sum;
+}
+
+/**
+ * Union of Necropolis target merit names that ANY Sepulcher-owner in
+ * `allChars` has allocated dots to OR has on their sheet. This is the
+ * candidate set for virtual row synthesis on the current character's sheet.
+ *
+ * **Sepulcher boundary:** returns `[]` when `c` doesn't own Sepulcher at
+ * `minSepulcherDots`. Non-members of the collective never see virtual rows.
+ *
+ * **`necroTargets`** must be passed in (sourced from
+ * `getNecropolisTargets(getRulesCache())`) so this helper stays pure and
+ * does not import the rules cache directly. Mirrors the existing
+ * `getNecropolisTargets` parameterisation convention.
+ *
+ * **Membership criterion:** a target name is in the union if any owner has
+ * a merit with that name AND any allocation (cp + xp + free_grants.necro
+ * > 0). A merit row with no dots on any owner is excluded — it would be
+ * meaningless to render an all-empty row.
+ *
+ * @param {object} c              - the character whose sheet is rendering
+ * @param {object[]} allChars     - full chars array
+ * @param {string[]} necroTargets - target merit names (from getNecropolisTargets)
+ * @param {number} [minSepulcherDots=1]
+ * @returns {string[]} target merit names present on the collective (may be empty)
+ */
+export function synthesiseCollectiveNecroNames(c, allChars, necroTargets, minSepulcherDots = 1) {
+  if (!c || !Array.isArray(c.merits) || !Array.isArray(allChars) || !Array.isArray(necroTargets)) return [];
+  // Sepulcher boundary: c must be an owner.
+  const cIsOwner = c.merits.some(m =>
+    m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
+  );
+  if (!cIsOwner) return [];
+  const targetSet = new Set(necroTargets);
+  const names = new Set();
+  for (const ch of allChars) {
+    if (!ch || !Array.isArray(ch.merits)) continue;
+    const isOwner = ch.merits.some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
+    );
+    if (!isOwner) continue;
+    for (const m of ch.merits) {
+      if (!m || !targetSet.has(m.name)) continue;
+      const total = (m.cp || 0) + (m.xp || 0) + ((m.free_grants && m.free_grants.necro) || 0);
+      if (total <= 0) continue; // skip empty rows
+      names.add(m.name);
+    }
+  }
+  // Insertion-order preserved (matches getNecropolisInfectedTerritories'
+  // convention). Callers can sort for display if alphabetical is desired.
+  return Array.from(names);
+}
