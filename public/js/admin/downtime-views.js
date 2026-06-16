@@ -7170,12 +7170,22 @@ function _renderRightMechanics(entry, char, rev, { isSorcery = false, isAmbience
           const _rtGrid = JSON.parse(_rtSub?.responses?.feeding_territories_rote || '{}');
           for (const [slug, status] of Object.entries(_rtGrid)) {
             if (!status || status === 'none' || status === 'Not feeding here') continue;
-            const tid = TERRITORY_SLUG_MAP[slug];
+            let tid;
+            if (/^[a-f0-9]{24}$/i.test(slug)) {
+              const terrDoc = (cachedTerritories || []).find(t => String(t._id) === slug);
+              tid = terrDoc?.slug || null;
+            } else {
+              tid = TERRITORY_SLUG_MAP[slug];
+            }
             if (tid) _rtPillSet.add(tid);
           }
         } catch { /* ignore */ }
         if (_rtPillSet.size === 0 && entry.projTerritory) {
-          _rtPillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+          const _rpt = entry.projTerritory;
+          const _rptTid = /^[a-f0-9]{24}$/i.test(_rpt)
+            ? ((cachedTerritories || []).find(t => String(t._id) === _rpt)?.slug || null)
+            : (TERRITORY_SLUG_MAP[_rpt] ?? _rpt);
+          if (_rptTid) _rtPillSet.add(_rptTid);
         }
       }
       h += `<div class="proc-feed-mod-panel">`;
@@ -8507,7 +8517,11 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
           }
         } catch { /* ignore */ }
         if (_rotePillSet.size === 0 && entry.projTerritory) {
-          _rotePillSet.add(TERRITORY_SLUG_MAP[entry.projTerritory] ?? entry.projTerritory);
+          const _rptR = entry.projTerritory;
+          const _rptRTid = /^[a-f0-9]{24}$/i.test(_rptR)
+            ? ((cachedTerritories || []).find(t => String(t._id) === _rptR)?.slug || null)
+            : (TERRITORY_SLUG_MAP[_rptR] ?? _rptR);
+          if (_rptRTid) _rotePillSet.add(_rptRTid);
         }
       }
       h += _renderInlineTerrPills(entry.subId, 'feeding_rote', '', _rotePillSet);
@@ -12081,12 +12095,17 @@ export function renderCityOverview() {
       if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
       matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
     } else if (entry.source === 'feeding') {
-      for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
-        if (!val || val === 'none') continue;
-        const terrId = resolveTerrId(terrKey);
-        if (!terrId) continue;
-        if (!matrix['feeding'][terrId]) matrix['feeding'][terrId] = [];
-        matrix['feeding'][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+      const _feedSub = submissions.find(s => s._id === entry.subId);
+      if (_feedSub) {
+        const _fedMap = _getSubFedTerrs(_feedSub);
+        for (const [csvKey] of _fedMap) {
+          const _mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
+          if (!_mt) continue;
+          const terrId = TERRITORY_SLUG_MAP[_mt.csvKey];
+          if (!terrId) continue;
+          if (!matrix['feeding'][terrId]) matrix['feeding'][terrId] = [];
+          matrix['feeding'][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+        }
       }
     }
   }
