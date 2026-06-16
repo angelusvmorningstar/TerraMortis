@@ -5396,6 +5396,15 @@ function renderProcessingMode(container) {
         // has not already been rolled (`!rev.roll` preserves a real roll result).
         patch.pool_status = 'validated';
       }
+      if (mode === 'st_override') {
+        const builderEl = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+        if (builderEl) {
+          const expr = _readBuilderExpr(builderEl);
+          if (expr) patch.pool_validated = expr;
+        }
+      } else if (mode === 'player') {
+        patch.pool_validated = '';
+      }
       await saveEntryReview(entry, patch);
       renderProcessingMode(container);
     });
