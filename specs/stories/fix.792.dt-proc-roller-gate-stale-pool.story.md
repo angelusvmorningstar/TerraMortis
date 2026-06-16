@@ -5,7 +5,7 @@ issue: 792
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/792
 branch: ms/issue-792-dt-proc-roller-stale-pool-gate
 created: '2026-06-16'
-status: review
+status: done
 recommended_model: 'sonnet — two handler rewrites + test'
 context:
   - public/js/admin/downtime-views.js
