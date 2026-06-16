@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { cardName } from '../data/helpers.js';
+import { displayName, cardName } from '../data/helpers.js';
 
 function esc(s) {
   const d = document.createElement('div');

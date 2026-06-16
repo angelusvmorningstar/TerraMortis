@@ -75,35 +75,49 @@ function domMeritTotalSingle(c, m) {
   const partners = m.shared_with || [];
   const key = domKey(m);
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) {
-      const pm = (p.merits || []).find(pm2 =>
-        pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
-      );
-      if (pm) partnerTotal += domMeritShareableSingle(pm);
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) {
+        const pm = (p.merits || []).find(pm2 =>
+          pm2.category === 'domain' && pm2.name === m.name && domKey(pm2) === key
+        );
+        if (pm) partnerTotal += domMeritShareableSingle(pm);
+      }
     }
-  }
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   return Math.min(5, own + partnerTotal);
 }
 
 /**
- * Cap for Haven / Mandragora Garden: effective rating of the attached Safe Place instance.
- * Returns 0 if no attached_to set or Safe Place not found.
+ * Cap for Haven / Mandragora Garden: effective rating of the attached anchor.
+ *
+ * Haven anchors to a Safe Place only. Mandragora Garden anchors to either a
+ * Safe Place or — per N-8 (issue #761, Peter decision B 2026-06-15) — a
+ * Necropolis Sepulcher merit instance. Returns 0 if no anchor set or anchor
+ * not found.
  */
 function _havenCap(c, m) {
   // N-1 (Concern #11): every read of m.attached_to goes through the normaliser.
-  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the Safe Place key.
+  // Single anchor (Haven / Mandragora Garden) → `.destination` carries the anchor key.
   const at = normaliseAttachedTo(m.attached_to);
   if (!at) return 0;
-  const sp = (c.merits || []).find(sp2 =>
-    sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination
-  );
-  if (!sp) return 0;
-  return domMeritTotalSingle(c, sp);
+  const isMandragora = m.name === 'Mandragora Garden';
+  const anchor = (c.merits || []).find(sp2 => {
+    // Safe Place is the legacy anchor for both Haven and Mandragora.
+    if (sp2.category === 'domain' && sp2.name === 'Safe Place' && domKey(sp2) === at.destination) return true;
+    // N-8: Mandragora can additionally anchor to Necropolis Sepulcher. The
+    // permissive `sp2.name` check (no category constraint) mirrors the
+    // picker filter at sheet.js — Sepulcher could be in any category on
+    // the character; matching by name is the canonical lookup.
+    if (isMandragora && sp2.name === 'Necropolis Sepulcher' && domKey(sp2) === at.destination) return true;
+    return false;
+  });
+  if (!anchor) return 0;
+  return domMeritTotalSingle(c, anchor);
 }
 
 /**
@@ -177,15 +191,17 @@ export function domMeritTotal(c, name) {
   const own = domMeritContribSingle(c, m);
   const partners = m.shared_with || [];
   let partnerTotal = 0;
-  for (const pName of partners) {
-    const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) partnerTotal += domMeritShareable(p, name);
-  }
-  // Fallback: if no partner chars were found in state.chars (player portal
-  // only has the player's own characters), use _partner_dots which the
-  // server pre-computed on the ?mine=1 fetch path.
-  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
-    partnerTotal = m._partner_dots;
+  if (own >= 1) {
+    for (const pName of partners) {
+      const p = (state.chars || []).find(ch => ch.name === pName);
+      if (p) partnerTotal += domMeritShareable(p, name);
+    }
+    // Fallback: if no partner chars were found in state.chars (player portal
+    // only has the player's own characters), use _partner_dots which the
+    // server pre-computed on the ?mine=1 fetch path.
+    if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+      partnerTotal = m._partner_dots;
+    }
   }
   const total = own + partnerTotal;
   // Herd can exceed 5 when Flock is present
@@ -298,6 +314,7 @@ export function meritEffectiveRating(c, m) {
 export function domMeritAccess(c, name) {
   const own = domMeritTotal(c, name);
   if (own > 0) return own;
+  if (domMeritContrib(c, name) < 1) return 0;
   for (const partner of (state.chars || [])) {
     const pm = (partner.merits || []).find(m =>
       m.category === 'domain' && m.name === name &&
