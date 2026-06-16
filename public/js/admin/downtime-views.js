@@ -5484,7 +5484,7 @@ function renderProcessingMode(container) {
       if (!text) return;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { outcome: text });
+      await saveEntryReview(entry, { outcome: text, outcome_confirmed: true });
       renderProcessingMode(container);
     });
   });
@@ -8433,8 +8433,7 @@ function _renderXpSpendBreakdown(rows, budget) {
 function _deriveActionRibbonState(rev) {
   const ps = rev?.pool_status || 'pending';
   if (ps === 'pending') return 'pending';
-  const hasNarrative = !!(rev?.outcome?.trim() || rev?.player_facing_note?.trim() || rev?.story_context?.trim());
-  if (DONE_STATUSES.has(ps) && hasNarrative) return 'complete';
+  if (rev?.outcome_confirmed) return 'complete';
   return 'valid';
 }
 
@@ -9424,8 +9423,10 @@ function renderNormalisedCard(entry, review) {
   // ── Outcome ──
   h += '<div class="proc-section proc-player-note-section">';
   h += '<div class="proc-mod-panel-title">Outcome</div>';
+  h += '<div class="proc-note-add">';
   h += `<textarea class="proc-outcome-input" data-proc-key="${esc(entry.key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
   h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(entry.key)}">Confirm Outcome</button>`;
+  h += '</div>';
   h += '</div>';
 
   // ── Player Feedback ──
