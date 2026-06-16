@@ -7543,7 +7543,7 @@ function _renderCompactMeritPanel(entry, rev) {
   if (entry.isAlliesAction) {
     const _mCtx = `allies_${entry.actionIdx}`;
     const _mSub = submissions.find(s => s._id === entry.subId);
-    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || resolveTerrId(entry.projTerritory) || '';
     h += `<div class="proc-feed-mod-panel proc-merit-terr-panel">`;
     h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     h += `</div>`;
@@ -7659,7 +7659,7 @@ function _renderMeritRightPanel(entry, rev) {
   if (entry.isAlliesAction) {
     const _mCtx = `allies_${entry.actionIdx}`;
     const _mSub = submissions.find(s => s._id === entry.subId);
-    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+    const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || resolveTerrId(entry.projTerritory) || '';
     h += `<div class="proc-feed-mod-panel proc-merit-terr-panel">`;
     h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     h += `</div>`;
@@ -9696,7 +9696,13 @@ function renderActionPanel(entry, review) {
       }
 
       // Territory (read-only — set via territory pills elsewhere)
-      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projTerritory) {
+        const _tCanon   = resolveTerrId(entry.projTerritory) || entry.projTerritory;
+        const _tDisplay = (cachedTerritories || []).find(t => t.slug === _tCanon)?.name
+                       || TERRITORY_DATA.find(t => t.slug === _tCanon)?.name
+                       || _tCanon;
+        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(_tDisplay)}</div>`;
+      }
       // For feed projects, show player's nominated main feeding territories
       if (entry.actionType === 'feed') {
         const _nomText = _playerFeedTerrsText(projSub2);
