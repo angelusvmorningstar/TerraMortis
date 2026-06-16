@@ -219,7 +219,28 @@ export function domMeritTotal(c, name) {
  * contributions for shared domain merits). Those are summed in by
  * meritEffectiveRating, not by this helper.
  */
+// Issue #790: Necropolis target merit names — pool-funded only. meritFreeSum
+// must categorically ignore m.free + every legacy flat free_<slug> + every
+// non-necro entry in free_grants for these rows. The only legitimate funding
+// channel is m.free_grants.necro. Same categorical-by-name pattern as N-7b's
+// input suppression; static set is acceptable for v1 since the targets are
+// stable from N-3 (matches N-7b's static set at sheet.js _necroTargets).
+const NECRO_TARGETS_FOR_SUM = new Set([
+  'Catacombs', 'Caldarium', 'Garbage Pit',
+  'Labyrinth Guardians', 'Dark Temple', 'White Ants',
+]);
+
 export function meritFreeSum(m) {
+  // Issue #790: Necropolis-target categorical exclusion. Without this gate,
+  // any stray write to m.free or any legacy m.free_<slug> field on a target
+  // merit silently double-counts on top of the legitimate pool allocation.
+  // Yusuf hit this 2026-06-16 — 4 merits showed +1 too high because of legacy
+  // m.free=1 contamination of unknown origin (no current main code path
+  // writes m.free positive on these rows, but the cleanup script was one-shot
+  // and the class needs a permanent gate).
+  if (m && NECRO_TARGETS_FOR_SUM.has(m.name)) {
+    return (m.free_grants && m.free_grants.necro) || 0;
+  }
   // N-1 / ADR-005 Rev 2: delegate to the shared helper which sums BOTH the
   // new `m.free_grants` map AND every legacy `m.free_<slug>` field. The
   // shared helper EXCLUDES `m.free` (the unprefixed player-allocated channel)
@@ -294,9 +315,13 @@ export function meritEffectiveRating(c, m) {
       return domMeritTotal(c, m.name);
     }
   }
-  // N-1: delegate the 14-channel enumeration to the shared helper. `m.free`
-  // (unprefixed) added separately per the meritFreeSum public contract.
-  const sum = (m.cp || 0) + (m.xp || 0) + (m.free || 0) + _meritFreeSumHelper(m);
+  // Issue #790: route through meritFreeSum so the Necropolis-target
+  // categorical exclusion applies here too (it would otherwise be bypassed by
+  // the inline 14-channel sum). Pre-#790 this was hand-rolled as
+  // `(m.cp||0) + (m.xp||0) + (m.free||0) + _meritFreeSumHelper(m)` — a
+  // duplicate of meritFreeSum's body plus cp+xp — and silently summed every
+  // free channel even on Necropolis target rows.
+  const sum = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
   if (m.name === 'Herd') {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }

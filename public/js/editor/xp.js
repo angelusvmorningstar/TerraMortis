@@ -226,18 +226,23 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   // every edit after the N-2 backfill.
   // N-7b: showMCI is AND'd with !hideMCI at the call site so Necropolis
   // targets don't surface the MCI allocator even when there's pool capacity.
-  if (opts.showMCI && !opts.hideMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.mci\',+this.value)"></div>';
-  if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
-  if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
-  if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
-  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
+  // Issue #774: a11y — every stepper input carries id + name + aria-label
+  // matching the NECRO precedent at line 241 (added by N-7c #771). Same
+  // browser warning ("form field element should have an id or name
+  // attribute / No label associated with a form field") was firing on
+  // these 5 sibling steppers. Single-line additions per stepper.
+  if (opts.showMCI && !opts.hideMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-mci-lbl-' + realIdx + '">MCI</span><input id="bd-mci-' + realIdx + '" name="bd-mci-' + realIdx + '" aria-label="Mystery Cult Initiation pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.mci\',+this.value)"></div>';
+  if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-vm-lbl-' + realIdx + '">VM</span><input id="bd-vm-' + realIdx + '" name="bd-vm-' + realIdx + '" aria-label="Viral Mythology pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
+  if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-lk-lbl-' + realIdx + '">LK</span><input id="bd-lk-' + realIdx + '" name="bd-lk-' + realIdx + '" aria-label="Lorekeeper pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
+  if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-ohm-lbl-' + realIdx + '">OHM</span><input id="bd-ohm-' + realIdx + '" name="bd-ohm-' + realIdx + '" aria-label="Oath of the Hard Motherfucker pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
+  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-inv-lbl-' + realIdx + '">INV</span><input id="bd-inv-' + realIdx + '" name="bd-inv-' + realIdx + '" aria-label="Invested pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
   // N-7 (issue #760): Necropolis allocator — writes directly to
   // m.free_grants.necro (map shape, no new legacy free_necro field) per the
   // ADR-005 allocator-write-path amendment.
   // N-7c (issue #771): id + aria-label so browsers don't flag "form field
   // element should have an id or name attribute / No label associated with a
-  // form field". Existing LK/INV/VM/OHM/MCI steppers share the same gap —
-  // filed as separate follow-up to keep N-7c scoped.
+  // form field". The 5 sibling steppers (LK/INV/VM/OHM/MCI) got the same
+  // treatment in #774 — see lines above.
   if (opts.showNECRO) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-necro-lbl-' + realIdx + '">NECRO</span><input id="bd-necro-' + realIdx + '" name="bd-necro-' + realIdx + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fnecro + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.necro\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
