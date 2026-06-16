@@ -1086,26 +1086,52 @@ export function shRenderDomainMerits(c, editMode) {
       // be hand-funded). The NECRO stepper is the only allocation surface.
       const _isNecroTarget = _necroTargets.includes(m.name);
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isNecroTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _isNecroTarget, hideCP: _isNecroTarget, hideXP: _isNecroTarget, hideMCI: _isNecroTarget, hideBonus: _isNecroTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // N-4a (issue #781): White Ants Territory picker + Trap Door triple-anchor
+      // picker. Both target merits are sub_category='domain', so the pickers
+      // must render in the domain loop here — not in shRenderGeneralMerits.
+      // The N-4 / N-5 wiring originally lifted the integration point from a
+      // general-merit precedent; same blind spot as N-7a (NECRO stepper in
+      // wrong renderer) and N-7c (orchestrator dispatch missing). Production
+      // symptom pre-fix: ST cannot pick territories → save fails 400.
+      h += _whiteAntsTerritoriesBlock(m, rIdx);
+      h += _trapDoorAnchorBlock(c, m, rIdx);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
-      // Issue #160 (2026-05-08): Mandragora Garden gains the shared quality
-      // per published errata — direct partner sharing on the Mandragora
-      // instance, semantically identical to Safe Place's existing treatment.
-      // Removed from _noShare here. The attached-to-Safe-Place cap stays
-      // (CAP_DOMAIN in editor/domain.js); per-instance shared_with sums
-      // partner contributions through the existing domMeritShareable path.
-      // Issue #313 (2026-05-15): Haven also gains direct shared quality --
-      // same mechanism as Mandragora Garden above.
-      const _noShare = ['Herd', 'Feeding Grounds'];
-      if (!_noShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (!_noShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Issue #782 (Peter decision (a), 2026-06-16): partner_explicit shared_with
+      // picker is restricted to Safe Place and Haven only. Inverted from the
+      // previous negative `_noShare` exclusion (['Herd', 'Feeding Grounds']) to
+      // a positive include list — every other domain merit (Mandragora Garden,
+      // Necropolis Sepulcher, all 6 Necropolis targets, Trap Door, future
+      // additions) defaults to NOT shareable via this picker.
+      //
+      // Audit trail of prior decisions reversed/preserved:
+      // - Issue #160 (2026-05-08): added Mandragora Garden to shareable per
+      //   published errata. REVERSED by #782 — Peter's framing returns the
+      //   game to "only Safe Place and Haven share".
+      // - Issue #313 (2026-05-15): added Haven to shareable. PRESERVED.
+      // - Necropolis family auto-shares via _collective_shared_with synthesis
+      //   (ADR-005 Rev 2 §D3) — that's the correct mechanism, orthogonal to
+      //   this partner_explicit picker UI.
+      //
+      // Existing `m.shared_with` data on non-shareable merits is preserved in
+      // the DB as inert (no destructive migration in this scope); the gate
+      // below suppresses display + add-partner UI on the editor surface.
+      const _canShare = ['Safe Place', 'Haven'];
+      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
     });
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
+    // Issue #782: read-only view shares the same partner-display gate as the
+    // editor surface — only Safe Place and Haven render the "Shared · ..." line.
+    // Stored `m.shared_with` on other merits is treated as inert data and
+    // suppressed from display (no destructive migration; future cleanup is a
+    // separate story).
+    const _canShareView = ['Safe Place', 'Haven'];
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null;
+      const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
       const mBon = m.bonus || 0;
@@ -1377,10 +1403,10 @@ export function shRenderGeneralMerits(c, editMode) {
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) });
-        // N-4 (MNEC #696): White Ants Territory picker — one select per dot.
-        h += _whiteAntsTerritoriesBlock(m, rIdx);
-        // N-5 (MNEC #697): Trap Door triple-anchor picker (origin + destination + territory).
-        h += _trapDoorAnchorBlock(c, m, rIdx);
+        // N-4a (issue #781): White Ants + Trap Door pickers moved to
+        // shRenderDomainMerits (their merits are sub_category='domain').
+        // Calls removed here — would never have fired in the general renderer
+        // since both merits route to the domain branch by sub_category.
         h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }
