@@ -1102,10 +1102,23 @@ export function shRenderDomainMerits(c, editMode) {
       const _necroCumulative = _isNecroTargetHere ? collectiveNecroDots(chars, m.name) : 0;
       const _necroPartner = Math.max(0, _necroCumulative - _necroOwn);
       const _necroDotsHtml = shDotsMixed(_necroOwn, _necroPartner);
+      // Issue #827: subtitle for Haven / Mandragora Garden / White Ants
+      // renders BEFORE the dots column inside the main row (LHS-justified),
+      // keeping dots rightmost. Pre-#827 these subtitles emitted as sibling
+      // sub-rows AFTER the dot row, breaking the consistent rightmost-dots
+      // rule that every other domain merit follows.
+      let _subtitleInline = '';
+      if (m.name === 'Haven' || m.name === 'Mandragora Garden') {
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        const _dest = _viewAt && _viewAt.destination ? _viewAt.destination : '(not attached)';
+        _subtitleInline = '<span class="dom-row-subtitle">Attached: ' + esc(_dest) + '</span>';
+      } else if (m.name === 'White Ants' && _necroTerritoryUnion) {
+        _subtitleInline = '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>';
+      }
       if (_isNecroTargetHere) {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -1153,13 +1166,13 @@ export function shRenderDomainMerits(c, editMode) {
       // wrong renderer) and N-7c (orchestrator dispatch missing). Production
       // symptom pre-fix: ST cannot pick territories → save fails 400.
       h += _whiteAntsTerritoriesBlock(m, rIdx);
-      // COLLECTIVE-1 (issue #800): flat territory union under the White Ants
-      // row — every Sepulcher-owner's sheet shows the same union. No
-      // attribution per Peter decision (a) 2026-06-16. Renders only on the
-      // owner's own White Ants row (virtual row handles it separately below).
-      if (m.name === 'White Ants' && _necroTerritoryUnion) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
-      }
+      // Issue #827: territory union no longer rendered here as a sibling
+      // sub-row — moved INLINE into the infl-edit-row above (LHS-justified,
+      // before the dots column). Keeps dots as the rightmost element per
+      // Peter 2026-06-16 ("Dots should be last and rightmost thing in the
+      // row always for all domain merits"). The COLLECTIVE-1 union helper
+      // (_necroTerritoryUnion) still computes the same value; only the
+      // emission site moved.
       h += _trapDoorAnchorBlock(c, m, rIdx);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
@@ -1196,9 +1209,14 @@ export function shRenderDomainMerits(c, editMode) {
       const _vOwn = 0;
       const _vDots = shDotsMixed(_vOwn, _vPartner);
       const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // Issue #827: territory subtitle inline before the dots (rightmost).
+      const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnion)
+        ? '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>'
+        : '';
       h += '<div class="dom-edit-block dom-edit-block--virtual">'
         + '<div class="infl-edit-row">'
         + '<span class="infl-type infl-type--virtual" title="Partner-only \u2014 click NECRO to allocate your own dots">' + esc(vName) + '</span>'
+        + _vSubtitle
         + '<span class="dom-contrib-lbl">My dots: </span>'
         + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
         + '</div>'
@@ -1209,9 +1227,6 @@ export function shRenderDomainMerits(c, editMode) {
         + '</div>'
         + '<div class="bd-eq"><span class="bd-val">' + _vPartner + ' partner dot' + (_vPartner === 1 ? '' : 's') + '</span></div>'
         + '</div>';
-      if (vName === 'White Ants' && _necroTerritoryUnion) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
-      }
       h += '</div>';
     };
     // Issue #793: sorted iteration with inherited-card grouping.
@@ -1345,37 +1360,47 @@ export function shRenderDomainMerits(c, editMode) {
       const _shHtml      = '<div class="dom-total-view" title="\u25CF inherent, \u25CB bonus, \u25CB\u0332 shared">' + shDotsThreeTier(_sh3Inherent, _sh3Bonus, _sh3Shared) + '</div>';
       // Display name includes qualifier when present
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
-      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      // Issue #827: subtitle inline before dots (rightmost). Haven /
+      // Mandragora "Attached: X" + White Ants "Territories: ..." move from
+      // sibling sub-rows into the main row.
+      let _subtitleInlineView = '';
       if (_isCappedView) {
-        // N-1 (Concern #11): normaliser keeps the rendered "Attached: X" string
-        // correct when `m.attached_to` is the new object form (would otherwise
-        // render [object Object]).
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        if (_viewAt && _viewAt.destination) {
+          _subtitleInlineView = '<span class="trait-qual dom-row-subtitle">Attached: ' + esc(_viewAt.destination) + '</span>';
+        }
+      } else if (m.name === 'White Ants' && _necroTerritoryUnionView) {
+        _subtitleInlineView = '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>';
+      }
+      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      if (_isCappedView) {
+        // The "Needs an attached Safe Place" warning and "Capped at N" notes
+        // remain as derived-note sub-rows (they're warnings, not subtitles).
+        // The "Attached: X" success label moved INLINE above per #827.
         const _viewAt = normaliseAttachedTo(m.attached_to);
         if (!_viewAt) {
           h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
-        } else {
-          if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
-          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(_viewAt.destination) + '</span></div>';
+        } else if (_viewStored > de) {
+          h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
         }
       }
-      // COLLECTIVE-1: White Ants row gets the territory union label in view
-      // mode too. No attribution per Peter decision (a) 2026-06-16.
-      if (m.name === 'White Ants' && _necroTerritoryUnionView) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
-      }
+      // Issue #827: wa-territory-union sub-row removed \u2014 moved inline above.
       h += '</div>';
     };
     const _emitVirtualViewRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
       const _vDots = shDotsMixed(0, _vPartner);
+      // Issue #827: territory subtitle inline before dots on White Ants
+      // virtual row too.
+      const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnionView)
+        ? '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>'
+        : '';
       h += '<div class="merit-plain merit-plain--virtual">'
         + '<div class="trait-row"><div class="trait-main">'
         + '<span class="trait-name">' + esc(vName) + '</span>'
+        + _vSubtitle
         + '<div class="trait-right">' + _vDots + '</div>'
         + '</div></div>';
-      if (vName === 'White Ants' && _necroTerritoryUnionView) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
-      }
       h += '</div>';
     };
     const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
