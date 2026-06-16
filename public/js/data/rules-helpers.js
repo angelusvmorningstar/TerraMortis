@@ -74,16 +74,18 @@ const LEGACY_FREE_SLUGS = [
 ];
 
 /**
- * Total engine-granted free dots on a merit, summing the new `free_grants`
- * map AND the 14 legacy flat fields. During N-1 these populate disjointly —
- * NEW Collective Compound grants write to the map; legacy LK/Inv/VM/MCI
- * user-allocations stay in the flat fields; direct-write evaluators (OHM, PT,
- * Bloodline, MDB, Style-Retainer, OTS, SafeWord, AutoBonus) likewise stay on
- * flat. N-2 backfill moves persisted flat-field data to the map; once that
- * lands the flat-field fallback contributes 0 on every read.
+ * Total engine-granted free dots on a merit.
+ *
+ * Builds the union of all slugs present in either the `free_grants` map or the
+ * 14 legacy `free_<slug>` flat fields, then reads each via `freeOf` (map-wins).
+ * This prevents double-counting when both channels are simultaneously non-zero —
+ * which happens after the N-2 backfill migrates a flat field to the map while a
+ * clear-and-rewrite evaluator (PT, OHM, MDB, etc.) repopulates the flat field at
+ * the next render cycle. Pre-N-2 characters (only flat fields set) and fully
+ * migrated characters (only map set) are both correct by the `freeOf` fallback.
  *
  * `m.free` (the unprefixed, player-allocated channel) is OUT of this sum
- * deliberately — it's player-allocated, not engine-granted, and is summed
+ * deliberately — it is player-allocated, not engine-granted, and is summed
  * separately by the callers that need it (see `domain.js`).
  *
  * @param {object} m  - merit instance
@@ -91,12 +93,14 @@ const LEGACY_FREE_SLUGS = [
  */
 export function meritFreeSum(m) {
   if (!m) return 0;
-  const fromMap = Object.values(m.free_grants || {}).reduce((s, n) => s + (n || 0), 0);
-  let fromLegacy = 0;
-  for (const slug of LEGACY_FREE_SLUGS) {
-    fromLegacy += (m['free_' + slug] || 0);
+  const slugsInMap = Object.keys(m.free_grants || {});
+  const slugsInLegacy = LEGACY_FREE_SLUGS.filter(s => m['free_' + s]);
+  const allSlugs = new Set([...slugsInMap, ...slugsInLegacy]);
+  let total = 0;
+  for (const slug of allSlugs) {
+    total += freeOf(m, slug);
   }
-  return fromMap + fromLegacy;
+  return total;
 }
 
 /**
