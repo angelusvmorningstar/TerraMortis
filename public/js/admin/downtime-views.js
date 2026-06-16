@@ -5479,6 +5479,8 @@ function renderProcessingMode(container) {
       const key = ta.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
+      const review = getEntryReview(entry);
+      if (review?.outcome_confirmed) return;
       await saveEntryReview(entry, { outcome: ta.value.trim() || null });
     });
   });
@@ -5493,7 +5495,15 @@ function renderProcessingMode(container) {
       if (!text) return;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { outcome: text, outcome_confirmed: true });
+      const review = getEntryReview(entry) || {};
+      const hasPool = !!(review.pool_validated || review.pool_player || entry.poolPlayer);
+      const modeAlreadySet = review.roll_mode === 'player' || review.roll_mode === 'st_override' || review.roll_mode === 'no_roll';
+      const patch = { outcome: text, outcome_confirmed: true };
+      if (!modeAlreadySet && hasPool && !review.roll) {
+        patch.roll_mode = 'player';
+        patch.pool_status = 'validated';
+      }
+      await saveEntryReview(entry, patch);
       renderProcessingMode(container);
     });
   });
