@@ -4915,19 +4915,11 @@ function renderProcessingMode(container) {
   // Wire filter pills — character chips use replace shortcut (proto.3); others toggle
   container.querySelectorAll('.proc-filter-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.stripChar) {
-        _procFilters.statuses    = new Set();
-        _procFilters.chars       = new Set([btn.dataset.stripChar]);
-        _procFilters.phases      = btn.dataset.stripPhase ? new Set([btn.dataset.stripPhase]) : new Set();
-        _procFilters.territories = new Set();
-        _procFilters.sources     = new Set();
-      } else {
-        const dim = btn.dataset.filterDim;
-        const val = btn.dataset.filterVal;
-        if (!dim || !val || !_procFilters[dim]) return;
-        if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
-        else _procFilters[dim].add(val);
-      }
+      const dim = btn.dataset.filterDim;
+      const val = btn.dataset.filterVal;
+      if (!dim || !val || !_procFilters[dim]) return;
+      if (_procFilters[dim].has(val)) _procFilters[dim].delete(val);
+      else _procFilters[dim].add(val);
       renderProcessingMode(container);
     });
   });
