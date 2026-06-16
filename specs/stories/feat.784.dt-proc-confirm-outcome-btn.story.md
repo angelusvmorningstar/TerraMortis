@@ -5,7 +5,7 @@ issue: 784
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/784
 branch: ms/issue-784-dt-proc-confirm-outcome-btn
 created: '2026-06-16'
-status: ready-for-dev
+status: review
 recommended_model: 'sonnet — localised UI change, two render sites + one wiring block'
 context:
   - public/js/admin/downtime-views.js
@@ -189,8 +189,16 @@ No Playwright needed. Manual smoke test on dev:
 
 ### Files changed
 
-_(to be filled by dev agent)_
+- `public/js/admin/downtime-views.js`
 
 ### Completion notes
 
-_(to be filled by dev agent)_
+Three changes to `downtime-views.js`:
+1. Project action panel (line 9370): rows="2"→"4", removed `proc-player-note-input`
+   from Outcome textarea, added `proc-confirm-outcome-btn` button below it.
+2. Merit action panel (line 10164): identical changes.
+3. `wireProcessingEvents` (~line 5471): added `.proc-confirm-outcome-btn` click handler
+   — guards empty textarea, saves `outcome` via `saveEntryReview`, calls
+   `renderProcessingMode(container)` to trigger ribbon re-render.
+Also fixed dual-class bug: Outcome textarea no longer carries `proc-player-note-input`,
+so blur no longer double-writes outcome text into `player_facing_note`.
