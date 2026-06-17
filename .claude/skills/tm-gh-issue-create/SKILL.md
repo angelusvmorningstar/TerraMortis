@@ -39,6 +39,12 @@ Do **not** invoke for:
    - **Type**: inferred from language — bug-words ("broken", "wrong", "doesn't work") → `bug`; feature-words ("add", "support", "should also") → `feature`; otherwise ask. User's `--type` flag overrides.
    - **Epic label**: if the description mentions a known epic prefix (RDE, PP, DT, NPCR, etc.), apply `epic:<lowercase>`. User's `--epic` flag overrides.
    - **Standard labels**: always add `bmad-intake` so issues created via this skill are filterable.
+3b. **Design-system / CSS check (if the issue touches UI or styling).** The app has a normalised CSS design system that AI-implemented features routinely fail to use. As part of intake, look up the normalised CSS for the thing so the issue points the implementer straight at it:
+   - Identify the UI element/component involved and grep `public/css/components.css` and the app sheet (`suite.css` Suite / `admin-layout.css` Admin) for the analogous existing class(es), plus the relevant `public/css/theme.css` tokens.
+   - If a suitable component class exists, name it in **References** (e.g. "reuse `.dt-btn` / `.form-input` / `.exp-row`") and add a **Scope note**: "must reuse the existing normalised CSS — no inline `style=`, no bare hex/`rgba()`."
+   - If none exists, say so in References and note that a new class should be added to the correct stylesheet using `theme.css` tokens (never inlined), per `specs/architecture/coding-standards.md` → CSS Standards.
+   - For any UI issue, add an **Acceptance criterion**: "Styling uses design-system tokens and reuses existing component classes (no inline `style=`, no bare hex)."
+   Reference: `specs/project-context.md` (critical standards) and `specs/architecture/coding-standards.md` (full CSS guidance).
 4. **Build the issue body** using this template (omit empty sections):
 
    ```markdown
