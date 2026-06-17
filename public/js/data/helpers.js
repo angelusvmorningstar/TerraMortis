@@ -236,7 +236,7 @@ export function formatSpecs(c, specs) {
   if (!specs || !specs.length) return '';
   return specs.map(sp => {
     const enhanced = hasAoE(c, sp);
-    return esc(sp) + (enhanced ? ' <span style="color:rgba(140,200,140,.8)">+2</span>' : '');
+    return esc(sp) + (enhanced ? ' <span class="aoe-bonus">+2</span>' : '');
   }).join(', ');
 }
 

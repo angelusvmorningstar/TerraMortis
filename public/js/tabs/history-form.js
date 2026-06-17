@@ -140,7 +140,7 @@ function renderForm(container) {
         h += `<div class="qf-field">`;
         h += `<label class="qf-label">${esc(q.label)}</label>`;
         if (q.key === 'backstory_link' && val) {
-          h += `<div class="qf-readonly-value"><a href="${esc(val)}" target="_blank" rel="noopener" style="color:#5A1A1A;text-decoration:underline">${esc(val)}</a></div>`;
+          h += `<div class="qf-readonly-value"><a href="${esc(val)}" target="_blank" rel="noopener" class="qf-link">${esc(val)}</a></div>`;
         } else {
           h += `<div class="qf-readonly-value">${esc(val)}</div>`;
         }

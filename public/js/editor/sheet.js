@@ -296,8 +296,7 @@ export function renderTouchstones(c, editMode) {
       const att = hum >= t.humanity;
       const name = t._npc_name || t.name || '(unnamed)';
       return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
-        + ' — <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)')
-        + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span>'
+        + ' — <span class="exp-ts-state ' + (att ? 'attached' : 'detached') + '">' + (att ? 'Attached' : 'Detached') + '</span></span>'
         + '<span class="exp-ts-name">' + esc(name)
         + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>';
     }).join('');
@@ -566,7 +565,7 @@ export function shRenderSkills(c, editMode) {
           + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',-1)"' + (bn === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',1)">&#x25B2;</button></div>';
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
-        specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
+        specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span class="sk-spec-aoe">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
         h += '<button class="sk-spec-add" onclick="shAddSpec(\'' + sE + '\')">+ spec</button></div></div></div>';
       });
     }
@@ -737,7 +736,7 @@ export function shRenderDisciplines(c, editMode) {
           .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
         const tradSel = trads.length > 1
           ? '<select id="rite-add-trad" class="gen-qual-input" style="width:90px" onchange="shRefreshRiteDropdown(this.value)">' + trads.map(t => '<option>' + t + '</option>').join('') + '</select>'
-          : '<span style="font-size:11px;color:rgba(220,160,120,.9);padding:0 4px">' + trads[0] + '</span><input type="hidden" id="rite-add-trad" value="' + trads[0] + '">';
+          : '<span class="rite-trad-single">' + trads[0] + '</span><input type="hidden" id="rite-add-trad" value="' + trads[0] + '">';
         let nameSel, addOnclick;
         if (availRites.length) {
           nameSel = '<select id="rite-add-name" class="gen-qual-input" style="flex:1;min-width:140px">'
