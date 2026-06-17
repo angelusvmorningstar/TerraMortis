@@ -148,7 +148,7 @@ Create `equipment_catalogue` collection. Add `server/schemas/equipment_catalogue
 
 ### ECM-2: Seed script — JS module → Mongo
 
-`server/scripts/ecm-migrate.js` step 1 only. Reads `public/js/data/equipment-data.js`, inserts 70 docs into `equipment_catalogue` with fresh ObjectIds. Idempotent via slug unique index. DRY-RUN mode flag. Logs seeded count + skipped (already-present) count.
+`server/scripts/ecm-migrate.js` step 1 only. Reads `public/js/data/equipment-data.js`, inserts the catalogue entries into `equipment_catalogue` with fresh ObjectIds. **Idempotency mechanism per D7**: refuses to seed if `equipment_catalogue.countDocuments() > 0` without an explicit `--force` flag. DRY-RUN mode reports the seed plan (item count, sample entries) without writing. Logs final seeded count.
 
 ### ECM-3: Backfill — character.equipment[].catalogue_id slug → ObjectId
 
