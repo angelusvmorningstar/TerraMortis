@@ -107,8 +107,10 @@ export const characterSchema = {
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     humanity_lost: { type: 'integer', minimum: 0 },
     humanity_xp:   { type: 'integer', minimum: 0 },
-    xp_total:      { type: 'number',  minimum: 0 },
-    xp_spent:      { type: 'number',  minimum: 0 },
+    // xp_total / xp_spent removed in #837 (Option A) — XP values are
+    // derived at render time via public/js/editor/xp.js
+    // (xpEarned() / xpSpent() / xpLeft()). additionalProperties:false on
+    // this schema rejects any incoming PUT that still tries to send them.
 
     // ── Status ────────────────────────────────────────────────
     status: {
