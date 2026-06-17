@@ -523,8 +523,10 @@ function _renderPreviewDots(char, rule, proposed) {
   if (!merits.length) return '<p class="rde-preview-empty">No merits to display.</p>';
 
   // Show merits that have any bonus-dot source
+  // Issue #834: m.free is deprecated — dropped from this filter too (the bonus
+  // rollup at the loop below already dropped it; #834 missed this gate).
   const relevant = merits.filter(m =>
-    freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline') > 0 || m.free_pt !== undefined
+    freeOf(m, 'pt') + freeOf(m, 'mci') + freeOf(m, 'mdb') + freeOf(m, 'bloodline') > 0 || m.free_pt !== undefined
   );
   if (!relevant.length) return '<p class="rde-preview-empty">No bonus-dot merits on this character.</p>';
 
