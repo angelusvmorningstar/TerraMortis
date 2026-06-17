@@ -28,8 +28,10 @@ import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js'
 import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
-import { initFeedingEngine } from './admin/feeding-engine.js';
-import { initSessionTracker } from './admin/session-tracker.js';
+// #836: initFeedingEngine / initSessionTracker imports removed — both
+// admin/feeding-engine.js and admin/session-tracker.js were dead-imported
+// (init functions never called from anywhere) and their localStorage-keyed
+// legacy tracker persistence was deprecated. Files deleted.
 import { initDataPortabilityView } from './admin/data-portability.js';
 import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
