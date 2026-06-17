@@ -531,7 +531,9 @@ function _renderPreviewDots(char, rule, proposed) {
   let h = '<div class="rde-preview-merits">';
   for (const m of relevant) {
     const base = (m.cp || 0) + (m.xp || 0);
-    const bonus = freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline');
+    // Issue #834: m.free is deprecated — removed from the bonus rollup.
+    // Memory: feedback_m_free_deprecated.
+    const bonus = freeOf(m, 'pt') + freeOf(m, 'mci') + freeOf(m, 'mdb') + freeOf(m, 'bloodline');
     h += `<div class="rde-preview-merit-row">
       <span class="rde-preview-merit-name">${esc(m.name)}</span>
       <span class="rde-preview-merit-dots">${shDotsWithBonus(base, bonus)}</span>

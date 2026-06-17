@@ -178,10 +178,18 @@ export function mergeExcelOntoCharacter(existing, excel) {
 }
 
 function applyMeritPoints(merit, pts, changes, label) {
-  const oldCp = merit.cp || 0, oldXp = merit.xp || 0, oldFree = merit.free || 0;
-  merit.cp = pts.cp + (pts.free || 0); merit.xp = pts.xp;
-  if (oldCp !== pts.cp || oldXp !== pts.xp || oldFree !== pts.free) {
-    changes.push({ section: 'Merits', field: label, old: `${oldCp}/${oldFree}/${oldXp}`, new: `${pts.cp}/${pts.free}/${pts.xp}` });
+  // Issue #834: m.free is deprecated. The IMPORT shape's `pts.free` column
+  // (from the upstream Excel/CSV tool) is folded into cp here — same as
+  // skills/disciplines at lines 77 + 90. The READ of `merit.free` (for the
+  // diff message) is removed: post-cleanup the field is always 0, and going
+  // forward the channel doesn't exist. The diff message keeps the cp/xp
+  // tuple shape; `pts.free` continues to be the upstream input column.
+  // Memory: feedback_m_free_deprecated.
+  const oldCp = merit.cp || 0, oldXp = merit.xp || 0;
+  const newCp = pts.cp + (pts.free || 0);
+  merit.cp = newCp; merit.xp = pts.xp;
+  if (oldCp !== newCp || oldXp !== pts.xp) {
+    changes.push({ section: 'Merits', field: label, old: `${oldCp}/${oldXp}`, new: `${newCp}/${pts.xp}` });
   }
 }
 
