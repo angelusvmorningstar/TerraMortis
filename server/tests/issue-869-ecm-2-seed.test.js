@@ -105,7 +105,10 @@ describe('#869 — formatSlugMap renders a stable INFO-level log line set', () =
     const idxA = out.indexOf('ant');
     const idxZ = out.indexOf('zebra');
     expect(idxA).toBeLessThan(idxZ);   // sorted
-    expect(out).toMatch(/preserve for ECM-3 backfill/);
+    // ECM-3 refactored the header (the "preserve for ECM-3" hint is no longer
+    // accurate — ECM-3 rebuilds the map from the catalogue collection rather
+    // than preserving the ECM-2 in-memory map).
+    expect(out).toMatch(/slug→ObjectId map/);
     expect(out).toContain('507f1f77bcf86cd799439011');
     expect(out).toContain('507f1f77bcf86cd799439012');
   });
