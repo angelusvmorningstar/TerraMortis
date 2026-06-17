@@ -248,6 +248,20 @@ describe('PATCH /api/equipment_catalogue/:id', () => {
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });
 
+  // #873 ECM-6 schema-widen: mechanical_effect added to the schema and PATCH
+  // allowlist after ECM-2 surfaced the field on asset entries. Per epic
+  // Non-Goal "no state-enum per-bucket validation", the schema accepts the
+  // field across all buckets; the admin UI scopes it to assets.
+  it('accepts mechanical_effect on PATCH (ECM-6 schema-widen)', async () => {
+    const seed = await seedItem({ bucket: 'asset', name: 'Warehouse', mechanical_effect: null });
+    const res = await request(app)
+      .patch(`/api/equipment_catalogue/${seed._id}`)
+      .set('X-Test-User', stUser())
+      .send({ mechanical_effect: 'Confers +1 Resources for the cycle.' });
+    expect(res.status).toBe(200);
+    expect(res.body.mechanical_effect).toBe('Confers +1 Resources for the cycle.');
+  });
+
   it('returns 401 without auth header', async () => {
     const seed = await seedItem();
     const res = await request(app)

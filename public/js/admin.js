@@ -36,6 +36,7 @@ import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
+import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
@@ -286,6 +287,7 @@ function switchDomain(domain) {
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+  if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
   if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
