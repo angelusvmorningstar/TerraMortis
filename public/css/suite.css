@@ -141,6 +141,12 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .effpool-spec.on{background:var(--gold);color:var(--bg);border-color:var(--gold);}
 .effpool-spec.on .effpool-spec-bonus{color:var(--bg);}
 .effpool-spec-bonus{color:var(--gold);margin-left:2px;}
+/* fix.854: token-backed effpool legend segment colours (were dark-baked hex literals) */
+.effpool-seg--neg{color:var(--crim2);}
+.effpool-seg--merit{color:var(--gold2);}
+.effpool-seg--rote{color:var(--rote);font-size:10px;cursor:pointer;}
+.effpool-seg--wp{color:var(--green2);}
+.effpool-seg--resist{color:var(--info);}
 
 /* Resistance */
 .resist-sel{width:100%;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);border-radius:6px;padding:6px 10px;font-family:var(--ft);font-size:13px;cursor:pointer;margin-top:2px;}
