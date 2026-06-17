@@ -118,9 +118,10 @@ XP functions in `public/js/editor/xp.js`: `xpEarned()`, `xpSpent()`, `xpLeft()`,
 - **British English throughout**: Defence, Armour, Vigour, Honour, Socialise, capitalise
 - **No em-dashes** in output text
 - **Dots display**: `'●'.repeat(n)` using U+25CF filled circle
-- **Gold accent**: `#E0C47A` (CSS var `--gold2`)
+- **Gold accent**: CSS var `--gold2` (value differs per theme; never hardcode the hex)
 - **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
-- **CSS custom properties** defined on `:root` — dark theme with `--bg: #0D0B09`, `--surf*` surface tiers, `--gold*` accent tiers, `--crim: #8B0000` for damage states
+- **CSS custom properties** defined on `:root` in `public/css/theme.css`. Default theme is **Parchment** (warm light); `[data-theme="dark"]` is the override. Tokens flip between themes; rule bodies stay theme-agnostic.
+- **Normalised CSS (MANDATORY)**: all styling uses the design-system tokens in `theme.css`. Reuse an existing component class from `public/css/components.css` (or the app sheet `suite.css` / `admin-layout.css`) before inventing one. Never write a bare hex, `rgba()`, or inline `style="..."` in markup or JS-rendered HTML. Full guidance: `specs/architecture/coding-standards.md` → "CSS Standards"; the critical-standards summary auto-read by the BMAD dev/story agents lives in `specs/project-context.md`.
 
 ## Data Sources of Truth
 

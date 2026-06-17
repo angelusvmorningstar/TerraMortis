@@ -89,6 +89,8 @@ Do **not** invoke for:
     ```
     The skill ends after surfacing this requirement; the actual frontmatter additions happen during BMAD SM's create-story flow. (If `bmad-create-story` doesn't natively accept these fields, the assistant adds them post-hoc by editing the resulting story file.)
 
+12. **If the issue touches UI or styling**, surface a one-line reminder at hand-off so the story and dev agents carry it: "UI work must reuse the normalised CSS — design-system tokens from `public/css/theme.css` and existing component classes; no inline `style=` or bare hex. See `specs/project-context.md` and `specs/architecture/coding-standards.md`." (The BMAD story/dev agents also auto-load `specs/project-context.md`; this is reinforcement.)
+
 ## Boundaries
 
 - **Never** create a branch on `main`. Always branch off a working branch or `dev`.
