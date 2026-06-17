@@ -91,45 +91,47 @@ describe('#790 — meritFreeSum categorical exclusion on Necropolis targets', ()
     expect(meritFreeSum(m)).toBe(0);
   });
 
-  it('non-Necropolis domain merit: meritFreeSum sums all channels normally (regression sentinel)', () => {
+  it('non-Necropolis domain merit: meritFreeSum sums non-deprecated channels normally (regression sentinel)', () => {
+    // Post-#834: m.free is deprecated and NOT included in meritFreeSum.
+    // Pre-#834 this expected 11 (including m.free=5); post-#834 it's 6.
     const m = {
       name: 'Safe Place',
       category: 'domain',
       cp: 0, xp: 0,
-      free: 5,
+      free: 5,           // deprecated — ignored
       free_mci: 3,
       free_vm: 2,
       free_grants: { lk: 1 },
     };
-    // 5 (m.free) + 3 (free_mci) + 2 (free_vm) + 1 (map.lk) = 11
-    expect(meritFreeSum(m)).toBe(11);
+    // 3 (free_mci) + 2 (free_vm) + 1 (map.lk) = 6   (m.free=5 ignored per #834)
+    expect(meritFreeSum(m)).toBe(6);
   });
 
-  it('Necropolis Sepulcher (the SOURCE merit, not a target): sums normally (only targets gate, not Sepulcher itself)', () => {
+  it('Necropolis Sepulcher (the SOURCE merit, not a target): sums normally — m.free deprecated', () => {
+    // Post-#834: m.free=1 contamination is ignored; with no other channels
+    // the sum is 0 (was 1 pre-#834).
     const m = {
       name: 'Necropolis Sepulcher',
       category: 'domain',
       cp: 3, xp: 0,
-      free: 1, // hypothetical contamination
+      free: 1, // deprecated channel — ignored by meritFreeSum
       free_grants: {},
     };
-    // Sepulcher is the source, not a target — gate doesn't apply.
-    // 1 (m.free) + 0 (no other channels) = 1
-    expect(meritFreeSum(m)).toBe(1);
+    // Sepulcher is the source, not a target — Necro gate doesn't apply.
+    // Post-#834 sum = 0 (m.free=1 dropped).
+    expect(meritFreeSum(m)).toBe(0);
   });
 
-  it('Trap Door (per-character bridge, NOT a Necropolis target): sums normally', () => {
+  it('Trap Door (per-character bridge, NOT a Necropolis target): sums non-deprecated channels normally', () => {
     const m = {
       name: 'Trap Door',
       category: 'domain',
       cp: 1, xp: 0,
-      free: 2,
+      free: 2,            // deprecated — ignored
       free_grants: { mci: 1 },
     };
-    // Trap Door is NOT in the categorical exclusion set (it's per-character,
-    // not collective-shared). Sums normally.
-    // 2 (m.free) + 1 (map.mci) = 3
-    expect(meritFreeSum(m)).toBe(3);
+    // Post-#834: 1 (map.mci) — m.free=2 ignored.
+    expect(meritFreeSum(m)).toBe(1);
   });
 
   it('syncMeritRating inherits the Necropolis exclusion (consumes meritFreeSum)', () => {

@@ -108,7 +108,10 @@ export function ensureMeritSync(c) {
   for (const m of c.merits) {
     if (m.cp === undefined) m.cp = 0;
     if (m.xp === undefined) m.xp = 0;
-    if (m.free === undefined) m.free = 0;
+    // Issue #834: m.free is deprecated — no longer initialised here. New
+    // merits don't carry the field; existing merits that have it set retain
+    // it until the Phase 3 cleanup script zeros them. See memory
+    // feedback_m_free_deprecated.
     if (m.free_mci === undefined) m.free_mci = 0;
     if (m.free_vm === undefined) m.free_vm = 0;
     if (m.free_lk === undefined) m.free_lk = 0;
@@ -126,7 +129,7 @@ export function addMerit(c, merit) {
   if (!c.merits) c.merits = [];
   if (merit.cp === undefined) merit.cp = 0;
   if (merit.xp === undefined) merit.xp = 0;
-  if (merit.free === undefined) merit.free = 0;
+  // Issue #834: m.free is deprecated — no longer initialised on new merits.
   if (merit.free_mci === undefined) merit.free_mci = 0;
   if (merit.free_vm === undefined) merit.free_vm = 0;
   if (merit.free_lk === undefined) merit.free_lk = 0;

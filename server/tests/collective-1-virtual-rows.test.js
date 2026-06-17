@@ -225,7 +225,10 @@ describe('COLLECTIVE-1 — Yusuf + Xavier render (edit mode)', () => {
   it('White Ants territory union renders on Yusuf with all 4 territory slugs (no attribution)', () => {
     const { yusuf } = setupYusuf();
     const html = shRenderDomainMerits(yusuf, true);
-    expect(html).toContain('wa-territory-union');
+    // Issue #827: subtitle now emitted inline as dom-row-subtitle (was the
+    // standalone wa-territory-union sub-row pre-#827).
+    expect(html).toContain('dom-row-subtitle');
+    expect(html).toContain('Territories:');
     // The territory display uses slugs when name lookup fails (no territories
     // loaded in getStoredTerritories under the test shim). Either form is fine
     // for this assertion — slugs are what's in the fixture.
@@ -282,7 +285,9 @@ describe('COLLECTIVE-1 — Sepulcher boundary + source merit', () => {
     const html = shRenderDomainMerits(nonOwner, true);
     expect(html).not.toContain('dom-edit-block--virtual');
     expect(html).not.toContain('shAllocateNecroVirtual');
-    expect(html).not.toContain('wa-territory-union');
+    // Issue #827: subtitle now uses dom-row-subtitle class. Non-Sepulcher
+    // chars don't surface the territory subtitle (no _necroTerritoryUnion).
+    expect(html).not.toContain('dom-row-subtitle');
   });
 
   it('Sepulcher source merit row uses standard dot display (not cumulative)', () => {
@@ -323,7 +328,10 @@ describe('COLLECTIVE-1 — view mode (read-only) synthesis', () => {
     stateMod.editIdx = 0;
     stateMod.editMode = false;
     const html = shRenderDomainMerits(yusuf, false);
-    expect(html).toContain('wa-territory-union');
+    // Issue #827: subtitle moved from standalone wa-territory-union sub-row
+    // into inline dom-row-subtitle span.
+    expect(html).toContain('dom-row-subtitle');
+    expect(html).toContain('Territories:');
   });
 });
 

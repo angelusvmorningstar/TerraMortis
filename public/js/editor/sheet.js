@@ -1033,7 +1033,31 @@ export function shRenderDomainMerits(c, editMode) {
       });
       return names.join(', ');
     })();
-    domM.forEach((m, di) => {
+    // Issue #793: alphabetical sort + Necropolis inherited-card grouping.
+    // Preserve handler semantics by mapping each merit object back to its
+    // ORIGINAL domain-filtered index (the `di` parameter that
+    // shEditDomMerit / shRemoveDomMerit / shAddDomainPartner /
+    // shRemoveDomainPartner all consume via meritByCategory). Sorting only
+    // affects render order, not c.merits or its filtered view.
+    const _domIdxByMerit = new Map();
+    domM.forEach((m, i) => _domIdxByMerit.set(m, i));
+    const _necroTargetSet = new Set(_necroTargets);
+    const _sortedDom = [...domM].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Stray-target degradation: target merit present on a non-Sepulcher
+    // character (legacy/unexpected state). Render in alphabetical position
+    // and console.warn for QA visibility per the issue spec.
+    if (!_hasNecroSep) {
+      const _strays = _sortedDom.filter(m => _necroTargetSet.has(m.name));
+      if (_strays.length) {
+        console.warn('[#793] Necropolis target merits present on non-Sepulcher character:',
+          _strays.map(m => m.name).join(', '),
+          '— rendering in alphabetical position (no inherited-card parent).');
+      }
+    }
+    // Per-row emitter — extracted closure so the inherited-card pass can
+    // reuse the exact same row HTML for grouped Necro target merits without
+    // duplicating the 130-line body. Appends to outer-scope `h`.
+    const _emitDomRow = (m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di);
       // Catalog-driven options (sub_category='domain'), with the Herd-once-per-character
       // rule layered on top. Mandragora Garden's prereq is enforced by the helper.
@@ -1078,10 +1102,43 @@ export function shRenderDomainMerits(c, editMode) {
       const _necroCumulative = _isNecroTargetHere ? collectiveNecroDots(chars, m.name) : 0;
       const _necroPartner = Math.max(0, _necroCumulative - _necroOwn);
       const _necroDotsHtml = shDotsMixed(_necroOwn, _necroPartner);
+      // Issue #827: subtitle for Haven / Mandragora Garden / White Ants
+      // renders BEFORE the dots column inside the main row (LHS-justified),
+      // keeping dots rightmost. Pre-#827 these subtitles emitted as sibling
+      // sub-rows AFTER the dot row, breaking the consistent rightmost-dots
+      // rule that every other domain merit follows.
+      let _subtitleInline = '';
+      if (m.name === 'Haven' || m.name === 'Mandragora Garden') {
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        const _dest = _viewAt && _viewAt.destination ? _viewAt.destination : '(not attached)';
+        _subtitleInline = '<span class="dom-row-subtitle">Attached: ' + esc(_dest) + '</span>';
+      } else if (m.name === 'White Ants' && _necroTerritoryUnion) {
+        _subtitleInline = '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>';
+      }
+      // Issue #832: expand-on-click for domain merits \u2014 same exp-row /
+      // exp-body shell as shRenderMeritRow uses for general + influence
+      // merits. The click is on the infl-edit-row (the visual row containing
+      // name + dots); the rest of the dom-edit-block (qualifier / attach /
+      // bd-row pickers / partners) is below and does not toggle. Interactive
+      // controls inside the infl-edit-row (select.infl-type + remove button)
+      // get event.stopPropagation() so changing the merit type or removing
+      // it doesn't accidentally toggle the description.
+      const _expId = 'dom-' + rIdx;
+      const _expDb = meritLookup(m.name);
+      const _expDesc = _expDb && _expDb.desc ? esc(_expDb.desc) : '';
+      const _expPrereq = _expDb && _expDb.prereq ? prereqLabel(_expDb.prereq) : '';
+      const _hasExpBody = !!_expDesc;
+      const _expClass = _hasExpBody ? ' exp-row' : '';
+      const _expArr = _hasExpBody ? '<span class="exp-arr">\u203A</span>' : '';
+      const _expOnclick = _hasExpBody ? ' onclick="toggleExp(\'' + _expId + '\')"' : '';
+      const _expIdAttr = _hasExpBody ? ' id="exp-row-' + _expId + '"' : '';
+      // stopPropagation prefix for interactive controls (avoids double-event
+      // when the row click also fires from the bubble).
+      const _sp = _hasExpBody ? 'event.stopPropagation();' : '';
       if (_isNecroTargetHere) {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -1129,13 +1186,13 @@ export function shRenderDomainMerits(c, editMode) {
       // wrong renderer) and N-7c (orchestrator dispatch missing). Production
       // symptom pre-fix: ST cannot pick territories → save fails 400.
       h += _whiteAntsTerritoriesBlock(m, rIdx);
-      // COLLECTIVE-1 (issue #800): flat territory union under the White Ants
-      // row — every Sepulcher-owner's sheet shows the same union. No
-      // attribution per Peter decision (a) 2026-06-16. Renders only on the
-      // owner's own White Ants row (virtual row handles it separately below).
-      if (m.name === 'White Ants' && _necroTerritoryUnion) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
-      }
+      // Issue #827: territory union no longer rendered here as a sibling
+      // sub-row — moved INLINE into the infl-edit-row above (LHS-justified,
+      // before the dots column). Keeps dots as the rightmost element per
+      // Peter 2026-06-16 ("Dots should be last and rightmost thing in the
+      // row always for all domain merits"). The COLLECTIVE-1 union helper
+      // (_necroTerritoryUnion) still computes the same value; only the
+      // emission site moved.
       h += _trapDoorAnchorBlock(c, m, rIdx);
       h += _derivedNotes(m);
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
@@ -1162,44 +1219,125 @@ export function shRenderDomainMerits(c, editMode) {
       const _canShare = ['Safe Place', 'Haven'];
       if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      // Issue #832: exp-body sibling at the end of dom-edit-block holds the
+      // collapsible description + prereq. Only emitted when the merit has a
+      // description in the rules cache (matches shRenderMeritRow's gate).
+      if (_hasExpBody) {
+        h += '<div class="exp-body" id="exp-body-' + _expId + '"><div>' + _expDesc + '</div>'
+          + (_expPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_expPrereq) + '</div>' : '')
+          + '</div>';
+      }
       h += '</div>';
-    });
-    // COLLECTIVE-1 (issue #800): virtual row synthesis. For every Necropolis
-    // target merit name in the collective (synthesised from all
-    // Sepulcher-owners' allocations) that the current character does NOT own,
-    // render a virtual row: cumulative-other dots displayed hollow, NECRO
-    // stepper enabled at 0. Clicking the stepper materialises the merit on
-    // c.merits via shAllocateNecroVirtual and routes through the standard
-    // free_grants.necro write path. White Ants virtual row gets the territory
-    // union label too.
-    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
-    for (const vName of _virtualNecroNames) {
+    };
+    // Virtual-row emitter \u2014 same pattern as _emitDomRow but for synthesised
+    // partner-only Necro target rows that the current character doesn't own.
+    // Materialisation routes through shAllocateNecroVirtual; no realIdx exists.
+    const _emitVirtualNecroRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
       const _vOwn = 0;
       const _vDots = shDotsMixed(_vOwn, _vPartner);
-      // Stable id for the virtual row's input — uses the merit name slug so
-      // it survives re-renders. No realIdx exists (the merit hasn't been
-      // materialised yet); the shAllocateNecroVirtual handler resolves the
-      // name → c.merits index, adding if absent.
       const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // Issue #827: territory subtitle inline before the dots (rightmost).
+      const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnion)
+        ? '<span class="dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnion) + '</span>'
+        : '';
+      // Issue #832: virtual rows get the same expand-on-click affordance as
+      // owned rows. Look up the merit's description by name (the merit isn't
+      // on c.merits yet, but the rules cache has the doc keyed by name slug).
+      // The NECRO stepper inside the bd-row gets stopPropagation so clicking
+      // the input doesn't toggle the expand.
+      const _vExpId = 'dom-v-' + _vSlug;
+      const _vDb = meritLookup(vName);
+      const _vDesc = _vDb && _vDb.desc ? esc(_vDb.desc) : '';
+      const _vPrereq = _vDb && _vDb.prereq ? prereqLabel(_vDb.prereq) : '';
+      const _vHasExp = !!_vDesc;
+      const _vExpClass = _vHasExp ? ' exp-row' : '';
+      const _vExpArr = _vHasExp ? '<span class="exp-arr">\u203A</span>' : '';
+      const _vExpOnclick = _vHasExp ? ' onclick="toggleExp(\'' + _vExpId + '\')"' : '';
+      const _vExpIdAttr = _vHasExp ? ' id="exp-row-' + _vExpId + '"' : '';
+      const _vSp = _vHasExp ? 'event.stopPropagation();' : '';
       h += '<div class="dom-edit-block dom-edit-block--virtual">'
-        + '<div class="infl-edit-row">'
-        + '<span class="infl-type infl-type--virtual" title="Partner-only — click NECRO to allocate your own dots">' + esc(vName) + '</span>'
+        + '<div class="infl-edit-row' + _vExpClass + '"' + _vExpIdAttr + _vExpOnclick + '>'
+        + '<span class="infl-type infl-type--virtual" title="Partner-only \u2014 click NECRO to allocate your own dots">' + esc(vName) + '</span>'
+        + _vSubtitle
         + '<span class="dom-contrib-lbl">My dots: </span>'
-        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (● own, ○ partners)">Total: ' + _vDots + '</span>'
+        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
+        + _vExpArr
         + '</div>'
         + '<div class="merit-bd-row">'
         + '<div class="bd-grp">'
         + '<span class="bd-lbl bd-bonus-lbl" id="bd-necro-vlbl-' + _vSlug + '">NECRO</span>'
-        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
+        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onclick="' + _vSp + '" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
         + '</div>'
         + '<div class="bd-eq"><span class="bd-val">' + _vPartner + ' partner dot' + (_vPartner === 1 ? '' : 's') + '</span></div>'
         + '</div>';
-      if (vName === 'White Ants' && _necroTerritoryUnion) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnion) + '</div>';
+      if (_vHasExp) {
+        h += '<div class="exp-body" id="exp-body-' + _vExpId + '"><div>' + _vDesc + '</div>'
+          + (_vPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_vPrereq) + '</div>' : '')
+          + '</div>';
       }
       h += '</div>';
+    };
+    // Issue #793: sorted iteration with inherited-card grouping.
+    // - Necro target merits skip the main pass when char has Sepulcher
+    //   (they render inside the inherited card after Sepulcher's row).
+    // - Necro target merits on a non-Sepulcher character render in
+    //   alphabetical position (no parent to anchor under; degrades gracefully).
+    // - Sepulcher row triggers the inherited card if there's anything to show
+    //   (owned target merits + virtual target rows from COLLECTIVE-1).
+    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
+    const _ownedTargets = _sortedDom.filter(mm => _necroTargetSet.has(mm.name));
+    const _hasCardContent = _hasNecroSep && (_ownedTargets.length > 0 || _virtualNecroNames.length > 0);
+    const _emitInheritedCard = () => {
+      h += '<div class="dom-inherited-card">';
+      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      // Combined alphabetical: owned target names + virtual names. Owned
+      // rows render via _emitDomRow (full editor row with stepper); virtual
+      // rows render via _emitVirtualNecroRow (no realIdx).
+      const _cardEntries = [
+        ..._ownedTargets.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ..._virtualNecroNames.map(n => ({ kind: 'virtual', name: n })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of _cardEntries) {
+        if (entry.kind === 'owned') {
+          _emitDomRow(entry.m, _domIdxByMerit.get(entry.m));
+        } else {
+          _emitVirtualNecroRow(entry.name);
+        }
+      }
+      h += '</div>';
+    };
+    let _cardRendered = false;
+    for (const m of _sortedDom) {
+      const di = _domIdxByMerit.get(m);
+      const _isTarget = _necroTargetSet.has(m.name);
+      if (_isTarget && _hasNecroSep) {
+        // Skip \u2014 will render inside the inherited card.
+        continue;
+      }
+      // Sepulcher OR non-Necro-target OR stray target on non-owner: emit normally.
+      _emitDomRow(m, di);
+      // If we just rendered Sepulcher AND the character is an owner AND
+      // there's anything to show, emit the inherited card immediately after.
+      if (m.name === 'Necropolis Sepulcher' && _hasCardContent) {
+        _emitInheritedCard();
+        _cardRendered = true;
+      }
     }
+    // Edge case: character has Sepulcher (anywhere \u2014 possibly mis-categorised
+    // as general on a legacy merit doc) but Sepulcher's instance isn't in
+    // domM, so the loop above never anchored the card. Emit at end so target
+    // merits + virtual rows still render. Production data should have
+    // Sepulcher in domM post-#770 (seed sub_category='domain'), but the
+    // editor must degrade gracefully on legacy / test-fixture shapes.
+    if (_hasCardContent && !_cardRendered) {
+      _emitInheritedCard();
+    }
+    // Issue #793: virtual rows now render inside the inherited card above.
+    // The pre-#793 standalone virtual-row loop has been removed \u2014 it would
+    // double-render targets already placed in the card. Sepulcher-owner
+    // gates the synthesis (COLLECTIVE-1) and the card consumes both owned
+    // + virtual names in one alphabetical pass.
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     // Issue #782: read-only view shares the same partner-display gate as the
@@ -1222,7 +1360,18 @@ export function shRenderDomainMerits(c, editMode) {
         return (t && (t.name || t.slug)) || slug;
       }).join(', ');
     })();
-    domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
+    // Issue #793: view-mode inherited-card grouping. Same pattern as
+    // edit-mode: sort alphabetically; skip Necro target merits when char
+    // owns Sepulcher; emit Sepulcher row + inherited card containing the
+    // target rows + virtual rows. Non-Sepulcher chars render any stray
+    // target merits in alphabetical position (no card, no warn — read-only
+    // path; the edit-mode warn is the appropriate surface for QA).
+    const _hasNecroSepView = (c.merits || []).some(m =>
+      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
+    );
+    const _necroTargetSetView = new Set(_necroTargetsView);
+    const _sortedDomView = domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const _emitViewRow = (m) => {
       const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
       // de: per-instance effective rating (handles cap for Haven/MG, multi-instance for SP/FG)
       const de = meritEffectiveRating(c, m);
@@ -1260,44 +1409,124 @@ export function shRenderDomainMerits(c, editMode) {
       const _shHtml      = '<div class="dom-total-view" title="\u25CF inherent, \u25CB bonus, \u25CB\u0332 shared">' + shDotsThreeTier(_sh3Inherent, _sh3Bonus, _sh3Shared) + '</div>';
       // Display name includes qualifier when present
       const _dispName = m.name + (m.qualifier ? ' <span class="trait-qual">(' + esc(m.qualifier) + ')</span>' : '');
-      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div>';
+      // Issue #827: subtitle inline before dots (rightmost). Haven /
+      // Mandragora "Attached: X" + White Ants "Territories: ..." move from
+      // sibling sub-rows into the main row.
+      let _subtitleInlineView = '';
       if (_isCappedView) {
-        // N-1 (Concern #11): normaliser keeps the rendered "Attached: X" string
-        // correct when `m.attached_to` is the new object form (would otherwise
-        // render [object Object]).
+        const _viewAt = normaliseAttachedTo(m.attached_to);
+        if (_viewAt && _viewAt.destination) {
+          _subtitleInlineView = '<span class="trait-qual dom-row-subtitle">Attached: ' + esc(_viewAt.destination) + '</span>';
+        }
+      } else if (m.name === 'White Ants' && _necroTerritoryUnionView) {
+        _subtitleInlineView = '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>';
+      }
+      // Issue #832: view-mode expand-on-click. Mirrors shRenderMeritRow's
+      // exp-row { trait-row + trait-sub } + sibling exp-body shell. Read-
+      // only path has no interactive controls so no stopPropagation needed.
+      // Derived-note warnings (Capped / Needs attached) emit as further
+      // siblings after the exp-body \u2014 same visual intent as the existing
+      // pattern (cap warning sits beneath the row).
+      const _viewExpId = 'dom-' + c.merits.indexOf(m);
+      const _viewDb = meritLookup(m.name);
+      const _viewDesc = _viewDb && _viewDb.desc ? esc(_viewDb.desc) : '';
+      const _viewPrereq = _viewDb && _viewDb.prereq ? prereqLabel(_viewDb.prereq) : '';
+      const _viewHasExp = !!_viewDesc;
+      const _viewSharedSub = dp
+        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
+        : '';
+      const _viewArr = _viewHasExp ? '<span class="exp-arr">\u203A</span>' : '';
+      // Inner row body \u2014 trait-row + trait-main + trait-right + optional
+      // shared trait-sub. Self-contained: opens 3 divs (trait-row,
+      // trait-main, trait-right) and closes them all inline.
+      const _viewInner = '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + _dispName + '</span>' + _subtitleInlineView + '<div class="trait-right">' + (dp ? _shHtml : dotHtml) + _viewArr + '</div></div></div>' + _viewSharedSub;
+      // Capped-view warnings (Needs Attached / Capped at N) \u2014 derived-note
+      // siblings after the exp-body. Hoisted out so both branches share.
+      let _viewCappedNote = '';
+      if (_isCappedView) {
         const _viewAt = normaliseAttachedTo(m.attached_to);
         if (!_viewAt) {
-          h += '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
-        } else {
-          if (_viewStored > de) h += '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
-          h += '<div class="trait-sub"><span class="trait-qual">Attached: ' + esc(_viewAt.destination) + '</span></div>';
+          _viewCappedNote = '<div class="derived-note dom-cap-warn">Needs an attached Safe Place (0 effective dots)</div>';
+        } else if (_viewStored > de) {
+          _viewCappedNote = '<div class="derived-note">Capped at ' + de + ' \u2014 Safe Place limits effective dots</div>';
         }
       }
-      // COLLECTIVE-1: White Ants row gets the territory union label in view
-      // mode too. No attribution per Peter decision (a) 2026-06-16.
-      if (m.name === 'White Ants' && _necroTerritoryUnionView) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
+      if (_viewHasExp) {
+        h += '<div class="exp-row" id="exp-row-' + _viewExpId + '" onclick="toggleExp(\'' + _viewExpId + '\')">' + _viewInner + '</div>';
+        h += '<div class="exp-body" id="exp-body-' + _viewExpId + '"><div>' + _viewDesc + '</div>'
+          + (_viewPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_viewPrereq) + '</div>' : '')
+          + '</div>';
+        h += _viewCappedNote;
+      } else {
+        h += '<div class="merit-plain">' + _viewInner + _viewCappedNote + '</div>';
       }
-      h += '</div>';
-    });
-    // COLLECTIVE-1 (issue #800): view-mode virtual row synthesis. For each
-    // Necropolis target merit in the collective the character doesn't own,
-    // render a read-only row showing the cumulative cross-owner dots hollow.
-    // White Ants virtual row gets the territory union label too. No editor
-    // controls \u2014 view mode never surfaces the NECRO stepper here.
-    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
-    for (const vName of _virtualNamesView) {
+    };
+    const _emitVirtualViewRow = (vName) => {
       const _vPartner = collectiveNecroDots(chars, vName);
       const _vDots = shDotsMixed(0, _vPartner);
-      h += '<div class="merit-plain merit-plain--virtual">'
-        + '<div class="trait-row"><div class="trait-main">'
+      // Issue #827: territory subtitle inline before dots on White Ants
+      // virtual row too.
+      const _vSubtitle = (vName === 'White Ants' && _necroTerritoryUnionView)
+        ? '<span class="trait-qual dom-row-subtitle">Territories: ' + esc(_necroTerritoryUnionView) + '</span>'
+        : '';
+      // Issue #832: virtual view row also gets expand-on-click. ID prefix
+      // matches the edit-mode virtual row pattern (`dom-v-<slug>`); merit
+      // looked up by name from the rules cache.
+      const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const _vViewExpId = 'dom-v-' + _vSlug;
+      const _vViewDb = meritLookup(vName);
+      const _vViewDesc = _vViewDb && _vViewDb.desc ? esc(_vViewDb.desc) : '';
+      const _vViewPrereq = _vViewDb && _vViewDb.prereq ? prereqLabel(_vViewDb.prereq) : '';
+      const _vViewHasExp = !!_vViewDesc;
+      const _vViewArr = _vViewHasExp ? '<span class="exp-arr">›</span>' : '';
+      const _vViewInner = '<div class="trait-row"><div class="trait-main">'
         + '<span class="trait-name">' + esc(vName) + '</span>'
-        + '<div class="trait-right">' + _vDots + '</div>'
+        + _vSubtitle
+        + '<div class="trait-right">' + _vDots + _vViewArr + '</div>'
         + '</div></div>';
-      if (vName === 'White Ants' && _necroTerritoryUnionView) {
-        h += '<div class="wa-territory-union">Territories: ' + esc(_necroTerritoryUnionView) + '</div>';
+      if (_vViewHasExp) {
+        h += '<div class="exp-row merit-plain--virtual" id="exp-row-' + _vViewExpId + '" onclick="toggleExp(\'' + _vViewExpId + '\')">' + _vViewInner + '</div>';
+        h += '<div class="exp-body" id="exp-body-' + _vViewExpId + '"><div>' + _vViewDesc + '</div>'
+          + (_vViewPrereq ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(_vViewPrereq) + '</div>' : '')
+          + '</div>';
+      } else {
+        h += '<div class="merit-plain merit-plain--virtual">' + _vViewInner + '</div>';
+      }
+    };
+    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
+    const _ownedTargetsView = _sortedDomView.filter(mm => _necroTargetSetView.has(mm.name));
+    const _hasCardContentView = _hasNecroSepView && (_ownedTargetsView.length > 0 || _virtualNamesView.length > 0);
+    const _emitInheritedCardView = () => {
+      h += '<div class="dom-inherited-card">';
+      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      const _cardEntries = [
+        ..._ownedTargetsView.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ..._virtualNamesView.map(n => ({ kind: 'virtual', name: n })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of _cardEntries) {
+        if (entry.kind === 'owned') {
+          _emitViewRow(entry.m);
+        } else {
+          _emitVirtualViewRow(entry.name);
+        }
       }
       h += '</div>';
+    };
+    let _cardRenderedView = false;
+    for (const m of _sortedDomView) {
+      const _isTarget = _necroTargetSetView.has(m.name);
+      if (_isTarget && _hasNecroSepView) continue; // rendered in card below
+      _emitViewRow(m);
+      if (m.name === 'Necropolis Sepulcher' && _hasCardContentView) {
+        _emitInheritedCardView();
+        _cardRenderedView = true;
+      }
+    }
+    // Edge-case fallback (mirror of edit mode): if Sepulcher isn't in domM
+    // but the character owns it (legacy mis-categorisation or test fixtures),
+    // still emit the card so target merits don't disappear.
+    if (_hasCardContentView && !_cardRenderedView) {
+      _emitInheritedCardView();
     }
   }
   h += '</div></div>'; return h;
