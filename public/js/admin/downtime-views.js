@@ -7624,6 +7624,16 @@ function _renderCompactMeritPanel(entry, rev) {
   h += `</div>`;
   h += `</div>`;
 
+  // ── Outcome ── (feat.847: compact merit actions previously had no outcome box)
+  const outcomeVal = rev.outcome || '';
+  h += `<div class="proc-section proc-player-note-section">`;
+  h += `<div class="proc-mod-panel-title">Outcome</div>`;
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-outcome-input" data-proc-key="${esc(key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(key)}">Confirm</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
   h += `</div>`; // proc-compact-merit-panel
   return h;
 }
