@@ -33,13 +33,22 @@ export const equipmentCatalogueSchema = {
     tags:         { type: 'array', items: { type: 'string' } },
 
     // ── Bucket-specific (explicit null where absent) ──
-    damage_mod:      { type: ['integer', 'null'] },
-    damage_type:     { type: ['string',  'null'] },
-    weapon_type:     { type: ['string',  'null'] },
-    armour_value:    { type: ['integer', 'null'] },
-    defence_penalty: { type: ['integer', 'null'] },
-    skill_domain:    { type: ['string',  'null'] },
-    bonus_dice:      { type: ['integer', 'null'] },
+    damage_mod:        { type: ['integer', 'null'] },
+    damage_type:       { type: ['string',  'null'] },
+    weapon_type:       { type: ['string',  'null'] },
+    armour_value:      { type: ['integer', 'null'] },
+    defence_penalty:   { type: ['integer', 'null'] },
+    skill_domain:      { type: ['string',  'null'] },
+    bonus_dice:        { type: ['integer', 'null'] },
+    // mechanical_effect — asset-bucket-only in practice (free-text note on
+    // what the asset does mechanically); follows the same nullable shape as
+    // the other bucket-specific fields. Widened in ECM-6 (#873) after the
+    // ECM-2 seed surfaced that the source carries this field on asset
+    // entries — ECM-1's properties block had omitted it, causing PATCH to
+    // silently drop edits via the allowlist. Per epic Non-Goal "no state-
+    // enum per-bucket schema validation", the schema does not enforce
+    // bucket=asset; the field is nullable across all buckets.
+    mechanical_effect: { type: ['string',  'null'] },
 
     // ── Audit-light metadata (kept minimal per epic D1 / Non-Goals) ──
     created_at: { type: 'string' },
@@ -56,4 +65,5 @@ export const EQUIPMENT_CATALOGUE_UPDATABLE_FIELDS = new Set([
   'damage_mod', 'damage_type', 'weapon_type',
   'armour_value', 'defence_penalty',
   'skill_domain', 'bonus_dice',
+  'mechanical_effect',
 ]);
