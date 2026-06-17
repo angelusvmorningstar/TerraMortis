@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Issue #834 — Phase 3: cleanup of `m.free` contamination on character merits.
  *
