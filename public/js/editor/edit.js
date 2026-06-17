@@ -10,7 +10,7 @@ import {
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { freeOf, poolAvailableFor } from '../data/rules-helpers.js';
-import { xpToDots, xpEarned, xpSpent } from './xp.js';
+import { xpToDots } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
@@ -571,8 +571,7 @@ export function shEditAttrPt(attr, field, val) {
   const NINE_ATTRS = ['Intelligence', 'Wits', 'Resolve', 'Strength', 'Dexterity', 'Stamina', 'Presence', 'Manipulation', 'Composure'];
   NINE_ATTRS.forEach(a => { attrXpTotal += (c.attributes?.[a]?.xp) || 0; });
   c.xp_log.spent.attributes = attrXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -667,8 +666,7 @@ export function shEditDiscPt(disc, field, val) {
     discXpTotal += v.xp || 0;
   });
   c.xp_log.spent.powers = discXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -751,8 +749,7 @@ export function shEditSkillPt(skill, field, val) {
   let skXpTotal = 0;
   ALL_SKILLS.forEach(s => { skXpTotal += (c.skills?.[s]?.xp) || 0; });
   c.xp_log.spent.skills = skXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -780,8 +777,7 @@ export function shEditXP(bucket, key, val) {
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   if (!c.xp_log[bucket]) c.xp_log[bucket] = {};
   c.xp_log[bucket][key] = val || 0;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }

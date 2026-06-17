@@ -273,8 +273,8 @@ function parseExcelToChars(rows) {
       size: parseInt(row[h['Size']]) || 5,
       speed: parseInt(row[h['Speed']]) || 0,
       defence: parseInt(row[h['Defence']]) || 0,
-      xp_total: parseInt(row[h['XP Total']]) || 0,
-      xp_left: parseInt(row[h['XP Left']]) || 0,
+      // #837: xp_total / xp_left columns are still read by the importer
+      // but no longer persisted; XP is derived at render via xp.js.
       status: {
         city: parseInt(row[h['City Status']]) || 0,
         clan: parseInt(row[h['Clan Status']]) || 0,

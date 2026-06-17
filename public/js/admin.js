@@ -99,7 +99,7 @@ function markDirty(idx) {
 }
 
 registerEditCallbacks(markDirty, renderSheet);
-registerIdentityCallbacks(markDirty, xpLeft);
+registerIdentityCallbacks(markDirty);
 registerAttrsCallbacks(markDirty);
 
 // ── ST mod overlay composition (Epic STM, issue #372) ──
@@ -915,13 +915,18 @@ async function createNewCharacter() {
 
 // Legacy parallel-array fields superseded by inline cp/xp on each object (v3 schema)
 const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creation', 'merit_creation']);
+// #837: xp_total / xp_spent removed from schema — derived at render time.
+// Strip on save so old in-memory documents that still carry them don't fail
+// schema validation on PUT.
+const _DEPRECATED_FIELDS = new Set(['xp_total', 'xp_spent', 'xp_left']);
 
 function buildSaveBody(c) {
   // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
-  // and c.current (tracker-state namespace set by spliceCurrent — not a schema field).
+  // deprecated derived fields (#837), and c.current (tracker-state namespace).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
+    if (k === '_id' || k.startsWith('_') || k === 'current'
+        || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
     body[k] = v;
   }
   // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
