@@ -8447,6 +8447,10 @@ function _deriveActionRibbonState(rev) {
   const ps = rev?.pool_status || 'pending';
   if (ps === 'pending') return 'pending';
   if (rev?.outcome_confirmed) return 'complete';
+  // #860: merit actions complete on an outcome verdict (Approved/Partial/Failed);
+  // travel actions complete on a discretion choice (obvious/neutral/subtle).
+  if (rev?.merit_outcome) return 'complete';
+  if (ps === 'obvious' || ps === 'neutral' || ps === 'subtle') return 'complete';
   return 'valid';
 }
 
