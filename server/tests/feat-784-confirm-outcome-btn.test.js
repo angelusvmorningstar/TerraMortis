@@ -6,8 +6,9 @@
  * which is the appropriate coverage level for a DOM-rendering change.
  *
  * ACs covered:
- *   AC-1: Outcome textarea rows="4" at both render sites
- *   AC-2: proc-confirm-outcome-btn present at both render sites
+ *   AC-1: Outcome textarea rows="4" at all three render sites
+ *         (project, full merit, and — since feat.847/#847 — compact merit)
+ *   AC-2: proc-confirm-outcome-btn present at all three render sites
  *   AC-5: proc-player-note-input absent from Outcome textarea
  *         (still present on Player Feedback textarea only)
  */
@@ -41,18 +42,23 @@ describe('feat-784 — Confirm Outcome button source assertions', () => {
       expect(outcomeRows2).toHaveLength(0);
     });
 
-    it('exactly two proc-outcome-input textareas exist with rows="4"', () => {
+    it('exactly three proc-outcome-input textareas exist with rows="4"', () => {
+      // Three render sites: project action panel, full merit panel, and
+      // (since feat.847 / #847) the compact merit panel.
       const hits = matchingLines(/class="proc-outcome-input"[^>]*rows="4"/);
-      expect(hits).toHaveLength(2);
+      expect(hits).toHaveLength(3);
     });
   });
 
   // ── AC-2: Confirm Outcome button at both render sites ────────────────────
 
   describe('AC-2: proc-confirm-outcome-btn present at both render sites', () => {
-    it('exactly two Confirm Outcome button render lines', () => {
-      const hits = matchingLines(/proc-confirm-outcome-btn.*Confirm Outcome/);
-      expect(hits).toHaveLength(2);
+    it('exactly three Confirm button render lines', () => {
+      // Button label is "Confirm" (renamed from "Confirm Outcome"); three
+      // render sites since feat.847 added the compact merit panel. The double
+      // quote after the class excludes the querySelectorAll handler line.
+      const hits = matchingLines(/proc-confirm-outcome-btn"[^>]*>Confirm</);
+      expect(hits).toHaveLength(3);
     });
 
     it('event handler wires proc-confirm-outcome-btn', () => {
@@ -64,14 +70,18 @@ describe('feat-784 — Confirm Outcome button source assertions', () => {
       // Find the confirm-outcome handler block
       const handlerStart = lines.findIndex(l => /querySelectorAll\(.*proc-confirm-outcome-btn/.test(l));
       expect(handlerStart).toBeGreaterThan(0);
-      // The next ~10 lines should contain saveEntryReview with outcome
-      const handlerBlock = lines.slice(handlerStart, handlerStart + 12).join('\n');
-      expect(handlerBlock).toMatch(/saveEntryReview.*outcome/);
+      // The handler builds a `patch` containing `outcome` and passes it to
+      // saveEntryReview. Window widened (handler grew a roll_mode/pool_status
+      // branch) and the two tokens are matched separately since `patch` and the
+      // call are now on different lines.
+      const handlerBlock = lines.slice(handlerStart, handlerStart + 20).join('\n');
+      expect(handlerBlock).toMatch(/outcome/);
+      expect(handlerBlock).toMatch(/saveEntryReview/);
     });
 
     it('handler calls renderProcessingMode after save', () => {
       const handlerStart = lines.findIndex(l => /querySelectorAll\(.*proc-confirm-outcome-btn/.test(l));
-      const handlerBlock = lines.slice(handlerStart, handlerStart + 14).join('\n');
+      const handlerBlock = lines.slice(handlerStart, handlerStart + 20).join('\n');
       expect(handlerBlock).toMatch(/renderProcessingMode\(container\)/);
     });
 
