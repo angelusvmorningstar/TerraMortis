@@ -1,10 +1,10 @@
 ---
 id: ADR-006
 title: 'defence_penalty read path + multi-armour stacking rules — calcDefence consumes equipment via a separate helper'
-status: approved (D2 pending product call)
+status: approved
 date: 2026-06-17
 author: Imhotep (Architect)
-revision: 1
+revision: 2
 supersedes: null
 related:
   - issue #878 (this ADR)
@@ -28,6 +28,7 @@ related:
 | Rev | Date | Change | Author |
 |---|---|---|---|
 | 1 | 2026-06-17 | Initial. ADR lifts EQ-1's ban on calcDefence reading the equipment array. D1 (read path) + D3 (edge cases ex-stacking) + D4 (STM overlay interaction) + D5 (composition site) lock now. D2 (multi-worn stacking policy) flagged PENDING — product call routed to Thoth/Peter; ADR will be updated inline once the pick lands. Survey caught a pre-existing bug in ADR-004 D5's `derived.defence` modding (the STM marker installs at `sheet.js:441` but the displayed value reads from `calcDefence(c)` not from the overlay) — D4 resolves it by materialising `c.derived.defence` at the render-path orchestrator, with calcDefence's modified output as input. | Imhotep (Architect) |
+| 2 | 2026-06-17 | Thoth locked the two product calls with Peter (same session). **D2 → A-with-hint:** worst-case math (highest defence_penalty among worn items wins; the rest are silently ignored by the formula); editor surfaces a soft non-blocking hint when >1 armour is in state:'worn' so STs don't misinterpret the multi-worn shape — the hint belongs in implementation story #879, not in this ADR. **Floor location → explicit at the derivation layer.** Floor-at-0 lives in the helper composition (`max(0, calcDefence(c) - armourDefencePenalty(c))`), NOT in the STM overlay and NOT in the sheet renderer. The rules-engine output is non-negative; STM overlay can still legitimately push the rendered value negative per ADR-004's no-bounds contract. This is a clean split: derivation owns the floor; overlay owns the no-bounds adjustment. Rejected by Thoth: A-plain (silent ignore — STs would debug invisible behaviour), B (sum), C (UI reject), D (concealable tag), allow-negative-everywhere (double-penalty), floor-at-0-everywhere (contradicts ADR-004's no-bounds STM contract). D2 and D3-floor locked. | Imhotep (Architect) |
 
 ## Context
 
@@ -66,46 +67,47 @@ The architecture is converging: STM Rev 4 added `applyStMods` after derivation; 
 
 Single source of truth for "is this armour providing protection right now" = `state === 'worn'`. The state enum is closed (`character.schema.js:317`); future state additions require this ADR's update.
 
-### D2 — Multi-worn stacking rule. (PENDING — product call routed to Thoth/Peter 2026-06-17)
+### D2 — Multi-worn stacking rule: A-with-hint (worst-case math + editor soft hint). (LOCKED Rev 2 — Thoth/Peter 2026-06-17)
 
-**Status: PENDING.** Thoth (PM) has the product call out to Peter; D2 will be locked in an inline amendment to this ADR when the pick lands. Until then, the implementation story (#879) is on hold for D2 even if the rest of the ADR merges.
-
-**The question:** when `c.equipment[]` contains multiple items with `state: 'worn'` AND `entry.bucket === 'armour'`, how do their `defence_penalty` values combine?
-
-**Canonical answer:** VtR 2e Core Rulebook treats armour as single-suit — a character can wear only one suit at a time. So mechanically, multi-armour stacking is nonexistent in canon. **But the TerraMortis data model does not enforce single-armour** — `c.equipment[]` is a flat array, the schema permits multiple armour items in `state: 'worn'` simultaneously, and the editor (EQ-1's ST CRUD surface) does not gate the assignment.
-
-**Pragmatic options surfaced to Peter:**
-
-- **(A) Worst-case** — apply only the highest `defence_penalty` among worn armour items. Closest to canon. Implicit single-armour-at-a-time without rejecting the data shape.
-- **(B) Sum** — add all worn `defence_penalty` values. Homebrew layered-armour interpretation (e.g. concealable vest under jacket). Mechanically stricter.
-- **(C) Reject at UI** — block setting >1 armour to `state: 'worn'` at the EQ-1 ST CRUD layer. Canon-strict, requires editor work beyond this ADR.
-- **(D) Hybrid (worst-case + concealable tag)** — sum if one item is tagged `concealable` and one is not, else worst-case. Mechanically rich but introduces tag semantics not currently in the schema.
-
-**Architect lean (advisory):** (A) Worst-case. Reasons:
-1. Closest to canonical VtR 2e mechanics.
-2. Zero schema change, zero new editor UI.
-3. Current armour catalogue has 4 items, 2 with non-zero `defence_penalty` (light reinforced 1, full kevlar 2). Sum-case maximum (-3) on someone wearing both is mechanically punishing and narratively absurd in a way no one has asked for.
-
-(D) adds tag plumbing not justified by any current merit/clan/discipline interaction. (C) is the only option requiring editor work beyond the calcDefence read.
-
-**Implementation contract once Peter picks:**
+**Math:** `armourDefencePenalty(c)` returns the **maximum** `defence_penalty` among items satisfying the D1 filter (state==='worn' + bucket==='armour'). Other worn armour items are silently ignored by the formula. Returns 0 when no qualifying armour is present.
 
 ```js
-// Worst-case (option A):
-const wornPenalties = wornArmour.map(e => e.defence_penalty | 0);
-return Math.max(0, ...wornPenalties, 0);  // max, floored at 0 for the no-armour case
-
-// Sum (option B):
-return wornArmour.reduce((s, e) => s + (e.defence_penalty | 0), 0);
-
-// Reject at UI (option C):
-// calcDefence + helper stay simple (any of A/B works as a defensive fallback);
-// the gate lives in the EQ-1 ST CRUD validator
+function _combineByD2Rule(penalties) {
+  // A-with-hint: worst-case wins. Math always returns a non-negative integer.
+  return penalties.length === 0 ? 0 : Math.max(...penalties, 0);
+}
 ```
 
-This ADR will be updated with the pick + rationale when Thoth responds.
+**Editor hint (lives in implementation story #879, NOT in this ADR's helper):** when the editor renders the equipment panel and detects >1 armour item in `state: 'worn'` for the character, surface a soft non-blocking hint near the worn-armour list. Wording (per Thoth): *"Only one armour applies; highest defence_penalty wins."* Nothing rejected; nothing blocked. The hint exists so an ST hitting a debug case (e.g. testing layered armour for a homebrew session) doesn't silently misinterpret the multi-worn shape as "all of these stack." Implementation: #879 acceptance criterion; Concern #8 below pins the wording.
 
-### D3 — Composition order: armour penalty applied to the full base defence (post-bonus), floored at 0 before STM overlay. (locks)
+**Why A-with-hint, not the alternatives:**
+- **(A-plain, silent ignore)** rejected by Thoth: STs would debug invisible behaviour. The hint is the small price for transparent semantics.
+- **(B) Sum** rejected: narratively absurd at the current catalogue size (light reinforced + full kevlar would yield -3 defence for a layered-armour scene no one has asked for).
+- **(C) UI reject** rejected: friction without payoff; ST CRUD surface should not block a legitimate edit just because the runtime math is single-armour.
+- **(D) Concealable tag hybrid** rejected: no merit/discipline/clan interaction justifies the schema cost.
+
+**Closest to canonical VtR 2e** ("one suit at a time") with permissive data shape, hint-driven UX clarity, and zero schema change.
+
+### D2-FLOOR (formerly part of D3, lifted into a named decision per Thoth) — Floor-at-0 lives at the derivation layer, NOT in the STM overlay or sheet renderer. (LOCKED Rev 2)
+
+The clamp to non-negative happens inside the helper-composition step:
+
+```js
+const adjusted = Math.max(0, calcDefence(c) - armourDefencePenalty(c));
+```
+
+**The rules-engine output is in [0, +∞).** STM overlay (per ADR-004's no-bounds-on-mods contract) composes on top of `adjusted` and can push the final rendered value negative for scene effects (e.g. an ST `Stunned` mod that subtracts more than the character's adjusted defence). The sheet renderer reads the final value verbatim — no extra floor at display time.
+
+This is a clean split:
+- **Derivation** owns the floor. Output is mechanical, non-negative.
+- **STM overlay** owns the no-bounds adjustment. Per ADR-004 Rev 4: STs can push any moddable stat to any value without bounds checking.
+- **Sheet renderer** is dumb. Displays whatever the composition produced.
+
+Rejected: floor-at-0-everywhere (would contradict ADR-004's no-bounds STM contract); allow-negative-everywhere at derivation (would double-penalty into STM math and cause confusion when an ST adds a positive mod expecting it to compose against a 0 base, only to find the base was negative).
+
+Implementers must NOT add a redundant clamp in the sheet renderer or in `applyStMods` — the floor lives in one place, at the helper composition site, and only there.
+
+### D3 — Composition order: armour penalty applied to the full base defence (post-bonus). (LOCKED)
 
 The penalty is subtracted from the full output of `calcDefence(c)` — i.e. *after* the `min(Dex, Wits) + skill + discBonus` formula has computed the base. **Not pre-bonus.** Reasons:
 
@@ -113,11 +115,9 @@ The penalty is subtracted from the full output of `calcDefence(c)` — i.e. *aft
 - Pre-bonus subtraction would create order-of-application coupling between `discAttrBonus` (e.g. Celerity granting Defence bonuses) and armour, which has no rulebook support.
 - Post-bonus subtraction keeps `calcDefence` itself pure (it doesn't consider equipment); the helper applies to its output.
 
-**Floor: armour-penalty-adjusted defence floors at 0** before any STM overlay applies (D4). A `calcDefence(c) = 2` with `armourDefencePenalty(c) = 3` yields `max(0, 2 - 3) = 0`, not -1. Then STM overlay composes on top of that floored 0.
+The floor-at-0 step is covered as a separate named decision (D2-FLOOR above) per Thoth's Rev 2 framing. The composition order is: `calcDefence(c)` → subtract `armourDefencePenalty(c)` → floor at 0 → applyStMods composes on top.
 
-**Why floor at 0:** Defence is subtracted from an attacker's dice pool (per VtR 2e attack roll). Negative defence would mean the attacker *gains* dice — that is not the design of VtR 2e's Defence mechanic. Floor at 0 is the pragmatic safety; STM mods on top can still legitimately subtract from a positive armour-adjusted base (e.g. a "Stunned" mod for one turn).
-
-**Why floor armour-penalty composition before STM overlay rather than after:** an STM mod represents a one-off ST adjustment for a specific scene (Stunned, ritual blessing, etc.). It composes on top of the *mechanical* defence (base + armour-adjusted), not on a hypothetical pre-armour defence. If an ST wants to model "armour somehow doesn't apply this scene" via an STM mod, they apply a positive delta to undo the penalty — that's the explicit, audited path; the implicit "armour bypass" path would be opaque and untestable.
+**Why STM overlay sees the floored output rather than the pre-armour defence:** an STM mod represents a one-off ST adjustment for a specific scene (Stunned, ritual blessing, etc.). It composes on top of the *mechanical* defence (base + armour-adjusted, floored), not on a hypothetical pre-armour defence. If an ST wants to model "armour somehow doesn't apply this scene" via an STM mod, they apply a positive delta to undo the penalty — that's the explicit, audited path; the implicit "armour bypass" path would be opaque and untestable.
 
 ### D4 — STM overlay interaction: STM `derived.defence` mod composes additively on top of armour-adjusted defence; resolves a pre-existing display bug in ADR-004 D5. (locks)
 
@@ -189,7 +189,8 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
 | Concern | Decision | Stories | Required work |
 |---|---|---|---|
 | Read path | D1 | #879 (impl, blocked) | New helper in `public/js/data/equipment-derivation.js` (or accessors.js adjacent to calcDefence). State filter `=== 'worn'`. Catalogue lookup via injected reader (post-ECM-5: cache; pre-ECM-5 fallback OK). bucket === 'armour' guard. |
-| Stacking | D2 (pending) | #879 implementer follows Peter's pick once D2 locks | One-line difference in `_combineByD2Rule`: `Math.max(0, ...penalties, 0)` for (A), `penalties.reduce((s, p) => s + p, 0)` for (B), or a UI-layer reject + simple max for (C). |
+| Stacking | D2 (LOCKED Rev 2 — A-with-hint) | #879 | `_combineByD2Rule = (penalties) => penalties.length === 0 ? 0 : Math.max(...penalties, 0)`. Editor hint at the equipment panel when >1 armour in state:'worn' — wording per Concern #8. |
+| Floor | D2-FLOOR (LOCKED Rev 2) | #879 | Floor lives ONLY at the helper composition (`max(0, calcDefence(c) - armourDefencePenalty(c))`). No clamp in `applyStMods`; no clamp in the sheet renderer. STM overlay can legitimately push the rendered value negative per ADR-004's no-bounds contract. |
 | Composition order + floor | D3 | #879 | `max(0, calcDefence(c) - armourDefencePenalty(c))` at the orchestrator. |
 | STM overlay interaction | D4 | #879 + small fixup to admin.js/player.js render path | Materialise `c.derived.defence` between calcDefence and applyStMods. Migrate `sheet.js:441` to read `c.derived.defence`. Keep `sheet.js:2240`'s calcDefence call (display-only hypothetical). Update stripOverlay path to re-materialise on edit-mode entry. |
 | Helper shape | D5 | #879 | New pure-function helper; injectable catalogue lookup; symmetric with `discAttrBonus`. |
@@ -218,25 +219,29 @@ export function armourDefencePenalty(c, catalogueLookup = getCatalogueEntry) {
 
 6. **Order of operations dependence.** D4's render-path orchestrator MUST run in the documented order (calcDefence → armourDefencePenalty → floor → materialise → applyStMods). Reversing armourDefencePenalty and applyStMods would compose the STM mod into the pre-armour base, then subtract armour from the modded result — semantically different and incorrect. Acceptance test: STM mod=-2 + armour penalty=3 + calcDefence=4 displays defence=`max(0, 4-3) + (-2) = -1` clamped to 0 (because STM overlay's own arithmetic should also floor at 0 — verify via the existing STM overlay logic).
 
-7. **D2 pending — implementation story must NOT pick a stacking rule without Peter's confirmation.** #879 is on hold for D2 even if the rest of this ADR merges. Ptah's brief must cite this constraint verbatim.
+7. ~~**D2 pending**~~ **D2 LOCKED Rev 2** — see D2 + D2-FLOOR for the math + floor location. The implementation story (#879) can proceed once ECM-5 is the only remaining gate.
+
+8. **Editor hint wording (D2 implementation note for #879).** Per Thoth/Peter Rev 2: when the equipment panel renders and detects >1 armour in `state: 'worn'` for the character, surface a soft non-blocking hint near the worn-armour list — *"Only one armour applies; highest defence_penalty wins."* Nothing rejected; the user can leave multiple armour worn and the math just uses the highest. This is a UX-clarity decision, not a math one. #879's acceptance criterion includes this hint with the canonical wording. Architecturally trivial; cite verbatim in the SM brief so wording doesn't drift.
+
+9. **Floor location discipline (D2-FLOOR).** The clamp to non-negative lives in exactly one place: the helper composition site (`max(0, calcDefence(c) - armourDefencePenalty(c))`). Implementers must NOT add a defensive clamp in `applyStMods` or the sheet renderer. The reason is ADR-004's no-bounds STM contract: an ST mod CAN legitimately push the final rendered defence below 0. A redundant clamp in the renderer would silently break legitimate scene effects (e.g. an ST "you can't dodge this attack" mod modelled as `derived.defence: -base-1`). One floor, one place, no double-locking.
 
 ## Resolutions table
 
 | Decision | Status | Resolution |
 |---|---|---|
 | D1 | resolved | new helper `armourDefencePenalty(c, catalogueLookup?)`; reads `c.equipment[]` filtered by `state === 'worn'` AND `entry.bucket === 'armour'`; catalogue lookup via injected reader (default: ECM-5 cache); returns non-negative integer |
-| D2 | **PENDING** | multi-worn stacking rule — Thoth/Peter pick among (A) worst-case (architect lean), (B) sum, (C) UI reject, (D) hybrid; will inline-amend this ADR with the pick |
-| D3 | resolved | armour penalty subtracted from full `calcDefence(c)` output (post-bonus); floored at 0 BEFORE STM overlay applies; rationale: matches VtR 2e treatment of armour as overall Defence modifier, and floor-at-0 prevents negative-defence-grants-attacker-dice |
+| D2 | resolved (Rev 2) | **A-with-hint**: math is worst-case (`Math.max(...penalties, 0)`); editor surfaces a soft non-blocking hint when >1 armour is in state:'worn' — wording per Concern #8 |
+| D2-FLOOR | resolved (Rev 2) | floor-at-0 lives at the helper composition (`max(0, calcDefence(c) - armourDefencePenalty(c))`); NOT in `applyStMods`; NOT in the sheet renderer; STM overlay can push final rendered value negative per ADR-004 no-bounds |
+| D3 | resolved | armour penalty subtracted from full `calcDefence(c)` output (post-bonus); composition order: calcDefence → subtract helper → floor (D2-FLOOR) → applyStMods composes on top |
 | D4 | resolved | STM `derived.defence` mods compose additively ON TOP of armour-adjusted defence; render-path orchestrator materialises `c.derived.defence = max(0, calcDefence(c) - armourDefencePenalty(c))` between base derivation and applyStMods; resolves pre-existing ADR-004 D5 display bug; sheet `defDisplay` reads `c.derived.defence` post-fix |
 | D5 | resolved | composition site is a new helper, not inline in calcDefence; symmetric with `discAttrBonus`; pure function; injectable catalogue lookup; preserves EQ-1's "calcDefence doesn't read equipment" invariant in spirit while letting the orchestrator compose explicitly |
 
 ## Sign-off
 
-**Rev 1 approved with D2 pending.** Implementation story #879 is blocked by both this ADR (D2 lock) and ECM-5 (#872 catalogue cache) before dispatch. The four locked decisions can be reviewed independently; if Angelus dissents on D5 (helper vs inline) or D4 (composition order), raise here before D2 resolves so a single Rev 2 covers all amendments.
+**Rev 2 approved — all decisions locked.** Implementation story #879 is now gated only on ECM-5 (#872 catalogue cache) before dispatch. D2 (A-with-hint stacking) and D2-FLOOR (floor at the derivation layer) locked Rev 2 per Thoth/Peter same-session product call.
 
 **Action items:**
-- **Thoth (PM):** product call to Peter for D2 stacking rule pick (architect lean: A, worst-case). Reply to Imhotep at `0e3f1d6c-3bd0-4f58-ae63-f5ee5f5c5e7b`.
-- **Khepri (SM):** holding #879 dispatch pending D2 lock. Once Thoth replies and Rev 2 lands with D2, #879 unblocks (subject to ECM-5 merge).
-- **Imhotep (Architect):** standing by to fold D2 into Rev 2 once Peter picks.
+- **Khepri (SM):** #879 dispatch unblocks once ECM-5 merges. SM brief must cite Concern #4 (regression-test STM defence display bug fix), Concern #8 (editor hint wording verbatim), and Concern #9 (no redundant floor clamps).
+- **Implementation story #879:** picks up the locked design — new helper `armourDefencePenalty`, worst-case stacking, floor at helper composition, render-path orchestrator materialises `c.derived.defence`, sheet defDisplay migrates to read the materialised field, editor hint added per Concern #8.
 
-**Open dissent window** (carry-forward from any existing convention): D4 (STM composition order — additive on top, not replacing) and D5 (helper-vs-inline) are the consequential locks. D1 and D3 are mechanical and likely uncontroversial. If Angelus prefers an alternative D4 shape — e.g. armour penalty composes inside calcDefence and STM mods are applied to the raw calcDefence output rather than the armour-adjusted output — raise here before #879 dispatches.
+**Open dissent window:** D4 (STM composition order — additive on top, not replacing) and D5 (helper-vs-inline) are the consequential locks. D1, D3, D2, D2-FLOOR are mechanical and likely uncontroversial. If Angelus prefers an alternative D4 shape — e.g. armour penalty composes inside calcDefence and STM mods are applied to the raw calcDefence output rather than the armour-adjusted output — raise here before #879 dispatches.
