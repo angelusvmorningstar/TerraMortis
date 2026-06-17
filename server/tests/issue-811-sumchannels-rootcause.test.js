@@ -58,14 +58,26 @@ describe('#811 Phase 1 — normalizeMerit no longer backfills m.free when map is
     expect(r.changed === false || r.reason !== 'backfilled').toBe(true);
   });
 
-  it('truly empty merit at rating > 0 still triggers backfill (Pattern C / legitimate ST grant)', () => {
-    // Regression sentinel: a merit with no map AND no flat channels populated
-    // but rating > 0 should still backfill (this is the only sensible repair
-    // when no other source explains the rating).
-    const m = { name: 'Resources', category: 'influence', cp: 0, xp: 0, free: 0, rating: 2 };
-    const r = normalizeMerit(m);
-    expect(r.reason).toBe('backfilled');
-    expect(m.free).toBe(2);
+  it('truly empty merit at rating > 0 + no granted_by → refuses to backfill (post-#834)', () => {
+    // Pre-#834: would have backfilled m.free = rating via the 'free' fallback.
+    // Post-#834 (m.free deprecated): returns 'no-channel' + warns; m.free stays 0.
+    // See server/tests/issue-834-m-free-deprecation.test.js for the full
+    // behavioural assertion; this is the contract change documented at the
+    // older-test surface.
+    const warnSpy = (() => {
+      const calls = []; const orig = console.warn;
+      console.warn = (...args) => calls.push(args);
+      return { calls, restore: () => { console.warn = orig; } };
+    })();
+    try {
+      const m = { name: 'Resources', category: 'influence', cp: 0, xp: 0, free: 0, rating: 2 };
+      const r = normalizeMerit(m);
+      expect(r.reason).toBe('no-channel');
+      expect(m.free || 0).toBe(0);
+      expect(warnSpy.calls.length).toBeGreaterThan(0);
+    } finally {
+      warnSpy.restore();
+    }
   });
 
   it('granted_by Mentor with map-only data → no spurious free_mci backfill', () => {
