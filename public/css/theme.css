@@ -55,6 +55,7 @@
   --green:#1E6A1E;--green2:#2A7A4A;--green3:#1A5A30;--green4:#2A8A4A;
   --green-a15:rgba(30,106,30,.15);--green-a45:rgba(30,106,30,.45);
   --green2-a8:rgba(42,122,74,.80);--green2-a9:rgba(42,122,74,.90);
+  --rote:#6A3CA0; /* fix.854: Rote-eligible legend accent (no purple existed) */
   --green3-a5:rgba(26,90,48,.50);--green3-a9:rgba(26,90,48,.90);
   --green4-a15:rgba(30,80,50,.15);--green4-a8:rgba(50,110,50,.08);
   --green4-a50:rgba(50,110,50,.50);--green4-a55:rgba(50,110,50,.55);
@@ -209,6 +210,7 @@
   --green:#5A8A5A;--green2:#7EC8A0;--green3:#8bc878;--green4:#A8D8B4;
   --green-a15:rgba(90,138,90,.15);--green-a45:rgba(90,138,90,.45);
   --green2-a8:rgba(140,200,140,.8);--green2-a9:rgba(140,200,140,.9);
+  --rote:#9E7AE0; /* fix.854: Rote-eligible legend accent */
   --green3-a5:rgba(140,210,140,.5);--green3-a9:rgba(140,210,140,.9);
   --green4-a15:rgba(70,110,80,.15);--green4-a8:rgba(100,160,80,.08);
   --green4-a50:rgba(100,160,80,.5);--green4-a55:rgba(100,160,80,.55);

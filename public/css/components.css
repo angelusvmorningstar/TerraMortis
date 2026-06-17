@@ -71,6 +71,14 @@
 .exp-wp-lbl{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-right:4px;}
 .exp-ts-row{margin-bottom:5px;}
 .exp-ts-hum{font-family:var(--fl);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);display:block;margin-bottom:2px;}
+/* fix.854: token-backed replacements for previously inline-styled colours */
+.exp-ts-state{font-style:normal;}
+.exp-ts-state.attached{color:var(--green2-a9);}
+.exp-ts-state.detached{color:var(--txt3);}
+.sk-spec-aoe{color:var(--green2-a8);font-size:8px;font-family:var(--fh);white-space:nowrap;}
+.aoe-bonus{color:var(--green2-a8);}
+.rite-trad-single{color:var(--gdim);font-size:11px;padding:0 4px;}
+.qf-link{color:var(--crim);text-decoration:underline;}
 .exp-ts-name{font-family:var(--fl);font-size:11px;color:var(--txt);}
 .exp-ts-desc{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
 

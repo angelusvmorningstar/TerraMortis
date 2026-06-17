@@ -266,7 +266,7 @@ export function renderSheet() {
       const attached = hum >= t.humanity;
       const name = t._npc_name || t.name || '(unnamed)';
       return `<div class="exp-ts-row">
-        <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attached ? 'Attached' : 'Detached'}</span></span>
+        <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span class="exp-ts-state ${attached ? 'attached' : 'detached'}">${attached ? 'Attached' : 'Detached'}</span></span>
         <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
