@@ -104,6 +104,36 @@ export function broadcastStModUpdate(characterId, op, stModId) {
   }
 }
 
+/**
+ * Broadcast an equipment catalogue create/update/delete event to all
+ * connected clients (Epic ECM, ECM-1 / issue #868).
+ *
+ * Frame shape: { type: 'catalogue', item_id, op }. Wired in ECM-1 so the
+ * route layer already fires the event; ECM-4 / ECM-5 (dropdown clients)
+ * and ECM-6 (admin UI) consume it to invalidate their module-level
+ * catalogue cache and refetch via GET /api/equipment_catalogue.
+ *
+ * Clients treat the op as advisory and refetch regardless, so an unknown
+ * op degrades gracefully to "refetch" — mirrors broadcastStModUpdate's
+ * resilience pattern.
+ *
+ * @param {string|ObjectId} itemId — the affected catalogue doc _id
+ * @param {'create' | 'update' | 'delete'} op
+ */
+export function broadcastCatalogueUpdate(itemId, op) {
+  if (!_wss) return;
+  const msg = JSON.stringify({
+    type: 'catalogue',
+    item_id: String(itemId),
+    op,
+  });
+  for (const ws of _wss.clients) {
+    if (ws.readyState === 1) { // OPEN
+      ws.send(msg);
+    }
+  }
+}
+
 // ── Token resolution (mirrors middleware/auth.js logic) ──
 
 const _tokenCache = new Map();

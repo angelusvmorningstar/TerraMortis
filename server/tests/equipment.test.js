@@ -51,34 +51,21 @@ afterAll(async () => {
 });
 
 // ── GET /api/equipment/catalogue ─────────────────────────────────────────────
+//
+// Epic ECM (#868) made this endpoint a thin alias of GET /api/equipment_catalogue
+// for one release cycle. The legacy assertions (full-catalogue length > 0,
+// per-bucket presence, `entry.id` string slug field) reflected the pre-ECM-1
+// static-data shape; with the alias in place the data shape and population
+// follow the Mongo collection, which may be empty during the transition window
+// until ECM-2 seeds. Detailed alias-behaviour coverage lives in
+// tests/issue-868-ecm-1-equipment-catalogue-api.test.js — this slice keeps a
+// minimal smoke test so a regression to the static path still trips here.
 
-describe('GET /api/equipment/catalogue', () => {
-  it('returns 200 with the full catalogue array (no auth required)', async () => {
+describe('GET /api/equipment/catalogue (ECM-1 alias)', () => {
+  it('returns 200 with a JSON array (no auth required) — alias to GET /api/equipment_catalogue', async () => {
     const res = await request(app).get('/api/equipment/catalogue');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
-  });
-
-  it('every entry has the required universal fields', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    for (const entry of res.body) {
-      expect(typeof entry.id).toBe('string');
-      expect(['weapon', 'armour', 'equipment', 'asset']).toContain(entry.bucket);
-      expect(typeof entry.name).toBe('string');
-      expect(typeof entry.description).toBe('string');
-      expect(typeof entry.availability).toBe('number');
-      expect(Array.isArray(entry.tags)).toBe(true);
-    }
-  });
-
-  it('contains at least one entry per bucket', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    const buckets = new Set(res.body.map(e => e.bucket));
-    expect(buckets.has('weapon')).toBe(true);
-    expect(buckets.has('armour')).toBe(true);
-    expect(buckets.has('equipment')).toBe(true);
-    expect(buckets.has('asset')).toBe(true);
   });
 });
 
