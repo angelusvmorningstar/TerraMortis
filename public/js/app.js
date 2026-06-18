@@ -57,6 +57,12 @@ import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
+// ECM-4 (#871): shared catalogue cache from ECM-5 (#872). Boot-load below
+// alongside preloadRules so the DT form's equipment dropdown renders
+// synchronously when the section opens. Refetch is wired into initWS's
+// onCatalogueUpdate so remote admin catalogue edits propagate without
+// a page reload.
+import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initFinanceTab } from './game/finance-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -517,12 +523,16 @@ async function loadAllData() {
   // cache synchronously; the cache state is determined by the time the
   // Promise.allSettled resolves (loaded if preloadRules succeeded,
   // null otherwise — issue #249 guard handles both).
-  const [_rulesFromApi, rulesEngineRes, apiCharsRes, terrRes, combatRes] = await Promise.allSettled([
+  const [_rulesFromApi, rulesEngineRes, apiCharsRes, terrRes, combatRes, _catalogueRes] = await Promise.allSettled([
     loadRulesFromApi(),
     preloadRules(),
     loadCharsFromApi(),
     apiGet('/api/territories'),
     apiGet('/api/characters/combat'),
+    // ECM-4 (#871): same parallel-load pattern as the rules engine, same
+    // non-fatal-on-failure shape — the DT form's equipment dropdown
+    // degrades to empty options + a console warning on failure.
+    loadEquipmentCatalogue(),
   ]);
 
   // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via
@@ -537,6 +547,12 @@ async function loadAllData() {
       banner.classList.add('app-status-banner--error');
       banner.style.display = '';
     }
+  }
+  // ECM-4 (#871): catalogue load is non-fatal — surface the degraded state
+  // in console only. The DT form's equipment section degrades to an empty
+  // dropdown rather than blocking submission.
+  if (_catalogueRes.status === 'rejected') {
+    console.error('[app] loadEquipmentCatalogue failed — DT-form equipment dropdown will be empty until cache loads:', _catalogueRes.reason);
   }
 
   // 1. Chars handling — role-filtered server-side (player sees own, ST sees all).
@@ -1372,6 +1388,11 @@ async function boot() {
               suiteRenderSheet();
             }
           },
+          // ECM-4 (#871): on remote equipment_catalogue create/update/delete
+          // (broadcast by the admin catalogue UI via server/ws.js's
+          // broadcastCatalogueUpdate), refetch the cache. Next render of
+          // the DT form's equipment dropdown picks up the fresh items.
+          onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for

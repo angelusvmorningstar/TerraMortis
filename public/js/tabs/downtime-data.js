@@ -373,12 +373,16 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 11. Equipment — dt-form.30: hidden for this DT cycle; set hidden: false to re-enable
+  // 11. Equipment — ECM-4 (#871) re-enables the section now that the
+  // catalogue is Mongo-backed (ECM-1..3) and player-selectable via
+  // dropdown (this story). The original dt-form.30 hide was "until we
+  // have a proper catalogue"; we now do. Item-request escape valve for
+  // items not in the catalogue is in the ECM-9 (#876) textarea below.
   {
     key: 'equipment',
     title: 'Equipment: Items and Gear',
     gate: null,
-    hidden: true,
+    hidden: false,
     intro: 'List any items, weapons, or equipment you want your character to have access to this Downtime. Sourcing is subject to ST approval and availability.',
     questions: [], // rendered dynamically
   },
