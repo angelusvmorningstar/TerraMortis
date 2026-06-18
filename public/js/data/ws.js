@@ -20,6 +20,10 @@ let _onTrackerUpdate = null;
 // STM-9 (issue #416, ADR-004 Rev 3 §D11): callback for st_mod frames.
 // Called with (characterId, op, stModId) for remote st_mod changes only.
 let _onStModUpdate = null;
+// ECM-5 (issue #872): callback for catalogue-update frames. Called with
+// (itemId, op) for remote equipment_catalogue create/update/delete events.
+// Consumers (the catalogue cache module) refetch on receipt.
+let _onCatalogueUpdate = null;
 
 // Recent local writes — { charId+field → timestamp }. Used to suppress
 // WS echo of our own saves (avoids double-render on the originating client).
@@ -48,10 +52,12 @@ export function markLocalWrite(charId, fields) {
  * @param {object} opts
  * @param {function} [opts.onTrackerUpdate] — called with (characterId, fields) for remote tracker changes
  * @param {function} [opts.onStModUpdate]   — called with (characterId, op, stModId) for remote st_mod changes (STM-9 / issue #416)
+ * @param {function} [opts.onCatalogueUpdate] — called with (itemId, op) for remote equipment_catalogue events (ECM-5 / issue #872)
  */
 export function initWS(opts = {}) {
   _onTrackerUpdate = opts.onTrackerUpdate || null;
   _onStModUpdate = opts.onStModUpdate || null;
+  _onCatalogueUpdate = opts.onCatalogueUpdate || null;
   _token = localStorage.getItem('tm_auth_token');
   _closed = false;
   if (!_token) return; // not logged in
@@ -93,6 +99,7 @@ function _connect() {
       const msg = JSON.parse(e.data);
       if (msg.type === 'tracker') _handleTrackerMsg(msg);
       else if (msg.type === 'st_mod') _handleStModMsg(msg);
+      else if (msg.type === 'catalogue') _handleCatalogueMsg(msg);
     } catch { /* ignore non-JSON */ }
   };
 
@@ -174,4 +181,15 @@ function _handleStModMsg(msg) {
   if (recentTs && (Date.now() - recentTs) < ECHO_WINDOW) return;
 
   if (_onStModUpdate) _onStModUpdate(characterId, op, st_mod_id);
+}
+
+/** ECM-5 (issue #872): handle catalogue create/update/delete frames. The
+ *  catalogue cache refetches regardless of `op` — the op is advisory per
+ *  the server-side comment in `server/ws.js`. No echo suppression: the
+ *  admin UI broadcasts on local writes too, but the refetch is cheap (~70
+ *  docs) and the alternative (per-op deduping) duplicates the server-side
+ *  state machine. */
+function _handleCatalogueMsg(msg) {
+  const { item_id, op } = msg;
+  if (_onCatalogueUpdate) _onCatalogueUpdate(item_id, op);
 }

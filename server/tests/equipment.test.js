@@ -15,12 +15,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
+import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
 const seededIds = [];
+const seededCatIds = [];
 
 async function seedChar(overrides = {}) {
   const col = getCollection('characters');
@@ -36,49 +38,63 @@ async function seedChar(overrides = {}) {
   return { ...doc, _id: result.insertedId, id: result.insertedId.toString() };
 }
 
+// ECM-3 (#870): POST /api/characters/:id/equipment now requires the
+// `catalogue_id` to be a 24-hex ObjectId string that resolves to a doc
+// in the equipment_catalogue collection (not the static slug set).
+// Seed three catalogue items here for the tests below to reference.
+async function seedCatalogueItem(overrides = {}) {
+  const now = new Date().toISOString();
+  const doc = {
+    bucket: 'weapon', name: `Test Cat Item ${Math.random().toString(36).slice(2, 8)}`,
+    description: 'fixture', availability: 1, tags: [],
+    damage_mod: 1, damage_type: 'lethal', weapon_type: 'melee',
+    armour_value: null, defence_penalty: null,
+    skill_domain: null, bonus_dice: null, mechanical_effect: null,
+    created_at: now, updated_at: now,
+    ...overrides,
+  };
+  const result = await getCollection('equipment_catalogue').insertOne(doc);
+  seededCatIds.push(result.insertedId);
+  return { _id: result.insertedId, ...doc };
+}
+
 let char;
+let catKnife;
+let catFlashlight;
+let catRope;
 
 beforeAll(async () => {
   await setupDb();
   app = createTestApp();
   char = await seedChar({ name: 'Equipment Test' });
+  catKnife      = await seedCatalogueItem({ name: 'Knife (test)',      bucket: 'weapon' });
+  catFlashlight = await seedCatalogueItem({ name: 'Flashlight (test)', bucket: 'equipment' });
+  catRope       = await seedCatalogueItem({ name: 'Rope (test)',       bucket: 'equipment' });
 });
 
 afterAll(async () => {
   const col = getCollection('characters');
   for (const id of seededIds) await col.deleteOne({ _id: id });
+  for (const id of seededCatIds) await getCollection('equipment_catalogue').deleteOne({ _id: id });
   await teardownDb();
 });
 
 // ── GET /api/equipment/catalogue ─────────────────────────────────────────────
+//
+// Epic ECM (#868) made this endpoint a thin alias of GET /api/equipment_catalogue
+// for one release cycle. The legacy assertions (full-catalogue length > 0,
+// per-bucket presence, `entry.id` string slug field) reflected the pre-ECM-1
+// static-data shape; with the alias in place the data shape and population
+// follow the Mongo collection, which may be empty during the transition window
+// until ECM-2 seeds. Detailed alias-behaviour coverage lives in
+// tests/issue-868-ecm-1-equipment-catalogue-api.test.js — this slice keeps a
+// minimal smoke test so a regression to the static path still trips here.
 
-describe('GET /api/equipment/catalogue', () => {
-  it('returns 200 with the full catalogue array (no auth required)', async () => {
+describe('GET /api/equipment/catalogue (ECM-1 alias)', () => {
+  it('returns 200 with a JSON array (no auth required) — alias to GET /api/equipment_catalogue', async () => {
     const res = await request(app).get('/api/equipment/catalogue');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
-  });
-
-  it('every entry has the required universal fields', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    for (const entry of res.body) {
-      expect(typeof entry.id).toBe('string');
-      expect(['weapon', 'armour', 'equipment', 'asset']).toContain(entry.bucket);
-      expect(typeof entry.name).toBe('string');
-      expect(typeof entry.description).toBe('string');
-      expect(typeof entry.availability).toBe('number');
-      expect(Array.isArray(entry.tags)).toBe(true);
-    }
-  });
-
-  it('contains at least one entry per bucket', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    const buckets = new Set(res.body.map(e => e.bucket));
-    expect(buckets.has('weapon')).toBe(true);
-    expect(buckets.has('armour')).toBe(true);
-    expect(buckets.has('equipment')).toBe(true);
-    expect(buckets.has('asset')).toBe(true);
   });
 });
 
@@ -111,32 +127,34 @@ describe('GET /api/characters/:id/equipment', () => {
 
 // ── POST /:id/equipment ──────────────────────────────────────────────────────
 
-describe('POST /api/characters/:id/equipment', () => {
-  const validItem = {
-    catalogue_id: 'knife',
-    state: 'carried',
-    acquired_cycle: 1,
-    notes: 'A trusty blade',
-  };
-
-  it('appends a valid item and returns it in the response (200)', async () => {
+describe('POST /api/characters/:id/equipment (ECM-3: ObjectId catalogue_id)', () => {
+  it('appends a valid item and stores catalogue_id as ObjectId', async () => {
+    const charA = await seedChar({ name: 'EQ POST Test' });
     const res = await request(app)
-      .post(`/api/characters/${char.id}/equipment`)
+      .post(`/api/characters/${charA.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send(validItem);
+      .send({
+        catalogue_id: String(catKnife._id),
+        state: 'carried',
+        acquired_cycle: 1,
+        notes: 'A trusty blade',
+      });
     expect(res.status).toBe(200);
     expect(res.body.equipment).toHaveLength(1);
-    expect(res.body.equipment[0].catalogue_id).toBe('knife');
+    expect(String(res.body.equipment[0].catalogue_id)).toBe(String(catKnife._id));
     expect(res.body.equipment[0].state).toBe('carried');
     expect(res.body.equipment[0].acquired_cycle).toBe(1);
     expect(res.body.equipment[0].notes).toBe('A trusty blade');
+    // Storage type assertion — must be ObjectId, not string.
+    const stored = await getCollection('characters').findOne({ _id: charA._id });
+    expect(stored.equipment[0].catalogue_id).toBeInstanceOf(ObjectId);
   });
 
   it('400 when state is not a valid enum value', async () => {
     const res = await request(app)
       .post(`/api/characters/${char.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'knife', state: 'flying', acquired_cycle: 1 });
+      .send({ catalogue_id: String(catKnife._id), state: 'flying', acquired_cycle: 1 });
     expect(res.status).toBe(400);
   });
 
@@ -148,11 +166,21 @@ describe('POST /api/characters/:id/equipment', () => {
     expect(res.status).toBe(400);
   });
 
+  it('400 when catalogue_id is not a 24-hex string', async () => {
+    const res = await request(app)
+      .post(`/api/characters/${char.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: 'knife', state: 'carried', acquired_cycle: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/24-hex ObjectId/);
+  });
+
   it('400 when acquired_cycle is missing', async () => {
     const res = await request(app)
       .post(`/api/characters/${char.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'knife', state: 'carried' });
+      .send({ catalogue_id: String(catKnife._id), state: 'carried' });
     expect(res.status).toBe(400);
   });
 
@@ -160,7 +188,7 @@ describe('POST /api/characters/:id/equipment', () => {
     const res = await request(app)
       .post(`/api/characters/${char.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'knife', state: 'carried', acquired_cycle: 1.5 });
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1.5 });
     expect(res.status).toBe(400);
   });
 
@@ -169,7 +197,7 @@ describe('POST /api/characters/:id/equipment', () => {
     const res = await request(app)
       .post(`/api/characters/${char2.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'flashlight', state: 'stashed', acquired_cycle: 0 });
+      .send({ catalogue_id: String(catFlashlight._id), state: 'stashed', acquired_cycle: 0 });
     expect(res.status).toBe(200);
     expect(res.body.equipment[0].notes).toBeNull();
   });
@@ -179,21 +207,20 @@ describe('POST /api/characters/:id/equipment', () => {
     const res = await request(app)
       .post(`/api/characters/${char3.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'rope', state: 'carried', acquired_cycle: 0 });
+      .send({ catalogue_id: String(catRope._id), state: 'carried', acquired_cycle: 0 });
     expect(res.status).toBe(200);
     expect(res.body.equipment[0].acquired_cycle).toBe(0);
   });
 
-  // #753 — catalogue_id existence check
-  it('400 with VALIDATION_ERROR when catalogue_id is not in the catalogue', async () => {
+  it('404 with NOT_FOUND when catalogue_id is 24-hex but absent from the collection', async () => {
     const char4 = await seedChar({ name: 'EQ BadCat' });
+    const ghost = new ObjectId();
     const res = await request(app)
       .post(`/api/characters/${char4.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'definitely-not-a-real-item-slug', state: 'carried', acquired_cycle: 1 });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('VALIDATION_ERROR');
-    expect(res.body.message).toMatch(/Unknown catalogue_id/);
+      .send({ catalogue_id: String(ghost), state: 'carried', acquired_cycle: 1 });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NOT_FOUND');
     // No write occurred — the equipment array stays empty.
     const fresh = await getCollection('characters').findOne({ _id: char4._id }, { projection: { equipment: 1 } });
     expect(fresh.equipment || []).toHaveLength(0);
@@ -208,10 +235,10 @@ describe('DELETE /api/characters/:id/equipment/:itemIndex', () => {
     // Add two items
     await request(app).post(`/api/characters/${char4.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'knife', state: 'carried', acquired_cycle: 1 });
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1 });
     await request(app).post(`/api/characters/${char4.id}/equipment`)
       .set('X-Test-User', stUser())
-      .send({ catalogue_id: 'flashlight', state: 'stashed', acquired_cycle: 2 });
+      .send({ catalogue_id: String(catFlashlight._id), state: 'stashed', acquired_cycle: 2 });
 
     // Delete first (index 0)
     const res = await request(app)
@@ -219,7 +246,7 @@ describe('DELETE /api/characters/:id/equipment/:itemIndex', () => {
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body.equipment).toHaveLength(1);
-    expect(res.body.equipment[0].catalogue_id).toBe('flashlight');
+    expect(String(res.body.equipment[0].catalogue_id)).toBe(String(catFlashlight._id));
   });
 
   it('404 when index is out of range', async () => {

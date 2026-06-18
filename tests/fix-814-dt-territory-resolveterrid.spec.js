@@ -239,27 +239,18 @@ async function setupStory(page, submissions, chars, viewName = 'Home Body') {
   await page.waitForTimeout(300);
 }
 
-test.describe('#814 AC4 — home-territory activity resolves (Bug C)', () => {
+// #886: the Home Report section was removed from the DT Story tab (superseded by
+// Territory Pulse, and it was never published). The original AC4 tests asserted the
+// admin `home_report` section rendered home-territory activity; that section no longer
+// exists, so AC4 now locks in its removal. The #814 home-territory resolveTerrId fix
+// it guarded is moot for a section that does not render.
+test.describe('#814 AC4 — home-territory activity (section removed by #886)', () => {
 
-  test('AC4: home_report lists activity when another char acts in the home territory', async ({ page }) => {
+  test('AC4 (post-#886): home_report section no longer renders in the DT Story tab', async ({ page }) => {
     await setupStory(page, [SUB_HOME, SUB_ACTOR], [CHAR_HOME, CHAR_ACTOR]);
-    const homeHtml = await page.evaluate(() => {
-      const el = document.querySelector('.dt-story-section[data-section="home_report"]');
-      return el ? el.innerHTML : null;
-    });
-    expect(homeHtml).not.toBeNull();
-    expect(homeHtml).toContain('Activity near home this cycle');
-    expect(homeHtml).toContain('Academy Actor');
-  });
-
-  test('AC4: home_report shows quiet-month state when no one acts in the home territory', async ({ page }) => {
-    await setupStory(page, [SUB_HOME], [CHAR_HOME, CHAR_ACTOR]);  // no actor sub
-    const homeHtml = await page.evaluate(() => {
-      const el = document.querySelector('.dt-story-section[data-section="home_report"]');
-      return el ? el.innerHTML : null;
-    });
-    expect(homeHtml).not.toBeNull();
-    expect(homeHtml).toMatch(/quiet month near home|No notable activity/i);
+    const homeExists = await page.evaluate(() =>
+      !!document.querySelector('.dt-story-section[data-section="home_report"]'));
+    expect(homeExists).toBe(false);
   });
 
 });

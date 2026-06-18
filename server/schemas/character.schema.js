@@ -306,8 +306,15 @@ export const characterSchema = {
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
-    // ── Equipment (EQ-1, issue #654) ──────────────────────────
-    // Lean refs into EQUIPMENT_CATALOGUE — full stats resolved at render time.
+    // ── Equipment (EQ-1, issue #654; ECM-3 #870 — catalogue_id ObjectId) ──
+    // Lean refs into the equipment_catalogue collection — full stats resolved
+    // at render time. `catalogue_id` is an ObjectId on disk and a 24-hex
+    // string on the wire (the standard JSON serialisation). Server-side
+    // coercion at write sites (PUT /:id, POST /:id/equipment) hydrates the
+    // wire string back to an ObjectId before $set — see
+    // specs/epic-ecm-equipment-catalogue-migration.md and Khepri's ECM-3
+    // dispatch for the rationale (the coercion is canonical Express+Mongo
+    // hygiene, not transitional kludge — it stays after ECM-4/5 ship).
     equipment: {
       type: 'array',
       default: [],
@@ -315,7 +322,7 @@ export const characterSchema = {
         type: 'object',
         required: ['catalogue_id', 'state', 'acquired_cycle'],
         properties: {
-          catalogue_id:    { type: 'string' },
+          catalogue_id:    { type: 'string', pattern: '^[a-f0-9]{24}$' },
           state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
           acquired_cycle:  { type: 'integer', minimum: 0 },
           notes:           { type: ['string', 'null'] },

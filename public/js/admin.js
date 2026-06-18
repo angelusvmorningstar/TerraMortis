@@ -14,6 +14,7 @@ import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
+import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
@@ -38,6 +39,7 @@ import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
+import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
@@ -203,6 +205,14 @@ async function boot() {
             renderSheetWithOverlay(target);
           }
         },
+        // ECM-5 (issue #872): on remote equipment_catalogue create/update/
+        // delete (broadcast by the admin catalogue UI via server/ws.js's
+        // broadcastCatalogueUpdate), refetch the cache. Cache subscribers
+        // (currently the edit-mode equipment dropdown via shEquipBucketFilter,
+        // re-fired on next bucket change) pick up the new entries on next
+        // read. Op is advisory per the server-side comment; we refetch
+        // regardless rather than per-op state-machine.
+        onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
       });
 
       // Epic STM (issue #385): install delegated click handler for the
@@ -288,6 +298,7 @@ function switchDomain(domain) {
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+  if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
   if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
@@ -1251,6 +1262,17 @@ async function init() {
       banner.classList.add('app-status-banner--error');
       banner.style.display = '';
     }
+  }
+
+  // ECM-5 (issue #872): warm the equipment catalogue cache once at boot so
+  // the editor's equipment-bucket dropdown renders synchronously when the
+  // user opens edit mode. Same non-fatal-on-failure pattern as preloadRules
+  // — the dropdown degrades to an empty option list and a console warning
+  // surfaces the degraded state.
+  try {
+    await loadEquipmentCatalogue();
+  } catch (err) {
+    console.error('[admin] loadEquipmentCatalogue failed — equipment dropdown will be empty until cache loads:', err);
   }
 
   try {
