@@ -454,6 +454,31 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
 
   const { _id, willpower, ...updates } = req.body;
 
+  // ECM-3 (#870): hydrate equipment[].catalogue_id 24-hex strings back to
+  // ObjectId before $set. The schema validation upstream already enforces
+  // the 24-hex shape; the ObjectId.isValid guard is defensive — if a stray
+  // bad value slips through, return 400 rather than throwing in $set.
+  if (Array.isArray(updates.equipment)) {
+    const hydrated = [];
+    for (const item of updates.equipment) {
+      if (!item || typeof item !== 'object') {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'equipment[] items must be objects' });
+      }
+      const cid = item.catalogue_id;
+      if (typeof cid === 'string' && ObjectId.isValid(cid) && String(new ObjectId(cid)) === cid) {
+        hydrated.push({ ...item, catalogue_id: new ObjectId(cid) });
+      } else if (cid instanceof ObjectId) {
+        hydrated.push(item);
+      } else {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: `equipment[].catalogue_id must be a 24-hex ObjectId string; got ${typeof cid === 'string' ? `'${cid}'` : typeof cid}`,
+        });
+      }
+    }
+    updates.equipment = hydrated;
+  }
+
   // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
   // and each embedded edge_id points to a valid touchstone relationship for this char.
   if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
@@ -810,6 +835,14 @@ router.get('/:id/equipment', requireRole('st'), async (req, res) => {
 });
 
 // POST /api/characters/:id/equipment — append a single equipment item.
+//
+// ECM-3 (#870): `catalogue_id` is a 24-hex ObjectId string on the wire,
+// matching the new equipment_catalogue collection's _id shape. Existence
+// is checked via a Mongo lookup against equipment_catalogue, not against
+// the static EQUIPMENT_CATALOGUE slug set — the slug set is dead post-ECM-3
+// (ECM-7 deletes the static module entirely). The catalogue_id is hydrated
+// to an ObjectId before $push so storage stays ObjectId-typed across the
+// full lifecycle; see specs/epic-ecm-equipment-catalogue-migration.md.
 router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
@@ -822,11 +855,11 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   if (!item.catalogue_id || typeof item.catalogue_id !== 'string') {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'catalogue_id is required' });
   }
-  // #753: existence check against the catalogue. Without this the client-side
-  // fallback (`entry.name || item.catalogue_id`) silently renders the raw slug
-  // instead of a real name — a clearly broken sheet that no test was catching.
-  if (!_CATALOGUE_IDS.has(item.catalogue_id)) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Unknown catalogue_id: ${item.catalogue_id}` });
+  if (!ObjectId.isValid(item.catalogue_id) || String(new ObjectId(item.catalogue_id)) !== item.catalogue_id) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `catalogue_id must be a 24-hex ObjectId string; got '${item.catalogue_id}'`,
+    });
   }
   if (!VALID_STATES.includes(item.state)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `state must be one of: ${VALID_STATES.join(', ')}` });
@@ -835,11 +868,20 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
   }
 
+  const catalogueOid = new ObjectId(item.catalogue_id);
+  const catalogueDoc = await getCollection('equipment_catalogue').findOne(
+    { _id: catalogueOid },
+    { projection: { _id: 1 } }
+  );
+  if (!catalogueDoc) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: `Unknown catalogue item: ${item.catalogue_id}` });
+  }
+
   const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
   const cleanItem = {
-    catalogue_id:   item.catalogue_id,
+    catalogue_id:   catalogueOid,
     state:          item.state,
     acquired_cycle: item.acquired_cycle,
     notes:          item.notes ?? null,
