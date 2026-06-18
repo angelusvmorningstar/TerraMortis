@@ -8,6 +8,15 @@ import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
+// Issue #879 (ADR-006 D4): displayed defence reads the armour-adjusted +
+// overlay-modded value from c.derived.defence (with on-the-fly fallback for
+// unmaterialised contexts). The per-item armour annotation below intentionally
+// still reads raw calcDefence(c) per ADR-006 Concern #2 (the "if you wore only
+// this item, defence would be X" hypothetical baseline).
+//
+// wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
+// #8, wording locked).
+import { defenceForDisplay, wornArmourCount } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
@@ -27,7 +36,7 @@ import { auditCharacter } from '../data/audit.js';
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 import { markerFor } from './st-mod-popover.js';
-import { getCatalogueEntry } from '../data/equipment-data.js';
+import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -438,7 +447,7 @@ export function shRenderStatsStrip(c) {
   const healthDisplay = `${calcHealth(c)}${markerFor(c, 'derived.health_max')}`;
   const sizeDisplay = `${calcSize(c)}${markerFor(c, 'derived.size')}`;
   const speedDisplay = `${calcSpeed(c)}${markerFor(c, 'derived.speed')}`;
-  const defDisplay = `${calcDefence(c)}${markerFor(c, 'derived.defence')}`;
+  const defDisplay = `${defenceForDisplay(c)}${markerFor(c, 'derived.defence')}`;
   return '<div class="sh-stats-strip">' + bpCell + humCell + s(HEALTH_SVG, healthDisplay, 'Health') + s(WP_SVG, wpDisplay, _wpLbl) + s(STAT_SVG, sizeDisplay, 'Size') + s(STAT_SVG, speedDisplay, 'Speed') + s(STAT_SVG, defDisplay, 'Defence') + '</div>';
 }
 
@@ -2237,6 +2246,14 @@ export function shRenderEquipment(c, editMode) {
   // ── Armour ──
   if (byBucket.armour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
+    // Issue #879 (ADR-006 D2 + Concern #8): soft non-blocking hint when
+    // multiple armour items are in state==='worn'. Stacking rule is
+    // worst-case (Math.max of all defence_penalties); the hint exists so
+    // an ST hitting a multi-worn debug case doesn't misinterpret the math.
+    // Wording locked verbatim per Concern #8 — must not drift.
+    if (wornArmourCount(c) > 1) {
+      h += '<div class="sh-armour-hint" style="font-size:0.85em;opacity:0.75;margin-bottom:6px;">Only one armour applies; highest defence_penalty wins.</div>';
+    }
     const baseDefence = calcDefence(c);
     for (const { item, entry, idx } of byBucket.armour) {
       const name  = entry.name || item.catalogue_id;

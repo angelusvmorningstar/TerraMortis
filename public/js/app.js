@@ -102,6 +102,9 @@ import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { applyOverlayToAll } from './data/st-mods.js';
+// Issue #879 (ADR-006 D4): armour-adjusted defence materialised before
+// applyOverlayToAll so STM mods on derived.defence compose on top.
+import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } from './suite/roll.js';
@@ -610,6 +613,10 @@ async function loadAllData() {
   // restores canonical values, so the suite stays operational without mods.
   await loadGlobalSettings();
   const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+  // Issue #879 (ADR-006 D4): materialise armour-adjusted defence on every
+  // char BEFORE applyOverlayToAll so 'derived.defence' STM mods compose
+  // additively on top of the real mechanical base.
+  for (const c of (suiteState.chars || [])) materialiseDerivedDefence(c);
   await applyOverlayToAll(suiteState.chars, globalEnabled);
   // editorState.chars is the same set of references for the player-owned
   // subset (sortedChars came from editorState.chars.slice()). Combat-only
@@ -1377,6 +1384,9 @@ async function boot() {
           onStModUpdate: async (charId) => {
             const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
             if (!target) return;
+            // Issue #879 (ADR-006 D4): re-materialise before re-applying so
+            // the armour-adjusted base is current at composition time.
+            materialiseDerivedDefence(target);
             await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
             // Issue #425: full suite sheet re-render (not just tracker
             // repaint) so the modded dots + markers refresh. STM-9
