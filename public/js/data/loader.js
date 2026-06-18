@@ -137,13 +137,6 @@ export function invalidateRulesCache() {
   localStorage.removeItem(RULES_KEY);
 }
 
-/** Get tracker data for a character from localStorage. */
-export function getTrackerData(name) {
-  const raw = localStorage.getItem(`tm_tracker_${name}`);
-  return raw ? JSON.parse(raw) : null;
-}
-
-/** Set tracker data for a character in localStorage. */
-export function setTrackerData(name, data) {
-  localStorage.setItem(`tm_tracker_${name}`, JSON.stringify(data));
-}
+// #836: getTrackerData / setTrackerData removed — generic name-keyed
+// `tm_tracker_${name}` helpers had zero callers. Canonical tracker state
+// lives in MongoDB (id-keyed) via public/js/game/tracker.js.

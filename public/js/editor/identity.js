@@ -3,11 +3,13 @@
 import state from '../data/state.js';
 import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
 import { esc, displayName, cardName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
+// #837: XP totals are derived at render time; identity.js displays them
+// directly via xp.js rather than persisting them as character fields.
+import { xpEarned, xpSpent, xpLeft } from './xp.js';
 
-let _markDirty, _xpLeft;
-export function registerCallbacks(markDirty, xpLeft) {
+let _markDirty;
+export function registerCallbacks(markDirty) {
   _markDirty = markDirty;
-  _xpLeft = xpLeft;
 }
 
 /* ── Main tab renderer ── */
@@ -124,15 +126,15 @@ export function renderIdentityTab(c) {
       <div class="form-grid">
         <div class="form-row">
           <label class="form-label">XP Total</label>
-          <input class="form-input" type="number" min="0" value="${c.xp_total || 0}" onchange="updField('xp_total',+this.value)">
+          <input class="form-input" type="number" value="${xpEarned(c)}" disabled title="Derived: 10 starting + Humanity drops + Ordeals + Game attendance">
         </div>
         <div class="form-row">
           <label class="form-label">XP Spent</label>
-          <input class="form-input" type="number" min="0" value="${c.xp_spent || 0}" onchange="updField('xp_spent',+this.value)">
+          <input class="form-input" type="number" value="${xpSpent(c)}" disabled title="Derived: sum of attr/skill/disc/merit xp allocations">
         </div>
         <div class="form-row">
           <label class="form-label">XP Left</label>
-          <input class="form-input" type="number" value="${_xpLeft(c)}" disabled title="Derived from XP Total - XP Spent">
+          <input class="form-input" type="number" value="${xpLeft(c)}" disabled title="Derived: XP Total - XP Spent">
         </div>
         <div class="form-row">
           <label class="form-label">Blood Potency</label>

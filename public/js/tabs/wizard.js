@@ -727,8 +727,8 @@ function buildCharDoc() {
     disciplines,
     merits,
     powers: [],
-    xp_total: 10,
-    xp_spent: 0,
+    // #837: xp_total / xp_spent removed — derived at render via xp.js.
+    // The 10-XP starting allowance is sourced from xpStarting() in xp.js.
     xp_log: { spent: 0, entries: [] },
     notes: null,
     retired: false,
