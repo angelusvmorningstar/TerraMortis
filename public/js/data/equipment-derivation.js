@@ -29,6 +29,10 @@
 
 import { calcDefence } from './accessors.js';
 import { getCatalogueEntry } from './equipment-catalogue-cache.js';
+// #896: meritEffectiveRating respects free dots / cp / xp / bonus channels.
+// Used to detect Resources cap and Fixer presence without rewriting the
+// accessor chain.
+import { meritEffectiveRating } from '../editor/domain.js';
 
 /**
  * Sum-by-worst-case of defence penalties from currently-worn armour.
@@ -148,4 +152,91 @@ export function defenceForDisplay(c, catalogueLookup = getCatalogueEntry) {
 export function defenceMechanicalBase(c, catalogueLookup = getCatalogueEntry) {
   if (!c) return 0;
   return Math.max(0, calcDefence(c) - armourDefencePenalty(c, catalogueLookup));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #896 — Equipment availability filter + Fixer errata (Peter 2026-06-18).
+//
+// Composition is simple subtraction with no overlay/scene-state interaction
+// (per Khepri dispatch — no ADR needed). The helpers below are pure: take
+// (item, c) → number / boolean. Read sites use them at render time; DT form
+// uses them to gate dropdown affordability.
+//
+// Fixer errata: the 2-dot Social merit Fixer reduces the availability cost
+// of all items by 1. Applies in all usage and displays — dropdown, sheet
+// held-items, admin editor row labels (the admin editor BYPASSES the
+// affordability gate but still SHOWS the reduced number for consistency).
+//
+// Out of scope (Peter / Khepri): admin catalogue page (ECM-6) shows raw
+// catalogue availability; it is character-agnostic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Resources cap = effective rating of the character's Resources merit, or 0
+ * if absent. Uses meritEffectiveRating so cp / xp / free / bonus channels
+ * compose correctly without re-walking the merit array.
+ *
+ * @param {object} c - character document
+ * @returns {number} resources rating (0-5)
+ */
+export function availabilityCap(c) {
+  if (!c) return 0;
+  const m = (c.merits || []).find(x => x?.name === 'Resources');
+  return m ? meritEffectiveRating(c, m) : 0;
+}
+
+/**
+ * Fixer reduction = 1 if the character has Fixer merit with effective rating
+ * >= 1, else 0. The Fixer merit is a fixed 2-dot Social merit per the rules,
+ * but we gate on the effective-rating check rather than mere presence so a
+ * suppressed / zeroed Fixer entry (edge case during merit editing) doesn't
+ * spuriously grant the reduction.
+ *
+ * @param {object} c - character document
+ * @returns {0 | 1} reduction magnitude
+ */
+export function fixerReduction(c) {
+  if (!c) return 0;
+  const m = (c.merits || []).find(x => x?.name === 'Fixer');
+  if (!m) return 0;
+  return meritEffectiveRating(c, m) >= 1 ? 1 : 0;
+}
+
+/**
+ * Effective availability of a catalogue item for a specific character:
+ *
+ *   effectiveAvailability(item, c) = max(0, item.availability - fixerReduction(c))
+ *
+ * Floored at 0 so a level-0 item with Fixer doesn't surface as -1; the
+ * floor lives here, no clamp needed at consumer sites (same single-floor
+ * discipline as ADR-006 Concern #9).
+ *
+ * `item` may be a catalogue entry (post-ECM-1 shape with `availability` int
+ * field) OR a partial; null/undefined item or missing availability defaults
+ * to 0.
+ *
+ * @param {object} item - catalogue entry
+ * @param {object} c - character document
+ * @returns {number} effective availability (0-5)
+ */
+export function effectiveAvailability(item, c) {
+  const raw = Number.isInteger(item?.availability) ? item.availability : 0;
+  return Math.max(0, raw - fixerReduction(c));
+}
+
+/**
+ * Convenience wrapper: is the item within the character's affordability gate?
+ *
+ *   isAffordable(item, c) = effectiveAvailability(item, c) <= availabilityCap(c)
+ *
+ * Used by the DT form dropdown to disable unaffordable options. The admin
+ * character editor explicitly BYPASSES this gate (ST override) but still
+ * displays the effective availability per Peter's dispatch.
+ *
+ * @param {object} item - catalogue entry
+ * @param {object} c - character document
+ * @returns {boolean}
+ */
+export function isAffordable(item, c) {
+  return effectiveAvailability(item, c) <= availabilityCap(c);
 }

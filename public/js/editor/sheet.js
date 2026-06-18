@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
@@ -2229,10 +2229,13 @@ export function shRenderEquipment(c, editMode) {
     h += '<div class="sh-sub-title">Weapons</div>';
     for (const { item, entry, idx } of byBucket.weapon) {
       const name  = entry.name || item.catalogue_id;
+      // #896: per-character effective availability (raw - Fixer reduction).
+      const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
       const parts = [
         entry.damage_mod != null ? `+${entry.damage_mod}` : null,
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
+        eff != null ? `avail ${eff}` : null,
       ].filter(Boolean);
       const qual   = parts.join(' · ');
       const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2257,9 +2260,12 @@ export function shRenderEquipment(c, editMode) {
     const baseDefence = calcDefence(c);
     for (const { item, entry, idx } of byBucket.armour) {
       const name  = entry.name || item.catalogue_id;
+      // #896: per-character effective availability (raw - Fixer reduction).
+      const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
       const parts = [
         entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
+        eff != null ? `avail ${eff}` : null,
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2277,10 +2283,17 @@ export function shRenderEquipment(c, editMode) {
       const name  = entry.name || item.catalogue_id;
       const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
+      // #896: per-character effective availability (raw - Fixer reduction).
+      const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const qualParts = [
+        pool || null,
+        eff != null ? `avail ${eff}` : null,
+      ].filter(Boolean);
+      const qual = qualParts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
         `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
-        (pool || item.notes ? `<div class="trait-sub">${pool ? `<span class="trait-qual">${esc(pool)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
   }
