@@ -6,6 +6,9 @@ import {
   getAttrEffective, getAttrBonus, skTotal, skNineAgain,
   calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, calcSpeed,
 } from '../data/accessors.js';
+// Issue #879 (ADR-006 D4): roll calculator's derived-stats strip reads
+// the armour-adjusted + overlay-modded defence.
+import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { getPool } from '../shared/pools.js';
 import { getRulesByCategory } from '../data/loader.js';
 import { esc } from '../data/helpers.js';
@@ -56,7 +59,7 @@ let _pools = [];
 export function renderCharPools(el, char, onTap) {
   _pools = [];
 
-  const defence = calcDefence(char);
+  const defence = defenceForDisplay(char);
   const hp      = calcHealth(char);
   const wp      = calcWillpowerMax(char);
   const vitae   = calcVitaeMax(char);
