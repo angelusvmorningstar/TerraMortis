@@ -107,11 +107,28 @@ XP functions in `public/js/editor/xp.js`: `xpEarned()`, `xpSpent()`, `xpLeft()`,
 
 ## Immutable reference data (baked into JS modules)
 
-- `CLANS` (5), `COVENANTS` (5), `MASKS_DIRGES` (26)
-- `MERITS_DB` (203+ entries with prerequisites and descriptions)
-- `DEVOTIONS_DB` (42: 31 general + 11 bloodline-exclusive)
-- `MAN_DB` (manoeuvre definitions)
-- `CLAN_BANES`, `BLOODLINE_DISCS`
+Small fixed enums that genuinely belong in code (changing them is a rule change, not a data update):
+
+- `CLANS` (5)
+- `COVENANTS` (5)
+- `MASKS_DIRGES` (26)
+- `CLAN_BANES` (per-clan free-text descriptions)
+- `BLOODLINE_DISCS` (per-bloodline discipline lists)
+
+All of the above live in `public/js/data/constants.js`.
+
+### Previously-static data now MongoDB-backed
+
+The "everything in JS modules" pattern was the original shape, but most reference data has since migrated to MongoDB:
+
+- **Epic PP** moved `MERITS_DB`, `DEVOTIONS_DB`, `MAN_DB`, and the rules engine into MongoDB (`purchasable_powers` collection + `rule_*` per-category collections). Live reads go through `public/js/data/loader.js` (`getRuleByKey`, `getRulesByCategory`) and the rule-engine cache at `public/js/editor/rule_engine/load-rules.js`. Server-side: `server/routes/rules.js` + `server/routes/rules-engine.js`.
+- **Epic ECM** moved the equipment catalogue from `public/js/data/equipment-data.js` + `server/data/equipment-catalogue.js` (both deleted in ECM-7 #874) into the `equipment_catalogue` MongoDB collection. Live reads go through `public/js/data/equipment-catalogue-cache.js` (the shared cache module ECM-5 introduced; refetches on the `broadcastCatalogueUpdate` WS frame). Server-side: `server/routes/equipment-catalogue.js` + `server/schemas/equipment_catalogue.schema.js`. Admin CRUD lives at `public/js/admin/equipment-catalogue-admin.js`.
+
+### Convention
+
+**Any new reference-data introduction must default to MongoDB-backed. Static JS modules require an explicit ADR carve-out.**
+
+The static enums above qualify because they encode rule-system facts (the five clans, the five covenants, the 26 mask/dirge archetypes) that change only as a system-level decision. New reference data — items, merits, rules, scenes, anything ST-editable — goes into a collection. The cost of a JS module re-introduction is the same cost the Epic PP and Epic ECM cleanups paid: every new bespoke item or rule edit requires a code deploy.
 
 ## Conventions
 
