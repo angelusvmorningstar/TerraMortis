@@ -14,7 +14,13 @@ import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
-import { getCatalogueByBucket } from '../data/equipment-data.js';
+// ECM-5 (issue #872): catalogue is fed from the API-backed module-level
+// cache rather than the static catalogue module. The cache is loaded at
+// app boot (admin.js) and refetched on `broadcastCatalogueUpdate` WS
+// frames. The static module stays in place until ECM-7 deletes it
+// alongside the server mirror; editor/sheet.js and suite/roll.js still
+// read from it via `getCatalogueEntry`.
+import { getCatalogueByBucket } from '../data/equipment-catalogue-cache.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1074,8 +1080,10 @@ export function shEquipBucketFilter() {
   const itemSel = document.getElementById('eq-add-item');
   if (!itemSel) return;
   const entries = bucket ? getCatalogueByBucket(bucket) : [];
+  // ECM-5: option `value` is the catalogue ObjectId in 24-hex string form.
+  // ECM-3's PUT/POST coercion hydrates it back to an ObjectId on the server.
   itemSel.innerHTML = '<option value="">-- select item --</option>'
-    + entries.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    + entries.map(e => `<option value="${String(e._id)}">${e.name}</option>`).join('');
 }
 
 export async function shAddEquip() {
