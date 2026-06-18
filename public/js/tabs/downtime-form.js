@@ -35,6 +35,11 @@ import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness
 // synchronously here at render time. getCatalogueEntry resolves a
 // 24-hex catalogue_id → display name for the legacy-fallback path.
 import { getCatalogue, getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+// #896: availability filter + Fixer errata. Helpers gate which catalogue
+// items appear as enabled options for the active character; unaffordable
+// items render disabled with a tooltip explaining why. Item-request
+// textarea (ECM-9) is the escape valve.
+import { availabilityCap, fixerReduction, effectiveAvailability, isAffordable } from '../data/equipment-derivation.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -5437,6 +5442,14 @@ function renderEquipmentRow(n, saved) {
   const selectedId = saved[`equipment_${n}_catalogue_id`] || '';
   const legacyName = saved[`equipment_${n}_name`] || '';
 
+  // #896: per-character affordability gate. Resources rating is the cap
+  // for effective availability (raw - fixer reduction). The raw-availability
+  // max a character can afford is `cap + fixer` — that's the number we
+  // show in the tooltip + footnote (matches the dispatch's wording).
+  const cap   = availabilityCap(currentChar);
+  const fixer = fixerReduction(currentChar);
+  const rawMax = cap + fixer;
+
   let h = `<div class="dt-equipment-row" id="dt-equipment-row-${n}">`;
   h += `<div class="dt-equipment-row-fields">`;
   h += `<select id="dt-equipment_${n}_catalogue_id" class="qf-input dt-equip-cat">`;
@@ -5449,12 +5462,22 @@ function renderEquipmentRow(n, saved) {
     if (!arr || !arr.length) continue;
     h += `<optgroup label="${esc(bucket)}">`;
     for (const it of arr) {
-      const sel = String(it._id) === selectedId ? ' selected' : '';
-      h += `<option value="${esc(String(it._id))}"${sel}>${esc(it.name || '')}</option>`;
+      const sel       = String(it._id) === selectedId ? ' selected' : '';
+      const eff       = effectiveAvailability(it, currentChar);
+      const aff       = isAffordable(it, currentChar);
+      const disabled  = (!aff && !sel) ? ' disabled' : '';
+      const tooltip   = !aff
+        ? ` title="Above your effective availability (Resources ${cap} + Fixer ${fixer} = max ${rawMax}). Use the item request field below to ask the ST for it."`
+        : '';
+      const availTag  = (it.availability == null) ? '' : ` (avail ${eff})`;
+      h += `<option value="${esc(String(it._id))}"${sel}${disabled}${tooltip}>${esc(it.name || '')}${availTag}</option>`;
     }
     h += `</optgroup>`;
   }
   h += `</select>`;
+  // #896: footnote under the dropdown \u2014 surfaces the cap math so players
+  // see why some options are disabled without hovering each.
+  h += `<div class="dt-equipment-cap-note" style="font-size:0.8em;opacity:0.7;margin-top:2px;">Showing items you can acquire. Resources ${cap} + Fixer reduction ${fixer} = effective availability cap ${rawMax}.</div>`;
   h += `<input type="number" id="dt-equipment_${n}_qty" class="qf-input dt-equip-qty" placeholder="Qty" min="1" value="${esc(saved[`equipment_${n}_qty`] || '1')}">`;
   h += `<input type="text" id="dt-equipment_${n}_notes" class="qf-input dt-equip-notes" placeholder="Notes (optional)" value="${esc(saved[`equipment_${n}_notes`] || '')}">`;
   if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-equipment="${n}" title="Remove">\u00D7</button>`;
