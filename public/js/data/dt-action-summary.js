@@ -111,9 +111,11 @@ export function actionSpentSummary(responses, totals = {}) {
     if (_nonEmpty(r[`sorcery_${n}_rite`])) sorceriesUsed++;
   }
 
+  // ECM-4 (#871): count a slot used if EITHER the new catalogue_id key is
+  // populated OR the legacy free-text name key is (in-flight submissions).
   let equipmentUsed = 0;
   for (let n = 1; n <= t.equipmentSlots; n++) {
-    if (_nonEmpty(r[`equipment_${n}_name`])) equipmentUsed++;
+    if (_nonEmpty(r[`equipment_${n}_catalogue_id`]) || _nonEmpty(r[`equipment_${n}_name`])) equipmentUsed++;
   }
 
   return {
