@@ -10,10 +10,10 @@ import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsT
 // SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
 // Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
 import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
-// #753: POST /equipment must reject catalogue_ids that aren't in the catalogue
-// (type/presence is checked inline; existence is checked against this Set).
-import { EQUIPMENT_CATALOGUE } from '../data/equipment-catalogue.js';
-const _CATALOGUE_IDS = new Set(EQUIPMENT_CATALOGUE.map(e => e.id));
+// ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
+// _CATALOGUE_IDS slug set were removed alongside the static module deletion.
+// POST /api/characters/:id/equipment validates catalogue existence via the
+// Mongo equipment_catalogue collection lookup (post-ECM-3 #870 #885).
 
 const router = Router();
 const col = () => getCollection('characters');

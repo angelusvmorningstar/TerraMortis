@@ -7,7 +7,7 @@ import state from './data.js';
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
-import { getCatalogueEntry } from '../data/equipment-data.js';
+import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js

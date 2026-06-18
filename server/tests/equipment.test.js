@@ -1,8 +1,10 @@
 /**
- * API tests — equipment schema, catalogue, and CRUD routes (EQ-1, issue #654).
+ * API tests — character-scoped equipment + asset CRUD routes (EQ-1, issue #654).
  *
- * Catalogue:
- *   GET /api/equipment/catalogue — public, returns EQUIPMENT_CATALOGUE array.
+ * The catalogue surface (GET / POST / PATCH / DELETE on
+ * /api/equipment_catalogue) is covered separately in
+ * tests/issue-868-ecm-1-equipment-catalogue-api.test.js. The legacy
+ * /api/equipment/catalogue alias from EQ-1 was removed in ECM-7 (#874).
  *
  * Character-scoped (ST auth required):
  *   GET  /:id/equipment              — returns { equipment, assets }
@@ -79,26 +81,10 @@ afterAll(async () => {
   await teardownDb();
 });
 
-// ── GET /api/equipment/catalogue ─────────────────────────────────────────────
-//
-// Epic ECM (#868) made this endpoint a thin alias of GET /api/equipment_catalogue
-// for one release cycle. The legacy assertions (full-catalogue length > 0,
-// per-bucket presence, `entry.id` string slug field) reflected the pre-ECM-1
-// static-data shape; with the alias in place the data shape and population
-// follow the Mongo collection, which may be empty during the transition window
-// until ECM-2 seeds. Detailed alias-behaviour coverage lives in
-// tests/issue-868-ecm-1-equipment-catalogue-api.test.js — this slice keeps a
-// minimal smoke test so a regression to the static path still trips here.
-
-describe('GET /api/equipment/catalogue (ECM-1 alias)', () => {
-  it('returns 200 with a JSON array (no auth required) — alias to GET /api/equipment_catalogue', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-  });
-});
-
 // ── GET /:id/equipment ───────────────────────────────────────────────────────
+// (ECM-7 #874 removed the legacy /api/equipment/catalogue alias and its
+// smoke test that lived here. The canonical bulk read lives at
+// /api/equipment_catalogue; see issue-868-ecm-1-equipment-catalogue-api.test.js.)
 
 describe('GET /api/characters/:id/equipment', () => {
   it('returns 200 with empty arrays for a fresh character', async () => {

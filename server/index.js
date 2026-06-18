@@ -37,7 +37,6 @@ import contestedRollsRouter from './routes/contested-rolls.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from './routes/st_mods.js';
 import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
-import equipmentRouter from './routes/equipment.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import chaptersRouter from './routes/chapters.js';
 import { attachWS } from './ws.js';
@@ -78,12 +77,12 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 
 // Equipment catalogue (public reads; DT form and player app both need access).
-// Epic ECM (#868): the new `equipment_catalogue` collection lives at
+// Epic ECM (#868): the `equipment_catalogue` collection lives at
 // /api/equipment_catalogue. Writes are ST-gated per-handler inside the
 // router (requireAuth + requireRole('st')) — the parent mount is unauthed.
-// /api/equipment/catalogue (the EQ-1 endpoint) remains as a thin alias
-// of GET /api/equipment_catalogue for one release cycle (epic D3 / ECM-7).
-app.use('/api/equipment', equipmentRouter);
+// The legacy /api/equipment/catalogue alias from EQ-1 was removed in ECM-7
+// (#874) — all clients (ECM-4 DT form, ECM-5 character editor, ECM-6
+// admin sidebar) hit /api/equipment_catalogue directly.
 app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(requireAuth));
 
 // Protected routes — require valid token (role resolved from players collection)
