@@ -1290,14 +1290,22 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
 
   if (sectionKey === 'project_responses') {
     const resolved   = sub?.projects_resolved || [];
-    const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+    const applicable = resolved
+      .map((r, idx) => ({ r, idx }))
+      .filter(({ r, idx }) => r?.pool_status !== 'skipped' && !_isDeletedProjectAction(sub, idx));
     if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
-    const responses   = sn.project_responses || [];
-    const done        = applicable.filter((_, i) => responses[i]?.status === 'complete').length;
-    const hasRevision = applicable.some((_, i) => responses[i]?.status === 'needs_revision');
-    const hasDraft    = applicable.some((_, i) => responses[i]?.response);
-    const state = done === applicable.length ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    // #886: a project is complete when its player-facing outcome is written in
+    // DT Processing (rev.outcome), not when a Story-tab draft was marked complete.
+    const done  = applicable.filter(({ r }) => (r?.outcome || '').trim()).length;
+    const state = done === applicable.length ? 'complete' : done > 0 ? 'draft' : 'empty';
     return { state, done, total: applicable.length };
+  }
+
+  if (sectionKey === 'merit_summary') {
+    // #886: reflect DT Processing completion (outcomes recorded), mirroring
+    // meritSummaryComplete / isSectionDone so the chip is not stuck on "empty".
+    const done = meritSummaryComplete(sub);
+    return { state: done ? 'complete' : 'empty', done: done ? 1 : 0, total: 1 };
   }
 
   if (sectionKey === 'territory_reports') {
