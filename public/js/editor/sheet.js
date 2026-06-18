@@ -36,7 +36,7 @@ import { auditCharacter } from '../data/audit.js';
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
 import { markerFor } from './st-mod-popover.js';
-import { getCatalogueEntry } from '../data/equipment-data.js';
+import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.

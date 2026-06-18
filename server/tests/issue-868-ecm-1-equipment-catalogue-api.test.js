@@ -375,29 +375,6 @@ describe('GET /api/equipment_catalogue/:id/impact', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Legacy alias — GET /api/equipment/catalogue serves the same view as
-// the new bulk read (epic D3 / AC#3, ECM-7 will remove the alias)
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('GET /api/equipment/catalogue (legacy alias)', () => {
-  it('returns the same data as GET /api/equipment_catalogue', async () => {
-    await seedItem({ name: 'AliasSeedA', bucket: 'weapon' });
-    await seedItem({ name: 'AliasSeedB', bucket: 'armour' });
-    const [neu, legacy] = await Promise.all([
-      request(app).get('/api/equipment_catalogue'),
-      request(app).get('/api/equipment/catalogue'),
-    ]);
-    expect(neu.status).toBe(200);
-    expect(legacy.status).toBe(200);
-    // Same array length, same _ids (stringified) — proves shared backing.
-    const neuIds = neu.body.map(d => String(d._id)).sort();
-    const legIds = legacy.body.map(d => String(d._id)).sort();
-    expect(legIds).toEqual(neuIds);
-  });
-
-  it('no auth required (matches new bulk-read auth posture)', async () => {
-    const res = await request(app).get('/api/equipment/catalogue');
-    expect(res.status).toBe(200);
-  });
-});
+// (ECM-7 #874 removed the /api/equipment/catalogue legacy alias and its
+// describe block here. The canonical bulk read is GET /api/equipment_catalogue;
+// the legacy mount + routes/equipment.js were deleted in the same PR.)
