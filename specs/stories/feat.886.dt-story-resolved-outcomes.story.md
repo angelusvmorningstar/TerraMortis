@@ -362,6 +362,15 @@ claude-opus-4-8 (BMAD dev-story)
   repointed to the same source; Home Report removed (superseded by Territory Pulse);
   completion-gating moved from draft-status to resolved-outcome. Tests added/updated;
   36/36 pass. Status → review.
+- 2026-06-18 (post-merge follow-ups, from dev smoke) — (1) **Completion wiring:**
+  `getSectionProgress` (progress-tracker chips) project count now derives from
+  `rev.outcome` (was stuck at "Projects 0/4" on the old draft-status count); added a
+  `merit_summary` branch wired to `meritSummaryComplete` so its chip is no longer
+  always "empty". Feeding chip already correct via `isSectionDone`. (2) **CSS
+  normalisation:** `.dt-story-resolved-card` joined the canonical "Story-tab inner
+  cards" chrome group (`var(--surf2)` bg + border + radius) + matching padding/margin
+  — it had forked with margin-only and rendered flat/borderless. Per coding-standards
+  Shared Chrome Pattern.
 - 2026-06-18 (QA, Quinn) — Reviewed diff for correctness/regression/AC + CSS. Verified
   data assumptions (`feeding_review.outcome`, `projects_resolved[].outcome` via
   `saveEntryReview` source-branching, `downtime-views.js:3709/3718`;
