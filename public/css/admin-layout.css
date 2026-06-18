@@ -7405,6 +7405,17 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .dt-feed-val-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .dt-feed-val-approved-lbl { font-size: 12px; color: var(--accent); font-family: var(--fl); }
 
+/* #886: read-only resolved-action card (Feeding / Project Reports).
+   Replaces the redundant narrative-drafting layer — the player-facing outcome
+   is now written directly in DT Processing and only displayed here. Reuses the
+   dt-feed-val-row dt/dd pattern; Dice pool + Feedback rows are muted. */
+.dt-story-resolved-card { margin: 0 0 10px; }
+.dt-story-resolved-title { font-family: var(--fh); font-size: 14px; color: var(--txt1); margin: 0 0 6px; }
+.dt-story-resolved-card .dt-feed-val-row dd { white-space: pre-wrap; }
+.dt-story-muted-row dt,
+.dt-story-muted-row dd { color: var(--txt3); }
+.dt-story-resolved-empty { color: var(--txt3); font-style: italic; }
+
 /* DTSR-7: ST-authored feeding narrative — sits below the existing feeding
    data block, separated by a thin rule. Sub-head + prompt mirror the
    typographic treatment used in other DT Story narrative authoring areas. */
