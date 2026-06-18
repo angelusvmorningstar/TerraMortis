@@ -11,6 +11,9 @@ import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, reda
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll } from './data/st-mods.js';
+// Issue #879 (ADR-006 D4): materialise c.derived.defence between calcDefence and
+// applyStMods so STM overlay composes on top of the armour-adjusted base.
+import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
@@ -117,12 +120,25 @@ async function renderSheetWithOverlay(c) {
 
   if (editorState.editMode) {
     stripOverlay(c);
+    // Issue #879 (ADR-006 D4): re-materialise armour-adjusted defence
+    // after strip so the edit-mode view shows the canonical mechanical
+    // base (calcDefence - armourPenalty), not a stale STM-modded value.
+    materialiseDerivedDefence(c);
     renderSheet(c);
     return;
   }
 
   const tracker = await loadTrackerState(c).catch(() => null);
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
+
+  // Issue #879 (ADR-006 D3 + D4): composition order is
+  //   calcDefence(c) → subtract armourDefencePenalty(c) → floor → applyStMods.
+  // materialiseDerivedDefence handles the first three steps and writes the
+  // result to c.derived.defence. applyStMods then reads c.derived.defence
+  // as the base for any 'derived.defence' mod and composes additively on
+  // top, fixing the pre-existing ADR-004 D5 display bug where the marker
+  // appeared but the value didn't update.
+  materialiseDerivedDefence(c);
 
   const mods = await loadStMods(c._id);
   const settings = getGlobalSettings();
@@ -197,6 +213,9 @@ async function boot() {
         onStModUpdate: async (charId) => {
           const target = chars.find(c => String(c._id) === String(charId));
           if (!target) return;
+          // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+          // armour-adjusted base is current at composition time.
+          materialiseDerivedDefence(target);
           await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
           const idx = editorState.editIdx;
           if (idx != null && idx >= 0 && chars[idx] === target) {
@@ -1293,6 +1312,11 @@ async function init() {
     // holds across all admin views, mirroring app.js's pattern.
     await loadGlobalSettings();
     const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+    // Issue #879 (ADR-006 D4): materialise armour-adjusted defence on every
+    // char BEFORE applyOverlayToAll, so any 'derived.defence' STM mod
+    // composes additively on top of the real mechanical base instead of
+    // the pre-ADR-006 default-zero base.
+    for (const c of chars) materialiseDerivedDefence(c);
     await applyOverlayToAll(chars, globalEnabled);
 
     renderCharGrid();
