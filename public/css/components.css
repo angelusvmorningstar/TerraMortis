@@ -4580,6 +4580,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   font-family: var(--fl);
 }
 .merit-summary-text { color: var(--txt1); flex: 1; }
+.merit-summary-description {
+  display: block;
+  color: var(--txt3);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
 
 
 
