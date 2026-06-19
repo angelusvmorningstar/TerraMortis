@@ -1113,7 +1113,6 @@ export async function shAddEquip() {
       notes,
     });
     c.equipment = result.equipment;
-    c.assets    = result.assets;
     _renderSheet(c);
   } catch (err) {
     console.error('[equipment] add error:', err);
@@ -1127,48 +1126,11 @@ export async function shRemoveEquip(idx) {
   try {
     const result = await apiDelete('/api/characters/' + charId + '/equipment/' + idx);
     c.equipment = result.equipment;
-    c.assets    = result.assets;
     _renderSheet(c);
   } catch (err) {
     console.error('[equipment] remove error:', err);
   }
 }
 
-export async function shAddAsset() {
-  if (state.editIdx < 0) return;
-  const c      = state.chars[state.editIdx];
-  const charId = String(c._id);
-  const name   = document.getElementById('asset-add-name')?.value?.trim();
-  const desc   = document.getElementById('asset-add-desc')?.value?.trim();
-  if (!name || !desc) return;
-  const cycle  = parseInt(document.getElementById('asset-add-cycle')?.value ?? '0', 10) || 0;
-  try {
-    const result = await apiPost('/api/characters/' + charId + '/assets', {
-      name,
-      description:       desc,
-      location:          document.getElementById('asset-add-loc')?.value?.trim()  || null,
-      mechanical_effect: document.getElementById('asset-add-mech')?.value?.trim() || null,
-      acquired_cycle:    cycle,
-      notes:             document.getElementById('asset-add-notes')?.value?.trim() || null,
-    });
-    c.equipment = result.equipment;
-    c.assets    = result.assets;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[asset] add error:', err);
-  }
-}
-
-export async function shRemoveAsset(idx) {
-  if (state.editIdx < 0) return;
-  const c      = state.chars[state.editIdx];
-  const charId = String(c._id);
-  try {
-    const result = await apiDelete('/api/characters/' + charId + '/assets/' + idx);
-    c.equipment = result.equipment;
-    c.assets    = result.assets;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[asset] remove error:', err);
-  }
-}
+// shAddAsset + shRemoveAsset REMOVED 2026-06-19 — character.assets[] consolidated
+// into equipment[]. Asset-bucket catalogue items now flow through shAddEquip.
