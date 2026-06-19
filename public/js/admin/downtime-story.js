@@ -2242,7 +2242,7 @@ function meritSummaryComplete(sub) {
       if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
       continue;
     }
-    if (!rev.outcome_summary?.trim()) return false;
+    if (!(rev.outcome_summary?.trim() || rev.outcome?.trim())) return false;
   }
   return true;
 }
@@ -2269,7 +2269,7 @@ function renderMeritSummary(char, sub) {
     if (!groups[cat]) groups[cat] = [];
     const { label: meritLabel, qualifier } = getMeritDetails(char, a);
     const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
-    let outcome = rev.outcome_summary?.trim() || '';
+    let outcome = rev.outcome_summary?.trim() || rev.outcome?.trim() || '';
     if (cat === 'resources') {
       if (!outcome) outcome = sub?.acquisitions_resolved?.[0]?.outcome_summary?.trim() || '';
       if (!outcome) {
@@ -2333,7 +2333,7 @@ function renderMeritSummary(char, sub) {
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
     } else {
-      if (rev.outcome_summary?.trim()) return;
+      if (rev.outcome_summary?.trim() || rev.outcome?.trim()) return;
       const { label, qualifier } = getMeritDetails(char, a);
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || a.merit_type || 'Merit', reason: 'outcome not yet recorded' });

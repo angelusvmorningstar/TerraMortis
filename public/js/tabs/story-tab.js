@@ -545,7 +545,7 @@ function renderMeritSummarySection(sub) {
   const acqRes = sub.acquisitions_resolved || [];
 
   const hasOutcomeSummaries =
-    resolved.some(rev => rev?.outcome_summary?.trim()) ||
+    resolved.some(rev => rev?.outcome_summary?.trim() || rev?.outcome?.trim()) ||
     acqRes.some(rev => rev?.outcome_summary?.trim());
 
   if (!hasOutcomeSummaries) {
@@ -559,7 +559,7 @@ function renderMeritSummarySection(sub) {
     if (rev.pool_status === 'skipped') return;
     // Skill acquisitions save to acquisitions_resolved[0], not merit_actions_resolved[i].
     // Mirror ST-side downtime-story.js:2323 fallback.
-    let summary = rev.outcome_summary?.trim();
+    let summary = rev.outcome_summary?.trim() || rev.outcome?.trim();
     if (!summary && a.merit_type === 'Skill Acquisition' && a.action_type === 'acquisition') {
       summary = acqRes[0]?.outcome_summary?.trim() || '';
     }
