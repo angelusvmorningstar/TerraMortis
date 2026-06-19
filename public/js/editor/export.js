@@ -54,6 +54,10 @@ export function charsForSave() {
     // delete _st_mod_overlay + _st_mod_base. Pre-overlay characters
     // have no _st_mod_base; stripOverlay no-ops cleanly in that case.
     stripOverlay(copy);
+    // ADR-006: c.derived is the render-time materialised defence cache,
+    // never stored. Strip before localStorage stash so a fresh boot
+    // recomputes from base values without carrying stale derived state.
+    delete copy.derived;
     if (copy.merits) {
       for (let i = copy.merits.length - 1; i >= 0; i--) {
         if (copy.merits[i].derived) {
