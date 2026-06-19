@@ -2238,8 +2238,13 @@ function meritSummaryComplete(sub) {
     if (deriveMeritCategory(actions[i].merit_type) === 'resources') {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') continue;
-      const acqStatus = acqRes[0]?.pool_status || '';
-      if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
+      const acqIdx = /skill/i.test(actions[i].merit_type) ? 1 : 0;
+      const acq = acqRes[acqIdx] || {};
+      // A confirmed outcome counts as resolved even when pool_status is still 'pending'
+      // (no-roll acquisitions never advance pool_status).
+      const acqResolved = ['validated', 'skipped', 'resolved'].includes(acq.pool_status || '')
+        || !!(acq.outcome_summary?.trim() || acq.outcome?.trim());
+      if (!acqResolved) return false;
       continue;
     }
     if (!(rev.outcome_summary?.trim() || rev.outcome?.trim())) return false;
@@ -2271,11 +2276,15 @@ function renderMeritSummary(char, sub) {
     const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
     let outcome = rev.outcome_summary?.trim() || rev.outcome?.trim() || '';
     if (cat === 'resources') {
-      if (!outcome) outcome = sub?.acquisitions_resolved?.[0]?.outcome_summary?.trim() || '';
+      // Acquisitions resolve to two fixed slots: Resources -> [0], Skill Acquisition -> [1]
+      // (downtime-views.js:3578/3599). Read both outcome fields — the Confirm button
+      // writes `outcome`, the compact one-line input writes `outcome_summary`.
+      const acqIdx = /skill/i.test(a.merit_type) ? 1 : 0;
+      const acq = sub?.acquisitions_resolved?.[acqIdx];
+      if (!outcome) outcome = acq?.outcome_summary?.trim() || acq?.outcome?.trim() || '';
       if (!outcome) {
         const thread = (Array.isArray(rev.notes_thread) && rev.notes_thread.length ? rev.notes_thread : null)
-          || (Array.isArray(sub?.acquisitions_resolved?.[0]?.notes_thread) && sub.acquisitions_resolved[0].notes_thread.length
-            ? sub.acquisitions_resolved[0].notes_thread : null);
+          || (Array.isArray(acq?.notes_thread) && acq.notes_thread.length ? acq.notes_thread : null);
         if (thread) outcome = thread[thread.length - 1]?.text?.trim() || '';
       }
     }
@@ -2327,8 +2336,10 @@ function renderMeritSummary(char, sub) {
     if (cat === 'resources') {
       const revStatus = resolved[i]?.pool_status || '';
       if (revStatus === 'validated' || revStatus === 'skipped') return;
-      const acqStatus = acqRes[0]?.pool_status || '';
-      if (['validated', 'skipped', 'resolved'].includes(acqStatus)) return;
+      const acqIdx = /skill/i.test(a.merit_type) ? 1 : 0;
+      const acq = acqRes[acqIdx] || {};
+      if (['validated', 'skipped', 'resolved'].includes(acq.pool_status || '')
+          || acq.outcome_summary?.trim() || acq.outcome?.trim()) return;
       const { label, qualifier } = getMeritDetails(char, a);
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });

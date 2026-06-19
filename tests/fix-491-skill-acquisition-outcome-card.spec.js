@@ -8,13 +8,18 @@
  *      and got Validation Status (Pending/Validated/No Roll Needed/Skip) instead of Outcome
  *      (Approved/Partial/Failed + narrative).
  *   B. downtime-story.js:2321 — renderMeritSummary read outcome_summary from merit_actions_resolved[i]
- *      for skill acquisitions, but the processing panel saves outcomes to acquisitions_resolved[0].
+ *      for skill acquisitions, but the processing panel saves outcomes to acquisitions_resolved.
  *      The lookup hit the wrong array → always blank → "Outcome not yet recorded".
  *
  * Fix A: `isSkillAcq` guard added to Validation Status condition; _renderMeritOutcomeZone
  *        called after pool columns for skill acquisitions.
- * Fix B: renderMeritSummary now reads acquisitions_resolved[0].outcome_summary first for
- *        resources-category entries, before falling through to notes_thread fallback.
+ * Fix B: renderMeritSummary now reads the acquisition slot for resources-category entries,
+ *        before falling through to notes_thread fallback.
+ *
+ * fix.914 update: the acquisition slot is chosen by kind — Resources -> acquisitions_resolved[0],
+ *        Skill Acquisition -> acquisitions_resolved[1] (write side: downtime-views.js:3578/3599) —
+ *        and both `outcome_summary` and `outcome` are read. Skill fixtures below place the outcome
+ *        at [1] accordingly (the earlier [0] placement modelled the bug this story fixes).
  *
  * Test coverage:
  *   Part 1 — DT Story panel (downtime-story.js fix B)
@@ -96,11 +101,14 @@ function baseSub(id) {
 // AC-1: Skill acquisition with outcome_summary recorded in acquisitions_resolved.
 // buildMeritActions reads responses['skill_acquisitions'] blob → merit_actions contains
 // { merit_type: 'Skill Acquisition', action_type: 'acquisition' }.
-// renderMeritSummary fix: reads acquisitions_resolved[0].outcome_summary for resources category.
+// fix.914: skill acquisitions resolve to acquisitions_resolved[1] (resources -> [0]),
+// matching the write side (downtime-views.js:3599). The [0] slot is null-padded when a
+// submission has no resources acquisition, exactly as saveEntryReview produces.
 const SUB_SKILL_ACQ_WITH_OUTCOME = {
   ...baseSub('sub-491-skill-outcome'),
   responses: { skill_acquisitions: 'Air of Menace' },
   acquisitions_resolved: [
+    null,
     { outcome_summary: 'Mastered the intimidating stance without incident.' },
   ],
   merit_actions_resolved: [],
@@ -120,6 +128,7 @@ const SUB_SKILL_ACQ_VALIDATED = {
   ...baseSub('sub-491-skill-validated'),
   responses: { skill_acquisitions: 'Air of Menace' },
   acquisitions_resolved: [
+    null,   // fix.914: resources slot [0] empty; skill resolves to [1]
     { pool_status: 'validated', outcome_summary: 'Air of Menace successfully acquired.' },
   ],
   merit_actions_resolved: [],
