@@ -29,7 +29,7 @@ import npcsRouter from '../../routes/npcs.js';
 import stModsRouter, { auditRouter as stModAuditRouter } from '../../routes/st_mods.js';
 import appSettingsRouter from '../../routes/app-settings.js';
 import devlogRouter from '../../routes/devlog.js';
-import equipmentRouter from '../../routes/equipment.js';
+import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { chaptersRouter } from '../../routes/chapters.js';
 
 /**
@@ -58,8 +58,12 @@ export function createTestApp() {
   // Health check
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-  // Equipment catalogue (public — no auth, mirrors prod mount order)
-  app.use('/api/equipment', equipmentRouter);
+  // Epic ECM (#868) equipment_catalogue — same factory pattern as prod, but
+  // injects mockAuth (the test app's per-request auth surface) instead of
+  // requireAuth. Reads stay public; writes still gate on the X-Test-User
+  // header followed by requireRole('st'). The legacy /api/equipment alias
+  // mount was removed in ECM-7 (#874).
+  app.use('/api/equipment_catalogue', buildEquipmentCatalogueRouter(mockAuth));
 
   // Protected routes with mock auth.
   // Issue #255: mirror prod Cache-Control discipline so tests can assert

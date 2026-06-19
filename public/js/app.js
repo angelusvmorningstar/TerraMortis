@@ -38,7 +38,7 @@ import {
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -47,7 +47,6 @@ import {
   clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
-import { xpLeft } from './editor/xp.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { renderMapStageHtml } from './components/map-overlay.js';
@@ -57,6 +56,12 @@ import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
+// ECM-4 (#871): shared catalogue cache from ECM-5 (#872). Boot-load below
+// alongside preloadRules so the DT form's equipment dropdown renders
+// synchronously when the section opens. Refetch is wired into initWS's
+// onCatalogueUpdate so remote admin catalogue edits propagate without
+// a page reload.
+import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initFinanceTab } from './game/finance-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -97,6 +102,9 @@ import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { applyOverlayToAll } from './data/st-mods.js';
+// Issue #879 (ADR-006 D4): armour-adjusted defence materialised before
+// applyOverlayToAll so STM mods on derived.defence compose on top.
+import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } from './suite/roll.js';
@@ -517,12 +525,16 @@ async function loadAllData() {
   // cache synchronously; the cache state is determined by the time the
   // Promise.allSettled resolves (loaded if preloadRules succeeded,
   // null otherwise — issue #249 guard handles both).
-  const [_rulesFromApi, rulesEngineRes, apiCharsRes, terrRes, combatRes] = await Promise.allSettled([
+  const [_rulesFromApi, rulesEngineRes, apiCharsRes, terrRes, combatRes, _catalogueRes] = await Promise.allSettled([
     loadRulesFromApi(),
     preloadRules(),
     loadCharsFromApi(),
     apiGet('/api/territories'),
     apiGet('/api/characters/combat'),
+    // ECM-4 (#871): same parallel-load pattern as the rules engine, same
+    // non-fatal-on-failure shape — the DT form's equipment dropdown
+    // degrades to empty options + a console warning on failure.
+    loadEquipmentCatalogue(),
   ]);
 
   // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via
@@ -537,6 +549,12 @@ async function loadAllData() {
       banner.classList.add('app-status-banner--error');
       banner.style.display = '';
     }
+  }
+  // ECM-4 (#871): catalogue load is non-fatal — surface the degraded state
+  // in console only. The DT form's equipment section degrades to an empty
+  // dropdown rather than blocking submission.
+  if (_catalogueRes.status === 'rejected') {
+    console.error('[app] loadEquipmentCatalogue failed — DT-form equipment dropdown will be empty until cache loads:', _catalogueRes.reason);
   }
 
   // 1. Chars handling — role-filtered server-side (player sees own, ST sees all).
@@ -595,6 +613,10 @@ async function loadAllData() {
   // restores canonical values, so the suite stays operational without mods.
   await loadGlobalSettings();
   const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+  // Issue #879 (ADR-006 D4): materialise armour-adjusted defence on every
+  // char BEFORE applyOverlayToAll so 'derived.defence' STM mods compose
+  // additively on top of the real mechanical base.
+  for (const c of (suiteState.chars || [])) materialiseDerivedDefence(c);
   await applyOverlayToAll(suiteState.chars, globalEnabled);
   // editorState.chars is the same set of references for the player-owned
   // subset (sortedChars came from editorState.chars.slice()). Combat-only
@@ -1056,7 +1078,7 @@ document.addEventListener('click', () => {
 
 registerEditCallbacks(markDirty, editorRenderSheet);
 registerExportCallbacks(renderList, updDirtyBadge);
-registerIdentityCallbacks(markDirty, xpLeft);
+registerIdentityCallbacks(markDirty);
 registerAttrsCallbacks(markDirty);
 
 // Wire up suite import callbacks
@@ -1144,7 +1166,7 @@ Object.assign(window, {
   shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating,
   shEditXP,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
 
   // Editor attributes & skills tab
   clickAttrDot,
@@ -1362,6 +1384,9 @@ async function boot() {
           onStModUpdate: async (charId) => {
             const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
             if (!target) return;
+            // Issue #879 (ADR-006 D4): re-materialise before re-applying so
+            // the armour-adjusted base is current at composition time.
+            materialiseDerivedDefence(target);
             await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
             // Issue #425: full suite sheet re-render (not just tracker
             // repaint) so the modded dots + markers refresh. STM-9
@@ -1372,6 +1397,11 @@ async function boot() {
               suiteRenderSheet();
             }
           },
+          // ECM-4 (#871): on remote equipment_catalogue create/update/delete
+          // (broadcast by the admin catalogue UI via server/ws.js's
+          // broadcastCatalogueUpdate), refetch the cache. Next render of
+          // the DT form's equipment dropdown picks up the fresh items.
+          onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for

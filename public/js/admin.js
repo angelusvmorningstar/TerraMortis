@@ -11,9 +11,13 @@ import { esc, clanIcon, covIcon, shortCov, cardName, displayName, sortName, reda
 import { setStatusTerritories, calcWillpowerMax, calcVitaeMax } from './data/accessors.js';
 import { ensureLoaded as loadTrackerState } from './game/tracker.js';
 import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll } from './data/st-mods.js';
+// Issue #879 (ADR-006 D4): materialise c.derived.defence between calcDefence and
+// applyStMods so STM overlay composes on top of the armour-adjusted base.
+import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
+import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
@@ -28,14 +32,17 @@ import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js'
 import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
-import { initFeedingEngine } from './admin/feeding-engine.js';
-import { initSessionTracker } from './admin/session-tracker.js';
+// #836: initFeedingEngine / initSessionTracker imports removed — both
+// admin/feeding-engine.js and admin/session-tracker.js were dead-imported
+// (init functions never called from anywhere) and their localStorage-keyed
+// legacy tracker persistence was deprecated. Files deleted.
 import { initDataPortabilityView } from './admin/data-portability.js';
 import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
+import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
@@ -67,6 +74,7 @@ import {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
@@ -99,7 +107,7 @@ function markDirty(idx) {
 }
 
 registerEditCallbacks(markDirty, renderSheet);
-registerIdentityCallbacks(markDirty, xpLeft);
+registerIdentityCallbacks(markDirty);
 registerAttrsCallbacks(markDirty);
 
 // ── ST mod overlay composition (Epic STM, issue #372) ──
@@ -115,12 +123,25 @@ async function renderSheetWithOverlay(c) {
 
   if (editorState.editMode) {
     stripOverlay(c);
+    // Issue #879 (ADR-006 D4): re-materialise armour-adjusted defence
+    // after strip so the edit-mode view shows the canonical mechanical
+    // base (calcDefence - armourPenalty), not a stale STM-modded value.
+    materialiseDerivedDefence(c);
     renderSheet(c);
     return;
   }
 
   const tracker = await loadTrackerState(c).catch(() => null);
   spliceCurrent(c, tracker, { calcWillpowerMax, calcVitaeMax });
+
+  // Issue #879 (ADR-006 D3 + D4): composition order is
+  //   calcDefence(c) → subtract armourDefencePenalty(c) → floor → applyStMods.
+  // materialiseDerivedDefence handles the first three steps and writes the
+  // result to c.derived.defence. applyStMods then reads c.derived.defence
+  // as the base for any 'derived.defence' mod and composes additively on
+  // top, fixing the pre-existing ADR-004 D5 display bug where the marker
+  // appeared but the value didn't update.
+  materialiseDerivedDefence(c);
 
   const mods = await loadStMods(c._id);
   const settings = getGlobalSettings();
@@ -195,12 +216,23 @@ async function boot() {
         onStModUpdate: async (charId) => {
           const target = chars.find(c => String(c._id) === String(charId));
           if (!target) return;
+          // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+          // armour-adjusted base is current at composition time.
+          materialiseDerivedDefence(target);
           await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
           const idx = editorState.editIdx;
           if (idx != null && idx >= 0 && chars[idx] === target) {
             renderSheetWithOverlay(target);
           }
         },
+        // ECM-5 (issue #872): on remote equipment_catalogue create/update/
+        // delete (broadcast by the admin catalogue UI via server/ws.js's
+        // broadcastCatalogueUpdate), refetch the cache. Cache subscribers
+        // (currently the edit-mode equipment dropdown via shEquipBucketFilter,
+        // re-fired on next bucket change) pick up the new entries on next
+        // read. Op is advisory per the server-side comment; we refetch
+        // regardless rather than per-op state-machine.
+        onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
       });
 
       // Epic STM (issue #385): install delegated click handler for the
@@ -286,6 +318,7 @@ function switchDomain(domain) {
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+  if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
   if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {
@@ -915,13 +948,19 @@ async function createNewCharacter() {
 
 // Legacy parallel-array fields superseded by inline cp/xp on each object (v3 schema)
 const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creation', 'merit_creation']);
+// #837: xp_total / xp_spent removed from schema — derived at render time.
+// Strip on save so old in-memory documents that still carry them don't fail
+// schema validation on PUT.
+const _DEPRECATED_FIELDS = new Set(['xp_total', 'xp_spent', 'xp_left']);
 
 function buildSaveBody(c) {
   // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
-  // and c.current (tracker-state namespace set by spliceCurrent — not a schema field).
+  // deprecated derived fields (#837 — xp_total/xp_spent/xp_left), c.current (tracker-state
+  // namespace), and c.derived (render-time materialised cache from ADR-006; never stored).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
+    if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived'
+        || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
     body[k] = v;
   }
   // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
@@ -1246,6 +1285,17 @@ async function init() {
     }
   }
 
+  // ECM-5 (issue #872): warm the equipment catalogue cache once at boot so
+  // the editor's equipment-bucket dropdown renders synchronously when the
+  // user opens edit mode. Same non-fatal-on-failure pattern as preloadRules
+  // — the dropdown degrades to an empty option list and a console warning
+  // surfaces the degraded state.
+  try {
+    await loadEquipmentCatalogue();
+  } catch (err) {
+    console.error('[admin] loadEquipmentCatalogue failed — equipment dropdown will be empty until cache loads:', err);
+  }
+
   try {
     chars = await apiGet('/api/characters');
     chars.forEach(sanitiseChar);
@@ -1271,6 +1321,11 @@ async function init() {
     // holds across all admin views, mirroring app.js's pattern.
     await loadGlobalSettings();
     const globalEnabled = getGlobalSettings()?.st_mods_enabled !== false;
+    // Issue #879 (ADR-006 D4): materialise armour-adjusted defence on every
+    // char BEFORE applyOverlayToAll, so any 'derived.defence' STM mod
+    // composes additively on top of the real mechanical base instead of
+    // the pre-ADR-006 default-zero base.
+    for (const c of chars) materialiseDerivedDefence(c);
     await applyOverlayToAll(chars, globalEnabled);
 
     renderCharGrid();
@@ -1332,6 +1387,7 @@ Object.assign(window, {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

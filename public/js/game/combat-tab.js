@@ -7,6 +7,9 @@
 
 import suiteState from '../suite/data.js';
 import { getAttrEffective, calcDefence, calcHealth } from '../data/accessors.js';
+// Issue #879 (ADR-006 D4): combat scene captures the armour-adjusted +
+// overlay-modded defence at snapshot time.
+import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { esc } from '../data/helpers.js';
 import { trackerAdj, trackerRead } from './tracker.js';
 import { loadPool, doRoll } from '../suite/roll.js';
@@ -62,7 +65,7 @@ function _combatantFromChar(c) {
     name: c.moniker || c.name,
     initiative: null,
     initBase: _initPool(c),
-    defence: calcDefence(c),
+    defence: defenceForDisplay(c),
     defenceUsed: false,
     maxHp: calcHealth(c),
     attackPools: _attackPools(c),

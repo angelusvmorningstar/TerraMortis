@@ -27,19 +27,22 @@ describe('AC1 — placeholder text', () => {
     expect(storyJs).not.toContain('Revision note for player');
   });
 
-  it('exactly 7 occurrences of "Revision note for Story" placeholder text', () => {
+  it('exactly 5 occurrences of "Revision note for Story" placeholder text', () => {
+    // #886: Feeding and Project Reports lost their narrative-drafting layer
+    // (the outcome is now written directly in DT Processing and only displayed),
+    // so their revision textareas were removed — 7 dropped to 5.
     // Count textarea placeholder attributes only (not other uses like heading text)
     const matches = storyJs.match(/placeholder="Revision note for Story[^"]*"/g) || [];
-    expect(matches.length).toBe(7);
+    expect(matches.length).toBe(5);
   });
 
-  it('sections covered: feeding, projects, story-moment, merits, home-report, territories, cacophony-savvy', () => {
-    // Verify each section's revision textarea placeholder by its data attribute or class context.
-    // The feeding revision textarea sits inside dt-feed-val-narrative-block.
-    expect(storyJs).toContain('dt-feed-val-narrative-block');
-    expect(storyJs).toContain('dt-feed-narrative-ta');
-    // Projects: placeholder adjacent to data-proj-idx on the same textarea
-    expect(storyJs).toMatch(/data-proj-idx[^"]*"[^>]*placeholder="Revision note for Story/);
+  it('sections covered: story-moment, merits, home-report, territories, cacophony-savvy', () => {
+    // #886: feeding + projects no longer have a revision textarea (drafting layer
+    // removed). The remaining authored/dead-path sections still carry theirs.
+    expect(storyJs).not.toContain('dt-feed-val-narrative-block');
+    expect(storyJs).not.toContain('dt-feed-narrative-ta');
+    // Projects: no longer render a revision textarea adjacent to data-proj-idx.
+    expect(storyJs).not.toMatch(/data-proj-idx[^"]*"[^>]*placeholder="Revision note for Story/);
     // Merits: placeholder adjacent to data-action-idx on the same textarea
     expect(storyJs).toMatch(/data-action-idx[^"]*"[^>]*placeholder="Revision note for Story/);
     // Territories: placeholder adjacent to data-terr-idx on the same textarea

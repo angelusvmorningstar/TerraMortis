@@ -1729,7 +1729,7 @@
       2,
       2
     ],
-    "description": "Arrange illegal services and contacts.",
+    "description": "Arrange illegal services and contacts. Reduces the availability cost of all items by 1.",
     "pool": null,
     "resistance": null,
     "cost": null,

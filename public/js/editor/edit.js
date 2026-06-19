@@ -10,11 +10,21 @@ import {
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { freeOf, poolAvailableFor } from '../data/rules-helpers.js';
-import { xpToDots, xpEarned, xpSpent } from './xp.js';
+import { xpToDots } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
-import { getCatalogueByBucket } from '../data/equipment-data.js';
+// ECM-5 (issue #872): catalogue is fed from the API-backed module-level
+// cache rather than the static catalogue module. The cache is loaded at
+// app boot (admin.js) and refetched on `broadcastCatalogueUpdate` WS
+// frames. The static module stays in place until ECM-7 deletes it
+// alongside the server mirror; editor/sheet.js and suite/roll.js still
+// read from it via `getCatalogueEntry`.
+import { getCatalogueByBucket } from '../data/equipment-catalogue-cache.js';
+// #896: ST admin editor BYPASSES the availability filter (ST can assign any
+// item to any character) but still shows the per-character effective
+// availability in option labels for display consistency.
+import { effectiveAvailability } from '../data/equipment-derivation.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -571,8 +581,7 @@ export function shEditAttrPt(attr, field, val) {
   const NINE_ATTRS = ['Intelligence', 'Wits', 'Resolve', 'Strength', 'Dexterity', 'Stamina', 'Presence', 'Manipulation', 'Composure'];
   NINE_ATTRS.forEach(a => { attrXpTotal += (c.attributes?.[a]?.xp) || 0; });
   c.xp_log.spent.attributes = attrXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -667,8 +676,7 @@ export function shEditDiscPt(disc, field, val) {
     discXpTotal += v.xp || 0;
   });
   c.xp_log.spent.powers = discXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -751,8 +759,7 @@ export function shEditSkillPt(skill, field, val) {
   let skXpTotal = 0;
   ALL_SKILLS.forEach(s => { skXpTotal += (c.skills?.[s]?.xp) || 0; });
   c.xp_log.spent.skills = skXpTotal;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -780,8 +787,7 @@ export function shEditXP(bucket, key, val) {
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   if (!c.xp_log[bucket]) c.xp_log[bucket] = {};
   c.xp_log[bucket][key] = val || 0;
-  c.xp_total = xpEarned(c);
-  c.xp_spent = xpSpent(c);
+  // #837: xp_total / xp_spent no longer persisted — derived at render via xp.js.
   _markDirty();
   _renderSheet(c);
 }
@@ -1074,8 +1080,20 @@ export function shEquipBucketFilter() {
   const itemSel = document.getElementById('eq-add-item');
   if (!itemSel) return;
   const entries = bucket ? getCatalogueByBucket(bucket) : [];
+  // #896: append effective availability per the character being edited.
+  // ST admin BYPASSES the affordability gate — every option remains enabled
+  // regardless of whether the character could acquire it via DT — but the
+  // label still surfaces the effective number for consistency with player
+  // surfaces (sheet rows, DT dropdown).
+  const c = (state.editIdx != null && state.editIdx >= 0) ? state.chars[state.editIdx] : null;
+  // ECM-5: option `value` is the catalogue ObjectId in 24-hex string form.
+  // ECM-3's PUT/POST coercion hydrates it back to an ObjectId on the server.
   itemSel.innerHTML = '<option value="">-- select item --</option>'
-    + entries.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    + entries.map(e => {
+      const eff = (c && e.availability != null) ? effectiveAvailability(e, c) : null;
+      const availTag = eff != null ? ` (avail ${eff})` : '';
+      return `<option value="${String(e._id)}">${e.name}${availTag}</option>`;
+    }).join('');
 }
 
 export async function shAddEquip() {
@@ -1095,7 +1113,6 @@ export async function shAddEquip() {
       notes,
     });
     c.equipment = result.equipment;
-    c.assets    = result.assets;
     _renderSheet(c);
   } catch (err) {
     console.error('[equipment] add error:', err);
@@ -1109,48 +1126,11 @@ export async function shRemoveEquip(idx) {
   try {
     const result = await apiDelete('/api/characters/' + charId + '/equipment/' + idx);
     c.equipment = result.equipment;
-    c.assets    = result.assets;
     _renderSheet(c);
   } catch (err) {
     console.error('[equipment] remove error:', err);
   }
 }
 
-export async function shAddAsset() {
-  if (state.editIdx < 0) return;
-  const c      = state.chars[state.editIdx];
-  const charId = String(c._id);
-  const name   = document.getElementById('asset-add-name')?.value?.trim();
-  const desc   = document.getElementById('asset-add-desc')?.value?.trim();
-  if (!name || !desc) return;
-  const cycle  = parseInt(document.getElementById('asset-add-cycle')?.value ?? '0', 10) || 0;
-  try {
-    const result = await apiPost('/api/characters/' + charId + '/assets', {
-      name,
-      description:       desc,
-      location:          document.getElementById('asset-add-loc')?.value?.trim()  || null,
-      mechanical_effect: document.getElementById('asset-add-mech')?.value?.trim() || null,
-      acquired_cycle:    cycle,
-      notes:             document.getElementById('asset-add-notes')?.value?.trim() || null,
-    });
-    c.equipment = result.equipment;
-    c.assets    = result.assets;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[asset] add error:', err);
-  }
-}
-
-export async function shRemoveAsset(idx) {
-  if (state.editIdx < 0) return;
-  const c      = state.chars[state.editIdx];
-  const charId = String(c._id);
-  try {
-    const result = await apiDelete('/api/characters/' + charId + '/assets/' + idx);
-    c.equipment = result.equipment;
-    c.assets    = result.assets;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[asset] remove error:', err);
-  }
-}
+// shAddAsset + shRemoveAsset REMOVED 2026-06-19 — character.assets[] consolidated
+// into equipment[]. Asset-bucket catalogue items now flow through shAddEquip.

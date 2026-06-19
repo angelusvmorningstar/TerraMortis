@@ -42,7 +42,9 @@ export function domKey(m) {
  */
 export function domMeritContribSingle(c, m) {
   if (!m) return 0;
-  const purchased = (m.cp || 0) + (m.free || 0) + freeOf(m, 'mci') + (m.xp || 0)
+  // Issue #834: m.free is deprecated — removed from the purchased sum.
+  // Memory: feedback_m_free_deprecated.
+  const purchased = (m.cp || 0) + freeOf(m, 'mci') + (m.xp || 0)
     + (m.bonus || 0);
   return purchased
     + (m.name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0)
@@ -62,7 +64,11 @@ export function domMeritContribSingle(c, m) {
  * `m.free_grants.mci`. Surgical, exact-behaviour-preserving map-fallback. */
 function domMeritShareableSingle(m) {
   if (!m) return 0;
-  return (m.cp || 0) + (m.free || 0) + freeOf(m, 'mci') + (m.xp || 0);
+  // Issue #834: m.free is deprecated — removed from the shareable sum.
+  // The N-1 verbatim-preservation comment above is now moot for the
+  // `m.free` term specifically; remaining channels (cp, mci, xp) are
+  // still preserved as-is per the deliberate-divergence note.
+  return (m.cp || 0) + freeOf(m, 'mci') + (m.xp || 0);
 }
 
 /**
@@ -241,14 +247,13 @@ export function meritFreeSum(m) {
   if (m && NECRO_TARGETS_FOR_SUM.has(m.name)) {
     return (m.free_grants && m.free_grants.necro) || 0;
   }
-  // N-1 / ADR-005 Rev 2: delegate to the shared helper which sums BOTH the
-  // new `m.free_grants` map AND every legacy `m.free_<slug>` field. The
-  // shared helper EXCLUDES `m.free` (the unprefixed player-allocated channel)
-  // per D1 — but the public `meritFreeSum` contract has historically included
-  // it, so we add it back here. Single source of truth for the 14-channel
-  // enumeration lives in `rules-helpers.js`; N-2 cleanup removes the legacy
-  // fallback there in one place rather than per call site.
-  return (m.free || 0) + _meritFreeSumHelper(m);
+  // Issue #834 (2026-06-17): m.free is deprecated — delegate to the shared
+  // helper, no longer adding `(m.free || 0)` back. The pre-#834 contract
+  // historically included m.free in meritFreeSum; that contract is dead
+  // along with the channel. See memory feedback_m_free_deprecated. Single
+  // source of truth for the canonical channel enumeration lives in
+  // rules-helpers.js.
+  return _meritFreeSumHelper(m);
 }
 
 /**

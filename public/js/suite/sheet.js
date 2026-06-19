@@ -22,6 +22,10 @@ import {
   calcCityStatus,
   getSkillObj
 } from '../data/accessors.js';
+// Issue #879 (ADR-006 D4): displayed defence reads the armour-adjusted +
+// overlay-modded value from c.derived.defence (fallback to on-the-fly
+// computation when unmaterialised).
+import { defenceForDisplay } from '../data/equipment-derivation.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
@@ -266,7 +270,7 @@ export function renderSheet() {
       const attached = hum >= t.humanity;
       const name = t._npc_name || t.name || '(unnamed)';
       return `<div class="exp-ts-row">
-        <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attached ? 'Attached' : 'Detached'}</span></span>
+        <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span class="exp-ts-state ${attached ? 'attached' : 'detached'}">${attached ? 'Attached' : 'Detached'}</span></span>
         <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
@@ -333,7 +337,7 @@ export function renderSheet() {
     <div class="sh-stat-cell"><div class="sh-stat-icon">${HUM_SVG}<span class="sh-stat-n">${c.humanity || 0}${markerFor(c, 'humanity')}</span></div><div class="sh-stat-lbl">Humanity</div></div>
     <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSize(c)}${markerFor(c, 'derived.size')}</span></div><div class="sh-stat-lbl">Size</div></div>
     <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSpeed(c)}${markerFor(c, 'derived.speed')}</span></div><div class="sh-stat-lbl">Speed</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcDefence(c)}${markerFor(c, 'derived.defence')}</span></div><div class="sh-stat-lbl">Defence</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${defenceForDisplay(c)}${markerFor(c, 'derived.defence')}</span></div><div class="sh-stat-lbl">Defence</div></div>
   </div>`;
 
   // ── TRACKERS ──

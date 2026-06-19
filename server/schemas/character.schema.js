@@ -107,8 +107,10 @@ export const characterSchema = {
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     humanity_lost: { type: 'integer', minimum: 0 },
     humanity_xp:   { type: 'integer', minimum: 0 },
-    xp_total:      { type: 'number',  minimum: 0 },
-    xp_spent:      { type: 'number',  minimum: 0 },
+    // xp_total / xp_spent removed in #837 (Option A) — XP values are
+    // derived at render time via public/js/editor/xp.js
+    // (xpEarned() / xpSpent() / xpLeft()). additionalProperties:false on
+    // this schema rejects any incoming PUT that still tries to send them.
 
     // ── Status ────────────────────────────────────────────────
     status: {
@@ -304,8 +306,15 @@ export const characterSchema = {
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
-    // ── Equipment (EQ-1, issue #654) ──────────────────────────
-    // Lean refs into EQUIPMENT_CATALOGUE — full stats resolved at render time.
+    // ── Equipment (EQ-1, issue #654; ECM-3 #870 — catalogue_id ObjectId) ──
+    // Lean refs into the equipment_catalogue collection — full stats resolved
+    // at render time. `catalogue_id` is an ObjectId on disk and a 24-hex
+    // string on the wire (the standard JSON serialisation). Server-side
+    // coercion at write sites (PUT /:id, POST /:id/equipment) hydrates the
+    // wire string back to an ObjectId before $set — see
+    // specs/epic-ecm-equipment-catalogue-migration.md and Khepri's ECM-3
+    // dispatch for the rationale (the coercion is canonical Express+Mongo
+    // hygiene, not transitional kludge — it stays after ECM-4/5 ship).
     equipment: {
       type: 'array',
       default: [],
@@ -313,7 +322,7 @@ export const characterSchema = {
         type: 'object',
         required: ['catalogue_id', 'state', 'acquired_cycle'],
         properties: {
-          catalogue_id:    { type: 'string' },
+          catalogue_id:    { type: 'string', pattern: '^[a-f0-9]{24}$' },
           state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
           acquired_cycle:  { type: 'integer', minimum: 0 },
           notes:           { type: ['string', 'null'] },
@@ -322,25 +331,12 @@ export const characterSchema = {
       },
     },
 
-    // ── Assets (EQ-1, issue #654) ─────────────────────────────
-    // Annotation-first; mechanical_effect hook reserved for future rule integration.
-    assets: {
-      type: 'array',
-      default: [],
-      items: {
-        type: 'object',
-        required: ['name', 'description', 'acquired_cycle'],
-        properties: {
-          name:              { type: 'string' },
-          description:       { type: 'string' },
-          location:          { type: ['string', 'null'] },
-          mechanical_effect: { type: ['string', 'null'] },
-          acquired_cycle:    { type: 'integer', minimum: 0 },
-          notes:             { type: ['string', 'null'] },
-        },
-        additionalProperties: false,
-      },
-    },
+    // ── Assets ────────────────────────────────────────────────
+    // REMOVED 2026-06-19 — consolidated into equipment[] via the catalogue's
+    // bucket: 'asset' items (Vehicle (Luxury), Safe House, etc.). The previous
+    // free-text assets[] storage shape collided with the catalogue's 'asset'
+    // bucket name and split asset-class items across two arrays. Equipment[]
+    // is the single home for all bucket types now. See chat 2026-06-19.
 
     // ── XP log ────────────────────────────────────────────────
     xp_log: {

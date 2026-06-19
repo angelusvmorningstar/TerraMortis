@@ -281,7 +281,6 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);     return; }
       if (sectionKey === 'story_moment')        { handleCopyStoryMomentContext(copyBtn); return; }
       if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
-      if (sectionKey === 'home_report')         { handleCopyHomeReportContext(copyBtn);  return; }
       if (sectionKey === 'feeding_validation')  { handleCopyFeedingContext(copyBtn);     return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
@@ -355,7 +354,7 @@ export async function initDtStory(cycleId) {
 
   // Issue #354: blur-autosave for narrative response and revision-note textareas
   panel.addEventListener('focusout', async e => {
-    const ta = e.target.closest('.dt-story-response-ta, .dt-feed-narrative-ta, .dt-story-revision-ta');
+    const ta = e.target.closest('.dt-story-response-ta, .dt-story-revision-ta');
     if (ta) await _handleStoryTaBlur(ta);
   });
 }
@@ -507,34 +506,36 @@ export function isSectionComplete(stNarrative, sectionKey) {
 }
 
 /**
- * Project responses complete: all non-skipped, non-deleted project entries have status 'complete'.
+ * Project responses complete: every non-skipped, non-deleted project entry has a
+ * resolved player-facing outcome (rev.outcome) written in DT Processing.
+ * #886: gates on the resolved outcome, not a Story-tab draft (those boxes are gone).
  * Used by the sign-off counter and pill rail in place of generic isSectionComplete.
  */
 function projectResponsesComplete(sub) {
   const resolved = sub?.projects_resolved || [];
-  const responses = sub?.st_narrative?.project_responses || [];
   const applicable = resolved
     .map((r, idx) => ({ r, idx }))
     .filter(({ r, idx }) => r?.pool_status !== 'skipped' && !_isDeletedProjectAction(sub, idx));
   if (!applicable.length) return false;
-  return applicable.every(({ idx }) => responses[idx]?.status === 'complete');
+  return applicable.every(({ r }) => (r?.outcome || '').trim());
 }
 
 /**
  * Section-aware completion check used by the sign-off counter.
  */
 function isSectionDone(stNarrative, sectionKey, sub) {
-  if (!stNarrative) return false;
+  // #886: feeding/project completion derives from resolved processing data, which
+  // may exist even when st_narrative does not — so we no longer early-return on a
+  // missing stNarrative. All stNarrative reads below use optional chaining.
   switch (sectionKey) {
     case 'feeding_validation': {
       const fr = sub?.feeding_review || {};
-      const ps = fr.pool_status || 'pending';
-      return ps === 'validated' || ps === 'no_feed' || !!sub?.feeding_roll;
+      // Done when there is nothing to resolve (no_feed) or the player-facing
+      // outcome has been written in DT Processing.
+      return fr.pool_status === 'no_feed' || !!(fr.outcome || '').trim();
     }
     case 'territory_reports':
       return territoryReportsComplete(sub);
-    case 'home_report':
-      return isSectionComplete(stNarrative, 'home_report');
     case 'project_responses':
       return projectResponsesComplete(sub);
     case 'story_moment':
@@ -1033,7 +1034,8 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
 
   // Discipline profile for this territory
-  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  // discipline_profile is _id-keyed (ADR-002); read with terrOidStr, not the slug terrId (#814).
+  const discProfile = cycleData?.discipline_profile?.[terrOidStr] || {};
   const discProfileStr = Object.entries(discProfile).length
     ? Object.entries(discProfile).map(([d, n]) => `${d}${n > 1 ? ` (\u00d7${n})` : ''}`).join(', ')
     : 'None detected';
@@ -1148,7 +1150,8 @@ function getApplicableSections(char, sub) {
     { key: 'story_moment', label: 'Story Moment' },
   ];
 
-  if (char?.home_territory) sections.push({ key: 'home_report', label: 'Home Report' });
+  // #886: Home Report removed — superseded by Territory Pulse (DTIL-4). It was
+  // already vestigial (compilePushOutcome never published it).
 
   sections.push({ key: 'feeding_validation', label: 'Feeding' });
 
@@ -1287,14 +1290,22 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
 
   if (sectionKey === 'project_responses') {
     const resolved   = sub?.projects_resolved || [];
-    const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+    const applicable = resolved
+      .map((r, idx) => ({ r, idx }))
+      .filter(({ r, idx }) => r?.pool_status !== 'skipped' && !_isDeletedProjectAction(sub, idx));
     if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
-    const responses   = sn.project_responses || [];
-    const done        = applicable.filter((_, i) => responses[i]?.status === 'complete').length;
-    const hasRevision = applicable.some((_, i) => responses[i]?.status === 'needs_revision');
-    const hasDraft    = applicable.some((_, i) => responses[i]?.response);
-    const state = done === applicable.length ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    // #886: a project is complete when its player-facing outcome is written in
+    // DT Processing (rev.outcome), not when a Story-tab draft was marked complete.
+    const done  = applicable.filter(({ r }) => (r?.outcome || '').trim()).length;
+    const state = done === applicable.length ? 'complete' : done > 0 ? 'draft' : 'empty';
     return { state, done, total: applicable.length };
+  }
+
+  if (sectionKey === 'merit_summary') {
+    // #886: reflect DT Processing completion (outcomes recorded), mirroring
+    // meritSummaryComplete / isSectionDone so the chip is not stuck on "empty".
+    const done = meritSummaryComplete(sub);
+    return { state: done ? 'complete' : 'empty', done: done ? 1 : 0, total: 1 };
   }
 
   if (sectionKey === 'territory_reports') {
@@ -1445,7 +1456,6 @@ function renderSection(section, char, sub, stNarrative) {
     case 'story_moment':       return renderStoryMoment(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
     case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
-    case 'home_report':        return renderHomeReport(char, sub, stNarrative, _allSubmissions);
     case 'cacophony_savvy':    return renderCacophonySavvy(char, sub, stNarrative, _allSubmissions);
     case 'allies_actions':     return renderAlliesSection(char, sub);
     case 'status_actions':     return renderStatusSection(char, sub);
@@ -1473,13 +1483,50 @@ function renderSectionScaffold(key, label, stNarrative) {
   return h;
 }
 
+// ── Read-only resolved-action card (#886) ─────────────────────────────────────
+
+/**
+ * Renders the read-only resolved card used by the Feeding and Project Reports
+ * sections after #886. The player-facing outcome is written directly in DT
+ * Processing (rev.outcome / rev.player_facing_note), so the Story tab only
+ * displays it — there is no longer a re-authoring textarea here.
+ *
+ * Fields, in order: Name (Action type) / Description / Outcome /
+ * Dice pool [muted] / Feedback [muted].
+ */
+function renderResolvedActionCard({ name, actionType, description, outcome, pool, feedback }) {
+  const title = actionType ? `${name} (${actionType})` : (name || 'Action');
+  let h = `<div class="dt-story-resolved-card">`;
+  h += `<div class="dt-story-resolved-title">${esc(title)}</div>`;
+  h += `<dl class="dt-feed-val-dl">`;
+  if (description) {
+    h += `<div class="dt-feed-val-row"><dt>Description</dt><dd>${esc(description)}</dd></div>`;
+  }
+  h += outcome
+    ? `<div class="dt-feed-val-row"><dt>Outcome</dt><dd>${esc(outcome)}</dd></div>`
+    : `<div class="dt-feed-val-row"><dt>Outcome</dt><dd class="dt-story-resolved-empty">Not yet resolved</dd></div>`;
+  if (pool) {
+    h += `<div class="dt-feed-val-row dt-story-muted-row"><dt>Dice pool</dt><dd>${esc(pool)}</dd></div>`;
+  }
+  if (feedback) {
+    h += `<div class="dt-feed-val-row dt-story-muted-row"><dt>Feedback</dt><dd>${esc(feedback)}</dd></div>`;
+  }
+  h += `</dl></div>`;
+  return h;
+}
+
 // ── Feeding Validation section ────────────────────────────────────────────────
 
 function renderFeedingValidation(char, sub, stNarrative) {
   const fr         = sub.feeding_review || {};
   const roll       = sub.feeding_roll   || null;
   const poolStatus = fr.pool_status     || 'pending';
-  const complete   = poolStatus === 'validated' || poolStatus === 'no_feed' || !!roll;
+
+  // #886: completion reflects whether the player-facing outcome has been
+  // written in DT Processing (rev.outcome), not just pool validation. no_feed
+  // is "done" because there is nothing to resolve.
+  const outcome  = (fr.outcome || '').trim();
+  const complete = poolStatus === 'no_feed' || !!outcome;
 
   let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
@@ -1494,80 +1541,36 @@ function renderFeedingValidation(char, sub, stNarrative) {
   } else if (poolStatus === 'pending' && !roll) {
     h += `<p class="dt-feed-val-status dt-story-section-empty">Feeding not yet validated.</p>`;
   } else {
-    h += `<dl class="dt-feed-val-dl">`;
+    // Name: Kiss / Violent declaration (effective value, ST override wins)
+    const fv = effectiveFeedViolence(sub);
+    const declaration = fv === 'kiss' ? 'The Kiss' : fv === 'violent' ? 'Violent' : '';
 
-    // Pool
+    // Muted mechanical line: validated pool (+ rote/again mods) and roll result
+    let poolLine = '';
     const poolStr = fr.pool_validated || fr.pool_player || '';
     if (poolStr) {
       const isRote = sub.st_review?.feeding_rote || roll?.params?.rote || false;
       const again  = roll?.params?.again;
       const mods   = [isRote ? 'Rote' : null, again === 8 ? '8-Again' : again === 9 ? '9-Again' : null].filter(Boolean);
-      const poolDisp = poolStr + (mods.length ? ` \u2014 ${mods.join(', ')}` : '');
-      h += `<div class="dt-feed-val-row"><dt>Pool</dt><dd>${esc(poolDisp)}</dd></div>`;
+      poolLine = poolStr + (mods.length ? ` — ${mods.join(', ')}` : '');
     }
-
-    // Roll result
     if (roll) {
       const vitae     = roll.successes * 2;
-      const resultStr = `${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''} \u2014 ${vitae} Vitae`;
-      h += `<div class="dt-feed-val-row"><dt>Result</dt><dd>${esc(resultStr)}</dd></div>`;
-      if (roll.dice_string) {
-        h += `<div class="dt-feed-val-row"><dt>Dice</dt><dd class="dt-feed-val-dice">${esc(roll.dice_string)}</dd></div>`;
-      }
+      const resultStr = `${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''} — ${vitae} Vitae`;
+      poolLine = poolLine ? `${poolLine} · ${resultStr}` : resultStr;
     } else if (poolStatus === 'validated') {
-      h += `<div class="dt-feed-val-row"><dt>Result</dt><dd class="dt-story-section-empty">Pool validated — roll pending</dd></div>`;
+      poolLine = poolLine ? `${poolLine} · roll pending` : 'Pool validated — roll pending';
     }
 
-    // DTFP-5: Kiss / Violent declaration (effective value, ST override wins)
-    const fv = effectiveFeedViolence(sub);
-    const fvLbl = fv === 'kiss' ? 'The Kiss (subtle)' : fv === 'violent' ? 'Violent' : '';
-    if (fvLbl) {
-      const overrideTag = sub?.st_review?.feed_violence_st_override
-        ? ' <span class="dt-feed-val-override-tag">(ST override)</span>'
-        : '';
-      h += `<div class="dt-feed-val-row"><dt>Declaration</dt><dd>${esc(fvLbl)}${overrideTag}</dd></div>`;
-    }
-
-    // Narrative Constraint (ST-written; injected as "do not contradict" directive — not player-facing)
-    const feedback = fr.story_context || '';
-    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Narrative Constraint</dt>`;
-    h += feedback
-      ? `<dd>${esc(feedback)}</dd>`
-      : `<dd class="dt-story-section-empty">None recorded</dd>`;
-    h += `</div>`;
-
-    h += `</dl>`;
+    h += renderResolvedActionCard({
+      name:        declaration || 'Feeding',
+      actionType:  declaration ? 'Feeding' : '',
+      description: fr.pool_player || '',
+      outcome:     fr.outcome || '',
+      pool:        poolLine,
+      feedback:    fr.player_facing_note || '',
+    });
   }
-
-  // ── DTSR-7: ST-authored feeding narrative (additive; not a completion gate) ──
-  // Renders for any feeding state including no_feed (an ST may want to write
-  // about the choice not to feed). The Feeding section's overall completion
-  // dot remains driven by validation/no_feed/roll, not by narrative state.
-  const fn         = stNarrative?.feeding_narrative || {};
-  const fnText     = fn.response || '';
-  const fnStatus   = fn.status || 'draft';
-  const fnRevNote  = fn.revision_note || '';
-  const fnComplete = fnStatus === 'complete';
-  const fnDotClass = fnComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
-  const fnIsRev    = fnStatus === 'needs_revision';
-
-  h += `<div class="dt-feed-val-narrative-block">`;
-  h += `<div class="dt-story-section-subhead">Storyteller narrative <button class="dt-story-copy-ctx-btn">Copy Context</button></div>`;
-  h += `<div class="dt-story-section-prompt">What happened during the feeding that mattered — what did others see, what did the player do, what consequences carry forward?</div>`;
-  h += `<textarea class="dt-story-response-ta dt-feed-narrative-ta" placeholder="Write the feeding narrative…">${esc(fnText)}</textarea><span class="dt-story-autosave-status"></span>`;
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
-  h += `<button class="dt-story-revision-note-btn${fnIsRev ? ' active' : ''}">Needs Revision</button>`;
-  h += `<button class="dt-story-mark-complete-btn">`;
-  h += `<span class="dt-story-completion-dot ${fnDotClass}"></span> Mark Complete`;
-  h += `</button>`;
-  h += `</div>`;
-  h += `<div class="dt-story-revision-area${fnIsRev || fnRevNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for Story…">${esc(fnRevNote)}</textarea><span class="dt-story-autosave-status"></span>`;
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
-  h += `</div></div>`;
-  h += `</div>`;
 
   h += `</div></div>`;
   return h;
@@ -1610,25 +1613,21 @@ function renderProjectSection(char, sub) {
 
 function renderProjectCard(char, sub, idx) {
   const slot = idx + 1;
-  const rev = sub.projects_resolved?.[idx] || {};
+  const rev  = sub.projects_resolved?.[idx] || {};
 
-  const title       = sub.responses?.[`project_${slot}_title`]       || `Project ${slot}`;
-  const outcome     = sub.responses?.[`project_${slot}_outcome`]      || '';
-  const territory   = sub.responses?.[`project_${slot}_territory`]    || '';
+  // #886: read-only resolved card. The player-facing outcome is written
+  // directly in DT Processing (rev.outcome / rev.player_facing_note); the
+  // Story tab no longer re-authors it.
+  const title       = sub.responses?.[`project_${slot}_title`] || `Project ${slot}`;
+  const description = sub.responses?.[`project_${slot}_description`]
+                   || sub.responses?.[`project_${slot}_outcome`] || '';
   const actionType  = rev.action_type_override || rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
   const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Action';
+  const roll        = rev.roll || null;
 
-  const pool = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '\u2014';
-  const roll = rev.roll || null;
-  const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
-
-  const saved      = sub.st_narrative?.project_responses?.[idx] || {};
-  const savedTxt   = saved.response || '';
-  const isComplete = saved.status === 'complete';
-  const isRevision = saved.status === 'needs_revision';
-  const revNote    = saved.revision_note || '';
-
-  // Build roll summary
+  // Muted mechanical line: validated pool + roll result
+  const poolStr   = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
+  const _showPool = rev.pool_status !== 'no_roll' && rev.pool_status !== 'maintenance' && !!poolStr;
   let rollSummary = '';
   if (roll) {
     const s = roll.successes ?? 0;
@@ -1637,70 +1636,16 @@ function renderProjectCard(char, sub, idx) {
   } else if (rev.pool_status === 'no_roll') {
     rollSummary = 'No roll';
   }
+  const poolLine = [_showPool ? poolStr : '', rollSummary].filter(Boolean).join(' · ');
 
-  // Build context text for display and copy
-  const contextText = buildProjectContext(char, sub, idx);
-
-  // Context block starts collapsed if textarea already has content
-  const ctxCollapsed = savedTxt ? ' collapsed' : '';
-  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
-
-  let h = `<div class="dt-story-proj-card${isComplete ? ' complete' : isRevision ? ' revision' : ''}" data-proj-idx="${idx}">`;
-
-  // Header row
-  h += `<div class="dt-story-proj-header">`;
-  h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
-  const projStatus = rev.pool_status || 'pending';
-  h += `<span class="proc-row-status ${projStatus}">${POOL_STATUS_LABELS[projStatus] || projStatus}</span>`;
-  h += `<span class="dt-story-proj-title">${title}</span>`;
-  h += `<button class="dt-story-copy-ctx-btn" data-proj-idx="${idx}">Copy Context</button>`;
-  h += `</div>`;
-
-  // Meta row
-  h += `<div class="dt-story-proj-meta">`;
-  if (outcome) h += `<span class="dt-story-proj-outcome">Outcome: ${outcome}</span>`;
-  const _showPool = rev.pool_status !== 'no_roll' && rev.pool_status !== 'maintenance' && pool !== '\u2014';
-  const poolRoll = [_showPool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
-  if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
-  if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
-  h += `</div>`;
-
-  // Context block (collapsible)
-  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
-  h += `<pre class="dt-story-context-text">${contextText}</pre>`;
-  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
-  h += `</div>`;
-
-  // ST Notes (read-only)
-  if (notes.length) {
-    h += `<div class="dt-story-notes-thread">`;
-    for (const note of notes) {
-      h += `<div class="dt-story-note"><span class="dt-story-note-author">${note.author_name || 'ST'}:</span> ${note.text || ''}</div>`;
-    }
-    h += `</div>`;
-  }
-
-  // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea><span class="dt-story-autosave-status"></span>`;
-
-  // Action buttons
-  const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-save-draft-btn" data-proj-idx="${idx}">Save Draft</button>`;
-  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}" data-proj-idx="${idx}">Needs Revision</button>`;
-  h += `<button class="dt-story-mark-complete-btn" data-proj-idx="${idx}">`;
-  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
-  h += `</button>`;
-  h += `</div>`;
-  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
-  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for Story\u2026">${revNote}</textarea><span class="dt-story-autosave-status"></span>`;
-  h += `<div class="dt-story-card-actions">`;
-  h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
-  h += `</div>`;
-  h += `</div>`;
-
-  h += `</div>`;
-  return h;
+  return renderResolvedActionCard({
+    name:        title,
+    actionType:  actionLabel,
+    description,
+    outcome:     rev.outcome || '',
+    pool:        poolLine,
+    feedback:    rev.player_facing_note || '',
+  });
 }
 
 // ── Letter from Home section ──────────────────────────────────────────────────
@@ -2297,7 +2242,7 @@ function meritSummaryComplete(sub) {
       if (!['validated', 'skipped', 'resolved'].includes(acqStatus)) return false;
       continue;
     }
-    if (!rev.outcome_summary?.trim()) return false;
+    if (!(rev.outcome_summary?.trim() || rev.outcome?.trim())) return false;
   }
   return true;
 }
@@ -2324,7 +2269,7 @@ function renderMeritSummary(char, sub) {
     if (!groups[cat]) groups[cat] = [];
     const { label: meritLabel, qualifier } = getMeritDetails(char, a);
     const displayLabel = qualifier ? `${meritLabel} (${qualifier})` : meritLabel;
-    let outcome = rev.outcome_summary?.trim() || '';
+    let outcome = rev.outcome_summary?.trim() || rev.outcome?.trim() || '';
     if (cat === 'resources') {
       if (!outcome) outcome = sub?.acquisitions_resolved?.[0]?.outcome_summary?.trim() || '';
       if (!outcome) {
@@ -2388,7 +2333,7 @@ function renderMeritSummary(char, sub) {
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || 'Resources', reason: 'acquisition outcome pending' });
     } else {
-      if (rev.outcome_summary?.trim()) return;
+      if (rev.outcome_summary?.trim() || rev.outcome?.trim()) return;
       const { label, qualifier } = getMeritDetails(char, a);
       const displayLabel = qualifier ? `${label} (${qualifier})` : label;
       blockingItems.push({ idx: i, label: displayLabel || a.merit_type || 'Merit', reason: 'outcome not yet recorded' });
@@ -2484,7 +2429,8 @@ function getContestingActions(sub, char, allSubmissions) {
  */
 function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
   const rawOverride = sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '';
-  const terrId = resolveTerrId(rawOverride);
+  // #814: override is a slug; resolve slug-first with OID fallback.
+  const terrId = TERRITORY_SLUG_MAP[rawOverride] ?? resolveTerrId(rawOverride);
   if (!terrId) return [];
   const overlaps = [];
   for (const s of allSubmissions) {
@@ -2494,7 +2440,9 @@ function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
       const meritType = (s.merit_actions || [])[idx]?.merit_type || '';
       const cat = deriveMeritCategory(meritType);
       if (!['allies', 'status', 'retainer'].includes(cat)) return;
-      const otherTerr = resolveTerrId(s.st_review?.territory_overrides?.[`allies_${idx}`] || '');
+      // #814: override is a slug; resolve slug-first so both sides use the same normalisation.
+      const _otherRaw = s.st_review?.territory_overrides?.[`allies_${idx}`] || '';
+      const otherTerr = TERRITORY_SLUG_MAP[_otherRaw] ?? resolveTerrId(_otherRaw);
       if (otherTerr !== terrId) return;
       overlaps.push({ characterName: s.character_name || 'Unknown', meritType });
     });
@@ -2575,7 +2523,8 @@ function buildActionContext(char, sub, idx) {
     : '';
 
   // Cross-action context (A1)
-  const terrId    = territory ? resolveTerrId(territory) : null;
+  // #814: territory is an allies_N override slug; resolve slug-first with OID fallback.
+  const terrId    = territory ? (TERRITORY_SLUG_MAP[territory] ?? resolveTerrId(territory)) : null;
   const covered   = getHideProtectCover(sub, terrId);
   const contested = getContestingActions(sub, char, _allSubmissions);
   const overlaps  = getTerritoryOverlap(sub, idx, _allSubmissions, _allCharacters);
@@ -2960,7 +2909,8 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   }
 
   // Discipline activity in territory
-  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  // discipline_profile is _id-keyed (ADR-002); read with terrOidStr, not the slug terrId (#814).
+  const discProfile = cycleData?.discipline_profile?.[terrOidStr] || {};
   const discEntries = Object.entries(discProfile).filter(([, n]) => n > 0);
 
   // Actions in territory this cycle by phase (all submissions)
@@ -3138,7 +3088,9 @@ function territoryReportsComplete(sub) {
  * Excludes hidden actions (hide_protect with successes > 0) and skipped.
  */
 function _homeTerrActivity(territoryName, thisSub, allSubmissions) {
-  const terrId = resolveTerrId(territoryName);
+  // #814: char.home_territory is a display-name (e.g. "The Academy"); resolve via the slug map,
+  // not OID-only resolveTerrId (which always returned null for a display-name).
+  const terrId = TERRITORY_SLUG_MAP[territoryName] ?? resolveTerrId(territoryName);
   const events = [];
 
   for (const s of allSubmissions) {
@@ -3589,19 +3541,18 @@ export function compilePushOutcome(sub, char, cycle) {
     const key = section.key;
 
     if (key === 'feeding_validation') {
-      // DTSR-7: when the ST has authored a feeding narrative (status complete,
-      // non-empty response), publish it under "## Feeding". When absent, the
-      // section is omitted unless DTIL-4 territory pulses contribute content.
-      const narrativeText = (sn.feeding_narrative?.status === 'complete'
-        && sn.feeding_narrative?.response?.trim())
-        ? sn.feeding_narrative.response.trim()
-        : '';
+      // #886: publish the player-facing outcome written directly in DT Processing
+      // (feeding_review.outcome) plus the player-facing feedback note. The old
+      // Story-tab feeding narrative draft is gone.
+      const fr = sub.feeding_review || {};
+      const outcomeText = (fr.outcome || '').trim();
+      const pfn = (fr.player_facing_note || '').trim();
 
       // DTIL-4: append per-territory pulses for territories the player fed in.
       // Skipped for no_feed submissions and when no cycle.territory_pulse map exists.
       // territory_pulse is _id-keyed post-ADR-002; resolve slug→_id via _currentTerritories.
       const pulseChunks = [];
-      const noFeed = sub.feeding_review?.pool_status === 'no_feed';
+      const noFeed = fr.pool_status === 'no_feed';
       if (!noFeed && cyc?.territory_pulse) {
         for (const terr of _feedTerrEntries(sub)) {
           if (terr.id === 'barrens') continue; // Barrens fallback has no broadcast pulse
@@ -3614,7 +3565,7 @@ export function compilePushOutcome(sub, char, cycle) {
         }
       }
 
-      if (narrativeText) { parts.push(`## Feeding\n\n${narrativeText}`); hasContent = true; }
+      if (outcomeText) { parts.push(`## Feeding\n\n${outcomeText}${pfn ? `\n\n${pfn}` : ''}`); hasContent = true; }
       for (const chunk of pulseChunks) { parts.push(chunk); hasContent = true; }
       continue;
 
@@ -3674,14 +3625,17 @@ export function compilePushOutcome(sub, char, cycle) {
           return;
         }
 
+        // #886: skipped actions are not real projects — omit entirely.
+        if (rev?.pool_status === 'skipped') return;
+
         const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
-        if (sn.project_responses?.[i]?.status === 'complete') {
-          const response = sn.project_responses?.[i]?.response;
-          if (response?.trim()) {
-            const pfn = rev?.player_facing_note?.trim();
-            parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
-            hasContent = true;
-          }
+        // #886: publish the resolved outcome written in DT Processing (rev.outcome),
+        // not a Story-tab draft. Append the player-facing feedback note.
+        const outcomeText = (rev?.outcome || '').trim();
+        if (outcomeText) {
+          const pfn = rev?.player_facing_note?.trim();
+          parts.push(`## ${label}\n\n${outcomeText}${pfn ? `\n\n${pfn}` : ''}`);
+          hasContent = true;
         } else {
           parts.push(`## ${label}\n\n${_GAP_TEXT}`);
         }
@@ -4520,91 +4474,13 @@ function handleCopyFeedingContext(btn) {
   copyToClipboard(lines.join('\n'), btn);
 }
 
-// Populate after all handlers are defined
-async function handleFeedingNarrativeSave(btn, status) {
-  // DTSR-7. Mirrors handleHomeReportSave but writes to st_narrative.feeding_narrative
-  // and re-renders the Feeding section in place. The section's completion dot
-  // (validated/no_feed/roll) is unaffected by this save.
-  const section = btn.closest('.dt-story-section[data-section="feeding_validation"]');
-  if (!section || !_currentSub) return;
-
-  const ta      = section.querySelector('.dt-feed-narrative-ta');
-  const text    = ta?.value || '';
-  const revTa   = section.querySelector('.dt-story-revision-ta');
-  const revNote = revTa?.value || '';
-  const user    = getUser();
-  const author  = user?.global_name || user?.username || 'ST';
-
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-  try {
-    await saveNarrativeField(_currentSub._id, {
-      'st_narrative.feeding_narrative': { response: text, author, status, revision_note: revNote },
-    });
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.feeding_narrative = { response: text, author, status, revision_note: revNote };
-    _refreshProgressTracker();
-    btn.textContent = 'Saved';
-    btn.disabled = false;
-    await new Promise(r => setTimeout(r, 900));
-    const char = getCharForSub(_currentSub);
-    const newHtml = renderFeedingValidation(char, _currentSub, _currentSub.st_narrative);
-    const tmp = document.createElement('div');
-    tmp.innerHTML = newHtml;
-    section.replaceWith(tmp.firstElementChild);
-    const rail = document.getElementById('dt-story-nav-rail');
-    if (rail) rail.innerHTML = renderNavRail();
-  } catch (err) {
-    btn.textContent = 'Error';
-    btn.disabled = false;
-    console.error('handleFeedingNarrativeSave', err);
-  }
-}
-
-async function handleHomeReportSave(btn, status) {
-  const section = btn.closest('.dt-story-section[data-section="home_report"]');
-  if (!section || !_currentSub) return;
-
-  const ta      = section.querySelector('.dt-story-response-ta');
-  const text    = ta?.value || '';
-  const revTa   = section.querySelector('.dt-story-revision-ta');
-  const revNote = revTa?.value || '';
-  const user    = getUser();
-  const author  = user?.global_name || user?.username || 'ST';
-
-  btn.disabled = true;
-  btn.textContent = 'Saving\u2026';
-  try {
-    await saveNarrativeField(_currentSub._id, {
-      'st_narrative.home_report': { response: text, author, status, revision_note: revNote },
-    });
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.home_report = { response: text, author, status, revision_note: revNote };
-    _refreshProgressTracker();
-    btn.textContent = 'Saved';
-    btn.disabled = false;
-    await new Promise(r => setTimeout(r, 900));
-    const char   = getCharForSub(_currentSub);
-    const newHtml = renderHomeReport(char, _currentSub, _currentSub.st_narrative, _allSubmissions);
-    const tmp = document.createElement('div');
-    tmp.innerHTML = newHtml;
-    section.replaceWith(tmp.firstElementChild);
-    const rail = document.getElementById('dt-story-nav-rail');
-    if (rail) rail.innerHTML = renderNavRail();
-  } catch (err) {
-    btn.textContent = 'Error';
-    btn.disabled = false;
-    console.error('handleHomeReportSave', err);
-  }
-}
 
 Object.assign(SECTION_SAVE_HANDLERS, {
   project_responses:  handleProjectSave,
   story_moment:       handleStoryMomentSave,
   territory_reports:  handleTerritorySave,
   cacophony_savvy:    handleCacophonySave,
-  home_report:        handleHomeReportSave,
-  feeding_validation: handleFeedingNarrativeSave,
+  // #886: feeding + home_report no longer have a Story-tab drafting/save layer.
 });
 
 // ── DTSR-9: Player flag inbox ───────────────────────────────────────

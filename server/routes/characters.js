@@ -10,10 +10,10 @@ import { normalizeMeritsMiddleware, normalizeCharacterMerits, validateWhiteAntsT
 // SUBSET ITSELF (mci + bloodline + retainer) is preserved verbatim per
 // Concern #1 Rev 2 — divergence with the client's mci-only subset stays.
 import { freeOf, resolveSharingScope } from '../../public/js/data/rules-helpers.js';
-// #753: POST /equipment must reject catalogue_ids that aren't in the catalogue
-// (type/presence is checked inline; existence is checked against this Set).
-import { EQUIPMENT_CATALOGUE } from '../data/equipment-catalogue.js';
-const _CATALOGUE_IDS = new Set(EQUIPMENT_CATALOGUE.map(e => e.id));
+// ECM-7 (#874): the EQUIPMENT_CATALOGUE static-module import + the dead
+// _CATALOGUE_IDS slug set were removed alongside the static module deletion.
+// POST /api/characters/:id/equipment validates catalogue existence via the
+// Mongo equipment_catalogue collection lookup (post-ECM-3 #870 #885).
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -454,6 +454,31 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
 
   const { _id, willpower, ...updates } = req.body;
 
+  // ECM-3 (#870): hydrate equipment[].catalogue_id 24-hex strings back to
+  // ObjectId before $set. The schema validation upstream already enforces
+  // the 24-hex shape; the ObjectId.isValid guard is defensive — if a stray
+  // bad value slips through, return 400 rather than throwing in $set.
+  if (Array.isArray(updates.equipment)) {
+    const hydrated = [];
+    for (const item of updates.equipment) {
+      if (!item || typeof item !== 'object') {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'equipment[] items must be objects' });
+      }
+      const cid = item.catalogue_id;
+      if (typeof cid === 'string' && ObjectId.isValid(cid) && String(new ObjectId(cid)) === cid) {
+        hydrated.push({ ...item, catalogue_id: new ObjectId(cid) });
+      } else if (cid instanceof ObjectId) {
+        hydrated.push(item);
+      } else {
+        return res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: `equipment[].catalogue_id must be a 24-hex ObjectId string; got ${typeof cid === 'string' ? `'${cid}'` : typeof cid}`,
+        });
+      }
+    }
+    updates.equipment = hydrated;
+  }
+
   // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
   // and each embedded edge_id points to a valid touchstone relationship for this char.
   if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
@@ -797,19 +822,31 @@ router.patch('/:id/player_prefs', async (req, res) => {
 
 // ── Equipment routes (EQ-1, issue #654) ─────────────────────────────────────
 //
-// All five routes require ST auth.
+// All three routes require ST auth.
 // DELETE routes: client must refresh after delete to avoid stale indices.
+//
+// 2026-06-19: character.assets[] removed (consolidated into equipment[]
+// via the catalogue's bucket: 'asset' items). Response shape is now just
+// { equipment } — no more { equipment, assets }.
 
-// GET /api/characters/:id/equipment — returns { equipment, assets } for the character.
+// GET /api/characters/:id/equipment — returns { equipment } for the character.
 router.get('/:id/equipment', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
-  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
-  res.json({ equipment: char.equipment || [], assets: char.assets || [] });
+  res.json({ equipment: char.equipment || [] });
 });
 
 // POST /api/characters/:id/equipment — append a single equipment item.
+//
+// ECM-3 (#870): `catalogue_id` is a 24-hex ObjectId string on the wire,
+// matching the new equipment_catalogue collection's _id shape. Existence
+// is checked via a Mongo lookup against equipment_catalogue, not against
+// the static EQUIPMENT_CATALOGUE slug set — the slug set is dead post-ECM-3
+// (ECM-7 deletes the static module entirely). The catalogue_id is hydrated
+// to an ObjectId before $push so storage stays ObjectId-typed across the
+// full lifecycle; see specs/epic-ecm-equipment-catalogue-migration.md.
 router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
@@ -822,11 +859,11 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   if (!item.catalogue_id || typeof item.catalogue_id !== 'string') {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'catalogue_id is required' });
   }
-  // #753: existence check against the catalogue. Without this the client-side
-  // fallback (`entry.name || item.catalogue_id`) silently renders the raw slug
-  // instead of a real name — a clearly broken sheet that no test was catching.
-  if (!_CATALOGUE_IDS.has(item.catalogue_id)) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Unknown catalogue_id: ${item.catalogue_id}` });
+  if (!ObjectId.isValid(item.catalogue_id) || String(new ObjectId(item.catalogue_id)) !== item.catalogue_id) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      message: `catalogue_id must be a 24-hex ObjectId string; got '${item.catalogue_id}'`,
+    });
   }
   if (!VALID_STATES.includes(item.state)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: `state must be one of: ${VALID_STATES.join(', ')}` });
@@ -835,11 +872,20 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
   }
 
+  const catalogueOid = new ObjectId(item.catalogue_id);
+  const catalogueDoc = await getCollection('equipment_catalogue').findOne(
+    { _id: catalogueOid },
+    { projection: { _id: 1 } }
+  );
+  if (!catalogueDoc) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: `Unknown catalogue item: ${item.catalogue_id}` });
+  }
+
   const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
   const cleanItem = {
-    catalogue_id:   item.catalogue_id,
+    catalogue_id:   catalogueOid,
     state:          item.state,
     acquired_cycle: item.acquired_cycle,
     notes:          item.notes ?? null,
@@ -847,9 +893,9 @@ router.post('/:id/equipment', requireRole('st'), async (req, res) => {
   const result = await col().findOneAndUpdate(
     { _id: oid },
     { $push: { equipment: cleanItem } },
-    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+    { returnDocument: 'after', projection: { equipment: 1 } },
   );
-  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+  res.json({ equipment: result.equipment || [] });
 });
 
 // DELETE /api/characters/:id/equipment/:itemIndex — remove by zero-based index.
@@ -858,7 +904,7 @@ router.delete('/:id/equipment/:itemIndex', requireRole('st'), async (req, res) =
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
 
-  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
+  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1 } });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
   const idx = parseInt(req.params.itemIndex, 10);
@@ -871,71 +917,13 @@ router.delete('/:id/equipment/:itemIndex', requireRole('st'), async (req, res) =
   const result = await col().findOneAndUpdate(
     { _id: oid },
     { $set: { equipment: arr } },
-    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
+    { returnDocument: 'after', projection: { equipment: 1 } },
   );
-  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
+  res.json({ equipment: result.equipment || [] });
 });
 
-// POST /api/characters/:id/assets — append a single asset.
-router.post('/:id/assets', requireRole('st'), async (req, res) => {
-  const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
-
-  const item = req.body;
-  if (!item || typeof item !== 'object') {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Request body must be an asset object' });
-  }
-  if (!item.name || typeof item.name !== 'string') {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'name is required' });
-  }
-  if (!item.description || typeof item.description !== 'string') {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'description is required' });
-  }
-  if (!Number.isInteger(item.acquired_cycle) || item.acquired_cycle < 0) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'acquired_cycle must be a non-negative integer' });
-  }
-
-  const char = await col().findOne({ _id: oid }, { projection: { _id: 1 } });
-  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
-
-  const cleanItem = {
-    name:              item.name,
-    description:       item.description,
-    location:          item.location ?? null,
-    mechanical_effect: item.mechanical_effect ?? null,
-    acquired_cycle:    item.acquired_cycle,
-    notes:             item.notes ?? null,
-  };
-  const result = await col().findOneAndUpdate(
-    { _id: oid },
-    { $push: { assets: cleanItem } },
-    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
-  );
-  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
-});
-
-// DELETE /api/characters/:id/assets/:itemIndex — remove by zero-based index.
-// Client must refresh after delete to avoid stale indices.
-router.delete('/:id/assets/:itemIndex', requireRole('st'), async (req, res) => {
-  const oid = parseId(req.params.id);
-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID' });
-
-  const char = await col().findOne({ _id: oid }, { projection: { equipment: 1, assets: 1 } });
-  if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
-
-  const idx = parseInt(req.params.itemIndex, 10);
-  const arr = char.assets || [];
-  if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) {
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Asset index out of range' });
-  }
-
-  arr.splice(idx, 1);
-  const result = await col().findOneAndUpdate(
-    { _id: oid },
-    { $set: { assets: arr } },
-    { returnDocument: 'after', projection: { equipment: 1, assets: 1 } },
-  );
-  res.json({ equipment: result.equipment || [], assets: result.assets || [] });
-});
+// /api/characters/:id/assets routes REMOVED 2026-06-19 — character.assets[]
+// consolidated into equipment[] via the catalogue's bucket: 'asset' items.
+// All asset-class items now flow through the equipment routes above.
 
 export default router;

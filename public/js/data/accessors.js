@@ -263,10 +263,6 @@ export function calcWillpowerMax(c) {
   return getAttrVal(c, 'Resolve') + getAttrVal(c, 'Composure');
 }
 
-export function xpLeft(c) {
-  return (c.xp_total || 0) - (c.xp_spent || 0);
-}
-
 // ── Blood Potency table (VtR 2e core p.101) ──
 
 const BP_TABLE = {

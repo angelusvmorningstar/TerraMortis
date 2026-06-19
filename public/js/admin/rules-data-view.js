@@ -523,15 +523,19 @@ function _renderPreviewDots(char, rule, proposed) {
   if (!merits.length) return '<p class="rde-preview-empty">No merits to display.</p>';
 
   // Show merits that have any bonus-dot source
+  // Issue #834: m.free is deprecated — dropped from this filter too (the bonus
+  // rollup at the loop below already dropped it; #834 missed this gate).
   const relevant = merits.filter(m =>
-    freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline') > 0 || m.free_pt !== undefined
+    freeOf(m, 'pt') + freeOf(m, 'mci') + freeOf(m, 'mdb') + freeOf(m, 'bloodline') > 0 || m.free_pt !== undefined
   );
   if (!relevant.length) return '<p class="rde-preview-empty">No bonus-dot merits on this character.</p>';
 
   let h = '<div class="rde-preview-merits">';
   for (const m of relevant) {
     const base = (m.cp || 0) + (m.xp || 0);
-    const bonus = freeOf(m, 'pt') + freeOf(m, 'mci') + (m.free || 0) + freeOf(m, 'mdb') + freeOf(m, 'bloodline');
+    // Issue #834: m.free is deprecated — removed from the bonus rollup.
+    // Memory: feedback_m_free_deprecated.
+    const bonus = freeOf(m, 'pt') + freeOf(m, 'mci') + freeOf(m, 'mdb') + freeOf(m, 'bloodline');
     h += `<div class="rde-preview-merit-row">
       <span class="rde-preview-merit-name">${esc(m.name)}</span>
       <span class="rde-preview-merit-dots">${shDotsWithBonus(base, bonus)}</span>

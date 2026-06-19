@@ -30,6 +30,16 @@ import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 // other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
+// ECM-4 (#871): catalogue dropdown sources from the shared cache module
+// ECM-5 (#872) introduced. App boot in app.js calls loadCatalogue; we read
+// synchronously here at render time. getCatalogueEntry resolves a
+// 24-hex catalogue_id → display name for the legacy-fallback path.
+import { getCatalogue, getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+// #896: availability filter + Fixer errata. Helpers gate which catalogue
+// items appear as enabled options for the active character; unaffordable
+// items render disabled with a tooltip explaining why. Item-request
+// textarea (ECM-9) is the escape valve.
+import { availabilityCap, fixerReduction, effectiveAvailability, isAffordable } from '../data/equipment-derivation.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -1063,19 +1073,27 @@ function collectResponses() {
   ].filter(Boolean).join('\n');
   } // end if (resourceRows.length || skillRows.length) — issue #120
 
-  // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread)
+  // Collect equipment slots (skipped when hidden — prior values preserved via _prior spread).
+  // ECM-4 (#871): the canonical persistence key is `equipment_${n}_catalogue_id` (24-hex
+  // ObjectId string). The legacy `equipment_${n}_name` key is no longer written by the
+  // form. Pre-ECM-4 submissions in the responses spread base still carry that key; we
+  // leave it intact (silent-leave) so the admin DT processing UI can fall back to it
+  // for in-flight submissions per Khepri's backcompat guidance.
   if (!DOWNTIME_SECTIONS.find(s => s.key === 'equipment')?.hidden) {
     const equipCountEl = document.getElementById('dt-equipment-slot-count');
     const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
     responses['equipment_slot_count'] = String(equipSlotCount);
     for (let n = 1; n <= equipSlotCount; n++) {
-      const nameEl = document.getElementById(`dt-equipment_${n}_name`);
+      const catSelectEl = document.getElementById(`dt-equipment_${n}_catalogue_id`);
       const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
       const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
-      responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
+      responses[`equipment_${n}_catalogue_id`] = catSelectEl ? catSelectEl.value : '';
       responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
       responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
     }
+    // ECM-9 (#876): item_request — optional free-text escape valve.
+    const itemReqEl = document.getElementById('dt-item-request');
+    responses['item_request'] = itemReqEl ? itemReqEl.value : '';
   }
 
   } // end if (!_isMinimal) — ADVANCED-only collection
@@ -3352,13 +3370,18 @@ function renderForm(container) {
       const responses = collectResponses();
       const countEl = document.getElementById('dt-equipment-slot-count');
       const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
-      // Shift slots down
+      // Shift slots down. ECM-4 (#871): canonical key is `_catalogue_id`;
+      // the legacy `_name` key is shifted alongside for in-flight
+      // submissions whose pre-ECM-4 free-text values still ride on the
+      // response doc (silent-leave per Khepri's backcompat dispatch).
       for (let n = removeN; n < current; n++) {
+        responses[`equipment_${n}_catalogue_id`] = responses[`equipment_${n + 1}_catalogue_id`] || '';
         responses[`equipment_${n}_name`] = responses[`equipment_${n + 1}_name`] || '';
         responses[`equipment_${n}_qty`] = responses[`equipment_${n + 1}_qty`] || '1';
         responses[`equipment_${n}_notes`] = responses[`equipment_${n + 1}_notes`] || '';
       }
       // Clear last slot
+      delete responses[`equipment_${current}_catalogue_id`];
       delete responses[`equipment_${current}_name`];
       delete responses[`equipment_${current}_qty`];
       delete responses[`equipment_${current}_notes`];
@@ -5377,16 +5400,86 @@ function renderEquipmentSection(saved) {
   h += '</div>';
 
   h += `<button type="button" class="dt-add-rite-btn" id="dt-add-equipment">\u002B Add Item</button>`;
+
+  // ECM-9 (#876) — item_request escape valve. Players who want an item
+  // not in the catalogue describe it in free-text; ST adjudicates inline
+  // during DT processing (approve+create via the catalogue admin UI /
+  // approve+substitute / reject with counter-note). Per epic D6 the field
+  // is optional and lives on the existing DT submission shape — no new
+  // collection, no new gate state.
+  const itemRequestSaved = saved['item_request'] || '';
+  h += '<div class="qf-field dt-item-request" style="margin-top:14px;">';
+  h += '<label class="qf-label" for="dt-item-request">Item request <span class="qf-label-hint">(optional)</span></label>';
+  h += `<textarea id="dt-item-request" class="qf-input dt-item-request-input" rows="3" placeholder="Describe an item you would like that is not in the catalogue. ST will adjudicate.">${esc(itemRequestSaved)}</textarea>`;
+  h += '</div>';
+
   h += '</div></div>';
   return h;
 }
 
+// ECM-4 (#871) + epic D8: catalogue dropdown is the only way to assign an
+// item; free-text catalogue entry is gone. The escape valve for items not
+// in the catalogue is ECM-9's `item_request` textarea (rendered at the
+// bottom of the equipment section).
+//
+// Legacy-compat: in-flight DT submissions from before this cycle carry
+// `equipment_${n}_name` as a free-text string with no `_catalogue_id`.
+// Per Khepri's dispatch + epic backcompat, we render those as a disabled
+// placeholder option in the dropdown so the player sees what they had
+// and can reselect from the catalogue (or leave it; the row stays
+// uncommitted and the legacy name survives until the player edits).
 function renderEquipmentRow(n, saved) {
+  const items = getCatalogue();
+  const byBucket = new Map();
+  for (const it of items) {
+    if (!byBucket.has(it.bucket)) byBucket.set(it.bucket, []);
+    byBucket.get(it.bucket).push(it);
+  }
+  for (const arr of byBucket.values()) {
+    arr.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  const selectedId = saved[`equipment_${n}_catalogue_id`] || '';
+  const legacyName = saved[`equipment_${n}_name`] || '';
+
+  // #896: per-character affordability gate. Resources rating is the cap
+  // for effective availability (raw - fixer reduction). The raw-availability
+  // max a character can afford is `cap + fixer` — that's the number we
+  // show in the tooltip + footnote (matches the dispatch's wording).
+  const cap   = availabilityCap(currentChar);
+  const fixer = fixerReduction(currentChar);
+  const rawMax = cap + fixer;
+
   let h = `<div class="dt-equipment-row" id="dt-equipment-row-${n}">`;
   h += `<div class="dt-equipment-row-fields">`;
-  h += `<input type="text" id="dt-equipment_${n}_name" class="qf-input dt-equip-name" placeholder="Item name" value="${esc(saved[`equipment_${n}_name`] || '')}">`;
+  h += `<select id="dt-equipment_${n}_catalogue_id" class="qf-input dt-equip-cat">`;
+  h += `<option value="">\u2014 select item \u2014</option>`;
+  if (legacyName && !selectedId) {
+    h += `<option value="" disabled>(legacy: ${esc(legacyName)} \u2014 please reselect)</option>`;
+  }
+  for (const bucket of ['weapon', 'armour', 'equipment', 'asset']) {
+    const arr = byBucket.get(bucket);
+    if (!arr || !arr.length) continue;
+    h += `<optgroup label="${esc(bucket)}">`;
+    for (const it of arr) {
+      const sel       = String(it._id) === selectedId ? ' selected' : '';
+      const eff       = effectiveAvailability(it, currentChar);
+      const aff       = isAffordable(it, currentChar);
+      const disabled  = (!aff && !sel) ? ' disabled' : '';
+      const tooltip   = !aff
+        ? ` title="Above your effective availability (Resources ${cap} + Fixer ${fixer} = max ${rawMax}). Use the item request field below to ask the ST for it."`
+        : '';
+      const availTag  = (it.availability == null) ? '' : ` (avail ${eff})`;
+      h += `<option value="${esc(String(it._id))}"${sel}${disabled}${tooltip}>${esc(it.name || '')}${availTag}</option>`;
+    }
+    h += `</optgroup>`;
+  }
+  h += `</select>`;
+  // #896: footnote under the dropdown \u2014 surfaces the cap math so players
+  // see why some options are disabled without hovering each.
+  h += `<div class="dt-equipment-cap-note" style="font-size:0.8em;opacity:0.7;margin-top:2px;">Showing items you can acquire. Resources ${cap} + Fixer reduction ${fixer} = effective availability cap ${rawMax}.</div>`;
   h += `<input type="number" id="dt-equipment_${n}_qty" class="qf-input dt-equip-qty" placeholder="Qty" min="1" value="${esc(saved[`equipment_${n}_qty`] || '1')}">`;
-  h += `<input type="text" id="dt-equipment_${n}_notes" class="qf-input dt-equip-notes" placeholder="Source / notes" value="${esc(saved[`equipment_${n}_notes`] || '')}">`;
+  h += `<input type="text" id="dt-equipment_${n}_notes" class="qf-input dt-equip-notes" placeholder="Notes (optional)" value="${esc(saved[`equipment_${n}_notes`] || '')}">`;
   if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-equipment="${n}" title="Remove">\u00D7</button>`;
   h += '</div>';
   h += '</div>';

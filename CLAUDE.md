@@ -107,20 +107,38 @@ XP functions in `public/js/editor/xp.js`: `xpEarned()`, `xpSpent()`, `xpLeft()`,
 
 ## Immutable reference data (baked into JS modules)
 
-- `CLANS` (5), `COVENANTS` (5), `MASKS_DIRGES` (26)
-- `MERITS_DB` (203+ entries with prerequisites and descriptions)
-- `DEVOTIONS_DB` (42: 31 general + 11 bloodline-exclusive)
-- `MAN_DB` (manoeuvre definitions)
-- `CLAN_BANES`, `BLOODLINE_DISCS`
+Small fixed enums that genuinely belong in code (changing them is a rule change, not a data update):
+
+- `CLANS` (5)
+- `COVENANTS` (5)
+- `MASKS_DIRGES` (26)
+- `CLAN_BANES` (per-clan free-text descriptions)
+- `BLOODLINE_DISCS` (per-bloodline discipline lists)
+
+All of the above live in `public/js/data/constants.js`.
+
+### Previously-static data now MongoDB-backed
+
+The "everything in JS modules" pattern was the original shape, but most reference data has since migrated to MongoDB:
+
+- **Epic PP** moved `MERITS_DB`, `DEVOTIONS_DB`, `MAN_DB`, and the rules engine into MongoDB (`purchasable_powers` collection + `rule_*` per-category collections). Live reads go through `public/js/data/loader.js` (`getRuleByKey`, `getRulesByCategory`) and the rule-engine cache at `public/js/editor/rule_engine/load-rules.js`. Server-side: `server/routes/rules.js` + `server/routes/rules-engine.js`.
+- **Epic ECM** moved the equipment catalogue from `public/js/data/equipment-data.js` + `server/data/equipment-catalogue.js` (both deleted in ECM-7 #874) into the `equipment_catalogue` MongoDB collection. Live reads go through `public/js/data/equipment-catalogue-cache.js` (the shared cache module ECM-5 introduced; refetches on the `broadcastCatalogueUpdate` WS frame). Server-side: `server/routes/equipment-catalogue.js` + `server/schemas/equipment_catalogue.schema.js`. Admin CRUD lives at `public/js/admin/equipment-catalogue-admin.js`.
+
+### Convention
+
+**Any new reference-data introduction must default to MongoDB-backed. Static JS modules require an explicit ADR carve-out.**
+
+The static enums above qualify because they encode rule-system facts (the five clans, the five covenants, the 26 mask/dirge archetypes) that change only as a system-level decision. New reference data — items, merits, rules, scenes, anything ST-editable — goes into a collection. The cost of a JS module re-introduction is the same cost the Epic PP and Epic ECM cleanups paid: every new bespoke item or rule edit requires a code deploy.
 
 ## Conventions
 
 - **British English throughout**: Defence, Armour, Vigour, Honour, Socialise, capitalise
 - **No em-dashes** in output text
 - **Dots display**: `'●'.repeat(n)` using U+25CF filled circle
-- **Gold accent**: `#E0C47A` (CSS var `--gold2`)
+- **Gold accent**: CSS var `--gold2` (value differs per theme; never hardcode the hex)
 - **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
-- **CSS custom properties** defined on `:root` — dark theme with `--bg: #0D0B09`, `--surf*` surface tiers, `--gold*` accent tiers, `--crim: #8B0000` for damage states
+- **CSS custom properties** defined on `:root` in `public/css/theme.css`. Default theme is **Parchment** (warm light); `[data-theme="dark"]` is the override. Tokens flip between themes; rule bodies stay theme-agnostic.
+- **Normalised CSS (MANDATORY)**: all styling uses the design-system tokens in `theme.css`. Reuse an existing component class from `public/css/components.css` (or the app sheet `suite.css` / `admin-layout.css`) before inventing one. Never write a bare hex, `rgba()`, or inline `style="..."` in markup or JS-rendered HTML. Full guidance: `specs/architecture/coding-standards.md` → "CSS Standards"; the critical-standards summary auto-read by the BMAD dev/story agents lives in `specs/project-context.md`.
 
 ## Data Sources of Truth
 

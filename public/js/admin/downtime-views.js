@@ -19,6 +19,11 @@ import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/consta
 import { getUser } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE, POOL_STATUS_LABELS } from './downtime-constants.js';
 import { publishAllForCycle } from './downtime-story.js';
+// ECM-4 (#871): resolve catalogue_id → display name via the shared cache
+// when rendering the DT processing UI. Legacy free-text `equipment_${n}_name`
+// values from pre-ECM-4 submissions still render as a fallback per Khepri's
+// backcompat guidance — see the read site below in the Equipment block.
+import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
 function isoToLocalInput(iso) {
@@ -1633,18 +1638,43 @@ function renderPlayerResponses(s) {
   }
 
   // ── Equipment ──
+  // ECM-4 (#871): canonical persistence key is `equipment_${n}_catalogue_id`
+  // (24-hex ObjectId string); display name resolves via the catalogue cache.
+  // Legacy pre-ECM-4 submissions carry `equipment_${n}_name` as free-text;
+  // we fall back to that when no `_catalogue_id` is present — Khepri's
+  // backcompat dispatch ("if catalogue_id is present, resolve via catalogue;
+  // else if name is present, render the free-text as legacy; else hide").
   const equipCount = parseInt(r['equipment_slot_count'] || '1', 10);
   const equipRows = [];
   for (let n = 1; n <= equipCount; n++) {
-    const name = r[`equipment_${n}_name`];
-    if (!name) continue;
+    const catalogueId = r[`equipment_${n}_catalogue_id`];
+    const legacyName = r[`equipment_${n}_name`];
+    let displayName = '';
+    if (catalogueId) {
+      const entry = getCatalogueEntry(catalogueId);
+      displayName = entry?.name || `(catalogue item ${catalogueId})`;
+    } else if (legacyName) {
+      displayName = `${legacyName} (legacy free-text)`;
+    } else {
+      continue;
+    }
     const qty = r[`equipment_${n}_qty`] || '';
     const notes = r[`equipment_${n}_notes`] || '';
-    equipRows.push([qty ? `${qty}× ${name}` : name, notes].filter(Boolean).join(' — '));
+    equipRows.push([qty ? `${qty}× ${displayName}` : displayName, notes].filter(Boolean).join(' — '));
   }
   if (equipRows.length) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Equipment</div>';
     for (const eq of equipRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(eq)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Item request (ECM-9 / #876) ──
+  // Free-text escape valve for items not in the catalogue. ST adjudicates
+  // inline (approve+create via admin catalogue / approve+substitute / reject).
+  const itemRequest = r['item_request'];
+  if (itemRequest && itemRequest.trim()) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Item Request</div>';
+    h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(itemRequest)}</span></div>`;
     h += '</div>';
   }
 
@@ -3906,7 +3936,9 @@ function _gatherProjectAmbience(subs) {
       if (!isIncrease && !isDecrease) continue;
       // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
       if (!resolved.roll) { pendingCount++; continue; }
-      const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
+      // #814: overrides are stored as slugs (pill-written); resolve slug-first, OID fallback.
+      const _ovrRaw = sub.st_review?.territory_overrides?.[String(idx)] || '';
+      const terrOverride = TERRITORY_SLUG_MAP[_ovrRaw] ?? resolveTerrId(_ovrRaw);
       // Issue #196 — dt-form.25 writes `_ambience_target` (territory slug)
       // for ambience-change actions; the legacy `_territory` key is no
       // longer set on those rows. Prefer the new key, fall back for
@@ -3971,8 +4003,11 @@ function _gatherMeritAmbience(subs) {
           if (resolvedAct?.pool_status === 'resolved') {
             // Prefer ST-linked qualifier over parsed submission text; used for territory fallback too
             const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '')
-                     || resolveTerrId(linkedQual || '');
+            // #814: override is a slug; linkedQual may be a territory display-name or a sphere.
+            // Resolve both slug-first with OID fallback; a non-territory qualifier stays null.
+            const _ovrRaw = sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '';
+            const tid = (TERRITORY_SLUG_MAP[_ovrRaw] ?? resolveTerrId(_ovrRaw))
+                     || (TERRITORY_SLUG_MAP[linkedQual || ''] ?? resolveTerrId(linkedQual || ''));
             if (tid) {
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
@@ -7618,6 +7653,16 @@ function _renderCompactMeritPanel(entry, rev) {
   h += `</div>`;
   h += `</div>`;
 
+  // ── Outcome ── (feat.847: compact merit actions previously had no outcome box)
+  const outcomeVal = rev.outcome || '';
+  h += `<div class="proc-section proc-player-note-section">`;
+  h += `<div class="proc-mod-panel-title">Outcome</div>`;
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-outcome-input" data-proc-key="${esc(key)}" rows="4" placeholder="What happened — appears in the DT result...">${esc(outcomeVal)}</textarea>`;
+  h += `<button class="dt-btn proc-confirm-outcome-btn" data-proc-key="${esc(key)}">Confirm</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
   h += `</div>`; // proc-compact-merit-panel
   return h;
 }
@@ -8431,6 +8476,10 @@ function _deriveActionRibbonState(rev) {
   const ps = rev?.pool_status || 'pending';
   if (ps === 'pending') return 'pending';
   if (rev?.outcome_confirmed) return 'complete';
+  // #860: merit actions complete on an outcome verdict (Approved/Partial/Failed);
+  // travel actions complete on a discretion choice (obvious/neutral/subtle).
+  if (rev?.merit_outcome) return 'complete';
+  if (ps === 'obvious' || ps === 'neutral' || ps === 'subtle') return 'complete';
   return 'valid';
 }
 

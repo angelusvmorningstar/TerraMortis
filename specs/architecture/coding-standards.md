@@ -142,6 +142,54 @@ BEM-lite: `block__element--modifier`. Keep it readable, not academic.
 
 No utility class soup. No `!important`.
 
+### Component Reuse (reuse before invent)
+
+Most UI is already built from reusable classes. Before adding markup, grep for an
+analogous element and reuse its class. Inventing a one-off class (or worse, an
+inline style) when a component already exists is the single most common drift we
+clean up after.
+
+Shared, app-agnostic components live in `public/css/components.css`. App-specific
+chrome lives in `suite.css` (Suite/Game) and `admin-layout.css` (ST Admin).
+
+Common reusable classes (confirm in the CSS before use):
+
+| Need | Class(es) | File |
+|---|---|---|
+| Action button | `.dt-btn` (admin), `.nbtn` (suite nav) | admin-layout / suite |
+| Text input / select | `.form-input`, `.form-select`, `.form-label` | components |
+| Form section | `.form-section`, `.form-section-title` | components |
+| Character card / grid | `.char-card`, `.char-grid`, `.char-chip` | components |
+| Dot stepper / dots | `.dot-stepper`, `.pointed` (+`.hollow`) | components |
+| Expandable row | `.exp-row` (+`.exp-row.open`) | components |
+| Merit breakdown row | `.merit-bd-row` + `.bd-grp`/`.bd-lbl`/`.bd-eq`/`.bd-val` | components |
+| Sheet section | `.sh-sec` | components |
+| Influence / merit rows | `.infl-edit-row`, `.infl-tier-chip`, `.mci-block`, `.dom-edit-block` | components |
+| DT processing panel | `.proc-feed-mod-panel`, `.proc-pool-builder` (grouped chrome) | admin-layout |
+| Derived note / annotation | `.derived-note` | components |
+
+If nothing fits, add a class to the correct stylesheet (shared → `components.css`;
+app-specific → the app sheet) using tokens, and follow the Shared Chrome Pattern
+above. Do not fork chrome and do not inline.
+
+### Styling from JavaScript
+
+Render functions build HTML strings. **Apply a class — never an inline
+`style="color:#..."`.** Inline styles bypass tokens and theming and are the main
+source of design drift in AI-written features.
+
+```js
+// WRONG: inline style + bare hex; ignores tokens and dark theme
+h += `<span style="color:#E0C47A;font-size:10px;">${label}</span>`;
+
+// RIGHT: reuse/define a class; colour comes from a token in the stylesheet
+h += `<span class="effpool-seg effpool-merit">${label}</span>`;
+// .effpool-merit { color: var(--gold2); font-size: 10px; }  (in the app stylesheet)
+```
+
+If a one-off dynamic value is genuinely unavoidable (e.g. a computed width), it
+must still resolve to a token, never a literal colour/font.
+
 ### Responsive Design
 
 Suite views (Roll, Sheet, Territory, Tracker): mobile-first. Use `min-width` media queries.

@@ -7,7 +7,7 @@ import state from './data.js';
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
-import { getCatalogueEntry } from '../data/equipment-data.js';
+import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -93,7 +93,7 @@ export function updPool() {
 
   if (!pi || !pi.attr) {
     if (eff <= 0) {
-      el.innerHTML = 'Effective pool: <span style="color:#E8A0A0;">Chance die</span>';
+      el.innerHTML = 'Effective pool: <span class="effpool-seg effpool-seg--neg">Chance die</span>';
     } else {
       el.innerHTML = 'Effective pool: <span>' + eff + (eff === 1 ? ' die' : ' dice') + '</span>';
     }
@@ -103,13 +103,13 @@ export function updPool() {
   const segs = [];
   if (pi.attr) segs.push('<span class="effpool-seg">' + pi.attr + ' <b>' + pi.attrV + '</b></span>');
   if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
-  if (pi.unskilled) segs.push('<span class="effpool-seg" style="color:#E8A0A0;">unskilled <b>' + pi.unskilled + '</b></span>');
+  if (pi.unskilled) segs.push('<span class="effpool-seg effpool-seg--neg">unskilled <b>' + pi.unskilled + '</b></span>');
   if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
-  if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg" style="color:#E0C47A;">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
-  if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg" style="color:#9E7AE0;font-size:10px;cursor:pointer" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote \u2713</span>');
-  if (state.WP) segs.push('<span class="effpool-seg" style="color:#7EC8A0;">WP <b>+3</b></span>');
+  if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg effpool-seg--merit">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
+  if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg effpool-seg--rote" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote \u2713</span>');
+  if (state.WP) segs.push('<span class="effpool-seg effpool-seg--wp">WP <b>+3</b></span>');
   if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
-    segs.push('<span class="effpool-seg" style="color:#A8C4E0;">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');
+    segs.push('<span class="effpool-seg effpool-seg--resist">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');
   }
 
   let html = segs.join('<span class="effpool-sep"> + </span>');

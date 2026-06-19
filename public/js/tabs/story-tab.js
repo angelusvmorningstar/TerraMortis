@@ -545,7 +545,7 @@ function renderMeritSummarySection(sub) {
   const acqRes = sub.acquisitions_resolved || [];
 
   const hasOutcomeSummaries =
-    resolved.some(rev => rev?.outcome_summary?.trim()) ||
+    resolved.some(rev => rev?.outcome_summary?.trim() || rev?.outcome?.trim()) ||
     acqRes.some(rev => rev?.outcome_summary?.trim());
 
   if (!hasOutcomeSummaries) {
@@ -559,7 +559,7 @@ function renderMeritSummarySection(sub) {
     if (rev.pool_status === 'skipped') return;
     // Skill acquisitions save to acquisitions_resolved[0], not merit_actions_resolved[i].
     // Mirror ST-side downtime-story.js:2323 fallback.
-    let summary = rev.outcome_summary?.trim();
+    let summary = rev.outcome_summary?.trim() || rev.outcome?.trim();
     if (!summary && a.merit_type === 'Skill Acquisition' && a.action_type === 'acquisition') {
       summary = acqRes[0]?.outcome_summary?.trim() || '';
     }
@@ -570,6 +570,7 @@ function renderMeritSummarySection(sub) {
     groups[cat].push({
       meritLabel,
       actionLabel: cat === 'contacts' ? '' : (ACTION_TYPE_LABELS[a.action_type] || a.action_type || ''),
+      description: (a.description || '').trim(),
       summary,
     });
   });
@@ -586,7 +587,10 @@ function renderMeritSummarySection(sub) {
       h += `<div class="merit-summary-row">`;
       h += `<span class="merit-summary-merit">${esc(entry.meritLabel)}</span>`;
       if (entry.actionLabel) h += `<span class="merit-summary-action-type">${esc(entry.actionLabel)}</span>`;
-      h += `<span class="merit-summary-text">${esc(entry.summary)}</span>`;
+      h += `<div class="merit-summary-text">`;
+      if (entry.description) h += `<span class="merit-summary-description">${esc(entry.description)}</span>`;
+      h += esc(entry.summary);
+      h += `</div>`;
       h += `</div>`;
     }
     h += `</div>`;
@@ -615,45 +619,54 @@ function buildPlayerMeritActions(sub) {
       actions.push({
         merit_type:  resp[`sphere_${slot}_merit`] || '',
         action_type: entry.action_type || '',
+        description: entry.desired_outcome || resp[`sphere_${slot}_outcome`] || '',
       });
     });
   } else {
     for (let n = 1; n <= 5; n++) {
       const mt = resp[`sphere_${n}_merit`];
       if (!mt) continue;
-      actions.push({ merit_type: mt, action_type: resp[`sphere_${n}_action`] || '' });
+      actions.push({ merit_type: mt, action_type: resp[`sphere_${n}_action`] || '', description: resp[`sphere_${n}_outcome`] || '' });
     }
+  }
+
+  // Status / MCI — mirrors downtime-story.js:1997–2014; must follow spheres to preserve flat index order
+  for (let n = 1; n <= 5; n++) {
+    const mt = resp[`status_${n}_merit`];
+    const actionVal = resp[`status_${n}_action`];
+    if (!mt || !actionVal) continue;
+    actions.push({ merit_type: mt, action_type: actionVal, description: resp[`status_${n}_outcome`] || '' });
   }
 
   // Contacts
   const contactRaw = raw.contact_actions?.requests || [];
   if (contactRaw.length) {
-    contactRaw.forEach((_, idx) => {
+    contactRaw.forEach((c, idx) => {
       const n = idx + 1;
-      actions.push({ merit_type: resp[`contact_${n}_merit`] || resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' });
+      actions.push({ merit_type: resp[`contact_${n}_merit`] || resp[`contact_1_merit`] || 'Contacts', action_type: 'misc', description: c.detail || c.description || '' });
     });
   } else {
     for (let n = 1; n <= 5; n++) {
       if (!resp[`contact_${n}_request`]) continue;
-      actions.push({ merit_type: resp[`contact_${n}_merit`] || 'Contacts', action_type: 'misc' });
+      actions.push({ merit_type: resp[`contact_${n}_merit`] || 'Contacts', action_type: 'misc', description: resp[`contact_${n}_request`] || '' });
     }
   }
 
   // Retainers
   const retainerRaw = raw.retainer_actions?.actions || [];
   if (retainerRaw.length) {
-    retainerRaw.forEach(() => actions.push({ merit_type: 'Retainer', action_type: 'misc' }));
+    retainerRaw.forEach(r => actions.push({ merit_type: r.merit || 'Retainer', action_type: 'misc', description: r.task || r.description || '' }));
   } else {
     for (let n = 1; n <= 4; n++) {
       if (!resp[`retainer_${n}_task`]) continue;
-      actions.push({ merit_type: 'Retainer', action_type: 'misc' });
+      actions.push({ merit_type: resp[`retainer_${n}_merit`] || 'Retainer', action_type: 'misc', description: resp[`retainer_${n}_task`] || '' });
     }
   }
 
   // Resources
   const resBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
   if (resBlob.trim()) {
-    actions.push({ merit_type: 'Resources', action_type: 'acquisition' });
+    actions.push({ merit_type: 'Resources', action_type: 'acquisition', description: (resp['acq_description'] || resBlob).trim() });
   }
 
   // Skill Acquisitions (mirror ST-side buildMeritActions at downtime-story.js:2159-2188).
@@ -661,7 +674,7 @@ function buildPlayerMeritActions(sub) {
   // current single-acquisition-per-submission constraint (PR #187 context).
   const skillAcqBlob = raw.acquisitions?.skill_acquisitions || resp['skill_acquisitions'] || '';
   if (skillAcqBlob.trim()) {
-    actions.push({ merit_type: 'Skill Acquisition', action_type: 'acquisition' });
+    actions.push({ merit_type: 'Skill Acquisition', action_type: 'acquisition', description: skillAcqBlob.trim() });
   }
 
   return actions;

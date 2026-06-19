@@ -15,6 +15,7 @@ import {
   calcCityStatus, titleStatusBonus, BP_TABLE,
 } from '../data/accessors.js';
 import { isInClanDisc } from '../data/accessors.js';
+import { defenceMechanicalBase } from '../data/equipment-derivation.js';
 import { meritLookup } from './merits.js';
 import { fmtRuleStats } from '../suite/sheet-helpers.js';
 import {
@@ -82,7 +83,10 @@ export function serialiseForPrint(c, territories) {
     humanity: c.humanity != null ? c.humanity : 7,
     health: calcHealth(c),
     willpower: calcWillpowerMax(c),
-    defence: calcDefence(c),
+    // Issue #879 (ADR-006 D3): canonical mechanical defence is armour-adjusted
+    // (no STM overlay). defenceMechanicalBase computes fresh, never reads
+    // c.derived.defence which may carry an overlay-modded value at export time.
+    defence: defenceMechanicalBase(c),
     speed: calcSpeed(c),
     size: calcSize(c),
     vitae_max: calcVitaeMax(c),

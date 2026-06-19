@@ -22,6 +22,12 @@
  * After normalize, sum(channels) === rating for every merit.
  */
 
+// Issue #834: `'free'` retained in MERIT_CHANNELS for sumChannels accounting
+// only — never written by this normalizer post-#834. See memory
+// `feedback_m_free_deprecated` for why the channel is dead. If a contaminated
+// doc still carries a non-zero `m.free`, sumChannels picks it up so the
+// rating-sync branch produces an accurate sum (rather than triggering the
+// no-source branch), then the Phase 3 cleanup script zeroes the field.
 const MERIT_CHANNELS = [
   'cp', 'xp', 'free',
   'free_mci', 'free_vm', 'free_lk', 'free_ohm', 'free_inv',
@@ -37,8 +43,12 @@ const MERIT_CHANNELS = [
  * adds its derived dots on top of the generic `free`, double-counting.
  *
  * Mapping mirrors the rule engine evaluators (public/js/editor/rule_engine/*).
- * Unknown granted_by tags fall back to `free` (preserves dots without
- * claiming a specific source).
+ *
+ * Issue #834 (2026-06-17): `m.free` is deprecated. Unknown granted_by tags
+ * return null (was: fall back to `'free'`). A null return means "no
+ * canonical channel for this granted_by" — the caller refuses to mutate and
+ * logs a warning instead of writing the deprecated channel. See memory
+ * `feedback_m_free_deprecated`.
  */
 const GRANTED_BY_CHANNEL = {
   'Bloodline':  'free_bloodline',
@@ -57,7 +67,9 @@ const GRANTED_BY_CHANNEL = {
 
 function backfillChannel(merit) {
   const gb = merit.granted_by || '';
-  return GRANTED_BY_CHANNEL[gb] || 'free';
+  // Issue #834: return null when no canonical channel; caller must NOT
+  // fall back to writing `m.free` (the deprecated channel).
+  return GRANTED_BY_CHANNEL[gb] || null;
 }
 
 function sumChannels(merit) {
@@ -91,7 +103,21 @@ export function normalizeMerit(merit) {
   const rating = merit.rating || 0;
 
   if (sum === 0 && rating > 0) {
+    // Issue #834: when there's no canonical channel for the granted_by tag
+    // (or no granted_by at all), refuse to backfill into `m.free` (the
+    // deprecated channel). Log a warn so the orphan rating surfaces in
+    // server logs — the previous behaviour silently wrote `m.free = rating`
+    // which created the contamination class. The merit's rating stays as
+    // the user/script entered it; the rating-sync branch below will pull
+    // it to 0 on the next pass IF every channel is empty.
     const channel = backfillChannel(merit);
+    if (!channel) {
+      // Memory: feedback_m_free_deprecated — m.free is dead. A merit
+      // arriving here with rating > 0 and no mappable granted_by has no
+      // canonical source for its dots. Don't invent one.
+      console.warn(`normalizeMerit: refusing to backfill '${merit.name || '?'}' (rating=${rating}) — no canonical channel; granted_by='${merit.granted_by || ''}'. m.free is deprecated per #834.`);
+      return { changed: false, reason: 'no-channel', rating };
+    }
     merit[channel] = (merit[channel] || 0) + rating;
     return {
       changed: true,

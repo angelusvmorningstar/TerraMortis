@@ -7,6 +7,9 @@ import {
   calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   calcCityStatus, BP_TABLE
 } from '../data/accessors.js';
+// Issue #879 (ADR-006 D3): CSV export captures canonical mechanical defence
+// (armour-adjusted, no STM overlay).
+import { defenceMechanicalBase } from '../data/equipment-derivation.js';
 import { xpLeft, xpEarned } from './xp.js';
 import { getWillpower } from '../data/helpers.js';
 import { applyDerivedMerits } from './mci.js';
@@ -336,7 +339,7 @@ export function charToRow(c) {
   // Derived stats
   row.push(calcSize(c));
   row.push(calcSpeed(c));
-  row.push(calcDefence(c));
+  row.push(defenceMechanicalBase(c));
 
   // Willpower triggers — derived from Mask/Dirge, not stored
   const wp = getWillpower(c);

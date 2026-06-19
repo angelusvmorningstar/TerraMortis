@@ -383,6 +383,17 @@ export const downtimeSubmissionSchema = {
         lore_request:  { type: 'string' },   // Rules/lore questions for STs
         form_rating:   { type: 'string' },   // "1"–"10" (half-star widget)
         form_feedback: { type: 'string' },   // Form UX feedback
+        // ECM-9 (#876): item_request escape valve for items not in the
+        // equipment_catalogue collection. Optional free-text; surfaced in
+        // the admin DT processing UI; ST adjudicates inline. additionalProperties
+        // already permits the field without this entry — listed here for
+        // documentation parity with lore_request / form_feedback.
+        item_request:  { type: 'string' },
+        // ECM-4 (#871) equipment slot keys — `equipment_${n}_catalogue_id`
+        // (24-hex ObjectId string) replaces the legacy `equipment_${n}_name`
+        // free-text. additionalProperties:true on responses already covers
+        // the per-slot keys; the canonical persistence shape is documented
+        // here for future-reader clarity.
       },
     },
 
