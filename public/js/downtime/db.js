@@ -3,7 +3,7 @@
  * Replaces Peter's IndexedDB layer with HTTP calls to the Express API.
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 
 // ── Cycles ──────────────────────────────────────────────────────────────────
 
@@ -16,9 +16,9 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
-export async function createCycle(gameNumber, { status = 'prep', deadlineAt = null } = {}) {
+export async function createCycle(gameNumber, { status = 'prep', deadlineAt = null, label = null, chapterId = null } = {}) {
   const body = {
-    label: 'Downtime ' + gameNumber,
+    label: label || ('Downtime ' + gameNumber),
     game_number: gameNumber,
     status,
     loaded_at: new Date().toISOString(),
@@ -26,7 +26,12 @@ export async function createCycle(gameNumber, { status = 'prep', deadlineAt = nu
     out_of_window_player_ids: [],
   };
   if (deadlineAt) body.deadline_at = deadlineAt;
+  if (chapterId) body.chapter_id = chapterId;
   return apiPost('/api/downtime_cycles', body);
+}
+
+export async function deleteCycle(id) {
+  return apiDelete('/api/downtime_cycles/' + id);
 }
 
 /** Derive the game number for a new cycle: closed cycle count + 1 for current, +1 for next. */

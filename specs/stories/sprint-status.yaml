@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-06-07 (DI-3 ordeal parity audit complete — Verdict A, no XP gaps; history-ordeal type mismatch for 3 chars flagged for ST manual check)
+# last_updated: 2026-06-20 (issue-918 cycle-tab-management implemented, review)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -877,3 +877,5 @@ development_status:
   proto-15-dt-processing-hide-protect-disc-consume: done          # Snapshot: _renderSnapshotHideProtect prefers hide_protect_disc structured field; text extraction remains fallback for legacy entries
 
   proto-16-dt-processing-st-review-touched-at: done               # Write-back: co-save st_review.st_review_touched_at ISO timestamp in every saveEntryReview call; atomic with source-specific update; D1 gap closure
+
+  issue-918-cycle-tab-management: review                          # Cycle tab: inline edit label/chapter, status ribbon, toggleable phases (incl. clear-to-neutral), add cycle, delete cycle + new server DELETE route

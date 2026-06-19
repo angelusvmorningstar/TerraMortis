@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
+import { createCycle, updateCycle, deleteCycle, deriveCycleStatus } from '../downtime/db.js';
 
 const PHASE_LABELS = {
   game:       'Game',
@@ -6,9 +7,18 @@ const PHASE_LABELS = {
   processing: 'Processing',
 };
 
+const PHASES = ['game', 'downtime', 'processing'];
+
+// Module-level view state so the status ribbon can refresh after any
+// label / chapter / phase / add / delete mutation without a full re-fetch.
+const view = { chapters: [], cycles: [], sessions: [], charList: [], ribbonEl: null };
+
+// _id is a creation-order proxy (cycle docs lack created_at) — newest first.
+function byIdDesc(a, b) { return String(b._id) > String(a._id) ? 1 : -1; }
+
 export async function initCycleView(charList) {
   const el = document.getElementById('cycle-content');
-  el.innerHTML = '<p style="padding:16px;color:var(--txt2)">Loading…</p>';
+  el.innerHTML = '<p class="placeholder">Loading…</p>';
 
   let chapters, cycles, sessions;
   try {
@@ -18,24 +28,94 @@ export async function initCycleView(charList) {
       apiGet('/api/game_sessions'),
     ]);
   } catch (err) {
-    el.innerHTML = `<p style="padding:16px;color:var(--crim)">Failed to load cycle data: ${err.message}</p>`;
+    el.innerHTML = `<p class="cy-error">Failed to load cycle data: ${err.message}</p>`;
     return;
   }
 
+  view.chapters = chapters;
+  view.cycles = cycles;
+  view.sessions = sessions;
+  view.charList = charList;
+
   el.innerHTML = '';
+  el.appendChild(buildRibbon());
   el.appendChild(buildChaptersPanel(chapters));
   el.appendChild(buildCyclesPanel(cycles, chapters, charList, sessions));
+}
+
+/** Re-fetch and rebuild the whole tab (used after add / delete). */
+async function refresh() {
+  await initCycleView(view.charList);
+}
+
+// ── Status ribbon ─────────────────────────────────────────────────────────────
+
+function buildRibbon() {
+  const el = document.createElement('div');
+  el.className = 'cy-ribbon';
+  view.ribbonEl = el;
+  renderRibbon();
+  return el;
+}
+
+/** Current cycle: the one in a set game phase, else newest non-closed. */
+function deriveCurrentCycle() {
+  const cycles = view.cycles || [];
+  const inGame = cycles.find(c => c.game_phase === 'game');
+  if (inGame) return inGame;
+  const anyPhase = cycles.filter(c => c.game_phase).sort(byIdDesc)[0];
+  if (anyPhase) return anyPhase;
+  const nonClosed = cycles.filter(c => deriveCycleStatus(c) !== 'closed').sort(byIdDesc)[0];
+  return nonClosed || null;
+}
+
+function renderRibbon() {
+  const el = view.ribbonEl;
+  if (!el) return;
+  const cy = deriveCurrentCycle();
+
+  if (!cy) {
+    el.innerHTML = '<span class="cy-ribbon-empty">No active cycle.</span>';
+    return;
+  }
+
+  const chapter = cy.chapter_id
+    ? view.chapters.find(ch => String(ch._id) === String(cy.chapter_id))
+    : null;
+  const chapterText = chapter ? `${chapter.number} — ${chapter.label}` : 'No chapter';
+  const phaseText = cy.game_phase ? PHASE_LABELS[cy.game_phase] : 'No phase set';
+  const phaseMod = cy.game_phase ? ` cy-phase--${cy.game_phase}` : ' cy-phase--none';
+
+  el.innerHTML = `
+    <div class="cy-ribbon-item">
+      <span class="cy-ribbon-label">Chapter</span>
+      <span class="cy-ribbon-val">${esc(chapterText)}</span>
+    </div>
+    <div class="cy-ribbon-item">
+      <span class="cy-ribbon-label">Game Cycle</span>
+      <span class="cy-ribbon-val">${esc(cy.label || String(cy._id))}</span>
+    </div>
+    <div class="cy-ribbon-item">
+      <span class="cy-ribbon-label">Phase</span>
+      <span class="cy-ribbon-chip${phaseMod}">${esc(phaseText)}</span>
+    </div>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 // ── Chapters panel ──────────────────────────────────────────────────────────
 
 function buildChaptersPanel(chapters) {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'margin-bottom:32px';
+  wrap.className = 'cy-section';
 
   const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px';
-  header.innerHTML = '<h3 style="margin:0;font-family:Cinzel,serif;font-size:15px;letter-spacing:.04em">Chapters</h3>';
+  header.className = 'cy-section-head';
+  header.innerHTML = '<h3 class="cy-section-title">Chapters</h3>';
 
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-sm';
@@ -43,17 +123,16 @@ function buildChaptersPanel(chapters) {
   header.appendChild(addBtn);
 
   const errMsg = document.createElement('p');
-  errMsg.style.cssText = 'color:var(--crim);font-size:13px;margin:4px 0 0;display:none';
+  errMsg.className = 'cy-error cy-error--inline';
 
   wrap.appendChild(header);
 
   const table = document.createElement('table');
-  table.className = 'infl-table';
-  table.style.cssText = 'width:100%;margin-bottom:8px';
+  table.className = 'infl-table cy-table';
   table.innerHTML = `<thead><tr>
-    <th style="width:60px">#</th>
+    <th class="cy-col-num">#</th>
     <th>Label</th>
-    <th style="width:80px"></th>
+    <th class="cy-col-act"></th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
   table.appendChild(tbody);
@@ -63,27 +142,27 @@ function buildChaptersPanel(chapters) {
   function renderRows(list) {
     tbody.innerHTML = '';
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="3" style="color:var(--txt2);padding:8px">No chapters yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="cy-empty-cell">No chapters yet.</td></tr>';
       return;
     }
     list.forEach(ch => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${ch.number}</td>
-        <td>${ch.label}</td>
-        <td><button class="btn-sm" data-id="${ch._id}" style="background:var(--crim);border-color:var(--crim)">Delete</button></td>`;
+        <td>${esc(ch.label)}</td>
+        <td><button class="btn-sm btn-danger" data-id="${ch._id}">Delete</button></td>`;
       tr.querySelector('button').addEventListener('click', async () => {
-        errMsg.style.display = 'none';
+        errMsg.classList.remove('is-visible');
         try {
           await apiDelete(`/api/chapters/${ch._id}`);
           renderRows(list.filter(c => c._id !== ch._id));
         } catch (err) {
           if (err.message && err.message.includes('cycle')) {
-            errMsg.textContent = `Chapter is linked to cycle(s) — remove the link before deleting.`;
+            errMsg.textContent = 'Chapter is linked to cycle(s) — remove the link before deleting.';
           } else {
             errMsg.textContent = `Delete failed: ${err.message}`;
           }
-          errMsg.style.display = 'block';
+          errMsg.classList.add('is-visible');
         }
       });
       tbody.appendChild(tr);
@@ -94,26 +173,26 @@ function buildChaptersPanel(chapters) {
 
   // Inline new-chapter form
   const form = document.createElement('div');
-  form.style.cssText = 'display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px';
+  form.className = 'cy-inline-form';
   form.innerHTML = `
-    <input id="new-ch-num" type="number" min="1" placeholder="Number" style="width:70px;padding:4px 6px;background:var(--surf);border:1px solid var(--bdr);color:var(--txt);border-radius:4px">
-    <input id="new-ch-label" type="text" placeholder="Label (e.g. Chapter Two: The Price of Power)" style="flex:1;min-width:200px;padding:4px 6px;background:var(--surf);border:1px solid var(--bdr);color:var(--txt);border-radius:4px">
+    <input id="new-ch-num" type="number" min="1" placeholder="Number" class="form-input cy-input-num">
+    <input id="new-ch-label" type="text" placeholder="Label (e.g. Chapter Two: The Price of Power)" class="form-input cy-input-grow">
     <button class="btn-sm" id="new-ch-save">Save</button>
-    <button class="btn-sm" id="new-ch-cancel" style="background:var(--surf2);border-color:var(--bdr)">Cancel</button>`;
+    <button class="btn-sm btn-muted" id="new-ch-cancel">Cancel</button>`;
   wrap.appendChild(form);
 
   addBtn.addEventListener('click', () => {
-    form.style.display = 'flex';
-    addBtn.style.display = 'none';
-    errMsg.style.display = 'none';
+    form.classList.add('is-open');
+    addBtn.classList.add('is-hidden');
+    errMsg.classList.remove('is-visible');
     form.querySelector('#new-ch-num').value = '';
     form.querySelector('#new-ch-label').value = '';
     form.querySelector('#new-ch-num').focus();
   });
 
   form.querySelector('#new-ch-cancel').addEventListener('click', () => {
-    form.style.display = 'none';
-    addBtn.style.display = '';
+    form.classList.remove('is-open');
+    addBtn.classList.remove('is-hidden');
   });
 
   form.querySelector('#new-ch-save').addEventListener('click', async () => {
@@ -121,19 +200,21 @@ function buildChaptersPanel(chapters) {
     const label  = form.querySelector('#new-ch-label').value.trim();
     if (!number || !label) {
       errMsg.textContent = 'Both Number and Label are required.';
-      errMsg.style.display = 'block';
+      errMsg.classList.add('is-visible');
       return;
     }
-    errMsg.style.display = 'none';
+    errMsg.classList.remove('is-visible');
     try {
       const created = await apiPost('/api/chapters', { number, label });
       chapters = [...chapters, created].sort((a, b) => a.number - b.number);
+      view.chapters = chapters;
       renderRows(chapters);
-      form.style.display = 'none';
-      addBtn.style.display = '';
+      form.classList.remove('is-open');
+      addBtn.classList.remove('is-hidden');
+      renderRibbon();
     } catch (err) {
       errMsg.textContent = `Save failed: ${err.message}`;
-      errMsg.style.display = 'block';
+      errMsg.classList.add('is-visible');
     }
   });
 
@@ -142,10 +223,11 @@ function buildChaptersPanel(chapters) {
 
 // ── Phase controls ───────────────────────────────────────────────────────────
 
-const PHASES = ['game', 'downtime', 'processing'];
-
-async function setGamePhase(cycleId, phase) {
-  if (phase === 'game') {
+// Write a phase to a cycle. `phaseOrNull === null` clears the phase (neutral).
+// Only entering Game phase resets the live tracker — clearing does NOT.
+// Returns false if the ST cancels the Game-phase confirmation.
+async function writePhase(cy, phaseOrNull) {
+  if (phaseOrNull === 'game') {
     if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return false;
     try {
       await apiDelete('/api/tracker_state');
@@ -153,50 +235,51 @@ async function setGamePhase(cycleId, phase) {
       throw new Error('Tracker reset failed: ' + err.message);
     }
   }
-  await apiPut('/api/downtime_cycles/' + cycleId, { game_phase: phase });
+  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull });
+  cy.game_phase = phaseOrNull;
   return true;
 }
 
 function buildPhaseCell(cy) {
   const td = document.createElement('td');
-  td.style.cssText = 'white-space:nowrap';
+  td.className = 'cy-phase-cell';
+
+  const group = document.createElement('div');
+  group.className = 'cy-phase-group';
+  td.appendChild(group);
 
   const errEl = document.createElement('span');
-  errEl.style.cssText = 'color:var(--crim);font-size:11px;display:none;margin-left:6px';
-  td.appendChild(errEl);
+  errEl.className = 'cy-error cy-error--inline';
 
   PHASES.forEach(phase => {
     const btn = document.createElement('button');
-    btn.className = 'btn-sm';
+    btn.className = 'cy-phase-btn' + (cy.game_phase === phase ? ' is-active' : '');
     btn.textContent = PHASE_LABELS[phase];
     btn.dataset.phase = phase;
-    btn.style.marginRight = '4px';
-    const isActive = cy.game_phase === phase;
-    if (isActive) {
-      btn.style.borderColor = 'var(--gold2)';
-      btn.style.color = 'var(--gold2)';
-      btn.disabled = true;
-    }
+    btn.title = cy.game_phase === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
+
     btn.addEventListener('click', async () => {
-      errEl.style.display = 'none';
+      errEl.classList.remove('is-visible');
+      // Active phase toggles OFF to neutral; otherwise switch to the clicked phase.
+      const target = (cy.game_phase === phase) ? null : phase;
       try {
-        const ok = await setGamePhase(cy._id, phase);
+        const ok = await writePhase(cy, target);
         if (!ok) return;
-        cy.game_phase = phase;
-        td.querySelectorAll('button[data-phase]').forEach(b => {
-          const active = b.dataset.phase === phase;
-          b.disabled = active;
-          b.style.borderColor = active ? 'var(--gold2)' : '';
-          b.style.color = active ? 'var(--gold2)' : '';
+        group.querySelectorAll('.cy-phase-btn').forEach(b => {
+          const active = b.dataset.phase === cy.game_phase;
+          b.classList.toggle('is-active', active);
+          b.title = active ? 'Click to clear this phase' : `Set ${PHASE_LABELS[b.dataset.phase]} phase`;
         });
+        renderRibbon();
       } catch (err) {
         errEl.textContent = 'Phase change failed: ' + err.message;
-        errEl.style.display = 'inline';
+        errEl.classList.add('is-visible');
       }
     });
-    td.insertBefore(btn, errEl);
+    group.appendChild(btn);
   });
 
+  td.appendChild(errEl);
   return td;
 }
 
@@ -204,7 +287,7 @@ function buildPhaseCell(cy) {
 
 function buildAccessSection(cy, charList) {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:8px 0 4px;max-height:220px;overflow-y:auto';
+  wrap.className = 'cy-detail-scroll';
 
   const activeChars = charList
     .filter(c => !c.retired)
@@ -212,7 +295,7 @@ function buildAccessSection(cy, charList) {
 
   if (!activeChars.length) {
     wrap.textContent = 'No active characters.';
-    wrap.style.color = 'var(--txt2)';
+    wrap.classList.add('cy-muted');
     return wrap;
   }
 
@@ -221,7 +304,7 @@ function buildAccessSection(cy, charList) {
   activeChars.forEach(c => {
     const id = String(c._id);
     const label = document.createElement('label');
-    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px';
+    label.className = 'cy-check-label';
 
     const cb = document.createElement('input');
     cb.type = 'checkbox';
@@ -254,17 +337,17 @@ function buildAccessSection(cy, charList) {
 
 function buildAttendanceSection(cy, sessions) {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:8px 0 4px';
+  wrap.className = 'cy-attend';
 
   const selectWrap = document.createElement('div');
-  selectWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+  selectWrap.className = 'cy-attend-head';
 
   const lbl = document.createElement('label');
-  lbl.style.cssText = 'font-size:13px;color:var(--txt2)';
+  lbl.className = 'cy-attend-lbl';
   lbl.textContent = 'Linked Session:';
 
   const sel = document.createElement('select');
-  sel.style.cssText = 'background:var(--surf);border:1px solid var(--bdr);color:var(--txt);border-radius:4px;padding:3px 6px;font-size:13px';
+  sel.className = 'form-select cy-attend-select';
 
   const blank = document.createElement('option');
   blank.value = '';
@@ -285,7 +368,7 @@ function buildAttendanceSection(cy, sessions) {
   sel.value = cy.session_id || '';
 
   const errEl = document.createElement('span');
-  errEl.style.cssText = 'color:var(--crim);font-size:11px;display:none';
+  errEl.className = 'cy-error cy-error--inline';
 
   selectWrap.appendChild(lbl);
   selectWrap.appendChild(sel);
@@ -302,7 +385,7 @@ function buildAttendanceSection(cy, sessions) {
     const att = session.attendance || [];
     if (!att.length) {
       const msg = document.createElement('p');
-      msg.style.cssText = 'font-size:13px;color:var(--txt2);margin:4px 0';
+      msg.className = 'cy-muted cy-attend-empty';
       msg.textContent = 'No attendance recorded for this session.';
       tableWrap.appendChild(msg);
       return;
@@ -315,15 +398,14 @@ function buildAttendanceSection(cy, sessions) {
     });
 
     const table = document.createElement('table');
-    table.className = 'infl-table';
-    table.style.cssText = 'width:100%;font-size:13px';
+    table.className = 'infl-table cy-attend-table';
     table.innerHTML = `<thead><tr>
       <th>Character</th>
-      <th style="width:70px;text-align:center">Attend</th>
-      <th style="width:80px;text-align:center">Costuming</th>
-      <th style="width:50px;text-align:center">DT</th>
-      <th style="width:50px;text-align:center">Extra</th>
-      <th style="width:60px;text-align:center">XP</th>
+      <th class="cy-att-c">Attend</th>
+      <th class="cy-att-c">Costuming</th>
+      <th class="cy-att-c">DT</th>
+      <th class="cy-att-c">Extra</th>
+      <th class="cy-att-c">XP</th>
     </tr></thead>`;
 
     const tbody = document.createElement('tbody');
@@ -340,24 +422,24 @@ function buildAttendanceSection(cy, sessions) {
       const name = a.character_display || a.character_name || a.character_id || '?';
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${name}</td>
-        <td style="text-align:center">${a.attended  ? '●' : '○'}</td>
-        <td style="text-align:center">${a.costuming ? '●' : '○'}</td>
-        <td style="text-align:center">${a.downtime  ? '●' : '○'}</td>
-        <td style="text-align:center">${a.extra || 0}</td>
-        <td style="text-align:center;font-weight:600">${xp}</td>`;
+        <td>${esc(name)}</td>
+        <td class="cy-att-c">${a.attended  ? '●' : '○'}</td>
+        <td class="cy-att-c">${a.costuming ? '●' : '○'}</td>
+        <td class="cy-att-c">${a.downtime  ? '●' : '○'}</td>
+        <td class="cy-att-c">${a.extra || 0}</td>
+        <td class="cy-att-c cy-att-xp">${xp}</td>`;
       tbody.appendChild(tr);
     });
 
     const totTr = document.createElement('tr');
-    totTr.style.cssText = 'font-weight:700;border-top:1px solid var(--bdr)';
+    totTr.className = 'cy-att-total';
     totTr.innerHTML = `
-      <td style="color:var(--txt2)">Total (${rows.length})</td>
-      <td style="text-align:center">${totAtt}</td>
-      <td style="text-align:center">${totCos}</td>
-      <td style="text-align:center">${totDT}</td>
-      <td style="text-align:center">${totExtra}</td>
-      <td style="text-align:center">${totXP}</td>`;
+      <td class="cy-muted">Total (${rows.length})</td>
+      <td class="cy-att-c">${totAtt}</td>
+      <td class="cy-att-c">${totCos}</td>
+      <td class="cy-att-c">${totDT}</td>
+      <td class="cy-att-c">${totExtra}</td>
+      <td class="cy-att-c">${totXP}</td>`;
     tbody.appendChild(totTr);
 
     table.appendChild(tbody);
@@ -367,7 +449,7 @@ function buildAttendanceSection(cy, sessions) {
   renderTable();
 
   sel.addEventListener('change', async () => {
-    errEl.style.display = 'none';
+    errEl.classList.remove('is-visible');
     const newId = sel.value || null;
     try {
       await apiPut('/api/downtime_cycles/' + cy._id, { session_id: newId });
@@ -376,7 +458,7 @@ function buildAttendanceSection(cy, sessions) {
     } catch (err) {
       sel.value = cy.session_id || '';
       errEl.textContent = 'Link failed: ' + err.message;
-      errEl.style.display = 'inline';
+      errEl.classList.add('is-visible');
     }
   });
 
@@ -385,53 +467,195 @@ function buildAttendanceSection(cy, sessions) {
 
 // ── Game Cycles panel ───────────────────────────────────────────────────────
 
+// Build a chapter <select>. Options-only; no persistence handler — used for
+// the add-cycle form (which has no cycle to write to yet).
+function buildChapterPicker(chapters, selectedId = '') {
+  const sel = document.createElement('select');
+  sel.className = 'form-select cy-chapter-select';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '— none —';
+  sel.appendChild(none);
+  [...chapters].sort((a, b) => a.number - b.number).forEach(ch => {
+    const opt = document.createElement('option');
+    opt.value = String(ch._id);
+    opt.textContent = `${ch.number} — ${ch.label}`;
+    sel.appendChild(opt);
+  });
+  sel.value = selectedId ? String(selectedId) : '';
+  return sel;
+}
+
+// Row-level chapter select: persists chapter_id to an existing cycle on change.
+function buildChapterSelect(cy, chapters) {
+  const sel = buildChapterPicker(chapters, cy.chapter_id);
+  sel.addEventListener('change', async () => {
+    const val = sel.value || null;
+    try {
+      await updateCycle(cy._id, { chapter_id: val });
+      cy.chapter_id = val;
+      renderRibbon();
+    } catch (err) {
+      sel.value = cy.chapter_id ? String(cy.chapter_id) : '';
+    }
+  });
+  return sel;
+}
+
+function buildLabelCell(cy) {
+  const td = document.createElement('td');
+  td.className = 'cy-label-cell';
+
+  function renderView() {
+    td.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'cy-label-text';
+    span.textContent = cy.label || String(cy._id);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'cy-icon-btn';
+    editBtn.title = 'Edit label';
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', renderEdit);
+    td.appendChild(span);
+    td.appendChild(editBtn);
+  }
+
+  function renderEdit() {
+    td.innerHTML = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-input cy-label-input';
+    input.value = cy.label || '';
+    const save = document.createElement('button');
+    save.className = 'btn-sm';
+    save.textContent = 'Save';
+    const cancel = document.createElement('button');
+    cancel.className = 'btn-sm btn-muted';
+    cancel.textContent = 'Cancel';
+
+    async function doSave() {
+      const newLabel = input.value.trim();
+      if (!newLabel) { input.focus(); return; }
+      try {
+        await updateCycle(cy._id, { label: newLabel });
+        cy.label = newLabel;
+        renderView();
+        renderRibbon();
+      } catch (_err) {
+        input.classList.add('is-error');
+      }
+    }
+    save.addEventListener('click', doSave);
+    cancel.addEventListener('click', renderView);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSave();
+      else if (e.key === 'Escape') renderView();
+    });
+
+    td.appendChild(input);
+    td.appendChild(save);
+    td.appendChild(cancel);
+    input.focus();
+    input.select();
+  }
+
+  renderView();
+  return td;
+}
+
 function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
   const sorted = [...cycles].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
-  const chapterMap = Object.fromEntries(chapters.map(c => [String(c._id), c]));
 
   const wrap = document.createElement('div');
+  wrap.className = 'cy-section';
 
-  const hdr = document.createElement('h3');
-  hdr.style.cssText = 'margin:0 0 12px;font-family:Cinzel,serif;font-size:15px;letter-spacing:.04em';
-  hdr.textContent = 'Game Cycles';
-  wrap.appendChild(hdr);
+  const header = document.createElement('div');
+  header.className = 'cy-section-head';
+  header.innerHTML = '<h3 class="cy-section-title">Game Cycles</h3>';
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-sm';
+  addBtn.textContent = '+ New Cycle';
+  header.appendChild(addBtn);
+  wrap.appendChild(header);
+
+  const errMsg = document.createElement('p');
+  errMsg.className = 'cy-error cy-error--inline';
+
+  // Inline add-cycle form
+  const addForm = document.createElement('div');
+  addForm.className = 'cy-inline-form';
+  const nextGame = (sorted.reduce((mx, c) => Math.max(mx, c.game_number ?? 0), 0) || 0) + 1;
+  addForm.innerHTML = `
+    <input id="new-cy-num" type="number" min="1" placeholder="Game #" value="${nextGame}" class="form-input cy-input-num">
+    <input id="new-cy-label" type="text" placeholder="Label (e.g. Downtime 5)" class="form-input cy-input-grow">
+    <button class="btn-sm" id="new-cy-save">Save</button>
+    <button class="btn-sm btn-muted" id="new-cy-cancel">Cancel</button>`;
+  const chapterPick = buildChapterPicker(chapters);
+  chapterPick.id = 'new-cy-chapter';
+  addForm.insertBefore(chapterPick, addForm.querySelector('#new-cy-save'));
+  wrap.appendChild(addForm);
+
+  addBtn.addEventListener('click', () => {
+    addForm.classList.add('is-open');
+    addBtn.classList.add('is-hidden');
+    errMsg.classList.remove('is-visible');
+    addForm.querySelector('#new-cy-label').value = `Downtime ${nextGame}`;
+    addForm.querySelector('#new-cy-label').focus();
+  });
+  addForm.querySelector('#new-cy-cancel').addEventListener('click', () => {
+    addForm.classList.remove('is-open');
+    addBtn.classList.remove('is-hidden');
+  });
+  addForm.querySelector('#new-cy-save').addEventListener('click', async () => {
+    const num = parseInt(addForm.querySelector('#new-cy-num').value, 10);
+    const label = addForm.querySelector('#new-cy-label').value.trim();
+    const chapterId = addForm.querySelector('#new-cy-chapter').value || null;
+    if (!num || !label) {
+      errMsg.textContent = 'Game number and label are required.';
+      errMsg.classList.add('is-visible');
+      return;
+    }
+    errMsg.classList.remove('is-visible');
+    try {
+      await createCycle(num, { label, chapterId });
+      await refresh();
+    } catch (err) {
+      errMsg.textContent = `Create failed: ${err.message}`;
+      errMsg.classList.add('is-visible');
+    }
+  });
 
   if (!sorted.length) {
     const empty = document.createElement('p');
-    empty.style.cssText = 'color:var(--txt2);font-size:13px';
+    empty.className = 'cy-muted';
     empty.textContent = 'No downtime cycles found.';
+    wrap.appendChild(errMsg);
     wrap.appendChild(empty);
     return wrap;
   }
 
   const table = document.createElement('table');
-  table.className = 'infl-table';
-  table.style.width = '100%';
+  table.className = 'infl-table cy-table';
   table.innerHTML = `<thead><tr>
     <th>Label</th>
-    <th style="width:270px">Phase</th>
-    <th style="width:200px">Chapter</th>
-    <th style="width:110px">Prep Access</th>
-    <th style="width:130px">Publish</th>
-    <th style="width:110px">Attendance</th>
+    <th class="cy-col-phase">Phase</th>
+    <th class="cy-col-chapter">Chapter</th>
+    <th class="cy-col-prep">Prep Access</th>
+    <th class="cy-col-pub">Publish</th>
+    <th class="cy-col-att">Attendance</th>
+    <th class="cy-col-del"></th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
   sorted.forEach(cy => {
-    const chapter = cy.chapter_id ? chapterMap[cy.chapter_id] : null;
-    const chapterLabel = chapter ? `${chapter.number} — ${chapter.label}` : '—';
-
     const tr = document.createElement('tr');
 
-    const tdLabel = document.createElement('td');
-    tdLabel.textContent = cy.label || cy._id;
-    tr.appendChild(tdLabel);
-
+    tr.appendChild(buildLabelCell(cy));
     tr.appendChild(buildPhaseCell(cy));
 
     const tdChapter = document.createElement('td');
-    tdChapter.style.color = 'var(--txt2)';
-    tdChapter.textContent = chapterLabel;
+    tdChapter.appendChild(buildChapterSelect(cy, chapters));
     tr.appendChild(tdChapter);
 
     // Prep Access toggle
@@ -442,20 +666,18 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     tdAccess.appendChild(accessBtn);
     tr.appendChild(tdAccess);
 
-    // Detail row (hidden by default)
     const detailTr = document.createElement('tr');
-    detailTr.style.display = 'none';
+    detailTr.className = 'cy-detail-row is-hidden';
     const detailTd = document.createElement('td');
-    detailTd.colSpan = 6;
-    detailTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
+    detailTd.colSpan = 7;
+    detailTd.className = 'cy-detail-cell';
     detailTd.appendChild(buildAccessSection(cy, charList));
     detailTr.appendChild(detailTd);
 
     accessBtn.addEventListener('click', () => {
-      const open = detailTr.style.display !== 'none';
-      detailTr.style.display = open ? 'none' : '';
-      accessBtn.style.borderColor = open ? '' : 'var(--gold2)';
-      accessBtn.style.color = open ? '' : 'var(--gold2)';
+      const open = !detailTr.classList.contains('is-hidden');
+      detailTr.classList.toggle('is-hidden', open);
+      accessBtn.classList.toggle('is-active', !open);
     });
 
     // Publish Reports button
@@ -464,25 +686,25 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     publishBtn.className = 'btn-sm';
     publishBtn.textContent = 'Publish Reports';
     const publishResult = document.createElement('span');
-    publishResult.style.cssText = 'display:block;font-size:11px;margin-top:3px;color:var(--txt2)';
+    publishResult.className = 'cy-publish-result';
     tdPublish.appendChild(publishBtn);
     tdPublish.appendChild(publishResult);
     tr.appendChild(tdPublish);
 
     publishBtn.addEventListener('click', async () => {
       publishBtn.disabled = true;
-      publishResult.style.color = 'var(--txt2)';
+      publishResult.className = 'cy-publish-result';
       publishResult.textContent = 'Publishing…';
       try {
         const result = await apiPost('/api/downtime_cycles/' + cy._id + '/publish', {});
         if (result.published === 0) {
           publishResult.textContent = 'No compiled reports found.';
         } else {
-          publishResult.style.color = 'var(--gold2)';
+          publishResult.classList.add('is-ok');
           publishResult.textContent = result.published + ' report' + (result.published === 1 ? '' : 's') + ' published.';
         }
       } catch (err) {
-        publishResult.style.color = 'var(--crim)';
+        publishResult.classList.add('is-error');
         publishResult.textContent = 'Publish failed: ' + err.message;
       } finally {
         publishBtn.disabled = false;
@@ -498,18 +720,40 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
     tr.appendChild(tdAtt);
 
     const attendTr = document.createElement('tr');
-    attendTr.style.display = 'none';
+    attendTr.className = 'cy-detail-row is-hidden';
     const attendTd = document.createElement('td');
-    attendTd.colSpan = 6;
-    attendTd.style.cssText = 'padding:4px 12px 12px;background:var(--surf2)';
+    attendTd.colSpan = 7;
+    attendTd.className = 'cy-detail-cell';
     attendTd.appendChild(buildAttendanceSection(cy, sessions));
     attendTr.appendChild(attendTd);
 
     attBtn.addEventListener('click', () => {
-      const open = attendTr.style.display !== 'none';
-      attendTr.style.display = open ? 'none' : '';
-      attBtn.style.borderColor = open ? '' : 'var(--gold2)';
-      attBtn.style.color     = open ? '' : 'var(--gold2)';
+      const open = !attendTr.classList.contains('is-hidden');
+      attendTr.classList.toggle('is-hidden', open);
+      attBtn.classList.toggle('is-active', !open);
+    });
+
+    // Delete cycle
+    const tdDel = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-sm btn-danger';
+    delBtn.textContent = 'Delete';
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+
+    delBtn.addEventListener('click', async () => {
+      if (!confirm(`Delete cycle "${cy.label || cy._id}"? This cannot be undone.`)) return;
+      errMsg.classList.remove('is-visible');
+      delBtn.disabled = true;
+      try {
+        await deleteCycle(cy._id);
+        await refresh();
+      } catch (err) {
+        delBtn.disabled = false;
+        // 409 CYCLE_HAS_SUBMISSIONS surfaces here with the server message.
+        errMsg.textContent = err.message || 'Delete failed.';
+        errMsg.classList.add('is-visible');
+      }
     });
 
     tbody.appendChild(tr);
@@ -518,6 +762,7 @@ function buildCyclesPanel(cycles, chapters, charList = [], sessions = []) {
   });
 
   table.appendChild(tbody);
+  wrap.appendChild(errMsg);
   wrap.appendChild(table);
   return wrap;
 }

@@ -10384,3 +10384,113 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-form-msg--ok    { color: var(--green2); }
 .ec-form-msg--error { color: var(--crim); }
 .ec-form-msg--info  { color: var(--txt3); }
+
+/* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
+   Engine → Cycle: status ribbon, chapters/cycles panels, inline edit,
+   toggleable phases, add/delete. All tokens from theme.css; no inline styles. */
+
+.cy-section { margin-bottom: 32px; }
+.cy-section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cy-section-title {
+  margin: 0; font-family: var(--fh); font-size: 15px; letter-spacing: .04em;
+}
+.cy-muted { color: var(--txt3); font-size: 13px; }
+.cy-empty-cell { color: var(--txt3); padding: 8px; }
+
+.cy-error { color: var(--crim); font-size: 13px; margin: 4px 0 0; display: none; }
+.cy-error.is-visible { display: block; }
+.cy-error--inline.is-visible { display: inline; }
+
+/* Status ribbon */
+.cy-ribbon {
+  display: flex; flex-wrap: wrap; gap: 24px; align-items: center;
+  background: var(--surf1); border: 1px solid var(--bdr);
+  border-radius: 8px; padding: 12px 18px; margin-bottom: 24px;
+}
+.cy-ribbon-empty { color: var(--txt3); font-family: var(--ft); font-size: 14px; }
+.cy-ribbon-item { display: flex; flex-direction: column; gap: 4px; }
+.cy-ribbon-label {
+  font-family: var(--fl); font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--txt3);
+}
+.cy-ribbon-val { font-family: var(--fh); font-size: 15px; color: var(--txt); }
+.cy-ribbon-chip {
+  font-family: var(--fl); font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 4px; align-self: flex-start;
+  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt3);
+}
+.cy-phase--game       { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
+.cy-phase--downtime   { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
+.cy-phase--processing { background: var(--accent-a8);      color: var(--accent);      border-color: var(--accent-a40); }
+.cy-phase--none       { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
+
+/* Tables */
+.cy-table { width: 100%; margin-bottom: 8px; }
+.cy-col-num { width: 60px; }
+.cy-col-act { width: 80px; }
+.cy-col-phase { width: 240px; }
+.cy-col-chapter { width: 220px; }
+.cy-col-prep, .cy-col-pub, .cy-col-att { width: 110px; }
+.cy-col-del { width: 80px; }
+
+/* Buttons (extends .btn-sm) */
+.btn-danger { background: var(--crim); color: #fff; border-color: var(--crim); }
+.btn-danger:hover { background: var(--crim2); }
+.btn-muted { background: var(--surf2); color: var(--txt2); border-color: var(--bdr); }
+.btn-sm.is-active { border-color: var(--gold2); color: var(--gold2); }
+.btn-sm.is-hidden { display: none; }
+
+/* Inline add forms */
+.cy-inline-form { display: none; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.cy-inline-form.is-open { display: flex; }
+.cy-input-num { width: 90px; }
+.cy-input-grow { flex: 1; min-width: 220px; }
+
+/* Inline label edit */
+.cy-label-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cy-label-text { font-family: var(--ft); color: var(--txt); }
+.cy-label-input { min-width: 160px; }
+.cy-label-input.is-error { border-color: var(--crim); }
+.cy-icon-btn {
+  background: none; border: none; color: var(--txt3); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 3px;
+}
+.cy-icon-btn:hover { color: var(--accent); background: var(--surf2); }
+
+.cy-chapter-select { min-width: 180px; }
+
+/* Phase cell */
+.cy-phase-cell { white-space: nowrap; }
+.cy-phase-group { display: inline-flex; gap: 4px; }
+.cy-phase-btn {
+  font-size: 12px; padding: 4px 12px; border-radius: 4px; cursor: pointer;
+  background: var(--surf2); color: var(--accent); border: 1px solid var(--accent-a40);
+}
+.cy-phase-btn:hover { background: var(--surf3); }
+.cy-phase-btn.is-active { background: var(--accent-a8); border-color: var(--gold2); color: var(--gold2); font-weight: 600; }
+
+/* Detail rows (prep access / attendance) */
+.cy-detail-row.is-hidden { display: none; }
+.cy-detail-cell { padding: 4px 12px 12px; background: var(--surf2); }
+.cy-detail-scroll { padding: 8px 0 4px; max-height: 220px; overflow-y: auto; }
+.cy-check-label {
+  display: flex; align-items: center; gap: 8px; padding: 3px 0;
+  cursor: pointer; font-size: 13px;
+}
+
+/* Publish result text */
+.cy-publish-result { display: block; font-size: 11px; margin-top: 3px; color: var(--txt3); }
+.cy-publish-result.is-ok { color: var(--gold2); }
+.cy-publish-result.is-error { color: var(--crim); }
+
+/* Attendance */
+.cy-attend { padding: 8px 0 4px; }
+.cy-attend-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cy-attend-lbl { font-size: 13px; color: var(--txt2); }
+.cy-attend-select { padding: 3px 6px; font-size: 13px; }
+.cy-attend-table { width: 100%; font-size: 13px; }
+.cy-attend-empty { font-size: 13px; margin: 4px 0; }
+.cy-att-c { width: 60px; text-align: center; }
+.cy-att-xp { font-weight: 600; }
+.cy-att-total { font-weight: 700; border-top: 1px solid var(--bdr); }
