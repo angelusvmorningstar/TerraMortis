@@ -948,10 +948,11 @@ const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creatio
 
 function buildSaveBody(c) {
   // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
-  // and c.current (tracker-state namespace set by spliceCurrent — not a schema field).
+  // c.current (tracker-state namespace set by spliceCurrent — not a schema field),
+  // and c.derived (render-time materialised cache from ADR-006; never stored).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || k === 'current' || _LEGACY_FIELDS.has(k)) continue;
+    if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived' || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
   // N-1 (ADR-005 Rev 2, Concern #3): merit-level `_`-prefixed fields
