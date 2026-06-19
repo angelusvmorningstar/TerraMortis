@@ -38,7 +38,7 @@ import {
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -1166,7 +1166,7 @@ Object.assign(window, {
   shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating,
   shEditXP,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
 
   // Editor attributes & skills tab
   clickAttrDot,

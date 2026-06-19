@@ -74,6 +74,7 @@ import {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
@@ -954,10 +955,11 @@ const _DEPRECATED_FIELDS = new Set(['xp_total', 'xp_spent', 'xp_left']);
 
 function buildSaveBody(c) {
   // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, legacy v2 fields,
-  // deprecated derived fields (#837), and c.current (tracker-state namespace).
+  // deprecated derived fields (#837 — xp_total/xp_spent/xp_left), c.current (tracker-state
+  // namespace), and c.derived (render-time materialised cache from ADR-006; never stored).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || k === 'current'
+    if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived'
         || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
     body[k] = v;
   }
@@ -1385,6 +1387,7 @@ Object.assign(window, {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,
