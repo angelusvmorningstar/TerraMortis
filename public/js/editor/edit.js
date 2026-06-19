@@ -21,6 +21,10 @@ import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperU
 // alongside the server mirror; editor/sheet.js and suite/roll.js still
 // read from it via `getCatalogueEntry`.
 import { getCatalogueByBucket } from '../data/equipment-catalogue-cache.js';
+// #896: ST admin editor BYPASSES the availability filter (ST can assign any
+// item to any character) but still shows the per-character effective
+// availability in option labels for display consistency.
+import { effectiveAvailability } from '../data/equipment-derivation.js';
 import {
   shEditInflMerit, shEditContactSphere, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -1076,10 +1080,20 @@ export function shEquipBucketFilter() {
   const itemSel = document.getElementById('eq-add-item');
   if (!itemSel) return;
   const entries = bucket ? getCatalogueByBucket(bucket) : [];
+  // #896: append effective availability per the character being edited.
+  // ST admin BYPASSES the affordability gate — every option remains enabled
+  // regardless of whether the character could acquire it via DT — but the
+  // label still surfaces the effective number for consistency with player
+  // surfaces (sheet rows, DT dropdown).
+  const c = (state.editIdx != null && state.editIdx >= 0) ? state.chars[state.editIdx] : null;
   // ECM-5: option `value` is the catalogue ObjectId in 24-hex string form.
   // ECM-3's PUT/POST coercion hydrates it back to an ObjectId on the server.
   itemSel.innerHTML = '<option value="">-- select item --</option>'
-    + entries.map(e => `<option value="${String(e._id)}">${e.name}</option>`).join('');
+    + entries.map(e => {
+      const eff = (c && e.availability != null) ? effectiveAvailability(e, c) : null;
+      const availTag = eff != null ? ` (avail ${eff})` : '';
+      return `<option value="${String(e._id)}">${e.name}${availTag}</option>`;
+    }).join('');
 }
 
 export async function shAddEquip() {
