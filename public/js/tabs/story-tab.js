@@ -390,8 +390,13 @@ export function renderOutcomeWithCards(sub, opts = {}) {
     const title = sub.responses?.[`project_${n}_title`] || sub[`project_${n}_title`];
     if (!title) continue;
 
-    const resp     = responses[i]?.response || '';
     const rev      = resolved[i] || {};
+    // fix.916: DT Processing writes approved project outcomes to projects_resolved[i].outcome
+    // (+ outcome_confirmed), not to st_narrative.project_responses. Treat a confirmed outcome
+    // as recorded so the project shows its card instead of "Project withheld". An existing
+    // project_responses[i].response still takes precedence; unapproved drafts stay withheld.
+    const confirmedOutcome = (rev.outcome_confirmed && rev.outcome?.trim()) ? rev.outcome.trim() : '';
+    const resp     = responses[i]?.response?.trim() || confirmedOutcome;
     const actType  = rev.action_type || sub.responses?.[`project_${n}_action`] || sub[`project_${n}_action`] || '';
     const typeLabel = ACTION_TYPE_LABELS[actType] || actType;
 
