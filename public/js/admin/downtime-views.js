@@ -2359,8 +2359,7 @@ function _feedTerrIdsForSub(sub) {
   const ids = new Set();
   for (const [slug, val] of Object.entries(parsed)) {
     if (!val || val === 'none' || val === 'Not feeding here') continue;
-    const id = resolveTerrId(slug);
-    if (id) ids.add(id);
+    ids.add(slug); // keys are already slugs; resolveTerrId(OID→slug) is wrong direction
   }
   return [...ids];
 }
@@ -3663,7 +3662,7 @@ async function recomputeDisciplineProfile() {
     try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
     const active = Object.entries(feedTerrs)
       .filter(([, v]) => v && v !== 'none')
-      .map(([k]) => slugToOid.get(resolveTerrId(k)))
+      .map(([k]) => slugToOid.get(k)) // keys are already slugs; resolveTerrId(OID→slug) is wrong direction
       .filter(Boolean);
     if (!active.length) continue;
     const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
