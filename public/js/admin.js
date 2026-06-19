@@ -74,7 +74,7 @@ import {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks,
   getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
@@ -1387,7 +1387,7 @@ Object.assign(window, {
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
-  shAddEquip, shRemoveEquip, shEquipBucketFilter, shAddAsset, shRemoveAsset,
+  shAddEquip, shRemoveEquip, shEquipBucketFilter,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

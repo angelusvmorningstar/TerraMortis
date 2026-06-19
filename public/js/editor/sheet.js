@@ -2199,13 +2199,13 @@ export function shRenderManoeuvres(c, editMode) {
   return h;
 }
 
-// ── Equipment & Assets renderer (EQ-2, issue #656) ───────────────────────────
-// Renders catalogue-ref equipment[] and freeform assets[] read-only.
+// ── Equipment renderer (EQ-2, issue #656) ────────────────────────────────────
+// Renders catalogue-ref equipment[]. All four buckets (weapon/armour/equipment/asset)
+// flow through the same array as of 2026-06-19 (character.assets[] retired).
 // Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
-  const assets = c.assets    || [];
-  if (!editMode && !equip.length && !assets.length) return '';
+  if (!editMode && !equip.length) return '';
 
   const STATE_LABELS = { carried: 'Carried', worn: 'Worn', stashed: 'Stashed', lost: 'Lost', active: 'Active' };
   const DMGTYPE      = { lethal: 'Lethal', bashing: 'Bashing', aggravated: 'Aggravated' };
@@ -2213,10 +2213,10 @@ export function shRenderEquipment(c, editMode) {
   const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
   const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
 
-  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment &amp; Assets</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
   // Group equipment items by bucket, preserving flat-array index for remove buttons
-  const byBucket = { weapon: [], armour: [], equipment: [] };
+  const byBucket = { weapon: [], armour: [], equipment: [], asset: [] };
   for (let i = 0; i < equip.length; i++) {
     const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
@@ -2298,30 +2298,34 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Assets ──
-  if (assets.length) {
+  // ── Assets (catalogue-backed since 2026-06-19) ──
+  if (byBucket.asset.length) {
     h += '<div class="sh-sub-title">Assets</div>';
-    for (let ai = 0; ai < assets.length; ai++) {
-      const asset  = assets[ai];
-      const meta   = [
-        asset.location          || null,
-        asset.mechanical_effect || null,
-        cycleLabel(asset.acquired_cycle),
-        asset.notes             || null,
-      ].filter(Boolean).join(' · ');
-      const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveAsset(${ai})" title="Remove">× Remove</button>` : '';
+    for (const { item, entry, idx } of byBucket.asset) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const parts = [
+        entry.mechanical_effect || null,
+        eff != null ? `avail ${eff}` : null,
+        cycleLabel(item.acquired_cycle),
+      ].filter(Boolean);
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
       h += `<div class="merit-plain"><div class="trait-row">` +
-        `<div class="trait-main"><span class="trait-name">${esc(asset.name)}</span><div class="trait-right"><span class="gen-granted-tag-view">Asset</span>${rmBtn}</div></div>` +
-        `<div class="trait-sub"><span class="trait-qual">${esc(asset.description)}</span></div>` +
-        (meta ? `<div class="trait-sub"><span class="trait-qual dim">${esc(meta)}</span></div>` : '') +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (entry.description ? `<div class="trait-sub"><span class="trait-qual">${esc(entry.description)}</span></div>` : '') +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual dim">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
         `</div></div>`;
     }
   }
 
-  // ── Edit-mode add forms ──
+  // ── Edit-mode add form ──
+  // 2026-06-19: single add form covers all four buckets (weapon/armour/equipment/asset).
+  // Asset is now in the bucket dropdown; the separate free-text "Add Asset" form is gone
+  // along with character.assets[] — catalogue-ref is the single canonical storage shape.
   if (editMode) {
     const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
-    const BUCKETS  = ['weapon', 'armour', 'equipment'];
+    const BUCKETS  = ['weapon', 'armour', 'equipment', 'asset'];
     const defCycle = state.activeCycleNum ?? 0;
 
     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
@@ -2337,17 +2341,6 @@ export function shRenderEquipment(c, editMode) {
       + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
       + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
       + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'
-      + '</div>';
-
-    h += '<div class="sh-sub-title" style="margin-top:6px">Add Asset</div>';
-    h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
-      + '<input id="asset-add-name"  type="text" placeholder="Name*"         class="spec-input" style="width:120px">'
-      + '<input id="asset-add-desc"  type="text" placeholder="Description*"  class="spec-input" style="width:150px">'
-      + '<input id="asset-add-loc"   type="text" placeholder="Location"      class="spec-input" style="width:100px">'
-      + '<input id="asset-add-mech"  type="text" placeholder="Mech effect"   class="spec-input" style="width:120px">'
-      + `<input id="asset-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
-      + '<input id="asset-add-notes" type="text" placeholder="Notes"         class="spec-input" style="width:100px">'
-      + '<button class="sk-spec-add" onclick="shAddAsset()">Add</button>'
       + '</div>';
   }
 
