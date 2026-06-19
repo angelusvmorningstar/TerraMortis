@@ -508,6 +508,8 @@ function buildLabelCell(cy) {
 
   function renderView() {
     td.innerHTML = '';
+    const inner = document.createElement('div');
+    inner.className = 'cy-label-inner';
     const span = document.createElement('span');
     span.className = 'cy-label-text';
     span.textContent = cy.label || String(cy._id);
@@ -516,12 +518,15 @@ function buildLabelCell(cy) {
     editBtn.title = 'Edit label';
     editBtn.textContent = '✎';
     editBtn.addEventListener('click', renderEdit);
-    td.appendChild(span);
-    td.appendChild(editBtn);
+    inner.appendChild(span);
+    inner.appendChild(editBtn);
+    td.appendChild(inner);
   }
 
   function renderEdit() {
     td.innerHTML = '';
+    const inner = document.createElement('div');
+    inner.className = 'cy-label-inner';
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'form-input cy-label-input';
@@ -552,9 +557,10 @@ function buildLabelCell(cy) {
       else if (e.key === 'Escape') renderView();
     });
 
-    td.appendChild(input);
-    td.appendChild(save);
-    td.appendChild(cancel);
+    inner.appendChild(input);
+    inner.appendChild(save);
+    inner.appendChild(cancel);
+    td.appendChild(inner);
     input.focus();
     input.select();
   }

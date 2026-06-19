@@ -10435,8 +10435,15 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .cy-col-del { width: 80px; }
 
 /* Buttons (extends .btn-sm) */
-.btn-danger { background: var(--crim); color: #fff; border-color: var(--crim); }
+.btn-danger { background: var(--crim); color: var(--txt-on-dark); border-color: var(--crim); }
 .btn-danger:hover { background: var(--crim2); }
+/* Parchment override: the light-mode `.btn-sm` rule (color:var(--txt)) outranks
+   the plain .btn-danger above, so re-assert crimson + cream text in light mode. */
+html:not([data-theme="dark"]) .btn-danger {
+  background: var(--crim);
+  color: var(--txt-on-dark);
+  border-color: var(--crim);
+}
 .btn-muted { background: var(--surf2); color: var(--txt2); border-color: var(--bdr); }
 .btn-sm.is-active { border-color: var(--gold2); color: var(--gold2); }
 .btn-sm.is-hidden { display: none; }
@@ -10447,8 +10454,10 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .cy-input-num { width: 90px; }
 .cy-input-grow { flex: 1; min-width: 220px; }
 
-/* Inline label edit */
-.cy-label-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Inline label edit — keep the td a real table-cell (so its row border lines
+   up with sibling cells); the flex lives on an inner wrapper. */
+.cy-label-cell { vertical-align: middle; }
+.cy-label-inner { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cy-label-text { font-family: var(--ft); color: var(--txt); }
 .cy-label-input { min-width: 160px; }
 .cy-label-input.is-error { border-color: var(--crim); }
