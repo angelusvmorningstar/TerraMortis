@@ -103,6 +103,19 @@ const SUB_SPHERE = {
   ],
 };
 
+// AC-2b: Status — desired outcome shown as description
+const SUB_STATUS = {
+  ...baseSub('sub-907-status'),
+  responses: {
+    status_1_merit:   'Status (Invictus)',
+    status_1_action:  'misc',
+    status_1_outcome: 'Attend the Elysium and make an impression.',
+  },
+  merit_actions_resolved: [
+    { pool_status: 'confirmed', outcome: 'Your attendance was noted by several Priscii.', outcome_confirmed: true },
+  ],
+};
+
 // AC-3: Retainer — task text shown as description
 const SUB_RETAINER = {
   ...baseSub('sub-907-retainer'),
@@ -219,6 +232,17 @@ test.describe('feat.907: player merit summary shows submitted description', () =
     await expect(desc).toBeVisible();
     await expect(desc).toContainText('Send someone to watch the harbour entrance.');
     await expect(meritSection).toContainText('Your allies deployed as requested.');
+  });
+
+  test('AC-2b: Status — desired outcome shown as description before ST outcome', async ({ page }) => {
+    await setupPlayerStory(page, [SUB_STATUS]);
+    await expandPastOutcome(page);
+    const meritSection = page.locator('.merit-summary-section');
+    await expect(meritSection).toBeVisible({ timeout: 5000 });
+    const desc = meritSection.locator('.merit-summary-description').first();
+    await expect(desc).toBeVisible();
+    await expect(desc).toContainText('Attend the Elysium');
+    await expect(meritSection).toContainText('attendance was noted');
   });
 
   test('AC-3: Retainer — task description shown before ST outcome', async ({ page }) => {
