@@ -3649,9 +3649,16 @@ function buildProcessingQueue(subs) {
  */
 async function recomputeDisciplineProfile() {
   await ensureTerritories();
+  // Build slug→OID using TERRITORY_DATA canonical slugs as keys so MongoDB slug
+  // variants (e.g. 'the_academy' vs 'academy') are bridged via TERRITORY_SLUG_MAP.
   const slugToOid = new Map();
-  for (const t of (cachedTerritories || [])) {
-    if (t.slug) slugToOid.set(t.slug, String(t._id));
+  for (const td of TERRITORY_DATA) {
+    const cached = (cachedTerritories || []).find(
+      t => t.slug === td.slug
+        || (t.slug && TERRITORY_SLUG_MAP[t.slug] === td.slug)
+        || t.name === td.name
+    );
+    if (cached) slugToOid.set(td.slug, String(cached._id));
   }
 
   const profile = {};
@@ -3662,7 +3669,11 @@ async function recomputeDisciplineProfile() {
     try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
     const active = Object.entries(feedTerrs)
       .filter(([, v]) => v && v !== 'none')
-      .map(([k]) => slugToOid.get(k)) // keys are already slugs; resolveTerrId(OID→slug) is wrong direction
+      .map(([k]) => {
+        // Normalise any slug variant to the canonical TERRITORY_DATA slug before OID lookup
+        const canon = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, k) ? TERRITORY_SLUG_MAP[k] : k;
+        return canon ? slugToOid.get(canon) : null;
+      })
       .filter(Boolean);
     if (!active.length) continue;
     const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
@@ -11831,9 +11842,18 @@ function _resolveProjectTerritory(sub, projIdx) {
   const overrides = sub.st_review?.territory_overrides || {};
   if (overrides[projIdx]) return overrides[projIdx];
   const n = projIdx + 1;
-  const formVal = sub.responses?.[`project_${n}_territory`];
+  const resp = sub.responses || {};
+  // dt-form.25+: ambience actions write a slug to project_N_ambience_target;
+  // project_N_territory is no longer set for ambience rows.
+  const ambienceTarget = resp[`project_${n}_ambience_target`];
+  if (ambienceTarget) {
+    const id = TERRITORY_SLUG_MAP[ambienceTarget] ?? ambienceTarget;
+    if (id) return id;
+  }
+  // Other project types write an OID to project_N_territory (since #496.2).
+  const formVal = resp[`project_${n}_territory`];
   if (formVal) {
-    const id = resolveTerrId(formVal);
+    const id = resolveTerrId(formVal) || (TERRITORY_SLUG_MAP[formVal] ?? null);
     if (id) return id;
   }
   const raw = sub._raw || {};
@@ -12250,10 +12270,16 @@ export function renderCityOverview() {
     if (!discDashCollapsed) {
       // discipline_profile is _id-keyed post-ADR-002; build slug→_id resolver to
       // bridge between the cycle data (keyed by _id) and TERRITORY_DATA iteration
-      // (keyed by slug).
+      // (keyed by slug). Uses the same TERRITORY_DATA-canonical approach as
+      // recomputeDisciplineProfile so columns appear for all territories.
       const slugToOid = new Map();
-      for (const t of (cachedTerritories || [])) {
-        if (t.slug) slugToOid.set(t.slug, String(t._id));
+      for (const td of TERRITORY_DATA) {
+        const cached = (cachedTerritories || []).find(
+          t => t.slug === td.slug
+            || (t.slug && TERRITORY_SLUG_MAP[t.slug] === td.slug)
+            || t.name === td.name
+        );
+        if (cached) slugToOid.set(td.slug, String(cached._id));
       }
       const discSet = new Set(), terrOidSet = new Set();
       for (const [terrOid, discs] of Object.entries(profile)) {
