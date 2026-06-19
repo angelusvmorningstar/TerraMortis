@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const ROUTE  = fs.readFileSync('server/routes/office-actions.js',  'utf8');
-const SCHEMA = fs.readFileSync('server/schemas/office_action.schema.js', 'utf8');
-const INDEX  = fs.readFileSync('server/index.js', 'utf8');
-const TAB    = fs.readFileSync('public/js/tabs/office-tab.js', 'utf8');
-const STATUS = fs.readFileSync('public/js/suite/status.js', 'utf8');
-const CSS    = fs.readFileSync('public/css/suite.css', 'utf8');
+// Test runs with cwd=server/. Use REPO_ROOT pattern to make path resolution
+// independent of cwd (matches the issue-879 et al. convention).
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+
+const ROUTE  = read('server/routes/office-actions.js');
+const SCHEMA = read('server/schemas/office_action.schema.js');
+const INDEX  = read('server/index.js');
+const TAB    = read('public/js/tabs/office-tab.js');
+const STATUS = read('public/js/suite/status.js');
+const CSS    = read('public/css/suite.css');
 
 // ── Route ──────────────────────────────────────────────────────────────────
 
