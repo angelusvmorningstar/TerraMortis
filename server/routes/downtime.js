@@ -554,6 +554,28 @@ cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// DELETE /api/downtime_cycles/:id — ST only.
+// Hard-delete guarded by the submission count: a cycle that owns
+// downtime_submissions cannot be deleted (it would orphan player data).
+// Returns 409 CYCLE_HAS_SUBMISSIONS so the client can surface a clear message.
+// Empty cycles (e.g. the test-residue "Test Cycle" docs) delete cleanly.
+cyclesRouter.delete('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const subCount = await getCollection('downtime_submissions').countDocuments({ cycle_id: oid });
+  if (subCount > 0) {
+    return res.status(409).json({
+      error: 'CYCLE_HAS_SUBMISSIONS',
+      message: `Cycle has ${subCount} submission${subCount === 1 ? '' : 's'}; remove or reassign them before deleting.`,
+    });
+  }
+
+  const result = await cycles().deleteOne({ _id: oid });
+  if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  res.json({ deleted: true });
+});
+
 // POST /api/downtime_cycles/:id/publish — ST only; bulk-promote compiled DT reports
 cyclesRouter.post('/:id/publish', requireRole('st'), async (req, res) => {
   const cycleOid = parseId(req.params.id);
