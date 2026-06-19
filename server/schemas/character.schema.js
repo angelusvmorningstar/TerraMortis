@@ -331,25 +331,12 @@ export const characterSchema = {
       },
     },
 
-    // ── Assets (EQ-1, issue #654) ─────────────────────────────
-    // Annotation-first; mechanical_effect hook reserved for future rule integration.
-    assets: {
-      type: 'array',
-      default: [],
-      items: {
-        type: 'object',
-        required: ['name', 'description', 'acquired_cycle'],
-        properties: {
-          name:              { type: 'string' },
-          description:       { type: 'string' },
-          location:          { type: ['string', 'null'] },
-          mechanical_effect: { type: ['string', 'null'] },
-          acquired_cycle:    { type: 'integer', minimum: 0 },
-          notes:             { type: ['string', 'null'] },
-        },
-        additionalProperties: false,
-      },
-    },
+    // ── Assets ────────────────────────────────────────────────
+    // REMOVED 2026-06-19 — consolidated into equipment[] via the catalogue's
+    // bucket: 'asset' items (Vehicle (Luxury), Safe House, etc.). The previous
+    // free-text assets[] storage shape collided with the catalogue's 'asset'
+    // bucket name and split asset-class items across two arrays. Equipment[]
+    // is the single home for all bucket types now. See chat 2026-06-19.
 
     // ── XP log ────────────────────────────────────────────────
     xp_log: {
