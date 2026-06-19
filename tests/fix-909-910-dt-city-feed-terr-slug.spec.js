@@ -103,6 +103,41 @@ const SUB_AMBIENCE_PROJECT = {
   st_review: { territory_overrides: { 0: 'northshore' } },
 };
 
+// Submissions: ambience projects with terminal statuses (AC-3b/3c/3d — Bug B coverage)
+// These use the ST territory override so territory resolution is independent of Bug C.
+const SUB_AMBIENCE_OBVIOUS = {
+  ...SUB_AMBIENCE_PROJECT,
+  _id: 'sub-912-obvious',
+  projects_resolved: [{ pool_status: 'obvious', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: { successes: 3, exceptional: false } }],
+};
+const SUB_AMBIENCE_NEUTRAL = {
+  ...SUB_AMBIENCE_PROJECT,
+  _id: 'sub-912-neutral',
+  projects_resolved: [{ pool_status: 'neutral', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: { successes: 2, exceptional: false } }],
+};
+const SUB_AMBIENCE_SUBTLE = {
+  ...SUB_AMBIENCE_PROJECT,
+  _id: 'sub-912-subtle',
+  projects_resolved: [{ pool_status: 'subtle', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: { successes: 1, exceptional: false } }],
+};
+
+// Submission: ambience_target slug field, no ST territory override (AC-3e — Bug C coverage)
+const SUB_AMBIENCE_TARGET_SLUG = {
+  _id: 'sub-912-ambtarget',
+  cycle_id: 'cycle-909',
+  character_name: 'Feeder Test',
+  character_id: 'char-909',
+  player_name: 'Feeder Player',
+  submitted_at: '2026-06-19T00:00:00Z',
+  _raw: { projects: [{ action_type: 'ambience_change', desired_outcome: 'Raise ambience', detail: 'Presence + Majesty' }], feeding: {}, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
+  // dt-form.25+: ambience rows write project_N_ambience_target (slug), NOT project_N_territory
+  responses: { project_1_action: 'ambience_change', project_1_ambience_target: 'northshore' },
+  projects_resolved: [{ pool_status: 'validated', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: { successes: 2, exceptional: false } }],
+  feeding_review: { pool_status: 'no_feed' },
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} }, // no override — must resolve via ambience_target
+};
+
 // Submission: no_feed — should be excluded from feeders (AC-4)
 const SUB_NO_FEED = {
   _id: 'sub-909-nofeed',
@@ -137,8 +172,9 @@ const SUB_TERR_NONE = {
 
 // ── Setup helpers ───────────────────────────────────────────────────────────────
 
-async function setup(page, submissions, cycleOverride) {
+async function setup(page, submissions, cycleOverride, terrsOverride) {
   const cycle = cycleOverride || BASE_CYCLE;
+  const terrs = terrsOverride || ALL_TERRS;
   await page.addInitScript(({ user }) => {
     localStorage.setItem('tm_auth_token', 'local-test-token');
     localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
@@ -155,7 +191,7 @@ async function setup(page, submissions, cycleOverride) {
     if (url.includes('/api/downtime_cycles'))      return ok([cycle]);
     if (url.includes('/api/characters/names'))     return ok([{ _id: CHAR._id, name: CHAR.name, moniker: null, honorific: null }]);
     if (url.includes('/api/characters'))           return ok([CHAR]);
-    if (url.includes('/api/territories'))          return ok(ALL_TERRS);
+    if (url.includes('/api/territories'))          return ok(terrs);
     if (url.includes('/api/game_sessions'))        return ok([]);
     if (url.includes('/api/session_logs'))         return ok([]);
     return ok([]);
@@ -192,7 +228,7 @@ async function openPulsePrompt(page, territoryName) {
 
 test.describe('fix.909: Retally counts disciplines from feeding submissions', () => {
 
-  test('AC-1: Retally PATCH body includes Majesty under North Shore OID for validated feeding', async ({ page }) => {
+  test('AC-1: Retally PUT body includes Majesty under North Shore OID for validated feeding', async ({ page }) => {
     await setup(page, [SUB_FEEDING_MAJESTY]);
     await navigateToCityPhase(page);
 
@@ -291,6 +327,165 @@ test.describe('fix.909 regression: project-action disciplines still count', () =
     expect(profile).toBeTruthy();
     expect(profile['terr-ns-909']).toBeTruthy();
     expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── AC-3b/3c/3d (#912 Bug B): 'obvious', 'neutral', 'subtle' pool_status counted ──
+
+test.describe('fix.912 Bug B: ambience projects with terminal non-validated statuses still count', () => {
+
+  test('AC-3b: pool_status "obvious" counts Majesty in discipline profile', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_OBVIOUS]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    expect(profile['terr-ns-909']).toBeTruthy();
+    expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+  test('AC-3c: pool_status "neutral" counts Majesty in discipline profile', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_NEUTRAL]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    expect(profile['terr-ns-909']).toBeTruthy();
+    expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+  test('AC-3d: pool_status "subtle" counts Majesty in discipline profile', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_SUBTLE]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    expect(profile['terr-ns-909']).toBeTruthy();
+    expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── AC-3e (#912 Bug C): project_N_ambience_target read for territory ─────────────
+
+test.describe('fix.912 Bug C: project_N_ambience_target resolves territory for ambience rows', () => {
+
+  test('AC-3e: ambience project with project_1_ambience_target slug (no override) resolves Majesty to North Shore', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_TARGET_SLUG]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    // territory must resolve to terr-ns-909 via ambience_target slug 'northshore'
+    expect(profile['terr-ns-909']).toBeTruthy();
+    expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── AC-3f: pool_status 'resolved' is counted (#912 Bug B) ───────────────────────
+
+test.describe('fix.912 Bug B: pool_status "resolved" also counted in discipline profile', () => {
+
+  const SUB_AMBIENCE_RESOLVED = {
+    ...SUB_AMBIENCE_PROJECT,
+    _id: 'sub-912-resolved',
+    projects_resolved: [{ pool_status: 'resolved', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: { successes: 2, exceptional: false } }],
+  };
+
+  test('AC-3f: pool_status "resolved" counts Majesty in discipline profile', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_RESOLVED]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    expect(profile['terr-ns-909']).toBeTruthy();
+    expect(profile['terr-ns-909']['Majesty']).toBeGreaterThanOrEqual(1);
+  });
+
+});
+
+// ── AC-3g: excluded pool_status values produce no discipline entries (#912 Bug B) ─
+
+test.describe('fix.912 Bug B: excluded pool_status values do not count', () => {
+
+  const SUB_AMBIENCE_SKIPPED = {
+    ...SUB_AMBIENCE_PROJECT,
+    _id: 'sub-912-skipped',
+    projects_resolved: [{ pool_status: 'skipped', pool_validated: 'Presence 3 + Expression 2 + Majesty 3 = 8', action_type: 'ambience_change', roll: null }],
+  };
+
+  test('AC-3g: pool_status "skipped" does not contribute to discipline profile', async ({ page }) => {
+    await setup(page, [SUB_AMBIENCE_SKIPPED]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    // Profile may be empty or have an initialised entry, but must contain no Majesty count
+    const terrEntry = (profile || {})['terr-ns-909'] || {};
+    expect(terrEntry['Majesty'] || 0).toBe(0);
+  });
+
+});
+
+// ── AC-3h: legacy MongoDB slug alias resolves via TERRITORY_SLUG_MAP (#912 Bug A) ─
+
+test.describe('fix.912 Bug A: TERRITORY_SLUG_MAP alias path resolves legacy MongoDB slugs', () => {
+
+  // Territory stored with legacy slug 'the_north_shore' instead of canonical 'northshore'.
+  // T1's fix: iterates cachedTerritories → sets both 'the_north_shore' and 'northshore' → same OID.
+  const TERR_NS_LEGACY = { _id: 'terr-ns-leg-912', slug: 'the_north_shore', name: 'The North Shore', ambience: 'Tended', feeding_rights: [], regent_id: null, lieutenant_id: null };
+
+  const SUB_FEED_LEGACY_TERR = {
+    ...SUB_FEEDING_MAJESTY,
+    _id: 'sub-912-legacyterr',
+    responses: { feeding_territories: '{"northshore": "feeding_rights"}', feeding_method: 'seduction' },
+  };
+
+  test('AC-3h: territory with legacy slug "the_north_shore" still resolves Majesty feed to correct OID', async ({ page }) => {
+    await setup(page, [SUB_FEED_LEGACY_TERR], undefined, [TERR_NS_LEGACY, TERR_SC]);
+    await navigateToCityPhase(page);
+    await page.waitForSelector('#disc-retally-btn', { timeout: 8000 });
+    const putPromise = page.waitForRequest(req =>
+      req.method() === 'PUT' && req.url().includes('/api/downtime_cycles/')
+    );
+    await page.click('#disc-retally-btn');
+    const putReq = await putPromise;
+    const profile = putReq.postDataJSON()?.discipline_profile;
+    expect(profile).toBeTruthy();
+    // OID is 'terr-ns-leg-912' — the alias path must map 'northshore' → this OID
+    expect(profile['terr-ns-leg-912']).toBeTruthy();
+    expect(profile['terr-ns-leg-912']['Majesty']).toBeGreaterThanOrEqual(1);
   });
 
 });
