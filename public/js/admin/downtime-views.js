@@ -3649,16 +3649,23 @@ function buildProcessingQueue(subs) {
  */
 async function recomputeDisciplineProfile() {
   await ensureTerritories();
-  // Build slug→OID using TERRITORY_DATA canonical slugs as keys so MongoDB slug
-  // variants (e.g. 'the_academy' vs 'academy') are bridged via TERRITORY_SLUG_MAP.
+  // Build slug→OID by iterating cachedTerritories directly so the map is populated
+  // regardless of whether MongoDB slugs exactly match TERRITORY_DATA entries.
+  // TERRITORY_SLUG_MAP aliases ensure canonical slugs resolve even when the DB carries
+  // a legacy variant (e.g. 'the_north_shore' → 'northshore').
   const slugToOid = new Map();
-  for (const td of TERRITORY_DATA) {
-    const cached = (cachedTerritories || []).find(
-      t => t.slug === td.slug
-        || (t.slug && TERRITORY_SLUG_MAP[t.slug] === td.slug)
-        || t.name === td.name
-    );
-    if (cached) slugToOid.set(td.slug, String(cached._id));
+  for (const t of (cachedTerritories || [])) {
+    if (!t._id) continue;
+    const oid = String(t._id);
+    if (t.slug) {
+      slugToOid.set(t.slug, oid);
+      const canonical = TERRITORY_SLUG_MAP[t.slug];
+      if (canonical && !slugToOid.has(canonical)) slugToOid.set(canonical, oid);
+    }
+    if (t.name) {
+      const byName = TERRITORY_SLUG_MAP[t.name];
+      if (byName && !slugToOid.has(byName)) slugToOid.set(byName, oid);
+    }
   }
 
   const profile = {};
@@ -3686,10 +3693,13 @@ async function recomputeDisciplineProfile() {
   }
   // Also scan territory-relevant project actions: ambience and rote feed
   // Rote feed (+1, or +2 exceptional) and ambience (+1, or +2 exceptional)
+  // 'obvious', 'neutral', 'subtle': terminal ambience resolution statuses (shown as "Complete"
+  // in the action ribbon). 'resolved': ST manually resolved without a roll outcome.
+  const DISC_PROJECT_STATUSES = new Set(['validated', 'obvious', 'neutral', 'subtle', 'resolved']);
   for (const sub of submissions) {
     for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
       if (!proj?.pool_validated) continue;
-      if (proj.pool_status !== 'validated') continue;
+      if (!DISC_PROJECT_STATUSES.has(proj.pool_status)) continue;
       const actionType = proj.action_type_override || proj.action_type;
       // Issue #129: accept canonical 'ambience_change' alongside legacy aliases.
       const isAmbience = _isAmbienceAction(actionType);
@@ -11834,8 +11844,9 @@ const COMPETING_ACTIONS = ['increase ambience', 'decrease ambience', 'ambience',
 /**
  * Resolve territory for a project action. Priority:
  * 1. ST override saved to st_review.territory_overrides[projIdx]
- * 2. App form field: sub.responses.project_N_territory
- * 3. Free-text scan of description
+ * 2. Ambience target slug: sub.responses.project_N_ambience_target (dt-form.25+)
+ * 3. App form OID field: sub.responses.project_N_territory (non-ambience since #496.2)
+ * 4. Free-text scan of description
  * Returns a TERRITORY_DATA id (e.g. 'academy') or null if unknown.
  */
 function _resolveProjectTerritory(sub, projIdx) {
@@ -12270,16 +12281,21 @@ export function renderCityOverview() {
     if (!discDashCollapsed) {
       // discipline_profile is _id-keyed post-ADR-002; build slug→_id resolver to
       // bridge between the cycle data (keyed by _id) and TERRITORY_DATA iteration
-      // (keyed by slug). Uses the same TERRITORY_DATA-canonical approach as
-      // recomputeDisciplineProfile so columns appear for all territories.
+      // (keyed by slug). Iterates cachedTerritories directly so the map is populated
+      // regardless of whether MongoDB slugs exactly match TERRITORY_DATA entries.
       const slugToOid = new Map();
-      for (const td of TERRITORY_DATA) {
-        const cached = (cachedTerritories || []).find(
-          t => t.slug === td.slug
-            || (t.slug && TERRITORY_SLUG_MAP[t.slug] === td.slug)
-            || t.name === td.name
-        );
-        if (cached) slugToOid.set(td.slug, String(cached._id));
+      for (const t of (cachedTerritories || [])) {
+        if (!t._id) continue;
+        const oid = String(t._id);
+        if (t.slug) {
+          slugToOid.set(t.slug, oid);
+          const canonical = TERRITORY_SLUG_MAP[t.slug];
+          if (canonical && !slugToOid.has(canonical)) slugToOid.set(canonical, oid);
+        }
+        if (t.name) {
+          const byName = TERRITORY_SLUG_MAP[t.name];
+          if (byName && !slugToOid.has(byName)) slugToOid.set(byName, oid);
+        }
       }
       const discSet = new Set(), terrOidSet = new Set();
       for (const [terrOid, discs] of Object.entries(profile)) {
