@@ -47,7 +47,6 @@ import {
   clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
-import { xpLeft } from './editor/xp.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
 import { renderCharPools } from './game/char-pools.js';
 import { renderMapStageHtml } from './components/map-overlay.js';
@@ -1079,7 +1078,7 @@ document.addEventListener('click', () => {
 
 registerEditCallbacks(markDirty, editorRenderSheet);
 registerExportCallbacks(renderList, updDirtyBadge);
-registerIdentityCallbacks(markDirty, xpLeft);
+registerIdentityCallbacks(markDirty);
 registerAttrsCallbacks(markDirty);
 
 // Wire up suite import callbacks
