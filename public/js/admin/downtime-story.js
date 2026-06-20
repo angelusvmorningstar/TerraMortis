@@ -3070,7 +3070,10 @@ function _feedTerrEntries(sub) {
   const raw = parseFeedingTerritories(sub)
     .filter(([, v]) => v && v !== 'none' && v !== 'Not feeding here')
     .map(([slug]) => {
-      const rawId = TERRITORY_SLUG_MAP[slug];
+      // #922: post-ADR-002 grid keys are Mongo _ids, absent from TERRITORY_SLUG_MAP;
+      // fall back to resolveTerrId (_id -> slug via _currentTerritories) so real
+      // territories don't collapse to The Barrens. Legacy slug keys still hit the map first.
+      const rawId = TERRITORY_SLUG_MAP[slug] || resolveTerrId(slug);
       return { slug, id: rawId || 'barrens', name: (rawId && TERRITORY_DISPLAY[rawId]) || 'The Barrens' };
     });
   // Deduplicate by id
