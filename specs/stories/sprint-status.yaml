@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-06-20 (issue-918 cycle-tab-management implemented, review)
+# last_updated: 2026-06-20 (issue-922 dt-story-feeding-territory-barrens implemented, review)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -879,3 +879,5 @@ development_status:
   proto-16-dt-processing-st-review-touched-at: done               # Write-back: co-save st_review.st_review_touched_at ISO timestamp in every saveEntryReview call; atomic with source-specific update; D1 gap closure
 
   issue-918-cycle-tab-management: review                          # Cycle tab: inline edit label/chapter, status ribbon, toggleable phases (incl. clear-to-neutral), add cycle, delete cycle + new server DELETE route
+
+  issue-922-dt-story-feeding-territory-barrens: review             # RE-SCOPED post-QA: Einar's feeding-tab complaint already fixed by #920 on main. This fixes the live Territory Pulse drop in compilePushOutcome (_feedTerrEntries _id keys collapsed real territories to barrens → pulse skipped). One-line resolveTerrId fallback; QA spec 3/3 pass red-green
