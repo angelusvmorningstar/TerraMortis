@@ -50,7 +50,24 @@ let publishedFeedingText = null; // extracted Feeding section from published_out
 let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
 let vitateTally = null; // feeding_vitae_tally from ST processing
+let _liveTerrDocs = []; // cached from /api/territories — used by territory-key lookups (2026-06-20)
 const _stConfirmed = {}; // charId → {vitae, infSpent} — persists within session
+
+// Resolve a feeding_territories grid key (slug OR ObjectId hex string) to a
+// TERRITORY_DATA entry. After the territory-FK migration the grid keys are
+// ObjectId strings; pre-migration data may still carry slugs. Tries _id first
+// then slug. Returns the TERRITORY_DATA entry (slug-keyed shape) when found.
+function _resolveTerrKey(tid) {
+  if (!tid) return null;
+  // 1) Look up live doc by _id, then map back to TERRITORY_DATA via slug.
+  const live = _liveTerrDocs.find(d => String(d._id) === tid);
+  if (live?.slug) {
+    const t = TERRITORY_DATA.find(td => td.slug === live.slug);
+    if (t) return t;
+  }
+  // 2) Fall back to direct slug match (pre-migration data + any string-keyed entries).
+  return TERRITORY_DATA.find(td => td.slug === tid || tid.includes?.(td.slug)) || null;
+}
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -80,6 +97,7 @@ export async function renderFeedingTab(el, char) {
   // Fetch live territory ambience from DB (used by computeVitateTally)
   let liveTerrDocs = [];
   try { liveTerrDocs = await apiGet('/api/territories'); } catch { /* fall back to hardcoded */ }
+  _liveTerrDocs = liveTerrDocs; // cache for the module-level _resolveTerrKey helper
 
   // Bail if character changed while we were fetching
   if (currentChar !== charSnapshot) return;
@@ -349,13 +367,14 @@ function renderFeedingSummary() {
     h += `<div class="feeding-sum-row"><span class="feeding-sum-label">Blood:</span> ${bloodTypes.map(b => esc(b)).join(', ')}</div>`;
   }
 
-  // Territories
+  // Territories — grid keys are ObjectId strings post-migration; use the
+  // _resolveTerrKey helper to look up either by _id or slug.
   let territories = {};
   try { territories = JSON.parse(r['feeding_territories'] || '{}'); } catch { /* ignore */ }
   const feedTerrs = Object.entries(territories)
     .filter(([, v]) => v === 'resident' || v === 'poach')
     .map(([k, v]) => {
-      const t = TERRITORY_DATA.find(td => td.slug === k || k.includes(td.slug));
+      const t = _resolveTerrKey(k);
       const name = t ? t.name : k.replace(/_/g, ' ');
       return `${name} (${v})`;
     });
@@ -492,12 +511,19 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
   ).length;
 
   // Merge live territory docs over hardcoded defaults — live values take precedence.
+  // Carry _id forward from liveTerrDocs so the grid-key lookup below can match
+  // by ObjectId (post-migration shape) as well as slug (pre-migration fallback).
   const effectiveTerrs = TERRITORY_DATA.map(t => {
     const live = liveTerrDocs.find(d => d.slug === t.slug);
-    return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
+    return live
+      ? { ...t, _id: String(live._id), ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod }
+      : t;
   });
 
-  // Ambience: best territory among player-declared feeding territories
+  // Ambience: best territory among player-declared feeding territories.
+  // 2026-06-20 hotfix: grid keys are ObjectId strings post-territory-FK migration
+  // (server/scripts/archive/migrate-territory-fk.js). Match against effectiveTerrs._id
+  // first, fall back to slug for any pre-migration or sentinel keys.
   let ambience = -4; // Barrens default
   let ambience_territory = 'Barrens';
   if (sub?.responses?.feeding_territories) {
@@ -506,7 +532,9 @@ function computeVitateTally(char, sub, liveTerrDocs = []) {
       const ACTIVE_FEED_STATUSES = new Set(['feeding_rights', 'poaching', 'resident', 'poacher', 'poach']);
       for (const [tid, status] of Object.entries(grid)) {
         if (!ACTIVE_FEED_STATUSES.has(status)) continue;
-        const td = effectiveTerrs.find(t => String(t.slug) === tid);
+        const td = effectiveTerrs.find(t =>
+          (t._id && t._id === tid) || String(t.slug) === tid
+        );
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;
