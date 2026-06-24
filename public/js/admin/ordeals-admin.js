@@ -248,7 +248,7 @@ function renderRight() {
     if (!isComplete) {
       h += `<div class="or-qa-mark-row">`;
       h += `<div class="or-ync-btns" data-sub-id="${esc(sub._id)}" data-idx="${i}">`;
-      for (const [val, label] of [['yes', 'Yes'], ['close', 'Close'], ['no', 'No']]) {
+      for (const [val, label] of [['yes', 'Yes'], ['near', 'Near'], ['no', 'No']]) {
         h += `<button class="or-ync-btn${result === val ? ' active' : ''}" data-result="${val}">${label}</button>`;
       }
       h += '</div>';
