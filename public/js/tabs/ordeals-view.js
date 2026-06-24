@@ -385,18 +385,25 @@ function ordealCard(def, status) {
 }
 
 function renderFeedback(sub) {
-  if (!sub?.marking || sub.marking.status !== 'complete') return '';
+  // Show feedback for both fully-marked ordeals and feedback rounds — a graded-but-
+  // incomplete submission (in_progress) the player still has near/no answers to fix.
+  if (!sub?.marking || !['complete', 'in_progress'].includes(sub.marking.status)) return '';
 
   const { overall_feedback, answers } = sub.marking;
-  const responses           = sub.responses || [];
+  const inProgress          = sub.marking.status === 'in_progress';
   const hasOverall          = overall_feedback?.trim();
   const answersWithFeedback = (answers || []).filter(a => a.feedback?.trim());
 
   if (!hasOverall && !answersWithFeedback.length) return '';
 
-  const RESULT_LABEL = { yes: 'Yes', close: 'Close', no: 'No' };
+  const RESULT_LABEL = { yes: 'Yes', near: 'Near', no: 'No' };
 
   let h = '<div class="ordeal-feedback">';
+
+  // Feedback-round cue so the player knows this is a revision pass, not a final mark.
+  if (inProgress) {
+    h += '<div class="or-result-near"><span class="ordeal-fb-result">Needs revision</span></div>';
+  }
 
   if (hasOverall) {
     h += `<div class="ordeal-fb-overall">${esc(overall_feedback)}</div>`;
@@ -405,10 +412,11 @@ function renderFeedback(sub) {
   if (answersWithFeedback.length) {
     h += '<div class="ordeal-fb-answers">';
     for (const a of answersWithFeedback) {
-      const qText  = responses[a.question_index]?.question || `Question ${(a.question_index ?? 0) + 1}`;
+      // The ST's notes are self-contained, so each item shows just the result and the
+      // note. No question pairing (the rubric holds the answer key and is ST-only).
       const resLbl = a.result ? RESULT_LABEL[a.result] : null;
       h += `<div class="ordeal-fb-item${a.result ? ` or-result-${a.result}` : ''}">`;
-      h += `<div class="ordeal-fb-q">${esc(qText)}${resLbl ? ` <span class="ordeal-fb-result">${esc(resLbl)}</span>` : ''}</div>`;
+      if (resLbl) h += `<div class="ordeal-fb-q"><span class="ordeal-fb-result">${esc(resLbl)}</span></div>`;
       h += `<div class="ordeal-fb-text">${esc(a.feedback)}</div>`;
       h += '</div>';
     }
