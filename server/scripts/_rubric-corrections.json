@@ -1,0 +1,20 @@
+[
+  {
+    "ordeal_type": "rules_mastery",
+    "question_number": 1,
+    "set": {
+      "expected_answer": "Attribute + Skill + Modifier. The three components of a MUNDANE dice pool. ('Modifier' covers Specialties, equipment, and situational bonuses/penalties.) Adding a Discipline makes it a SUPERNATURAL pool, so it is not part of a mundane one. Minimum accepted: Attribute + Skill + Modifier(s)."
+    },
+    "note": "Mundane pool excludes Discipline (VtR core). ST-confirmed 2026-06-25."
+  },
+  {
+    "ordeal_type": "rules_mastery",
+    "question_number": 19,
+    "set": {
+      "question": "19. How do wounds affect frenzy risk?",
+      "expected_answer": "No fixed Health threshold. Wounds penalise the single Resolve + Composure frenzy-resistance roll: -1 when wounded at all, and -3 when wounded in the last three Health boxes. (These are GENERAL frenzy modifiers - fear frenzy specifically is triggered by fire, sunlight, or torpor.) Accept answers giving the -1 / -3 wound penalties and/or noting there is no fixed threshold."
+    },
+    "app_label_sync": "public/js/tabs/rules-data.js q19 label must read: 19. How do wounds affect frenzy risk?",
+    "note": "Reworded from a fear-frenzy conflation (VtR 2e p.104 + errata). Question text changed -> player-facing app label must match. ST-confirmed 2026-06-25."
+  }
+]
