@@ -13,6 +13,10 @@ not caused by the associated story, and not actionable inside that story's scope
 - **Rite XP formula edge case** — `level === 0` or missing yields `xp = 1`. Unclear if level-less rites are a real data shape; revisit if any surface.
 - **Migration validate-then-transact concurrency** — Ajv validates before `client.startSession()`; another writer modifying between validate and commit would produce an unvalidated committed doc. Single-admin migration makes this theoretical, not urgent.
 
+## Deferred from: code review of fix.933.lore-rubric-index26 (2026-06-26)
+
+- **No MongoDB transaction wrapping migration steps** — `server/scripts/fix-lore-rubric-index26.mjs` (and other migration scripts) perform multi-collection writes without a MongoDB session/transaction. Atlas supports multi-document transactions; adding one would make step 2 (rubric $set) and step 3 (marking loop) atomic. Pre-existing pattern across all migration scripts. Partial-failure concern in this story is addressed by the `--force-mark-patch` recovery flag instead.
+
 ## Deferred from: review of next-session-deadline-fix (2026-04-28)
 
 - **Cleanup script `server/scripts/cleanup-stale-sessions.js` lifecycle decision** — Spec Design Notes called for the cleanup to be a manual MCP operation, not a committed script. The MCP confirmation UI was broken at execution time so a script was written instead. Now it sits in the tree forever with hardcoded `_id`s. Two options: (a) delete the script post-application (it's spent), or (b) harden it — guard the `$unset` with a date check on `session_date` so a future re-run cannot strip a freshly-set deadline. Flagged by adversarial + edge-case + acceptance reviewers.
