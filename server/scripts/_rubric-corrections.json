@@ -1,0 +1,29 @@
+[
+  {
+    "ordeal_type": "rules_mastery",
+    "question_number": 1,
+    "set": {
+      "expected_answer": "Attribute + Skill + Modifier. The three components of a MUNDANE dice pool. ('Modifier' covers Specialties, equipment, and situational bonuses/penalties.) Adding a Discipline makes it a SUPERNATURAL pool, so it is not part of a mundane one. Minimum accepted: Attribute + Skill + Modifier(s)."
+    },
+    "note": "Mundane pool excludes Discipline (VtR core). ST-confirmed 2026-06-25."
+  },
+  {
+    "ordeal_type": "rules_mastery",
+    "question_number": 19,
+    "set": {
+      "question": "19. How do wounds affect frenzy risk?",
+      "expected_answer": "No fixed Health threshold. Wounds penalise the single Resolve + Composure frenzy-resistance roll: -1 when wounded at all, and -3 when wounded in the last three Health boxes. (These are GENERAL frenzy modifiers - fear frenzy specifically is triggered by fire, sunlight, or torpor.) Accept answers giving the -1 / -3 wound penalties and/or noting there is no fixed threshold."
+    },
+    "app_label_sync": "public/js/tabs/rules-data.js q19 label must read: 19. How do wounds affect frenzy risk?",
+    "note": "Reworded from a fear-frenzy conflation (VtR 2e p.104 + errata). Question text changed -> player-facing app label must match. ST-confirmed 2026-06-25."
+  },
+  {
+    "ordeal_type": "rules_mastery",
+    "question_number": 42,
+    "set": {
+      "expected_answer": "Equal to Blood Potency, rising above it at high Blood Potency (10 per turn at BP 9, 15 at BP 10; 1 at the lowest BP). For a yes, accept 'equal to Blood Potency' together with acknowledgement that it scales higher at high BP. Naming the scaling is sufficient; the exact 10/15 magnitudes are NOT required. 'Equal to BP' with no mention of high-BP scaling is near.",
+      "marking_notes": "Yes: equal to Blood Potency AND notes it scales higher at high BP (qualitatively, or with the 10/15 figures). Near: equal to BP but omits the high-BP scaling. No: a fixed number unrelated to BP, or non-responsive."
+    },
+    "note": "Carver calibration (ST 2026-06-25): naming the high-BP scaling without exact magnitude = yes; recurs from Wan Yelong. Was: exact 10/15 magnitudes REQUIRED. Question text unchanged, so no app_label_sync. Also populates the placeholder marking_notes."
+  }
+]

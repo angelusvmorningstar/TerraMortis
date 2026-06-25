@@ -123,13 +123,25 @@ function renderForm(container) {
   const isSubmitted = status === 'submitted';
   const readOnly = !editing;
 
+  // Issue #930: surface the grading (verdict + feedback) in the read-only view, from the marking that rides
+  // on the same responseDoc (GET /api/ordeal-responses — no rubric). A clean pass is ALL yes; any near/no is
+  // a feedback round, so it must NOT read as "Approved/locked". PLAYER-SAFE: we only ever show the player's
+  // own answer + the verdict + the ST feedback note, never an expected answer / marking note.
+  const marking = responseDoc?.marking || null;
+  const markAnswers = Array.isArray(marking?.answers) ? marking.answers : [];
+  const graded = readOnly && markAnswers.length > 0;
+  const flagged = markAnswers.some(a => a.result === 'near' || a.result === 'no');
+  const RESULT_LABEL = { yes: 'Yes', near: 'Near', no: 'No' };
+
   let h = '';
 
   // Header
   h += '<div class="qf-header">';
   h += `<h3 class="qf-title">${esc(currentTitle)}</h3>`;
   h += '<div class="qf-meta">';
-  if (isApproved) {
+  if (graded && flagged) {
+    h += '<span class="qf-badge qf-badge-submitted">Needs revision</span>';
+  } else if (isApproved) {
     h += '<span class="qf-badge qf-badge-approved">Approved</span>';
   } else if (isSubmitted) {
     h += '<span class="qf-badge qf-badge-submitted">Submitted</span>';
@@ -143,12 +155,19 @@ function renderForm(container) {
 
   if (editing) {
     h += '<p class="qf-intro">Your responses auto-save as you type. Bonus questions are optional.</p>';
+  } else if (graded && flagged) {
+    h += '<p class="qf-intro">Your responses have been reviewed. See the verdict and feedback on each answer below.</p>';
   } else if (isApproved) {
     h += '<p class="qf-intro">This ordeal has been approved and is locked. +3 XP awarded.</p>';
   } else if (isSubmitted) {
     h += '<p class="qf-intro">Your responses have been submitted for review.</p>';
   }
   h += '</div>';
+
+  // Overall ST note (issue #930) — once, above the questions.
+  if (graded && marking.overall_feedback && marking.overall_feedback.trim()) {
+    h += `<div class="ordeal-fb-overall">${esc(marking.overall_feedback)}</div>`;
+  }
 
   // Sections
   for (const section of currentSections) {
@@ -161,10 +180,24 @@ function renderForm(container) {
     for (const q of section.questions) {
       if (readOnly) {
         const val = saved[q.key] || '';
-        if (!val) continue;
+        // Issue #930: pair the verdict/feedback to this question by its OWN number — on real data the
+        // marking's question_index is (question number - 1) (Q1 -> 0). An unnumbered label (a bonus
+        // question) is ungraded, so it gets no verdict; never pair by raw position (it could collide with a
+        // real graded answer's index).
+        const n = parseInt((String(q.label).match(/^\s*(\d+)/) || [])[1], 10);
+        const mark = (graded && Number.isInteger(n)) ? markAnswers.find(a => a.question_index === n - 1) : null;
+        if (!val && !mark) continue;
         h += `<div class="qf-field">`;
         h += `<label class="qf-label">${esc(q.label)}</label>`;
-        h += `<div class="qf-readonly-value">${esc(val)}</div>`;
+        h += `<div class="qf-readonly-value">${esc(val || '(no answer)')}</div>`;
+        if (mark && mark.result) {
+          h += `<div class="ordeal-fb-item or-result-${esc(mark.result)}">`;
+          h += `<span class="ordeal-fb-result">${esc(RESULT_LABEL[mark.result] || mark.result)}</span>`;
+          if (mark.result !== 'yes' && mark.feedback && mark.feedback.trim()) {
+            h += `<div class="ordeal-fb-text">${esc(mark.feedback)}</div>`;
+          }
+          h += '</div>';
+        }
         h += '</div>';
       } else {
         h += renderQuestion(q, saved[q.key] || '');
