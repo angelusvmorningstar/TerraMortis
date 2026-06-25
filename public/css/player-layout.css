@@ -734,7 +734,7 @@ body {
   padding: 7px 10px;
 }
 .ordeal-fb-item.or-result-yes   { border-left-color: var(--green2); }
-.ordeal-fb-item.or-result-close { border-left-color: var(--accent); }
+.ordeal-fb-item.or-result-near { border-left-color: var(--accent); }
 .ordeal-fb-item.or-result-no    { border-left-color: var(--crim); }
 
 .ordeal-fb-q {
@@ -756,7 +756,7 @@ body {
   color: var(--txt3);
 }
 .or-result-yes  .ordeal-fb-result { background: var(--result-succ-bg); color: var(--green2); }
-.or-result-close .ordeal-fb-result { background: var(--accent-a8); color: var(--accent); }
+.or-result-near .ordeal-fb-result { background: var(--accent-a8); color: var(--accent); }
 .or-result-no   .ordeal-fb-result { background: var(--crim-a22); color: var(--result-pend); }
 
 .ordeal-fb-text {

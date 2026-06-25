@@ -3687,7 +3687,7 @@ body {
   overflow: hidden;
 }
 .or-qa-row.or-result-yes     { border-left: 3px solid var(--result-succ); }
-.or-qa-row.or-result-close   { border-left: 3px solid var(--accent); }
+.or-qa-row.or-result-near    { border-left: 3px solid var(--accent); }
 .or-qa-row.or-result-no      { border-left: 3px solid var(--crim); }
 
 .or-qa-cell {
