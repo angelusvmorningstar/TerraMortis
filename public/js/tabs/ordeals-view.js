@@ -87,6 +87,20 @@ export async function initOrdeals(char, chars, containerEl) {
     submissionsMap[s.ordeal_type] = s;
   }
 
+  // Issue #928: rules/lore/covenant ordeals live in `ordeal_responses` (loaded above as rulesDoc/loreDoc/
+  // covDoc), whose `marking` carries a feedback round. `/api/ordeal_submissions/mine` does NOT return them,
+  // so seed submissionsMap from the response docs' marking — keyed by ordeal_submissions type so
+  // getOrdealStatus/renderFeedback read it through the existing path. Only seed when no real
+  // ordeal_submissions entry exists for that type (a real submission always takes precedence).
+  const responseMarkingByType = {
+    rules_mastery:          rulesDoc?.marking,
+    lore_mastery:           loreDoc?.marking,
+    covenant_questionnaire: covDoc?.marking,
+  };
+  for (const [subType, marking] of Object.entries(responseMarkingByType)) {
+    if (marking && !submissionsMap[subType]) submissionsMap[subType] = { marking };
+  }
+
   renderOrdealsList(el, char);
 }
 
@@ -334,11 +348,13 @@ function getOrdealStatus(def, cOrdeals) {
     return { status: 'approved', submission: subStatus === 'complete' ? sub : null };
   }
 
-  if (responseStatus === 'submitted') return { status: 'submitted' };
-
-  // Historical submission exists: in_progress marking = ST is reviewing; unmarked = submitted
+  // Issue #928: an in_progress marking is a feedback round the player must act on. Surface it (with the
+  // submission attached so renderFeedback runs) BEFORE the bare 'submitted' status — an ordeal_responses
+  // feedback round keeps top-level status 'submitted', which would otherwise mask the feedback.
   if (subStatus === 'in_progress') return { status: 'in_review', submission: sub };
-  if (subStatus === 'unmarked')    return { status: 'submitted' };
+
+  if (responseStatus === 'submitted') return { status: 'submitted' };
+  if (subStatus === 'unmarked')       return { status: 'submitted' };
 
   if (responseStatus === 'draft') return { status: 'draft' };
 
