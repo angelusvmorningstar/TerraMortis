@@ -342,15 +342,21 @@ function getOrdealStatus(def, cOrdeals) {
 
   const responseStatus = statusCache[def.key] || statusCache[def.altKey];
 
-  // Approved from any source wins
+  // Issue #930: a pass requires ALL yes. Any near/no in the marking is a feedback round, even if a legacy
+  // 'approved' status or a complete flag is set — the verdicts, not the status flag, decide a clean pass.
+  const markFlagged = Array.isArray(sub?.marking?.answers)
+    && sub.marking.answers.some(a => a.result === 'near' || a.result === 'no');
+
+  // Approved (clean pass) from any source — but only when the verdicts are not flagged.
   const charApproved = cOrdeals[def.key]?.complete || (def.altKey && cOrdeals[def.altKey]?.complete);
-  if (subStatus === 'complete' || responseStatus === 'approved' || charApproved) {
+  if (!markFlagged && (subStatus === 'complete' || responseStatus === 'approved' || charApproved)) {
     return { status: 'approved', submission: subStatus === 'complete' ? sub : null };
   }
 
-  // Issue #928: an in_progress marking is a feedback round the player must act on. Surface it (with the
-  // submission attached so renderFeedback runs) BEFORE the bare 'submitted' status — an ordeal_responses
-  // feedback round keeps top-level status 'submitted', which would otherwise mask the feedback.
+  // A feedback round (a flagged marking, or an in_progress marking) the player must act on. Surface it with
+  // the submission so renderFeedback runs, ahead of the bare 'submitted' (which an ordeal_responses
+  // feedback round keeps at top level and would otherwise mask). Issue #930 + #928.
+  if (markFlagged) return { status: 'in_review', submission: sub };
   if (subStatus === 'in_progress') return { status: 'in_review', submission: sub };
 
   if (responseStatus === 'submitted') return { status: 'submitted' };
