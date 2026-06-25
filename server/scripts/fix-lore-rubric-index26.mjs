@@ -127,7 +127,7 @@ try {
 
     if (runMarkingPatch) {
       const loreDocs = await responsesCol
-        .find({ type: 'lore', 'marking.answers': { $exists: true, $not: { $size: 0 } } })
+        .find({ ordeal_type: 'lore', 'marking.answers': { $exists: true, $not: { $size: 0 } } })
         .toArray();
 
       const docsToPatch = loreDocs.filter((doc) =>
