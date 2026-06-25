@@ -158,7 +158,7 @@ export const RULES_SECTIONS = [
       },
       {
         key: 'q19',
-        label: '19. At what Health level do vampires risk fear frenzy?',
+        label: '19. How do wounds affect frenzy risk?',
         type: 'textarea',
         required: true,
       },
