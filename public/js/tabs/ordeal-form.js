@@ -170,6 +170,10 @@ function renderForm(container) {
   }
 
   // Sections
+  // qi = flat 0-based question index across all sections; matches rubric question_index exactly
+  // (rubric indices are assigned per question in form order, including split sub-questions like
+  // Q10a/Q10b). Incrementing at the TOP of the loop keeps it in sync even when `continue` fires.
+  let qi = -1;
   for (const section of currentSections) {
     h += '<div class="qf-section">';
     h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
@@ -178,14 +182,10 @@ function renderForm(container) {
     }
 
     for (const q of section.questions) {
+      qi++;
       if (readOnly) {
         const val = saved[q.key] || '';
-        // Issue #930: pair the verdict/feedback to this question by its OWN number — on real data the
-        // marking's question_index is (question number - 1) (Q1 -> 0). An unnumbered label (a bonus
-        // question) is ungraded, so it gets no verdict; never pair by raw position (it could collide with a
-        // real graded answer's index).
-        const n = parseInt((String(q.label).match(/^\s*(\d+)/) || [])[1], 10);
-        const mark = (graded && Number.isInteger(n)) ? markAnswers.find(a => a.question_index === n - 1) : null;
+        const mark = graded ? markAnswers.find(a => a.question_index === qi) : null;
         if (!val && !mark) continue;
         h += `<div class="qf-field">`;
         h += `<label class="qf-label">${esc(q.label)}</label>`;
