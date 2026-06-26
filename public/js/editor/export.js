@@ -58,6 +58,11 @@ export function charsForSave() {
     // never stored. Strip before localStorage stash so a fresh boot
     // recomputes from base values without carrying stale derived state.
     delete copy.derived;
+    // PR #902 (2026-06-19): character.assets[] removed from the schema,
+    // consolidated into equipment[]. Existing prod docs may still carry
+    // an assets field — strip it on save so a stale field doesn't fail
+    // additionalProperties: false on the next PUT round-trip.
+    delete copy.assets;
     if (copy.merits) {
       for (let i = copy.merits.length - 1; i >= 0; i--) {
         if (copy.merits[i].derived) {
