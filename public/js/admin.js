@@ -959,7 +959,7 @@ function buildSaveBody(c) {
   // namespace), and c.derived (render-time materialised cache from ADR-006; never stored).
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived'
+    if (k === '_id' || k.startsWith('_') || k === 'current' || k === 'derived' || k === 'assets'
         || _LEGACY_FIELDS.has(k) || _DEPRECATED_FIELDS.has(k)) continue;
     body[k] = v;
   }
