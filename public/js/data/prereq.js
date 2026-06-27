@@ -84,6 +84,18 @@ export function meetsPrereq(char, node, opts = {}) {
         return (m.rating || 0) >= (dots || 1);
       });
       if (directMatch) return true;
+      // Issue #937: a fighting style (Street Fighting, Martial Arts, ...) is
+      // stored in c.fighting_styles, not c.merits, yet rules reference it as a
+      // `merit` prereq (e.g. Iron Skin → Street Fighting ●●). Resolve it there
+      // using effective dots (cp + xp + free_mci + free_ots), matching how the
+      // Manoeuvres sheet section totals style dots. Styles carry no qualifier,
+      // so only consult fighting_styles for unqualified leaves.
+      if (!node.qualifier) {
+        const styleDots = (char.fighting_styles || [])
+          .filter(fs => fs.name === node.name)
+          .reduce((s, fs) => s + (fs.cp || 0) + (fs.xp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0), 0);
+        if (styleDots >= (dots || 1)) return true;
+      }
       if (opts.domTotal) {
         const total = opts.domTotal(node.name, node.qualifier || null);
         if (total >= (dots || 1)) return true;

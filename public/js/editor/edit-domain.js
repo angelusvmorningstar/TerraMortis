@@ -111,6 +111,17 @@ export function shEditGenMerit(idx, field, val) {
   const { merit: m } = meritByCategory(c, 'general', idx);
   if (!m) return;
   if (field === 'name') {
+    // Issue #937: the general Merit dropdown also offers fighting styles and
+    // manoeuvres (sentinel-prefixed values). These do not belong in c.merits \u2014
+    // route them to the fighting sub-system and drop the placeholder merit row.
+    if (val.startsWith('__style__:') || val.startsWith('__man__:')) {
+      const isStyle = val.startsWith('__style__:');
+      const name = val.slice((isStyle ? '__style__:' : '__man__:').length);
+      const { realIdx } = meritByCategory(c, 'general', idx);
+      if (realIdx >= 0) removeMerit(c, realIdx);
+      if (isStyle) shAddStyle(name, 'style'); else shAddPick(name);
+      return; // shAddStyle/shAddPick mark dirty and re-render
+    }
     m.name = val; m.rule_key = ruleKeyFor(val);
     if (val === 'Attach\u00e9') { m.category = 'influence'; m.rating = 1; }
   }

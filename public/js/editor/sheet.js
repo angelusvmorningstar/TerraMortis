@@ -1749,7 +1749,7 @@ export function shRenderGeneralMerits(c, editMode) {
       const _gPurch = (m.cp || 0) + (m.xp || 0);
       if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
-        h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
+        h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
         else if (isDC || isFF) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 skill \u2014') + '</option>' + ['Brawl', 'Weaponry'].map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
         else if (isMDB) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 Cr\u00FAac Style \u2014') + '</option>' + _CRUAC_STYLES.map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
@@ -1992,6 +1992,34 @@ function _allStyles() {
     if (entry.style !== 'Regular') s.add(entry.style);
   }
   return [...s].sort();
+}
+
+/**
+ * Issue #937: extra <optgroup>s appended to the general Merit dropdown so a
+ * Fighting Style is selectable as a merit (each style dot grants a manoeuvre),
+ * and eligible manoeuvres can be picked from the same control. The option
+ * values carry a sentinel prefix (`__style__:` / `__man__:`) so shEditGenMerit
+ * routes the selection to c.fighting_styles / c.fighting_picks instead of
+ * creating a c.merits row. Styles already owned, non-combat styles, and
+ * manoeuvres the character doesn't yet qualify for are excluded (the latter via
+ * _availablePicks, which only surfaces picks unlocked by current style dots).
+ */
+export function shFightingMeritOptions(c) {
+  let h = '';
+  const ownedStyles = new Set((c.fighting_styles || []).map(fs => fs.name));
+  const styles = _allStyles().filter(s => !ownedStyles.has(s) && !NON_COMBAT_STYLES.has(s));
+  if (styles.length) {
+    h += '<optgroup label="Fighting Styles">';
+    styles.forEach(s => { h += '<option value="__style__:' + esc(s) + '">' + esc(s) + ' (Fighting Style)</option>'; });
+    h += '</optgroup>';
+  }
+  const picks = _availablePicks(c);
+  if (picks.length) {
+    h += '<optgroup label="Manoeuvres">';
+    picks.forEach(m => { h += '<option value="__man__:' + esc(m.name) + '">' + esc(m.name) + ' (' + esc(m.style) + ', rank ' + m.rank + ')</option>'; });
+    h += '</optgroup>';
+  }
+  return h;
 }
 
 export function shRenderManoeuvres(c, editMode) {

@@ -313,7 +313,8 @@ export function buildMeritOptions(c, currentName) {
     for (const rule of rulesDB) {
       if (rule.sub_category && rule.sub_category !== 'general') continue;
       if (INFLUENCE_MERIT_TYPES.includes(rule.name)) continue;
-      if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      // Issue #937: 'Style'-parent merits are plain merits — surface them.
+      if (rule.parent && ['Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!meritPrereqOK(c, rule)) continue;
       const excl = _isExcluded(c, rule.name);
       if (excl && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;

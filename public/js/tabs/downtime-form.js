@@ -4187,7 +4187,11 @@ function getItemsForCategory(category) {
       const meritRules = getRulesByCategory('merit');
       if (meritRules.length) {
         for (const rule of meritRules) {
-          if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+          // Issue #937: 'Style'-parent merits (Body As Weapon, Survivalist, etc.)
+          // are ordinary 1 XP/dot merits — surface them. Fighting STYLES proper
+          // (Street Fighting etc.) are injected after this loop. Invictus Oath /
+          // Carthian Law remain sub-system-managed and stay excluded.
+          if (rule.parent && ['Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
           if (rule.sub_category === 'standing') continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
@@ -4244,6 +4248,30 @@ function getItemsForCategory(category) {
             }
           }
         }
+      }
+      // Issue #937: fighting styles ARE merits (1 XP/dot in this model — see
+      // xpSpentMerits, which sums fs.xp directly). Surface them under the Merit
+      // category, encoded as graduated items so the existing dot-selector and
+      // getRowCost path apply unchanged (styles go to 5 dots). The form records
+      // the purchase as intent like every other XP spend; the ST applies it to
+      // c.fighting_styles via the now-style-capable sheet Merit dropdown (Task 2).
+      // Non-combat "styles" (Fast-Talking, Cacophony Savvy, Etiquette, Three
+      // Heads of Kerberos) live as ordinary merits — excluded here (mirror of
+      // sheet.js NON_COMBAT_STYLES). Manoeuvres are NOT listed here: they are
+      // 0-XP picks granted by style dots, not an XP spend (issue #937 follow-up).
+      const NON_COMBAT_STYLES_DT = new Set(['Fast-Talking', 'Cacophony Savvy', 'Etiquette', 'Three Heads of Kerberos']);
+      const styleNames = [...new Set((getRulesByCategory('manoeuvre') || [])
+        .map(r => r.parent)
+        .filter(p => p && p !== 'Regular' && !NON_COMBAT_STYLES_DT.has(p)))].sort();
+      for (const styleName of styleNames) {
+        const cur = (c.fighting_styles || [])
+          .filter(fs => fs.name === styleName)
+          .reduce((s, fs) => s + (fs.cp || 0) + (fs.xp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0), 0);
+        if (cur >= 5) continue;
+        items.push({
+          value: `${styleName}|grad|${cur}|5`,
+          label: `${styleName} (Fighting Style${cur ? `, currently ${cur} dot${cur !== 1 ? 's' : ''}` : ''})`,
+        });
       }
       items.sort((a, b) => a.label.localeCompare(b.label));
       return items;
