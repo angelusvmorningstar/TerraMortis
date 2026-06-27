@@ -35,24 +35,10 @@ function _hasAnyGameRecount(responses) {
   return isNonEmptyString(responses.game_recount);
 }
 
-function _hasPersonalStory(responses) {
-  // dt-form.18 (HALT-DAR-A option 2 — lenient): both shapes pass.
-  //   - New canonical (post-#18): `personal_story_kind` (touchstone |
-  //     correspondence) + `personal_story_text`.
-  //   - Legacy ADVANCED: free-text NPC name/id + interaction note. Pre-
-  //     redesign drafts pass without re-engaging the new binary UI.
-  // ADR §Q1 makes ADVANCED a superset of MINIMAL. Either shape is a valid
-  // signal that the player has filled in their Personal Story for the cycle.
-  const hasMinimalKind = isNonEmptyString(responses.personal_story_kind);
-  const hasMinimalText = isNonEmptyString(responses.personal_story_text);
-  const hasLegacyWho   = isNonEmptyString(responses.personal_story_npc_name)
-                      || isNonEmptyString(responses.personal_story_npc_id);
-  const hasLegacyWhat  = isNonEmptyString(responses.personal_story_note)
-                      || isNonEmptyString(responses.story_moment_note)
-                      || isNonEmptyString(responses.osl_moment)
-                      || isNonEmptyString(responses.correspondence);
-  return (hasMinimalKind && hasMinimalText) || (hasLegacyWho && hasLegacyWhat);
-}
+// Issue #939: Personal Story (Off-Screen Life) is now OPTIONAL. It was
+// previously gated by a _hasPersonalStory() check here; that helper and its
+// callers (isMinimalComplete + missingMinimumPieces) were removed so a blank
+// Personal Story no longer holds a player's downtime XP credit.
 
 function _hasFeedingTerritory(responses) {
   // feeding_territories is a JSON-stringified map of slug → state. Any slug
@@ -105,7 +91,7 @@ export function isMinimalComplete(responses, ctx = {}) {
   const { isRegent = false, regencyConfirmed = false, attended = true } = ctx;
 
   if (attended && !_hasAnyGameRecount(responses)) return false;
-  if (!_hasPersonalStory(responses)) return false;
+  // Issue #939: Personal Story no longer gates minimum-complete (optional).
   if (!_hasFeedingComplete(responses)) return false;
   if (!_hasFirstProject(responses)) return false;
   if (isRegent && !regencyConfirmed) return false;
@@ -123,7 +109,6 @@ export function missingMinimumPieces(responses, ctx = {}) {
   const out = [];
   if (!responses || typeof responses !== 'object') {
     out.push({ section: 'court', label: 'Fill in your game recount' });
-    out.push({ section: 'personal_story', label: 'Personal Story: pick Touchstone or Correspondence and describe it' });
     out.push({ section: 'feeding', label: 'Pick a feeding territory, method, blood type, and Kiss/Violent toggle' });
     out.push({ section: 'projects', label: 'Pick an action for Project 1' });
     return out;
@@ -133,9 +118,7 @@ export function missingMinimumPieces(responses, ctx = {}) {
   if (attended && !_hasAnyGameRecount(responses)) {
     out.push({ section: 'court', label: 'Game Recount: add at least one highlight from last session' });
   }
-  if (!_hasPersonalStory(responses)) {
-    out.push({ section: 'personal_story', label: 'Personal Story: pick Touchstone or Correspondence and describe it' });
-  }
+  // Issue #939: Personal Story is optional — not listed as a missing piece.
   if (!_hasFeedingTerritory(responses)) {
     out.push({ section: 'feeding', label: 'Feeding: pick a territory to hunt in' });
   }
