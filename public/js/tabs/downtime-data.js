@@ -242,7 +242,7 @@ export const DOWNTIME_SECTIONS = [
   // historically lived). Rendered by the custom personal-story renderer.
   {
     key: 'personal_story',
-    title: 'Personal Story: Off-Screen Life',
+    title: 'Personal Story: Off-Screen Life (optional)',
     gate: null,
     intro: null,
     questions: [
@@ -400,7 +400,7 @@ export const DOWNTIME_SECTIONS = [
         label: 'Anything you want the STs to know about the other things your character gets up to?',
         type: 'textarea',
         required: false,
-        desc: 'Soft RP, general flavour, non-mechanical activities, personal habits, quirks, or fun. This section won\'t generate rolls but informs ST narration and may influence ongoing plots.\n\nExample: "Konstantin spends most nights at the casino, cultivating his image as a wealthy eccentric. He\'s been composing a letter to his sire that he never sends."',
+        desc: 'This is just to let the STs know what your character gets up to: soft RP, general flavour, non-mechanical activities, personal habits, quirks, or fun. It is informational only. It will not generate rolls, and you will not get content or a written response back from the STs about it. It may quietly inform ST narration and ongoing plots.\n\nExample: "Konstantin spends most nights at the casino, cultivating his image as a wealthy eccentric. He\'s been composing a letter to his sire that he never sends."',
       },
       {
         key: 'aspirations',

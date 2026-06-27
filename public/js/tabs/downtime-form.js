@@ -539,9 +539,9 @@ function collectResponses() {
   // name. Collect writes `_kind` + `_text` + `_npc_name`. Does NOT write
   // `_npc_id` (no picker = no DB ID) nor legacy `_note` / `_direction`
   // (the new `_text` replaces the note; the rich-UI direction radios are
-  // gone). Pre-redesign drafts retain the old keys via the spread base, so
-  // isMinimalComplete's lenient gate (dt-completeness.js _hasPersonalStory)
-  // keeps recognising them.
+  // gone). Pre-redesign drafts retain the old keys via the spread base for
+  // ST admin views. (Issue #939: Personal Story no longer gates
+  // minimum-complete — it is optional.)
   const psKindEl = document.querySelector('input[name="dt-personal_story_kind"]:checked');
   const psNpcEl  = document.getElementById('dt-personal_story_npc_name');
   const psTextEl = document.getElementById('dt-personal_story_text');
@@ -4528,7 +4528,7 @@ function renderPersonalStorySection(saved) {
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">Pick one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen.</p>';
+  h += '<p class="qf-section-intro">Optional. If you like, add one personal-story beat for this cycle: a touchstone moment that anchors your humanity, or a correspondence with someone off-screen. You can leave this blank and still submit your downtime.</p>';
 
   h += '<div class="qf-field">';
   h += '<div class="qf-radio-group" role="radiogroup" aria-label="Personal Story kind">';
@@ -6851,8 +6851,10 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // #637: personal_story — match the submit gate (_hasPersonalStory = kind && text). The
-    // generic "all qf-fields filled" fallback would wrongly require the OPTIONAL NPC name too.
+    // #637 / #939: personal_story tick is cosmetic only — Personal Story is now
+    // OPTIONAL and no longer gates submission. The tick still lights when kind +
+    // text are filled; the generic "all qf-fields filled" fallback would wrongly
+    // require the OPTIONAL NPC name too, so this explicit rule stays.
     if (key === 'personal_story') {
       const kindChecked = !!body.querySelector('input[name="dt-personal_story_kind"]:checked');
       const textEl = document.getElementById('dt-personal_story_text');
