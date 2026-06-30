@@ -4189,9 +4189,14 @@ function getItemsForCategory(category) {
         for (const rule of meritRules) {
           // Issue #937: 'Style'-parent merits (Body As Weapon, Survivalist, etc.)
           // are ordinary 1 XP/dot merits — surface them. Fighting STYLES proper
-          // (Street Fighting etc.) are injected after this loop. Invictus Oath /
-          // Carthian Law remain sub-system-managed and stay excluded.
-          if (rule.parent && ['Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+          // (Street Fighting etc.) are injected after this loop.
+          // 2026-06-30: 'Carthian Law' also removed from this exclusion list.
+          // Carthian Laws are merits with status-based prereqs (per VtR 2e) and
+          // belong in the regular XP-purchase picker. The Pacts UI in sheet
+          // edit-mode still lists them too, but DT XP-spend has no Pacts category
+          // — without this fix Carthian Laws were entirely unreachable via XP.
+          // Invictus Oath stays excluded (pact UI handles its mutual-bond mechanics).
+          if (rule.parent && ['Invictus Oath'].includes(rule.parent)) continue;
           if (rule.sub_category === 'standing') continue;
           if (!meetsPrereq(c, rule.prereq)) continue;
           const name = rule.name;
