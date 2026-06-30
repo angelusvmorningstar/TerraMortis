@@ -314,7 +314,11 @@ export function buildMeritOptions(c, currentName) {
       if (rule.sub_category && rule.sub_category !== 'general') continue;
       if (INFLUENCE_MERIT_TYPES.includes(rule.name)) continue;
       // Issue #937: 'Style'-parent merits are plain merits — surface them.
-      if (rule.parent && ['Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      // 2026-06-30: 'Carthian Law' also removed. Carthian Laws are merits with
+      // status-based prereqs and belong in the regular picker; the Pacts UI
+      // continues to list them too as an alternate path. See parallel change
+      // in downtime-form.js so DT XP-spend and sheet pickers stay aligned.
+      if (rule.parent && ['Invictus Oath'].includes(rule.parent)) continue;
       if (!meritPrereqOK(c, rule)) continue;
       const excl = _isExcluded(c, rule.name);
       if (excl && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
