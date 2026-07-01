@@ -55,5 +55,24 @@ scratch/
 public/dt-proto-data/
 server/scripts/build-rubric-digests.js
 
+# Map-build & ad-hoc script scratch — underscore-prefixed working artifacts
+# (renders, kmz extracts, per-edge builds). Tracked _*.json under server/scripts
+# stay tracked; gitignore never untracks. Local-only, never committed.
+server/scripts/_*
+
+# Generated data exports — regenerated on demand, source of truth is MongoDB
+data/exports/
+
 # One-off DB cleanup script backups — local-only audit trail
 server/scripts/_backups/
+server/scripts/archive/_backups/
+
+# resweep dump (generated; may carry player ordeal answers) - never commit
+server/scripts/_resweep-q1q19-dump.json
+
+# standalone chronicle map (generated, may carry player PII) - never commit
+tm-map.html
+
+# ST Cockpit — its OWN repo (TerraMortis-cockpit), nested here as a subfolder for convenience.
+# Not part of this repo; never track it from the suite.
+/cockpit/
