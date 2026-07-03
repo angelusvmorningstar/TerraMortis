@@ -53,6 +53,7 @@ export async function initAttendance(charList) {
 
 function getEligibleChars() {
   if (!activeSession) return [];
+  // character_id and c._id are both JSON strings; Set.has uses SameValueZero (safe)
   const presentIds = new Set(activeSession.attendance.map(a => a.character_id));
   return chars
     .filter(c => !presentIds.has(c._id))
@@ -95,7 +96,9 @@ function hideAddForm() {
 async function confirmAddCharacter() {
   const sel = document.getElementById('att-add-sel');
   if (!sel || !sel.value) return;
-  const c = chars.find(ch => ch._id === sel.value);
+  // #821: string-coerce for defence-in-depth; both sides are strings in current writes but coerce is cheap.
+  // sel.value is seeded from c._id at render time (both strings); String() is defensive.
+  const c = chars.find(ch => String(ch._id) === String(sel.value));
   if (!c) return;
 
   const entry = {
@@ -202,7 +205,19 @@ function renderGrid() {
   const att = activeSession.attendance || [];
 
   const sorted = att.map((a, i) => {
-    const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
+    // #821: two-phase find — id first, name fallback only for legacy rows missing character_id.
+    // Note: renderGrid intentionally omits the displayName fallback present in loadGameXP;
+    // this asymmetry is deliberate — render-grid parity is out of scope per issue #821.
+    let c = null;
+    if (a.character_id) {
+      c = chars.find(ch => String(ch._id) === String(a.character_id));
+      if (!c) {
+        console.warn(`[attendance] attendance row with character_id=${a.character_id} matched no character — display may be incomplete`);
+      }
+    }
+    if (!c && !a.character_id) {
+      c = chars.find(ch => ch.name === a.character_name || ch.name === a.name);
+    }
     const player = resolvePlayerName(a, c);
     return { a, i, c, player };
   });

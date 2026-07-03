@@ -29,12 +29,26 @@ export async function loadGameXP(chars, isST = true) {
         const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
         if (xp === 0) continue;
 
-        const c = chars.find(ch =>
-          (a.character_id && ch._id === a.character_id) ||
-          ch.name === a.character_name ||
-          ch.name === a.name ||
-          displayName(ch) === (a.display_name || a.character_display)
-        );
+        // Phase 1: id match (authoritative). Coerce both sides — both are JSON strings
+        // in practice, but guard against any path that supplies a non-string ObjectId.
+        // #821: id-first, silent-drop + warn on id-present-no-match (prod audit 2026-07-03
+        // confirmed 0 rows in that state; warn is diagnostic surface for future corner cases).
+        let c = null;
+        if (a.character_id) {
+          c = chars.find(ch => String(ch._id) === String(a.character_id));
+          if (!c) {
+            console.warn(`[game-xp] attendance row with character_id=${a.character_id} matched no character — XP unattributed`);
+          }
+        }
+        // Phase 2: name fallback — only for legacy rows that genuinely lack character_id.
+        // Rows with a character_id that fails to match stay unattributed (signal to backfill).
+        if (!c && !a.character_id) {
+          c = chars.find(ch =>
+            ch.name === a.character_name ||
+            ch.name === a.name ||
+            displayName(ch) === (a.display_name || a.character_display)
+          );
+        }
         if (c) {
           c._gameXP += xp;
           c._gameXPDetail.push({
