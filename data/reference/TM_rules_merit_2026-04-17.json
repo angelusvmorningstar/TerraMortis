@@ -915,7 +915,8 @@
     "exclusive": null,
     "xp_fixed": null,
     "special": null,
-    "bloodline": null
+    "bloodline": null,
+    "sub_category": "influence"
   },
   {
     "_id": "69d4e1d6277e2b2144b61633",
