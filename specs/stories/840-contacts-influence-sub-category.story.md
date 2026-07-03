@@ -1,6 +1,6 @@
 # Story 840: Fix Contacts missing from influence merit dropdown
 
-## Status: ready
+## Status: Done
 
 ## Metadata
 - issue: 840
