@@ -4,7 +4,7 @@
 issue: 865
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/865
 branch: piatra/issue-865-retainer-mentor-action-type-override
-status: draft
+status: Done
 type: bug
 ```
 
