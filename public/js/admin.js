@@ -720,16 +720,15 @@ async function toggleRetire() {
   btn.textContent = 'Saving...';
 
   try {
+    const updated = await apiPut('/api/characters/' + _id, { retired: newState });
     c.retired = newState;
-    const { _id, ...body } = c;
-    const updated = await apiPut('/api/characters/' + _id, body);
     Object.assign(chars[idx], updated);
     btn.textContent = newState ? 'Unretire' : 'Retire';
     renderCharGrid();
   } catch (err) {
-    c.retired = !newState;
     btn.textContent = newState ? 'Retire' : 'Unretire';
     console.error('Retire failed:', err.message);
+    alert('Retire failed: ' + err.message);
   }
 }
 
@@ -1216,8 +1215,8 @@ async function _omSave(c) {
   if (!c.xp_log.earned) c.xp_log.earned = {};
   c.xp_log.earned.ordeals = (c.ordeals || []).reduce((s, o) => s + (o.xp || 0), 0);
   try {
-    const { _id, ...body } = c;
-    const updated = await apiPut('/api/characters/' + _id, body);
+    const { _id } = c;
+    const updated = await apiPut('/api/characters/' + _id, buildSaveBody(c));
     Object.assign(chars[idx], updated);
     renderCharGrid();
   } catch (err) {
