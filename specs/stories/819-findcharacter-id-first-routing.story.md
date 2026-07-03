@@ -7,7 +7,7 @@ branch: piatra/issue-819-findcharacter-id-first
 # Story 819: Route DT submission-to-character resolution through `_findCharForSub` (id-first)
 
 **Story ID:** fix.819
-**Status:** Draft
+**Status:** Done
 **Date:** 2026-07-03
 **Issue:** [#819](https://github.com/angelusvmorningstar/TerraMortis/issues/819)
 **Branch:** `piatra/issue-819-findcharacter-id-first`
