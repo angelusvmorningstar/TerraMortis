@@ -1143,10 +1143,25 @@ export function shRenderDomainMerits(c, editMode) {
       // stopPropagation prefix for interactive controls (avoids double-event
       // when the row click also fires from the bubble).
       const _sp = _hasExpBody ? 'event.stopPropagation();' : '';
+      // #843: grant-source tag \u2014 same gen-granted-tag treatment as influence rows (line 906).
+      // granted_by wins; free_grants map-fallback pattern mirrors line 1389 (ADR-005 forward compat).
+      const _fg843 = m.free_grants || {};
+      const _grantSource843 = m.granted_by
+        || ((_fg843.carthian ?? m.free_carthian ?? 0) > 0 ? 'Carthian Pull' : null)
+        || ((_fg843.lk      ?? m.free_lk      ?? 0) > 0 ? 'Lorekeeper'   : null)
+        || ((_fg843.inv     ?? m.free_inv     ?? 0) > 0 ? 'Invested'     : null)
+        || ((_fg843.vm      ?? m.free_vm      ?? 0) > 0 ? 'VM'           : null)
+        || ((_fg843.mci     ?? m.free_mci     ?? 0) > 0 ? 'MCI'          : null)
+        || ((_fg843.fwb     ?? m.free_fwb     ?? 0) > 0 ? 'FwB Bonus'    : null)
+        || ((_fg843.attache ?? m.free_attache ?? 0) > 0 ? 'Attach\u00E9' : null)
+        || null;
+      const _grantTag843 = _grantSource843
+        ? '<span class="gen-granted-tag">' + esc(_grantSource843) + '</span>'
+        : '';
       if (_isNecroTargetHere) {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
