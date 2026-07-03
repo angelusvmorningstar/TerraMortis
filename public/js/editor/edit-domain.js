@@ -7,6 +7,7 @@ import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { pruneContactsSpheres, domKey } from './domain.js';
 import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+import { resolveSharedWithMember as _resolveSharedWithMember } from '../data/helpers.js';
 
 function ruleKeyFor(name) {
   const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -493,7 +494,7 @@ export function shAllocateNecroVirtual(meritName, value) {
 ══════════════════════════════════════════════════════════ */
 
 export function shAddDomainPartner(domIdx, partnerName) {
-  // Link partnerName to the domain merit at domIdx on the current char
+  // Link partnerName (_id string) to the domain merit at domIdx on the current char
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'domain', domIdx);
@@ -504,34 +505,39 @@ export function shAddDomainPartner(domIdx, partnerName) {
   if (!m.shared_with) m.shared_with = [];
   if (m.shared_with.includes(partnerName)) return; // already linked
 
-  // The full new group = current char + existing partners + new partner
-  const fullGroup = [c.name, ...(m.shared_with || []), partnerName];
+  const cId = String(c._id);
+  // partnerName is now a String(_id) from the updated picker
+  const partner = state.chars.find(ch => String(ch._id) === partnerName);
 
-  // Update all existing group members to include new partner (keyed by name + qualifier)
-  for (const memberName of [c.name, ...(m.shared_with || [])]) {
-    const member = state.chars.find(ch => ch.name === memberName);
+  // The full new group = current char _id + existing partners + new partner _id
+  const fullGroup = [cId, ...(m.shared_with || []), partnerName];
+
+  // Update all existing group members to include new partner (keyed by _id)
+  for (const memberEntry of [cId, ...(m.shared_with || [])]) {
+    const member = _resolveSharedWithMember(state.chars, memberEntry);
     if (!member) continue;
+    const memberId = String(member._id);
     const mm = (member.merits || []).find(x =>
       x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
     );
     if (mm) {
-      mm.shared_with = fullGroup.filter(n => n !== memberName);
-      if (memberName !== c.name) _markPartnerDirty(member);
+      mm.shared_with = fullGroup.filter(n => n !== memberId);
+      if (memberId !== cId) _markPartnerDirty(member);
     }
   }
 
   // Ensure the new partner has this domain merit (add at 0 if missing, with same qualifier)
-  const partner = state.chars.find(ch => ch.name === partnerName);
   if (partner) {
+    const partnerId = String(partner._id);
     let pm = (partner.merits || []).find(x =>
       x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
     );
     if (!pm) {
-      const newEntry = { category: 'domain', name: meritName, rating: 0, shared_with: fullGroup.filter(n => n !== partnerName) };
+      const newEntry = { category: 'domain', name: meritName, rating: 0, shared_with: fullGroup.filter(n => n !== partnerId) };
       if (meritQualifier) newEntry.qualifier = meritQualifier;
       addMerit(partner, newEntry);
     } else {
-      pm.shared_with = fullGroup.filter(n => n !== partnerName);
+      pm.shared_with = fullGroup.filter(n => n !== partnerId);
     }
     _markPartnerDirty(partner);
   }
@@ -541,6 +547,7 @@ export function shAddDomainPartner(domIdx, partnerName) {
 }
 
 export function shRemoveDomainPartner(domIdx, partnerName) {
+  // partnerName is the stored shared_with entry (_id string or legacy name)
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'domain', domIdx);
@@ -548,28 +555,32 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
   const meritName = m.name;
   const meritQualifier = m.qualifier || undefined;
 
-  // Remove partnerName from all remaining group members' shared_with (keyed by name + qualifier)
-  const remainingGroup = [c.name, ...(m.shared_with || [])].filter(n => n !== partnerName);
-  for (const memberName of remainingGroup) {
-    const member = state.chars.find(ch => ch.name === memberName);
+  const cId = String(c._id);
+  const partner = state.chars.find(ch => String(ch._id) === partnerName);
+  const partnerId = partner ? String(partner._id) : partnerName;
+
+  // Remove partnerName from all remaining group members' shared_with (keyed by _id)
+  const remainingGroup = [cId, ...(m.shared_with || [])].filter(n => n !== partnerName);
+  for (const memberEntry of remainingGroup) {
+    const member = _resolveSharedWithMember(state.chars, memberEntry);
     if (!member) continue;
+    const memberId = String(member._id);
     const mm = (member.merits || []).find(x =>
       x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
     );
     if (mm) {
-      mm.shared_with = remainingGroup.filter(n => n !== memberName);
-      if (memberName !== c.name) _markPartnerDirty(member);
+      mm.shared_with = remainingGroup.filter(n => n !== memberId);
+      if (memberId !== cId) _markPartnerDirty(member);
     }
   }
 
   // On the partner: remove this char from their shared_with
-  const partner = state.chars.find(ch => ch.name === partnerName);
   if (partner) {
     const pm = (partner.merits || []).find(x =>
       x.category === 'domain' && x.name === meritName && (x.qualifier || undefined) === meritQualifier
     );
     if (pm) {
-      pm.shared_with = (pm.shared_with || []).filter(n => n !== c.name && n !== partnerName);
+      pm.shared_with = (pm.shared_with || []).filter(n => n !== cId && n !== partnerId);
       // If partner has 0 contribution and no remaining partners, remove the merit
       const pRealIdx = partner.merits.indexOf(pm);
       const pContrib = (pm.cp || 0) + (pm.xp || 0);
