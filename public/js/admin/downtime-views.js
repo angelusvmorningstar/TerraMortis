@@ -3923,6 +3923,7 @@ function _gatherInfluence(subs) {
       }
     }
   }
+  console.debug('[ambience:influence] per-territory totals:', { infPos, infNeg });
   return { infPos, infNeg };
 }
 
@@ -11903,15 +11904,18 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
     const infNet = r.inf_pos - r.inf_neg;
     const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
-    const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
+    const infNegStr = r.inf_neg > 0 ? ` | <span class="proc-amb-neg">-${r.inf_neg}</span>` : ' | 0';
+    const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span>${infNegStr} | <span class="${infNetClass}">${infNetStr}</span>`;
     const projNet = r.proj_pos - r.proj_neg;
     const projNetStr = _fmtMod(projNet);
     const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
-    const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
+    const projNegStr = r.proj_neg > 0 ? ` | <span class="proc-amb-neg">-${r.proj_neg}</span>` : ' | 0';
+    const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span>${projNegStr} | <span class="${projNetClass}">${projNetStr}</span>`;
     const alliesNet = r.allies_pos - r.allies_neg;
     const alliesNetStr = _fmtMod(alliesNet);
     const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
-    const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
+    const alliesNegStr = r.allies_neg > 0 ? ` | <span class="proc-amb-neg">-${r.allies_neg}</span>` : ' | 0';
+    const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span>${alliesNegStr} | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
     // r.id is a TERRITORY_DATA slug; cycle.confirmed_ambience is _id-keyed (ADR-002).
     const rOid = (cachedTerritories || []).find(t => t.slug === r.id)?._id;
     const rOidStr = rOid ? String(rOid) : null;
