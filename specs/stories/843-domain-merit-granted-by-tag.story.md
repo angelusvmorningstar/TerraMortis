@@ -1,6 +1,6 @@
 # Story 843: Show gen-granted-tag on domain merit editor rows
 
-## Status: Ready for Dev
+## Status: Done
 
 ## Metadata
 - issue: 843

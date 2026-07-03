@@ -3413,13 +3413,17 @@ function buildProcessingQueue(subs) {
     });
 
     retainers.forEach((task, idx) => {
+      const _retResolved_A = (sub.merit_actions_resolved || [])[meritFlatIdx] || {};
+      const _retOrigType_A = 'resources_retainers';
+      const _retActionType_A = _retResolved_A.action_type_override || _retOrigType_A;
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[PHASE_MISC],
-        phaseNum: PHASE_MISC,
-        actionType: 'resources_retainers',
+        phase: PHASE_NUM_TO_LABEL[PHASE_ORDER[_retActionType_A] ?? PHASE_MISC],
+        phaseNum: PHASE_ORDER[_retActionType_A] ?? PHASE_MISC,
+        actionType: _retActionType_A,
+        originalActionType: _retOrigType_A,
         label: 'Retainer: Directed Action',
         description: task,
         source: 'merit',
@@ -3452,13 +3456,17 @@ function buildProcessingQueue(subs) {
       const target  = resp[`mentor_${n}_target`];
       const meritLb = resp[`mentor_${n}_merit`];
       if (!task && !target) continue;
+      const _mentResolved = (sub.merit_actions_resolved || [])[meritFlatIdx] || {};
+      const _mentOrigType = 'resources_retainers';
+      const _mentActionType = _mentResolved.action_type_override || _mentOrigType;
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[PHASE_MISC],
-        phaseNum: PHASE_MISC,
-        actionType: 'resources_retainers',
+        phase: PHASE_NUM_TO_LABEL[PHASE_ORDER[_mentActionType] ?? PHASE_MISC],
+        phaseNum: PHASE_ORDER[_mentActionType] ?? PHASE_MISC,
+        actionType: _mentActionType,
+        originalActionType: _mentOrigType,
         label: 'Mentor: Directed Action',
         description: _composeDirectedDesc(meritLb, _resolveTargetName(target), task || ''),
         source: 'merit',
@@ -3497,13 +3505,17 @@ function buildProcessingQueue(subs) {
       const type    = resp[`retainer_${n}_type`];
       const meritLb = resp[`retainer_${n}_merit`];
       if (!task && !type) continue;
+      const _retResolved_C = (sub.merit_actions_resolved || [])[meritFlatIdx] || {};
+      const _retOrigType_C = 'resources_retainers';
+      const _retActionType_C = _retResolved_C.action_type_override || _retOrigType_C;
       queue.push({
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[PHASE_MISC],
-        phaseNum: PHASE_MISC,
-        actionType: 'resources_retainers',
+        phase: PHASE_NUM_TO_LABEL[PHASE_ORDER[_retActionType_C] ?? PHASE_MISC],
+        phaseNum: PHASE_ORDER[_retActionType_C] ?? PHASE_MISC,
+        actionType: _retActionType_C,
+        originalActionType: _retOrigType_C,
         label: meritLb ? `${meritLb}: Directed Action` : 'Retainer: Directed Action',
         description: _composeDirectedDesc(meritLb, type || '', task || ''),
         source: 'merit',
@@ -5009,7 +5021,7 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       // Clear override if ST selects the original player-submitted type
-      const patch = { action_type_override: newType === entry.originalActionType ? null : newType };
+      const patch = { action_type_override: (!newType || newType === entry.originalActionType) ? null : newType };
       // Maintenance auto-resolves as no-roll
       if (newType === 'maintenance') patch.pool_status = 'maintenance';
       await saveEntryReview(entry, patch);
@@ -8535,6 +8547,7 @@ function _renderActionTypeRow(entry, rev, char, opts = {}) {
     h += `<span class="proc-merit-cat-chip proc-action-type-rote">Rote Feed</span>`;
   } else {
     h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
+    h += `<option value=""${!actionType ? ' selected' : ''}>— Select action type —</option>`;
     for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
       h += `<option value="${esc(val)}"${actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
     }
