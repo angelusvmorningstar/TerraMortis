@@ -280,6 +280,22 @@ export function getWillpower(c) {
 }
 
 /**
+ * Resolve a shared_with entry (string) to a character object.
+ * Accepts either a 24-hex ObjectId (new format) or a legacy character name.
+ * Returns the matching character object, or null if not found.
+ *
+ * @param {Array} chars - state.chars array
+ * @param {string} entry - _id hex string or character name
+ * @returns {object|null}
+ */
+export function resolveSharedWithMember(chars, entry) {
+  if (typeof entry === 'string' && /^[a-f0-9]{24}$/i.test(entry)) {
+    return chars.find(ch => String(ch._id) === entry) || null;
+  }
+  return chars.find(ch => ch.name === entry) || null;
+}
+
+/**
  * Parse a published downtime outcome string (## Section headings format)
  * into an array of { heading, body } objects for rendering.
  * If no ## headings found, returns a single entry with heading=null.

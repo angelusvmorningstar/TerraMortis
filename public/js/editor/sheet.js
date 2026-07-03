@@ -5,7 +5,7 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_SPHERES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS, DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, cardName, dropdownName, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode, resolveSharedWithMember } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, regentAmienceBonus, getRegentTerritoryFor, isInClanDisc, riteCost } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 // Issue #879 (ADR-006 D4): displayed defence reads the armour-adjusted +
@@ -1074,7 +1074,7 @@ export function shRenderDomainMerits(c, editMode) {
         // Strip Herd from this row's options if another row already has Herd
         tOpts = tOpts.replace(/<option value="Herd"[^>]*>Herd<\/option>/g, '');
       }
-      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => String(ch._id) !== String(c._id) && !parts.some(e => resolveSharedWithMember(chars, e) === ch)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
       // Total display: own dots filled + partner contribution hollow.
       // Cap own at the total so a single character can't double-paint dots
       // beyond the merit's effective rating.
@@ -1225,8 +1225,8 @@ export function shRenderDomainMerits(c, editMode) {
       // the DB as inert (no destructive migration in this scope); the gate
       // below suppresses display + add-partner UI on the editor surface.
       const _canShare = ['Safe Place', 'Haven'];
-      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
-      if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
+      if (_canShare.includes(m.name) && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pEntry => { const p = resolveSharedWithMember(chars, pEntry); const pN = p ? displayName(p) : pEntry; const pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pEntry.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
+      if (_canShare.includes(m.name) && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(String(p._id)) + '">' + esc(dropdownName(p)) + '</option>').join('') + '</select></div>';
       // Issue #832: exp-body sibling at the end of dom-edit-block holds the
       // collapsible description + prereq. Only emitted when the merit has a
       // description in the rules cache (matches shRenderMeritRow's gate).
@@ -1441,7 +1441,7 @@ export function shRenderDomainMerits(c, editMode) {
       const _viewPrereq = _viewDb && _viewDb.prereq ? prereqLabel(_viewDb.prereq) : '';
       const _viewHasExp = !!_viewDesc;
       const _viewSharedSub = dp
-        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
+        ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(entry => { const p = resolveSharedWithMember(chars, entry); const pd = p ? domMeritShareable(p, m.name) : 0; const label = p ? displayName(p) : entry; return esc(label) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>'
         : '';
       const _viewArr = _viewHasExp ? '<span class="exp-arr">\u203A</span>' : '';
       // Inner row body \u2014 trait-row + trait-main + trait-right + optional
