@@ -748,7 +748,7 @@ export function findCharacter(submissionCharName, submissionPlayerName) {
  * @returns {{ char: object|null, charName: string }}
  */
 function resolveSubChar(s, fallback = 'Unknown') {
-  const char = findCharacter(s.character_name, s.player_name);
+  const char = _findCharForSub(s);
   const charName = char ? (char.moniker || char.name) : (s.character_name || fallback);
   return { char, charName };
 }
@@ -3580,7 +3580,7 @@ function buildProcessingQueue(subs) {
       });
     }
     if (skillAcq) {
-      const _skAcqChar = findCharacter(sub.character_name, sub.player_name);
+      const _skAcqChar = _findCharForSub(sub);
       const _skPoolPlayer = _skAcqChar ? skillAcqPoolStr(_skAcqChar, {
         skill: resp.skill_acq_pool_skill || '',
         spec: resp.skill_acq_pool_spec || '',
@@ -3884,7 +3884,7 @@ function _computeMatrixFeederCounts() {
   // Use _getSubFedTerrs as single source of truth — matrix cells and overfeeding counts
   // share the same feed-count Map, including ST overrides and legacy format fallback.
   for (const s of submissions) {
-    const c = findCharacter(s.character_name, s.player_name);
+    const c = _findCharForSub(s);
     if (!c || c.retired) continue;
     subByCharId.set(String(c._id), s);
     const fedMap = _getSubFedTerrs(s);
@@ -4010,7 +4010,7 @@ function _gatherMeritAmbience(subs) {
       contacts = cl;
     }
     const retainers = raw.retainer_actions?.actions || [];
-    const subChar   = findCharacter(sub.character_name, sub.player_name);
+    const subChar   = _findCharForSub(sub);
     let meritFlatIdx = 0;
 
     for (const action of spheres) {
@@ -4402,8 +4402,8 @@ function renderCharacterStrip(queue) {
 
 
   const sorted = [...submissions].sort((a, b) => {
-    const ca = findCharacter(a.character_name, a.player_name);
-    const cb = findCharacter(b.character_name, b.player_name);
+    const ca = _findCharForSub(a);
+    const cb = _findCharForSub(b);
     const na = ca ? sortName(ca) : (a.character_name || '');
     const nb = cb ? sortName(cb) : (b.character_name || '');
     return na.localeCompare(nb);
@@ -7052,7 +7052,7 @@ function _updateFeedBuilderMeta(container, key) {
   const skillName = skillSel.value;
   if (!skillName) { metaEl.innerHTML = ''; return; }
   const sub = submissions.find(s => s._id === metaEl.dataset.subId);
-  const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
+  const char = sub ? _findCharForSub(sub) : null;
   if (!char) { metaEl.innerHTML = ''; return; }
   const nineA = skNineAgain(char, skillName);
   const specs = skSpecs(char, skillName);
@@ -10438,7 +10438,7 @@ function _getRiteInfo(riteName) {
  */
 /** Compute total Cruac vitae cost from a submission's sorcery slots. Theban rites cost WP, not vitae. */
 function _computeRiteVitaeCost(sub, char) {
-  const subChar = char || findCharacter(sub.character_name, sub.player_name);
+  const subChar = char || _findCharForSub(sub);
   const discs = subChar?.disciplines || {};
   if (!discs.Cruac) return 0;
   const resp = sub.responses || {};
@@ -10455,7 +10455,7 @@ function _computeRiteVitaeCost(sub, char) {
 
 /** Compute total Theban WP cost from a submission's sorcery slots (1 WP per rite). */
 function _computeRiteWpCost(sub, char) {
-  const subChar = char || findCharacter(sub.character_name, sub.player_name);
+  const subChar = char || _findCharForSub(sub);
   const discs = subChar?.disciplines || {};
   if (!(discs['Theban Sorcery'] || discs.Theban)) return 0;
   const resp = sub.responses || {};
@@ -10715,7 +10715,7 @@ async function buildExportMd(sub, char, questResp) {
 async function handleExportSingle(subId) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
-  const char = findCharacter(sub.character_name, sub.player_name);
+  const char = _findCharForSub(sub);
   let questResp = null;
   if (char) {
     try { questResp = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
@@ -10731,14 +10731,14 @@ async function handleExportAll() {
   // Load all questionnaire responses in parallel
   const questMap = {};
   await Promise.all(sorted.map(async sub => {
-    const char = findCharacter(sub.character_name, sub.player_name);
+    const char = _findCharForSub(sub);
     if (char) {
       try { questMap[sub._id] = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
     }
   }));
   const parts = [];
   for (const sub of sorted) {
-    const char = findCharacter(sub.character_name, sub.player_name);
+    const char = _findCharForSub(sub);
     parts.push(await buildExportMd(sub, char, questMap[sub._id] || null));
   }
   const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
@@ -11333,7 +11333,7 @@ function renderSubmissionChecklist() {
 
   const subByCharId = new Map();
   for (const s of submissions) {
-    const char = findCharacter(s.character_name, s.player_name);
+    const char = _findCharForSub(s);
     if (char) subByCharId.set(String(char._id), s);
   }
 
@@ -11510,7 +11510,7 @@ function renderFeedingScene() {
   // Build a map from character _id → submission for quick lookup
   const subByCharId = new Map();
   for (const s of submissions) {
-    const char = findCharacter(s.character_name, s.player_name);
+    const char = _findCharForSub(s);
     if (char) subByCharId.set(String(char._id), s);
   }
 
@@ -12029,7 +12029,7 @@ function _exportCityOverview(matrix) {
   // Feeding data
   const _mSubByCharId = new Map();
   for (const s of submissions) {
-    const c = findCharacter(s.character_name, s.player_name);
+    const c = _findCharForSub(s);
     if (c) _mSubByCharId.set(String(c._id), s);
   }
   const feeding = {};
