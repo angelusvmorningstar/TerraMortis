@@ -7,7 +7,7 @@ branch: piatra/issue-815-harbour-influence-discrepancy
 # Story 815: Harbour influence "−0" display bug and diagnostic logging
 
 **Story ID:** fix.815
-**Status:** To Do
+**Status:** Done
 **Date:** 2026-07-03
 **Issue:** [#815](https://github.com/angelusvmorningstar/TerraMortis/issues/815)
 **Branch:** `piatra/issue-815-harbour-influence-discrepancy`
