@@ -7,7 +7,7 @@ branch: piatra/issue-821-game-xp-attendance-id-match
 # Story 821: Game-XP attendance name fallbacks mis-attribute XP for rows without `character_id`
 
 **Story ID:** fix.821
-**Status:** To Do
+**Status:** Done
 **Date:** 2026-07-03
 **Issue:** [#821](https://github.com/angelusvmorningstar/TerraMortis/issues/821)
 **Branch:** `piatra/issue-821-game-xp-attendance-id-match`
