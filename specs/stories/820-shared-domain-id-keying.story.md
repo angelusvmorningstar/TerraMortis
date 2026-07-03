@@ -2,7 +2,7 @@
 issue: 820
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/820
 branch: piatra/issue-820-shared-domain-id-keying
-status: Ready
+status: Done
 ---
 
 # Story 820 — Shared-domain merit partners keyed by _id not name
