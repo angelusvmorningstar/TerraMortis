@@ -310,8 +310,15 @@ export function meritEffectiveRating(c, m) {
   if (!c || !m) return 0;
   if (m.category === 'domain') {
     if (CAP_DOMAIN.has(m.name)) {
+      const cap = _havenCap(c, m);
       const stored = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
-      return Math.min(stored, _havenCap(c, m));
+      // #844: if own dots (excluding free_carthian) already meet the cap,
+      // the Carthian dot cannot contribute -- ignore it in the effective calc.
+      const ownDots = stored - freeOf(m, 'carthian');
+      const effectiveStored = (cap > 0 && ownDots >= cap)
+        ? ownDots
+        : stored;
+      return Math.min(effectiveStored, cap || stored);
     }
     if (MULTI_INSTANCE_DOMAIN.has(m.name)) {
       return domMeritTotalSingle(c, m);
@@ -331,6 +338,25 @@ export function meritEffectiveRating(c, m) {
     return sum + ssjHerdBonus(c) + flockHerdBonus(c);
   }
   return sum;
+}
+
+/**
+ * Returns true if a Carthian Pull bonus dot may be allocated to merit `m`
+ * on character `c`. Cap-bound merits (Haven, Mandragora Garden) require that
+ * the merit's own dots (all channels except free_carthian) are below the
+ * anchor cap. Non-cap-bound merits always return true.
+ *
+ * #844: "own dots" = cp + xp + meritFreeSum(m) - freeOf(m, 'carthian').
+ * This excludes any pre-existing Carthian dot from the room calculation,
+ * so the question is: "does the merit have room for one more dot from
+ * a non-Carthian source?" -- if yes, a Carthian dot also fits.
+ */
+export function canAllocateCarthianPull(c, m) {
+  if (!CAP_DOMAIN.has(m.name)) return true;
+  const cap = _havenCap(c, m);
+  if (!cap) return true; // no anchor → no cap constraint
+  const ownDots = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m) - freeOf(m, 'carthian');
+  return ownDots < cap;
 }
 
 /**
