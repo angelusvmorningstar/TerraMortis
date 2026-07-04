@@ -1,6 +1,6 @@
 # Story 844: Carthian Pull cap rule for Haven / Mandragora Garden
 
-## Status: Draft
+## Status: Done
 
 ## Metadata
 - issue: 844
