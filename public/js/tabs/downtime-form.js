@@ -18,7 +18,7 @@ import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
 import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
-import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
@@ -4616,7 +4616,11 @@ function renderCarthianPullSection(saved) {
     h += opt('', '— select —');
     h += opt('allies', 'Allies');
     h += opt('contacts', 'Contacts');
-    h += opt('haven', 'Haven');
+    // #844: only offer Haven if the merit is below cap or has no anchor.
+    const havenMerit = (currentChar?.merits || [])
+      .find(m => m.category === 'domain' && m.name === 'Haven');
+    const havenAllocatable = !havenMerit || canAllocateCarthianPull(currentChar, havenMerit);
+    if (havenAllocatable) h += opt('haven', 'Haven');
     h += opt('herd', 'Herd');
     h += '</select></div>';
     if (pendTarget === 'allies' || pendTarget === 'contacts') {
@@ -4790,7 +4794,13 @@ function _onCarthianNewRowChange(container) {
     renderForm(container);
     return;
   }
-  _applyCarthianSet(container, [..._carthianCurrentAllocations(), { target, sphere }]);
+  // #844: single-target semantics — picking haven (a cap-bound merit) vacates
+  // any prior haven allocation so free_carthian cannot stack on the same target.
+  // The server route does a full strip-then-apply, so this client-side filter
+  // ensures the submitted set is already deduplicated before transmission.
+  const SINGLE_TARGET = new Set(['haven']);
+  const prior = _carthianCurrentAllocations().filter(a => !SINGLE_TARGET.has(target) || a.target !== target);
+  _applyCarthianSet(container, [...prior, { target, sphere }]);
 }
 
 // #522: remove one applied dot (by index into the derived allocation list) and
