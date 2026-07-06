@@ -7,7 +7,7 @@ branch: piatra/issue-971-cyoa-passages-route
 # Story 971: POST /api/cyoa/passages — CYOA cross-project write-back route
 
 **Story ID:** feat.971
-**Status:** Ready
+**Status:** Done
 **Date:** 2026-07-07
 **Issue:** [#971](https://github.com/angelusvmorningstar/TerraMortis/issues/971)
 **Branch:** `piatra/issue-971-cyoa-passages-route`
