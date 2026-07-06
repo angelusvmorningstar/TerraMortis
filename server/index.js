@@ -39,6 +39,7 @@ import appSettingsRouter from './routes/app-settings.js';
 import devlogRouter from './routes/devlog.js';
 import buildEquipmentCatalogueRouter from './routes/equipment-catalogue.js';
 import chaptersRouter from './routes/chapters.js';
+import cyoaRouter from './routes/cyoa.js';
 import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
@@ -105,6 +106,7 @@ app.use('/api/ordeal-responses', requireAuth, noCache(), ordealResponsesRouter);
 app.use('/api/ordeal_submissions', requireAuth, noCache(), ordealSubmissionsRouter);
 app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
 app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
+app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
 app.use('/api/archive_documents', requireAuth, noCache(), archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, noCache(), ticketsRouter);
 // Rules engine — must mount before /api/rules (purchasable_powers) so Express
@@ -195,6 +197,12 @@ async function start() {
 
   try {
     await connectDb();
+    // Ensure unique index on cyoa_passages (issue #971).
+    // createIndex is idempotent — safe to call on every boot.
+    getDb().collection('cyoa_passages').createIndex(
+      { player_id: 1, story_id: 1 },
+      { unique: true, background: true },
+    );
     await runRulesEngineGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);
