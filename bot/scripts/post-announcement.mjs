@@ -29,15 +29,14 @@ const TARGET_NAME = 'announcments';
 const MESSAGE = [
   '@everyone',
   '',
-  '📬 **Downtime is open: Game 5**',
+  '⏰ **Downtime reminder: Game 5**',
   '',
-  'Downtime submissions for Game 5 are now open. Get your actions in before the deadline.',
+  'Downtimes are due at **midnight this Wednesday, 8 July**. Get your submissions in before then.',
   '',
-  '🗓️ **Submissions close:** Wednesday 8 July, midnight',
-  '🎲 **Next game:** Saturday 18 July. Doors 5:30pm, play 6:00pm to 9:30pm',
+  'If you need more time, message an ST to ask for an extension.',
 ].join('\n');
-// Previous post (without @everyone) to remove after the new one lands. '' to skip.
-const REPLACE_MSG_ID = '1519545497830817956';
+// Previous post to remove after the new one lands. '' to skip.
+const REPLACE_MSG_ID = '';
 // ──────────────────────────────────────────────────────────────────────────────
 
 if (!TOKEN || !GUILD_ID) { console.error('Missing DISCORD_BOT_TOKEN / DISCORD_GUILD_ID in bot/.env'); process.exit(1); }
