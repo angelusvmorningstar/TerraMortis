@@ -6,6 +6,40 @@ const all = JSON.parse(readFileSync('scripts/_locations-local.json','utf8'));
 const locs = all.filter(l => l.polygon && l.polygon.length);
 const havenDocs = all.filter(l => l.type==='haven' && l.geocoded);
 
+// --- Build-time geometry optimisation (RENDERED artefact only; _locations-local.json is never modified) ---
+// Source rings carry up to 14 dp (~nanometre) and ~655 vertices avg; neither is visible at city zoom.
+// We round to 6 dp (~0.1 m) and Douglas-Peucker simplify the rendered copy. Endpoints are ALWAYS kept,
+// so closed rings stay closed and locked landmark extremities survive. Tolerance is tunable below.
+const COORD_DP = 6;
+const SIMPLIFY_TOL = 0.00003;        // ~3 m in Sydney; raise to thin more, lower to keep more detail
+let vBefore = 0, vAfter = 0;
+const _f = 10 ** COORD_DP;
+const round6 = n => Math.round(n * _f) / _f;
+function _perpDist(p, a, b){
+  const dx = b[0]-a[0], dy = b[1]-a[1];
+  if(dx===0 && dy===0) return Math.hypot(p[0]-a[0], p[1]-a[1]);
+  const t = ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / (dx*dx + dy*dy);
+  return Math.hypot(p[0]-(a[0]+t*dx), p[1]-(a[1]+t*dy));
+}
+function _dp(pts, tol){
+  if(pts.length < 3) return pts;
+  const a = pts[0], b = pts[pts.length-1];
+  let maxD = 0, idx = 0;
+  for(let i=1;i<pts.length-1;i++){ const d=_perpDist(pts[i],a,b); if(d>maxD){maxD=d;idx=i;} }
+  if(maxD > tol){
+    const left = _dp(pts.slice(0, idx+1), tol);
+    const right = _dp(pts.slice(idx), tol);
+    return left.slice(0,-1).concat(right);
+  }
+  return [a, b];
+}
+// Simplify then round; tally vertices so the build log reports the saving.
+const optimiseGeom = pts => {
+  const out = _dp(pts, SIMPLIFY_TOL).map(([a,b]) => [round6(a), round6(b)]);
+  vBefore += pts.length; vAfter += out.length;
+  return out;
+};
+
 const havens = havenDocs.map(h => ({
   name: h.name || '(haven)', residents: h.residents || [], address: h.address || '', lat: h.lat, lon: h.lon }));
 
@@ -18,12 +52,29 @@ const npcSites = all.filter(l => l.type==='npc_site' && l.lat!=null).map(e => ({
 
 const loci = all.filter(l => l.type==='locus' && l.lat!=null).map(e => ({
   name: e.name, anchor: e.anchor||'', territory: e.territory||'', locus_type: e.locus_type||'locus',
-  rating: e.rating||1, resonance: e.resonance||'', desc: e.desc||'', lat: e.lat, lon: e.lon }));
+  rating: e.rating||1, resonance: e.resonance||'', desc: e.desc||'', tier: e.tier||'', faction: e.faction||'',
+  lat: e.lat, lon: e.lon }));
+
+const leylines = all.filter(l => l.type==='leyline' && l.path).map(e => ({
+  name: e.name, resonance: e.resonance||'', note: e.note||'', color: e.color||'#8b5cff', tier: e.tier||'major',
+  path: optimiseGeom(e.path.map(([lon, lat]) => [lat, lon])) }));
+
+const wyrmnests = all.filter(l => l.type==='wyrmnest' && l.lat!=null).map(e => ({
+  name: e.name, nest_type: e.nest_type||"Wyrm's Nest", rating: e.rating||1, anchor: e.anchor||'',
+  resonance: e.resonance||'', desc: e.desc||'', lat: e.lat, lon: e.lon }));
+
+const cenotes = all.filter(l => l.type==='cenote' && l.lat!=null).map(e => ({
+  name: e.name, site_type: e.site_type||'Cenote', tier: e.tier||'minor', rating: e.rating||1,
+  anchor: e.anchor||'', resonance: e.resonance||'', desc: e.desc||'', lat: e.lat, lon: e.lon }));
+
+const courts = all.filter(l => l.type==='court' && l.lat!=null).map(e => ({
+  name: e.name, court: e.court||'', crown: e.crown||'', emotion: e.emotion||'', anchor: e.anchor||'',
+  resonance: e.resonance||'', desc: e.desc||'', color: e.color||'#7cb342', lat: e.lat, lon: e.lon }));
 
 const feats = locs.map(l => ({
   name: l.name, faction: l.faction, type: l.type, real_place: l.real_place || null,
   color: l.color || '#888', alpha: l.fill_alpha ?? 0.3, stroke: l.stroke || l.color || '#888',
-  ring: l.polygon.map(([lon, lat]) => [lat, lon]),
+  ring: optimiseGeom(l.polygon.map(([lon, lat]) => [lat, lon])),
 }));
 
 // Population key (top-right). Figures from the recorded supernatural-demographics model
@@ -97,6 +148,14 @@ html,body{margin:0;height:100%;background:var(--parchment);color:var(--ink);font
 .terr-label::before{display:none;}
 .ely-mark{background:none;border:none;}
 .ely-diamond{display:block;width:11px;height:11px;background:var(--gold2);border:1.5px solid #a52714;transform:rotate(45deg);box-shadow:0 1px 4px rgba(40,30,16,.5);}
+.ley-label{background:transparent;border:none;box-shadow:none;color:#5b3aa6;font-family:'Cinzel',serif;font-style:italic;font-weight:600;font-size:.72rem;letter-spacing:.04em;text-shadow:0 0 3px var(--parchment),0 0 3px var(--parchment),0 0 2px var(--parchment);white-space:nowrap;}
+.ley-label::before{display:none;}
+.court-mark{background:none;border:none;display:flex;align-items:center;justify-content:center;}
+.court-crown{font-size:16px;line-height:1;text-shadow:0 0 2px #fff,0 0 3px #fff,0 1px 2px rgba(0,0,0,.4);}
+.geist-mark{background:none;border:none;display:flex;align-items:center;justify-content:center;}
+.geist-glyph{color:#00838f;line-height:1;text-shadow:0 0 2px #00343a,0 0 3px #00343a,0 1px 3px rgba(0,0,0,.5);}
+.wyrm-mark{background:none;border:none;display:flex;align-items:center;justify-content:center;}
+.wyrm-glyph{color:#8e1230;font-size:17px;line-height:1;text-shadow:0 0 2px #2a0008,0 0 3px #2a0008,0 1px 3px rgba(0,0,0,.5);}
 .locus-mark{background:none;border:none;display:flex;align-items:center;justify-content:center;}
 .locus-star{color:#f9a825;font-size:18px;line-height:1;text-shadow:0 0 2px #5d3a00,0 0 3px #5d3a00,0 1px 3px rgba(0,0,0,.5);}
 .npc-mark{background:none;border:none;}
@@ -114,6 +173,10 @@ const HAVENS = ${JSON.stringify(havens)};
 const ELYSIUMS = ${JSON.stringify(elysiums)};
 const NPCSITES = ${JSON.stringify(npcSites)};
 const LOCI = ${JSON.stringify(loci)};
+const LEYLINES = ${JSON.stringify(leylines)};
+const WYRMNESTS = ${JSON.stringify(wyrmnests)};
+const CENOTES = ${JSON.stringify(cenotes)};
+const COURTS = ${JSON.stringify(courts)};
 const FACTIONS = ${JSON.stringify(FACTIONS)};
 const POP = ${JSON.stringify(POP)};
 const LABEL = Object.fromEntries(FACTIONS.map(f=>[f[0],f[1]]));
@@ -187,11 +250,31 @@ NPCSITES.forEach(e=>{
 });
 npcHomeLayer.addTo(map); npcWorkLayer.addTo(map); // ST map: NPC sites default ON
 
+// Ley lines (Mage grid): sinuous terrain-following currents that cross at the Hallows.
+// Drawn as a faint wide halo + a brighter dotted core, beneath the locus stars.
+const leyLayer = L.layerGroup();
+LEYLINES.forEach(e=>{
+  const minor = e.tier==='minor';
+  const haloW = minor?6:11, haloO = minor?0.10:0.14, coreW = minor?1.5:2.5, coreO = minor?0.6:0.9, dash = minor?'1 9':'2 8';
+  L.polyline(e.path,{color:e.color,weight:haloW,opacity:haloO,lineCap:'round',interactive:false}).addTo(leyLayer);
+  const core=L.polyline(e.path,{color:e.color,weight:coreW,opacity:coreO,lineCap:'round',dashArray:dash});
+  let body='<span class="pop-faction" style="background:#7c4dff">Ley Line'+(minor?' &middot; minor':'')+'</span><div class="pop-name">'+e.name+'</div>';
+  if(e.resonance) body+='<div class="pop-res"><b>Resonance:</b> '+e.resonance+'</div>';
+  if(e.note) body+='<div class="pop-place">'+e.note+'</div>';
+  core.bindPopup(body); core.bindTooltip(e.name,{className:'ley-label',direction:'center'});
+  core.addTo(leyLayer);
+});
+leyLayer.addTo(map); // ST map: ley lines default ON
+
 const lociLayer = L.layerGroup();
 LOCI.forEach(e=>{
-  const icon=L.divIcon({className:'locus-mark', html:'<span class="locus-star">&#9733;</span>', iconSize:[20,20], iconAnchor:[10,10]});
+  const minor = e.tier==='minor';
+  const star = minor?12:18, isz = minor?13:20;
+  const icon=L.divIcon({className:'locus-mark', html:'<span class="locus-star" style="font-size:'+star+'px">&#9733;</span>', iconSize:[isz,isz], iconAnchor:[isz/2,isz/2]});
   const m=L.marker([e.lat,e.lon],{icon});
-  let body='<span class="pop-faction" style="background:#f9a825;color:#2a2018">Locus &middot; '+e.locus_type+'</span>';
+  const kind = e.faction==='mage' ? 'Hallow' : 'Locus';
+  const tierTag = e.tier==='major' ? ' &middot; Major' : e.tier==='minor' ? (e.faction==='werewolf' ? ' &middot; Minor (unheld)' : ' &middot; Minor (cabal)') : '';
+  let body='<span class="pop-faction" style="background:#f9a825;color:#2a2018">'+kind+' &middot; '+e.locus_type+tierTag+'</span>';
   body+='<div class="pop-name">'+e.name+'</div>';
   body+='<div class="pop-res"><b>Rating:</b> '+'●'.repeat(e.rating)+'○'.repeat(5-e.rating)+'</div>';
   if(e.resonance) body+='<div class="pop-res"><b>Resonance:</b> '+e.resonance+'</div>';
@@ -202,6 +285,56 @@ LOCI.forEach(e=>{
   lociLayer.addLayer(m);
 });
 lociLayer.addTo(map); // ST map: loci default ON
+
+// Wyrm's Nests (Ordo Dracul secret society's reading of the city's places of power)
+const wyrmLayer = L.layerGroup();
+WYRMNESTS.forEach(e=>{
+  const icon=L.divIcon({className:'wyrm-mark', html:'<span class="wyrm-glyph">&#9738;</span>', iconSize:[18,18], iconAnchor:[9,9]});
+  const m=L.marker([e.lat,e.lon],{icon});
+  let body='<span class="pop-faction" style="background:#8e1230">Wyrm&#39;s Nest &middot; '+e.nest_type+'</span>';
+  body+='<div class="pop-name">'+e.name+'</div>';
+  body+='<div class="pop-res"><b>Rating:</b> '+'●'.repeat(e.rating)+'○'.repeat(5-e.rating)+'</div>';
+  if(e.resonance) body+='<div class="pop-res"><b>Resonance:</b> '+e.resonance+'</div>';
+  if(e.anchor) body+='<div class="pop-addr">'+e.anchor+'</div>';
+  if(e.desc) body+='<div class="pop-res">'+e.desc+'</div>';
+  m.bindPopup(body);
+  wyrmLayer.addLayer(m);
+});
+wyrmLayer.addTo(map); // ST map
+
+// Sin-Eater sites: Avernian Gates (filled down-triangle) + Cenotes (open) - the Geist Underworld layer
+const geistLayer = L.layerGroup();
+CENOTES.forEach(e=>{
+  const gate = e.site_type==='Avernian Gate';
+  const glyph = gate?'&#9660;':'&#9661;', sz = gate?18:13, fs = gate?16:12;
+  const icon=L.divIcon({className:'geist-mark', html:'<span class="geist-glyph" style="font-size:'+fs+'px">'+glyph+'</span>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
+  const m=L.marker([e.lat,e.lon],{icon});
+  let body='<span class="pop-faction" style="background:#00838f">'+e.site_type+'</span>';
+  body+='<div class="pop-name">'+e.name+'</div>';
+  body+='<div class="pop-res"><b>Rating:</b> '+'●'.repeat(e.rating)+'○'.repeat(5-e.rating)+'</div>';
+  if(e.resonance) body+='<div class="pop-res"><b>Resonance:</b> '+e.resonance+'</div>';
+  if(e.anchor) body+='<div class="pop-addr">'+e.anchor+'</div>';
+  if(e.desc) body+='<div class="pop-res">'+e.desc+'</div>';
+  m.bindPopup(body);
+  geistLayer.addLayer(m);
+});
+geistLayer.addTo(map); // ST map
+
+// Changeling seasonal Courts (crown glyph coloured by season)
+const courtLayer = L.layerGroup();
+COURTS.forEach(e=>{
+  const icon=L.divIcon({className:'court-mark', html:'<span class="court-crown" style="color:'+e.color+'">&#9819;</span>', iconSize:[18,18], iconAnchor:[9,9]});
+  const m=L.marker([e.lat,e.lon],{icon});
+  let body='<span class="pop-faction" style="background:'+e.color+'">'+e.court+' Court &middot; '+e.crown+'</span>';
+  body+='<div class="pop-name">'+e.name+'</div>';
+  if(e.emotion) body+='<div class="pop-res"><b>Emotion:</b> '+e.emotion+'</div>';
+  if(e.resonance) body+='<div class="pop-res"><b>Resonance:</b> '+e.resonance+'</div>';
+  if(e.anchor) body+='<div class="pop-addr">'+e.anchor+'</div>';
+  if(e.desc) body+='<div class="pop-res">'+e.desc+'</div>';
+  m.bindPopup(body);
+  courtLayer.addLayer(m);
+});
+courtLayer.addTo(map); // ST map
 
 // Player filter (scopes havens + NPC homes/workplaces to one character)
 const PLAYERS = [...new Set([].concat(...HAVENS.map(h=>h.residents||[]), NPCSITES.map(n=>n.tied).filter(Boolean)))].sort();
@@ -260,7 +393,11 @@ poikey.onAdd=function(){
   h+='<label><input type="checkbox" data-f="__elysiums" checked/><span class="dot" style="background:#9a7b3f;border:1.5px solid #a52714;transform:rotate(45deg)"></span>Elysiums</label>';
   h+='<label><input type="checkbox" data-f="__npchomes" checked/><span class="dot" style="background:#6d4c7d"></span>NPC Homes</label>';
   h+='<label><input type="checkbox" data-f="__npcwork" checked/><span class="dot" style="background:#5e6a72"></span>NPC Workplaces <span class="key-q">&#9633;? = unconfirmed</span></label>';
-  h+='<label><input type="checkbox" data-f="__loci" checked/><span class="dot" style="background:none;color:#f9a825;border:none;width:auto;height:auto;line-height:.85rem;font-size:.95rem">&#9733;</span>Loci &amp; Sites of Power</label>';
+  h+='<label><input type="checkbox" data-f="__loci" checked/><span class="dot" style="background:none;color:#f9a825;border:none;width:auto;height:auto;line-height:.85rem;font-size:.95rem">&#9733;</span>Sites of Power</label>';
+  h+='<label><input type="checkbox" data-f="__ley" checked/><span class="dot" style="background:#8b5cff;border-radius:2px"></span>Ley Lines</label>';
+  h+='<label><input type="checkbox" data-f="__wyrm" checked/><span class="dot" style="background:none;color:#8e1230;border:none;width:auto;height:auto;line-height:.85rem;font-size:1rem">&#9738;</span>Wyrm&#39;s Nests</label>';
+  h+='<label><input type="checkbox" data-f="__geist" checked/><span class="dot" style="background:none;color:#00838f;border:none;width:auto;height:auto;line-height:.85rem;font-size:.95rem">&#9661;</span>Cenotes &amp; Gates</label>';
+  h+='<label><input type="checkbox" data-f="__court" checked/><span class="dot" style="background:none;color:#7cb342;border:none;width:auto;height:auto;line-height:.85rem;font-size:1rem">&#9819;</span>Seasonal Courts</label>';
   h+='<label><input type="checkbox" data-f="__hq" checked/><span class="dot" style="background:#880e4f"></span>Old Covenant Seats</label>';
   h+='<div class="leg-sec">Filter by player</div>';
   h+='<select class="leg-sel"><option value="*">All players</option>'+PLAYERS.map(p=>'<option value="'+p+'">'+p+'</option>').join('')+'</select>';
@@ -268,7 +405,7 @@ poikey.onAdd=function(){
   d.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',e=>{
     const f=e.target.dataset.f;
     const g = f==='__havens' ? havenLayer : f==='__elysiums' ? elysiumLayer : f==='__npchomes' ? npcHomeLayer
-            : f==='__npcwork' ? npcWorkLayer : f==='__loci' ? lociLayer : groups.hq;
+            : f==='__npcwork' ? npcWorkLayer : f==='__loci' ? lociLayer : f==='__ley' ? leyLayer : f==='__wyrm' ? wyrmLayer : f==='__geist' ? geistLayer : f==='__court' ? courtLayer : groups.hq;
     if(e.target.checked) g.addTo(map); else map.removeLayer(g);
   }));
   d.querySelector('.leg-sel').addEventListener('change',e=>{ selPlayer=e.target.value; applyPlayerFilter(); });
@@ -280,4 +417,6 @@ poikey.addTo(map);
 </html>`;
 
 writeFileSync('../tm-map.html', html);
+const vPct = vBefore ? Math.round((1 - vAfter/vBefore)*100) : 0;
 console.log(`tm-map.html (LOCAL build) written: ${feats.length} polygon features; ${havens.length} haven pins. Source: scripts/_locations-local.json (no Mongo).`);
+console.log(`Geometry: ${vBefore} -> ${vAfter} vertices (${vPct}% fewer), ${SIMPLIFY_TOL}deg tol / ${COORD_DP}dp, output-only (source untouched).`);
