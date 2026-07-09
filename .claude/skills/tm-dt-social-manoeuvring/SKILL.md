@@ -9,6 +9,8 @@ Resolves Social Manoeuvring (the Doors system) for a persuasion/goal-oriented su
 
 Built from a live worked session with Angelus (Eve Lockridge vs. Jack Fallow, DT5) — the base mechanic was corrected multiple times before landing on the final rules below; don't re-litigate what's already settled here.
 
+**Read `.claude/skills/tm-dt-grounding/SKILL.md` first — its rules govern this skill.** A Doors thread is PC-vs-PC by definition, so it sits at the top of the cross-PC verification bar: the thread's participants and goal come from the players' actual words (Discord quotes, submission fields), cited in the tracking file — never from inference about who "must" be manoeuvring whom.
+
 ## Persistent State — Read/Write a Tracking File
 
 Each ongoing Social Manoeuvring thread gets its own file: `st-working/downtime/social-manoeuvring/<short-name>.md` (e.g. `eve-vs-jack.md`). **Before resolving a new roll, check whether this thread's file already exists** — if so, read its current state (Doors total, Doors opened so far, cumulative failure penalty, current Impression level, roll history) before doing anything else. If it doesn't exist yet, this is the thread's first roll — create the file after resolving it.

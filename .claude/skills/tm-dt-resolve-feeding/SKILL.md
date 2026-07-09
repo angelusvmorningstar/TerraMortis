@@ -7,6 +7,8 @@ description: Resolve a character's downtime feeding — both the main feed actio
 
 Resolves a single character's declared feeding for a downtime cycle — the one main feed action every character gets, plus an optional Rote Hunt project action if they dedicated a project slot to one. Built from a live worked session with Angelus (Ocka/Walter Kelly, DT5) after several wrong turns — those corrections are baked into the steps below, not left as pitfalls to rediscover.
 
+**Read `.claude/skills/tm-dt-grounding/SKILL.md` first — its rules (provenance gate, freshness check, structured-fields-are-truth, shared mechanical rules) govern this skill; where the two disagree, grounding wins.**
+
 See also: `reference_feeding_pool_interpretation` and `feedback_st_decision_workflow` memories for the durable version of this method and its origin.
 
 ## When to Use
@@ -38,6 +40,7 @@ Both actions — main feed and a Rote Hunt attempt — **each count as a separat
 
 ## Steps
 
+0. **Freshness check (opens every batch — see tm-dt-grounding).** Query the cycle's live submissions (`character_name`, `status`, `responses._final_submitted_at`), diff against the processing log's last-known list, and fold in the delta (new finalizations, draft→submitted flips, re-finalizations newer than their last processing) before resolving anything. Submissions shift mid-processing — confirmed live (Anichka re-finalized during DT5 processing; Alice and Charlie arrived after the working dump). No freeze/cutoff — late arrivals are folded in individually.
 1. **Read the full feeding description(s).** Pull `feeding_description` (main feed) and, if a Rote Hunt exists, `project_N_description` too. Check whether the Rote Hunt's description is its own distinct technique or explicitly mirrors the main feed's (e.g. "as in the feeding action") — if it mirrors, both actions likely need the same pool, not two different ones.
    **If the description is blank or too thin to match-check against** (confirmed live, Macheath DT5 — his cycle's field was completely empty), check that character's **prior-cycle `downtime_submissions`** for their last declared feeding pool and narrative before treating this as an unverifiable gap. A blank field is very often just an unchanged, previously-established routine the player didn't bother retyping, not a genuine absence of information — ground the pool in the most recent real narrative you can find rather than accepting the declared Attribute/Skill/Discipline with no textual support at all.
 2. **Identify what's explicitly declared** for each action: Attribute/Skill (custom or fixed method), any Discipline named, any Specialisation mentioned. Note narrative elements that are lead-up flavour (how the character *located or approached* the target) versus elements described as mechanically *doing* something in the action itself (e.g. "boosted by X to bring them down") — only the latter belong in the pool.
@@ -66,6 +69,7 @@ Both actions — main feed and a Rote Hunt attempt — **each count as a separat
 
 - A Specialisation normally grants **+1 die**, not 9-Again (that's a 1e-era misconception — confirmed against this rulebook's actual text).
 - With the **Area of Expertise** merit, a Specialisation grants **+2** instead.
+- With the **Interdisciplinary Specialty** merit, a Specialisation is **not locked to its attached Skill** — it grants its +1 on *any* Skill roll where the specialisation is thematically valid (confirmed live, Charlie Ballsack DT5: his "Coward Punch" spec sits on Stealth but applied to his ambush-feed pool via Interdisciplinary Specialty). So don't flag a spec as a "soft fit" just because it's attached to a different declared Skill — check whether the character has Interdisciplinary Specialty first; if they do, the only question is whether the spec is thematically valid for what's described, not which Skill it's pinned to.
 - **Professional Training** (rank 2+, "Continuing Education") grants **9-Again on its Asset Skills** — a merit effect, separate from any Specialisation on that Skill.
 - When both apply to the same roll: the 9-Again comes from Professional Training, **not** the Specialisation. Still list the Specialisation in `active_feed_specs` (it's real, it's on the sheet) — but `pool_mod_spec` reads 0 if it isn't doing separate numeric work once the Asset Skill's 9-Again is already active.
 - Correct TM terminology: **"Specialisation,"** not "Specialty."

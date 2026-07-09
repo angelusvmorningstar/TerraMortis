@@ -9,6 +9,8 @@ Reviews a character's declared haven (Safe Place) changes and travel method/prec
 
 **Audit result:** unlike feeding (hardcoded ambience/tolerance formulas), this domain has **no mechanical Suite/Cockpit automation at all** — confirmed against `server/schemas/downtime_submission.schema.js`, which has exactly one relevant field: `travel` (free-text string, "Travel method and precautions"). Haven addresses live in a `safe_place_location_0`-style free-text field, also with no schema entry. This is a pure ST-judgement, cross-referencing task, not something the Suite computes for you.
 
+**Read `.claude/skills/tm-dt-grounding/SKILL.md` first — its rules govern this skill; where the two disagree, grounding wins.** Especially relevant here: the ad-hoc-script fabrication warning (a name-keyed haven diff invented phantom relocations on 2026-07-09 — verify any comparison output a second way before acting on it) and the provenance gate for any claim about whose haven is where.
+
 See also: `dt5-lessons-for-cockpit.md` (`st-working/downtime/dt5/`) for the full methodology writeup this was built from, and `feedback_map_local_only_no_mongo`, `feedback_map_never_delete_locked` memories — both hard rules that apply directly here.
 
 ## When to Use

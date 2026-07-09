@@ -7,6 +7,8 @@ description: Synthesise the game-night Court Pulse — a single narrative summar
 
 Produces the Court Pulse — the opening synthesis of a game night, built entirely from what attending players actually submitted as their own highlights. This runs first in downtime processing, before any mechanical resolution (Court Pulse → Action Queue → Haven/Travel → Phase 0 Sorcery → Feeding → the rest of Phase 2), per the documented 7-phase methodology (`reference_downtime_processing` memory).
 
+**Read `.claude/skills/tm-dt-grounding/SKILL.md` first — its rules govern this skill.** The Pulse is a cross-PC document by nature, so every "A did X to B" line in it carries QUOTED provenance (some player's actual highlight text) by construction — anything that can't be traced to a highlight is INFERRED and gets flagged, not written. Run the freshness check before synthesising: late-finalized submissions add highlights the Pulse must include (confirmed live — Charlie's late submission carried new court information, "forced the Premier to strip a Status," that the first Pulse pass didn't have).
+
 ## Input
 
 `game_recount` on each attending player's downtime submission — a numbered list of that player's own highlights from the night (`responses['game_recount']`, written by the downtime form as `"1. ...\n\n2. ..."`). One player, one set of highlights. Pull every attending player's submission for the cycle, not just a sample.
