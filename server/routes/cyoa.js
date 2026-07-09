@@ -1,5 +1,5 @@
 /**
- * CYOA (Choose Your Own Adventure) routes (issue #971).
+ * CYOA (Choose Your Own Adventure) routes (issue #971, GET added #977).
  *
  * Cross-project write-back: the CYOA player page fires a POST when a player
  * reaches a story ending. This route stores a single document per
@@ -8,8 +8,8 @@
  *
  * Endpoints:
  *   POST /api/cyoa/passages   — authenticated (any role); upsert passage record
- *
- * No GET endpoint in v1 (scoped to v2).
+ *   GET  /api/cyoa/passages   — authenticated (any role); own-only read-back,
+ *                               ?story_id= narrows, ?all=1 (ST only) returns all
  *
  * Unique index on { player_id: 1, story_id: 1 } is ensured at startup in
  * server/index.js after connectDb() resolves (option b per story design).
@@ -17,6 +17,7 @@
 
 import { Router } from 'express';
 import { getCollection } from '../db.js';
+import { isStRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -76,6 +77,26 @@ router.post('/passages', async (req, res) => {
   );
 
   res.json({ ok: true });
+});
+
+router.get('/passages', async (req, res) => {
+  const col = getCollection('cyoa_passages');
+
+  const filter = {};
+  // Own-only by default; ST may request all rows with ?all=1.
+  if (!(req.query.all === '1' && isStRole(req.user))) {
+    filter.player_id = req.user.player_id;
+  }
+  if (typeof req.query.story_id === 'string' && req.query.story_id) {
+    filter.story_id = req.query.story_id;
+  }
+
+  const docs = await col
+    .find(filter)
+    .project({ _id: 0, story_id: 1, version: 1, outcome: 1, character: 1, code: 1, created_at: 1, updated_at: 1 })
+    .toArray();
+
+  res.json(docs);
 });
 
 export default router;
