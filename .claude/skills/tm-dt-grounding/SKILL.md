@@ -19,6 +19,40 @@ Before any resolution is written into the processing log, produce a **Cited Fact
 
 **Why this exists:** on 2026-07-09 I recorded "Jack's Cheval rite targets Ryan Ambrose" from narrative conflation (two similar "held kindred" threads). The actual `sorcery_3_targets` field pointed at Jack's own project and an unnamed NPC — no Ryan anywhere. It hardened into the log and was only caught when the player contradicted it. A fabricated cross-PC target is the worst-case fabrication: it drives real PvP and lands consequences on the wrong player.
 
+## Reproduce the action VERBATIM before judging it
+
+**Before validating, recategorising or ruling on any action, dump every
+populated field of that action and show it to the ST in full** (Angelus,
+2026-07-10). Do not summarise, do not paraphrase, do not judge from a
+projection you chose. The ST reads the player's own words and decides.
+
+The reliable way is to `export` the submission to a file and script-dump
+every key with the action's prefix — **including keys you did not expect**.
+Projecting named fields has produced **false "the player wrote nothing"
+findings twice in one session**.
+
+## ⚠ Field-name traps (each of these caused a wrong conclusion)
+
+The form does NOT write the field name you would guess. Confirmed live:
+
+| You'd guess | The form actually writes | Cost of guessing |
+|---|---|---|
+| `project_N_territory` (for ambience) | **`project_N_ambience_target`** + **`project_N_ambience_direction`** (issue #196; legacy `_territory` left blank on those rows) | Reported "no ambience project declares a territory" — all 11 did |
+| `sphere_N_description` | **`sphere_N_outcome`** (there is no `_description`) | Reported "Jack wrote nothing at all" about his attack on Reed — he had named the target merit in prose |
+| exact merit/rite names | records may carry a leading article, e.g. **"The Mantle of Amorous Fire"** | An `$in` exact-name query returned nothing; wrongly reported the rite absent from the DB |
+| a rite absent from a doc | your grep may have been truncated | `grep ... | head` hid Cheval in the core rulebook; wrongly declared it "not in the local reference set" |
+
+**Rule: when a field or record appears ABSENT, suspect your query before
+you conclude absence.** Dump all keys / grep without `head` / regex the name.
+
+## Canonical naming
+
+- **The Dockyards** (`69d9e54c00815d471503bea9`) is the territory. "Docklands",
+  "the Dockyard", "the Docks" are player/style-guide drift. Quote a player's
+  malapropism verbatim inside quotation marks; **never propagate it into ST
+  voice.** (Angelus, 2026-07-10: "I don't want bad data hygiene around where
+  things happen.")
+
 ## Structured fields are ground truth for "who is involved with whom"
 
 The canonical target/participant fields, per action family:
@@ -65,9 +99,14 @@ A phase is not closed until every cross-PC claim recorded during it is listed wi
 - **Effective ratings always** (dots + bonus) — bonus dots are real dots.
 - **Never second-guess Disciplines in** (assistant-side rule): a Discipline enters a pool only if the player declared it anywhere explicit — a form field alone counts; prose alone counts; nothing counts if the player never said it. The ST may add one as their own explicit judgement call (that is a different category, log it as an ST ruling).
 - **Specialisations:** +1 die (+2 with Area of Expertise). **Interdisciplinary Specialty** unlocks a spec from its attached Skill — thematic validity is the only test. Professional Training grants 9-Again on Asset Skills (a merit effect, not the spec's).
+- **Validating a pool means reading the MERITS, not just Attribute + Skill + Discipline.** Passive merit effects fire whether or not the player knows they have them, and the form has no field for them. Check at minimum: **Professional Training** (`rule_nine_again` tier 2 → 9-Again on every `asset_skills` entry; `rule_skill_bonus` tier 4 → **+1 dot** to `dot4_skill`, cap 5), **MCI dot-3** (`_mci_dot3_skills`), **Air of Menace** (Nightmare dots → Intimidation), and the skill's own `specs` array. The live rules are in the `rule_*` collections — read them, don't recall them. *(DT5 Step 4: an audit that checked only Attr+Skill+Disc got **three of ten** pools wrong — Carver was under by 2 dice and a 9-Again.)*
+- **Unclaimed sheet entitlements apply; unclaimed Disciplines do not.** A Specialisation on the sheet applies when it fits the described method even if `pool_spec` is blank; a passive merit applies always. But a Discipline enters a pool only if the player declared it somewhere explicit. The asymmetry is real: a spec or merit is *what the character is*, a Discipline is *a choice to use a power*. Overstated pools are corrected DOWN with the same force.
 - **Hard sign-off checkpoint:** pools are presented in one turn and rolled only after explicit ST confirmation in a later turn. Never both in the same turn.
 - **Real dice only:** every roll through the project's dice-engine logic (`public/js/shared/dice.js` semantics) with genuine randomness. Never simulated or estimated.
 - **Resolution order** (corrected, canonical source `specs/downtime-cockpit-processing-journey.md`): Travel → Rituals → Feeding → Protection/Defence → Block → Support → Ambience → Actions/Misc → Investigate → Attack → Patrol → Contacts → Acquisitions. The block wall leads: no merit action resolves before its potential block is known. Ambience *net* is the terminal City computation.
+- **Clash of Wills** (VtR 2e p.126): pool = **Blood Potency + Discipline dots**; **ties REROLL** until someone has more successes. Do not import the general "defender wins ties" contested-action habit into a Clash of Wills.
+- **Ambience entropy is TIER-SCALED, not -1** (`downtime-data.js` `AMBIENCE_ENTROPY`): The Rack -8 · Verdant -7 · Curated -6 · Tended -5 · Settled/Untended/Neglected/Hostile -3 · Barrens null (exempt). An old memory saying "entropy(-1)" is wrong.
+- **All Crúac and Theban rites are EXTENDED actions**, and a rite's **target number of successes is a per-rite stat, never its rank**. See `tm-dt-resolve-sorcery`.
 - **Rules go stale:** before relying on a remembered house rule or constant, confirm it's current — against the live code (`downtime-data.js` constants), the Damnation City doc, or the ST. The errata doc and old memories have both been wrong this cycle.
 - **Ad-hoc comparison scripts are a fabrication vector** (F4): a buggy one-off diff invented phantom haven changes on 2026-07-09. Prefer one audited extraction over many quick scripts; when a quick script's output drives a decision, sanity-check it a second way (e.g. index-based vs name-based) before acting.
 

@@ -32,9 +32,14 @@ Invoke during the **prep-work tier** of downtime processing — this comes *befo
 
 Established threshold rule (Angelus, this session — a living ST-set threshold, not inferable from data, confirm it's still current before relying on it):
 
-- **Subtle**: any use of Obfuscate for the travel, including partial or conditional use. Not a high bar — any genuine use qualifies.
-- **Neutral**: no Obfuscate, but genuine tradecraft/precautions described (route variation, timing, cover story, etc.).
-- **Obvious**: neither of the above — travel with no notable discretion effort.
+- **Subtle**: any use of Obfuscate for the travel, including partial or conditional use. Not a high bar — any genuine use qualifies. **"Use of Obfuscate" is read generously** and includes:
+  - **Shorthand** for the Discipline: `Obs`, `Obf`, `Obfusc` (often with a level, e.g. "Obs3", "Obs 4"). Treat `Obs<n>` as "used Obfuscate at level n". (DT5: Xavier wrote "travelled ... using Obs3" — that is Subtle, not Obvious.)
+  - **Named Obfuscate powers**, regardless of hyphenation/spacing: Face in the Crowd / "Face-in-the-crowd", Touch of Shadow, Mask of Tranquillity, Familiar Stranger, The Familiar Stranger, etc. Naming any Obfuscate power for the travel is Subtle. (DT5: Yusuf climbed out "Face-in-the-crowd" — the Obfuscate ● power — which is Subtle, not an "anonymising outfit".)
+  A named power or shorthand counts even if the plain word "obfuscate" never appears.
+- **Neutral**: no Obfuscate, but genuine tradecraft/precautions. The bar is **real effort, not sophistication** — it does NOT require explicit route-variation/timing/cover-story language. Casual, plainly-described precautions count: arriving early and wandering, taking an indirect/meandering route, deliberately not going straight home, killing time to shake a tail, changing transport. (DT5: Alice "caught a bus in early and wandered around ... walked for a while before ... go home" was ruled Neutral, over the AI's stricter Obvious.)
+- **Obvious**: neither of the above — a direct trip with no Obfuscate and no notable discretion effort.
+
+**Calibration (2026-07-11, 15 DT5 travel sign-offs reviewed):** the three-way threshold itself held (12/15 matched an independent AI pass first time). All three ST overrides were the AI wrongly saying "Obvious": two were Obfuscate NOT RECOGNISED (Xavier's `Obs3` shorthand; Yusuf's hyphenated `Face-in-the-crowd` power) — both Subtle; one was the AI applying the Neutral tradecraft bar too strictly (Alice's casual indirect route) — Neutral. So the failure mode to watch is UNDER-crediting: an unrecognised Obfuscate power/shorthand read as Obvious, or genuine-but-casual tradecraft read as Obvious. When a character HAS Obfuscate dots on their sheet, scan the travel text hard for a shorthand or a named power before settling on Obvious.
 
 Steps:
 1. Read the character's `travel` free-text field in full.
