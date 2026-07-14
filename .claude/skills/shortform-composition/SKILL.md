@@ -1,18 +1,34 @@
 ---
 name: shortform-composition
 description: >
-  Angelus's house style and workflow for writing short-form narrative prose:
-  downtime scene responses, per-character POV drafts, story moments, rumours,
-  any compact in-world fiction for the Terra Mortis LARP. Load this whenever the
-  task is writing or revising a scene, a character moment, or any narrative text
-  delivered to players. Enforces parsimony, concrete referents, and meaning over
-  invented plot.
+  Angelus's house style and workflow for NARRATIVE prose: scenes with drama. Story
+  Moments, touchstone vignettes, per-character POV drafts of a shared event (an
+  ambush, a home invasion), rumours, any compact in-world fiction for the Terra
+  Mortis LARP. Load this when Angelus asks for a NARRATIVE, or when the task is a
+  scene or a character moment. Do NOT load it to write the RESULT of a downtime
+  action (contacts, investigates, merit actions, project outcomes) — that is the
+  `procedural-report` skill. Enforces parsimony, concrete referents, and meaning
+  over invented plot.
 ---
 
 # Short-form Composition
 
-House style for compact in-world prose. The goal of any scene is **a moment of
+House style for compact in-world **narrative**. The goal of any scene is **a moment of
 meaning for the character**, written in the fewest words that carry it.
+
+## Scope — read this first
+
+This skill is for **scenes with drama**: Story Moments, touchstone vignettes, POV drafts
+of a shared event, rumours. Craft is wanted here.
+
+It is **NOT** for the **result of an action** — what a contact reported, what an
+investigate turned up, what a merit action achieved. Those are **reports**, and they have
+their own skill: **`procedural-report`**. Applying scene craft to a result glosses names,
+dramatises findings, and invents facts to complete a cadence. That has happened and it put
+wrong information in front of a player.
+
+**Angelus says "narrative" → this skill. Angelus says "procedural" → `procedural-report`.**
+Scenes get craft. Results get reported.
 
 ## Non-negotiable rules
 
