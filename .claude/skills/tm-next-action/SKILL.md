@@ -43,7 +43,7 @@ Present Lead before Approach (the form's own order). Do not give them separate h
 - **Target** — resolved to a character `_id` and name, marked **FIELD** or **QUOTED** (never INFERRED as fact)
 - **Connected characters** — `*_connected_chars`, `*_cast`
 - **Territory** — resolved to its canonical name (beware: ambience projects write `_ambience_target`, not `_territory`)
-- **Merit in use** — `*_block_merit` / the sphere's own merit, with its effective rating
+- **Merit in use** — for a sphere/status/contact/retainer (merit-lane) action, state PLAINLY AND SEPARATELY whose merit is being spent: "**[Character]'s own [Merit] [rating]**" as its own clear line, not folded into a list item that could be misread as the target's merit. Do this even when a target's own (lack of a) matching merit is also part of the card — the two are different facts and both need their own explicit sentence (Angelus, 2026-07-15: a card on Eve's `sphere_3` stated Brandy's absent Allies (Street) prominently but left Eve's own Allies ●●● (Street) — the merit she was actually spending — implicit inside a "Merit in use" tag; the ST had to ask "what merit is Eve using for this??" twice before it landed as a plain sentence). `*_block_merit` for hide_protects works the same way — whose merit is protecting what, stated outright.
 - **Declared pool** — `*_pool_attr` / `_pool_skill` / `_pool_disc` / `_pool_spec` / `_pool_expr` exactly as submitted
 
 ### 4. Intelligence
