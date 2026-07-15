@@ -34,7 +34,14 @@ export function getPool(char, raw) {
   const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
   if (rule) {
     const p = rule.pool;
-    if (!p || (!p.attr && !p.skill)) return { noRoll: true, info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } };
+    // Issue #994: pass rules_text/rules_source through so the dice modal
+    // can render a "Rules" expander without a second rules-cache query.
+    if (!p || (!p.attr && !p.skill)) return {
+      noRoll: true,
+      info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description },
+      rules_text: rule.rules_text || null,
+      rules_source: rule.rules_source || null,
+    };
     const attrV  = p.attr  ? getAttrEffective(char, p.attr) : 0;
     const skillV = p.skill ? skTotal(char, p.skill)         : 0;
     const unskilled = (p.skill && skillV === 0) ? unskilledPenalty(p.skill) : 0;
@@ -51,6 +58,8 @@ export function getPool(char, raw) {
       duration: rule.duration || null,
       effect: rule.description || null,
       isRitual: rule.action === 'Ritual',
+      rules_text: rule.rules_text || null,
+      rules_source: rule.rules_source || null,
       info: { d: rule.parent, a: p.attr, s: p.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description }
     };
   }
