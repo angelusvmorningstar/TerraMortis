@@ -432,6 +432,49 @@ export async function renderSuiteStatusTab(el) {
 
   // #624: clan/covenant ranking (player ballot / ST aggregate) — shared with tabs/status-tab.js
   await appendRankingSection(el.querySelector('#status-ranking-slot'), { chars, activeChar, isST });
+  // #997: on phone the ranking panel is a collapsed drawer toggled by the summary row
+  wireRankingDrawer(el);
   // #691: office actions public log (city status changes this session)
   appendOfficeActionsLog(el.querySelector('#office-log-slot'));
+}
+
+// #997: collapse the (tall) clan/covenant ranking panel into a phone drawer.
+// Collapsed-by-default and toggled by tapping the top status-summary pips row; desktop
+// is unchanged (CSS only hides the slot ≤599px). When no summary row renders (ST with no
+// active character), a fallback toggle header is injected so the drawer is still usable.
+function wireRankingDrawer(el) {
+  const slot = el.querySelector('#status-ranking-slot');
+  if (!slot || !slot.firstElementChild) return; // nothing rendered (no cycle / no char)
+
+  const summary = el.querySelector('.status-summary');
+  let toggleEl = summary;
+  if (summary) {
+    summary.classList.add('status-summary--toggle');
+    summary.setAttribute('role', 'button');
+    summary.setAttribute('tabindex', '0');
+  } else {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rules-expander-toggle status-ranking-drawer-toggle';
+    btn.innerHTML = '<span class="rules-expander-arr">›</span><span>Clan &amp; Covenant Ranking</span>';
+    slot.parentNode.insertBefore(btn, slot);
+    toggleEl = btn;
+  }
+  toggleEl.setAttribute('aria-controls', 'status-ranking-slot');
+
+  const isOpen = () => slot.classList.contains('open');
+  const setOpen = (open) => {
+    slot.classList.toggle('open', open);
+    toggleEl.classList.toggle('open', open);
+    toggleEl.setAttribute('aria-expanded', String(open));
+  };
+  // Desktop (≥600px) always shows the panel; phone starts collapsed.
+  setOpen(window.matchMedia('(min-width: 600px)').matches);
+
+  toggleEl.addEventListener('click', () => setOpen(!isOpen()));
+  if (summary) {
+    summary.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!isOpen()); }
+    });
+  }
 }
