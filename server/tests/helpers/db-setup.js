@@ -2,7 +2,7 @@
  * Test DB setup/teardown — connects to real MongoDB for integration tests.
  */
 
-import { connectDb, closeDb, getCollection } from '../../db.js';
+import { connectDb, closeDb, getCollection, getDb } from '../../db.js';
 
 export async function setupDb() {
   try {
@@ -10,6 +10,18 @@ export async function setupDb() {
   } catch (err) {
     console.error('[setupDb] connectDb() failed:', err.message);
     throw err;
+  }
+
+  // Belt-and-braces: catches the case where a connection was already
+  // established (by earlier-running code) before setup-env.js's override
+  // took effect. connectDb()'s own guard only fires on the connection that
+  // creates `db`; this re-checks whatever connection setupDb() ends up with.
+  const dbName = getDb().databaseName;
+  if (!dbName.endsWith('_test')) {
+    throw new Error(
+      `Refusing test run: connected database '${dbName}' does not end with '_test'. ` +
+        `Tests must use a *_test database — check tests/helpers/setup-env.js ordering.`
+    );
   }
 }
 

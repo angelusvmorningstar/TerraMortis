@@ -4,8 +4,26 @@ import { config } from './config.js';
 let client;
 let db;
 
+// Pure decision logic for the test-DB safety guard — extracted so it can be
+// unit-tested without a real MongoDB connection.
+//
+// Vitest sets process.env.VITEST truthy in every worker. If we're running
+// under vitest, the resolved DB name MUST end with `_test` — otherwise a
+// regression in setup-env.js ordering (or an env override) would silently
+// point a test run at production.
+export function assertTestDbSafety(dbName, isVitest) {
+  if (isVitest && !dbName.endsWith('_test')) {
+    throw new Error(
+      `Refusing to connect: test context (VITEST) targeting non-test database '${dbName}'. ` +
+        `Tests must use a *_test database — check tests/helpers/setup-env.js ordering.`
+    );
+  }
+}
+
 export async function connectDb() {
   if (db) return; // Already connected — idempotent for test suites sharing a process
+  const dbName = process.env.MONGODB_DB || 'tm_suite';
+  assertTestDbSafety(dbName, !!process.env.VITEST);
   // Strip legacy ssl= param — not accepted by MongoDB driver v7
   const uri = config.MONGODB_URI.replace(/[&?]ssl=[^&]*/g, '');
   client = new MongoClient(uri, {
@@ -13,7 +31,7 @@ export async function connectDb() {
     tls: true,
   });
   await client.connect();
-  db = client.db(process.env.MONGODB_DB || 'tm_suite');
+  db = client.db(dbName);
   console.log('MongoDB connected successfully');
 }
 
