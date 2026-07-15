@@ -27,11 +27,21 @@
  *    checked against `rank` (or `rating_range` for ranged merits) where the
  *    heading carries dots. A rank mismatch on the only candidate(s) is
  *    reported as ambiguous, not guessed into a match.
- * 5. Errata precedence: when a power appears in both an errata file and a
- *    book, the errata block's text is used, `rules_source` records both
- *    (e.g. "VtR 2e Rulebook + TM Errata").
+ * 5. Errata composition (revised 2026-07-15, Peter): when a power appears in
+ *    both an errata file and a book, `rules_text` is the FULL book text with
+ *    a clearly delimited errata section appended (blank line, `---`, then
+ *    `**<Errata Book>:**` and the errata text) — errata no longer replaces
+ *    the book text. `rules_source` still records both, e.g. "VtR 2e Rulebook
+ *    + TM Errata". Errata-only matches (no book block) keep the errata text
+ *    as the whole `rules_text`, unchanged.
  * 6. No fuzzy matching beyond normalisation — unmatched is a reportable
  *    outcome, not a failure (Design notes, story 992).
+ * 7. Auspex exclusion (2026-07-15, Peter): every power whose DB `parent`
+ *    (case-insensitive) is "Auspex" is skipped entirely — not matched, not
+ *    written — regardless of which source it would otherwise resolve from.
+ *    Peter is fixing the Auspex errata PDF; these wait. Reported in a
+ *    dedicated `skipped_auspex` list, separate from matched/unmatched/
+ *    ambiguous.
  *
  * ── Safety (2026-06-16 PR #813 lesson) ──────────────────────────────────────
  * Apply mode writes ONLY `updateOne({ _id }, { $set: { rules_text, rules_source } })`
@@ -334,6 +344,25 @@ export function loadAllBlocks(markdownDir = MARKDOWN_DIR, books = BOOKS) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Errata composition — Peter's 2026-07-15 revision (story 992 review).
+//
+// Errata no longer REPLACES the book text: when a power matches both a book
+// block and an errata block, rules_text is the full book text with a clearly
+// delimited errata section appended. Errata-only matches (no book block —
+// e.g. Encyclopaedic Knowledge, 11 cases in the live corpus) keep the errata
+// text as the whole rules_text, unchanged from before.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ERRATA_DELIMITER = '\n\n---\n';
+
+export function composeRulesText(bookBlock, errataBlock) {
+  if (bookBlock && errataBlock) {
+    return `${bookBlock.rulesText}${ERRATA_DELIMITER}**${errataBlock.book}:**\n${errataBlock.rulesText}`;
+  }
+  return (errataBlock || bookBlock).rulesText;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Match DB powers against parsed blocks.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -364,10 +393,25 @@ export function matchPower(power, byNormName) {
     const errBlock = errataCands[0];
     const bookBlock = bookCands[0];
     const source = bookBlock ? `${bookBlock.book} + ${errBlock.book}` : errBlock.book;
-    return { status: 'matched', block: errBlock, source };
+    return {
+      status: 'matched',
+      block: errBlock,
+      bookBlock: bookBlock || null,
+      errataBlock: errBlock,
+      source,
+      rulesText: composeRulesText(bookBlock, errBlock),
+    };
   }
   if (bookCands.length === 1) {
-    return { status: 'matched', block: bookCands[0], source: bookCands[0].book };
+    const bookBlock = bookCands[0];
+    return {
+      status: 'matched',
+      block: bookBlock,
+      bookBlock,
+      errataBlock: null,
+      source: bookBlock.book,
+      rulesText: bookBlock.rulesText,
+    };
   }
   return { status: 'ambiguous', reason: 'multiple_book_sources', candidates: rankFiltered };
 }
@@ -390,8 +434,8 @@ function buildReport(results, bookStatus) {
   const byCategory = {};
   for (const r of results) {
     const cat = r.category;
-    if (!byCategory[cat]) byCategory[cat] = { matched: 0, unmatched: 0, ambiguous: 0 };
-    byCategory[cat][r.status === 'matched' ? 'matched' : r.status === 'ambiguous' ? 'ambiguous' : 'unmatched']++;
+    if (!byCategory[cat]) byCategory[cat] = { matched: 0, unmatched: 0, ambiguous: 0, skipped_auspex: 0 };
+    byCategory[cat][r.status]++;
   }
 
   const matches = results
@@ -414,6 +458,10 @@ function buildReport(results, bookStatus) {
     .filter(r => r.status === 'unmatched')
     .map(r => ({ key: r.key, name: r.name, category: r.category }));
 
+  const skippedAuspex = results
+    .filter(r => r.status === 'skipped_auspex')
+    .map(r => ({ key: r.key, name: r.name, category: r.category }));
+
   return {
     generated_at: new Date().toISOString(),
     book_status: bookStatus,
@@ -421,12 +469,14 @@ function buildReport(results, bookStatus) {
       matched: matches.length,
       ambiguous: ambiguous.length,
       unmatched: unmatched.length,
+      skipped_auspex: skippedAuspex.length,
       total: results.length,
     },
     by_category: byCategory,
     matches,
     ambiguous,
     unmatched,
+    skipped_auspex: skippedAuspex,
   };
 }
 
@@ -446,13 +496,13 @@ function buildMarkdownSummary(report) {
   lines.push('');
   lines.push('## Per-category match statistics');
   lines.push('');
-  lines.push('| Category | Matched | Unmatched | Ambiguous |');
-  lines.push('|---|---|---|---|');
+  lines.push('| Category | Matched | Unmatched | Ambiguous | Skipped (Auspex) |');
+  lines.push('|---|---|---|---|---|');
   for (const [cat, counts] of Object.entries(report.by_category)) {
-    lines.push(`| ${cat} | ${counts.matched} | ${counts.unmatched} | ${counts.ambiguous} |`);
+    lines.push(`| ${cat} | ${counts.matched} | ${counts.unmatched} | ${counts.ambiguous} | ${counts.skipped_auspex} |`);
   }
   lines.push('');
-  lines.push(`**Totals** — matched: ${report.totals.matched}, unmatched: ${report.totals.unmatched}, ambiguous: ${report.totals.ambiguous}, total DB docs: ${report.totals.total}`);
+  lines.push(`**Totals** — matched: ${report.totals.matched}, unmatched: ${report.totals.unmatched}, ambiguous: ${report.totals.ambiguous}, skipped_auspex: ${report.totals.skipped_auspex}, total DB docs: ${report.totals.total}`);
   lines.push('');
   lines.push('## Sample matches');
   lines.push('');
@@ -465,6 +515,14 @@ function buildMarkdownSummary(report) {
   lines.push('');
   for (const a of report.ambiguous) {
     lines.push(`- **${a.name}** (${a.category}, \`${a.key}\`) — ${a.reason}`);
+  }
+  lines.push('');
+  lines.push(`## Skipped — Auspex (${report.skipped_auspex.length})`);
+  lines.push('');
+  lines.push('Peter is fixing the Auspex errata PDF; these powers are deliberately excluded from matching and writes until that lands.');
+  lines.push('');
+  for (const a of report.skipped_auspex) {
+    lines.push(`- **${a.name}** (${a.category}, \`${a.key}\`)`);
   }
   lines.push('');
   return lines.join('\n');
@@ -518,6 +576,17 @@ export async function main(overrides = {}) {
   }
 
   for (const p of powers) {
+    // Peter's 2026-07-15 revision: skip every power whose DB `parent` is
+    // Auspex (case-insensitive) — Peter is fixing the Auspex errata PDF, so
+    // these wait. This is a DB-parent check, not a source check: it also
+    // catches Auspex powers that would otherwise match via TM Errata Master
+    // (Beast's Hackles, Uncanny Perception, Spirit's Touch, Twilight
+    // Projection) even though Auspex Errata.md itself fails to segment.
+    if (typeof p.parent === 'string' && p.parent.toLowerCase() === 'auspex') {
+      results.push({ status: 'skipped_auspex', key: p.key, name: p.name, category: p.category });
+      continue;
+    }
+
     const m = matchPower(p, byNormName);
     if (m.status === 'unmatched') {
       results.push({ status: 'unmatched', key: p.key, name: p.name, category: p.category });
@@ -528,7 +597,7 @@ export async function main(overrides = {}) {
       continue;
     }
 
-    const rulesText = m.block.rulesText;
+    const rulesText = m.rulesText;
     const before_len = (p.description || '').length;
     const after_len = rulesText.length;
     const preview = rulesText.slice(0, 150).replace(/\n/g, ' ');
@@ -573,7 +642,7 @@ export async function main(overrides = {}) {
 
   console.log(`\n${DRY_RUN ? '[DRY RUN]' : '[APPLY]'} uplift-power-rules-text.js`);
   console.log(`Docs scanned: ${powers.length}`);
-  console.log(`Matched: ${report.totals.matched}, Unmatched: ${report.totals.unmatched}, Ambiguous: ${report.totals.ambiguous}`);
+  console.log(`Matched: ${report.totals.matched}, Unmatched: ${report.totals.unmatched}, Ambiguous: ${report.totals.ambiguous}, Skipped (Auspex): ${report.totals.skipped_auspex}`);
   if (!DRY_RUN) {
     console.log(`Backup written: ${backupPath}`);
     console.log(`Written: ${written}, Skipped (empty parsed text): ${skippedEmpty}`);

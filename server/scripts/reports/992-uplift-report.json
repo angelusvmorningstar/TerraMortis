@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T13:16:01.621Z",
+  "generated_at": "2026-07-15T03:43:21.626Z",
   "book_status": [
     {
       "file": "Vampire the Requiem 2e Rulebook.md",
@@ -48,46 +48,54 @@
     }
   ],
   "totals": {
-    "matched": 317,
+    "matched": 312,
     "ambiguous": 19,
     "unmatched": 283,
+    "skipped_auspex": 5,
     "total": 619
   },
   "by_category": {
     "attribute": {
       "matched": 0,
       "unmatched": 9,
-      "ambiguous": 0
+      "ambiguous": 0,
+      "skipped_auspex": 0
     },
     "skill": {
       "matched": 0,
       "unmatched": 24,
-      "ambiguous": 0
+      "ambiguous": 0,
+      "skipped_auspex": 0
     },
     "discipline": {
-      "matched": 29,
+      "matched": 24,
       "unmatched": 16,
-      "ambiguous": 5
+      "ambiguous": 5,
+      "skipped_auspex": 5
     },
     "merit": {
       "matched": 126,
       "unmatched": 42,
-      "ambiguous": 13
+      "ambiguous": 13,
+      "skipped_auspex": 0
     },
     "devotion": {
       "matched": 0,
       "unmatched": 45,
-      "ambiguous": 0
+      "ambiguous": 0,
+      "skipped_auspex": 0
     },
     "manoeuvre": {
       "matched": 144,
       "unmatched": 33,
-      "ambiguous": 1
+      "ambiguous": 1,
+      "skipped_auspex": 0
     },
     "rite": {
       "matched": 18,
       "unmatched": 114,
-      "ambiguous": 0
+      "ambiguous": 0,
+      "skipped_auspex": 0
     }
   },
   "matches": [
@@ -106,53 +114,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 44,
-      "after_len": 149,
-      "preview": "Maintained familiars must be purchased as Retainers and impose a –1 Vitae from the character's starting Vitae pool each game. _Source: VTR 2e pg 121_"
-    },
-    {
-      "key": "beasts-hackles",
-      "name": "Beast's Hackles",
-      "category": "discipline",
-      "source": "VtR 2e Rulebook + TM Errata",
-      "before_len": 45,
-      "after_len": 419,
-      "preview": "**Clarification:** All questions at this level must be related to weakness or danger. If the Storyteller cannot determine the answer to a player's que"
-    },
-    {
-      "key": "lay-open-the-mind",
-      "name": "Lay Open the Mind",
-      "category": "discipline",
-      "source": "VtR 2e Rulebook",
-      "before_len": 46,
-      "after_len": 2012,
-      "preview": "The Mekhet focuses on bringing her thoughts in line with her victim. He begins to think like her, and soon hears her thoughts in his mind. By concentr"
-    },
-    {
-      "key": "spirits-touch",
-      "name": "Spirit's Touch",
-      "category": "discipline",
-      "source": "VtR 2e Rulebook + TM Errata",
-      "before_len": 53,
-      "after_len": 920,
-      "preview": "**Cost** is now: Varies, as the Discipline is slightly tiring; the first use in a scene is free, but subsequent uses in the same scene cost 1 Vitae ea"
-    },
-    {
-      "key": "twilight-projection",
-      "name": "Twilight Projection",
-      "category": "discipline",
-      "source": "VtR 2e Rulebook + TM Errata",
-      "before_len": 33,
-      "after_len": 515,
-      "preview": "A vampire in Twilight Projection can use Auspex 1–3 once per scene, but may not spend blood for additional uses. _Source: VTR 2e pg 125_  **CELERITY:*"
-    },
-    {
-      "key": "uncanny-perception",
-      "name": "Uncanny Perception",
-      "category": "discipline",
-      "source": "VtR 2e Rulebook + TM Errata",
-      "before_len": 56,
-      "after_len": 284,
-      "preview": "This power must be used on a single creature that can currently be perceived. This power can be used to initiate a Clash of Wills against any objects "
+      "after_len": 2527,
+      "preview": "True beasts cannot be Embraced. They have never had the necessary Humanity. With this power, though, the vampire can complete the process halfway. By "
     },
     {
       "key": "iron-edict",
@@ -169,8 +132,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 22,
-      "after_len": 281,
-      "preview": "Resistance to Possession is now – victim's Resolve + Supernatural Tolerance. Possession only allows the possessor to walk in the sun without consequen"
+      "after_len": 3050,
+      "preview": "Controlling a victim’s memories and actions is one thing, but for some vampires the truest expression of control comes from suppressing the victim’s w"
     },
     {
       "key": "awe",
@@ -196,8 +159,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 65,
-      "after_len": 665,
-      "preview": "**Clarification:** Green Eyes has two different uses. The first is to change emotional state and requires no action; the second is to make requests. O"
+      "after_len": 2408,
+      "preview": "To a victim of this level of Majesty, the vampire’s attention feels so good that it’s addictive. His inner circle craves his attention like a crackhea"
     },
     {
       "key": "idol",
@@ -205,8 +168,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 71,
-      "after_len": 163,
-      "preview": "**Clarification:** A successful reflexive roll to resist Idol only allows for one action before the check must be made again. _Source: VTR 2e pg 139_ "
+      "after_len": 2323,
+      "preview": "More than just a celebrity, a vampire who can play with people’s desires becomes a king or a star, the kind of person who wouldn’t ever be so crass as"
     },
     {
       "key": "loyalty",
@@ -250,8 +213,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 54,
-      "after_len": 324,
-      "preview": "Resistance to Mortal Terror is now – victim's Composure + Supernatural Tolerance. Full lethal damage is applied to vampires. Composure damage on vampi"
+      "after_len": 2768,
+      "preview": "The Nosferatu can summon horrific visions from the depths of a victim’s soul. She twists everything around her victim to **Chapter Three: Laws of the "
     },
     {
       "key": "waking-nightmare",
@@ -268,8 +231,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 17,
-      "after_len": 174,
-      "preview": "When using Cloak of Night to leave active combat they have participated in, it will initiate an automatic Clash of Wills against anyone with Auspex 2."
+      "after_len": 1862,
+      "preview": "With but a thought, the vampire slips from both sight and mind. He doesn’t just fade into the background, he vanishes entirely. He leaves no scent and"
     },
     {
       "key": "face-in-the-crowd",
@@ -277,8 +240,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 71,
-      "after_len": 541,
-      "preview": "When using Face in the Crowd to leave active combat they have participated in, onlookers can make a reflexive Wits + Composure – Obfuscate to still no"
+      "after_len": 2216,
+      "preview": "The vampire can turn his predatory aura inwards, walking through crowds of people who pay him no heed. As long as he doesn’t do anything to obviously "
     },
     {
       "key": "oubliette",
@@ -286,8 +249,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 87,
-      "after_len": 186,
-      "preview": "This power has no cost and is always considered active on a character's Haven/Safe Place. Further uses of this power can occur for the standard cost. "
+      "after_len": 3155,
+      "preview": "The vampire creates a realm of his own, hiding a place from mundane senses and scrambling the perceptions of everyone within. He can turn an alleyway "
     },
     {
       "key": "the-familiar-stranger",
@@ -295,8 +258,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 43,
-      "after_len": 291,
-      "preview": "As per Touch of Shadow, can be used at no cost for an unlimited duration on inanimate objects carried or worn by the vampire to reskin. However, no eq"
+      "after_len": 1913,
+      "preview": "Rather than removing himself from the perceptions of other people, the vampire can instead adjust how they see him. He can either appear as a subjecti"
     },
     {
       "key": "touch-of-shadow",
@@ -304,8 +267,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 43,
-      "after_len": 224,
-      "preview": "The effects of Touch of Shadow can be used at no cost for an unlimited duration on inanimate objects carried or worn by the vampire, so long as the ch"
+      "after_len": 2602,
+      "preview": "With just a touch, the vampire can extend the muted attentions of Face in the Crowd to an object or animal, rather than himself. His subject fades out"
     },
     {
       "key": "beasts-skin",
@@ -331,8 +294,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 21,
-      "after_len": 1459,
-      "preview": "Feeding on a vampire's open wounds shares all the same drawbacks as drinking Vitae. Kindred cannot be fed from if they have no open wounds. _Source: V"
+      "after_len": 53627,
+      "preview": "The Beast bursts out from the vampire’s body, dissolving it into a cloud of hungry smoke. Occasionally, her victims can see **Chapter Three: Laws of t"
     },
     {
       "key": "unmarked-grave",
@@ -349,8 +312,8 @@
       "category": "discipline",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 25,
-      "after_len": 94,
-      "preview": "**Adaptations:** ● **Barbed Hands:** Damage is not lethal to vampires. _Source: VTR 2e pg 147_"
+      "after_len": 2348,
+      "preview": "With her Beast boiling in her blood, the pathetic shell of the vampire’s human or animal form cannot contain it. Her flesh warps, twisting and crackin"
     },
     {
       "key": "acute-senses",
@@ -367,8 +330,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 69,
-      "after_len": 437,
-      "preview": "Merit now reads:  **Prerequisites:** Carthian Status •, Athletics ••, Stealth ••, Streetwise •• **Effect:** Carthians are the vampires most intimately"
+      "after_len": 1229,
+      "preview": "**Prerequisites:** Athletics ••, Stealth ••, Streetwise •• Carthians are the vampires most intimately familiar with the city streets. A Carthian with "
     },
     {
       "key": "allies",
@@ -376,8 +339,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 102,
-      "after_len": 631,
-      "preview": "Each instance represents one area of influence: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, "
+      "after_len": 3972,
+      "preview": "**Effect:** Allies help your character. They might be friends, employees, associates, or people your character has blackmailed. Each instance of this "
     },
     {
       "key": "altar",
@@ -385,8 +348,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 104,
-      "after_len": 567,
-      "preview": "Merit now reads:  **Prerequisite:** Circle of the Crone Status • **Effect:** You've contributed to attuning a blood altar. In the presence of the alta"
+      "after_len": 1556,
+      "preview": "**Prerequisites**: Circle of the Crone Status •  **Effect:** Your character is attuned to a mystical, bloody altar. She may have crafted it herself, o"
     },
     {
       "key": "ambidextrous",
@@ -394,8 +357,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 36,
-      "after_len": 58,
-      "preview": "Cost reduced from 3 dots to 2 dots. _Source: CoD 2e pg 49_"
+      "after_len": 238,
+      "preview": "**Effect:** Your character does not suffer the -2 penalty for using his off hand in combat or to perform other actions. _Available only at character c"
     },
     {
       "key": "anointed",
@@ -430,8 +393,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 52,
-      "after_len": 57,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: CoD 2e pg 50_"
+      "after_len": 409,
+      "preview": "**Prerequisite:** Socialize •• **Effect:** Your character is a natural in the Rack and can procure an open invitation wherever she wishes. Whereas mos"
     },
     {
       "key": "bloodhound",
@@ -439,8 +402,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 49,
-      "after_len": 58,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: VTR 2e pg 110_"
+      "after_len": 352,
+      "preview": "**Prerequisites:** Wits ••• **Effect:** Your character can discern the intricacies of blood by smelling it, as if he had tasted it. When using his Kin"
     },
     {
       "key": "breaking-the-chains",
@@ -457,8 +420,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 61,
-      "after_len": 74,
-      "preview": "Only level 1 is available at character creation. _Source: VTR 2e_ _pg 110_"
+      "after_len": 1365,
+      "preview": "**Prerequisite:** City Status • **Effect:** You have your finger on the pulse of the Kindred underground. You’re adept with the codes and cants that a"
     },
     {
       "key": "carthian-pull",
@@ -475,8 +438,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 68,
-      "after_len": 56,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: SotC pg 178_"
+      "after_len": 980,
+      "preview": "**Prerequisites:** **Not** a member of the Carthian Movement While your character is not a member of the Carthian Movement, she spends enough time aro"
     },
     {
       "key": "cease-fire",
@@ -484,8 +447,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 53,
-      "after_len": 82,
-      "preview": "Talk to Storytellers about how a Cease Fire can be declared. _Source: SotC pg 180_"
+      "after_len": 1648,
+      "preview": "**Prerequisites:** Carthian Status ••••• Law, at its heart, boasts the ability to bring peace. Cease Fire is a Carthian Law built on that principle, e"
     },
     {
       "key": "cheap-shot",
@@ -502,8 +465,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 65,
-      "after_len": 206,
-      "preview": "Changed mechanics. Cost reduced from 2 dots to 1 dot. Ability to purchase Crúac (first dot), rituals, and Circle Merits removed to maintain parity wit"
+      "after_len": 1090,
+      "preview": "**Prerequisites:** **Not** a member of the Circle of the Crone Your character is not a member of the Circle of the Crone, but is close enough that she"
     },
     {
       "key": "claws-of-the-unholy",
@@ -511,8 +474,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 119,
-      "after_len": 83,
-      "preview": "Now does +2 Aggravated Damage. Only ignores mundane armour. _Source: VTR 2e pg 110_"
+      "after_len": 759,
+      "preview": "**Prerequisite:** Protean •••• **Effect:** A Gangrel’s claws are deadly and bestial; yours are downright unnatural. The vampire allows the Beast out o"
     },
     {
       "key": "clipping",
@@ -529,8 +492,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 40,
-      "after_len": 128,
-      "preview": "Removed drawback \"cannot spend Willpower for bonus dice in scenes where blood sympathy has been felt\". _Source: VTR_ _2e pg 111_"
+      "after_len": 642,
+      "preview": "**Effect:** Your character feels blood sympathy more keenly than most of her kind. Add +1 to all blood sympathy bonuses, and apply the 8-again quality"
     },
     {
       "key": "closed-book",
@@ -556,8 +519,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 40,
-      "after_len": 519,
-      "preview": "**Effect:** Each dot represents an area of influence for gathering information: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, M"
+      "after_len": 1856,
+      "preview": "**Effect:** Contacts provide your character with information. This Merit can be taken multiple times; each instance represents a sphere or organizatio"
     },
     {
       "key": "court-jester",
@@ -565,8 +528,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 86,
-      "after_len": 193,
-      "preview": "There can only be one Jester per domain. To become the Jester if one is already present, you must convince them to give up the title, kill them, or pu"
+      "after_len": 1390,
+      "preview": "**Prerequisites:** City Status ••, Politics •• Many domains refuse to take Carthian members seriously, since members of the Movement point out the fai"
     },
     {
       "key": "crowdsourcing",
@@ -610,8 +573,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 64,
-      "after_len": 109,
-      "preview": "Experience cost reduction and teaching Beat removed. Cost reduced from 2 dots to 1 dot. _Source: SotC pg 178_"
+      "after_len": 879,
+      "preview": "**Prerequisites:** Carthian Status ••, Science •• Since, in many cities, the Carthian Movement has the fewest elders of any covenant, some Carthians s"
     },
     {
       "key": "distinguished-palate",
@@ -619,8 +582,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 82,
-      "after_len": 58,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: VTR 2e pg 111_"
+      "after_len": 615,
+      "preview": "**Effect:** Your character can discern the subtle nuances in blood and Vitae. Consider any Taste of Blood roll (see p. 91) an exceptional success with"
     },
     {
       "key": "double-jointed",
@@ -628,8 +591,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 56,
-      "after_len": 245,
-      "preview": "Benefit of Double Jointed applies when already grappled and defending an overpower, or when attacking if she declares her intention to Break Free on a"
+      "after_len": 645,
+      "preview": "**Prerequisite:** Dexterity ••• **Effect:** Your character might have been a contortionist or spent time practicing yoga. She can dislodge joints when"
     },
     {
       "key": "dream-visions",
@@ -646,8 +609,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 87,
-      "after_len": 161,
-      "preview": "This Merit is now free and given in game by Storyteller on request. New Kid now applies to any Kindred Status. Exemplar has been removed. _Source: VTR"
+      "after_len": 647,
+      "preview": "**Prerequisite:** Clan Status • **Effect:** Your character claims membership to a long-standing dynasty of Kindred. Her clan and city know her family’"
     },
     {
       "key": "eidetic-memory",
@@ -655,8 +618,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 38,
-      "after_len": 57,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: CoD 2e pg 46_"
+      "after_len": 365,
+      "preview": "**Effect:** Your character recalls events and details with pinpoint accuracy. You do not have to make rolls for your character to remember past experi"
     },
     {
       "key": "empower-judiciary",
@@ -691,8 +654,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 49,
-      "after_len": 736,
-      "preview": "Merit now reads:  **Prerequisite:** Carthian Status •••• **Effect:** Must be publicly announced on the same night a law is established. Invest 1 Willp"
+      "after_len": 2315,
+      "preview": "**Prerequisites:** Carthian Status •••• This Carthian Law forces an enforced law upon on all others to whom it applies. On the surface, this breeds an"
     },
     {
       "key": "eye-for-the-strange",
@@ -709,8 +672,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 158,
-      "after_len": 137,
-      "preview": "Allows the use of Disciplines up to Merit rating without risking Dramatic Failure on Start of Game Hunting Rolls. _Source: VTR 2e pg 112_"
+      "after_len": 600,
+      "preview": "**Effect:** Your character has fertile feeding grounds, whether officially granted or not. Dots in this Merit represent the ease of hunting in that te"
     },
     {
       "key": "fighting-finesse",
@@ -727,8 +690,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 38,
-      "after_len": 96,
-      "preview": "Now reduces all availability costs by one on anything, not just Services. _Source: CoD 2e pg 51_"
+      "after_len": 424,
+      "preview": "**Prerequisite:** Contacts ••, Wits ••• **Effect:** Your character is people that knows people. She can not only get in touch with the right people to"
     },
     {
       "key": "flock",
@@ -745,8 +708,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 114,
-      "after_len": 212,
-      "preview": "Once per Chapter, you may use dots equal to your Invictus Status as dots in Mortal Status for areas you do not already possess. Drawback: Other Invict"
+      "after_len": 999,
+      "preview": "**Prerequisites:** Invictus Status • **Effect:** The Invictus have their fingers in a lot of pies…but any one vampire only has so many fingers. So the"
     },
     {
       "key": "fucking-thief",
@@ -763,8 +726,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 47,
-      "after_len": 81,
-      "preview": "Available only at character creation and must be costumed. _Source: CoD 2e pg 49_"
+      "after_len": 375,
+      "preview": "**Effect:** Your character is massive. She’s well over six feet tall, and crowds part when she approaches. She’s Size 6, and gains +1 Health. _Availab"
     },
     {
       "key": "haven",
@@ -781,8 +744,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 60,
-      "after_len": 75,
-      "preview": "Herd provides one-for-one Vitae at start of game. _Source:_ _VTR 2e pg 112_"
+      "after_len": 580,
+      "preview": "**Effect:** Your character cultivates cliques of mortals willing and eager for the Kiss. Each week, you can draw on a number of Vitae equal to twice t"
     },
     {
       "key": "honey-trap",
@@ -835,8 +798,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 80,
-      "after_len": 133,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: CoD 2e pg 51_ Iron Will does not apply to resisting or contesting supernatural influence."
+      "after_len": 426,
+      "preview": "**Prerequisite:** Resolve •••• **Effect:** Your character’s resolve is unwavering. When spending Willpower to contest or resist in a Social interactio"
     },
     {
       "key": "jack-booted-thug",
@@ -880,8 +843,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 49,
-      "after_len": 80,
-      "preview": "Use of Merit can be loaned for mundane extended actions. _Source: VTR 2e pg 120_"
+      "after_len": 492,
+      "preview": "**Effect:** Your character has access to a plethora of information about a given topic. When purchasing this Merit, choose a Mental Skill. The Library"
     },
     {
       "key": "lorekeeper",
@@ -898,8 +861,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 40,
-      "after_len": 108,
-      "preview": "Status requirement increased from 5 to 15 dots of Status per Blood Potency stripped. _Source: VTR 2e pg 116_"
+      "after_len": 1415,
+      "preview": "**Prerequisites:** Carthian Status ••••• **Effect:** Carthians wield consensus the way a cop wields a baton. With the power of the Movement behind her"
     },
     {
       "key": "mandragora-garden",
@@ -907,8 +870,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 160,
-      "after_len": 1416,
-      "preview": "Merit now reads:  **Prerequisites:** Circle Status •, Safe Place (equal level), Crúac • **Effect:** Your character cultivates and maintains a ghouled "
+      "after_len": 4455,
+      "preview": "**Prerequisites:** Safe Place (same level), Crúac • Your character maintains a garden of ghouled plants. They move and act on their own in slow, almos"
     },
     {
       "key": "mentor",
@@ -916,8 +879,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 93,
-      "after_len": 222,
-      "preview": "Rather than levels of favours, the use of a Mentor requires the sacrifice of downtime action, potentially more depending on Storyteller discretion. Ge"
+      "after_len": 1857,
+      "preview": "**Effect:** This Merit gives your character a teacher who provides advice and guidance. He acts on your character’s behalf, often in the background an"
     },
     {
       "key": "moderator",
@@ -925,8 +888,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 76,
-      "after_len": 89,
-      "preview": "Now once per chapter, not once per story, and all dots may be used. _Source: SotC pg 187_"
+      "after_len": 172,
+      "preview": "**Prerequisites:** Computer •••, Contacts • (Online), Invictus  --- **TM Errata:** Now once per chapter, not once per story, and all dots may be used."
     },
     {
       "key": "mortal-status",
@@ -952,8 +915,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 47,
-      "after_len": 189,
-      "preview": "Benefits can only be mundane. Can have Status in multiple Mystery Cults, but can only receive membership dot benefits from one instance of each level "
+      "after_len": 2291,
+      "preview": "Cults are far more common than the people of the World of Darkness would like to admit. Mystery cult is the catch-all term for a phenomenon ranging fr"
     },
     {
       "key": "night-doctor-surgery",
@@ -970,8 +933,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 37,
-      "after_len": 56,
-      "preview": "Cost reduced from 3 dots to 1 dot. _Source: SotC pg 188_"
+      "after_len": 791,
+      "preview": "**Prerequisites:** City Status ••• Some Invictus lead because they’re power hungry. Your character leads because she feels it’s her inherent responsib"
     },
     {
       "key": "notary",
@@ -979,8 +942,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 62,
-      "after_len": 59,
-      "preview": "Cost reduced from 3 dots to 2 dots. _Source: VTR 2e pg 116_"
+      "after_len": 819,
+      "preview": "**Prerequisites:** Invictus Status ••• **Effect:** The Invictus appointed your character a Notary, a scholar of Oaths. She presides over Oath agreemen"
     },
     {
       "key": "oath-of-abstinence",
@@ -997,8 +960,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 45,
-      "after_len": 72,
-      "preview": "The timeframe is now one Story, not one month. _Source:_ _VTR 2e pg 117_"
+      "after_len": 1003,
+      "preview": "**Effect:** With this Oath, a vassal swears to perform a service to his liege. The service must be a difficult task with definite criteria for accompl"
     },
     {
       "key": "oath-of-fealty",
@@ -1024,8 +987,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 54,
-      "after_len": 145,
-      "preview": "Cost reduced from 3 dots to 1 dot. Ending this Oath can only be done by losing this position or release by Liege or Notary. _Source: SotC pg 191_"
+      "after_len": 1091,
+      "preview": "**Prerequisites:** City Status or Invictus Status ••• This Oath seals an Invictus into an official position. She vows to uphold the duties of office, "
     },
     {
       "key": "oath-of-penance",
@@ -1060,8 +1023,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 413,
-      "after_len": 109,
-      "preview": "Oath now also provides Friends in High Places (•), as Invictus Status is not purchased. _Source: SotC pg 189_"
+      "after_len": 2397,
+      "preview": "**Prerequisites:** No Invictus Status Not every Invictus Oath comes down from on high. The Invictus is an inclusive organization, full of some of the "
     },
     {
       "key": "oath-of-the-model-prisoner",
@@ -1105,8 +1068,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 47,
-      "after_len": 352,
-      "preview": "Clarification:  **Drawback:** Cannot be woken from torpor by being fed blood whilst under this Oath, and Vitae from any source cannot be consumed. _So"
+      "after_len": 4123,
+      "preview": "**Prerequisites:** Invictus Status •• This Oath binds an Unconquered into service as a knight, tasked with defending the Invictus as a whole. She beco"
     },
     {
       "key": "one-foot-in-the-door",
@@ -1114,8 +1077,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 68,
-      "after_len": 56,
-      "preview": "Cost reduced from 2 dots to 1 dot. _Source: SotC pg 187_"
+      "after_len": 796,
+      "preview": "**Prerequisites:** **Not** a member of the Invictus ![](./assets/output_13_1.jpeg) **188** **Secrets of the Covenants:** Your character is not a membe"
     },
     {
       "key": "pack-alpha",
@@ -1141,8 +1104,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 71,
-      "after_len": 114,
-      "preview": "Prerequisites changed to: Invictus Status •, In-game sire with a Kindred Status 4 or higher. _Source: SotC pg 188_"
+      "after_len": 918,
+      "preview": "**Prerequisites:** Mentor •••• Invictus favor merit, but often, the concept of merit flows from sire to childe; a prestigious sire would clearly choos"
     },
     {
       "key": "primal-creation",
@@ -1159,8 +1122,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 67,
-      "after_len": 132,
-      "preview": "••••• The Routine: The Rote mechanic has been changed. See Dice Rolls / Dice Variations. _Source: CoD 2e pg 48_  **PHYSICAL MERITS**"
+      "after_len": 1697,
+      "preview": "**Effect:** Your character has extensive training in a particular profession, which offers distinct advantages in a handful of fields. When choosing t"
     },
     {
       "key": "pusher",
@@ -1177,8 +1140,8 @@
       "category": "merit",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 41,
-      "after_len": 104,
-      "preview": "Any bonuses to initiative only apply if the character attempts to use the weapon. _Source: CoD 2e pg 49_"
+      "after_len": 506,
+      "preview": "**Prerequisites:** Wits •••, a Specialty in the weapon or fighting style chosen **Effect:** Choose a Specialty in Weaponry or Firearms when you purcha"
     },
     {
       "key": "resources",
@@ -1186,8 +1149,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 29,
-      "after_len": 88,
-      "preview": "Generates 1 Influence at Resources 3; 2 Influence at Resources 5. _Source: CoD 2e pg 53_"
+      "after_len": 1365,
+      "preview": "**Effect:** This Merit reflects your character’s disposable income. She might live in an upscale condo, but if her income is tied up in the mortgage a"
     },
     {
       "key": "retainer",
@@ -1195,8 +1158,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 28,
-      "after_len": 208,
-      "preview": "For Retainers that will come into direct contact with PCs (e.g. combat), the Storytellers will develop a relevant sheet. Generates 1 Influence at Reta"
+      "after_len": 1289,
+      "preview": "**Effect:** Your character has an assistant, sycophant, servant, or follower on whom she can rely. Establish who this companion is and how he was acqu"
     },
     {
       "key": "right-of-return",
@@ -1204,8 +1167,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 31,
-      "after_len": 298,
-      "preview": "Replace the sentence: \"In any Social Maneuvering with members of a covenant she claims Status in, treat her impressions as one step better.\" With: \"In"
+      "after_len": 1376,
+      "preview": "**Prerequisites:** Carthian Status ••, City Status • **Effect:** This somewhat rare Merit allows a Carthian to work within another covenant without fe"
     },
     {
       "key": "safe-place",
@@ -1213,8 +1176,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 28,
-      "after_len": 138,
-      "preview": "Safe Place also adds rounds of preparation equal to Merit rating when Safe Place is under threat where appropriate. _Source: CoD 2e pg 53_"
+      "after_len": 1426,
+      "preview": "**Effect:** Your character has somewhere she can go where she can feel secure. While she may have enemies that could attack her there, she’s prepared "
     },
     {
       "key": "sanctuary",
@@ -1222,8 +1185,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 82,
-      "after_len": 120,
-      "preview": "Prerequisites now read: Lancea et Sanctum Status ••, City Status •••, Safe Place equal or greater. _Source: SotC pg 193_"
+      "after_len": 853,
+      "preview": "**Prerequisites:** City Status ••, Lancea et Sanctum Status ••, Safe Place • Because of your character’s exalted status in the city and in the church,"
     },
     {
       "key": "sell-out",
@@ -1267,8 +1230,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 61,
-      "after_len": 70,
-      "preview": "Discuss with Storytellers before purchasing. _Source: VTR 2e_ _pg 114_"
+      "after_len": 798,
+      "preview": "**Prerequisite:** Dynasty Membership •, Invictus Status • **Effect:** Any Kindred may be part of a dynastic house, but the Invictus take dynasty membe"
     },
     {
       "key": "staff",
@@ -1276,8 +1239,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 95,
-      "after_len": 80,
-      "preview": "Generates 1 Influence at Staff 3; 2 Influence at Staff 5. _Source: CoD 2e pg 54_"
+      "after_len": 716,
+      "preview": "**Effect:** Your character has a crew of workers or assistants at her disposal. They may be housekeepers, designers, research assistants, animators, g"
     },
     {
       "key": "stigmata",
@@ -1285,8 +1248,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 109,
-      "after_len": 128,
-      "preview": "Prerequisites now read: Lancea et Sanctum Status •, Humanity 3 + Merit rating, or mortal. _Source: SotC pg 193_ **CRÚAC STYLES**"
+      "after_len": 617,
+      "preview": "**Target number of successes:** 5 **Resisted by:** Stamina **Sacrament:** a crucifix The ritualist curses his victim — who must be present for the rit"
     },
     {
       "key": "strength-of-resolution",
@@ -1321,8 +1284,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 94,
-      "after_len": 132,
-      "preview": "Merit now usable once per Chapter and cannot grant 9- again to combat equipment. _Source: SotC pg 189_  **LANCEA ET SANCTUM MERITS**"
+      "after_len": 972,
+      "preview": "**Prerequisites:** Computer ••, Crafts ••, Science •, Resources • Invictus members pride themselves in utilizing the best tools humanity has to offer."
     },
     {
       "key": "the-mother-daughter-bond",
@@ -1330,8 +1293,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 261,
-      "after_len": 371,
-      "preview": "Merit now reads:  **Prerequisite:** Circle of the Crone Status • **Effect:** Strong mentorship defines the Circle. When purchasing Mentor, take additi"
+      "after_len": 1037,
+      "preview": "**Prerequisites:** Circle of the Crone Status • **Effect**: The Circle exists through tribulation and mentorship. Without tight-knit bonds, the Circle"
     },
     {
       "key": "toss-that-shit-right-back",
@@ -1357,8 +1320,8 @@
       "category": "merit",
       "source": "VtR 2e Rulebook + TM Errata",
       "before_len": 77,
-      "after_len": 139,
-      "preview": "This Merit can be purchased by any Crone, embodying the feminine power of creation. Bleeding from relevant orifice. _Source: VTR 2e pg 115_"
+      "after_len": 1075,
+      "preview": "**Effect:** Throughout history, various cultures attributed mystical significance to the menstrual cycle. Many of these Multiple Touchstones **Touchst"
     },
     {
       "key": "unsettling-gaze",
@@ -1384,8 +1347,8 @@
       "category": "merit",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 71,
-      "after_len": 400,
-      "preview": "Merit now reads:  **Prerequisites:** Circle Status •, Crúac •• **Effect:** Performing Crúac rituals enhances your standing within the Circle. Once per"
+      "after_len": 24633,
+      "preview": "Prerequisites: Crúac •• Members of the Circle of the Crone favor action. Acts of faith, acts of sacrifice, and acts of creation. The very act of perfo"
     },
     {
       "key": "where-the-bodies-are-buried",
@@ -1681,8 +1644,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 109,
-      "after_len": 19,
-      "preview": "Bashing to Kindred."
+      "after_len": 374,
+      "preview": "Bouncing someone’s head off a urinal, computer monitor, or brick wall is a handy way to increase the amount of hurt inflicted while not breaking the a"
     },
     {
       "key": "armoured-coffin",
@@ -1708,8 +1671,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 169,
-      "after_len": 102,
-      "preview": "Applies only when using Brawling disarm unless purchased with Transfer Manoeuvre. _Source:_ _HL pg 48_"
+      "after_len": 510,
+      "preview": "If your character’s caught short in a fight, his opponent’s weapon suits him just fine. When he attempts to Disarm his opponent, step the results up o"
     },
     {
       "key": "rapid-nock",
@@ -1870,8 +1833,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 150,
-      "after_len": 231,
-      "preview": "The benefit to Defence is independent of the user of covering fire. The final sentence now reads: \"Additionally, her training allows her to use Coveri"
+      "after_len": 777,
+      "preview": "Sometimes, the purpose of a shot is to distract, not necessarily to hit. Your character is trained to fire off a handful of rounds with the intent to "
     },
     {
       "key": "secondary-target",
@@ -1897,8 +1860,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 192,
-      "after_len": 275,
-      "preview": "If used as the first or second manoeuvre in the same action as establishing the grapple, victim may attempt to maintain the grapple with a reflexive c"
+      "after_len": 525,
+      "preview": "Your character knows how to toss someone over his hip, trip, or sweep her while keeping his footing. He may inflict the Knocked Down Tilt as a grappli"
     },
     {
       "key": "small-joint-manipulation",
@@ -1906,8 +1869,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 98,
-      "after_len": 921,
-      "preview": "Gains the Tactical (Street) Style Tag. _Source: HL pg 49_ **Joint Lock (•••)** now reads: You use joint locks and immobilising tactics to limit your o"
+      "after_len": 1528,
+      "preview": "By accepting a –2 penalty to the attack roll, your character may immediately dislocate or otherwise bend the opponent’s fingers in one hand (or toes i"
     },
     {
       "key": "takedown",
@@ -1915,8 +1878,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 171,
-      "after_len": 234,
-      "preview": "This is not a new grappling manoeuvre. It can only be used in place of establishing a grapple. If the roll is an exceptional success, the free second "
+      "after_len": 487,
+      "preview": "Your character can take an opponent to the ground rapidly. With a normal roll, you may choose to render an opponent prone instead of establishing a gr"
     },
     {
       "key": "ippon",
@@ -1942,8 +1905,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 133,
-      "after_len": 89,
-      "preview": "Cannot get up from prone in any round in which this technique is used. _Source: HL pg 49_"
+      "after_len": 339,
+      "preview": "While prone, your character uses his body to shake and redirect his enemy. Reduce the opponent’s dice pool to grapple by your character’s Dexterity. U"
     },
     {
       "key": "lock-flow",
@@ -1969,8 +1932,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 233,
-      "after_len": 325,
-      "preview": "A character who is immune to Beaten Down, on a successful contested Manipulation + Subterfuge – (opponent's Intimidation) vs. Wits + Empathy, may choo"
+      "after_len": 728,
+      "preview": "_Additional Prerequisite: Joint Lock_ _Maneuver_. If your character succeeds in a grapple in the turn after applying the Joint Lock maneuver, he may a"
     },
     {
       "key": "sure-strike",
@@ -1978,8 +1941,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 125,
-      "after_len": 296,
-      "preview": "Cannot be used in a turn the character is dodging. May remove up to nine dice from attack pool at a rate of three dice per one weapon rating increase."
+      "after_len": 700,
+      "preview": "Your character doesn’t always hit the hardest or the most frequently, but she guarantees a deadly strike when she does hit. You can reflexively remove"
     },
     {
       "key": "threat-range",
@@ -2050,8 +2013,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 96,
-      "after_len": 284,
-      "preview": "Pool equals the dog's Wits + Survival + K-9 Merit dots, modified for Bonded Condition. If the selected substance is “Corpses” and the trainer is Kindr"
+      "after_len": 714,
+      "preview": "Your character’s dog has been trained to detect a certain class of substances by smell and indicate its location. Choose from one of the following: Dr"
     },
     {
       "key": "targeted-bite",
@@ -2077,8 +2040,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 119,
-      "after_len": 111,
-      "preview": "Decision to Drop Prone or Hold may be made after rolling. Normal Brawling damage is applied. _Source: HL pg 49_"
+      "after_len": 995,
+      "preview": "At your character’s command, his dog may inflict a Drop Prone or Hold grappling maneuver on a target if it hits with a successful bite attack. The tar"
     },
     {
       "key": "hamstring",
@@ -2149,8 +2112,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 111,
-      "after_len": 85,
-      "preview": "Blinded Tilt is as per exceptional success, blinding in both eyes. _Source: HL pg 50_"
+      "after_len": 509,
+      "preview": "While grappling, your character can drive her fingers into an enemy’s eyes with exceptional force and persistence. If you win a grappling roll and sco"
     },
     {
       "key": "continuous-bite",
@@ -2158,8 +2121,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 140,
-      "after_len": 159,
-      "preview": "May upgrade an additional two successes of damage to lethal vs. Kindred. Other success damage is bashing, as per Terra Mortis house rules. _Source:_ _"
+      "after_len": 884,
+      "preview": "Your character knows how to apply pressure, rip flesh, and use the rest of her body’s musculature to enhance a bite. In a grapple, she may inflict let"
     },
     {
       "key": "rapidity",
@@ -2185,8 +2148,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 136,
-      "after_len": 203,
-      "preview": "Mechanic clarification – the round following a Feint, ignore Defence equal to the previous round's (successes + Weapon Rating) and increase weapon rat"
+      "after_len": 545,
+      "preview": "With a flourish in one direction, your character can distract an opponent for a cleaner, more effective follow-up strike. For example, if Feinting wit"
     },
     {
       "key": "flurry",
@@ -2329,8 +2292,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 54,
-      "after_len": 93,
-      "preview": "Gain +2 bonus to all overpower rolls once a Hold has been established. _Source: CoD 2e pg 64_"
+      "after_len": 188,
+      "preview": "Gain a +2 bonus to overpowering rolls to disarm or immobilize an opponent.  --- **TM Errata:** Gain +2 bonus to all overpower rolls once a Hold has be"
     },
     {
       "key": "weapon-retention",
@@ -2338,8 +2301,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 94,
-      "after_len": 353,
-      "preview": "Reduce successes to disarm or control your weapon by your Weaponry score, or Brawling score for Brawling weapons. _Source: CoD 2e pg 64_ **Speed Cuff "
+      "after_len": 508,
+      "preview": "Opponents attempting to disarm your character or turn his weapon against him must exceed your character’s Weaponry score in successes.  --- **TM Errat"
     },
     {
       "key": "speed-cuff",
@@ -2401,8 +2364,8 @@
       "category": "manoeuvre",
       "source": "Hurt Locker + TM Errata",
       "before_len": 104,
-      "after_len": 306,
-      "preview": "Merit now reads:  **Effect:** You gain a new grapple manoeuvre, Headbutt, which allows inflicting the Stunned Tilt without making a called shot to the"
+      "after_len": 1326,
+      "preview": "**Prerequisites:** Brawl •• **Style Tags:** Striking, Grappling **Effect:** Your character has found few arguments she can’t end by ramming her skull "
     },
     {
       "key": "phalanx-fighter",
@@ -2581,8 +2544,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 77,
-      "after_len": 63,
-      "preview": "Does not apply when making called shots. _Source: CoD 2e pg 65_"
+      "after_len": 703,
+      "preview": "Shots to the center mass can shake an opponent, and your character knows this well. When your character makes a successful unarmed attack, the opponen"
     },
     {
       "key": "one-two-punch",
@@ -2599,8 +2562,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 193,
-      "after_len": 144,
-      "preview": "The decision to sacrifice Defence and spend Willpower is made when an attack is declared, not after the dice have rolled. _Source: CoD 2e pg 65_"
+      "after_len": 1145,
+      "preview": "In a street fight, every second could mean the loss of your life. A proficient street fighter is a remarkable survivalist. She bites, headbutts, trips"
     },
     {
       "key": "strength-tricks",
@@ -2707,8 +2670,8 @@
       "category": "manoeuvre",
       "source": "CofD Rulebook + TM Errata",
       "before_len": 169,
-      "after_len": 214,
-      "preview": "Applies when Defence reduces an attack pool to zero or when successes on Dodge roll reduce attacker's successes to zero. If 10-again quality is lost, "
+      "after_len": 522,
+      "preview": "Your character focuses on reading one opponent, avoiding his attacks and frustrating him. Attacks from that opponent do not reduce your character’s De"
     },
     {
       "key": "redirect",
@@ -2941,8 +2904,8 @@
       "category": "rite",
       "source": "Secrets of the Covenants + TM Errata",
       "before_len": 383,
-      "after_len": 128,
-      "preview": "Prerequisites now read: Lancea et Sanctum Status •, Humanity 3 + Merit rating, or mortal. _Source: SotC pg 193_ **CRÚAC STYLES**"
+      "after_len": 2393,
+      "preview": "**Prerequisites:** Humanity (three or more dots higher than the Merit) or mortal Your character bleeds in an unnatural, holy way. Usually, this manife"
     }
   ],
   "ambiguous": [
@@ -4476,6 +4439,33 @@
       "key": "true-worm",
       "name": "True Worm",
       "category": "merit"
+    }
+  ],
+  "skipped_auspex": [
+    {
+      "key": "beasts-hackles",
+      "name": "Beast's Hackles",
+      "category": "discipline"
+    },
+    {
+      "key": "lay-open-the-mind",
+      "name": "Lay Open the Mind",
+      "category": "discipline"
+    },
+    {
+      "key": "spirits-touch",
+      "name": "Spirit's Touch",
+      "category": "discipline"
+    },
+    {
+      "key": "twilight-projection",
+      "name": "Twilight Projection",
+      "category": "discipline"
+    },
+    {
+      "key": "uncanny-perception",
+      "name": "Uncanny Perception",
+      "category": "discipline"
     }
   ]
 }

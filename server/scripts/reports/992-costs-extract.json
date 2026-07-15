@@ -5,11 +5,6 @@
     "cost_raw": "None"
   },
   {
-    "key": "lay-open-the-mind",
-    "name": "Lay Open the Mind",
-    "cost_raw": "1 Vitae"
-  },
-  {
     "key": "iron-edict",
     "name": "Iron Edict",
     "cost_raw": "1 Vitae; none if victim is in Vinculum with the vampire"
