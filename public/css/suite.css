@@ -2246,6 +2246,27 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .status-section-title{font-size:15px;}
 .status-col-head{font-size:15px;}
 
+/* ── #997 Phone drawer for the clan/covenant ranking panel ──
+ * The ranking panel is tall and dominates the phone status tab. Collapse it into a
+ * drawer that is hidden by default ≤599px and toggled by tapping the summary pips row
+ * (which gains a chevron affordance). Desktop (≥600px) is unchanged — the slot always
+ * shows and the toggle chrome is hidden. */
+.status-summary--toggle{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.status-ranking-drawer-toggle{display:none;width:auto;margin:8px 14px 0;padding:6px 0;}
+@media (max-width: 599px){
+  #status-ranking-slot{display:none;}
+  #status-ranking-slot.open{display:block;}
+  .status-summary--toggle{position:relative;}
+  .status-summary--toggle::after{
+    content:'\203A';
+    position:absolute;top:50%;right:14px;transform:translateY(-50%);
+    font-size:16px;line-height:1;color:var(--txt3);
+    transition:transform .15s;pointer-events:none;
+  }
+  .status-summary--toggle.open::after{transform:translateY(-50%) rotate(90deg);}
+  .status-ranking-drawer-toggle{display:flex;}
+}
+
 /* ── #624 Clan/Covenant ranking ballot ── */
 .status-ranking-section {
   margin: 8px 14px;
