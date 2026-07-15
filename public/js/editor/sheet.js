@@ -37,6 +37,7 @@ import { auditCharacter } from '../data/audit.js';
 import { powersForDisc } from '../suite/sheet-helpers.js';
 import { markerFor } from './st-mod-popover.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+import { renderRulesExpander } from '../shared/rules-text.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -52,7 +53,10 @@ function _devDB() {
 function _meritDB() {
   const db = {};
   for (const r of getRulesByCategory('merit')) {
-    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category };
+    // Issue #994: carry rules_text/rules_source through so pact/oath drawers
+    // (the only consumer of this map for power-style rules-text display)
+    // can offer a "Full rules" expander.
+    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category, rules_text: r.rules_text || null, rules_source: r.rules_source || null };
   }
   return db;
 }
@@ -845,6 +849,8 @@ export function shRenderDisciplines(c, editMode) {
           + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">'
           + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '')
           + '<div class="disc-power-effect">' + esc(effect) + '</div>'
+          // Issue #994: "Full rules" expander from the oath/law rules doc.
+          + (dbEntry && dbEntry.rules_text ? renderRulesExpander('rte-' + gid, dbEntry.rules_text, dbEntry.rules_source) : '')
           + '</div></div>';
       }
     });
@@ -2401,7 +2407,12 @@ export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
   const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');
-    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+    // Issue #994: "Full rules" expander from the merit's rules doc (meritLookup
+    // carries the full rule via db._rule). Reused by both the editor sheet and
+    // the suite sheet (shRenderInfluenceMerits/shRenderGeneralMerits etc. delegate here).
+    const _ruleDoc = db._rule || null;
+    const rulesExp = _ruleDoc && _ruleDoc.rules_text ? renderRulesExpander('rte-' + id2, _ruleDoc.rules_text, _ruleDoc.rules_source) : '';
+    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + rulesExp + '</div>';
   }
   return '<div class="merit-plain">' + _inner(false) + '</div>';
 }

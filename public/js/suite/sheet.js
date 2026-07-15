@@ -32,6 +32,8 @@ import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
+import { renderRulesExpander } from '../shared/rules-text.js';
+import { getRulesByCategory } from '../data/loader.js';
 
 // ── STM display helpers (issue #425) ──
 // Mirror the editor sheet's wiring (public/js/editor/sheet.js) so modded
@@ -524,6 +526,10 @@ export function renderSheet() {
       + '</span>';
   }
 
+  // Issue #994: alnum-only id fragment for the rules-text expander toggle.
+  const _slugId = s => String(s || '').replace(/[^a-zA-Z0-9]/g, '');
+  const _charSlug = c.name.replace(/[^a-z]/gi, '');
+
   if (c.disciplines && Object.keys(c.disciplines).length) {
 
     function renderDiscRow(d, r, nameClass) {
@@ -536,10 +542,12 @@ export function renderSheet() {
         const _pPool = p.name ? getPool(c, p.name) : null;
         const _pHasRoll = _pPool && !_pPool.noRoll && _pPool.total !== undefined;
         const _pDice = (_showDice && _pHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
+        const _pRulesExp = p.rules_text ? renderRulesExpander('rt-' + _charSlug + _slugId(p.name), p.rules_text, p.rules_source) : '';
         drawerHtml += `<div class="disc-power">
           <div class="disc-power-name">${p.name || ''}${_pDice}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
+          ${_pRulesExp}
         </div>`;
       });
       if (d === 'Auspex' && r >= 1) {
@@ -578,11 +586,14 @@ export function renderSheet() {
         const _devPool = p.name ? getPool(c, p.name) : null;
         const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
         const _devDice = (_showDice && _devHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
+        const _devRule = getRulesByCategory('devotion').find(r => r.name === p.name);
+        const _devRulesExp = _devRule?.rules_text ? renderRulesExpander('rt-' + gid, _devRule.rules_text, _devRule.rules_source) : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
+            ${_devRulesExp}
           </div></div>`;
       });
       html += `</div></div>`;
@@ -608,11 +619,14 @@ export function renderSheet() {
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const mgChip = p.mandragora_parked ? `<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>` : '';
         const tradSub = (p.tradition || mgChip) ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition || ''}</span>${mgChip}</div>` : '';
+        const _riteRule = getRulesByCategory('rite').find(r => r.name === p.name);
+        const _riteRulesExp = _riteRule?.rules_text ? renderRulesExpander('rt-' + gid, _riteRule.rules_text, _riteRule.rules_source) : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
+            ${_riteRulesExp}
           </div></div>`;
       });
       html += `</div></div>`;
@@ -628,11 +642,17 @@ export function renderSheet() {
         const _pactPool = p.name ? getPool(c, p.name) : null;
         const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
         const _pactDice = (_showDice && _pactHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
+        // Issue #994: pacts (Invictus Oaths / Carthian Law) live in purchasable_powers
+        // as category "merit" (matches editor/sheet.js's _oathDB derivation).
+        // Match case-insensitively since stored power names vary in casing.
+        const _pactRule = getRulesByCategory('merit').find(r => (r.name || '').toLowerCase() === (p.name || '').toLowerCase());
+        const _pactRulesExp = _pactRule?.rules_text ? renderRulesExpander('rt-' + gid, _pactRule.rules_text, _pactRule.rules_source) : '';
         const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
+            ${_pactRulesExp}
           </div></div>`;
       });
       html += `</div></div>`;

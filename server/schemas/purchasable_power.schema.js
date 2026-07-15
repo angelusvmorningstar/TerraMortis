@@ -90,6 +90,13 @@ export const purchasablePowerSchema = {
 
     // Mechanics
     description: { type: 'string' },
+    // Issue #992: full rulebook text uplift. Optional — populated by
+    // server/scripts/uplift-power-rules-text.js. `description` (above)
+    // remains the untouched one-line summary; `rules_text` is the full
+    // parsed rules body, `rules_source` records provenance (e.g.
+    // "VtR 2e Rulebook" or "VtR 2e Rulebook + TM Errata").
+    rules_text:   { type: 'string' },
+    rules_source: { type: 'string' },
     pool: {
       oneOf: [
         {
