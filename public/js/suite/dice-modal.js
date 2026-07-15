@@ -10,6 +10,7 @@ import { getAttrEffective, skTotal, skNineAgain, skSpecs, getSkillObj } from '..
 import { hasAoE, displayName } from '../data/helpers.js';
 import { parseResistance, getResistTokenVal } from '../shared/resist.js';
 import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, ALL_SKILLS } from '../data/constants.js';
+import { renderRulesExpander } from '../shared/rules-text.js';
 import state from './data.js';   // only for reading rollChar / sheetChar
 
 // Attribute groups by category
@@ -312,6 +313,8 @@ export function openDiceModal(type, name, char) {
       if (pi.discName && pi.discV) info += ' + ' + pi.discName + ' ' + pi.discV;
       if (pi.cost) info += ' <span class="dm-info-dim">\u00B7 ' + pi.cost + '</span>';
       if (pi.resistance) info += ' <span class="dm-info-dim">\u00B7 vs ' + pi.resistance + '</span>';
+      // Issue #994: collapsed "Rules" expander beneath the cost line.
+      if (pi.rules_text) info += renderRulesExpander('dm-rules', pi.rules_text, pi.rules_source, { label: 'Rules' });
       infoEl.innerHTML = info;
     } else {
       // No-roll power
@@ -319,6 +322,7 @@ export function openDiceModal(type, name, char) {
       _ms.ps = 0;
       infoEl.innerHTML = '<span class="dm-info-dim">No dice pool \u2014 adjust manually</span>';
       if (pi?.info?.c) infoEl.innerHTML += ' <span class="dm-info-dim">\u00B7 Cost: ' + pi.info.c + '</span>';
+      if (pi?.rules_text) infoEl.innerHTML += renderRulesExpander('dm-rules', pi.rules_text, pi.rules_source, { label: 'Rules' });
     }
   } else if (type === 'skill') {
     // Bare skill roll — default attribute + skill selectors

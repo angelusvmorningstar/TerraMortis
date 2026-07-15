@@ -785,6 +785,19 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-power-effect{font-family:var(--ft);font-size:11px;color:var(--label-secondary);line-height:1.55;}
 .disc-sub-head{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--label-tertiary);padding:7px 12px 3px;}
 
+/* ── Rules text expander (issue #994) ── */
+.rules-expander{margin-top:6px;}
+.rules-expander-toggle{display:flex;align-items:center;gap:4px;width:100%;background:none;border:none;padding:4px 0;font-family:var(--fl);font-size:10px;font-weight:700;font-variant:small-caps;letter-spacing:.05em;color:var(--label-secondary);cursor:pointer;user-select:none;text-align:left;}
+.rules-expander-toggle:hover{color:var(--accent);}
+.rules-expander-arr{font-size:10px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
+.rules-expander-toggle.open .rules-expander-arr{transform:rotate(90deg);}
+.rules-expander-body{display:none;margin-top:4px;padding:8px 10px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;font-family:var(--ft);font-size:11px;color:var(--label-secondary);line-height:1.6;max-height:320px;overflow-y:auto;overflow-wrap:anywhere;}
+.rules-expander-body.visible{display:block;}
+.rules-text-p{margin:0 0 8px 0;}
+.rules-text-p:last-child{margin-bottom:0;}
+.rules-text-hr{border-top:0.5px solid var(--bdr);margin:10px 0;}
+.rules-text-source{margin-top:8px;font-style:italic;color:var(--txt3);font-size:10px;}
+
 /* ── Rite badges ── */
 .rite-free-badge,.rite-xp-badge{font-family:var(--fl);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid;border-radius:3px;padding:1px 5px;cursor:pointer;transition:background .15s,color .15s;}
 .rite-free-badge{background:var(--accent-a8);color:var(--accent);border-color:var(--accent);}

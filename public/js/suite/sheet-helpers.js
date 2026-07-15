@@ -122,6 +122,10 @@ export function powersForDisc(powers, discName, dots) {
       stats: fmtRuleStats(r),
       effect: r.description || '',
       rank: r.rank,
+      // Issue #994: carry the full-rules text through so drawer renderers
+      // can offer a "Full rules" expander without a second lookup.
+      rules_text: r.rules_text || null,
+      rules_source: r.rules_source || null,
     }));
   }
   // Fallback: stored powers on the character (legacy / homebrew). Match by
