@@ -50,6 +50,12 @@ Scenes get craft. Results get reported.
    object) is not omission, it is a missing antecedent that stalls the read. So:
    **every person or object gets a self-contained tag at first mention, or it is cut.**
    No name without a handle (who they are to this character, in one clause).
+   **Check the opening line specifically, every time, before showing a draft:** a scene
+   must never open on a bare pronoun ("He finds you...", "It arrives...") with no noun
+   yet introduced to attach it to. Introduce the concrete noun first ("A monk finds
+   you...", "An email arrives...") and let pronouns follow. This has recurred twice in
+   one session (Hazel's "The Monk," Keeper's "Marks and Signs") — it is cheap to catch
+   and easy to miss without a deliberate check, so make the check deliberate.
 6. **Strong, exact nouns and verbs.** Specificity creates immersion in few words.
    Prefer the precise concrete noun over an adjective stack.
 7. **One moment, one effect.** Single focus. Do not seed multiple unexplained threads

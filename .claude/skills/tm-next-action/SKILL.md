@@ -56,7 +56,9 @@ Everything else in the cycle that touches this action. This is the panel the ST 
 - **Open ST rulings this action depends on** — pull them from the queue doc's standing-items list
 
 ### 5. Suggested pool
-**Read the merits, not just Attribute + Skill + Discipline.** A DT5 audit that checked only the three got three of ten pools wrong. At minimum check: Professional Training (9-Again on Asset Skills; +1 dot to the `dot4_skill`), MCI dot-3 skills, Air of Menace, the skill's own `specs` array. Effective ratings always (dots + bonus).
+**First check the lane. A sphere/status/contact/retainer (merit-lane) action never gets a dice pool at all — skip straight to "flat successes = the acting character's effective merit rating."** This holds for every action-type tag on that lane (investigate, attack, grow, hide_protect — no exceptions, no mode-based carve-out). See grounding's own top-line rule. Only a `project`-lane action (or a merit-lane action explicitly recategorised into `project`) builds an Attribute + Skill + Discipline pool at all.
+
+For `project`-lane actions: **Read the merits, not just Attribute + Skill + Discipline.** A DT5 audit that checked only the three got three of ten pools wrong. At minimum check: Professional Training (9-Again on Asset Skills; +1 dot to the `dot4_skill`), MCI dot-3 skills, Air of Menace, the skill's own `specs` array. Effective ratings always (dots + bonus).
 
 Then:
 - **Flag any mismatch between the declared pool and the described action.** The declared pool is the player's guess. If the description is a stalking-and-intimidation piece and the pool has Celerity in it, say so and offer the branches (this is exactly how Hazel's Hunt Livia resolved — the ST split the action into its two possible readings and picked one).
