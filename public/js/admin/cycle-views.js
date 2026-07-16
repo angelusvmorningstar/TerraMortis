@@ -235,8 +235,13 @@ async function writePhase(cy, phaseOrNull) {
       throw new Error('Tracker reset failed: ' + err.message);
     }
   }
-  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull });
+  // #1001: write the derived legacy `status` alongside game_phase so raw
+  // `status` readers (getActiveCycle, LIVE_STATUSES filters) stay consistent
+  // with the phase while legacy status-based readers still exist.
+  const status = deriveCycleStatus({ ...cy, game_phase: phaseOrNull });
+  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull, status });
   cy.game_phase = phaseOrNull;
+  cy.status = status;
   return true;
 }
 

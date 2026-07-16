@@ -30,6 +30,8 @@ import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 // other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
+// #1001: canonical in-game-phase test (game_phase wins over legacy status)
+import { isInGamePhase } from '../downtime/db.js';
 // ECM-4 (#871): catalogue dropdown sources from the shared cache module
 // ECM-5 (#872) introduced. App boot in app.js calls loadCatalogue; we read
 // synchronously here at render time. getCatalogueEntry resolves a
@@ -1715,7 +1717,7 @@ function renderCycleGatePage() {
   }
   const label = esc(currentCycle.label || 'This cycle');
   const isPrep         = currentCycle.status === 'prep';
-  const isGame         = currentCycle.status === 'game';
+  const isGame         = isInGamePhase(currentCycle); // #1001: game_phase wins over legacy status
   const isClosed       = currentCycle.status === 'closed';
   const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
   const isPublished    = !!(responseDoc?.published_outcome);

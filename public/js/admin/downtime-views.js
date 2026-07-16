@@ -8,7 +8,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 // editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
 import state from '../data/state.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, DTUX_PHASES } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
@@ -1241,7 +1241,7 @@ async function loadCycleById(cycleId) {
 
   const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
-  const isGame   = cycle.status === 'game';
+  const isGame   = isInGamePhase(cycle); // #1001: game_phase wins over legacy status
   const isOpen   = cycle.status === 'open';
   const isClosed = cycle.status === 'closed';
   const isLive   = isPrep || isActive || isGame || isOpen;
