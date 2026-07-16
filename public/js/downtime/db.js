@@ -122,10 +122,21 @@ export async function setManualOpen(cycle, on, userId) {
   return cycle;
 }
 
-/** Get the cycle currently in game phase (status === 'game'). */
+/**
+ * Canonical test: is this cycle in game phase? (#1001)
+ * Resolves through deriveCycleStatus so manual game_phase (#708) wins over the
+ * legacy `status` field. Every "which cycle is live for the game" reader must go
+ * through this — reading raw `status === 'game'` misses game_phase divergence and
+ * broke feeding night (game_phase='game' while status still pointed elsewhere).
+ */
+export function isInGamePhase(cycle) {
+  return deriveCycleStatus(cycle) === 'game';
+}
+
+/** Get the cycle currently in game phase (game_phase wins over legacy status). */
 export async function getGamePhaseCycle() {
   const cycles = await getCycles();
-  return cycles.find(c => c.status === 'game') || null;
+  return cycles.find(isInGamePhase) || null;
 }
 
 // ── Submissions ─────────────────────────────────────────────────────────────
