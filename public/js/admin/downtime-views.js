@@ -8,7 +8,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 // editor's Add Equipment / Add Asset rows pre-fill acquired_cycle correctly.
 import state from '../data/state.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, DTUX_PHASES } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, DTUX_PHASES } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
@@ -2709,6 +2709,11 @@ async function handleOpenGamePhase() {
   if (!selectedCycleId) return;
   const cycle = allCycles.find(c => c._id === selectedCycleId);
   if (!cycle || cycle.status !== 'closed') return;
+  // #1003: warn if flipping an empty cycle to game while another live cycle
+  // holds submissions (feeding pulls from the game-phase cycle).
+  const warn = await zeroSubmissionFlipWarning(
+    cycle, allCycles, async id => (await getSubmissionsForCycle(id)).length);
+  if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return;
   if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
   await openGamePhase(selectedCycleId);
   const idx = allCycles.findIndex(c => c._id === selectedCycleId);
