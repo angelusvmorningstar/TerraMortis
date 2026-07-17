@@ -1071,7 +1071,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .qf-select {
   background: var(--rp-surf);
   color: var(--rp-txt);
-  border-color: rgba(139,0,0,.2);
+  border-color: var(--rp-bdr2);
 }
 
 .reading-pane .qf-input:focus,
@@ -1763,21 +1763,6 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   font-family: var(--ft);
   font-size: 15px;
   transition: border-color .2s;
-}
-
-.reading-pane .qf-input,
-.reading-pane .qf-textarea,
-.reading-pane .qf-select {
-  background: rgba(255,255,255,.5);
-  color: var(--rp-txt);
-  border-color: rgba(139,0,0,.25);
-}
-
-.reading-pane .qf-input:focus,
-.reading-pane .qf-textarea:focus,
-.reading-pane .qf-select:focus {
-  border-color: var(--rp-accent);
-  background: rgba(255,255,255,.75);
 }
 
 .qf-input:focus, .qf-textarea:focus, .qf-select:focus {
