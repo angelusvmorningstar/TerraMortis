@@ -36,6 +36,7 @@ export const characterDossierSchema = {
           // state that keeps them honest - a debt fact must know if it's repaid,
           // a secret must know if it's been compromised. Without this they'd rot.
           st_hidden:   { type: 'boolean' },           // ST-only (secrets, sensitive obligations)
+          revealed_to: { type: ['array', 'null'], items: { type: 'string' } }, // character _ids this st_hidden fact has been explicitly shown to (Terra Mortis Wiki reveals; see TerraMortisWiki/specs/architecture.md)
           severity:    { type: ['string', 'null'], enum: ['trivial', 'minor', 'major', 'life_threatening', null] }, // tag=secret
           compromised: { type: ['boolean', 'null'] }, // tag=secret: has it been exposed?
           status:      { type: ['string', 'null'], enum: ['outstanding', 'repaid', null] }, // tag=boon|debt
