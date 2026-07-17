@@ -102,8 +102,7 @@ export function toggleRulesText(id) {
 
 // Rendered HTML uses an inline onclick="toggleRulesText(...)" attribute, so
 // the handler must be reachable as a bare global regardless of which module
-// (suite/sheet.js, editor/sheet.js, suite/dice-modal.js) happened to import
-// this file first.
+// (suite/sheet.js, editor/sheet.js) happened to import this file first.
 if (typeof window !== 'undefined') {
   window.toggleRulesText = toggleRulesText;
 }
