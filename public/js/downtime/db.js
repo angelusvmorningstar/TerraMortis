@@ -122,10 +122,60 @@ export async function setManualOpen(cycle, on, userId) {
   return cycle;
 }
 
-/** Get the cycle currently in game phase (status === 'game'). */
+/**
+ * Canonical test: is this cycle in game phase? (#1001)
+ * Resolves through deriveCycleStatus so manual game_phase (#708) wins over the
+ * legacy `status` field. Every "which cycle is live for the game" reader must go
+ * through this — reading raw `status === 'game'` misses game_phase divergence and
+ * broke feeding night (game_phase='game' while status still pointed elsewhere).
+ */
+export function isInGamePhase(cycle) {
+  return deriveCycleStatus(cycle) === 'game';
+}
+
+/** Get the cycle currently in game phase (game_phase wins over legacy status). */
 export async function getGamePhaseCycle() {
   const cycles = await getCycles();
-  return cycles.find(c => c.status === 'game') || null;
+  return cycles.find(isInGamePhase) || null;
+}
+
+/** Human-readable cycle name for dialogs. Label if set, else "Game N". */
+export function cycleDisplayName(cycle) {
+  return cycle?.label || (cycle?.game_number != null ? 'Game ' + cycle.game_number : 'this cycle');
+}
+
+/**
+ * #1003 flip guard: deciding whether flipping `targetCycle` to game phase should
+ * warn the ST. Fires only when the target has zero downtime submissions AND another
+ * non-closed cycle has some — the 2026-07-16 mistake was flipping empty "Game 6"
+ * to game while "Game 5" (27 submissions) sat live, silently defaulting every
+ * feeding roll to Barrens -4. Pure decision (submission counts injected via
+ * `countSubs(cycleId) => Promise<number>`) so it is unit-testable. Returns null
+ * when no warning is warranted, else { target, targetCount, rival, rivalCount }.
+ */
+export async function zeroSubmissionFlipWarning(targetCycle, cycles, countSubs) {
+  if (!targetCycle) return null;
+  const targetCount = await countSubs(targetCycle._id);
+  if (targetCount > 0) return null;
+  // "Closed" via either signal: closeCycle() sets raw status='closed' without
+  // touching phase_signoff, so deriveCycleStatus alone would miss legacy closed
+  // cycles (it derives from game_phase/phase_signoff, not the raw status field).
+  const isClosed = (c) => c.status === 'closed' || deriveCycleStatus(c) === 'closed';
+  for (const c of cycles || []) {
+    if (!c || String(c._id) === String(targetCycle._id)) continue;
+    if (isClosed(c)) continue;
+    const n = await countSubs(c._id);
+    if (n > 0) return { target: targetCycle, targetCount, rival: c, rivalCount: n };
+  }
+  return null;
+}
+
+/** Confirm-dialog copy for the #1003 flip guard. British English, no em-dashes. */
+export function zeroSubmissionFlipMessage(warn) {
+  const t = cycleDisplayName(warn.target);
+  const r = cycleDisplayName(warn.rival);
+  return `${t} has no downtime submissions; ${r} has ${warn.rivalCount}. `
+    + `Players' feeding pulls from the game-phase cycle. Flip ${t} to game phase anyway?`;
 }
 
 // ── Submissions ─────────────────────────────────────────────────────────────

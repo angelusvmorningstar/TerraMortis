@@ -30,8 +30,6 @@ import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { shRenderInfluenceMerits, shRenderDomainMerits, shRenderGeneralMerits, shRenderManoeuvres, shRenderEquipment } from '../editor/sheet.js';
-import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
-import { getPool } from '../shared/pools.js';
 import { renderRulesExpander } from '../shared/rules-text.js';
 import { getRulesByCategory } from '../data/loader.js';
 
@@ -203,7 +201,6 @@ export function renderSheet() {
   }
 
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '';
-  const _showDice = canRollDice(c);
   const st = c.status || {};
   const clanKey = (c.clan || '').toLowerCase().replace(/[^a-z]/g, '');
   const covKey = (c.covenant || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -492,7 +489,6 @@ export function renderSheet() {
       // Issue #425: opts for modded skill dots/bonus.
       const dotStr = hasDots ? shDotsWithBonus(d, totalBn, _stmSkillOpts(c, s)) : '\u2013';
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
-      const _diceBtn = (_showDice && hasDots) ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
         <div class="skill-row-top">
           <div class="skill-name-wrap">
@@ -504,7 +500,6 @@ export function renderSheet() {
             ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
           </div>
         </div>
-        ${_diceBtn ? `<div class="skill-row-actions">${_diceBtn}</div>` : ''}
       </div>`;
     });
     html += `</div>`;
@@ -538,13 +533,9 @@ export function renderSheet() {
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
       discPowers.forEach(p => {
-        const _pName = (p.name || '').replace(/'/g, "\\'");
-        const _pPool = p.name ? getPool(c, p.name) : null;
-        const _pHasRoll = _pPool && !_pPool.noRoll && _pPool.total !== undefined;
-        const _pDice = (_showDice && _pHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
         const _pRulesExp = p.rules_text ? renderRulesExpander('rt-' + _charSlug + _slugId(p.name), p.rules_text, p.rules_source) : '';
         drawerHtml += `<div class="disc-power">
-          <div class="disc-power-name">${p.name || ''}${_pDice}</div>
+          <div class="disc-power-name">${p.name || ''}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
           ${_pRulesExp}
@@ -582,13 +573,9 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
-        const _devName = (p.name || '').replace(/'/g, "\\'");
-        const _devPool = p.name ? getPool(c, p.name) : null;
-        const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
-        const _devDice = (_showDice && _devHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
         const _devRule = getRulesByCategory('devotion').find(r => r.name === p.name);
         const _devRulesExp = _devRule?.rules_text ? renderRulesExpander('rt-' + gid, _devRule.rules_text, _devRule.rules_source) : '';
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -612,16 +599,12 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
       ritesList.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
-        const _riteName = (p.name || '').replace(/'/g, "\\'");
-        const _ritePool = p.name ? getPool(c, p.name) : null;
-        const _riteHasRoll = _ritePool && !_ritePool.noRoll && _ritePool.total !== undefined;
-        const _riteDice = (_showDice && _riteHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>` : '';
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const mgChip = p.mandragora_parked ? `<span class="rite-mg-tag" title="Permanently sustained by Mandragora Garden">MG</span>` : '';
         const tradSub = (p.tradition || mgChip) ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition || ''}</span>${mgChip}</div>` : '';
         const _riteRule = getRulesByCategory('rite').find(r => r.name === p.name);
         const _riteRulesExp = _riteRule?.rules_text ? renderRulesExpander('rt-' + gid, _riteRule.rules_text, _riteRule.rules_source) : '';
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -638,16 +621,12 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
       pactsList.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
-        const _pactName = (p.name || '').replace(/'/g, "\\'");
-        const _pactPool = p.name ? getPool(c, p.name) : null;
-        const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
-        const _pactDice = (_showDice && _pactHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
         // Issue #994: pacts (Invictus Oaths / Carthian Law) live in purchasable_powers
         // as category "merit" (matches editor/sheet.js's _oathDB derivation).
         // Match case-insensitively since stored power names vary in casing.
         const _pactRule = getRulesByCategory('merit').find(r => (r.name || '').toLowerCase() === (p.name || '').toLowerCase());
         const _pactRulesExp = _pactRule?.rules_text ? renderRulesExpander('rt-' + gid, _pactRule.rules_text, _pactRule.rules_source) : '';
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="suiteToggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
