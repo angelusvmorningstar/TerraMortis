@@ -74,6 +74,9 @@ const courts = all.filter(l => l.type==='court' && l.lat!=null).map(e => ({
 const feats = locs.map(l => ({
   name: l.name, faction: l.faction, type: l.type, real_place: l.real_place || null,
   color: l.color || '#888', alpha: l.fill_alpha ?? 0.3, stroke: l.stroke || l.color || '#888',
+  // Sub-faction tags (map-key work): Forsaken/Pure for werewolf turf, Awakening Order for mage.
+  ...(l.werewolf_faction ? { werewolf_faction: l.werewolf_faction } : {}),
+  ...(l.mage_order ? { mage_order: l.mage_order } : {}),
   ring: optimiseGeom(l.polygon.map(([lon, lat]) => [lat, lon])),
 }));
 
