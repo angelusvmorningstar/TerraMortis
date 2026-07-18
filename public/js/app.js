@@ -107,7 +107,18 @@ import { applyOverlayToAll } from './data/st-mods.js';
 import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
-import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } from './suite/roll.js';
+// Roll tab: two parallel implementations gated by the localStorage flag
+// `tm-use-new-dice-roller` (issue #1018). Both modules export the same
+// symbols; whichever is active drives BOTH internal callers (below) AND
+// the inline-onclick window globals wired at the bottom of this file.
+// The inactive tab's DOM subtree is removed at boot in `boot()` so
+// getElementById() calls made anywhere (including external touch-points
+// like pickChar, shared/resist.js, contested-roll) target the visible tab.
+import * as rollV1 from './suite/roll.js';
+import * as rollV2 from './suite/roll-v2.js';
+const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
+const _roller = USE_NEW_ROLLER ? rollV2 : rollV1;
+const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } = _roller;
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -270,6 +281,7 @@ const NAV_ALIAS = {
 const NAV_ITEMS = [
   // Sheet split into Stats / Skills / Powers for phone UX
   { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice' },
+  { id: 'roll',      label: 'Roll',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'roll' },
   { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
   { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
@@ -311,6 +323,9 @@ function renderBottomNav() {
     if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
     if (item.guide && !showGuides) continue;
+    // Roll v2 (#1018): swap 'dice' ↔ 'roll' based on the settings flag.
+    if (item.id === 'dice' && USE_NEW_ROLLER) continue;
+    if (item.id === 'roll' && !USE_NEW_ROLLER) continue;
     if (item.seasonal) {
       // Seasonal items hidden by default, shown by _updateSeasonalNav after lifecycle loads
       h += `<button class="nbtn nbtn-seasonal" id="n-${item.id}" onclick="goTab('${item.goTab}')" style="display:none">${item.icon}<span>${item.label}</span></button>`;
@@ -1262,6 +1277,15 @@ Object.assign(window, {
 // ══════════════════════════════════════════════
 
 async function boot() {
+  // Roll v2 (#1018): remove the inactive DICE/ROLL subtree so the
+  // duplicate inner IDs (`pval`, `mval`, `dice-area`, etc.) don't
+  // collide. getElementById() then resolves to the visible tab across
+  // roll.js/roll-v2.js AND every external touch-point (pickChar,
+  // renderLifecycleCards, applyRoleRestrictions, shared/resist.js,
+  // game/contested-roll.js) without any of them needing to be
+  // flag-aware.
+  document.getElementById(USE_NEW_ROLLER ? 't-dice' : 't-roll')?.remove();
+
   // Suppress iOS PWA edge-swipe creating blank split-view windows.
   // In standalone mode, touches starting within 20px of either edge are
   // consumed so iOS doesn't interpret them as back/forward navigation.
@@ -1671,11 +1695,17 @@ function renderSettingsTab() {
 
   // Show Guides toggle
   const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  const useNewRoller = localStorage.getItem('tm-use-new-dice-roller') === '1';
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Navigation</div>';
   h += '<label class="settings-checkbox-row">';
   h += `<input type="checkbox" id="settings-show-guides"${showGuides ? ' checked' : ''}>`;
   h += '<span>Show Primer, Guide &amp; Rules tabs</span>';
+  h += '</label>';
+  // Roll v2 (#1018): experimental new dice roller. Default OFF. Reload on change.
+  h += '<label class="settings-checkbox-row">';
+  h += `<input type="checkbox" id="settings-use-new-dice-roller"${useNewRoller ? ' checked' : ''}>`;
+  h += '<span>Use new dice roller</span>';
   h += '</label>';
   h += '</div>';
 
@@ -1746,6 +1776,13 @@ function renderSettingsTab() {
     localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
     renderBottomNav();
     if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
+  });
+
+  // Wire new-dice-roller toggle (#1018). Module + DOM subtree are chosen at
+  // boot, so the swap only takes effect after a reload.
+  el.querySelector('#settings-use-new-dice-roller')?.addEventListener('change', e => {
+    localStorage.setItem('tm-use-new-dice-roller', e.target.checked ? '1' : '0');
+    location.reload();
   });
 
   // Wire ticket submit
@@ -1994,6 +2031,7 @@ function renderDesktopSidebar() {
   // Primary tabs prepended to Game section — Dice/Sheet/Status are first game items
   const primaryTabs = [
     { id: 'dice',   label: 'Dice',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
+    { id: 'roll',   label: 'Roll',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
     { id: 'chars',  label: 'Sheet',  icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
     { id: 'status', label: 'Status', icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>' },
   ];
@@ -2022,6 +2060,9 @@ function renderDesktopSidebar() {
     // Prepend Dice/Sheet/Status to Game section
     if (hasPrimary) {
       for (const { id, label, icon } of primaryTabs) {
+        // Roll v2 (#1018): swap 'dice' ↔ 'roll' based on the settings flag.
+        if (id === 'dice' && USE_NEW_ROLLER) continue;
+        if (id === 'roll' && !USE_NEW_ROLLER) continue;
         const on = isActive(id) ? ' on' : '';
         h += `<button class="sidebar-app-tile${on}" onclick="goTab('${id}')" title="${label}">`;
         h += `<span class="sidebar-app-tile-icon">${icon}</span><span class="sidebar-app-tile-label">${label}</span></button>`;
