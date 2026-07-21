@@ -2639,3 +2639,196 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-log-target { color: var(--txt); flex: 1; min-width: 80px; }
 .office-log-status { color: var(--txt2); font-size: 12px; white-space: nowrap; }
 .office-log-time   { color: var(--txt2); font-size: 11px; opacity: .7; white-space: nowrap; }
+
+/* ══════════════════════════════════════════════════════════════
+   Roll v2 — anchor layout + segmented Again rule (issue #1024)
+   ══════════════════════════════════════════════════════════════ */
+
+.rv2-anchor {
+  padding: 20px 16px 8px;
+  text-align: center;
+}
+.rv2-eff-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+.rv2-eff {
+  font-family: var(--fh);
+  font-size: 64px;
+  font-weight: 700;
+  color: var(--gold2);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.rv2-eff.chance {
+  color: var(--err);
+  font-size: 40px;
+}
+.rv2-eff-unit {
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+}
+.rv2-sub {
+  margin-top: 8px;
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt2);
+  line-height: 1.4;
+}
+
+.rv2-steppers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px 12px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.rv2-stepper-lbl {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.rv2-stepper-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 3px;
+}
+.rv2-adj {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gold2);
+  font-family: var(--fh);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.rv2-adj:active { background: var(--surf3); }
+.rv2-stepper-val {
+  flex: 1;
+  text-align: center;
+  font-family: var(--ft);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--txt);
+}
+.rv2-stepper-val.chance { color: var(--err); font-size: 14px; }
+.rv2-stepper-val.pos { color: var(--gold2); }
+.rv2-stepper-val.neg { color: var(--err); }
+
+.rv2-again-wrap {
+  padding: 8px 16px;
+}
+.rv2-again-lbl {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+.rv2-again-seg {
+  display: flex;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.rv2-again-seg button {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rv2-again-seg button:hover:not(.on) {
+  background: var(--surf3);
+}
+.rv2-again-seg button.on {
+  background: var(--gold2-a25);
+  color: var(--gold2);
+}
+
+.rv2-chip-row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 16px 8px;
+  justify-content: center;
+}
+
+.rv2-breakdown {
+  padding: 4px 16px 8px;
+}
+.rv2-breakdown summary {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+  cursor: pointer;
+  padding: 6px 0;
+  list-style: none;
+}
+.rv2-breakdown summary::-webkit-details-marker { display: none; }
+.rv2-breakdown summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s;
+}
+.rv2-breakdown[open] summary::before {
+  transform: rotate(90deg);
+}
+.rv2-breakdown[open] summary { color: var(--txt2); }
+
+.rv2-roll-btn {
+  position: sticky;
+  bottom: 8px;
+  z-index: 10;
+  display: block;
+  width: calc(100% - 32px);
+  margin: 12px 16px 16px;
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--crim);
+  color: var(--txt-on-dark);
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 -4px 16px var(--overlay);
+  transition: filter 0.12s;
+}
+.rv2-roll-btn:active { filter: brightness(1.15); }
