@@ -119,6 +119,9 @@ import * as rollV2 from './suite/roll-v2.js';
 const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
 const _roller = USE_NEW_ROLLER ? rollV2 : rollV1;
 const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } = _roller;
+// setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab
+// works when the flag is off and only rollV1 is active.
+const setAgainSeg = _roller.setAgainSeg || setAgain;
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -1213,6 +1216,7 @@ Object.assign(window, {
   chgMod,
   updPool,
   setAgain,
+  setAgainSeg,
   togMod,
   togSpec,
   doRoll,

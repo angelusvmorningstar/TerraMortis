@@ -2,9 +2,22 @@
 //  Roll Tab UI (v2 — parallel dev surface, #1018)
 //
 //  Gated by the `tm-use-new-dice-roller` localStorage flag. Started as
-//  a byte-identical copy of ./roll.js so game-day iteration on the
-//  interface doesn't disturb the working DICE tab. Diverges from
-//  roll.js over time.
+//  a byte-identical copy of ./roll.js.
+//
+//  Slice A+D (#1024) — divergence from roll.js:
+//    A. Anchor number = `effPool()` (the count you'll ACTUALLY roll),
+//       painted into `#rv2-eff` / `#rv2-eff-unit`, with a
+//       always-visible sub-line at `#rv2-sub`
+//       ("base 8 · +2 mod · 9-again"). The full skill-breakdown is
+//       still written into `#effline` — moved inside a
+//       `<details>` disclosure in the markup.
+//    D. `setAgainSeg(v)` drives one exclusive segmented Again pill
+//       ("10" / "9" / "8" / "None") that maps to `state.AGAIN` +
+//       `state.NA`; replaces the old `#a8` / `#a9` / `#na-c` trio.
+//       `setAgain()` is kept as an export (loadPool calls it) and
+//       delegates to `setAgainSeg`.
+//
+//  Rote / WP chips are unchanged (they compose with Again).
 // ══════════════════════════════════════════════
 
 import state from './data.js';
@@ -82,16 +95,74 @@ export function chgMod(d) {
 
 // ── UPDATE POOL DISPLAY ──
 
+// Human-readable "again" phrase for the anchor sub-line (slice A).
+function _againPhrase() {
+  if (state.NA) return 'no again';
+  return String(state.AGAIN) + '-again';
+}
+
+// Paint the segmented Again pill so its `on` class tracks state.AGAIN + NA
+// (slice D). Safe to call when the container isn't in the DOM (v1 tab).
+function _paintAgainSeg() {
+  const seg = document.getElementById('rv2-again-seg');
+  if (!seg) return;
+  const buttons = seg.querySelectorAll('button[data-again]');
+  buttons.forEach(b => {
+    const val = b.dataset.again;
+    const on = val === 'none'
+      ? state.NA
+      : (!state.NA && String(state.AGAIN) === val);
+    b.classList.toggle('on', on);
+  });
+}
+
 export function updPool() {
   const eff = effPool();
-  const pv = document.getElementById('pval');
-  pv.textContent = state.PS <= 0 ? 'Chance' : state.PS;
-  pv.className = 'cval' + (state.PS <= 0 ? ' chance' : '');
 
+  // v2 stepper values (small).
+  const pv = document.getElementById('pval');
+  if (pv) {
+    pv.textContent = state.PS <= 0 ? 'Chance' : state.PS;
+    pv.className = 'rv2-stepper-val' + (state.PS <= 0 ? ' chance' : '');
+  }
   const mv = document.getElementById('mval');
-  const mod = state.MOD;
-  mv.textContent = mod === 0 ? '0' : mod > 0 ? '+' + mod : mod;
-  mv.className = 'bval' + (mod > 0 ? ' pos' : mod < 0 ? ' neg' : '');
+  if (mv) {
+    const mod = state.MOD;
+    mv.textContent = mod === 0 ? '0' : mod > 0 ? '+' + mod : mod;
+    mv.className = 'rv2-stepper-val' + (mod > 0 ? ' pos' : mod < 0 ? ' neg' : '');
+  }
+
+  // v2 anchor: huge effective count + sub-line (slice A).
+  const effEl = document.getElementById('rv2-eff');
+  const unitEl = document.getElementById('rv2-eff-unit');
+  const subEl = document.getElementById('rv2-sub');
+  const rollBtn = document.getElementById('roll-btn');
+  const isChance = eff <= 0;
+  if (effEl) {
+    effEl.textContent = isChance ? 'CHANCE' : String(eff);
+    effEl.classList.toggle('chance', isChance);
+  }
+  if (unitEl) {
+    unitEl.textContent = isChance ? 'die' : (eff === 1 ? 'die' : 'dice');
+  }
+  if (subEl) {
+    const parts = [
+      'base ' + (state.PS <= 0 ? 'chance' : state.PS),
+    ];
+    if (state.MOD !== 0) parts.push((state.MOD > 0 ? '+' : '') + state.MOD + ' mod');
+    parts.push(_againPhrase());
+    if (state.WP) parts.push('WP +3');
+    if (state.ROTE) parts.push('rote');
+    if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) parts.push('−' + state.RESIST_VAL + ' resist');
+    // U+00B7 middle-dot separator (matches sub-line separators elsewhere).
+    subEl.textContent = parts.join(' · ');
+  }
+  if (rollBtn) {
+    // ✦ = decorative four-point star.
+    rollBtn.textContent = isChance ? '✦ ROLL CHANCE DIE' : ('✦ ROLL ' + eff + ' DICE');
+  }
+
+  _paintAgainSeg();
 
   const el = document.getElementById('effline');
   const pi = state.POOL_INFO;
@@ -273,25 +344,45 @@ export function updWeaponRef() {
 
 // ── AGAIN / MODIFIER TOGGLES ──
 
+// Segmented Again pill entry point (slice D). `v` is one of
+// '10' | '9' | '8' | 'none' (or the numeric variants). 'none' disables
+// die explosion via state.NA; the other values set state.AGAIN and clear
+// NA. Repaints the pill and the sub-line via updPool().
+export function setAgainSeg(v) {
+  if (v === 'none' || v === 'None') {
+    state.NA = true;
+  } else {
+    state.NA = false;
+    state.AGAIN = Number(v);
+  }
+  // updPool paints the seg AND the anchor sub-line so both stay in sync.
+  updPool();
+}
+
+// Kept as an export because loadPool() calls it. Delegates to the new
+// segmented entry point so the pill + sub-line stay in sync when a pool
+// with a `nineAgain` flag is loaded.
 export function setAgain(v) {
-  state.AGAIN = v;
-  [8, 9].forEach(n => {
-    const el = document.getElementById('a' + n);
-    if (el) el.classList.toggle('on', n === v);
-  });
+  setAgainSeg(v);
 }
 
 export function togMod(m) {
   if (m === 'rote') {
     state.ROTE = !state.ROTE;
-    document.getElementById('rote-c').classList.toggle('on', state.ROTE);
+    const el = document.getElementById('rote-c');
+    if (el) el.classList.toggle('on', state.ROTE);
+    updPool();
   } else if (m === 'wp') {
     state.WP = !state.WP;
-    document.getElementById('wp-c').classList.toggle('on', state.WP);
+    const el = document.getElementById('wp-c');
+    if (el) el.classList.toggle('on', state.WP);
     updPool();
   } else {
+    // 'na' — no dedicated button in v2 markup; routed through the
+    // segmented pill instead. Kept for any external caller still on the
+    // old chip contract.
     state.NA = !state.NA;
-    document.getElementById('na-c').classList.toggle('on', state.NA);
+    updPool();
   }
 }
 
