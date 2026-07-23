@@ -6001,11 +6001,14 @@ function initConnectedCharsTypeaheads(container) {
       const selected = getSelectedIds();
       const q = query.trim().toLowerCase();
       const matches = others.filter(c =>
-        !selected.has(String(c.id)) && (!q || String(c.name).toLowerCase().includes(q))
+        !selected.has(String(c.id)) && (!q ||
+          String(c.name).toLowerCase().includes(q) ||
+          String(c.fullName).toLowerCase().includes(q) ||
+          String(c.player).toLowerCase().includes(q))
       );
       if (!matches.length) { dropdown.style.display = 'none'; return; }
       dropdown.innerHTML = '';
-      for (const c of matches.slice(0, 10)) {
+      for (const c of matches) {
         const item = document.createElement('div');
         item.className = 'dt-conn-dd-item';
         item.dataset.connId = String(c.id);
