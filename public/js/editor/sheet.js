@@ -35,7 +35,7 @@ import { auditCharacter } from '../data/audit.js';
 // Touchstone editor no longer needs the NPC list (DB-relational picker
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
-import { markerFor } from './st-mod-popover.js';
+import { markerFor, applyAffordance } from './st-mod-popover.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
 import { renderRulesExpander } from '../shared/rules-text.js';
 
@@ -485,9 +485,15 @@ export function shRenderAttributes(c, editMode) {
         const ao = c.attributes[a] || {}, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (ao.cp || 0), xd = xpToDots(ao.xp || 0, ab, 4), tot = ab + xd;
         h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + (tot + autoBonus + bonus) + '</span></div></div>';
-        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '';
+        { const src = BONUS_SOURCE[a] || '';
           if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src">+' + autoBonus + '</span></div>';
-          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button></div>'; }
+          // STM-14 (#1034): the manual +○/−○ bonus controls are retired — a
+          // direct unaudited write to c.attributes[X].bonus. Ad-hoc bonuses
+          // now go through the audited st_mods apply affordance on the
+          // rendered (non-edit) sheet below; this row is read-only so an ST
+          // can still see any legacy persisted value pending the 1034.2
+          // migration.
+          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span></div>'; }
         h += '</div></div>';
       }); h += '</div>';
     });
@@ -520,7 +526,7 @@ export function shRenderAttributes(c, editMode) {
           title: `ST adjustment: ${a} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
         };
       }
-      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus, opts) + '</div></div>';
+      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + applyAffordance(c, `attributes.${a}.bonus`, a) + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus, opts) + '</div></div>';
     }));
   }
   h += '</div></div>';
@@ -575,7 +581,12 @@ export function shRenderSkills(c, editMode) {
         h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
         const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd, skEff = st2 + bn + ptBn + mciBn;
         h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + skEff + '</span></div></div>'
-          + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',-1)"' + (bn === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',1)">&#x25B2;</button></div>';
+          // STM-14 (#1034): +○/−○ bonus controls retired — a direct
+          // unaudited write to c.skills[X].bonus. Ad-hoc bonuses now go
+          // through the audited st_mods apply affordance on the rendered
+          // (non-edit) sheet below; this row is read-only so an ST can
+          // still see any legacy persisted value pending the 1034.2 migration.
+          + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span></div>';
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
         specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span class="sk-spec-aoe">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
@@ -610,7 +621,7 @@ export function shRenderSkills(c, editMode) {
           };
         }
         const dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn, opts) : '\u2013';
-        h += '<div class="sh-skill-row' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
+        h += '<div class="sh-skill-row' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + applyAffordance(c, `skills.${s}.bonus`, s) + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
       });
     }
   }

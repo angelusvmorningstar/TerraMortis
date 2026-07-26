@@ -37,14 +37,14 @@ import {
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
-  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjMeritBonus,
   shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
 import {
-  renderAttrsTab, clickAttrDot, adjAttrBonus,
-  clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  renderAttrsTab, clickAttrDot,
+  clickSkillDot, toggleNineAgain, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
@@ -166,6 +166,34 @@ function markDirty(idx) {
 function updDirtyBadge() {
   const el = document.getElementById('edit-dirty');
   if (el) el.classList.toggle('on', editorState.dirty.size > 0);
+}
+
+// ══════════════════════════════════════════════
+//  ST MOD OVERLAY REFRESH (Epic STM)
+// ══════════════════════════════════════════════
+
+// Re-apply the overlay for a single character (by id) and re-render
+// whichever of the two sheet views (suite / embedded ST editor) currently
+// has it open. Shared by the WS onStModUpdate handler and the sheet's own
+// audited apply-bonus affordance (STM-14, issue #1034 — installStModPopover's
+// onMutate callback) so both paths route through the same composition
+// sequence (single composition site, ADR-004 §D1/§D8).
+async function refreshCharacterOverlay(charId) {
+  const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
+  if (!target) return;
+  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+  // armour-adjusted base is current at composition time.
+  materialiseDerivedDefence(target);
+  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+  if (String(suiteState.sheetChar?._id) === String(charId)) {
+    suiteRenderSheet();
+  }
+  // editorRenderSheet only ever renders for STs (openChar gates it on
+  // getRole() === 'st'); mirror that gate here so a player's WS-delivered
+  // update never touches the ST-only editor sheet container.
+  if (getRole() === 'st' && editorState.editIdx >= 0 && String(editorState.chars[editorState.editIdx]?._id) === String(charId)) {
+    editorRenderSheet(target);
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1151,9 +1179,7 @@ Object.assign(window, {
   shSetPriority,
   shSetClanAttr,
   shEditAttrPt,
-  shAdjAttrBonus,
   shAdjMeritBonus,
-  shAdjSkillBonus,
   shSetSkillPriority,
   shEditSkillPt,
   shEditSpec,
@@ -1187,10 +1213,8 @@ Object.assign(window, {
 
   // Editor attributes & skills tab
   clickAttrDot,
-  adjAttrBonus,
   clickSkillDot,
   toggleNineAgain,
-  adjSkillBonus,
   updSkillSpec,
 
   // Editor identity tab
@@ -1404,22 +1428,9 @@ async function boot() {
           // (post-#413 D8 cache-entry invariant), so just re-running
           // applyOverlayToAll on the single char is enough for all
           // downstream surfaces to see the new state on next render.
-          onStModUpdate: async (charId) => {
-            const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
-            if (!target) return;
-            // Issue #879 (ADR-006 D4): re-materialise before re-applying so
-            // the armour-adjusted base is current at composition time.
-            materialiseDerivedDefence(target);
-            await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
-            // Issue #425: full suite sheet re-render (not just tracker
-            // repaint) so the modded dots + markers refresh. STM-9
-            // originally only repainted trackers here because the suite
-            // sheet wasn't yet STM-wired; #425 wires it, so the dots/
-            // markers now need the full render to reflect a remote change.
-            if (String(suiteState.sheetChar?._id) === String(charId)) {
-              suiteRenderSheet();
-            }
-          },
+          // Issue #425 / STM-14 (#1034): shared with the sheet's own
+          // apply-bonus affordance via refreshCharacterOverlay.
+          onStModUpdate: refreshCharacterOverlay,
           // ECM-4 (#871): on remote equipment_catalogue create/update/delete
           // (broadcast by the admin catalogue UI via server/ws.js's
           // broadcastCatalogueUpdate), refetch the cache. Next render of
@@ -1432,7 +1443,7 @@ async function boot() {
         // without this, suite-sheet markers emit data-stm-marker-path but
         // nothing opens the popover on click. Single listener on
         // document.body (idempotent across re-renders).
-        installStModPopover(document.body);
+        installStModPopover(document.body, refreshCharacterOverlay);
         return;
       } catch (err) {
         // Mid-flight failure: leave the user on the login screen with a

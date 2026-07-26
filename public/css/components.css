@@ -5825,6 +5825,18 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .stm-mod-btn--reactivate:hover { background: var(--green, #6EA05A); color: var(--txt-on-dark, #fff); }
 .stm-mod-btn--delete { border-color: var(--crim, #8B0000); color: var(--crim, #8B0000); }
 .stm-mod-btn--delete:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
+/* STM-14 (issue #1034): compact variant of .stm-mod-btn for inline
+   placement next to an attribute/skill name on the rendered ST sheet. */
+.stm-apply-btn {
+  padding: 0 5px;
+  margin-left: 4px;
+  line-height: 15px;
+  font-size: 11px;
+  font-weight: 700;
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+.stm-apply-btn:hover { background: var(--gold2); color: var(--txt-on-gold, #fff); }
 .stm-mod-reason { margin: 4px 0 2px; color: var(--txt2); font-size: 12px; }
 .stm-mod-meta { font-size: 11px; color: var(--txt3); margin: 0; }
 .stm-list-empty { color: var(--txt3); font-style: italic; }
@@ -5898,6 +5910,10 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .stm-modal p { color: var(--txt2); font-size: 13px; margin: 6px 0; }
 .stm-modal-note { color: var(--txt3); font-size: 12px; }
 .stm-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+/* STM-14 (issue #1034): the apply-bonus modal isn't a destructive-action
+   warning like the delete-confirmation modal above, so its title reads
+   gold instead of the base .stm-modal h3 crimson. */
+.stm-modal h3.stm-modal-title--action { color: var(--gold2); }
 
 /* — STM-6 audit page polish (issue #379 styling) — */
 .stm-audit-root { padding: 18px 24px; font-family: var(--fl); color: var(--txt); }
