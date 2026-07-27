@@ -1,0 +1,145 @@
+schema: 1
+story: "1027"
+story_title: "DT form Connected Characters typeahead — remove 10-item cap and broaden match fields"
+gate: CONCERNS
+status_reason: >
+  Code change is correct, minimal, and scope-disciplined: the 10-item slice is gone,
+  the predicate now matches name/fullName/player with String() guards, and the
+  existing self/already-chipped exclusions are untouched. node --check is clean.
+  Gate is CONCERNS rather than PASS only because ACs 1-4 are behavioural (dropdown
+  render + click interaction) and this repo has no automated test framework — they
+  are verified here by static trace only, not by a running browser. Recommend a
+  short manual smoke pass per the story's Testing section before merge, or accept
+  the static trace as sufficient reviewer judgement call.
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-25"
+
+waiver: { active: false }
+
+top_issues:
+  - id: 1027-01
+    severity: low
+    finding: >
+      String(c.fullName) relies on c.fullName always being a real string (fullName:
+      c.name at downtime-form.js:1533). If a character document is ever missing the
+      required `name` field, fullName is undefined and String(undefined) === "undefined",
+      which would spuriously match a query fragment like "und". `name` is a mandatory
+      v2 schema field with no known-data-issue entries reporting it absent, so this is
+      theoretical, not observed. c.player cannot trigger this because it is defaulted
+      to '' at :1534 (c.player || ''), never undefined.
+    recommendation: >
+      No code change required for this PR. If a future audit finds a character doc
+      missing `name`, treat it as a data-integrity issue to fix at the source, not a
+      client-side guard to add here.
+  - id: 1027-02
+    severity: low
+    finding: >
+      showDropdown() rebuilds the full DOM list on every keystroke (input listener,
+      no debounce) and the cap removal means the entire non-retired roster (currently
+      ~31 characters) is iterated with no upper bound. At current roster scale this is
+      trivial. If the roster grows by an order of magnitude, this becomes a per-keystroke
+      full-rebuild cost worth revisiting (debounce or virtualised list).
+    recommendation: >
+      Monitor only. No action needed at current scale; not a blocker for this fix.
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "1027-01: theoretical String(undefined)->\"undefined\" false-match if a character doc is ever missing `name`; not currently reproducible given schema + known-data-issues"
+      - "1027-02: unbounded per-keystroke DOM rebuild; fine at ~31 characters, revisit if roster scales up significantly"
+
+ac_verdicts:
+  - ac: 1
+    text: "More than 10 matches render on empty query, scrolled within .dt-conn-dropdown, no fixed cap"
+    verdict: PASS (by static trace)
+    evidence: >
+      matches.slice(0, 10) removed; `for (const c of matches)` iterates the full
+      filtered set (downtime-form.js:6011). On empty query `!q` short-circuits the
+      predicate to true for every non-selected character, so `matches` is the entire
+      roster minus self minus already-chipped. `.dt-conn-dropdown` CSS is unchanged
+      (public/css/components.css:6092-6098: max-height:180px; overflow-y:auto),
+      confirmed sufficient — no DOM/CSS change was needed or made.
+    unverified_note: >
+      Not exercised in a live browser this session; recommend a manual smoke check
+      per the story's Testing step 1 (roster >10, focus with empty query, confirm
+      scroll) before merge for full confidence.
+  - ac: 2
+    text: "Typing legal name (distinct from moniker) surfaces the character"
+    verdict: PASS (by static trace)
+    evidence: >
+      Predicate now ORs String(c.fullName).toLowerCase().includes(q)
+      (downtime-form.js:6006), and fullName = c.name (legal name) is set at
+      downtime-form.js:1533 for every entry in allCharacters. Guarded with String()
+      so a non-string fullName cannot throw.
+    unverified_note: "Not exercised in a live browser this session; recommend manual smoke step 2."
+  - ac: 3
+    text: "Typing a player's name surfaces their character(s)"
+    verdict: PASS (by static trace)
+    evidence: >
+      Predicate ORs String(c.player).toLowerCase().includes(q) (downtime-form.js:6007).
+      player is always a real string (defaulted to '' at :1534), so the guard never
+      produces a false "undefined" match on this field.
+    unverified_note: "Not exercised in a live browser this session; recommend manual smoke step 3."
+  - ac: 4
+    text: "Already-chipped characters and the current character remain excluded"
+    verdict: PASS (by trace)
+    evidence: >
+      Self-exclusion at downtime-form.js:1529 (others = names.filter(c => c._id !==
+      currentChar._id && ...)) is untouched by this diff. Already-chipped exclusion
+      `!selected.has(String(c.id))` at downtime-form.js:6004 is untouched — only the
+      OR'd match-field clause was added alongside it, the exclusion clause itself was
+      not modified. No regression.
+    unverified_note: "Not exercised in a live browser this session; recommend manual smoke step 4."
+  - ac: 5
+    text: "Styling uses design-system tokens; no inline style=, no bare hex/rgba()"
+    verdict: PASS
+    evidence: >
+      Diff (git show e4601de3) touches only the filter predicate and the loop bound
+      in showDropdown(); zero CSS or markup changes. No inline style attributes,
+      hex colours, or rgba() introduced. `git diff dev...HEAD --stat` confirms only
+      public/js/tabs/downtime-form.js (7 lines) and the story file changed — CSS
+      untouched.
+
+scope_and_quality_checks:
+  - check: "Single-function change scope"
+    result: PASS
+    note: "Only showDropdown() inside initConnectedCharsTypeaheads modified; git diff dev...HEAD --stat shows only downtime-form.js + story file."
+  - check: "No endpoint/server changes"
+    result: PASS
+    note: "server/routes/characters.js untouched; GET /api/characters/names confirmed unchanged (no limit/pagination, identical payload for player/ST)."
+  - check: "No CSS additions"
+    result: PASS
+    note: ".dt-conn-dropdown scroll container (components.css:6092) unchanged; no new classes or inline styles."
+  - check: "British English / no em-dashes"
+    result: PASS
+    note: "No new user-facing strings introduced by this diff."
+  - check: "Parse check"
+    result: PASS
+    note: "node --check public/js/tabs/downtime-form.js — clean, no errors."
+
+nfr_validation:
+  security: { status: PASS, notes: "No auth/endpoint surface touched." }
+  performance: { status: CONCERNS, notes: "Unbounded per-keystroke DOM rebuild; negligible at current ~31-character roster scale (see 1027-02)." }
+  reliability: { status: PASS, notes: "String() guards prevent throw on undefined fields; player field can never be undefined by construction." }
+  maintainability: { status: PASS, notes: "Minimal, readable diff; consistent with existing code style in the same function." }
+
+test_design:
+  automated_coverage: "None — repo has no test framework (per CLAUDE.md); all verification is manual/static."
+  manual_smoke_required:
+    - "AC1: roster >10 chars, focus empty query, confirm >10 options render + list scrolls"
+    - "AC2: type legal name of a moniker'd character, confirm match"
+    - "AC3: type a player's name fragment, confirm their character(s) match"
+    - "AC4: add a chip, reopen dropdown, confirm chipped + self excluded"
+    - "AC5 supplementary: confirm no console errors for characters with null/empty player or fullName"
+
+recommendation: >
+  Safe to merge to dev on the strength of the static trace and node --check pass.
+  All 5 ACs are satisfied by the code as written; the two findings are low-severity
+  and non-blocking (one theoretical, one a future-scale watch item). CONCERNS
+  gate reflects that ACs 1-4 have not been exercised in a live browser this
+  session, per the story's own "no automated test framework" caveat — a brief
+  manual smoke pass would upgrade this to a clean PASS but is not a hard blocker
+  given the low complexity and low blast radius of the change (single function,
+  client-side only, no endpoint/schema/CSS impact).

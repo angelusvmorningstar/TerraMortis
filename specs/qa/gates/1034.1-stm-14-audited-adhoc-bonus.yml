@@ -1,0 +1,200 @@
+schema: 1
+story: "1034.1"
+story_title: "STM-14 — Audited ad-hoc situational bonuses: retire the +○ editor control, apply via st_mods"
+gate: CONCERNS
+status_reason: >
+  The change is correct, scope-disciplined, and respects every ADR-004 invariant it
+  touches. All four direct-write bonus handlers are fully retired (removed from source,
+  imports, and window exposure); the new audited apply-bonus affordance POSTs only to
+  /api/st_mods (never writes c.attributes[X].bonus / c.skills[X].bonus to the document);
+  composition routes through the existing applyOverlayToAll via the shared
+  refreshCharacterOverlay — the same function reference on both the WS and local-apply
+  paths, so no second composition site is introduced. node --check is clean on all six
+  JS files. Gate is CONCERNS rather than PASS for two reasons, neither a code defect in
+  1034.1: (1) the three interactive ACs (1 apply flow, 3 popover-open, 4 toggle
+  lifecycle) are verified by static trace only — this repo has no browser test harness;
+  (2) AC3's marker POPOVER (which surfaces the reason detail on click) resolves the
+  character via _resolveActiveCharacter, whose admin/ST branch reads window.chars /
+  window.editIdx — globals that are never assigned anywhere in the codebase. This is a
+  PRE-EXISTING STM latent gap (Ptah correctly identified it and routed the new apply
+  flow around it via data-stm-apply-char-id), but it means the "reason is visible on the
+  ST sheet" benefit of STM-14 should be confirmed by browser smoke before the feature is
+  trusted as delivering its full audit-visibility value.
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-27"
+
+waiver: { active: false }
+
+top_issues:
+  - id: 1034.1-01
+    severity: medium
+    finding: >
+      AC3's marker popover (editor/st-mod-popover.js _openForMarker → _resolveActiveCharacter,
+      lines 348-356) resolves the active character from window.chars[window.editIdx] on the
+      admin/ST surface and window.__activeChar on the player surface. A grep of public/js
+      confirms window.chars / window.editIdx are READ only — never assigned anywhere (only
+      window.__activeChar is set, at player.js:62). On the ST-facing rendered sheet (admin.js
+      and app.js's embedded editor), _resolveActiveCharacter therefore returns null and the
+      popover silently no-ops at line 185 — the reason/base/adjustment/final detail never
+      opens on click. The marker CHIP still renders (markerFor is independent of resolution)
+      and the delta still applies (applyOverlayToAll is independent of the popover), so the
+      arithmetic and the "there is a mod here" signal are intact; only the click-to-view
+      reason detail is affected. This is PRE-EXISTING (predates 1034.1; Ptah flagged it in
+      Completion Notes and routed the new apply flow around it) and is NOT a regression, but
+      it partially undercuts STM-14's stated value ("every ad-hoc adjustment is accountable /
+      the reason is visible").
+    recommendation: >
+      Browser-smoke the marker popover on an admin/ST sheet. If it does not open (as static
+      analysis predicts), file a separate PRE-EXISTING STM defect to wire window.chars/editIdx
+      exposure (or add the data-stm-char-id fallback the code comment at line 182 already
+      anticipates). Do NOT expand 1034.1 to fix it — it is out of scope and independent.
+      The stale admin.js comment at :248 ("resolves ... via window.chars + window.editIdx
+      (already exposed below)") is inaccurate and should be corrected when that defect is filed.
+  - id: 1034.1-02
+    severity: low
+    finding: >
+      Three ACs have behavioural aspects exercised only by static trace, with no browser in
+      this environment: AC1 (click affordance → reason-required modal → POST → marker refresh),
+      AC3 (overlay marker/popover render), AC4 (panel deactivate/reactivate recompute + audit
+      event). The reason-required and non-zero-integer-delta validations are present client-side
+      (_onApplyConfirm) and enforced server-side (st_mods.js), and the create contract matches
+      st-mods-panel.js's reference flow exactly (markLocalWrite BEFORE the POST; no author/
+      timestamp sent — server-stamped), so confidence is high, but a live click-through was not
+      performed.
+    recommendation: >
+      Run the story's Testing section steps 1-6 as a manual browser smoke before/after merge to
+      dev. Static trace is offered as reviewer judgement in the interim; not a blocker.
+  - id: 1034.1-03
+    severity: low
+    finding: >
+      Dev Agent Record's Debug Log says "3 failing test files ... 2104/2109 tests" but the
+      actual vitest result is 2 failing FILES with 4 failing TESTS
+      (epic.708.3-cycle-phase-controls.test.js ×3 on cycle-views.js phase-control UI;
+      n7-n9-allocator-readers.test.js ×1 on merits.js dropdown regex). Both test files
+      reference files NOT touched by this story; re-confirmed pre-existing and unrelated by
+      running them in isolation. Cosmetic count discrepancy only — the substance (pre-existing,
+      unrelated) is correct.
+    recommendation: >
+      No action required. Note the corrected counts if the story record is revised.
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "1034.1-01: PRE-EXISTING marker-popover character-resolution gap on ST surfaces (window.chars/editIdx never assigned); browser-smoke and, if confirmed, file separately — do not expand this story"
+      - "1034.1-02: three interactive ACs static-traced only; run the story's 6-step manual smoke"
+      - "1034.1-03: cosmetic test-count wording in Dev Agent Record"
+
+ac_verdicts:
+  - ac: 1
+    text: "Apply ad-hoc bonus on rendered sheet → reason prompt → POST /api/st_mods targeting attributes.X.bonus/skills.X.bonus; author+timestamp server-side; reason required"
+    verdict: PASS (by static trace)
+    evidence: >
+      applyAffordance() renders the + button in the NON-edit branches of shRenderAttributes
+      (sheet.js:526) and shRenderSkills (sheet.js:621) with stat_path attributes.<Attr>.bonus /
+      skills.<Skill>.bonus. _openApplyModal → _renderApplyModal captures delta + required reason +
+      show_reason_to_player. _onApplyConfirm validates non-zero integer delta and non-empty reason
+      (st-mod-popover.js:318-330), then POSTs {character_id, stat_path, delta, reason,
+      show_reason_to_player} — no author/timestamp sent (server stamps by/at per ADR-004 §D17).
+      markLocalWrite(charId,{st_mod:true}) fires BEFORE the POST. Live click-through not exercised.
+  - ac: 2
+    text: "Character document's c.attributes[X].bonus / c.skills[X].bonus is NOT written; delta lives only in the st_mods overlay (ADR-004 §D6)"
+    verdict: PASS
+    evidence: >
+      The apply path only POSTs to /api/st_mods. grep for `.bonus =` across the four touched editor
+      files finds only edit.js:600 (shAdjMeritBonus — MERIT channel, out of scope) and the transient
+      overlay setByPath in st-mods.js (snapshotted as _st_mod_base, stripped before PUT). Both
+      attribute/skill direct-write handlers are deleted. No unaudited write path to the persisted
+      .bonus field remains.
+  - ac: 3
+    text: "Overlay applies the delta and the existing marker/popover shows base/adjustment/final with reason (subject to show_reason_to_player)"
+    verdict: CONCERNS (delta + marker chip PASS; popover-open needs browser smoke)
+    evidence: >
+      Overlay math (applyOverlayToAll) is unchanged and applies the delta; the marker chip renders
+      via markerFor (independent of character resolution). The click-to-open popover detail depends
+      on _resolveActiveCharacter, whose ST-surface branch reads never-assigned window.chars/editIdx
+      (see issue 1034.1-01). Pre-existing; not a 1034.1 regression, but confirm by browser smoke.
+  - ac: 4
+    text: "Toggle inactive via existing st-mods panel recomputes overlay without it and records an audit event; no hard delete"
+    verdict: PASS (by static trace)
+    evidence: >
+      Mods created here POST to the same /api/st_mods collection with the same document shape as
+      st-mods-panel.js's create flow. Panel list/filter logic (partitionMods/filterMods) does not
+      filter by stat_path category, and STM_STATIC_CATEGORIES in st-mod-labels.js already lists
+      attributes.<Attr>.bonus / skills.<Skill>.bonus. applyStMods skips active===false mods
+      (st-mods.js:141). No new code needed; lifecycle inherited. Live toggle not exercised.
+  - ac: 5
+    text: "Old +○/−○ editor controls no longer write c.attributes[X].bonus directly — removed or repointed; no unaudited UI write path remains"
+    verdict: PASS
+    evidence: >
+      adjAttrBonus/adjSkillBonus removed from attrs-tab.js; shAdjAttrBonus/shAdjSkillBonus removed
+      from edit.js (and their now-unused getAttrVal/getAttrBonus/setAttrVal import trimmed). Removed
+      from imports + Object.assign(window,…) exposure in both admin.js and app.js. Edit-mode Bonus
+      rows are now read-only value displays (legacy values still visible pending 1034.2). clickAttrDot
+      preserves existing bonus via getAttrBonus→setAttrVal (attrs-tab.js:80,83); clickSkillDot/
+      toggleNineAgain/updSkillSpec never touch .bonus — base-dot editing not regressed.
+  - ac: 6
+    text: "Composition still runs solely through applyStMods (§D1/§D8); no second composition site; overlay still stripped on edit-mode entry (§D9)"
+    verdict: PASS
+    evidence: >
+      refreshCharacterOverlay (added identically in admin.js and app.js) delegates to the existing
+      applyOverlayToAll — the SAME function reference is passed to both initWS({onStModUpdate}) and
+      installStModPopover(document.body, …), so the WS-remote path and the local apply path share one
+      composition sequence. No parallel composition implementation. applyAffordance renders only in
+      the non-edit branches; the edit-mode strip (stripOverlay) is untouched.
+  - ac: 7
+    text: "Styling reuses STM component classes + design-system tokens; no inline style=, no bare hex/rgba"
+    verdict: PASS
+    evidence: >
+      New markup uses .stm-mod-btn/.stm-apply-btn (button), .stm-modal-overlay/.stm-modal/
+      .stm-modal-actions/.stm-form-row/.stm-form-reason/.stm-form-show-reason/.stm-modal-title--action
+      (modal). No inline style= in any new markup (the retired controls' inline style="font-size…;
+      color:var(--gdim)" is gone). New CSS uses var(--gold2) and var(--txt-on-gold, #fff); both tokens
+      are defined in theme.css (light + dark) so the hex fallback never fires, and the var-with-fallback
+      form matches the adjacent .stm-mod-btn--reactivate/--delete convention in the same block. The one
+      inline style in sheet.js (:218 shDotsWithBonus) is pre-existing and untouched.
+
+adr_invariants_checked:
+  - id: "ADR-004 §D6 (write-direction)"
+    result: PASS
+    note: "No path writes attributes/skills .bonus to the character doc or tracker_state from the overlay/apply path; delta lives only in st_mods."
+  - id: "ADR-004 §D1/§D8 (single composition site)"
+    result: PASS
+    note: "refreshCharacterOverlay delegates to applyOverlayToAll; same function reference drives WS + local-apply paths. No second composition path."
+  - id: "ADR-004 §D9 (overlay stripped on edit-mode entry)"
+    result: PASS
+    note: "stripOverlay untouched; applyAffordance renders only in non-edit branches; base-dot editing (clickAttrDot/clickSkillDot) not regressed."
+  - id: "ADR-004 §D17 (by/at server-stamped)"
+    result: PASS
+    note: "_onApplyConfirm sends no author/timestamp; server stamps by/at. markLocalWrite fires BEFORE the POST (WS-echo suppression)."
+
+evidence:
+  files_reviewed:
+    - public/js/editor/st-mod-popover.js
+    - public/js/editor/sheet.js
+    - public/js/editor/attrs-tab.js
+    - public/js/editor/edit.js
+    - public/js/admin.js
+    - public/js/app.js
+    - public/css/components.css
+  checks_run:
+    - "node --check on all 6 JS files — clean"
+    - "grep for window.chars/window.editIdx assignment — none found (read-only; confirms AC7 dead-code decision)"
+    - "grep for residual .bonus= writes in touched files — only merit channel (out of scope)"
+    - "app.js scope check — getRole/editorState/editorRenderSheet/suiteState/getGlobalSettings/materialiseDerivedDefence/applyOverlayToAll all imported"
+    - "theme.css — --gold2 and --txt-on-gold defined (light+dark)"
+    - "vitest on the two named files — 4 pre-existing failures in untouched cycle-views.js/merits.js, unrelated"
+
+browser_smoke_required:
+  - "AC1: apply affordance click → reason-required modal → empty reason blocked → POST creates mod → marker appears"
+  - "AC3: marker popover opens on the ADMIN/ST sheet and shows base/adjustment/final + reason (see issue 1034.1-01 — predicted to FAIL pre-existing; confirm)"
+  - "AC4: st-mods panel deactivate drops the total + records a 'deactivated' audit event; reactivate restores"
+  - "AC5 regression check: edit mode — no +○/−○ controls; base dots still edit; overlay reapplies on exit"
+
+recommendation: >
+  Safe to merge to dev. No regression, no new defect, all seven ACs pass on static trace with
+  ADR-004 invariants intact. Two follow-ups (advisory, not blocking): run the 6-step manual browser
+  smoke, and browser-confirm the pre-existing marker-popover resolution gap (issue 1034.1-01) — if it
+  fails on the ST sheet, file it as a separate STM defect rather than expanding 1034.1. Merge gate is
+  Khepri's / Peter's call.
