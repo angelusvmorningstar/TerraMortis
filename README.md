@@ -10,6 +10,8 @@ A browser-based character management system for a **Vampire: The Requiem 2nd Edi
 | API Server (Render) | `tm-suite-api.onrender.com` | `main` branch |
 | Database | MongoDB Atlas (`tm_suite`) | — |
 
+<!-- deploy canary: 2026-07-27 dev branch-deploy pipeline test -->
+
 ## Applications
 
 | Path | Purpose |
