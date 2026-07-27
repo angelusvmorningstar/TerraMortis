@@ -71,7 +71,7 @@ import {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjMeritBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
   shAddEquip, shRemoveEquip, shEquipBucketFilter,
@@ -80,8 +80,8 @@ import {
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
 import {
-  renderAttrsTab, clickAttrDot, adjAttrBonus,
-  clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  renderAttrsTab, clickAttrDot,
+  clickSkillDot, toggleNineAgain, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
@@ -151,6 +151,24 @@ async function renderSheetWithOverlay(c) {
   renderSheet(c);
 }
 
+// Re-apply the overlay for a single character (by id) and, if it's the
+// currently-open sheet, re-render. Shared by the WS onStModUpdate handler
+// and the sheet's own audited apply-bonus affordance (STM-14, issue #1034 —
+// installStModPopover's onMutate callback) so both paths route through the
+// same composition sequence (single composition site, ADR-004 §D1/§D8).
+async function refreshCharacterOverlay(charId) {
+  const target = chars.find(c => String(c._id) === String(charId));
+  if (!target) return;
+  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+  // armour-adjusted base is current at composition time.
+  materialiseDerivedDefence(target);
+  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+  const idx = editorState.editIdx;
+  if (idx != null && idx >= 0 && chars[idx] === target) {
+    renderSheetWithOverlay(target);
+  }
+}
+
 // ── Auth gate ──
 
 async function boot() {
@@ -213,18 +231,7 @@ async function boot() {
         // sheet only if the affected character is the open one;
         // other characters get a silent cache update for the next
         // time their sheet opens.
-        onStModUpdate: async (charId) => {
-          const target = chars.find(c => String(c._id) === String(charId));
-          if (!target) return;
-          // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
-          // armour-adjusted base is current at composition time.
-          materialiseDerivedDefence(target);
-          await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
-          const idx = editorState.editIdx;
-          if (idx != null && idx >= 0 && chars[idx] === target) {
-            renderSheetWithOverlay(target);
-          }
-        },
+        onStModUpdate: refreshCharacterOverlay,
         // ECM-5 (issue #872): on remote equipment_catalogue create/update/
         // delete (broadcast by the admin catalogue UI via server/ws.js's
         // broadcastCatalogueUpdate), refetch the cache. Cache subscribers
@@ -240,7 +247,7 @@ async function boot() {
       // sheet re-renders. Markers carry data-stm-marker-path attributes;
       // the popover resolves the active character via window.chars + window.editIdx
       // (already exposed below for the inline-onclick sheet handlers).
-      installStModPopover(document.body);
+      installStModPopover(document.body, refreshCharacterOverlay);
       return;
     }
   }
@@ -1383,11 +1390,11 @@ Object.assign(window, {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjMeritBonus,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
   shAddEquip, shRemoveEquip, shEquipBucketFilter,
-  clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  clickAttrDot, clickSkillDot, toggleNineAgain, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,
 });

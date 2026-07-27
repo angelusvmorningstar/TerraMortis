@@ -63,11 +63,12 @@ function renderAttrDots(base, bonus, max, attr) {
       html += `<span class="dot empty" onclick="clickAttrDot('${attr}',${i})">○</span>`;
     }
   }
-  // Bonus +/- controls
-  html += `<span class="dot empty" style="font-size:12px;color:var(--gdim);margin-left:4px;" onclick="adjAttrBonus('${attr}',1)" title="Add bonus dot">+○</span>`;
-  if (bonus > 0) {
-    html += `<span class="dot empty" style="font-size:12px;color:var(--gdim);" onclick="adjAttrBonus('${attr}',-1)" title="Remove bonus dot">&minus;○</span>`;
-  }
+  // STM-14 (#1034): the +○/−○ bonus controls are retired — a direct
+  // unaudited write to c.attributes[X].bonus. Ad-hoc bonuses now go
+  // through the audited st_mods apply affordance on the rendered
+  // (non-edit) sheet (editor/st-mod-popover.js applyAffordance). The
+  // dot run above still visually reflects any persisted bonus via the
+  // 'bonus' dot class.
   return html;
 }
 
@@ -80,17 +81,6 @@ export function clickAttrDot(attr, clicked) {
   // Attributes minimum 1 for vampires
   const newBase = clicked === curBase ? Math.max(1, clicked - 1) : clicked;
   setAttrVal(c, attr, newBase, bonus);
-  _markDirty();
-  renderAttrsTab(c);
-}
-
-export function adjAttrBonus(attr, delta) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const base = getAttrVal(c, attr);
-  let bonus = getAttrBonus(c, attr) + delta;
-  if (bonus < 0) bonus = 0;
-  setAttrVal(c, attr, base, bonus);
   _markDirty();
   renderAttrsTab(c);
 }
@@ -117,8 +107,6 @@ function renderSkillRow(skill, sk, c) {
       <span class="skill-name">${skill}</span>
       <div class="skill-flags">
         <span class="skill-flag ${nineClass}" onclick="toggleNineAgain('${skill}')" title="9-Again">9A</span>
-        <span class="dot empty" style="font-size:11px;color:var(--gdim);" onclick="adjSkillBonus('${skill}',1)" title="Add bonus dot">+○</span>
-        ${(sk.bonus || 0) > 0 ? `<span class="dot empty" style="font-size:11px;color:var(--gdim);" onclick="adjSkillBonus('${skill}',-1)" title="Remove bonus dot">&minus;○</span>` : ''}
       </div>
       <div class="dot-stepper">
         ${dots}
@@ -168,15 +156,10 @@ export function toggleNineAgain(skill) {
   renderAttrsTab(c);
 }
 
-export function adjSkillBonus(skill, delta) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const sk = getSkillObj(c, skill);
-  sk.bonus = Math.max(0, (sk.bonus || 0) + delta);
-  setSkillObj(c, skill, sk);
-  _markDirty();
-  renderAttrsTab(c);
-}
+// STM-14 (#1034): adjSkillBonus retired — it wrote c.skills[X].bonus
+// directly, unaudited. Ad-hoc bonuses now go through the audited
+// st_mods apply affordance on the rendered (non-edit) sheet
+// (editor/st-mod-popover.js applyAffordance).
 
 export function updSkillSpec(skill, val) {
   if (state.editIdx < 0) return;

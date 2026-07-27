@@ -2,7 +2,7 @@
 
 import state from '../data/state.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { getAttrVal, getAttrBonus, setAttrVal, isInClanDisc } from '../data/accessors.js';
+import { isInClanDisc } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
@@ -586,26 +586,10 @@ export function shEditAttrPt(attr, field, val) {
   _renderSheet(c);
 }
 
-export function shAdjAttrBonus(attr, delta) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const base = getAttrVal(c, attr);
-  const bonus = Math.max(0, getAttrBonus(c, attr) + delta);
-  setAttrVal(c, attr, base, bonus);
-  _markDirty();
-  _renderSheet(c);
-}
-
-export function shAdjSkillBonus(skill, delta) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!c.skills) c.skills = {};
-  if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
-  const so = c.skills[skill];
-  so.bonus = Math.max(0, (so.bonus || 0) + delta);
-  _markDirty();
-  _renderSheet(c);
-}
+// STM-14 (#1034): shAdjAttrBonus / shAdjSkillBonus retired — they wrote
+// c.attributes[X].bonus / c.skills[X].bonus directly, unaudited. Ad-hoc
+// bonuses now go through the audited st_mods apply affordance on the
+// rendered (non-edit) sheet (editor/st-mod-popover.js applyAffordance).
 
 export function shAdjMeritBonus(realIdx, delta) {
   if (state.editIdx < 0) return;
