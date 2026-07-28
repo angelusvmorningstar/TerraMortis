@@ -1,0 +1,118 @@
+schema: 1
+story: "usf.0"
+stage: "B (delete dead player path)"
+story_title: "USF-0 — Correct the map: retire the dead player path, tracker hygiene, freeze the write-path inventory"
+gate: PASS
+status_reason: >
+  Stage B is a minimal, provably-safe deletion. Commit 5fdaa032 removes exactly the three dead
+  files (public/player.html, public/js/player.js, public/css/player-layout.css) and nothing else
+  product-side, plus the one-line cosmetic fix to suite/toast.js:13 (app.js:109 -> app.js:132,
+  resolving usf.0a-01) and story bookkeeping. Stage A (58c88b5b) is confirmed an ancestor of this
+  branch, so the dereference is in history and the files are genuinely unreachable at delete time.
+  The reachability grep confirms zero live references to the deleted files remain: every hit is
+  either a comment or one of the two behavioural path-guards (admin.js:406 `path !== '/player'`,
+  helpers.js:21 `startsWith('/player')`) — both runtime pathname string-comparisons, not file
+  references or navigable links; leaving them inert is correct for Phase 0. The boot-smoke harness
+  passes for BOTH roles (pass:true, pageErrors:[], meaningfulConsoleErrors:[]; the 9-10 filtered
+  entries are the expected no-local-backend connection noise). D7 write-path invariant holds
+  trivially — admin.js is not in the commit at all, so no frozen write site is touched. DOM parity
+  is moot: only never-loaded files were deleted, so no rendering change is possible. Phase 0 is
+  complete on dev across both stages.
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-28"
+
+waiver: { active: false }
+
+top_issues:
+  - id: usf.0b-01
+    severity: low
+    finding: >
+      Two path-guards now reference a route (/player) that no longer exists, making them
+      dead-but-inert conditionals: admin.js:406 `if (path !== '/player')` is now always true (so
+      the Player button always renders on the admin page — the correct behaviour, since admin is
+      never served at /player), and helpers.js:21 `startsWith('/player')` is now always false (the
+      dev-redaction guard simply falls through to its other checks, incl. the tm_view_mode ===
+      'player' branch). Neither errors; both are harmless. This is expected and explicitly in-scope-
+      to-leave per the story (Phase 0 is delete-only; guard simplification is a later cleanup).
+    recommendation: >
+      No action for Phase 0. A future USF hygiene pass can drop the now-unreachable /player branches
+      from these two guards. Logged only so the next reviewer knows they are intentionally inert,
+      not overlooked live references.
+  - id: usf.0b-02
+    severity: low
+    finding: >
+      A handful of comments still mention player.html / player-layout.css / player/status-tab.js
+      (e.g. downtime-tab.js:94 "at /player, which is now a legacy stub", components.css / suite.css
+      "ported from player-layout.css", suite/status.js:3 "Ported from public/js/player/status-tab.js").
+      These are prose, not references, and the story explicitly scopes comment-chasing out ("comments
+      are not references; a later doc-hygiene pass can update"). downtime-tab.js:94 is now slightly
+      stale (the stub it describes is deleted).
+    recommendation: >
+      No action for Phase 0. Fold into the deferred doc-hygiene pass the story already anticipates.
+
+adr_invariants_checked:
+  - id: "ADR-007 D8 (dereference-then-delete; Stage A merged+deployed first)"
+    result: PASS
+    note: "git merge-base --is-ancestor 58c88b5b HEAD = true. Stage A dereference is in this branch; SM confirmed Stage A deployed (toast.js 200, boot smoke clean) before Stage B opened."
+  - id: "ADR-007 D7 (no write path touched)"
+    result: PASS
+    note: "admin.js is not in the Stage B commit. Deleted files are not in the frozen inventory. Trivially holds."
+  - id: "ADR-004 (cache-entry invariant)"
+    result: PASS
+    note: "No boot-overlay / stash-path code in the diff (deletes + one comment). Untouched."
+
+ac_verdicts:
+  - ac: 3
+    text: "After Stage A deploys, reachability grep confirms zero live references to the deleted files (comments excepted)"
+    verdict: PASS
+    evidence: >
+      grep over public/ + netlify.toml (excl node_modules + scrape) returns only comments plus the
+      two behavioural path-guards (admin.js:406, helpers.js:21) — no href/src/value/import to
+      player.html, player.js, or player-layout.css. Both guards are runtime pathname comparisons,
+      not file references; correct to leave (see usf.0b-01).
+  - ac: 4
+    text: "player.html/js/css deleted; app boots with no console errors; / serves unified app; Player View lands on / (behaviour-preserved)"
+    verdict: PASS
+    evidence: >
+      git rm of all three files (git show --name-status: 3×D, plus M on toast.js + story). No other
+      product file deleted. usf-smoke.mjs passes for player AND st: pass:true, pageErrors:[],
+      meaningfulConsoleErrors:[], bodyHasContent:true, editor/chars containers found. The Player View
+      affordance already lands on "/" from Stage A (unchanged here); deleting the never-loaded stub
+      cannot alter that.
+  - ac: "1,2,5,6,7"
+    text: "Stage A ACs"
+    verdict: PASS (Stage A — see usf.0-stage-a.yml)
+    evidence: "Gated PASS in the Stage A review 2026-07-28. Not re-adjudicated here; Stage B only adds the deletions + the toast.js:13 fix."
+
+defect_resolution:
+  - id: usf.0a-01
+    status: RESOLVED
+    note: "suite/toast.js:13 comment now cites app.js:132 (the real importer), matching the story record. Confirmed in the Stage B diff."
+
+evidence:
+  files_reviewed:
+    - public/player.html (deleted)
+    - public/js/player.js (deleted)
+    - public/css/player-layout.css (deleted)
+    - public/js/suite/toast.js (comment fix)
+    - public/js/admin.js (guard at :406 — read only, unchanged)
+    - public/js/data/helpers.js (guard at :21 — read only, unchanged)
+  checks_run:
+    - "git show --stat/--name-status — 3 deletions + toast.js comment + story bookkeeping; no other product file"
+    - "git merge-base --is-ancestor 58c88b5b HEAD — true (Stage A present; safe to delete)"
+    - "reachability grep (player.html|player-layout|/player) — only comments + 2 inert path-guards; no live ref"
+    - "boot smoke usf-smoke.mjs player — pass:true, pageErrors:[], meaningfulConsoleErrors:[]"
+    - "boot smoke usf-smoke.mjs st — pass:true, pageErrors:[], meaningfulConsoleErrors:[]"
+    - "D7 — admin.js not in commit; no write site touched"
+    - "toast.js:13 — app.js:109 -> app.js:132 (usf.0a-01 resolved)"
+
+notes:
+  - "Full sheet DOM-parity capture was not run (no local API in this env, so the harness renders the sheet only partially — sheetHtmlLen 88 both roles). This is moot for Stage B: only never-loaded files were deleted, so a rendering delta is impossible. Boot smoke (the relevant risk for a delete) passes clean."
+
+recommendation: >
+  PASS — safe to merge Stage B to dev. Deletions are minimal and provably safe (Stage A dereference
+  in history, zero live references, boot smoke clean both roles), no write path touched, ADR-007 D8
+  two-step honoured, cosmetic usf.0a-01 resolved. With this merged, Phase 0 is complete on dev across
+  both stages and ready for prod promotion. Two low doc/guard-hygiene items (usf.0b-01/02) are
+  explicitly deferred by the story and are not blockers. Merge + prod-promotion cadence is the SM's /
+  Peter's call.

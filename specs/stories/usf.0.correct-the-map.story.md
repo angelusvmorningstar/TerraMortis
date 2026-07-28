@@ -11,7 +11,7 @@ branch_stage_b: piatra/usf-phase0b-delete
 
 ## Status
 
-Review
+Done
 
 ## Story
 
@@ -124,6 +124,29 @@ claude-opus-4-8 (Ptah / BMAD dev)
 ### Review Date: 2026-07-28
 
 ### Reviewed By: Ma'at / Quinn (Test Architect)
+
+### Gate (Stage B): PASS → `specs/qa/gates/usf.0-stage-b.yml`
+
+**Review Date:** 2026-07-28 · **Reviewed By:** Ma'at / Quinn (Test Architect)
+
+Minimal, provably-safe deletion. Commit 5fdaa032 removes exactly the three dead files + the toast.js:13 cosmetic fix + story bookkeeping. Phase 0 complete on dev across both stages.
+
+| AC | Verdict | Note |
+|----|---------|------|
+| 3 — reachability zero live refs | PASS | grep returns only comments + the two behavioural path-guards (admin.js:406, helpers.js:21 — pathname string-comparisons, not file refs). No live href/src/value/import to the deleted files. |
+| 4 — files deleted; boot clean; / serves unified app; Player View lands on / | PASS | 3×D (player.html/js/css); no other product file. `usf-smoke.mjs` player + st both pass:true, pageErrors:[], meaningfulConsoleErrors:[]. Player View already lands on / from Stage A. |
+
+**Invariants:** ADR-007 D8 (Stage A confirmed ancestor of Stage B; deployed first) PASS · D7 (admin.js not in commit — no write site touched) PASS · ADR-004 untouched.
+
+**Defect resolution:** usf.0a-01 RESOLVED — suite/toast.js:13 now cites app.js:132.
+
+**Low deferred items (not blockers, story-scoped-out):** usf.0b-01 — admin.js:406 / helpers.js:21 `/player` guards are now dead-but-inert conditionals (a later hygiene pass can simplify); usf.0b-02 — a few stale comments still mention the deleted files (deferred doc-hygiene).
+
+**Note:** full sheet DOM-parity capture not run (no local API → partial render, same before/after); moot for a delete-of-never-loaded-files change. Boot smoke — the relevant risk — is clean.
+
+**Recommendation:** merge Stage B to dev; Phase 0 then complete on dev and ready for prod promotion. Merge/promotion cadence is the SM's / Peter's call.
+
+---
 
 ### Gate: PASS (Stage A) → `specs/qa/gates/usf.0-stage-a.yml`
 
