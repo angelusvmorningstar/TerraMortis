@@ -346,11 +346,11 @@ async function _onApplyConfirm() {
 /** Resolve the active character from globals exposed by admin.js / player.js.
  *  Tolerant of either being unavailable (returns null). */
 function _resolveActiveCharacter(_markerEl) {
-  // Admin: window.chars[window.editIdx]
-  if (Array.isArray(window.chars) && typeof window.editIdx === 'number' && window.editIdx >= 0) {
-    return window.chars[window.editIdx] || null;
-  }
-  // Player: window.__activeChar (we'll wire this in player.js when installing)
+  // #1040: every sheet renderer (editor/sheet.js, suite/sheet.js, player.js)
+  // sets window.__activeChar to the rendered character. The old admin branch
+  // read window.chars/window.editIdx, which are never assigned (they live in
+  // the editor `state` module, not on window) — it silently fell through and
+  // the popover only worked when __activeChar was left over from a prior view.
   if (window.__activeChar) return window.__activeChar;
   return null;
 }
