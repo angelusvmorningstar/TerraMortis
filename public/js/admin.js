@@ -245,8 +245,8 @@ async function boot() {
       // Epic STM (issue #385): install delegated click handler for the
       // ST mod marker popover. Single listener at document.body — survives
       // sheet re-renders. Markers carry data-stm-marker-path attributes;
-      // the popover resolves the active character via window.chars + window.editIdx
-      // (already exposed below for the inline-onclick sheet handlers).
+      // the popover resolves the active character via window.__activeChar,
+      // which renderSheet (editor/sheet.js) sets on every render (#1040).
       installStModPopover(document.body, refreshCharacterOverlay);
       return;
     }
