@@ -490,10 +490,10 @@ export function shRenderAttributes(c, editMode) {
           // STM-14 (#1034): the manual +○/−○ bonus controls are retired — a
           // direct unaudited write to c.attributes[X].bonus. Ad-hoc bonuses
           // now go through the audited st_mods apply affordance on the
-          // rendered (non-edit) sheet below; this row is read-only so an ST
-          // can still see any legacy persisted value pending the 1034.2
-          // migration.
-          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span></div>'; }
+          // rendered (non-edit) sheet below; this row is read-only and shown
+          // ONLY when a non-zero legacy persisted value exists (pending the
+          // 1034.2 migration) — suppressed at 0 to avoid functionless clutter.
+          if (bonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">+' + bonus + '</span></div>'; }
         h += '</div></div>';
       }); h += '</div>';
     });
@@ -584,9 +584,10 @@ export function shRenderSkills(c, editMode) {
           // STM-14 (#1034): +○/−○ bonus controls retired — a direct
           // unaudited write to c.skills[X].bonus. Ad-hoc bonuses now go
           // through the audited st_mods apply affordance on the rendered
-          // (non-edit) sheet below; this row is read-only so an ST can
-          // still see any legacy persisted value pending the 1034.2 migration.
-          + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span></div>';
+          // (non-edit) sheet below; this row is read-only and shown ONLY when a
+          // non-zero legacy persisted value exists (pending the 1034.2
+          // migration) — suppressed at 0 to avoid functionless clutter.
+          + (bn > 0 ? '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">+' + bn + '</span></div>' : '');
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
         specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span class="sk-spec-aoe">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
