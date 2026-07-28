@@ -32,11 +32,6 @@
   to = "/admin.html"
   status = 200
 
-[[redirects]]
-  from = "/player"
-  to = "/player.html"
-  status = 200
-
 # SPA fallback — serve index.html for client-side routing
 [[redirects]]
   from = "/*"
