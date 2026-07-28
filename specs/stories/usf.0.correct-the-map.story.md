@@ -11,7 +11,7 @@ branch_stage_b: piatra/usf-phase0b-delete
 
 ## Status
 
-Review
+Done
 
 ## Story
 
@@ -44,9 +44,10 @@ Review
 - [x] Finding-delta: repoint a FOURTH live `/player` link the story's reachability missed — `public/js/admin.js:283` (`href="player"`, the `is_dual_role` "My Character" sidebar link). Same class as the `:406` "third link" delta; not a write path. See Completion Notes.
 
 ### Stage B — delete dead files (PR 2, branch `piatra/usf-phase0b-delete`, only after Stage A deploys) (AC: 3,4)
-- [ ] Confirm Stage A is merged to dev AND live on the dev deploy; re-run the reachability grep.
-- [ ] Delete `public/player.html`, `public/js/player.js`, `public/css/player-layout.css`.
-- [ ] Verify: app boots clean; `/` serves unified app; Player View affordance works; DOM parity unchanged.
+- [x] Confirm Stage A is merged to dev AND live on the dev deploy (SM confirmed: toast.js serves 200, boot smoke clean); re-run the reachability grep.
+- [x] Delete `public/player.html`, `public/js/player.js`, `public/css/player-layout.css`.
+- [x] Verify: app boots clean; `/` serves unified app; Player View affordance works; DOM parity unchanged.
+- [x] Fix cosmetic defect usf.0a-01 (Ma'at): correct `suite/toast.js:13` comment line-ref `app.js:109` → `app.js:132`.
 
 ## Dev Notes
 
@@ -97,21 +98,55 @@ claude-opus-4-8 (Ptah / BMAD dev)
 - `suite/toast.js` module-header first line updated (`tracker.js` → `toast.js`) to match the renamed file. The `suite/sheet.js:348` legacy-cache migration was NOT touched.
 - Verification note: no automated test framework; DOM parity + boot smoke to be confirmed on the dev deploy per story method. `node --check` + reachability grep pass locally.
 
+#### Stage B (delete dead files)
+- Pre-delete reachability grep confirmed no live reference remains: the only non-comment hits were the stub `player.html`'s OWN internal `<link>`/`<script>` (deleted with it) and the two behavioural path guards (`admin.js:406` `path !== '/player'`, `helpers.js:21` `startsWith('/player')`) — neither is an `href/src/value` to the dead files. No HALT condition. Deletion safe.
+- Deleted `public/player.html`, `public/js/player.js`, `public/css/player-layout.css` via `git rm`.
+- Boot smoke via `specs/qa/harness/usf-smoke.mjs`: `player` → `pass: true` (0 pageErrors, 0 meaningfulConsoleErrors, 10 benign filtered); `st` → `pass: true` (0 pageErrors, 0 meaningfulConsoleErrors, 9 benign filtered). Both roles render `t-chars`/`t-editor` containers, title "Terra Mortis". `/` serves the unified app (HTTP 200).
+- Fixed cosmetic defect usf.0a-01 (Ma'at): `suite/toast.js:13` comment `app.js:109` → `app.js:132`.
+- DOM parity: Stage B only removes unreachable files, so no rendering change is possible — parity is trivially preserved.
+- Post-delete reachability grep: only comments (out of scope per story — later doc-hygiene pass) and the two path guards remain. No dangling `src`/`import` to the deleted files.
+
 ### File List
-- `public/js/admin.js` (modified — repointed :283, :406, :659 to `/`)
-- `public/js/app.js` (modified — import path `suite/tracker.js` → `suite/toast.js`)
-- `public/js/suite/toast.js` (renamed from `public/js/suite/tracker.js` via `git mv`; header first line updated)
-- `public/dev-login.html` (modified — Player option value `/player` → `/`)
-- `netlify.toml` (modified — removed `/player` → `/player.html` redirect block)
-- `public/_redirects` (deleted — stale dev-maintenance gate)
-- `CLAUDE.md` (modified — corrected line 150 tracker claim)
-- `specs/architecture/usf-write-path-inventory.md` (added — D7 frozen inventory)
+- `public/js/admin.js` (Stage A — repointed :283, :406, :659 to `/`)
+- `public/js/app.js` (Stage A — import path `suite/tracker.js` → `suite/toast.js`)
+- `public/js/suite/toast.js` (Stage A rename from `suite/tracker.js` via `git mv`; Stage B — header line-ref `app.js:109` → `:132`)
+- `public/dev-login.html` (Stage A — Player option value `/player` → `/`)
+- `netlify.toml` (Stage A — removed `/player` → `/player.html` redirect block)
+- `public/_redirects` (Stage A — deleted, stale dev-maintenance gate)
+- `CLAUDE.md` (Stage A — corrected line 150 tracker claim)
+- `specs/architecture/usf-write-path-inventory.md` (Stage A — added, D7 frozen inventory)
+- `public/player.html` (Stage B — deleted, dead redirect stub)
+- `public/js/player.js` (Stage B — deleted, dead)
+- `public/css/player-layout.css` (Stage B — deleted, dead)
 
 ## QA Results
 
 ### Review Date: 2026-07-28
 
 ### Reviewed By: Ma'at / Quinn (Test Architect)
+
+### Gate (Stage B): PASS → `specs/qa/gates/usf.0-stage-b.yml`
+
+**Review Date:** 2026-07-28 · **Reviewed By:** Ma'at / Quinn (Test Architect)
+
+Minimal, provably-safe deletion. Commit 5fdaa032 removes exactly the three dead files + the toast.js:13 cosmetic fix + story bookkeeping. Phase 0 complete on dev across both stages.
+
+| AC | Verdict | Note |
+|----|---------|------|
+| 3 — reachability zero live refs | PASS | grep returns only comments + the two behavioural path-guards (admin.js:406, helpers.js:21 — pathname string-comparisons, not file refs). No live href/src/value/import to the deleted files. |
+| 4 — files deleted; boot clean; / serves unified app; Player View lands on / | PASS | 3×D (player.html/js/css); no other product file. `usf-smoke.mjs` player + st both pass:true, pageErrors:[], meaningfulConsoleErrors:[]. Player View already lands on / from Stage A. |
+
+**Invariants:** ADR-007 D8 (Stage A confirmed ancestor of Stage B; deployed first) PASS · D7 (admin.js not in commit — no write site touched) PASS · ADR-004 untouched.
+
+**Defect resolution:** usf.0a-01 RESOLVED — suite/toast.js:13 now cites app.js:132.
+
+**Low deferred items (not blockers, story-scoped-out):** usf.0b-01 — admin.js:406 / helpers.js:21 `/player` guards are now dead-but-inert conditionals (a later hygiene pass can simplify); usf.0b-02 — a few stale comments still mention the deleted files (deferred doc-hygiene).
+
+**Note:** full sheet DOM-parity capture not run (no local API → partial render, same before/after); moot for a delete-of-never-loaded-files change. Boot smoke — the relevant risk — is clean.
+
+**Recommendation:** merge Stage B to dev; Phase 0 then complete on dev and ready for prod promotion. Merge/promotion cadence is the SM's / Peter's call.
+
+---
 
 ### Gate: PASS (Stage A) → `specs/qa/gates/usf.0-stage-a.yml`
 
