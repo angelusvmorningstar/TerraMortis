@@ -11,7 +11,7 @@ branch: piatra/usf-phase1-tier0-delete
 
 ## Status
 
-Approved
+Review
 
 ## Story
 
@@ -31,17 +31,17 @@ Approved
 
 ## Tasks / Subtasks
 
-- [ ] Generate + commit the frozen selector list (AC: 1)
-  - [ ] `python3 specs/qa/harness/css-overlap.py --list | awk '/--- IDENTICAL \(Tier 0\) ---/{f=1;next} /^--- /{f=0} f && NF' > specs/qa/harness/tier0-selectors.txt` (110 lines). Commit it so dev + QA reference the same list.
-- [ ] Capture BEFORE baseline (AC: 3)
-  - [ ] On dev (base), with local http-server + `cd server && npm run dev` (full render): `node specs/qa/harness/usf-smoke.mjs st --classes-file specs/qa/harness/tier0-selectors.txt --capture /tmp/tier0-before.json` (also role player if any Tier-0 class is player-only).
-- [ ] Delete the 110 suite.css copies (AC: 1, 5)
-  - [ ] For each Tier-0 selector, locate its rule in `public/css/suite.css` and remove it. For grouped blocks (`.a, .b {…}`) where only some selectors are Tier-0, drop only the Tier-0 selectors from the group; keep the block for the rest. Preserve media-query wrappers that still contain kept rules.
-  - [ ] Do NOT touch components.css.
-- [ ] Verify (AC: 2, 3, 4)
-  - [ ] `usf-overlap-gate.py --expect 53` PASS and `--max 163` PASS.
-  - [ ] Capture AFTER on this branch (same command → /tmp/tier0-after.json); `diff /tmp/tier0-before.json /tmp/tier0-after.json` is EMPTY. If NOT empty → HALT to Architect (harness defect, not CSS).
-  - [ ] Boot smoke player + st → pass:true.
+- [x] Generate + commit the frozen selector list (AC: 1)
+  - [x] Frozen list `specs/qa/harness/tier0-selectors.txt` (110 lines) already committed on-branch by SM; dev + QA reference the same list. Verified count = 110.
+- [x] Capture BEFORE baseline (AC: 3)
+  - [x] With local http-server + API on :3000 (Atlas connected, full render): captured `st` → /tmp/tier0-before.json and `player` → /tmp/tier0-before-player.json.
+- [x] Delete the 110 suite.css copies (AC: 1, 5)
+  - [x] Removed every top-level (no @media) Tier-0 rule from `public/css/suite.css` — 112 rule blocks (110 unique + 2 duplicated selectors each appearing twice). Structural analysis confirmed ZERO shared comma-groups (no partial-group edits needed) and no Tier-0 selector inside any @media wrapper. Match set == the 110 selectors exactly, no collateral.
+  - [x] components.css NOT touched.
+- [x] Verify (AC: 2, 3, 4)
+  - [x] `usf-overlap-gate.py --expect 53` PASS and `--max 163` PASS.
+  - [x] Captured AFTER (same commands → /tmp/tier0-after.json, /tmp/tier0-after-player.json); `diff` is EMPTY for both roles.
+  - [x] Boot smoke player + st → pass:true.
 
 ## Dev Notes
 
@@ -76,8 +76,27 @@ No unit framework. Gates: overlap `--expect 53`, computed-parity empty-diff, boo
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-8 (Ptah / BMAD dev)
+
 ### Debug Log References
+- Structural analysis of suite.css vs tier0 (mirrors css-overlap.py parser): all 110 selectors present at media-context ''; ZERO shared comma-groups (tier0+non-tier0); ZERO tier0 inside any @media; 2 selectors appear twice — `.feeding-state-detail` (both suite copies byte-match the two components copies) and `.proj-card-dice` (suite #913 == components; earlier suite #629 divergent but already dead-shadowed by #913 at equal specificity).
+- Deleter dry-run: 112 spans, unique heads 110, tier0-not-matched none, matched-not-tier0 none.
+- Post-delete brace balance 1476/1476 BALANCED; served suite.css confirms deletion (0 hits for a sample deleted selector).
+- Gates: `usf-overlap-gate.py --expect 53` -> `overlap=53 expected=53 PASS`; `--max 163` -> `overlap=53 max=163 PASS`.
+
 ### Completion Notes List
+- **Deletions:** 112 rule blocks removed from `public/css/suite.css` (161 line deletions), covering all 110 Tier-0 selectors. components.css untouched (AC6). Overlap 163 -> 53 (AC2).
+- **AC5 grouped-selector safety:** no cases existed — every Tier-0 selector was a standalone single-selector rule; no comma-group mixing tier0/non-tier0. No partial-group edits, no non-Tier-0 rule altered.
+- **Duplicate-occurrence handling (nuance):** overlap is keyed by set-membership, so to drop a key both suite occurrences must go. `.feeding-state-detail` x2 (both match the two lib copies) and `.proj-card-dice` x2 deleted. For `.proj-card-dice` the earlier suite copy (#629: `font-family:var(--fl); margin-top:2px`, no word-break) DIVERGED from the lib body but was already fully shadowed by the later suite copy (#913, == lib) at equal specificity, so its removal is a behavioural no-op (computed value was governed by #913 before, by the identical lib copy after). Load order confirms it: index.html loads components.css (line 21) before suite.css (line 22), so the surviving lib copy governs with the same body.
+- **Parity (AC3):** computed-style diff EMPTY for BOTH roles (st, player). Apparatus behaved as the pilot predicts for byte-identical deletes.
+- **Boot smoke (AC4):** st and player both `pass:true` (0 pageErrors, 0 meaningfulConsoleErrors) before and after.
+- **RENDER-COVERAGE CAVEAT (report to SM/Architect — the pilot's key finding):** even with the local API up AND Atlas connected (real character data), parity capture only rendered **st: 5/89, player: 0/89** leading classes. The 5 that render are the `.dt-hist-*` downtime-history family (surface: feeding tab). The feeding/feed/fvc/fvt/regency/proj-card families are STATE-GATED — they mount only under an active downtime submission in a specific feeding/resolution phase, which `goTab(feeding|downtime|story)` alone does not create. So the EMPTY diff genuinely covers only the 5 rendered classes; the safety of the other 105 rests on the structural byte-identical proof + the overlap gate, NOT on computed parity. This is exactly the "silent false green" the story (D15) warns about, surfaced by the pilot as intended. It is a HARNESS coverage limitation, not a CSS defect, and it will recur for Tier 1-3 (same families). Flagged for the Architect: Tier 1+ needs the harness to drive real feeding/downtime state (seed a submission) or those tiers' parity will be equally vacuous.
+- Not a HALT: the two hard HALT conditions (non-empty diff, `--expect != 53`) did not trigger; low render is the story's explicit "tell me / note which" case.
+- Env note (setup, not story): the dev API bound to :8030 (ambient PORT) and `config.js:6` loads repo-root `.env` (nonexistent) not `server/.env`, so Mongo was unconfigured on first launch. Relaunched with `PORT=3000 node --env-file=server/.env` so the frontend (hardcoded :3000) reached it and Atlas connected. No app code changed for this.
+
 ### File List
+- `public/css/suite.css` (modified — 112 Tier-0 rule blocks deleted, 161 line deletions)
+- `specs/stories/usf.1.tier0-identical-batch-delete.story.md` (this record)
+- (`specs/qa/harness/tier0-selectors.txt` — frozen list, already committed on-branch by SM; unchanged here)
 
 ## QA Results
