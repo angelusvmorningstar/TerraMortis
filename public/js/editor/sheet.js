@@ -2579,6 +2579,11 @@ function _trapDoorAnchorBlock(c, m, realIdx) {
 
 export function renderSheet(c, target = null) {
   _refreshLegacyDBs();
+  // STM (#1040): expose the rendered character for the st-mod popover's
+  // _resolveActiveCharacter fallback. The admin/editor sheet reads chars/editIdx
+  // from `state` (not window), so without this the popover no-ops on a fresh
+  // admin session. Mirrors suite/sheet.js and player.js.
+  window.__activeChar = c || null;
   const { editMode, chars, editIdx } = state;
   state.openExpId = null;
   const el = target || document.getElementById('sh-content');
