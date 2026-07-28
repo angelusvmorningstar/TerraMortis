@@ -280,7 +280,7 @@ function renderSidebarUser() {
         : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
   const playerLink = info?.is_dual_role
-    ? `<a href="player" class="sidebar-player-link">My Character</a>`
+    ? `<a href="/" class="sidebar-player-link">My Character</a>`
     : '';
   const devBadge = info?.role === 'dev'
     ? `<span class="sidebar-dev-badge" title="Dev mode — character and player names are redacted in the UI">DEV MODE</span>`
@@ -403,7 +403,7 @@ function renderSidebarFooter() {
 
   // Single Player button — formerly two ("Game App" → /, "Player" → /player)
   // pointing at what is now effectively the same player-side experience.
-  if (path !== '/player') html.push(`<a href="/player" class="sb-link-btn">Player</a>`);
+  if (path !== '/player') html.push(`<a href="/" class="sb-link-btn">Player</a>`);
   // Storyteller (/admin) is always the current page here; never shown
 
   html.push(`<button class="sb-link-btn" id="sb-mode-btn"></button>`);
@@ -656,7 +656,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-print">PDF</button>
         <button class="dt-btn" id="cd-export-json">JSON</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
-        <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
+        <a class="dt-btn cd-player-view" href="/" id="cd-player-view">Player View</a>
         <button class="dt-btn" id="cd-archive">Archive</button>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>

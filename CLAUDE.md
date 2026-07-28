@@ -147,7 +147,7 @@ Before building any feature that reads or writes data, consult `specs/reference-
 Key rules:
 - `FEED_METHODS` and `TERRITORY_DATA` live in `public/js/player/downtime-data.js` — import from there, never duplicate
 - Tracker state (`tracker_state` collection) is ST-auth only at the API level — player access requires explicit auth change
-- Two client tracker implementations exist and are fragmented (`public/js/game/tracker.js` keyed by `_id` is canonical; `public/js/suite/tracker.js` keyed by name is legacy)
+- `public/js/game/tracker.js` (keyed by `_id`) is the sole canonical client tracker. The name-keyed persistence surface was removed in #836; `public/js/suite/toast.js` is only a toast helper, not a tracker
 - Derived stats (health max, vitae max, willpower max, influence total, XP) are never stored — always calculate at render time
 
 ## Live data vs reference files

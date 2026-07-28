@@ -129,7 +129,7 @@ import { getPool } from './shared/pools.js';
 import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
-import { toast as _toast } from './suite/tracker.js';
+import { toast as _toast } from './suite/toast.js';
 // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
 import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
 
