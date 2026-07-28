@@ -10,7 +10,7 @@
  * was unreachable — none of the exports were window-bound or imported
  * elsewhere, and the DOM IDs they targeted (st-char-list, st-char-sel,
  * st-prestige) existed in no HTML. Removed wholesale in #836; the
- * single live export — `toast` — kept here so app.js:109's import path
+ * single live export — `toast` — kept here so app.js:132's import path
  * is unchanged.
  *
  * Legacy localStorage values cached on user devices are still migrated
