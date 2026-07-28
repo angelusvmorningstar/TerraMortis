@@ -108,3 +108,45 @@ claude-opus-4-8 (Ptah / BMAD dev)
 - `specs/architecture/usf-write-path-inventory.md` (added — D7 frozen inventory)
 
 ## QA Results
+
+### Review Date: 2026-07-28
+
+### Reviewed By: Ma'at / Quinn (Test Architect)
+
+### Gate: PASS (Stage A) → `specs/qa/gates/usf.0-stage-a.yml`
+
+Clean, scope-disciplined dereference + hygiene with zero write-path risk. All Stage-A ACs pass; the two verification items (DOM parity, boot smoke) are the story's own dev-deploy checks and are flagged pending-dev-deploy — they gate Stage B, not this merge.
+
+### AC-by-AC Verdict (Stage A: 1,2,5,6,7)
+
+| AC | Verdict | Note |
+|----|---------|------|
+| 1 — D8 two-step: dereference before delete | PASS | Only `public/_redirects` (a stale config) removed; player.html/js/css remain. Stage B is a separate branch. |
+| 2 — all player.html refs → /; netlify /player gone; _redirects deleted | PASS | admin.js :659/:406/:283 + dev-login.html:45 all → "/". Live /player href/value grep returns NONE. SPA fallback retained. |
+| 3 — (Stage B) reachability grep zero live refs | N/A Stage B | Stage-A grep already shows only comments + stub internals. |
+| 4 — (Stage B) delete + boot clean | N/A Stage B | Deferred by design (D8). |
+| 5 — D6 rename; sheet.js:348 preserved; CLAUDE.md:150 corrected | PASS | git R097 rename; sole export `toast`; app.js:132 importer updated; no dangling import; sheet.js:348 untouched; CLAUDE.md:150 corrected. |
+| 6 — D7 inventory checked in verbatim; no write path touched | PASS | Inventory matches ADR-007 D7 exactly. admin.js diff = 3 href repoints only; no write-path line changed. |
+| 7 — DOM parity + boot smoke | PENDING-DEV-DEPLOY | No browser in review env; static correctness high (links change destination only, rename is byte-identical, no renderer/CSS touched). Confirm on dev deploy before opening Stage B. |
+
+### Invariants
+
+ADR-007 **D7 write-path CONFIRMED untouched** (critical) · D6 tracker rename + preserved migration PASS · D8 two-step PASS · ADR-004 cache-entry invariant untouched (no boot-overlay/stash-path change).
+
+### admin.js:283 sanity verdict
+
+**Correct and behaviour-preserving.** Old relative `href="player"` resolved to `/player` → netlify redirect → stub → `replace('/')` → landed on `/`. New `href="/"` → `/`. Identical. The repoint is also *necessary*: this same commit removes the netlify `/player` block, so an un-repointed `href="player"` would resolve to `/player` and fall through the SPA catch-all at a stray URL. Fourth-link finding-delta accepted; same class as the sanctioned `:406` third-link delta. Architect to confirm the dual-role affordance is content landing on `/` (it does today).
+
+### Defects
+
+- **usf.0a-01 (low, cosmetic):** `toast.js` header line 13 still cites "app.js:109's import path" — actual importer is app.js:132 (the story's own notes corrected this; the module header wasn't updated to match). No functional effect. Optional one-word fix; can ride Stage B.
+- **usf.0a-02 (low, not a defect — logged):** admin.js:283 finding-delta, accepted as above.
+
+### Checks Run
+
+Reachability grep (only comments + stub internals) · live /player href/value grep NONE · no dangling suite/tracker import · admin.js diff isolated to 3 repoints (no D7 line touched) · helpers.js:21 guard + suite/sheet.js:348 migration untouched · git R097 rename, sole `toast` export · inventory vs ADR-007 D7 verbatim · `node --check` clean ×3 · player.html/js/css present (scope-correct) · no ADR-004 boot/stash change · no inline style/bare hex in added code.
+
+### Recommendation
+
+Merge Stage A to dev. Then run the pending dev-deploy DOM parity + boot smoke; those are the precondition for opening the Stage B delete PR. Merge gate remains the SM's / Peter's call.
+
