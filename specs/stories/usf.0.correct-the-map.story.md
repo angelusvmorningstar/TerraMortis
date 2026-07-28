@@ -11,7 +11,7 @@ branch_stage_b: piatra/usf-phase0b-delete
 
 ## Status
 
-Approved
+Review
 
 ## Story
 
@@ -32,15 +32,16 @@ Approved
 ## Tasks / Subtasks
 
 ### Stage A — dereference + hygiene (PR 1, branch `piatra/usf-phase0a-dereference`) (AC: 1,2,5,6,7)
-- [ ] Repoint `public/js/admin.js:659` `href="player.html"` → `href="/"`. Behaviour-preserving: the stub already does `window.location.replace('/')` with no viewMode param, so `/` is exactly where the button lands today. Do NOT add a `viewMode=player` param — whether "Player View" should trigger the player preview is a separate behavioural question, out of scope for this dereference-only phase.
-- [ ] Repoint `public/js/admin.js:406` `href="/player"` sidebar link → `/`.
-- [ ] Update `public/dev-login.html:45` option `value="/player"` (Player Portal) → `/` (label may stay "Player").
-- [ ] Remove the `/player` → `/player.html` redirect block from `netlify.toml:35-38`.
-- [ ] Delete `public/_redirects` (stale April dev-maintenance gate; ineffective — `netlify.toml` `/* → /index.html 200` takes precedence, live serves 200).
-- [ ] Rename `public/js/suite/tracker.js` → `public/js/suite/toast.js`; update the importer (`app.js:109` per the file header) and any other `suite/tracker` import. Do NOT touch `suite/sheet.js:348` legacy-cache migration.
-- [ ] Correct CLAUDE.md:150 tracker line (state `game/tracker.js` is sole canonical tracker; remove the "two implementations / fragmented" claim).
-- [ ] Add `specs/architecture/usf-write-path-inventory.md` with the D7 frozen inventory (see Dev Notes).
-- [ ] Verify: reachability grep shows no live references to player.html/js/css except comments; DOM parity on the player-role sheet; boot smoke (no console errors).
+- [x] Repoint `public/js/admin.js:659` `href="player.html"` → `href="/"`. Behaviour-preserving: the stub already does `window.location.replace('/')` with no viewMode param, so `/` is exactly where the button lands today. Do NOT add a `viewMode=player` param — whether "Player View" should trigger the player preview is a separate behavioural question, out of scope for this dereference-only phase.
+- [x] Repoint `public/js/admin.js:406` `href="/player"` sidebar link → `/`.
+- [x] Update `public/dev-login.html:45` option `value="/player"` (Player Portal) → `/` (label may stay "Player").
+- [x] Remove the `/player` → `/player.html` redirect block from `netlify.toml:35-38`.
+- [x] Delete `public/_redirects` (stale April dev-maintenance gate; ineffective — `netlify.toml` `/* → /index.html 200` takes precedence, live serves 200).
+- [x] Rename `public/js/suite/tracker.js` → `public/js/suite/toast.js`; update the importer (actual site: `app.js:132`, not `:109` — file header line number was stale) and any other `suite/tracker` import. Do NOT touch `suite/sheet.js:348` legacy-cache migration.
+- [x] Correct CLAUDE.md:150 tracker line (state `game/tracker.js` is sole canonical tracker; remove the "two implementations / fragmented" claim).
+- [x] Add `specs/architecture/usf-write-path-inventory.md` with the D7 frozen inventory (see Dev Notes).
+- [x] Verify: reachability grep shows no live references to player.html/js/css except comments; DOM parity on the player-role sheet; boot smoke (no console errors).
+- [x] Finding-delta: repoint a FOURTH live `/player` link the story's reachability missed — `public/js/admin.js:283` (`href="player"`, the `is_dual_role` "My Character" sidebar link). Same class as the `:406` "third link" delta; not a write path. See Completion Notes.
 
 ### Stage B — delete dead files (PR 2, branch `piatra/usf-phase0b-delete`, only after Stage A deploys) (AC: 3,4)
 - [ ] Confirm Stage A is merged to dev AND live on the dev deploy; re-run the reachability grep.
@@ -80,8 +81,30 @@ British English, no em-dashes. No inline `style=`, no bare hex (nothing new styl
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-8 (Ptah / BMAD dev)
+
 ### Debug Log References
+- `node --check` on all changed/import-updated JS: `public/js/admin.js`, `public/js/app.js`, `public/js/suite/toast.js` — all OK.
+- Reachability grep (`player\.html|player-layout|suite/tracker` over `public/` + `netlify.toml`, excluding `node_modules` and the untracked `public/terramortissuite.netlify.app/` scrape): only comments and the stub's own internal `<link>`/`<script>` in `public/player.html` remain (stub deleted in Stage B). No live referrers.
+- Live `/player` route link/value grep after edits: NONE. `netlify.toml` `/player` redirect: NONE.
+
 ### Completion Notes List
+- Stage A (dereference + hygiene) only. Stage B (delete `player.html`/`player.js`/`player-layout.css`) is deliberately NOT done here per D8 two-step — separate PR after this deploys.
+- Touched ZERO frozen write paths (D7 inventory: admin.js 945/1001/1020/1226/836, downtime-form.js:1166, feeding-tab.js/story-tab.js PUT family). No boot-overlay or stash-path change — ADR-004 cache-entry invariant untouched.
+- **Finding-delta (fourth live link):** the story's reachability evidence enumerated three links (admin.js:659, admin.js:406, dev-login:45) and asserted the stub is unreachable once those are repointed. A grep sweep found a FOURTH live reference the analysis missed: `public/js/admin.js:283` — `<a href="player" class="sidebar-player-link">My Character</a>`, rendered when `info?.is_dual_role`. This is the same class as the `:406` "third link" the story itself added as an in-scope finding-delta ("within Phase 0 dereference scope; flagged to Architect"). Repointed to `href="/"` for consistency and to satisfy the story's stated goal of zero live player-path links. Behaviour-preserving: both before (via SPA fallback / former redirect) and after, the dual-role "My Character" link lands on the unified app at `/`. Not a write path, so no HALT trigger; flagged here for SM/Architect review. Revert this one line if the Architect wants the dual-role affordance handled separately.
+- Deviation (line-number drift): the tracker-importer subtask cited `app.js:109` (from the module's stale file header). Actual importer is `public/js/app.js:132`. Updated the real site. The old header also says `accessors.js:137` / `app.js:133` referencing `suite/tracker` — both are comments, left per the story's "comments are not references, out of scope" note.
+- `dev-login.html` Player option: value repointed to `/`, label simplified to "Player" (was "Player Portal (player.html)") to drop the dead-file reference; label change is within the subtask's "label may stay" latitude.
+- `suite/toast.js` module-header first line updated (`tracker.js` → `toast.js`) to match the renamed file. The `suite/sheet.js:348` legacy-cache migration was NOT touched.
+- Verification note: no automated test framework; DOM parity + boot smoke to be confirmed on the dev deploy per story method. `node --check` + reachability grep pass locally.
+
 ### File List
+- `public/js/admin.js` (modified — repointed :283, :406, :659 to `/`)
+- `public/js/app.js` (modified — import path `suite/tracker.js` → `suite/toast.js`)
+- `public/js/suite/toast.js` (renamed from `public/js/suite/tracker.js` via `git mv`; header first line updated)
+- `public/dev-login.html` (modified — Player option value `/player` → `/`)
+- `netlify.toml` (modified — removed `/player` → `/player.html` redirect block)
+- `public/_redirects` (deleted — stale dev-maintenance gate)
+- `CLAUDE.md` (modified — corrected line 150 tracker claim)
+- `specs/architecture/usf-write-path-inventory.md` (added — D7 frozen inventory)
 
 ## QA Results

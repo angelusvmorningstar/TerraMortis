@@ -1,5 +1,5 @@
 /**
- * tracker.js — toast helper.
+ * toast.js — toast helper.
  *
  * Historically this module hosted a name-keyed localStorage ST tracker
  * (`tm_tracker_<c.name>` / `tm_dt_<c.name>`) parallel to the canonical
