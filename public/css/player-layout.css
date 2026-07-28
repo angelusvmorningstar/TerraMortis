@@ -656,7 +656,7 @@ body {
 
 .ordeal-desc {
   font-size: 12px;
-  color: var(--txt3);
+  color: var(--txt2);
   margin-top: 2px;
   line-height: 1.4;
 }
@@ -739,7 +739,7 @@ body {
 
 .ordeal-fb-q {
   font-size: 12px;
-  color: var(--txt3);
+  color: var(--txt2);
   margin-bottom: 3px;
   line-height: 1.4;
 }
