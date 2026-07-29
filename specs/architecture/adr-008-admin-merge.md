@@ -20,6 +20,13 @@ related:
 
 # ADR-008: Admin merge
 
+## Revision history
+
+| Rev | Date | Change | Author |
+|---|---|---|---|
+| 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
+| 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
+
 ## Context
 
 Epic USF (#1047) was stopped on 2026-07-29, three weeks in, by the person who commissioned it. His words: he wanted two apps merged into one, and instead of cutting we were building a harness.
@@ -98,13 +105,6 @@ A merged document that eagerly loads this graph puts ~1.26 MB of additional ES m
 **The admin merge is a code-splitting problem, not a CSS problem. D9 deferred it on the wrong axis.** If a future reader takes one thing from this ADR, it is that sentence.
 
 There is no build step and no bundler, so the tool is native dynamic `import()` behind the role gate that already exists. That is a language feature, not new infrastructure.
-
-## Revision history
-
-| Rev | Date | Change | Author |
-|---|---|---|---|
-| 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
-| 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
 
 ## Decisions
 
