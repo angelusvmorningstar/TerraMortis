@@ -1657,12 +1657,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 @media (min-width: 900px) {
   .story-split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
 }
-/* Feeding history panel (inside feeding tab) */
-.dt-hist-title { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary); margin-bottom: 12px; }
-.dt-hist-outcome { padding: 10px 12px; font-family: var(--ft); font-size: 13px; line-height: 1.65; color: var(--txt); }
-.dt-hist-section-head { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
-.dt-hist-mech .dt-hist-section-head { color: var(--label-secondary); }
-.dt-hist-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; padding: 12px 0; text-align: center; }
+/* Feeding history panel (inside feeding tab) — promoted to components.css */
 
 /* ── Two-panel layout fixes — all apps (css-audit follow-up) ── */
 /* Force single-column on phone; restore side-by-side only at tablet+ */

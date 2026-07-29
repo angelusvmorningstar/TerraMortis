@@ -4633,9 +4633,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-hist-title {
   font-family: var(--fl);
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--txt-dim);
+  color: var(--label-secondary);
   margin-bottom: 12px;
 }
 
@@ -4669,8 +4670,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .dt-hist-outcome {
   padding: 10px 12px;
+  font-family: var(--ft);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
+  color: var(--txt);
 }
 
 .dt-hist-outcome p {
@@ -4683,13 +4686,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-hist-section-head {
   font-family: var(--fl);
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 4px;
 }
 
-.dt-hist-mech .dt-hist-section-head { color: var(--txt-dim); }
+.dt-hist-mech .dt-hist-section-head { color: var(--label-secondary); }
 
 .dt-hist-pre {
   font-family: monospace;
@@ -4699,7 +4703,16 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin: 0;
 }
 
-.dt-hist-loading, .dt-hist-empty { padding: 16px; }
+.dt-hist-loading { padding: 16px; }
+
+.dt-hist-empty {
+  font-family: var(--ft);
+  font-size: 13px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 12px 0;
+  text-align: center;
+}
 
 
 
