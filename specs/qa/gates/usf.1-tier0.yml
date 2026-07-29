@@ -19,6 +19,12 @@ status_reason: >
   usf.1-02) and is currently ungateable. Merge is safe; Tier 1 must not open on this harness.
 reviewer: "Ma'at (Test Architect)"
 updated: "2026-07-29"
+amended: "2026-07-29 (rev 2) — root-cause investigation of the coverage shortfall, prompted by Peter's
+  report that the downtime families DO render on dev. Gate decision UNCHANGED (CONCERNS) and the Tier 0
+  merge recommendation UNCHANGED. usf.1-01 and usf.1-02 are corrected: my original 'state-gated behind
+  an active downtime submission' was directionally right but incomplete, and my remediation estimate
+  was too expensive. Two NEW independent defects found (usf.1-04, usf.1-05). The recommendation to
+  amend ADR-007 D15 is WITHDRAWN. See rev2_investigation."
 
 waiver: { active: false }
 
@@ -39,8 +45,17 @@ top_issues:
       create. Harness coverage limitation, NOT a CSS defect.
     recommendation: >
       Accept for Tier 0 (the structural proof below covers the 104) but qualify AC3 in the record
-      rather than marking it plainly met. Raise the seeded-state harness work as its own issue and
-      make it a prerequisite gate on Tier 1, per usf.1-02.
+      rather than marking it plainly met. Raise the coverage work as its own issue and make it a
+      prerequisite gate on Tier 1, per usf.1-02.
+    amendment_rev2: >
+      CORRECTION. Two factual errors in the finding above. (1) "Atlas connected, real character data"
+      is WRONG for the character render path. public/js/dev-fixtures.js installs a window.fetch
+      intercept for all /api/* calls whenever tm_auth_token === 'local-test-token' (app.js:1368), which
+      is exactly the token the harness sets. Every character/cycle/submission read was served from
+      fixtures; Atlas being up was irrelevant to what rendered. (2) The single cause
+      ("state-gated ... which goTab does not create") is incomplete: the player 0/89 result has a
+      SEPARATE and independent cause (usf.1-04) and the regency family has a third (usf.1-05). The
+      coverage NUMBER is unchanged and independently re-confirmed: 6/110 selectors with evidence.
   - id: usf.1-02
     severity: high
     finding: >
@@ -53,11 +68,36 @@ top_issues:
       and asserts nothing, against changes that DO alter declarations. This is strictly worse than
       having no gate, because it manufactures false confidence.
     recommendation: >
-      Treat harness state-seeding as a hard prerequisite for Tier 1 drafting, not a parallel
-      improvement. The harness must drive a real downtime submission into a feeding/resolution phase
-      so those families mount, and must FAIL LOUD when classesRendered is 0 or the computed payload
-      is empty, instead of emitting an empty diff. Escalate to Architect as a scope addition to
-      ADR-007 D15 (the D15 apparatus as specified does not reach the surfaces D10's tiering targets).
+      SUPERSEDED by amendment_rev2 below. The conclusion (Tier 1 must not be drafted against the
+      current harness) STANDS. The remediation shape and cost are corrected, and the ADR-007 D15
+      amendment recommendation is WITHDRAWN.
+    amendment_rev2: >
+      CORRECTION to cost and scope; conclusion unchanged. I recommended "build a state-seeding
+      harness" and "escalate to Architect as a scope addition to ADR-007 D15". Both were too
+      expensive. Root-cause investigation shows the apparatus DOES reach these surfaces — the feeding
+      tab mounts correctly under goTab('feeding') and renders its own gate message. What is wrong is
+      FIXTURE DATA plus two harness constants, not the D15 design. NO ADR AMENDMENT IS NEEDED; D15's
+      apparatus is sound. Corrected remediation, in order of cost:
+        (a) usf.1-04 — replace the dead hardcoded character id (one constant, and the same fix in
+            public/dev-login.html:64-65).
+        (b) usf.1-05 — add 'regency' to the harness default surfaces list (one constant).
+        (c) The real one — extend public/js/dev-fixtures.js so the newest LIVE cycle has a submission.
+            DT_CYCLES already contains an open cycle (dev0000000000000000000dt3, "Downtime 3",
+            status:'open') and DT_SUBS already exists with a full feeding shape, but all 3 submissions
+            are attached to cycle 69d0a3c5052b57f6be774e69 ("Downtime 2", status:'closed'). The #537
+            guard at feeding-tab.js:141 requires candidateSub.cycle_id === newestLiveCycle._id, so
+            with submissions on a CLOSED cycle and the newest live cycle empty, activeCycle resolves
+            null and the entire feeding render() is replaced by the placeholder. Adding one DT_SUBS
+            entry on the open cycle for the harness's character, carrying feeding_roll_player (or
+            published_outcome / feeding_deferred), unblocks the feeding/feed/fvt families. This is a
+            dev-fixture data edit in a file that already intercepts the right endpoints — NOT a
+            harness build and NOT a product-code change.
+      Residual after (a)-(c), which fixture data alone cannot reach: `.feeding-disc-row` requires a
+      method-card CLICK (selectedMethodId, feeding-tab.js:651) and the `.fvc-*` vessel family requires
+      a COMPLETED roll. Those need scripted interaction in the harness, not just seeded state. So the
+      corrected plan is: two constants + a fixture row (cheap, unblocks most), then scripted
+      interaction for the interaction-gated remainder. Tier 1 entry should gate on measured coverage
+      of the specific selectors that Tier 1 shard touches — not on a blanket "harness rebuilt".
   - id: usf.1-03
     severity: low
     finding: >
@@ -69,6 +109,36 @@ top_issues:
       Add a coverage floor to the harness (e.g. --min-rendered N, non-zero exit when unmet) so a
       vacuous capture cannot be mistaken for a parity pass. Fold into the usf.1-02 harness work; do
       not fix in this story.
+
+  - id: usf.1-04
+    severity: medium
+    added: "rev 2"
+    finding: >
+      Dead character fixture id in the harness — fully accounts for player 0/89, independently of any
+      state gating. usf-smoke.mjs:68 hardcodes character_ids: ['600000000000000000000006'] (copied
+      from public/dev-login.html:64-65). That OID comes from the nav.1 anonymised fixture set (Elara
+      Voss). public/js/dev-fixtures.js was REGENERATED 2026-04-19 from a live Atlas export and now
+      carries 31 characters with real OIDs; 600000000000000000000006 is NOT among them (verified: 0
+      occurrences in the file). The player app filters chars by character_ids (app.js:777, :1597), so
+      it authenticates as owning a character that does not exist and renders nothing — computed:{}.
+      CONFIRMED by experiment: substituting a real fixture id (69d720427fdd1b1f9498b0d4, Yusuf
+      Kalusicj) takes player from 0 to 5 rendered classes. Note this raises player to PARITY with st,
+      it does not add new classes — the coverage ceiling of 6/110 selectors is unchanged.
+      public/dev-login.html:64-65 carries the same dead id, so manual dev login as a player is
+      affected too. That is a product-side dev-tooling bug found incidentally; not a USF-1 regression.
+    recommendation: >
+      Fix the id in both usf-smoke.mjs and public/dev-login.html, and prefer deriving it from
+      dev-fixtures.js rather than hardcoding a third copy. Cheap and independent of the fixture work.
+  - id: usf.1-05
+    severity: low
+    added: "rev 2"
+    finding: >
+      The harness default surfaces list is 'feeding,downtime,story' (usf-smoke.mjs:42), but the
+      regency family renders in public/js/tabs/regency-tab.js behind the t-regency tab, which is never
+      visited. The 3 regency-* Tier-0 selectors therefore cannot render regardless of fixture state.
+      Similarly .proj-card-* renders from story-tab.js and feeding-tab.js, both of which ARE visited,
+      so those are fixture/state-gated rather than surface-gated.
+    recommendation: "Add 'regency' to the default surfaces list. One constant."
 
 adr_invariants_checked:
   - id: "ADR-007 D11 (exactly one copy survives; lib copy canonical and unchanged)"
@@ -216,6 +286,57 @@ notes:
     `cd server && PORT=3000 node --env-file=.env index.js`. Not a story defect; worth folding into the
     harness README so the next reviewer does not rediscover it.
 
+rev2_investigation:
+  prompt: >
+    Peter reported the downtime families DO render on dev in a real browser, just slowly, which
+    appeared to contradict "state-gated". SM proposed two cheaper root causes than my escalation:
+    (A) a fixed-sleep race, (B) a dead fixture id. Both tested; a third and fourth cause were found.
+  hypothesis_a_fixed_sleep_race:
+    verdict: REFUTED
+    evidence: >
+      Re-ran the st capture at TABWAIT 800ms / 5000ms / 15000ms with BOOTWAIT 5000ms. classesRendered
+      was 5 at every value, and the SAME 5 classes each time (dt-hist-cycle, dt-hist-entry,
+      dt-hist-entry-head, dt-hist-outcome, dt-hist-panel). An 18.75x increase in settle time changes
+      nothing, so the missing families are not a timing race. Peter's "slow on dev" is real but is
+      about a different environment: dev has an actual open game phase and real submissions, which
+      the fixture environment does not (see hypothesis_c).
+  hypothesis_b_dead_fixture_id:
+    verdict: CONFIRMED, but does not raise the coverage ceiling
+    evidence: >
+      See usf.1-04. Player goes 0 -> 5 with a real fixture id, reaching the same 5 classes as st.
+      It converts the player role from zero-information to a genuine second confirmation, which
+      matters for the record, but adds no new selectors. 6/110 stands.
+  hypothesis_c_activecycle_null:
+    verdict: CONFIRMED — this is the actual cause of the ~99-selector shortfall
+    evidence: >
+      Direct DOM probe with a character selected (openChar(0)) and goTab('feeding') active, 8s settle.
+      #t-feeding IS active and IS populated; the left pane contains
+      `<p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p>`
+      and the right pane the dt-hist history panel. So the tab mounts and the app renders its own
+      explicit gate message — feeding-tab.js:150-153, the `if (!activeCycle)` branch, which replaces
+      the whole render() body. activeCycle resolution (feeding-tab.js:110-144): primary
+      getGamePhaseCycle() (no ST-opened game phase in fixtures), fallback a submission for this
+      character with published_outcome/feeding_roll_player/feeding_deferred WHOSE CYCLE IS THE NEWEST
+      NON-CLOSED CYCLE (the #537 guard at :141). Fixture state makes that fallback unsatisfiable:
+      DT_SUBS has 3 entries, all on cycle 69d0a3c5052b57f6be774e69 ("Downtime 2", status closed),
+      while the newest live cycle is dev0000000000000000000dt3 ("Downtime 3", status open) with zero
+      submissions. Guard fails, activeCycle stays null, render() never runs — which is why not even
+      the unconditional .feeding-wrap / .feeding-title appear. My original "state-gated" call was
+      therefore correct in direction but I had not identified the mechanism, and the mechanism is
+      fixture data rather than an inherent limit of the apparatus.
+  hypothesis_d_surface_and_interaction:
+    verdict: CONFIRMED, minor
+    evidence: >
+      regency-* is surface-gated (usf.1-05). Beyond fixture state, .feeding-disc-row needs a
+      method-card click (feeding-tab.js:651) and .fvc-* needs a completed roll, so a residual set is
+      interaction-gated and needs scripted interaction rather than seeded data.
+  net_effect_on_gate: >
+    None on the decision. Gate stays CONCERNS, Tier 0 merge still recommended, the cascade-order proof
+    is untouched and is what carries the shard. What changes is the diagnosis behind usf.1-01/02 and,
+    materially, the cost and shape of the fix: two constants plus one dev-fixture row, not a harness
+    build, and no ADR-007 D15 amendment. usf.1-03 (coverage floor) is unaffected and is now MORE
+    clearly justified — a --min-rendered floor would have caught usf.1-04 and usf.1-05 immediately.
+
 recommendation: >
   CONCERNS — merge to dev is safe and I recommend it. The deletion is exact (110/110, zero collateral,
   zero survivors), the overlap gate is machine-confirmed at 53, boot health is unchanged for both
@@ -228,6 +349,11 @@ recommendation: >
   is the more valuable result and exactly why the pilot was run first. Blocking follow-up: Tier 1
   must not be drafted against this harness (usf.1-02, high) — divergent-body tiers have no structural
   fallback, so a harness that renders 0/89 of their families would gate them on nothing while
-  appearing to pass. Recommend a separate issue for seeded-state capture plus a coverage floor
-  (usf.1-03), gating Tier 1 entry, and an Architect note that ADR-007 D15's apparatus as specified
-  does not reach the surfaces D10's tiering targets.
+  appearing to pass. Recommend a separate issue covering the corrected remediation in usf.1-02
+  amendment_rev2 (dead fixture id, regency surface, one dev-fixture submission row on the open cycle,
+  then scripted interaction for the interaction-gated remainder) plus the usf.1-03 coverage floor,
+  gating Tier 1 entry on MEASURED coverage of the selectors that shard actually touches.
+  REV 2: "falsified the PARITY APPARATUS" above is too strong and is corrected — Tier 0 falsified the
+  apparatus's FIXTURE ENVIRONMENT AND CONFIGURATION, not its design. The D15 apparatus reaches these
+  surfaces correctly; the feeding tab mounts and renders its own gate message. No ADR-007 D15
+  amendment is required, and my earlier recommendation to seek one is withdrawn.
