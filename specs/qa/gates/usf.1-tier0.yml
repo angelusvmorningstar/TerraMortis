@@ -25,6 +25,12 @@ amended: "2026-07-29 (rev 2) — root-cause investigation of the coverage shortf
   an active downtime submission' was directionally right but incomplete, and my remediation estimate
   was too expensive. Two NEW independent defects found (usf.1-04, usf.1-05). The recommendation to
   amend ADR-007 D15 is WITHDRAWN. See rev2_investigation."
+amended_rev3: "2026-07-29 (rev 3) — SM asked whether the harness's remaining constants could be
+  trusted after three of three checked ones proved wrong. Audited; two more defects found (usf.1-06
+  dead surface, usf.1-08 instrument blind spots) and usf.1-07 promoted to the shard's headline
+  finding. Corrects rev 2's own coverage number from 6/110 to 4/110. Adds tier_a_analysis with a
+  re-order RECOMMENDATION (not a decision) and the ADR-007 D10 conflict it raises. Gate decision
+  UNCHANGED (CONCERNS); Tier 0 merge recommendation UNCHANGED; cascade-order proof untouched."
 
 waiver: { active: false }
 
@@ -56,6 +62,14 @@ top_issues:
       ("state-gated ... which goTab does not create") is incomplete: the player 0/89 result has a
       SEPARATE and independent cause (usf.1-04) and the regency family has a third (usf.1-05). The
       coverage NUMBER is unchanged and independently re-confirmed: 6/110 selectors with evidence.
+    amendment_rev3: >
+      FURTHER CORRECTION — the 6/110 above is itself too generous. Genuinely measured is 4/110.
+      Per usf.1-07, the harness reduces each selector to its leading class token, so
+      '.dt-hist-outcome p' and '.dt-hist-outcome p:last-child' captured the containing DIV, not the
+      <p> the rule actually styles. Those two selectors were never exercised. The four real ones are
+      .dt-hist-cycle, .dt-hist-entry, .dt-hist-entry-head, .dt-hist-panel. This does not move the
+      gate — the cascade-order proof carries the shard independently of rendering — but the record
+      should not overstate the evidence.
   - id: usf.1-02
     severity: high
     finding: >
@@ -139,6 +153,111 @@ top_issues:
       Similarly .proj-card-* renders from story-tab.js and feeding-tab.js, both of which ARE visited,
       so those are fixture/state-gated rather than surface-gated.
     recommendation: "Add 'regency' to the default surfaces list. One constant."
+
+  - id: usf.1-06
+    severity: medium
+    added: "rev 3"
+    finding: >
+      'story' is a DEAD SURFACE in the harness. usf-smoke.mjs:42 defaults surfaces to
+      'feeding,downtime,story', but there is no t-story element in public/index.html (the full set is
+      archive chars combat devlog dice downtime edit editor emergency feeding finance game-guide info
+      map more office ordeals powers primer regency relationships roll rules settings sheets signin
+      skills stats status territory tickets tracker whos-who) and NAV_ALIAS (app.js:301) has no entry
+      for it. goTab('story') therefore matches nothing. It is worse than a no-op: goTab clears
+      .active from every tab BEFORE attempting to set the target (app.js:390-394), so the harness's
+      third and LAST surface tears down whatever tab was active and activates nothing. Confirmed by
+      DOM probe: _activeTab reads '(none)' immediately after goTab('story'). Story and project
+      content actually renders through renderOutcomeWithCards, imported by archive-tab.js:16 and
+      downtime-tab.js:6, so the real surfaces are 'archive' and 'downtime' and the content
+      additionally requires a submission with a PUBLISHED OUTCOME. This is why the proj/story
+      families — the largest block of remaining divergent selectors — have never been captured.
+    recommendation: >
+      Replace 'story' with 'archive' in the default surfaces list (keep 'downtime'), and add
+      'regency' per usf.1-05. Same class of fix as usf.1-05; both are constants.
+  - id: usf.1-07
+    severity: high
+    added: "rev 3"
+    headline: true
+    finding: >
+      SELECTOR-FIDELITY DEFECT — the most valuable finding of this shard, and a strictly worse
+      failure mode than usf.1-01. usf-smoke.mjs:47 reduces every entry in the classes file to its
+      LEADING CLASS TOKEN (line.replace(/^[\s.]+/,'').trim().split(/[\s.:>]/)[0]) and then captures
+      document.querySelectorAll('.' + token). The selector under test is never used. Consequences:
+        - DESCENDANT selectors measure the ANCESTOR. '.fvt-pos .fvt-val' captures .fvt-pos; the rule
+          styles .fvt-val. The rule under test is never exercised.
+        - COMPOUND state selectors capture an unfiltered SUPERSET. '.feeding-flow-step.done'
+          captures every .feeding-flow-step including those without .done — elements the rule does
+          not apply to.
+        - Distinct selectors COLLIDE onto one capture key. '.feeding-flow-step.done' and
+          '.feeding-flow-step.done .feeding-flow-num' both reduce to .feeding-flow-step, so one
+          silently displaces the other (first-write-wins at usf-smoke.mjs:110).
+      Why this is worse than a coverage gap: a coverage gap is VISIBLE — classesRendered is right
+      there in the output and a reader can see 5/89. This defect reports a healthy NONZERO count
+      while measuring elements the rule under test never applies to. Nonzero coverage plus an empty
+      diff reads as the strongest possible pass and can assert nothing at all. It is invisible
+      without this audit, and it is not detectable by the usf.1-03 coverage floor either — a
+      --min-rendered gate would pass happily on wrongly-measured elements.
+      SCORING against the remaining 53 divergent selectors:
+        EXACT (measured correctly)                       45
+        WRONG-ELEMENT (measures an ancestor)              6
+        SUPERSET (captures non-matching elements)         2
+      The 8 non-EXACT: .dt-hist-mech .dt-hist-section-head (WRONG-ELEMENT, kind A),
+      .feeding-flow-step.done (SUPERSET, kind A, admin-reachable),
+      .feeding-flow-step.done .feeding-flow-num (WRONG-ELEMENT, kind A, admin-reachable),
+      .feeding-no-sub .dt-feed-card-name (WRONG-ELEMENT, kind D),
+      .fvt-pos .fvt-val (WRONG-ELEMENT, kind A), .proj-card-response p (WRONG-ELEMENT, kind D),
+      .proj-card-response p:last-child (WRONG-ELEMENT, kind D),
+      .story-proj-card:last-child (SUPERSET, kind D).
+      Note 4 of the 8 are kind A — i.e. HALF of Tier 1 as D10 composes it is unmeasurable as the
+      instrument is currently implemented.
+    recommendation: >
+      Capture with document.querySelectorAll(SELECTOR_TEXT) using the real selector, and key the
+      results object by SELECTOR rather than by leading class token. Report per-selector
+      rendered/not-rendered so a collision cannot silently displace a sibling. This must land BEFORE
+      any divergent shard — it is a correctness fix, not an enhancement, and it invalidates
+      measurements even when coverage is healthy.
+  - id: usf.1-08
+    severity: medium
+    added: "rev 3"
+    finding: >
+      INSTRUMENT BLIND SPOTS, from the SM-requested audit of the harness's remaining unchecked
+      constants. Three real gaps and one clean result.
+      (1) PROPS is blind to non-top border colour and style. The list captures all four
+          border-*-width, but only border-top-style and border-top-color. getComputedStyle resolves
+          shorthands, so `padding`, `margin`, `flex` and background-colour divergences ARE visible
+          via their longhands; side border colour/style are not. 16 of the 53 remaining divergent
+          selectors have at least one genuinely uncaptured longhand, dominated by border-left-color
+          (11), border-bottom-color (10), border-right-color (10) and the matching -style triples
+          (8 each). This is not theoretical: these families use side-border accents for state.
+          .proj-card-withheld is the clearest case — suite has
+          `border-left-color:var(--bdr2); opacity:.6; padding:10px 16px` against components'
+          `border-style:dashed; padding:12px 16px; opacity:0.7`. A promotion there changes the left
+          border colour and the border style on three of four sides, and the capture would report
+          only the opacity and padding movement.
+      (2) PROPS omits grid-template-columns entirely. .skills-3col diverges on it (suite `gap:16px`
+          vs components `display:grid; grid-template-columns:repeat(3,1fr); gap:3px;
+          align-items:start`). For this selector the likely resolution moves only `gap`, which IS
+          captured, so the gap may not bite here — but the property class is invisible to the
+          instrument and would be missed on any future selector that moves it.
+      (3) The BENIGN console filter (usf-smoke.mjs:62) includes /Failed to load resource/, which is
+          broad enough to swallow a 404 on the stylesheet under test. Combined with the fact that
+          `pass` asserts only "no pageErrors and no meaningful console errors" and never asserts the
+          CSS actually loaded, a run with suite.css missing entirely would report pass:true, and its
+          capture would diff cleanly against another equally-broken capture. For a CSS parity
+          harness specifically that is a dangerous default.
+      (4) CLEAN: no media-query exposure. 0 of the 53 remaining divergent selectors sit inside any
+          @media block, so the unpinned viewport (newContext() takes Playwright's 1280x720 default,
+          never explicitly set) cannot currently change a result. Flagged only because it is
+          unpinned by accident rather than by decision.
+      Also noted, lower severity: computed[cls] is first-surface-wins (usf-smoke.mjs:110), so a class
+      that renders on more than one surface is only ever compared on the first one where it appears;
+      a promotion that changes it on a later surface is invisible.
+    recommendation: >
+      Extend PROPS with the remaining border-*-style / border-*-color longhands and
+      grid-template-columns. Narrow the BENIGN filter so stylesheet 404s are never swallowed, and add
+      a positive assertion that suite.css and components.css both loaded 200 before any capture is
+      trusted. Pin the viewport explicitly. Consider keying captures by (selector, surface) rather
+      than first-wins. None of these block Tier 0; all should land with the usf.1-07 fix.
 
 adr_invariants_checked:
   - id: "ADR-007 D11 (exactly one copy survives; lib copy canonical and unchanged)"
@@ -337,6 +456,77 @@ rev2_investigation:
     build, and no ADR-007 D15 amendment. usf.1-03 (coverage floor) is unaffected and is now MORE
     clearly justified — a --min-rendered floor would have caught usf.1-04 and usf.1-05 immediately.
 
+tier_a_analysis:
+  question_from_sm: >
+    With the usf.1-02 fixture/config fixes applied, what is the MEASURED coverage of Tier A's 8
+    selectors, and does an admin capture path belong in the same issue as the fixture work?
+  tier_a_selectors: >
+    .dt-hist-mech .dt-hist-section-head, .feeding-confirmed, .feeding-confirmed-head,
+    .feeding-flow-step.done, .feeding-flow-step.done .feeding-flow-num, .fvc-alloc-badge,
+    .fvt-pos .fvt-val, .proj-card-pool-val
+  expected_measured_coverage: "at most 4 of 8, realistically fewer"
+  breakdown: >
+    MEASURABLE but sub-state dependent (4): .feeding-confirmed, .feeding-confirmed-head,
+    .fvc-alloc-badge, .proj-card-pool-val. Each needs a specific state, not merely an active cycle —
+    a confirmed feeding, a RECORDED vitae allocation (the badge is emitted at feeding-tab.js:764 only
+    when an allocation exists), and a project carrying a pool value. One generic DT_SUBS row will not
+    produce these; the fixture must be crafted per sub-state. My rev-2 "(c) one fixture row" estimate
+    was correct for unblocking the feeding families generally but optimistic for Tier A specifically.
+    NOT MEASURABLE as the instrument is implemented (4): .dt-hist-mech .dt-hist-section-head,
+    .feeding-flow-step.done, .feeding-flow-step.done .feeding-flow-num, .fvt-pos .fvt-val — see
+    usf.1-07. Two of these also collide onto one capture key.
+    ADMIN-GATED (2 of the 8): .feeding-flow-step.done and .feeding-flow-step.done .feeding-flow-num
+    are the ONLY admin-reachable selectors in the entire remaining 53, and D12 mandates admin parity
+    capture for them. usf-smoke.mjs has no admin surface at all — it only ever loads BASE + '/'.
+  answer_admin_same_issue_or_separate: >
+    SEPARATE, agreeing with the SM's instinct and reasoning: the fixture work is a data edit, admin
+    capture is a new capability with its own auth and render path. But the framing of "one blocker or
+    two" understates it — there are THREE, and admin is the least urgent:
+      B1 usf.1-07 selector fidelity — correctness bug, blocks EVERY divergent tier, must land first
+         because it invalidates measurements even when coverage is healthy. Small fix.
+      B2 fixture + config — usf.1-04 dead id, usf.1-05 regency surface, usf.1-06 dead 'story'
+         surface, plus the DT_SUBS row on the open live cycle. Data and constants.
+      B3 admin capture — genuinely new capability. Gates ONLY shards containing those 2 selectors.
+    usf.1-08 should land with B1.
+  verdict_on_tier_a_as_first_divergent_shard: >
+    Tier A requires all three blockers PLUS a bespoke multi-sub-state fixture, and half of it is
+    unmeasurable until B1 lands. It maximises unbuilt prerequisites. It is the weakest available
+    choice of first divergent shard.
+  reorder_recommendation:
+    status: "RECOMMENDATION ONLY — not a QA decision, and it conflicts with a locked ADR (see below)"
+    observation: >
+      45 of the 53 remaining divergent selectors are EXACT (correctly measurable) and non-admin,
+      concentrated in proj (16) and story (13) — 29 selectors across two families that share one
+      surface path (archive/downtime via renderOutcomeWithCards). A shard drawn from those needs B2
+      only: not B1 (they are already EXACT) and not B3 (zero admin-reachable). Three members must be
+      excluded as non-EXACT: .proj-card-response p, .proj-card-response p:last-child,
+      .story-proj-card:last-child.
+    adr_conflict: >
+      EXPLICIT FLAG. This cuts across ADR-007 D10, which the SM reports as locked. D10 fixes both the
+      sharding AXIS and the tier COMPOSITION: Tier 1 = the 8 token-drift, Tier 2 = 7 superset/subset
+      plus 5 value-conflict, Tier 3 = the 33 structural sharded by family. A set selected on
+      MEASURABILITY comes out D:29 B:7 C:5 A:4 — cross-tier by construction. That is not a variation
+      on D10, it is a different sharding axis, and QA does not have standing to adopt it. Presented
+      for the Architect, with two resolutions and no preference asserted between them:
+        (i) NARROW — keep D10's tier composition exactly as written and change only the ORDER, on the
+            reading that D10 locks the AXIS ("by divergence tier, not by family or by size") while
+            the table's sequence is implied rather than locked, and that D14's first-shard reasoning
+            was specific to Tier 0. Tier 1 then defers on gateability and Tier 3's proj/story family
+            shards run first. Smallest possible deviation; the SM's read, and it appears sufficient
+            to unblock. Worth noting this INVERTS D14's logic in an interesting way: D14 put the
+            zero-judgement shard first to VALIDATE the apparatus; this would put the most-gateable
+            shard first to BUILD it. Same principle, later stage.
+        (ii) BROAD — shard by measurability across tiers. Genuinely re-opens D10 and needs an ADR
+            Rev 3.
+  open_decision_for_architect_gateability_vs_judgement: >
+    Recorded separately because it is the sharper question and QA should not resolve it. Easiest-to-
+    GATE and easiest-to-JUDGE have come apart. A proj/story-first ordering is mostly kind D
+    (structural) — the hardest design judgements would land first, while the reviewer is least
+    practised, and the kind A token-drift work that would have BUILT that judgement is exactly what
+    gets deferred. D10's tiering was written to sequence by ambiguity for precisely this reason, so
+    ordering by gateability trades away the thing D10 was protecting. That trade is not obviously
+    right in either direction. Flagged, not resolved. Architect's call.
+
 recommendation: >
   CONCERNS — merge to dev is safe and I recommend it. The deletion is exact (110/110, zero collateral,
   zero survivors), the overlap gate is machine-confirmed at 53, boot health is unchanged for both
@@ -353,6 +543,16 @@ recommendation: >
   amendment_rev2 (dead fixture id, regency surface, one dev-fixture submission row on the open cycle,
   then scripted interaction for the interaction-gated remainder) plus the usf.1-03 coverage floor,
   gating Tier 1 entry on MEASURED coverage of the selectors that shard actually touches.
+  REV 3: the headline finding of this shard is usf.1-07, not the coverage shortfall. A coverage gap
+  is visible in the output; a capture keyed on the leading class token reports a healthy nonzero
+  count while measuring elements the rule under test never applies to, and nonzero coverage with an
+  empty diff reads as the strongest possible pass while asserting nothing. Half of Tier 1 as D10
+  composes it is unmeasurable until that is fixed. Rev 3 also corrects rev 2's own coverage claim
+  from 6/110 to 4/110, adds usf.1-06 (dead 'story' surface) and usf.1-08 (instrument blind spots),
+  and records a re-order RECOMMENDATION plus the ADR-007 D10 conflict it raises for the Architect.
+  Five of the harness's assumptions have now been checked and four were wrong (character id,
+  surfaces list, capture key, PROPS coverage); the clean one is media-query exposure, where 0 of 53
+  divergent selectors sit inside @media. None of this touches the CSS or the Tier 0 verdict.
   REV 2: "falsified the PARITY APPARATUS" above is too strong and is corrected — Tier 0 falsified the
   apparatus's FIXTURE ENVIRONMENT AND CONFIGURATION, not its design. The D15 apparatus reaches these
   surfaces correctly; the feeding tab mounts and renders its own gate message. No ADR-007 D15
