@@ -11,7 +11,7 @@ branch: piatra/usf-phase1-tier0-delete
 
 ## Status
 
-Review
+Done
 
 ## Story
 
@@ -100,3 +100,54 @@ claude-opus-4-8 (Ptah / BMAD dev)
 - (`specs/qa/harness/tier0-selectors.txt` — frozen list, already committed on-branch by SM; unchanged here)
 
 ## QA Results
+
+### Review — 2026-07-29, Ma'at (Test Architect)
+
+**Gate: CONCERNS** → `specs/qa/gates/usf.1-tier0.yml`
+
+Everything in the dev record that I was asked to re-derive independently is **confirmed**. The CONCERNS is not about the CSS, which I judge provably safe — more strongly than the record argued. It is about AC3 being recorded as met on evidence that covers 6 of 110 selectors.
+
+#### Re-derived, not taken on trust
+
+| Claim | Verdict | Basis |
+|---|---|---|
+| AC5 zero shared comma-groups | **Confirmed** | Re-parsed pre-delete `suite.css`: 112 blocks contain a Tier-0 selector; **0** mix Tier-0 with non-Tier-0; **0** all-Tier-0 multi-selector groups; **0** inside any `@media`. Every one is a standalone single-selector rule. The case AC5 guards against did not exist. |
+| `.proj-card-dice` shadowing | **Confirmed** | Both suite copies are specificity (0,1,0), so later `#913` governed. The argument holds *because* `#629`'s property set is a strict **subset** of `#913`'s — had `#629` carried one property `#913` lacked, it would have applied pre-delete and its removal would be a real change. It does not. Same subset condition verified for `.feeding-state-detail`. |
+| Deletion exactness | **Confirmed** | 1573 → 1461 blocks. 110 keys, 112 occurrences removed. Collateral **0**, survivors **0**, partial removals **0**, surviving-rule body changes **0**, new heads **0**. |
+| AC2 overlap gate | **Confirmed** | QA re-ran: `--expect 53` PASS, `--max 163` PASS, `--count` → 53. |
+| AC4 boot smoke | **Confirmed** | `pass:true`, 0 pageErrors, 0 meaningful console errors — both roles, both trees. |
+| AC7 admin reachability | **Confirmed** | 0/110 via the instrument's own `admin_classes()`. |
+
+Neither HALT-DAR condition tripped; re-derivation confirms rather than contradicts the dev record.
+
+#### Cascade-order proof (QA addition — this is what carries the 104 unrendered selectors)
+
+`css-overlap.py`'s own docstring states byte-identity does **not** prove a no-op delete: an equal-specificity rule interposed in cascade order can change the computed value. The record rests the 104 on byte-identity alone, which is insufficient by the instrument's stated limit. Two checks close it (load order `theme < layout < components < suite`, index.html:19-22):
+
+- **Check 1 — relative order preserved.** 0 inversions across all co-occurring, equal-specificity, conflicting Tier-0 pairs.
+- **Check 2 — no surviving-suite interposer.** A survivor that *preceded* a deleted rule lost before but would win after. 33 raw candidates → **0 reachable**: `.fvt-pos`/`.fvt-neg`/`.fvt-total` are mutually exclusive per feeding-tab.js:563-575 (the total row is `fvt-row fvt-total`, never `fvt-pos`); `.primer-content`/`.story-narrative`/`.dt-hist-outcome`/`.feeding-disc-row` are distinct tab-level roots that never nest.
+- **Check 2b — `@media` survivors.** 23 blocks precede the last deleted rule; **0** mention any Tier-0 class.
+
+Computed values are therefore unchanged for all 110 **regardless of whether they render**. The shard is safe on structure, not on the parity diff.
+
+#### AC3 — the finding
+
+Reproduced end-to-end rather than accepted: pre-delete tree via `git worktree add` served on :8081, branch tree on :8080, shared API on :3000 with Atlas connected; confirmed the two servers served different bytes. **Diff EMPTY for both roles** — matching the record.
+
+Coverage is the problem. st renders 5/89 leading classes, player 0/89 — and the player payload is literally `computed: {}`, so "EMPTY for both roles" is one role contributing evidence and one contributing an empty-vs-empty comparison. Mapped back to the frozen list: **6 of 110 selectors have computed evidence, 104 have none** (uncovered: feeding 61, feed 20, fvc 9, fvt 9, regency 3, proj 1, dt 1).
+
+The letter of AC3 is met; the assurance it was written to provide is not.
+
+#### Why this blocks Tier 1 (usf.1-02, high)
+
+Tier 0 tolerates a vacuous parity diff **only** because the structural proof above substitutes for it. Tier 1-3 are by definition **divergent** bodies — no structural argument is available, so computed parity is their *only* gate. That gate currently covers 0/89 of exactly the families those tiers consist of. Running Tier 1 on this harness yields an empty diff that looks like a pass and asserts nothing, against changes that genuinely alter declarations. That is worse than no gate.
+
+Tier 0 did its D14 job: it validated the deletion method and **falsified the parity apparatus**. That is the more valuable result and precisely why the pilot ran first.
+
+#### Recommended follow-ups (not in this story)
+
+1. **Seeded-state harness** — drive a real downtime submission into a feeding/resolution phase so the gated families mount. Hard prerequisite for Tier 1 entry, not a parallel improvement. Architect note: ADR-007 D15's apparatus as specified does not reach the surfaces D10's tiering targets.
+2. **Coverage floor** (usf.1-03, low) — `usf-smoke.mjs` exits 0 on an empty capture, making a vacuous run indistinguishable from a full-coverage pass at CI level. Add `--min-rendered N` with non-zero exit.
+3. **Harness README env note** — entrypoint is `server/index.js` and `config.js` resolves `.env` from repo root, so the API needs `cd server && PORT=3000 node --env-file=.env index.js`. Cost setup time twice now.
+
+**Merge to dev: recommended.** The three follow-ups are not blockers for this shard; item 1 is a blocker for the next one.

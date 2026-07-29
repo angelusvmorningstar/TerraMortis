@@ -1,0 +1,233 @@
+schema: 1
+story: "usf.1"
+stage: "Phase 1 Tier 0 (byte-identical batch delete)"
+story_title: "USF-1 — batch-delete the 110 byte-identical suite.css selector copies"
+gate: CONCERNS
+status_reason: >
+  The CSS change is correct and I now judge it provably safe — more strongly than the dev record
+  argued. Independent re-derivation confirms all three dev-asserted claims (zero mixed comma-groups,
+  the .proj-card-dice shadowing argument, exact 1:1 deletion of the frozen 110) and the overlap gate
+  re-runs at exactly 53. CONCERNS is NOT about the CSS. It is about AC3, the criterion the story
+  itself calls "the pilot's real gate": the empty computed-style diff is recorded as satisfied on
+  evidence covering 6 of 110 selectors for st and ZERO for player, where the player capture object is
+  literally `computed: {}` — an empty-vs-empty comparison carrying no information. Recording that
+  unqualified as a met AC is the "silent false green" ADR-007 D15 names. More consequentially, D14's
+  stated purpose for Tier 0 is to VALIDATE the parity apparatus before tiers where a failure is
+  ambiguous. The apparatus was not validated; it was shown inadequate for exactly the families
+  (feeding/feed/fvc/fvt/regency/proj) that Tier 1-3 target. Tier 0 survives this because a complete
+  structural proof substitutes for the missing parity evidence. Tier 1+ has no such substitute (see
+  usf.1-02) and is currently ungateable. Merge is safe; Tier 1 must not open on this harness.
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-29"
+
+waiver: { active: false }
+
+top_issues:
+  - id: usf.1-01
+    severity: medium
+    finding: >
+      AC3 render coverage. Independently reproduced under the dev record's own conditions (local
+      http-server + API on :3000, Atlas connected, real character data): st renders 5/89 leading
+      classes, player renders 0/89. Both diffs are EMPTY, and I confirm that — but mapping the
+      captured classes back to the frozen list, only 6 of the 110 Tier-0 SELECTORS have any computed
+      evidence (.dt-hist-cycle, .dt-hist-entry, .dt-hist-entry-head, .dt-hist-outcome p,
+      .dt-hist-outcome p:last-child, .dt-hist-panel). 104 have none. The player-role result is
+      sharper than the dev record states: the capture payload is `computed: {}`, so "EMPTY diff for
+      both roles" is one role contributing 6 selectors of evidence and one contributing zero, not two
+      independent confirmations. The remaining families are state-gated behind an active downtime
+      submission in a specific feeding/resolution phase, which goTab(feeding|downtime|story) does not
+      create. Harness coverage limitation, NOT a CSS defect.
+    recommendation: >
+      Accept for Tier 0 (the structural proof below covers the 104) but qualify AC3 in the record
+      rather than marking it plainly met. Raise the seeded-state harness work as its own issue and
+      make it a prerequisite gate on Tier 1, per usf.1-02.
+  - id: usf.1-02
+    severity: high
+    finding: >
+      Tier 1+ is currently ungateable, and this is the pilot's real finding. Tier 0 tolerates a
+      vacuous parity diff only because byte-identical bodies plus the cascade-order proof below make
+      the deletions provably no-op WITHOUT rendering. Tier 1-3 are by definition DIVERGENT bodies, so
+      no structural argument is available — computed-style parity is the ONLY gate those tiers have.
+      That gate presently covers 0/89 of the feeding/feed/fvc/fvt/regency/proj families that Tier 1-3
+      consist of. Running Tier 1 on this harness would produce an empty diff that looks like a pass
+      and asserts nothing, against changes that DO alter declarations. This is strictly worse than
+      having no gate, because it manufactures false confidence.
+    recommendation: >
+      Treat harness state-seeding as a hard prerequisite for Tier 1 drafting, not a parallel
+      improvement. The harness must drive a real downtime submission into a feeding/resolution phase
+      so those families mount, and must FAIL LOUD when classesRendered is 0 or the computed payload
+      is empty, instead of emitting an empty diff. Escalate to Architect as a scope addition to
+      ADR-007 D15 (the D15 apparatus as specified does not reach the surfaces D10's tiering targets).
+  - id: usf.1-03
+    severity: low
+    finding: >
+      usf-smoke.mjs reports an empty capture as success. A run with `computed: {}` exits 0 and its
+      diff against another empty capture is empty, which is indistinguishable at the CI level from a
+      genuine full-coverage parity pass. The harness already tracks classesRequested/classesRendered,
+      so the signal exists and is simply not gated on.
+    recommendation: >
+      Add a coverage floor to the harness (e.g. --min-rendered N, non-zero exit when unmet) so a
+      vacuous capture cannot be mistaken for a parity pass. Fold into the usf.1-02 harness work; do
+      not fix in this story.
+
+adr_invariants_checked:
+  - id: "ADR-007 D11 (exactly one copy survives; lib copy canonical and unchanged)"
+    result: PASS
+    note: >
+      components.css is not in commit c5e69f30 at all (diffstat: public/css/suite.css + the story
+      file only). All 110 selectors retain their components.css copy; none deleted from both files.
+  - id: "ADR-007 D15 (monotonic-overlap gate)"
+    result: PASS
+    note: "Re-run by QA: usf-overlap-gate.py --expect 53 -> PASS; --max 163 -> PASS; css-overlap.py --count -> 53. Decrease is exactly 110."
+  - id: "ADR-007 D15 (computed-style parity)"
+    result: CONCERNS
+    note: "Diff empty and independently reproduced, but covers 6/110 selectors (st) and 0/110 (player, computed:{}). See usf.1-01."
+  - id: "ADR-007 D12 (admin blast radius)"
+    result: PASS
+    note: "Re-derived via css-overlap.py's own admin_classes() against the frozen 110: 0/110 admin-reachable. Index-parity only is correct; no admin capture required."
+  - id: "ADR-007 D7 (no write path touched)"
+    result: PASS
+    note: "CSS-only commit. No JS in the diff; no frozen write-path inventory site touched."
+  - id: "ADR-004 (cache-entry / overlay invariant)"
+    result: PASS
+    note: "No JS in the diff. Overlay and stash paths untouched."
+
+ac_verdicts:
+  - ac: 1
+    text: "The 110 Tier-0 selectors have their suite.css rule copy removed; components.css copy unchanged"
+    verdict: PASS
+    evidence: >
+      Re-parsed pre-delete suite.css (git show c5e69f30^) and post-delete suite.css with
+      css-overlap.py's own parser. 1573 -> 1461 rule blocks (delta 112). Selector-occurrence diff:
+      110 keys lost occurrences, 112 occurrences removed total, 0 keys gained. Collateral (removed
+      but not on the frozen list) = 0. Survivors (on the list but not removed) = 0. Partially-removed
+      selectors = 0. Declaration bodies of SURVIVING rule heads changed = 0. New rule heads = 0.
+      Exact 1:1 onto the frozen list, no over- or under-deletion.
+  - ac: 2
+    text: "usf-overlap-gate.py --expect 53 PASSES; --max 163 PASSES"
+    verdict: PASS
+    evidence: "QA re-ran both: `overlap=53 expected=53 -> PASS` (exit 0) and `overlap=53 max=163 -> PASS` (exit 0). css-overlap.py --count = 53."
+  - ac: 3
+    text: "Computed-style parity: capture before (dev) and after; the diff is EMPTY"
+    verdict: CONCERNS
+    evidence: >
+      Reproduced end-to-end by QA rather than accepted from the record. Pre-delete tree checked out
+      via `git worktree add` (shared workdir, no branch switch) and served on :8081; branch tree on
+      :8080; single shared API on :3000 with Atlas connected. Verified the two servers actually
+      served different bytes (fvt-card present on 8081, absent on 8080). Result: diff EMPTY for st
+      and for player, matching the dev record. Coverage: st 5/89 leading classes (dt-hist family,
+      1 element each, 56 properties each), player 0/89 with payload `computed: {}`. Mapped back to
+      the frozen list that is 6/110 selectors with evidence, 104 without. The letter of the AC is
+      met; the assurance it was written to provide is not. Not a blocker here only because AC1/AC5
+      plus the cascade-order proof (see notes) establish the no-op structurally. See usf.1-01/02.
+  - ac: 4
+    text: "usf-smoke.mjs player and st both pass:true"
+    verdict: PASS
+    evidence: >
+      QA-run on the branch with both servers up: st -> pass:true, pageErrors:[],
+      meaningfulConsoleErrors:[]; player -> pass:true, pageErrors:[], meaningfulConsoleErrors:[].
+      Pre-delete tree also pass:true for both roles, so boot health is unchanged by the deletion.
+  - ac: 5
+    text: "Grouped-selector safety: no non-Tier-0 selector's rule deleted or altered"
+    verdict: PASS
+    evidence: >
+      Independently re-derived against pre-delete suite.css, NOT taken from the dev record. 112 rule
+      blocks contain at least one Tier-0 selector. Blocks mixing a Tier-0 with a non-Tier-0 selector
+      in one comma group: 0. Multi-selector comma groups that are all-Tier-0: 0 (every one of the 112
+      is a standalone single-selector rule). Tier-0-containing blocks inside any @media: 0. Ptah's
+      "no partial-group edits were needed" is confirmed: the case AC5 guards against did not exist.
+  - ac: 6
+    text: "No components.css edit; no #985 normalisation of deleted rules"
+    verdict: PASS
+    evidence: "git show --stat c5e69f30: public/css/suite.css (161 deletions) + the story file. components.css absent from the commit. No kept rule touched (0 surviving bodies changed, per AC1 evidence)."
+  - ac: 7
+    text: "Tier 0 has 0 admin-reachable selectors; index parity only, no admin capture"
+    verdict: PASS
+    evidence: "Re-derived with css-overlap.py's admin_classes() static scan against the frozen 110: 0/110 reachable. Method limit acknowledged in the instrument's docstring (concatenated class names missed); D12 family-prefix hedge covers it."
+
+evidence:
+  files_reviewed:
+    - public/css/suite.css (post-delete; and pre-delete via git show c5e69f30^)
+    - public/css/components.css (unchanged, canonical; parsed for cascade analysis)
+    - public/index.html (stylesheet load order, lines 19-22)
+    - public/js/tabs/feeding-tab.js (fvt/feeding markup, co-occurrence resolution)
+    - public/js/tabs/primer-tab.js, story-tab.js, downtime-form.js (container nesting resolution)
+    - specs/qa/harness/{css-overlap.py, usf-overlap-gate.py, usf-smoke.mjs, tier0-selectors.txt}
+  checks_run:
+    - "selector-occurrence diff pre/post: 110 keys, 112 occurrences, 0 collateral, 0 survivors, 0 body changes on kept rules"
+    - "comma-group analysis on pre-delete suite.css: 0 mixed groups, 0 all-Tier-0 multi-selector groups, 0 Tier-0 in @media"
+    - "usf-overlap-gate.py --expect 53 -> PASS; --max 163 -> PASS; css-overlap.py --count -> 53"
+    - "boot smoke st + player on branch -> pass:true, 0 pageErrors, 0 meaningful console errors"
+    - "boot smoke st + player on pre-delete worktree -> pass:true both"
+    - "computed-style capture both roles both trees; diff EMPTY both; coverage st 5/89, player 0/89 (computed:{})"
+    - "cascade CHECK 1 (relative-order preservation across the two files) -> 0 inversions"
+    - "cascade CHECK 2 (surviving suite rule preceding a deleted rule) -> 33 raw candidates, 0 reachable"
+    - "cascade CHECK 2b (@media survivors preceding deleted rules) -> 23 blocks, 0 mention any Tier-0 class"
+    - "admin reachability of the frozen 110 -> 0/110"
+
+notes:
+  - >
+    CASCADE-ORDER PROOF (QA addition; this is what actually carries the 104 selectors with no parity
+    evidence). css-overlap.py's own docstring warns that byte-identical bodies do NOT by themselves
+    prove a no-op delete: "an equal-specificity rule sitting between the two copies in cascade order
+    can change the computed value on a co-occurring class." The dev record rests the 104 on
+    byte-identity alone, which is insufficient by the instrument's own stated limit. I closed the gap
+    with two checks. Load order is theme < layout < components < suite (index.html 19-22), so
+    deleting suite's copy hands the win to components' copy, and that is a no-op only if
+    (1) no two deleted rules that can match the same element at equal specificity with conflicting
+    properties have their relative order INVERTED between the two files, and
+    (2) no surviving suite rule PRECEDED a deleted rule (such a rule lost before, but would win after,
+    since it stays in the later file while its competitor falls back to the earlier one).
+    Check 1: 0 inversions across all co-occurring, equal-specificity, conflicting Tier-0 pairs.
+    Check 2: 33 raw candidates, all resolved to unreachable. Most were my own heuristic being
+    deliberately conservative on bare-element keys (a `button` and a `label` cannot be one element).
+    The genuine same-element candidates were resolved against the markup: `.fvt-pos`/`.fvt-neg`/
+    `.fvt-total` are mutually exclusive on a row (feeding-tab.js:563-575; the total row is
+    `class="fvt-row fvt-total"`, never fvt-pos), and `.primer-content` / `.story-narrative` /
+    `.proj-card-response` / `.dt-hist-outcome` / `.st-dt-field` / `.feeding-disc-row` are distinct
+    tab-level container roots that never nest. Check 2b: 23 @media blocks precede the last deleted
+    rule; none mentions any Tier-0 class. Conclusion: computed values are unchanged for all 110
+    regardless of whether they render. The shard is safe on structure, not on the parity diff.
+  - >
+    .proj-card-dice divergent-copy claim (SM re-derivation item 2) — CONFIRMED, with the load-bearing
+    detail the record left implicit. Pre-delete there were two suite copies: #629
+    `{font-family:var(--fl); font-size:11px; color:var(--txt3); margin-top:2px}` and #913
+    `{font-family:monospace; font-size:11px; color:var(--txt3); word-break:break-all; margin-top:4px}`,
+    with components #1380 byte-identical to #913. Both suite copies are specificity (0,1,0), so the
+    later one (#913) governed. The claim "already fully shadowed" holds ONLY because #629's property
+    set is a strict SUBSET of #913's: {font-family, font-size, color, margin-top} vs
+    {font-family, font-size, color, word-break, margin-top}. Every property #629 declared is
+    re-declared by #913, so nothing leaked through. Had #629 carried even one property absent from
+    #913, that property WOULD have applied pre-delete and its removal would have been a real
+    behavioural change. It does not, so the delete is a genuine no-op: governed by #913 before, by
+    the byte-identical components #1380 after. Verified the same subset condition for the other
+    duplicated selector, .feeding-state-detail (suite #895 {font-size:13px;color:var(--txt3)} shadowed
+    by #990 {font-size:14px;color:var(--txt2);margin-bottom:16px}; both mirrored in components at
+    #1362/#1457 in the same relative order). Dev record accurate on both.
+  - >
+    Neither HALT-DAR condition tripped: the computed-style diff is empty on every captured class (no
+    non-empty diff anywhere), and the overlap gate returns exactly 53. Re-derivation of SM items 1
+    and 2 CONFIRMS the dev record rather than contradicting it, so the third HALT condition is also
+    clear. Proceeding with notice as instructed.
+  - >
+    Env reproduction note: the story's env caveat is real and cost setup time here too. server/index.js
+    (not server.js) is the entrypoint, and config.js resolves .env from the repo root while the file
+    lives at server/.env, so the API must be launched as
+    `cd server && PORT=3000 node --env-file=.env index.js`. Not a story defect; worth folding into the
+    harness README so the next reviewer does not rediscover it.
+
+recommendation: >
+  CONCERNS — merge to dev is safe and I recommend it. The deletion is exact (110/110, zero collateral,
+  zero survivors), the overlap gate is machine-confirmed at 53, boot health is unchanged for both
+  roles, no write path or ADR-004 surface is touched, and the cascade-order proof establishes the
+  no-op independently of rendering. The gate is CONCERNS rather than PASS because a PASS would record
+  AC3 — the story's own "real gate" — as satisfied by evidence covering 6 of 110 selectors, with the
+  player role contributing an empty-vs-empty comparison. That is the precise shape of the false green
+  D15 exists to prevent, and it should be visible in the record rather than smoothed into a pass.
+  Tier 0 did its D14 job: it validated the DELETION method and falsified the PARITY APPARATUS, which
+  is the more valuable result and exactly why the pilot was run first. Blocking follow-up: Tier 1
+  must not be drafted against this harness (usf.1-02, high) — divergent-body tiers have no structural
+  fallback, so a harness that renders 0/89 of their families would gate them on nothing while
+  appearing to pass. Recommend a separate issue for seeded-state capture plus a coverage floor
+  (usf.1-03), gating Tier 1 entry, and an Architect note that ADR-007 D15's apparatus as specified
+  does not reach the surfaces D10's tiering targets.
