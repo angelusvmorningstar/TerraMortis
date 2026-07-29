@@ -25,6 +25,7 @@ related:
 | Rev | Date | Change | Author |
 |---|---|---|---|
 | 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
+| 3 | 2026-07-29 | Adds D8 operating rule 4 (measure at the granularity of the decision; treat your own first number as a hypothesis), after Khepri's entry-path sweep of all 17 admin surfaces and 33 player tabs. Sweep result: every admin surface is live, so P1 does not shrink; two player tabs are dead, `t-tickets` (already handled by D5a) and `t-map`, a fourth instance of the pattern. The sweep also produced two first-pass false positives that its author caught by re-deriving, which is the finding rule 4 records. `t-map` is deliberately NOT absorbed into this epic; see the note under Phase sequencing. | Imhotep (Architect) |
 | 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
 
 ## Context
@@ -205,11 +206,23 @@ Two operating rules follow:
 
   The check is cheap and it is specific. **An import is not a reference; a call inside a dispatcher is not a route.** For any surface a story proposes to move, merge, restyle or delete, establish the *entry path* before the work is scoped: which nav array, grid entry or hardcoded call actually reaches it, and does any router exist. If the answer is none, the story is a deletion story and should be re-scoped as one before it is drafted, per `feedback_reachability_before_retire`.
 
+- **Measure at the granularity of the decision, and treat your own first number as a hypothesis.** Added at Rev 3, and it is the rule the other three keep failing at rather than a fourth topic.
+
+  Every instance of this pattern so far has been a measurement taken at a *coarser* granularity than the action it was used to justify. Rev 1 measured selector duplication across two files and used it to justify per-family promotion work, when the decision needed per-file load reachability. D9 measured selector counts and used them to justify deferring a merge, when the decision needed per-rule match-possibility. ADR-008 D5 measured that a module was imported and wired and used it to justify treating a surface as live, when the decision needed an entry path. In the sweep that followed, an initial finding of "11 dead `.map-*` rules in `suite.css`" was an *enumeration* and so satisfied rule 1, yet was still wrong: the emitter check had been run at family granularity while the decision was per-rule deletion. Checked per class, exactly **one** rule is dead (`.map-img-wrap`); the other eight are emitted by `components/map-overlay.js` through `tabs/city-tab.js`, which is reachable via the Who's Who tab (`app.js:470`).
+
+  So the rule is not "enumerate instead of counting" alone. It is: **the measurement's granularity must match the granularity of what you are about to do.** If the action is per-rule, the evidence must be per-rule.
+
+  The operating half is a habit rather than a technique. A first-pass measurement is a hypothesis, and the person who produced it is the one best placed to falsify it before anyone acts on it. Both false positives in the 2026-07-29 sweep — a default-routed admin domain flagged as unrouted, and the eleven-rules figure — were caught by their own author re-deriving before reporting. That is the discipline working, and it is worth more than any of the individual findings.
+
 ## Phase sequencing
 
 **P1: merge the shell.** Admin's sidebar and nav into `index.html` under the existing role gate, with the admin module graph behind dynamic `import()` (D4). Opens with the Tickets surface end to end (D5), then the remaining surfaces, with `downtime-views.js` and `downtime-story.js` last. Not write-path-touching, and D7.1 is the standing check that it stays that way.
 
 **P2: reconcile in place.** The ~118 enumerated collisions, resolved in a browser, in both themes, using the `admin-collision-map.py` output as the checklist. Renames where a collision is two components sharing a name (D6). The 503 dead admin-layout classes are cleared opportunistically here, never as their own phase (D2).
+
+**Not in this epic: `t-map`.** The entry-path sweep found the player Map tab unreachable (dispatcher branch at `app.js:429-455`, `#t-map` at `index.html:360`, and nothing else — no nav entry, no more-grid entry, no hardcoded call, no router). Its dead surface is that branch, the div, the now-unused `app.js:52` import, and exactly one CSS rule (`.map-img-wrap`). `components/map-overlay.js` **stays**: it is live through `tabs/city-tab.js`, which renders into the Who's Who tab at `app.js:470`.
+
+It is filed as its own issue and deliberately kept out of both P1 and P2. Out of P1 because the pilot's value is that any rendering fault in it is unambiguously a loading-pattern fault (D5), and unrelated deletions reintroduce a second candidate cause. Out of P2 because P2 reconciles collisions and this has none. Out of the epic entirely because it has nothing to do with merging admin, and attaching unrelated work to an epic is the scope accretion that produced the USF drift in the first place. D2's "cleanup rides inside a delivering phase" governs *this epic's* cleanup; it is not a licence to adopt orphans. If P1 happens to be editing the tab dispatcher anyway and the issue is still open, folding it in there is fine.
 
 **P3: retire `admin.html`.** Per ADR-007 D8, unchanged: dereference, deploy, then delete in a separate pull request. That discipline earned its keep in USF Phase 0.
 
