@@ -1,0 +1,197 @@
+---
+id: ADR-008
+title: 'Admin merge: one app, shell first, code-split behind the role gate'
+status: approved
+date: 2026-07-29
+author: Imhotep (Architect)
+supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
+related:
+  - issue #1047 (Epic USF, re-scoped and closed by this ADR)
+  - specs/architecture/adr-007-unified-suite-topology.md (D1-D8 retained and load-bearing here)
+  - specs/architecture/adr-004-st-mods-overlay.md (Rev 4, single applyStMods composition site)
+  - specs/architecture/adr-006-defence-penalty-readpath.md (render-path orchestrator discipline)
+  - specs/qa/harness/admin-collision-map.py (the P2 checklist, checked in with this ADR)
+  - specs/qa/harness/css-overlap.py (retained as a one-number regression check)
+  - public/admin.html (the entry this epic retires)
+  - public/js/app.js:150-152 (effectiveRole), :1483-1524 (applyRoleRestrictions)
+  - memory: feedback_count_is_not_reachability, feedback_decomposition_into_nondelivering_parts
+---
+
+# ADR-008: Admin merge
+
+## Context
+
+Epic USF (#1047) was stopped on 2026-07-29, three weeks in, by the person who commissioned it. His words: he wanted two apps merged into one, and instead of cutting we were building a harness.
+
+He was right, and the reason is structural rather than a failure of execution. **ADR-007 D9 parked the admin merge outside USF.** Everything USF then did was therefore preparation for a merge rather than a merge. Phase 0 deleted an already-dead player path. Phase 1 was player-app CSS hygiene. Both shipped, both were correct, and neither moved the thing being tracked. Work had reached the point of building a conformant computed-style parity harness to protect 53 CSS rules inside an application you can open in a browser and look at.
+
+Two lessons are carried into this ADR as decisions rather than as retrospective notes, because both have already cost this project real time.
+
+### Lesson 1: a count may size the work, never the obstacle
+
+ADR-007 made the same measurement error twice, in one document, and both times it drove a phase.
+
+1. **Rev 1**: "193 duplicated CSS rules between suite and player" sized the primary work vector. `player.html` is a redirect stub, so `player-layout.css` is never applied to a rendered document. All 193 were dead-file duplicates with zero live cascade risk. Nine promotion shards collapsed into one deletion.
+2. **D9**: "admin-layout.css is ~2,472 selectors with near-zero components overlap, so merging would drag it into a cascade we wanted clean." The count was right. The clause that did the work, *"it would compete with the lib in the same cascade"*, was never measured.
+
+A count is a proxy. The obstacle is whatever a reachability measurement returns. A third occurrence would not be a mistake, it would be a method.
+
+### Lesson 2: phases that deliver nothing openable read as progress
+
+A decomposition whose phases complete cleanly but produce nothing the commissioner can open and see is different will be read as progress toward the goal while not moving it. Competent execution makes this worse, because clean completions look like momentum. This is why the admin merge is **one epic** below and not three.
+
+### D9 re-tested
+
+Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
+
+**All three of D9's factual claims are confirmed.** `admin-layout.css` is 2,501 rules / 2,686 single selectors (D9 said ~2,472). Its definition overlap with `components.css` is 4 keys. And admin genuinely does not consume the design system, now measured directly rather than inferred from overlap:
+
+| Design-system adoption | components.css classes emitted |
+|---|---|
+| components.css defines | 1,266 |
+| emitted by admin sources | 86 (6.8%) |
+| emitted by player-app sources | 900 (71.1%) |
+
+*(The tempting correction — that D9 inferred non-adoption from low definition overlap, which are opposite readings, since a class used but never redefined gives zero overlap and total adoption — was tested and did not hold. D9's conclusion survives direct measurement. Recorded because the check was made and came back negative.)*
+
+**What D9 got wrong is the unmeasured clause.** Measured in both directions, per rule, by asking whether a selector could match an element the *other* app emits:
+
+| Merge cascade exposure | rules |
+|---|---|
+| `admin-layout.css` rules whose every class token is emitted by the player app | 55 |
+| `suite.css` rules whose every class token is emitted by admin | 62 |
+| unscoped element rules in admin-layout (the `body` rule at `admin-layout.css:5`) | 1 |
+| **genuinely new exposure created by merging the documents** | **~118** |
+| `components.css` rules matching admin elements | 108, and **not a merge cost** |
+
+That last row matters most. **`admin.html:12` already loads `components.css`**, before `admin-layout.css`. Those 108 apply today. Admin is not outside the design-system cascade waiting to be dragged into it; it is already inside it and overriding it. D9 described a boundary that does not exist.
+
+The exposure is small because the two class vocabularies barely intersect. Admin emits 1,807 distinct class literals, the player app 2,001, and 1,696 of admin's appear nowhere in the player app. These are not two dialects competing for the same names. They are two vocabularies sharing about a hundred words.
+
+All figures in this section are reproducible with `python3 specs/qa/harness/admin-collision-map.py`, checked in with this ADR. Its docstring carries the method limits; D8 explains why they live there rather than here.
+
+So D9 deferred the merge on a CSS obstacle of ~118 enumerable rules while stating it as 2,686. Roughly twenty-fold.
+
+**D9's other two reasons are not withdrawn.** Reason 2 (the ST editor is the highest-consequence write path and should not be churned inside an epic already churning that cascade) stands and shapes the phase order below. Reason 3 (the expensive half already happened) is confirmed: `admin.js` and `app.js` share 23 modules including all of `data/` and the `editor/` core.
+
+### The primary risk, which is not CSS
+
+| | |
+|---|---|
+| `public/js/admin.js` | 62 KB |
+| `public/js/admin/` (25 admin-only modules) | 1.2 MB |
+| **additional ES module weight a merged document could load** | **~1.26 MB** |
+
+And it is heavily concentrated:
+
+| Module | Size | Lines |
+|---|---|---|
+| `admin/downtime-views.js` | 604 KB | 12,697 |
+| `admin/downtime-story.js` | 205 KB | 4,664 |
+| all 23 others combined | ~450 KB | |
+
+Two files are 67% of the admin graph, and both are downtime admin, which is to say both sit on ADR-007 D7's frozen write path. **The heaviest modules are also the highest-risk ones.**
+
+A merged document that eagerly loads this graph puts ~1.26 MB of additional ES modules on the phone at a game table, which is the same phone the GDX layout work (#983 rem type scale, #990 single-scroll sheet) exists to make usable.
+
+**The admin merge is a code-splitting problem, not a CSS problem. D9 deferred it on the wrong axis.** If a future reader takes one thing from this ADR, it is that sentence.
+
+There is no build step and no bundler, so the tool is native dynamic `import()` behind the role gate that already exists. That is a language feature, not new infrastructure.
+
+## Decisions
+
+### D1: One epic, one done-condition, stated the way it was asked for. (locks)
+
+**Done means: `public/admin.html` no longer exists, and `public/index.html` serves both roles.**
+
+Not "admin CSS normalised", not "module graph split". Those are tasks inside phases. The done-condition is phrased in the commissioner's terms because the USF drift happened in the gap between a defensible technical done-condition and the one being tracked.
+
+Splitting this into three epics is the trap, not the mitigation: three clean done-conditions, none of which is the one above.
+
+### D2: Every phase ends in something that can be opened in a browser and seen to be different. (locks)
+
+A unit of work that cannot be demonstrated that way is a task inside a phase, not a phase.
+
+Consequence, and it is the operative half: **cleanup with no visible output never becomes a phase.** The 503 `admin-layout.css` classes emitted by neither app (26% of the file, a reachability-deletion lead) ride inside a delivering phase or they do not happen. Same for the `body` rule and the residual overlap in D6.
+
+### D3: Shell first, reconcile second. Invert USF's order. (locks)
+
+Merging the documents is what makes the cascade collisions **visible on screen**. Reconciling 118 rules before the merge means reasoning about a cascade that does not exist yet, which is precisely the position that made a parity harness feel necessary in USF.
+
+This is the same trade already accepted for the residual suite/components divergences: resolve where the breakage is visible, in a browser, in both themes.
+
+Rejected: CSS-first. It is the ordering that feels safer and is not. It defers the only phase that delivers the done-condition, and it re-creates the need for an instrument to tell you what a browser would have told you.
+
+### D4: The admin graph is code-split behind the role gate and never fetched for a player. (locks)
+
+`applyRoleRestrictions()` (`app.js:1483`) already knows the role and is already idempotent. Admin modules load through dynamic `import()` at the point of use, gated on `getRole()`, **not** `effectiveRole()` (see D7).
+
+- A player session must never fetch a module from `public/js/admin/`. This is a network-panel check, not an assertion in code, and it is the acceptance criterion for every phase that moves a surface across.
+- `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1. They are 67% of the weight and they sit on the D7 write path, so they carry both risks at once and should land when the pattern is proven rather than while it is being established.
+
+Rejected: a build step or bundler to solve this. It would be the largest new piece of infrastructure this project has taken on, to solve a problem `import()` solves natively, in a codebase whose stated architecture is "no build step, no router, no framework".
+
+### D5: P1 opens with one surface, end to end, and that surface is Tickets. (locks)
+
+The smallest version of P1 that still satisfies D2. It proves role gate to `import()` to render to interact to write, on one tab, before the pattern is applied twelve more times.
+
+Tickets is chosen on measurement, not on size alone:
+
+- **It already exists on both surfaces.** Player: `tabs/tickets-tab.js` rendering into `t-tickets` (`app.js:74`, `:524`). Admin: `admin/tickets-views.js`.
+- **It carries the largest concentrated instance of the P2 problem.** `admin-layout.css` defines 48 `.tk-*` selectors, `suite.css` defines 38, and `components.css` defines **zero**. The family is duplicated between the two app sheets with no design-system presence at all, and members of it (`.tk-form-label`, `.tk-input`, `.tk-textarea`, `.tk-error`, `.tk-form-row`, `.tk-select`, `.tk-submit-form`, `.tk-btn-submit`) are in the 55-rule hazard enumeration.
+- **It is 10.5 KB and off the D7 write path.** It performs a real write (`POST /api/tickets`, `app.js:1812`), so the pilot exercises an interaction and a mutation, but not one of the two sacrosanct ones.
+
+That combination is the point: the pilot proves the loading pattern *and* surfaces the collision problem on one tab, where the trap is cheap to find. Finding the loading trap on twelve tabs at once is the outcome this decision exists to avoid.
+
+This is a phase boundary under D2 rather than premature decomposition, because an ST can open the app and work a ticket. It delivers.
+
+### D6: The residual suite/components overlap is state, not a backlog. (locks)
+
+The overlap stands at **48** on `dev` (163 at USF Phase 1 open, 110 removed by the Tier 0 batch delete, 5 more by the dt-hist family pass in #1063). Verified by `css-overlap.py --count` at `9953e2e6`.
+
+Those 48 are **not** a workstream, are **not** a prerequisite for this epic, and must not be carried into ADR-008 as a residual. Whatever subset the merge actually needs gets resolved inside P2, in context, where the breakage is visible. Recording them as a backlog would be the D2 trap wearing a different hat.
+
+`css-overlap.py --count` is retained as a cheap one-number regression check so the figure cannot silently grow. Everything else under `specs/qa/harness/` from the USF parity work is unused; it is left in place in case the merge wants it back, and it is not maintained.
+
+**The six ADR-007 D13 renderer name-collisions** (`.attr-cell`, `.attr-name`, `.skill-row`, `.skill-name`, `.skill-spec`, `.skills-3col`) keep their carve-out and their third resolution class: where a collision is real and both components must coexist, the resolution is **rename**, never reconcile. That rule now applies to the whole P2 collision set, not only to those six.
+
+### D7: Invariants carried from ADR-007. (locks)
+
+Three, stated before any code is written rather than discovered in review.
+
+1. **ADR-007 D7's frozen write-path inventory is untouched by P1.** The shell merge is markup and module loading; it does not reshape `buildSaveBody(c)` or any `PUT`/`POST`/`DELETE` site in the inventory. **Any P1 diff that adds, removes or reshapes an inventory entry is the D7 red-flag escalation to Architect**, regardless of how small the diff looks. This matters most when `downtime-views.js` and `downtime-story.js` move, per D4.
+
+2. **ADR-007 D3 becomes load-bearing in a way it has not been until now.** Once the ST editor and the player view live in one document, `effectiveRole()` gating a fetch stops being a subtle bug and becomes a way to show an ST partial data in the application they administer with. Reads, writes and module loading select on `getRole()`. Visibility selects on `effectiveRole()`. **Every new `effectiveRole()` call site in this epic is a review stop.** This is the invariant most likely to bite in P1.
+
+3. **ADR-007 D9 is superseded, not deleted.** Its deferral was correct on reason 2 and wrong on reason 1, and the deferral bought the shared-module consolidation that makes P1 cheap now. The record of a decision that was right for one of its stated reasons and wrong for another is more useful than its removal.
+
+ADR-004's cache-entry invariant and ADR-006's render-path orchestrator discipline are unchanged and unaffected. No phase of this epic may add a second `applyStMods` composition site.
+
+### D8: An entity count may size the work. It may never size the obstacle. (locks)
+
+The obstacle is what a reachability measurement returns.
+
+For CSS specifically, the test is per rule — *could this selector match an element the other surface emits?* — and **not** *do these two files share selector keys*. The two questions differed by twentyfold in D9's case and by the entire work plan in Rev 1's.
+
+Two operating rules follow:
+
+- **Enumerate, do not count.** A reachability measurement returns a list. That list is a reviewable checklist, which is worth more than the number ever was. `specs/qa/harness/admin-collision-map.py` is checked in with this ADR and emits the P2 list.
+- **State the method limit in the instrument, not in the message.** Class extraction over `class="..."` / `className=` / `classList.*` literals misses names assembled by string concatenation, so 55, 62 and ~118 are **floors, not ceilings**, and the measurement establishes match-possibility rather than cascade outcome (load order and specificity are not modelled). This caveat lives in the script's docstring because `css-overlap.py`'s docstring caveat is exactly what let QA catch the byte-identity trap on Tier 0. A caveat that lives only in a message does not survive the next reader.
+
+## Phase sequencing
+
+**P1: merge the shell.** Admin's sidebar and nav into `index.html` under the existing role gate, with the admin module graph behind dynamic `import()` (D4). Opens with the Tickets surface end to end (D5), then the remaining surfaces, with `downtime-views.js` and `downtime-story.js` last. Not write-path-touching, and D7.1 is the standing check that it stays that way.
+
+**P2: reconcile in place.** The ~118 enumerated collisions, resolved in a browser, in both themes, using the `admin-collision-map.py` output as the checklist. Renames where a collision is two components sharing a name (D6). The 503 dead admin-layout classes are cleared opportunistically here, never as their own phase (D2).
+
+**P3: retire `admin.html`.** Per ADR-007 D8, unchanged: dereference, deploy, then delete in a separate pull request. That discipline earned its keep in USF Phase 0.
+
+## Consequences
+
+**Positive.** The done-condition is the thing that was asked for, and every phase moves it. The measurement replaces a twentyfold-overstated obstacle with a checklist. The code-split is a net improvement to the player app independent of the merge: admin modules are currently loaded by `admin.html` eagerly, and after D4 no session loads a module it will not use.
+
+**Negative.** P1 puts the ST editor and the player view in one document during the epic, which is exactly what ADR-007 D9 reason 2 warned against. That warning is accepted rather than dismissed: it is why D7.1 escalates any write-path diff, why D7.2 makes every `effectiveRole()` call site a review stop, and why the two heaviest write-path modules move last. The risk is real and is being managed rather than avoided, because avoiding it is what produced three weeks of preparation for a merge that never came.
+
+**Neutral.** The 48 residual overlaps stay. They are inside an app that can be opened and looked at, and D6 declines to make them a workstream.
+
+**Watch.** The concentration of module weight in `downtime-views.js` (12,697 lines) is a standing problem this epic exposes but does not solve. If P1 finds that file cannot be cleanly code-split, that is a signal about the file rather than about the merge, and it warrants its own decision rather than an in-passing refactor.

@@ -1,13 +1,15 @@
 ---
 id: ADR-007
 title: 'Unified suite topology: one role-gated player-facing entry, shared component lib, deferred admin merge'
-status: approved
+status: approved-in-part (D1-D8 active; D9-D15 superseded by ADR-008)
 date: 2026-07-28
 author: Imhotep (Architect)
-revision: 2
+revision: 3
+superseded_by: specs/architecture/adr-008-admin-merge.md (D9 through D15 only)
 supersedes: null
 related:
-  - issue #1047 (Epic USF, this ADR gates the shard breakdown)
+  - specs/architecture/adr-008-admin-merge.md (supersedes D9-D15; the admin merge epic)
+  - issue #1047 (Epic USF, re-scoped and stopped 2026-07-29)
   - issue #817 (dead name-keyed trackers, closed into USF)
   - issue #991 (player.html retirement + sheet renderer consolidation, closed into USF)
   - issues #982 #983 #984 #985 #990 (GDX frontend sub-tasks folded into USF)
@@ -24,11 +26,30 @@ related:
 
 # ADR-007: Unified suite topology
 
+> **READ THIS FIRST — this ADR is superseded in part.**
+>
+> **D1 through D8 are ACTIVE and load-bearing.** They are the anti-refragmentation contract:
+> one entry point and an idempotent presentation gate (D2), `effectiveRole()` is presentation
+> only (D3), section renderers live in one module (D4), the CSS promotion test (D5), one
+> tracker (D6), write-path classification (D7), and dereference-then-delete (D8). They apply
+> to every feature epic, not only to USF.
+>
+> **D9 through D15 are SUPERSEDED by [ADR-008](adr-008-admin-merge.md).** They were shard
+> planning for Epic USF (#1047), which was stopped on 2026-07-29. Do not plan work from them.
+> In particular D9 (defer the admin merge) is superseded by measurement: its factual claims
+> held but its central obstacle was overstated roughly twentyfold, because a selector *count*
+> was quoted where a reachability *measurement* was required. ADR-008 D8 records that as a
+> standing discipline. D9's reason 2 (the ST editor is the highest-consequence write path) was
+> correct and is carried forward.
+>
+> Everything below the Rev 2 addendum heading is retained as history.
+
 ## Revision history
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
 | 1 | 2026-07-28 | Initial. Records the end-state topology and, more importantly, corrects three stale premises in the #1047 epic body: the role-gated single app has already shipped, the 193 suite/player CSS duplications are dead-file duplications rather than live divergence, and the tracker unification completed in #836. Locks D1 to D9. Re-sequences the shard plan accordingly. | Imhotep (Architect) |
+| 3 | 2026-07-29 | Superseded in part. Epic USF stopped by Peter: D9 parked the admin merge outside the epic, so USF never merged the two apps and its phases delivered nothing openable against the goal being tracked. D9-D15 superseded by ADR-008; D1-D8 retained as the anti-refragmentation contract and explicitly not re-opened. No decision text below is edited, only the header banner and this row, so the superseded reasoning stays legible. | Imhotep (Architect) |
 | 2 | 2026-07-28 | Phase 1 addendum, requested by Khepri (SM) after Phase 0 shipped (main `8d56ef39`). Adds D10 to D15. Classifies the suite/components overlap by declaration equality and by admin reachability, which answers the operational questions D5 left open. Two findings reshape Phase 1: the overlap is 110 mechanical plus 53 decisions, with family size anti-correlated to risk; and 51 of 53 divergences are not reachable from the admin surface, which falsifies the cross-surface masking hypothesis for all but two rules and inverts the default resolution direction. Also carves the renderer name-collisions out of Phase 1 into Phase 2 (D13), and upgrades the parity gate from DOM structure to computed style (D15), because the Tier 0 safety argument is not airtight. | Imhotep (Architect) |
 
 ## Context
@@ -164,7 +185,13 @@ No USF shard deletes a file in the same pull request that removes its last refer
 
 It also forces the check that memory records as `feedback_reachability_before_retire`: establish that nothing reaches the module before planning a migration, because in this codebase the migration repeatedly collapses into a deletion.
 
-### D9: Admin stays a separate entry until its CSS is normalised. Not part of USF. (locks)
+### D9: Admin stays a separate entry until its CSS is normalised. Not part of USF. ~~(locks)~~ SUPERSEDED by ADR-008
+
+> **SUPERSEDED 2026-07-29.** Reason 1 below overstates its obstacle by roughly twentyfold:
+> the merge's genuinely new cascade exposure is ~118 reachable rules, not ~2,472 selectors,
+> and `admin.html:12` already loads `components.css` so admin is inside the design-system
+> cascade rather than outside it. The real obstacle is ~1.26 MB of admin ES modules, i.e. a
+> code-splitting problem. Reasons 2 and 3 stand. See [ADR-008](adr-008-admin-merge.md).
 
 Defer the merge. Three reasons:
 
@@ -177,6 +204,13 @@ Admin CSS normalisation against the lib is a **separate epic**, and it is the pr
 ---
 
 # Rev 2 addendum: Phase 1 direction
+
+> **SUPERSEDED IN FULL 2026-07-29 by [ADR-008](adr-008-admin-merge.md).** Everything from
+> here to the end is shard planning for Epic USF, which was stopped. D10-D15 describe a
+> Phase 1 that will not run. Retained as history because the Tier 0 findings are instructive
+> (the cascade-order proof, the byte-identity trap, and the parity-harness audit), not
+> because any of it is a plan. The residual suite/components overlap stands at 48 and is
+> recorded as state, not backlog, per ADR-008 D6.
 
 D5 gives the promotion rule. These decisions answer the operational questions it does not: how to shard the work, which copy wins, what the blast radius of a lib edit actually is, and what the parity gate has to measure.
 
