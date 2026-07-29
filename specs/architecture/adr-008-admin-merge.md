@@ -3,6 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
+revision: 2
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -98,6 +99,13 @@ A merged document that eagerly loads this graph puts ~1.26 MB of additional ES m
 
 There is no build step and no bundler, so the tool is native dynamic `import()` behind the role gate that already exists. That is a language feature, not new infrastructure.
 
+## Revision history
+
+| Rev | Date | Change | Author |
+|---|---|---|---|
+| 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
+| 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
+
 ## Decisions
 
 ### D1: One epic, one done-condition, stated the way it was asked for. (locks)
@@ -137,13 +145,28 @@ The smallest version of P1 that still satisfies D2. It proves role gate to `impo
 
 Tickets is chosen on measurement, not on size alone:
 
-- **It already exists on both surfaces.** Player: `tabs/tickets-tab.js` rendering into `t-tickets` (`app.js:74`, `:524`). Admin: `admin/tickets-views.js`.
-- **It carries the largest concentrated instance of the P2 problem.** `admin-layout.css` defines 48 `.tk-*` selectors, `suite.css` defines 38, and `components.css` defines **zero**. The family is duplicated between the two app sheets with no design-system presence at all, and members of it (`.tk-form-label`, `.tk-input`, `.tk-textarea`, `.tk-error`, `.tk-form-row`, `.tk-select`, `.tk-submit-form`, `.tk-btn-submit`) are in the 55-rule hazard enumeration.
+- **It is an admin-only surface. The player-side copy is dead code.** `tabs/tickets-tab.js` (217 lines) is statically imported at `app.js:74` and called at `app.js:524` inside `goTab`, and **nothing reaches it**: `tickets` appears in no nav array, no more-grid entry and no hardcoded `goTab()` call, and there is no hash or query routing. `app.js:1564` records the removal in a comment, *"Tickets removed — submit form is in Settings"*. The only live player-side ticket function is the Settings submit form, which uses `#stk-*` ids, not the `.tk-*` class family.
 - **It is 10.5 KB and off the D7 write path.** It performs a real write (`POST /api/tickets`, `app.js:1812`), so the pilot exercises an interaction and a mutation, but not one of the two sacrosanct ones.
+- **After the dead player copy is retired, it carries no CSS collision at all** (see D5a), which is what makes it the right first slice.
 
-That combination is the point: the pilot proves the loading pattern *and* surfaces the collision problem on one tab, where the trap is cheap to find. Finding the loading trap on twelve tabs at once is the outcome this decision exists to avoid.
+That last point inverts the reasoning this decision originally carried, and the inversion is the important part. **The pilot's job is to prove the loading pattern with nothing else varying.** ADR-007 D14 chose Tier 0 for exactly this property — zero judgement calls, so a failure could only be the apparatus — and the same logic applies here: a slice that exercised the loading pattern *and* a CSS collision would leave two candidate causes for any rendering fault. Tickets is the right pilot because it is clean, not because it is rich.
 
 This is a phase boundary under D2 rather than premature decomposition, because an ST can open the app and work a ticket. It delivers.
+
+### D5a: The dead player-side Tickets copy is retired first, in the pilot story, per ADR-007 D8. (locks)
+
+`suite.css` defines 38 `.tk-*` selectors and **every one of them styles only the unreachable tab**; word-boundary checking confirms no `.tk-*` class is emitted anywhere else in the player app. `admin-layout.css` defines 48, `components.css` defines zero.
+
+So the family is not a live duplication between two surfaces. It is 38 dead rules that would **become live against admin markup** the moment the documents merge. Retiring them is therefore not tidying, it is removing a trap that the merge would otherwise spring.
+
+Sequence, per ADR-007 D8 (dereference, deploy, then delete), as the pilot story's first two pull requests:
+
+1. Remove the `app.js:74` import and the `app.js:524` `goTab` branch.
+2. Delete `public/js/tabs/tickets-tab.js` and the 38 `.tk-*` rules from `suite.css`.
+
+D8's two-step is kept even though nothing reaches the module, because the static references at `:74` and `:524` are real references and removing them is what D8's window is for. This is the third surface in this codebase found present-and-wired but unreachable, after `player.html` and the 193 suite/player duplications. See D8 operating rule 3.
+
+After this lands, merging the admin Tickets view introduces **zero** `.tk-*` collisions, and any rendering fault in the pilot is unambiguously a loading-pattern fault.
 
 ### D6: The residual suite/components overlap is state, not a backlog. (locks)
 
@@ -177,6 +200,10 @@ Two operating rules follow:
 
 - **Enumerate, do not count.** A reachability measurement returns a list. That list is a reviewable checklist, which is worth more than the number ever was. `specs/qa/harness/admin-collision-map.py` is checked in with this ADR and emits the P2 list.
 - **State the method limit in the instrument, not in the message.** Class extraction over `class="..."` / `className=` / `classList.*` literals misses names assembled by string concatenation, so 55, 62 and ~118 are **floors, not ceilings**, and the measurement establishes match-possibility rather than cascade outcome (load order and specificity are not modelled). This caveat lives in the script's docstring because `css-overlap.py`'s docstring caveat is exactly what let QA catch the byte-identity trap on Tier 0. A caveat that lives only in a message does not survive the next reader.
+
+- **Reachability is checked at story-drafting time as a matter of course, not when someone thinks to ask.** Added at Rev 2, after the pattern recurred a third time inside this ADR: D5 originally cited a static import and a call site as evidence that a surface was live, which is the same non-evidence the two ADR-007 instances rested on. Every USF-family surface examined so far has been present-and-wired and unreachable — `player.html`, the 193 suite/player duplications, and now `tabs/tickets-tab.js`. Three for three is not carelessness by any one author; it is a property of a codebase that has been accreting entry points faster than it retires them.
+
+  The check is cheap and it is specific. **An import is not a reference; a call inside a dispatcher is not a route.** For any surface a story proposes to move, merge, restyle or delete, establish the *entry path* before the work is scoped: which nav array, grid entry or hardcoded call actually reaches it, and does any router exist. If the answer is none, the story is a deletion story and should be re-scoped as one before it is drafted, per `feedback_reachability_before_retire`.
 
 ## Phase sequencing
 
