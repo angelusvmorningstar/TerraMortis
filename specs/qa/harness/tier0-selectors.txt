@@ -1,0 +1,110 @@
+  .dt-hist-cycle
+  .dt-hist-entry
+  .dt-hist-entry-head
+  .dt-hist-has-outcome
+  .dt-hist-outcome p
+  .dt-hist-outcome p:last-child
+  .dt-hist-panel
+  .feed-confirm-btn
+  .feed-confirm-btn:disabled
+  .feed-confirm-btn:hover
+  .feed-confirm-controls
+  .feed-confirm-val
+  .feed-confirmed-record
+  .feed-inf-display
+  .feed-inf-input
+  .feed-inf-lbl
+  .feed-inf-row
+  .feed-inf-val
+  .feed-reconfirm-btn
+  .feed-reconfirm-btn:hover
+  .feed-st-confirm
+  .feed-st-confirm-lbl
+  .feed-st-row
+  .feed-st-row-ctrl
+  .feed-st-row-lbl
+  .feed-st-row-max
+  .feed-st-vitae-total
+  .feeding-again-badge
+  .feeding-confirmed-body
+  .feeding-defer-btn
+  .feeding-defer-btn:hover
+  .feeding-defer-or
+  .feeding-defer-row
+  .feeding-deferred-msg
+  .feeding-dice-row
+  .feeding-disc-row
+  .feeding-disc-row label
+  .feeding-dramatic
+  .feeding-flow
+  .feeding-flow-num
+  .feeding-flow-step
+  .feeding-method-desc
+  .feeding-method-label
+  .feeding-no-sub .dt-feed-card
+  .feeding-no-sub .dt-feed-card-desc
+  .feeding-no-sub .dt-feed-card.dt-feed-sel
+  .feeding-no-sub .dt-feed-card:hover
+  .feeding-no-sub .dt-feed-methods
+  .feeding-no-vessels
+  .feeding-overfeed-warn
+  .feeding-pool-breakdown
+  .feeding-pool-display
+  .feeding-pool-total
+  .feeding-ready .feeding-warning
+  .feeding-result
+  .feeding-roll-btn
+  .feeding-roll-btn:hover
+  .feeding-rote-badge
+  .feeding-st-label
+  .feeding-st-override
+  .feeding-st-override .feeding-roll-btn
+  .feeding-st-roll
+  .feeding-st-roll-body
+  .feeding-st-roll-detail
+  .feeding-st-roll-dice
+  .feeding-st-roll-exc
+  .feeding-st-roll-fail
+  .feeding-st-roll-head
+  .feeding-st-roll-result
+  .feeding-st-roll-suc
+  .feeding-state-detail
+  .feeding-state-msg
+  .feeding-state-msg p
+  .feeding-suc
+  .feeding-suc-label
+  .feeding-sum-label
+  .feeding-sum-rote
+  .feeding-sum-row
+  .feeding-sum-row:last-child
+  .feeding-sum-sub
+  .feeding-summary
+  .feeding-title
+  .feeding-v-label
+  .feeding-v-num
+  .feeding-vessel-card
+  .feeding-vessels
+  .feeding-vessels-grid
+  .feeding-wrap
+  .fvc-consequence
+  .fvc-consequence.fvc-critical
+  .fvc-consequence.fvc-drained
+  .fvc-consequence.fvc-safe
+  .fvc-consequence.fvc-serious
+  .fvc-label
+  .fvc-select
+  .fvc-total
+  .fvc-val
+  .fvt-card
+  .fvt-divider
+  .fvt-neg .fvt-val
+  .fvt-row
+  .fvt-row .fvt-label
+  .fvt-row .fvt-val
+  .fvt-title
+  .fvt-total
+  .fvt-total .fvt-val
+  .proj-card-dice
+  .regency-meta
+  .regency-title
+  .regency-wrap
