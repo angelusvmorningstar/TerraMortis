@@ -169,23 +169,35 @@ function effectiveRole() {
 // applying to player markup. Enforced by toggling link.disabled in
 // applyRoleRestrictions(), which already runs on both the toggle and on boot.
 
-const _surfaceSheets = new Map();   // href -> { link, promise }
+// applyRoleRestrictions() is the SOLE owner of that decision. This injector is
+// deliberately presentation-agnostic: it does not read _viewMode, effectiveRole()
+// or any other view state. A second site computing "should ST presentation
+// apply" would agree with effectiveRole() only for as long as effectiveRole()'s
+// condition stays exactly a _viewMode comparison — a third role, a dev-preview
+// mode or an impersonation flag would make them disagree silently, surfacing
+// only as wrongly-applied CSS.
+
+const _surfaceSheets = new Map();   // href -> promise
 
 function loadSurfaceSheet(href) {
   // Cache the PROMISE, not the element. A presence-check on the <link> would
   // pass a second caller while the sheet is still in flight, rendering that
   // open unstyled — and only ever the second open, which is the hard one to see.
   const cached = _surfaceSheets.get(href);
-  if (cached) return cached.promise;
+  if (cached) return cached;
 
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = href;
   link.dataset.surfaceSheet = href;
-  // Initial application state, so a sheet injected while in player preview does
-  // not apply on arrival. Reads the _viewMode state variable directly rather
-  // than calling effectiveRole() again — the authority gate is the caller's job.
-  link.disabled = _viewMode === 'player';
+  // Fail-safe: inject disabled so ST styling cannot flash into a player preview
+  // even for a frame. applyRoleRestrictions() below decides whether it applies.
+  //
+  // MUST stay synchronous with the applyRoleRestrictions() call at the end of
+  // this function. A disabled stylesheet may not be fetched at all, so if that
+  // call ever moves behind an await/setTimeout/rAF, neither load nor error
+  // fires, this promise never settles, and the surface silently stays blank.
+  link.disabled = true;
 
   const promise = new Promise(resolve => {
     // Degrade, never fail: a bad href costs styling, not the whole surface.
@@ -196,14 +208,18 @@ function loadSurfaceSheet(href) {
     }, { once: true });
   });
 
-  _surfaceSheets.set(href, { link, promise });
+  _surfaceSheets.set(href, promise);
   document.head.appendChild(link);
+  applyRoleRestrictions();   // single owner of the enabled/disabled decision
   return promise;
 }
 
 function applySurfaceSheetVisibility(isSTView) {
-  // disabled, not element removal — removal makes every view toggle refetch.
-  for (const { link } of _surfaceSheets.values()) link.disabled = !isSTView;
+  // Queries the DOM rather than the promise cache, so this owns every surface
+  // sheet however it got there. disabled, not element removal — removal makes
+  // every view toggle refetch.
+  document.querySelectorAll('[data-surface-sheet]')
+    .forEach(l => { l.disabled = !isSTView; });
 }
 
 // ══════════════════════════════════════════════
