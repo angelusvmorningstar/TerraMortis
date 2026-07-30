@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 4
+revision: 5
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -24,6 +24,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 5 | 2026-07-30 | Two additions from Ma'at's Stage A gate, both class errors in the method D8 prescribes rather than gaps in diligence. Adds a D8 preamble — **three checks by the same method are one check** — after three people passed rule 3 by the same name-grep, which cannot find a generic router by construction. Gives rule 3 an explicit second half (enumerate nav metadata programmatically; rule out the routing class separately; trace dynamic dispatch to source). Adds **rule 5: match the scope**, since for CSS the decision unit is the document and a tree-wide search cannot express per-document deadness at any granularity — a false red that would have blocked a correct deletion. Settles the 47-vs-48 counting convention (blocks is the extraction unit; 0 mixed comma groups). Records in D5a that the D8 two-step protected a real intermediate state. | Imhotep (Architect) |
 | 4 | 2026-07-30 | Adds D9 (a merged surface owns its stylesheet; scope separation as the third resolution class) and extends D4 to presentation, after ADM P1 Stage B could not render: `index.html` never loads `admin-layout.css`, so a moved surface arrives with zero styling and two of AC9's four verbs become invisible. Names the independent-co-authoring shape the ~118-rule enumeration was counting without distinguishing. Records the `_viewMode` co-render precondition and the getRole/effectiveRole double gate. Reframes P2 from sixteen collision negotiations to sixteen mechanical extractions. | Imhotep (Architect) |
 | 3 | 2026-07-29 | Adds D8 operating rule 4 (measure at the granularity of the decision; treat your own first number as a hypothesis), after Khepri's entry-path sweep of all 17 admin surfaces and 33 player tabs. Sweep result: every admin surface is live, so P1 does not shrink; two player tabs are dead, `t-tickets` (already handled by D5a) and `t-map`, a fourth instance of the pattern. The sweep also produced two first-pass false positives that its author caught by re-deriving, which is the finding rule 4 records. `t-map` is deliberately NOT absorbed into this epic; see the note under Phase sequencing. | Imhotep (Architect) |
 | 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
@@ -174,6 +175,8 @@ D8's two-step is kept even though nothing reaches the module, because the static
 
 After this lands, merging the admin Tickets view introduces **zero** `.tk-*` collisions, and any rendering fault in the pilot is unambiguously a loading-pattern fault.
 
+**The two-step protected a real intermediate state, not a theoretical one (Rev 5).** ADR-007 D8's one-deploy window is usually justified as making a revert a revert rather than a restore. Here it did something more concrete: `#t-tickets` was an **empty div** — all of its content came from `renderTicketsTab` — so between PR1 and PR2 even a console `goTab('tickets')` would have rendered a blank tab rather than a broken one. Worth recording as an instance of why the window matters *even when nothing reaches the module*, which is exactly the case where the two-step feels like ceremony.
+
 ### D6: The residual suite/components overlap is state, not a backlog. (locks)
 
 The overlap stands at **48** on `dev` (163 at USF Phase 1 open, 110 removed by the Tier 0 batch delete, 5 more by the dt-hist family pass in #1063). Verified by `css-overlap.py --count` at `9953e2e6`.
@@ -202,7 +205,9 @@ The obstacle is what a reachability measurement returns.
 
 For CSS specifically, the test is per rule — *could this selector match an element the other surface emits?* — and **not** *do these two files share selector keys*. The two questions differed by twentyfold in D9's case and by the entire work plan in Rev 1's.
 
-Two operating rules follow:
+**Preamble, added at Rev 5 and governing all five rules below: three checks by the same method are one check.** On Tickets, three people independently ran rule 3 and all three passed it the same way — by grepping for the literal surface name. A literal name-grep *cannot find a generic router by construction*, so those were three correlated passes, not three independent ones, and a fourth reviewer would have bought nothing. When a blind spot is shaped by the method, the marginal value is in a different method, never in more eyes on the same one. Ask what the check you just ran is structurally incapable of seeing, and run something that can.
+
+Five operating rules follow:
 
 - **Enumerate, do not count.** A reachability measurement returns a list. That list is a reviewable checklist, which is worth more than the number ever was. `specs/qa/harness/admin-collision-map.py` is checked in with this ADR and emits the P2 list.
 - **State the method limit in the instrument, not in the message.** Class extraction over `class="..."` / `className=` / `classList.*` literals misses names assembled by string concatenation, so 55, 62 and ~118 are **floors, not ceilings**, and the measurement establishes match-possibility rather than cascade outcome (load order and specificity are not modelled). This caveat lives in the script's docstring because `css-overlap.py`'s docstring caveat is exactly what let QA catch the byte-identity trap on Tier 0. A caveat that lives only in a message does not survive the next reader.
@@ -210,6 +215,20 @@ Two operating rules follow:
 - **Reachability is checked at story-drafting time as a matter of course, not when someone thinks to ask.** Added at Rev 2, after the pattern recurred a third time inside this ADR: D5 originally cited a static import and a call site as evidence that a surface was live, which is the same non-evidence the two ADR-007 instances rested on. Every USF-family surface examined so far has been present-and-wired and unreachable — `player.html`, the 193 suite/player duplications, and now `tabs/tickets-tab.js`. Three for three is not carelessness by any one author; it is a property of a codebase that has been accreting entry points faster than it retires them.
 
   The check is cheap and it is specific. **An import is not a reference; a call inside a dispatcher is not a route.** For any surface a story proposes to move, merge, restyle or delete, establish the *entry path* before the work is scoped: which nav array, grid entry or hardcoded call actually reaches it, and does any router exist. If the answer is none, the story is a deletion story and should be re-scoped as one before it is drafted, per `feedback_reachability_before_retire`.
+
+  **Rule 3 has two halves, and the second is not optional (Rev 5).** Searching for the name and ruling out the routing *class* are different operations, and the first cannot perform the second:
+
+  1. **Enumerate the nav metadata programmatically**, do not grep it. Read the arrays and count the entries — `MORE_APPS` (18 ids) and `NAV_ITEMS` (48 entries) on the current tree.
+  2. **Rule out generic routing as a separate class.** Confirm there is no `hashchange`, `popstate`, `location.hash` or pathname-based tab routing anywhere in `public/js` (verified: zero occurrences). A name-grep would never surface any of these, because a generic router never mentions the name.
+  3. **Trace any dynamic dispatch call to its source.** `goTab(currentTab)` looks capable of introducing a tab and is not: `currentTab` derives at `app.js:1065` from `document.querySelector('.tab.active')?.id`, so it reads the *already-active* tab out of the DOM and can only re-enter one something else opened.
+
+  Step 3 is the difference between a check and an argument. A check reports what it found; an argument establishes what could not have been there.
+
+- **Match the SCOPE of the decision, which is a different axis from granularity.** Added at Rev 5. For CSS the decision unit is the **document**, not the repository, because stylesheet linking is per document: `index.html` loads `suite.css` and never `admin-layout.css`; `admin.html` the reverse. "Is this rule dead?" therefore has a *different answer per document*, and a tree-wide search cannot express that at any granularity.
+
+  Worked example, and note it fails in the dangerous direction. A reviewer greps the tree, finds `admin/tickets-views.js` emitting `.tk-badge`, and concludes the `suite.css` `.tk-badge` rule is live. Wrong: `tickets-views.js` reaches `admin.html`, which never loads `suite.css`. The emitter exists, but not in the document that loads the rule. Classified by document reachability the per-rule scan returned **29 of 29 dead**, where a tree-wide grep shows three apparent survivors — so the reviewer would have **blocked a correct deletion**. That is a false red, and per D9 this project holds that false reds cost as much as false greens.
+
+  Granularity and scope are orthogonal. A measurement can be correctly per-rule (right granularity) and still tree-wide (wrong scope), which is exactly this case. A reader who has satisfied rule 4 will not automatically ask rule 5, which is why it is stated separately rather than folded in.
 
 - **Measure at the granularity of the decision, and treat your own first number as a hypothesis.** Added at Rev 3, and it is the rule the other three keep failing at rather than a fourth topic.
 
@@ -234,6 +253,17 @@ Added at Rev 4, after ADM P1 Stage B could not render. The finding that forced i
 3. **Scope separation** (this decision) — two components sharing a name that **need not coexist**, because they are role-gated and never render together. Load them apart. No rename, no reconciliation, no rule edited.
 
 The third is available here precisely because these surfaces are role-exclusive, and it is the cheapest of the three: it edits no declarations and makes no design judgement. **For role-exclusive surfaces it is the preferred resolution.**
+
+**Counting convention for an extraction, settled at Rev 5.** Two people measured the Tickets rules at 47 and 48 and both were right, about different questions. The delta is a single all-`.tk-` comma group (`.tk-select, .tk-input`). State which you mean:
+
+| | Tickets |
+|---|---|
+| Rule **blocks** containing a `.tk-` selector — **the extraction unit** | **47** |
+| Single **selectors** mentioning `.tk-`, after comma-splitting | 48 |
+| Of those, inside an `@media` block | 0 |
+| Comma groups **mixing** a `.tk-` with a non-`.tk-` selector | **0** |
+
+**Blocks is the extraction unit, because extraction moves whole rules.** The last row is the one that must be checked rather than assumed: a mixed comma group cannot be moved without splitting it, which would be a rule edit rather than a relocation and would take the change out of class 3. Here it is zero, so the extraction is a pure relocation — the same grouped-selector safety check ADR-007's Tier 0 ran, with the same clean result.
 
 **The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
 
