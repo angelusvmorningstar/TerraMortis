@@ -490,3 +490,47 @@ D7.1 PASS (inventory names none of the four touched files — caveat: checked ag
 - Boot smoke run **with the API up deliberately**: the harness's BENIGN filter includes `/Failed to load resource/`, broad enough to swallow a 404 — exactly the failure a delete-only change could cause. `benignFiltered: 0` both roles, so the clean result isn't a filter artefact. Static server confirmed 404 on `/js/tabs/tickets-tab.js`.
 - **The dual-authoring finding is corroborated and matters for gating, not just design.** "Is this rule dead?" has a different answer *per document*, and a tree-wide grep cannot express that. A reviewer who greps and finds `tickets-views.js` emitting `.tk-badge` would wrongly conclude the `suite.css` copy is live. Same failure shape as the `.map-*` family-granularity error: the measurement must be scoped to the unit the decision applies to — here the **document**, not the repository. This is worth carrying into AC12, which asks the next dev to derive the `admin-layout.css` count from the tree: that count is also document-scoped.
 - Fourth surface found live-in-source and unreachable-in-fact. The third check was proportionate — but all three of us checked the same *way*. If a fifth instance arises, adding the generic-router check is worth more than a fourth pair of eyes on the same method.
+
+### Review — 2026-07-30, Ma'at (Test Architect) — STAGE B
+
+**Gate: PASS** → `specs/qa/gates/adm.1-stage-b.yml`. Reviewed at `548f956a` (PR #1076, ADR-008 Rev 8).
+
+Every Stage B AC passes on evidence, **AC8 included** — it returned to scope once Rev 5 restated it as attributable-plus-ratchet with an instrument. The behavioural set was run in a real headless Chromium against a served tree, not reasoned about.
+
+> **Test-rig disclosure.** The dev-fixtures intercept mocks `GET /api/tickets` as `[]`, so an unmodified tree cannot exercise list/filter/expand/edit at all. I served a copy with **only the fixture ticket data** replaced (4 tickets, plus a PUT handler persisting to sessionStorage so "persists across reload" is testable). Every file under test was verified byte-identical to the reviewed commit before each run. **AC10 is the exception and is stronger for it** — `admin.html` doesn't load dev-fixtures, so it ran against the real API with 67 real Atlas tickets.
+
+#### Re-derived
+
+| Claim | Verdict |
+|---|---|
+| Custom-property closure | **Confirmed, stronger than claimed** — 23/23 in theme.css, and all 24 (incl. alias targets) on `:root`, so document- *and* theme-agnostic |
+| Byte-identical relocation | **Confirmed** — 47→47, zero lost/added/edited/left-behind; both AC12 assertions hold; 47/48/delta-1 reproduces the Architect |
+| `effectiveRole()` sites | **Delta 0** (13→13; raw grep 14→21 from added prose) |
+| Gate placement | **Confirmed** — one call site, gate above both fetches; enumeration is not load-bearing |
+
+**Negative control on the closure check.** Verified it *fails* on the real hazard: simulating a `--ar-bdr` reference gives 23→24 refs, 0→1 not-in-theme, HALT with the property named. Those three properties are declared under `.ar-complete`/`.ar-pending`/`.ar-valid` — **class** scopes — so the hazard has two dimensions, wrong file and wrong scope, and only the first is visible to a name-presence check.
+
+#### Behavioural (headless Chromium)
+
+- **AC10 (run first)** — PASS. All four sheets 200 incl. `admin-tickets.css`; 67 real tickets; split resolves to a true 2-column grid; zero errors. The regression all three of us predicted did not occur.
+- **Rev 8 no-flash** — PASS, by frame-level sampling rather than argument. Hooked `appendChild` to sample at insertion, then across 41 animation frames. ST view: `disabled === false` throughout, renders styled. **Player preview: `disabled === true` across all 41 frames** — the synchronous `applyRoleRestrictions()` beats the first paint, so ST styling never applies, not even for one frame.
+- **AC17 second open** — PASS. One `<link>`, one fetch, one insertion, styled both times.
+- **AC15 toggle** — PASS. `false → true → false` with exactly one fetch.
+- **AC18 broken href** — PASS. Renders 4 rows, split degrades grid→block, zero errors.
+- **AC9** — PASS. Filter narrows 4→1→4; all **five writes** issue with correct bodies and **all five persist across a full reload**.
+- **AC8** — PASS. Leak gate: 2 modules, 214 KB, exit 0, `tickets-views.js` **absent**.
+
+**Instrument verification.** I didn't take the leak gate's failure path on trust — injected a real static leak by a different method from the author's: 2→3 modules, 214→224 KB, **exit 1**, module named, causing path printed. Both ratchet halves verified (`--bless` refuses; comparison is set-based, so a substitution still fails).
+
+#### For Peter — a judgement, not a defect (adm.1b-01)
+
+Expanded-row state meets AC9 and rests on **exactly one cue**. Measured like-for-like, expanded and collapsed rows have identical background, text colour and border width; the **only** differing computed property is `border-left-color` (gold `rgb(224,196,122)` vs `rgba(201,169,98,0.18)`; crimson vs muted in admin's Parchment theme — I checked both). Filter-active, by contrast, is reinforced across three properties and is not in question.
+
+"Distinguishable in a computed-style diff" and "distinguishable to a Storyteller at a table, on a phone, in low light" are not the same claim. QA can establish the first and has; the second is yours. Raised before merge so you can look for it deliberately rather than ratify it afterwards.
+
+#### Notes
+
+- **The Rev 6 blank-surface hazard was live, not latent.** On the previous tip, ST-in-preview `goTab('tickets')` produced a blank tab with `admin-tickets.css` **never fetched** — no load, no error, promise never settled, zero console output. Confirmed by instrumenting network responses, which is what separates "it didn't render" from "the fetch never happened". It **recovered** on toggling back to ST view, so the accurate description is silent-and-total-but-recoverable — which bounds the severity honestly and must not be read as the old shape having been acceptable.
+- **Bookkeeping:** the `if (link.disabled)` guard was **never in the code** — offered in the record only. Rev 8 is purely the removal of `link.disabled = true`. Verified zero occurrences at this commit.
+- **The transferable rule:** prefer the mechanism whose failure mode is cosmetic over the one whose failure mode is silent and total. Same asymmetry that graded usf.1-07 above a visible coverage gap.
+- **Method limit:** behavioural evidence is Chromium-only. Nothing in the shipped shape depends on the disabled-fetch behaviour any more, so no verdict rests on it.
