@@ -38,8 +38,8 @@ is a red-flag review, escalated to the Architect, regardless of diff size.
 | `POST` | `/api/characters/:id` | `public/js/editor/edit.js:1093` | 6 |
 | `DELETE` | `/api/characters/:id` | `public/js/editor/edit.js:1111` | 6 |
 | `PUT` | `/api/characters/:id` | `public/js/suite/status.js:244` | 4 |
-| `PATCH` | `/api/characters/:id/safe_place_locations` | `public/js/tabs/downtime-form.js:1290` | 9 |
-| `PATCH` | `/api/characters/:id/carthian_pull` | `public/js/tabs/downtime-form.js:4753` | 9 |
+| `PATCH` | `/api/characters/:id/safe_place_locations` | `public/js/tabs/downtime-form.js:1301` | 9 |
+| `PATCH` | `/api/characters/:id/carthian_pull` | `public/js/tabs/downtime-form.js:4774` | 9 |
 | `PATCH` | `/api/characters/:id/player_prefs` | `public/js/tabs/ordeals-view.js:324` | 1 |
 | `POST` | `/api/characters/wizard` | `public/js/tabs/wizard.js:656` | **none — investigate** |
 
@@ -59,10 +59,10 @@ is a red-flag review, escalated to the Architect, regardless of diff size.
 | `PUT` | `/api/downtime_submissions/:id` | `public/js/downtime/db.js:230` | 5 |
 | `POST` | `/api/downtime_submissions` | `public/js/downtime/db.js:233` | 5 |
 | `PUT` | `/api/downtime_submissions/:id` | `public/js/downtime/db.js:416` | 5 |
-| `POST` | `/api/downtime_submissions` | `public/js/tabs/downtime-form.js:1166` | 9 |
-| `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/downtime-form.js:1178` | 9 |
-| `POST` | `/api/downtime_submissions` | `public/js/tabs/downtime-form.js:1262` | 9 |
-| `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/downtime-form.js:1271` | 9 |
+| `POST` | `/api/downtime_submissions` | `public/js/tabs/downtime-form.js:1177` | 9 |
+| `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/downtime-form.js:1189` | 9 |
+| `POST` | `/api/downtime_submissions` | `public/js/tabs/downtime-form.js:1273` | 9 |
+| `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/downtime-form.js:1282` | 9 |
 | `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/feeding-tab.js:885` | 2 |
 | `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/feeding-tab.js:905` | 2 |
 | `PUT` | `/api/downtime_submissions/:id` | `public/js/tabs/feeding-tab.js:996` | 2 |

@@ -15,6 +15,20 @@ USAGE
     python3 specs/qa/harness/write-path-inventory.py            # regenerate the .md
     python3 specs/qa/harness/write-path-inventory.py --check    # exit 1 if the tree disagrees
     python3 specs/qa/harness/write-path-inventory.py --print    # to stdout, write nothing
+    python3 specs/qa/harness/write-path-inventory.py --touches <ref>
+                                        # exit 0 if the diff vs <ref> is DISPLAY-ONLY
+
+--touches ESTABLISHES THE SHIP-AHEAD-OF-QA CRITERION (ADR-008 D10). The property that
+bounds the risk of shipping a fix before its gate is not diff SIZE -- a ten-line change
+that moves a write path is far more dangerous than a hundred-line change that cannot
+touch one. It is whether the change CAN ALTER WHAT IS PERSISTED, or only what is
+DISPLAYED. This mode answers that by intersecting the diff's changed hunks with the
+inventory's sites, and by scanning the diff itself for any mutating call to a sacrosanct
+collection that is not yet in the inventory. Exit 0 means display-only is ESTABLISHED
+rather than asserted; exit 1 means the full gate is required.
+
+It establishes only that what is PERSISTED cannot change. What is DISPLAYED still needs
+its gate -- this is a bypass criterion for one class of risk, not a substitute for QA.
 
 Run --check in review on any PR touching public/js. A non-zero exit means the set of write
 sites changed, which is exactly the D7 escalation trigger.
@@ -214,7 +228,66 @@ def render(rows):
     return '\n'.join(L)
 
 
+def touched(ref):
+    """Does the diff against `ref` reach any persistence site? ADR-008 D10."""
+    import subprocess
+    try:
+        diff = subprocess.run(['git', 'diff', '--unified=0', ref, '--', 'public/js'],
+                              capture_output=True, text=True, cwd=str(ROOT)).stdout
+    except Exception as e:
+        print('could not diff:', e)
+        return 2
+
+    sites = {}
+    for r in collect():
+        sites.setdefault(r['file'], set()).add(r['line'])
+
+    hits, cur = [], None
+    hunk = re.compile(r'^@@ -\S+ \+(\d+)(?:,(\d+))? @@')
+    mutating = re.compile(r'api(?:Post|Put|Patch|Delete)\s*\(|[\'"`](?:POST|PUT|PATCH|DELETE)[\'"`]')
+    for line in diff.split('\n'):
+        m = re.match(r'^\+\+\+ b/(.+)$', line)
+        if m:
+            cur = m.group(1)
+            continue
+        m = hunk.match(line)
+        if m and cur:
+            start, count = int(m.group(1)), int(m.group(2) or 1)
+            for ln in sites.get(cur, ()):
+                # small window: an edit just above a write call can still change it
+                if start - 3 <= ln <= start + count + 3:
+                    hits.append((cur, ln, 'inventory write site inside a changed hunk'))
+        if line[:1] in '+-' and not line.startswith(('+++', '---')):
+            body = line[1:]
+            if mutating.search(body):
+                for coll, rx in COLLECTIONS.items():
+                    if rx.search(body):
+                        hits.append((cur or '?', 0, f'diff line mutates {coll}'))
+
+    print('=' * 74)
+    print(f'DISPLAY-ONLY CHECK vs {ref}   (ADR-008 D10)')
+    print('=' * 74)
+    if not hits:
+        print('  DISPLAY-ONLY ESTABLISHED — the diff reaches no persistence site.')
+        print('  Shipping ahead of the gate is within D10.')
+        print('  This establishes only that what is PERSISTED cannot change.')
+        print('  What is DISPLAYED still needs its gate.')
+        return 0
+    print('  NOT display-only. The diff reaches persistence:')
+    for f, ln, why in sorted(set(hits)):
+        print(f'    {f}' + (f':{ln}' if ln else '') + f'  — {why}')
+    print()
+    print('  Full gate required. ADR-007 D7 escalation may also apply.')
+    return 1
+
+
 def main():
+    if '--touches' in sys.argv:
+        i = sys.argv.index('--touches')
+        if i + 1 >= len(sys.argv):
+            print('--touches needs a git ref')
+            return 2
+        return touched(sys.argv[i + 1])
     rows = collect()
     text = render(rows)
     if '--print' in sys.argv:
