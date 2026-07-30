@@ -35,7 +35,11 @@ Lands before Stage B. The admin view must never be introduced alongside a dead r
 5. An ST reaches it via a nav entry that does not exist today, declared `stOnly` following the existing nav metadata pattern.
 6. `admin/tickets-views.js` loads through dynamic `import()` at the point of use.
 7. The import is gated on **`getRole()`, not `effectiveRole()`** (ADR-008 D4; ADR-007 D3).
-8. **Network-panel check, not a code assertion:** a player session fetches **zero** modules from `public/js/admin/` and **zero** ST stylesheets. Per D4 Rev 4 the criterion is zero ST *presentation*, not merely zero ST JavaScript.
+8. **ATTRIBUTABLE, not absolute — and executable rather than prose** (restated by Rev 6 after Stage B found the absolute form unpassable on a pre-existing leak). Verified by `python3 specs/qa/harness/admin-leak-gate.py`, which replaces the unmeasurable network-panel check for the JS half.
+   - **Attributable:** no admin module becomes *statically* reachable from the player entry **because of** a merged surface. A moved surface reaches its modules through dynamic `import()` only. The gate deliberately does **not** follow `import()`, since that is the sanctioned path and a gate flagging it would fire on every correct migration.
+   - **Ratchet:** the leaked set may shrink, never grow.
+   - The blessed baseline is a **named set, never a count** — a count of 2 would let a different leak silently substitute for a fixed one, the same substitution hazard as counting rules instead of enumerating them. Baseline: `public/js/admin/downtime-story.js` (200 KB) and `public/js/admin/downtime-constants.js` (14 KB), both inherited through the single edge `story-tab.js:9`, pre-existing on `dev` before this epic, tracked as #1075.
+   - **Stylesheet half unchanged:** a player session fetches **zero** ST stylesheets. Per D4 Rev 4 the criterion is zero ST *presentation*, not merely zero ST JavaScript; satisfied here by the `getRole()`-gated injection.
 9. An ST can list, filter, expand and edit a ticket in the merged surface — status, ST note, title, body, priority — and the writes persist. **Filter-active and expanded-row state are visibly distinguishable**, since both are conveyed by CSS alone.
 10. `admin.html`'s Tickets domain continues to work unchanged. It is retired in P3, not here.
 
@@ -71,8 +75,9 @@ Added by Rev 4 after Stage A established that the merged surface has **zero** of
 - [x] **Stage B — concurrent load, cached promise, graceful degrade** (AC: 16, 17, 18) — implemented
   - [ ] Open the surface twice in one session and confirm the second open is styled. *(browser-only; Ma'at)*
   - [ ] Point the href at a missing file and confirm the surface still renders. *(browser-only; Ma'at)*
-- [ ] **Stage B — verify** (AC: 8, 9, 10) — **not verifiable here; see "What I could not verify"**
-  - [ ] Network panel, player session: zero `public/js/admin/` requests. **Static analysis says this FAILS on a pre-existing leak unrelated to Tickets — see Stage B note 6.**
+- [ ] **Stage B — verify** (AC: 8, 9, 10) — JS half of AC8 done; the rest is browser-only
+  - [x] `admin-leak-gate.py`: **exit 0**, 2 modules / 214 KB, no increase over the named baseline. Gate's *sensitivity* independently confirmed (see Stage B note 8).
+  - [ ] Zero ST stylesheets in a player session — the AC8 stylesheet half. *(browser-only; Ma'at)*
   - [ ] ST session: list, filter, expand, edit, and confirm each write persists. *(browser-only; Ma'at)*
   - [ ] `admin.html` Tickets domain still works. *(browser-only; Ma'at)*
 
@@ -295,7 +300,7 @@ Tile *visibility* filters on `effectiveRole` (existing `app.stOnly && !isST` gua
 
 The independent check that does cover it is structural rather than enumerative: **the `getRole()` gate sits inside `initTicketsSurface`, not at the nav layer.** Any entry path — declared, computed, injected, or a console `goTab('tickets')` — funnels through the single dispatcher branch at `app.js:578` and hits that gate before either fetch. So an entry path nobody enumerated still cannot leak admin code to a player. The gate is what makes this safe; the enumeration only tells us what a *user* can click.
 
-**6. AC8 CANNOT PASS AS WRITTEN — a pre-existing leak, not caused by this diff. Escalated.**
+**6. AC8 could not pass as originally written — a pre-existing leak, not caused by this diff. Escalated, and RULED: AC8 is now attributable + ratchet (Rev 6), verified by an executable gate. See note 8 for the run.**
 
 AC8 requires a player session to fetch **zero** modules from `public/js/admin/`. Static graph analysis of `index.html`'s module tree (121 modules walked from `app.js`) found this **static** import chain:
 
@@ -314,6 +319,63 @@ This diff adds **zero** new leaks — `admin/tickets-views.js` is reachable only
 Two reasons this matters beyond bookkeeping. First, `downtime-story.js` is precisely the module ADR-008 D4 sequences **last** because it sits on the frozen write path — so the pilot's headline criterion is blocked by the one surface the epic deliberately deferred. Second, AC8 is described as "the criterion for every later surface move"; if it is failing before the first move, every later pass against it is meaningless. **AC8 needs restating** (e.g. "no *new* modules from `public/js/admin/`, and none attributable to the merged surface") or the leak needs fixing first — which is out of scope here and touches deferred, write-path code. **Not fixed, not worked around, escalated.**
 
 **7. AC13 — the transitional asymmetry, implemented as specified.** `admin.html` static-links `css/admin-tickets.css` (line 16, with a comment noting the asymmetry and its P3 end); `index.html` does **not** link it statically (verified 0 occurrences in served bytes) and receives it only by injection from the gated path.
+
+**8. AC8 — gate run, and its sensitivity verified rather than trusted.**
+
+```
+$ python3 specs/qa/harness/admin-leak-gate.py
+  admin modules statically reachable : 2
+  uncompressed weight                : 214 KB
+  public/js/admin/downtime-constants.js  (14 KB)
+     via app.js -> archive-tab.js -> story-tab.js -> downtime-story.js -> downtime-constants.js
+  public/js/admin/downtime-story.js  (200 KB)
+     via app.js -> archive-tab.js -> story-tab.js -> downtime-story.js
+OK — no increase over baseline (2 modules).
+exit 0
+```
+
+Attributability holds: the two named modules are the pre-existing baseline, and `admin/tickets-views.js` does **not** appear — it is reached through dynamic `import()` only.
+
+**A green gate is only evidence if the gate can go red, so I checked that rather than assuming it.** I temporarily added a static `import { initTicketsView } from './admin/tickets-views.js'` to `app.js`, re-ran, and it **exited 1**, naming the module *and* its import path:
+
+```
+FAIL: new admin modules statically reachable from the player entry.
+  + public/js/admin/tickets-views.js
+     via app.js -> tickets-views.js
+exit 1
+```
+
+Reverted; `app.js` matches `HEAD`. So the gate detects precisely the failure this story would be blamed for, and it caught the exact module in question.
+
+*Procedure warning for anyone repeating this:* I reverted the simulated leak with `git checkout -- public/js/app.js`, which also discarded an **uncommitted** change I had in that file (the note-9 injector edit), and `git status` then read clean — which looks like success. Commit or stash before injecting a simulated failure into a file you are also editing, or revert the injected lines specifically rather than the file. Note the reported path differs from the one I originally traced (`archive-tab.js` rather than `dt-lookup.js`) — consistent with the single-edge finding, since all three importers of `story-tab.js` inherit the leak through the same line and the gate reports whichever it reaches first.
+
+**9. The injector no longer answers a presentation question (Rev 6 correction).**
+
+Superseded my earlier `link.disabled = _viewMode === 'player'`. The objection was correct and better than the one I anticipated: reading `_viewMode` was not a purity problem, it was a **second site computing "should ST presentation apply"**. It agreed with `effectiveRole()` only because `effectiveRole()`'s condition happens to be exactly that comparison; a third role, a dev-preview mode or an impersonation flag would have made them disagree *silently*, surfacing only as wrongly-applied CSS. That is the documented two-views-of-the-same-arithmetic failure mode.
+
+Now:
+
+- `loadSurfaceSheet` injects with `link.disabled = true` — fail-safe, so ST styling cannot flash into a player preview even for a frame — tags `data-surface-sheet`, and calls `applyRoleRestrictions()`. It reads no view state at all.
+- `applySurfaceSheetVisibility` queries `document.querySelectorAll('[data-surface-sheet]')` rather than the promise cache, so it owns every surface sheet however it arrived.
+- The promise cache now maps `href → promise` directly; the element is no longer needed there.
+
+`applyRoleRestrictions` remains the **single** owner of the decision, still reusing the `role` it computes at `:1580`. **Call-site count unchanged: 9 on `dev`, 9 now.** No recursion — `applySurfaceSheetVisibility` does not reach `loadSurfaceSheet`.
+
+**10. RISK INTRODUCED BY THE FAIL-SAFE INJECTION — flagged, not silently accepted.**
+
+Injecting with `disabled = true` interacts with a browser optimisation: **a disabled `<link rel="stylesheet">` may not be fetched at all** (this is the basis of the well-known lazy-CSS trick). If the resource is never fetched, neither `load` nor `error` fires, so `loadSurfaceSheet`'s promise never settles and the `Promise.all` in `initTicketsSurface` never resolves — the tab stays **blank with no error**.
+
+On the normal path this is safe *only because* `applyRoleRestrictions()` is called synchronously in the same task, so `disabled` flips to `false` before the browser yields and the fetch proceeds. **If anyone later moves that call behind an `await`, `setTimeout` or `requestAnimationFrame`, the surface will silently stop rendering.** Worth a comment guard on that line more than a code change.
+
+One live edge remains: a **real ST already in player preview** who opens Tickets passes the `getRole()` authority gate (correctly — `getRole()` is `'st'`), but `applyRoleRestrictions()` then sets `disabled = true` because `effectiveRole()` is `'player'`, so the sheet may never fetch and the promise may never settle — blank tab. Only reachable via a console `goTab('tickets')` today, since the tile is `effectiveRole`-filtered, so no user path hits it.
+
+I have **not** changed the design to cover this; the injector shape was specified and it is the Architect's call. The minimal fix if wanted is one line — resolve immediately when the sheet is injected disabled, since in player preview the ST sheet must not apply anyway, making the wait pointless:
+
+```js
+if (link.disabled) return Promise.resolve(false);   // after applyRoleRestrictions()
+```
+
+Browser-dependent and **not testable from this environment**, so it is written as a check for QA rather than a claim: *in player-preview mode, console `goTab('tickets')` — does the tab render, or stay blank?*
 
 ### What I could not verify — Ma'at's gate is load-bearing
 
