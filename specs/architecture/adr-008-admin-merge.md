@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 9
+revision: 10
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -13,6 +13,7 @@ related:
   - specs/architecture/adr-006-defence-penalty-readpath.md (render-path orchestrator discipline)
   - specs/qa/harness/admin-collision-map.py (the P2 checklist, checked in with this ADR)
   - specs/qa/harness/admin-leak-gate.py (D4 attributability gate, Rev 6)
+  - specs/qa/harness/write-path-inventory.py (D10 display-only check; ADR-007 D7 generator)
   - specs/qa/harness/css-overlap.py (retained as a one-number regression check)
   - public/admin.html (the entry this epic retires)
   - public/js/app.js:150-152 (effectiveRole), :1483-1524 (applyRoleRestrictions)
@@ -25,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 10 | 2026-07-30 | Adds D8 rule 6 — **a caveat that does not travel with the number it qualifies is decoration** — after two instances a week apart by different authors, each of whom wrote the correct limitation and then published a figure that reads as unqualified because the two sat in different paragraphs. Adds **D10**: a fix may ship ahead of its gate only when it cannot alter what is persisted; the criterion is display-only, not diff size, and it is established by `write-path-inventory.py --touches` rather than judged. Also carries forward the stranded ADR-007 Rev 4 write-path generator, which had never reached `dev`. | Imhotep (Architect) |
 | 9 | 2026-07-30 | Records the Chromium confirmation that the Rev 6 injector hazard was **live, not latent** (sheet never fetched, promise never settled, blank surface, zero console output), with severity bounded honestly — recoverable by toggling back to ST view, which does not make the old shape acceptable. Corrects the record that the proposed guard was never written into the code. Adds a second D8 preamble from James: **a check only produces truth if halting is cheap for the person who runs it** — the executor holds both the cheapest access to a counterexample and the strongest incentive to rationalise it away, so the rules in D8 degrade into rubber stamps under schedule pressure while looking unchanged in the record. Distinguishes 'one cut closes it' from 'one path reaches it' in the leak gate. | Imhotep (Architect) |
 | 8 | 2026-07-30 | Corrects the Rev 6 injector shape, which James found unsafe while implementing it. A `disabled` stylesheet link may never be fetched, so `load`/`error` never fire and a promise awaiting them never settles — the Rev 6 `disabled = true` initial state could leave an ST in player preview with a blank surface and no error. Corrected to inject enabled and let `applyRoleRestrictions()` own application, which removes the dependency instead of guarding it and downgrades the failure mode from silent-and-total to cosmetic. Also fixes the leak gate's docstring (it presented one representative import path as the only one) and adds `--paths`. | Imhotep (Architect) |
 | 7 | 2026-07-30 | Rewords the D9 custom-property precondition after Ma'at ran the negative control the rest of us only reasoned about. Rev 6 stated it as "resolves in `theme.css`", a name-presence test against a *file*; the hazard has a second dimension, *scope*. `admin-layout.css`'s `--ar-*` are declared under `.ar-pending`/`.ar-valid`/`.ar-complete`, not `:root`, so a property declared in a shared sheet under an admin-only selector would pass the stated check and still render unstyled. Correct form: resolves from a **document-agnostic scope** in a sheet both documents load, alias chains followed. Also records that D7.2 is a delta invariant rather than a count. | Imhotep (Architect) |
@@ -253,6 +255,14 @@ Five operating rules follow:
 
   Step 3 is the difference between a check and an argument. A check reports what it found; an argument establishes what could not have been there.
 
+- **A caveat that does not travel with the number it qualifies is decoration.** Added at Rev 6's successor, Rev 10. This is the *delivery* half of rules 4 and 5: those govern how a measurement is taken, this governs whether its limit survives contact with a reader.
+
+  Two instances a week apart, by different authors, which is the argument for treating it as structural rather than as two mistakes. A PR carried the sentence *"this count is a floor — a site sniffing differently would not appear"* and then built its headline on the narrow figure: *"zero 24-hex sniffs remain."* There were four normalisation implementations in that file, and two of them resolve by `(_territories || []).find(t => String(t._id) === key)` with **no sniff at all** (`downtime-form.js:3947`, `:7203`, and the same shape at `:2403`, `:7353`), so they were invisible to the grep *by construction* — a more careful grep would not have found them; only a different question would. Separately, a QA gate that declared a harness UNVERIFIED later reported a coverage figure from it without restating the caveat beside the number.
+
+  In both cases the correct limitation was written down and the number was published as though unqualified, because they ended up in different paragraphs. **Only the number travels** — into a PR title, a summary, a brief, someone's memory of a meeting. Downstream, a correctly-scoped measurement whose scope was dropped in the retelling is indistinguishable from a badly-scoped one, and it is *worse* than an unqualified guess, because it now carries borrowed authority.
+
+  Operationally: **state the scope inside the claim, not beside it.** "Zero 24-hex sniffs remain" should have been "two of four normalisation sites consolidated; the other two resolve by `_id` lookup". Longer, and it cannot be quoted into a falsehood. The test is whether the shortest quotable fragment of your sentence is still true.
+
 - **Match the SCOPE of the decision, which is a different axis from granularity.** Added at Rev 5. For CSS the decision unit is the **document**, not the repository, because stylesheet linking is per document: `index.html` loads `suite.css` and never `admin-layout.css`; `admin.html` the reverse. "Is this rule dead?" therefore has a *different answer per document*, and a tree-wide search cannot express that at any granularity.
 
   Worked example, and note it fails in the dangerous direction. A reviewer greps the tree, finds `admin/tickets-views.js` emitting `.tk-badge`, and concludes the `suite.css` `.tk-badge` rule is live. Wrong: `tickets-views.js` reaches `admin.html`, which never loads `suite.css`. The emitter exists, but not in the document that loads the rule. Classified by document reachability the per-rule scan returned **29 of 29 dead**, where a tree-wide grep shows three apparent survivors — so the reviewer would have **blocked a correct deletion**. That is a false red, and per D9 this project holds that false reds cost as much as false greens.
@@ -363,6 +373,21 @@ Do not pre-emptively design for sixteen sheets. Land one, for Tickets. If surfac
 `admin.html` static-links the extracted sheet while it still exists; `index.html` injects it. The asymmetry is transitional and ends at P3 when `admin.html` is retired.
 
 **Mechanism or scaffolding under D2.** The injection helper is **mechanism**. Khepri's proposed line — a helper called from within a surface's own load path is mechanism, one landed as its own story is scaffolding — reaches the right answer, and the criterion underneath it is D2 itself: *does the story that lands the helper also deliver something openable?* The helper arriving inside the Tickets slice, used by Tickets, ships with a working surface. The same helper landed as "add CSS injection infrastructure", with no surface attached, is the trap. Judge the story, not the file.
+
+### D10: A fix may ship ahead of its gate only when it cannot alter what is persisted. (locks)
+
+Added at Rev 10, after a player-blocking defect was shipped ahead of QA on the SM's judgement and the criterion used was **diff size**. Size is the wrong property. A ten-line change that moves a write path is far more dangerous than a hundred-line change that cannot touch one.
+
+The property that actually bounds the risk is **display-only**: can this change alter what is *persisted*, or only what is *displayed*? Character sheets and downtime submissions are lost through write paths (ADR-007 D7); a change that provably cannot reach one cannot lose them, whatever its size.
+
+This is **established, not asserted**. `write-path-inventory.py --touches <ref>` intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
+
+Two limits, both load-bearing:
+
+- **It establishes only that what is persisted cannot change.** What is *displayed* still needs its gate. D10 is a bypass criterion for one class of risk, not a substitute for QA.
+- **It depends on the inventory being current**, which is why the inventory is generated rather than hand-maintained (ADR-007 D7 Rev 4). A D10 exemption granted against a stale inventory is worth nothing.
+
+Recorded here rather than left as process for the reason Rev 9 gives: this is a decision about **when the gates may be bypassed**, which is exactly the class of rule that erodes silently under pressure.
 
 ## Phase sequencing
 

@@ -1,0 +1,104 @@
+schema: 1
+story: "hotfix-816-ambience-arrow"
+stage: "Post-merge behavioural confirmation (shipped to prod ahead of QA)"
+story_title: "Ambience arrows lose selection after any collect — normalise OID to slug"
+gate: PASS
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-30"
+reviewed_commit: "74f966e2 (fix 05cb19a8, PR #1082). A/B baseline 05cbc2f3 (pre-fix). Refs #816, #496."
+
+why_this_record_exists: >
+  This shipped to production before QA saw it — correctly, in my view: players were blocked on a
+  high-traffic path by a display-only defect whose save boundary was untouched, so the blast radius
+  was bounded by construction. But a change that was live before anyone looked at it needs a record
+  of WHAT WAS AND WAS NOT CHECKED, not merely that it passed. The two limits at the bottom are the
+  point of this file as much as the four checks are.
+
+method: >
+  Driving the real UI through navigation produced ambiguous results — "arrows: 0" reads as lost
+  selection but was actually the form still rendering — so those runs were discarded rather than
+  reported. The decisive experiment instead: seed a submission with an OID ambience target, which is
+  exactly what a prior collectResponses() leaves behind, load the form fresh, and run the SAME seeded
+  fixture against two trees differing only in the fix. One variable, no navigation, no timing.
+    PRE-FIX  05cbc2f3 : action restored, 10 arrows rendered, LIT = []                hidden = "69d9e54b00815d471503bea7"
+    FIXED    74f966e2 : action restored, 10 arrows rendered, LIT = ["academy:up"]    hidden = "academy"
+
+checks:
+  - id: 1
+    text: "Selection survives a collect (the reported symptom)"
+    verdict: PASS
+    evidence: "A saved OID now renders as a lit arrow. Pre-fix, identical fixture, nothing lit — symptom reproduced and resolved, isolated to the one change."
+  - id: 2
+    text: "Clicking the same arrow twice clears it"
+    verdict: PASS
+    evidence: >
+      On the fixed tree the second click clears: lit goes to [] and the hidden input to "". Not
+      testable pre-fix because nothing was ever lit to click twice — consistent with the stated cause
+      rather than evidence for it.
+  - id: 3
+    text: "Save boundary still persists an OID, not a slug"
+    verdict: PASS
+    evidence: >
+      Verified end to end. Let the 2s debounced autosave fire from an UNRELATED field
+      (dt-project_1_title) so the ambience target was never touched: persisted
+      project_1_ambience_target = "69d9e54b00815d471503bea7", direction "up". The hidden input carries
+      the normalised slug and collect remaps it, so the ST-side shape is unchanged.
+  - id: 4
+    text: "Sphere and Status ambience unaffected; no third mismatched site"
+    verdict: PASS
+    evidence: >
+      Structurally immune, not incidentally: both collect a direction radio only
+      (sphere_N_ambience_dir / status_N_ambience_dir) and resolve ambience_change to legacy
+      ambience_increase / ambience_decrease. Neither path carries a territory target, so the
+      slug/OID mismatch cannot arise. Swept every remaining comparison against t.slug — the other
+      three sites are already OID-aware (renderTerritoryPills' inline 24-hex sniff, and two copies of
+      slugFromGrid that resolve by _id).
+
+limits:
+  - id: "1 — the pre-fix save-boundary arm is an argument, not a check"
+    detail: >
+      The dev's headline claim was "data was never lost". It SURVIVES, but the two arms are not
+      equally established and the record should not blur them. The FIXED arm is fully empirical:
+      untouched OID in, same OID out. The PRE-FIX arm I could not complete — my rig never captured a
+      save on that tree, and that is inconclusive rather than negative. What holds it up instead:
+      the hidden input demonstrably contained the OID, and collect is `_terrOidMap.get(v) || v` over
+      a map built ONLY from t.name and t.slug. I enumerated that key space from live Atlas — names
+      are "The Academy" etc., slugs are "academy" etc. — so an OID can never be a key, the lookup
+      always misses, and v passes through unchanged. An argument resting on empirically enumerated
+      data is a strong argument and is still not a check.
+      SAFE TO SAY: no data was lost — the failure was display-only on both arms and the fixed arm is
+      proven. NOT SAFE TO SAY: we verified the old code preserved it end to end.
+  - id: "2 — the rig had to be corrected before any result was trustworthy"
+    detail: >
+      My first save-boundary run showed a SLUG persisted, which is precisely the regression this
+      review was asked to look for. It was the rig, not the code. public/js/dev-fixtures.js
+      TERRITORIES carry _id and name but no slug on any of the five, while live Atlas territories
+      carry all five — so under fixtures _buildTerritoryOidMap can only key by name, the slug lookup
+      misses, and the remap silently no-ops. Confirmed against the live API before concluding
+      anything, then mirrored the Atlas slugs into the fixture and re-ran. Every file under test was
+      verified byte-identical to the reviewed commits throughout; only fixture DATA was changed.
+      Had that first run been trusted, a fabricated regression would have been filed against a
+      correct hotfix, and with players blocked the likely outcome was a revert restoring the real
+      defect. Filed as #1085. Note it is a field-NAME mismatch (fixture `id` vs Atlas `slug`), so a
+      regeneration must map rather than merely add a key.
+
+findings:
+  - id: hf816-01
+    severity: low
+    finding: >
+      #816's consolidation target in downtime-form.js is FOUR normalisation sites, not two: the new
+      _terrSlugFromSaved (:154), renderTerritoryPills' inline 24-hex sniff (:6156), and two separate
+      copies of slugFromGrid (:3949, :7210) which normalise by `_territories.find(t => String(t._id)
+      === key)` with no sniff at all. A grep for the 24-hex idiom cannot see the latter two by
+      construction — the idiom was the wrong unit to measure when the decision is about
+      normalisation sites. _terrSlugFromSaved is the right shape to consolidate onto.
+    recommendation: "Scope #816 to four sites in this file. Already actioned in PR #1084."
+
+recommendation: >
+  PASS — the fix does what it claims and nothing else. The reported symptom is reproduced pre-fix and
+  resolved post-fix under a single-variable A/B; the toggle-off defect is resolved; the save boundary
+  still persists an OID so the ST side is untouched; and Sphere/Status are structurally immune with
+  no third mismatched site. Shipping ahead of QA was the right call here, and the property that made
+  it safe was the save boundary being untouched — blast radius bounded by construction — not the size
+  of the diff. That is the criterion worth reusing, together with briefing the follow-up as a
+  falsification rather than a confirmation, which is what made this review worth running.

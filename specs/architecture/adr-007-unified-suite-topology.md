@@ -4,11 +4,13 @@ title: 'Unified suite topology: one role-gated player-facing entry, shared compo
 status: approved-in-part (D1-D8 active; D9-D15 superseded by ADR-008)
 date: 2026-07-28
 author: Imhotep (Architect)
-revision: 3
+revision: 4
 superseded_by: specs/architecture/adr-008-admin-merge.md (D9 through D15 only)
 supersedes: null
 related:
   - specs/architecture/adr-008-admin-merge.md (supersedes D9-D15; the admin merge epic)
+  - specs/qa/harness/write-path-inventory.py (D7 generator + gate, Rev 4)
+  - specs/architecture/usf-write-path-inventory.md (generated; do not hand-edit)
   - issue #1047 (Epic USF, re-scoped and stopped 2026-07-29)
   - issue #817 (dead name-keyed trackers, closed into USF)
   - issue #991 (player.html retirement + sheet renderer consolidation, closed into USF)
@@ -48,9 +50,10 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
-| 1 | 2026-07-28 | Initial. Records the end-state topology and, more importantly, corrects three stale premises in the #1047 epic body: the role-gated single app has already shipped, the 193 suite/player CSS duplications are dead-file duplications rather than live divergence, and the tracker unification completed in #836. Locks D1 to D9. Re-sequences the shard plan accordingly. | Imhotep (Architect) |
+| 4 | 2026-07-30 | **D7 only.** The hand-frozen write-path inventory is withdrawn and replaced by a generated one plus a machine gate (`specs/qa/harness/write-path-inventory.py --check`). It had captured 5 of 47 frontend write sites, and 3 of its 7 rows cited paths that had been stale for three months at the moment it was frozen. Records the two write shapes it had no concept of (PATCH sub-resource; the shared `downtime/db.js` helper) and the fact that players write to their own character. Surfaced by a question about Carthian Pull (#508/#522). D1-D6, D8 and the superseded D9-D15 are untouched. | Imhotep (Architect) |
 | 3 | 2026-07-29 | Superseded in part. Epic USF stopped by Peter: D9 parked the admin merge outside the epic, so USF never merged the two apps and its phases delivered nothing openable against the goal being tracked. D9-D15 superseded by ADR-008; D1-D8 retained as the anti-refragmentation contract and explicitly not re-opened. No decision text below is edited, only the header banner and this row, so the superseded reasoning stays legible. | Imhotep (Architect) |
 | 2 | 2026-07-28 | Phase 1 addendum, requested by Khepri (SM) after Phase 0 shipped (main `8d56ef39`). Adds D10 to D15. Classifies the suite/components overlap by declaration equality and by admin reachability, which answers the operational questions D5 left open. Two findings reshape Phase 1: the overlap is 110 mechanical plus 53 decisions, with family size anti-correlated to risk; and 51 of 53 divergences are not reachable from the admin surface, which falsifies the cross-surface masking hypothesis for all but two rules and inverts the default resolution direction. Also carves the renderer name-collisions out of Phase 1 into Phase 2 (D13), and upgrades the parity gate from DOM structure to computed style (D15), because the Tier 0 safety argument is not airtight. | Imhotep (Architect) |
+| 1 | 2026-07-28 | Initial. Records the end-state topology and, more importantly, corrects three stale premises in the #1047 epic body: the role-gated single app has already shipped, the 193 suite/player CSS duplications are dead-file duplications rather than live divergence, and the tracker unification completed in #836. Locks D1 to D9. Re-sequences the shard plan accordingly. | Imhotep (Architect) |
 
 ## Context
 
@@ -166,12 +169,27 @@ Character sheets and downtime submissions are lost by changes to write paths, no
 
 Every USF shard is classified at authoring time as **write-path-touching** or not.
 
-**The write paths, frozen:**
+**The write paths — generated, not frozen by hand.** (Rev 4; see below for why the hand-frozen list was withdrawn.)
 
-- Characters: `buildSaveBody(c)` into `PUT /api/characters/:id` (admin.js:1001, :1020, :1226), `POST /api/characters` (admin.js:945), `DELETE /api/characters/:id` (admin.js:836).
-- Downtime: `POST /api/downtime_submissions` (downtime-form.js:1166), and the `PUT /api/downtime_submissions/:id` family in feeding-tab.js and story-tab.js.
+The inventory lives at `specs/architecture/usf-write-path-inventory.md` and is **generated from the tree** by `specs/qa/harness/write-path-inventory.py`. It currently enumerates **47** frontend write sites: 25 against `characters`, 22 against `downtime_submissions`.
 
-This inventory is checked in as part of shard 1. **Any USF pull request that adds, removes or reshapes an entry in it is a red-flag review**, escalated to Architect regardless of how small the diff looks.
+**Any pull request that adds, removes or reshapes an entry is a red-flag review**, escalated to Architect regardless of how small the diff looks. That contract is unchanged. What changes is that it is now machine-checked: `write-path-inventory.py --check` exits non-zero when the tree and the inventory disagree, and the non-zero exit *is* the escalation trigger. Run it in review on any PR touching `public/js`.
+
+The gate keys on `(collection, method, endpoint, file)` and deliberately excludes line numbers, so ordinary edits that shift a call down a file do not trip it. Adding, removing, moving between files, or changing method or endpoint does.
+
+**Three write shapes exist. Rev 3 and earlier described only the first**, and that is the substantive error being corrected:
+
+1. **Whole-document save.** `buildSaveBody(c)` into `PUT /api/characters/:id`, plus create and delete, ST-driven from `admin.js`.
+2. **PATCH sub-resource.** Narrow slices written without `buildSaveBody`: `carthian_pull`, `safe_place_locations`, `player_prefs`, `st_mods_suppressed`.
+3. **Shared helper.** `public/js/downtime/db.js` (`updateSubmission` and friends) is the common downtime write path, and admin's downtime views route through it.
+
+**Players write to their own character.** Three of the PATCH sub-resource routes carry no `requireRole` and instead perform an in-handler ownership check (`server/routes/characters.js:611-614` for `carthian_pull`). Reached from the downtime form, ordeals and status. The Rev 3 inventory implied that STs write characters while players write submissions; that split does not exist and reviewing against it would miss the entire class.
+
+**Why the hand-maintained inventory was withdrawn.** At Rev 3 it captured **5 of 47** sites, and 3 of its 7 rows cited files that had not existed since `ecc6f71e` (2026-04-21) renamed `public/js/player/` to `public/js/tabs/` — three months *before* the inventory was frozen. It had been written from documentation rather than from the tree, so the entire Downtime half never resolved to a real file. The omission that surfaced this was `PATCH /api/characters/:id/carthian_pull` (`downtime-form.js:4753`, #508/#522), a legitimate player-facing character write that spans several lines and is therefore invisible to a line-grep.
+
+This is ADR-008 D8 rule 4 in its purest form: a document standing in for a measurement, at a granularity that could not answer the question it was consulted for. A hand-maintained inventory of a moving target decays silently and is worse than none, because reviewers trust it. Hence generation plus a gate rather than a corrected list.
+
+*Advisory, not part of the gate:* the generated table carries a "module has importers" column. It is module-level evidence about a call-level question, so per D8 rule 4 it must not be used to delete anything. It currently flags one site — `POST /api/characters/wizard` in `public/js/tabs/wizard.js`, which has no importer while its server route is live at `characters.js:412`. Tracked separately; not a USF concern.
 
 **Verification, matched to risk:**
 
