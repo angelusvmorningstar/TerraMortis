@@ -190,14 +190,18 @@ function loadSurfaceSheet(href) {
   link.rel = 'stylesheet';
   link.href = href;
   link.dataset.surfaceSheet = href;
-  // Fail-safe: inject disabled so ST styling cannot flash into a player preview
-  // even for a frame. applyRoleRestrictions() below decides whether it applies.
+  // Injected ENABLED, deliberately. `disabled` would couple application to
+  // fetching — a disabled stylesheet may never be fetched, so neither load nor
+  // error would fire and the promise below would never settle, leaving the
+  // surface blank with no error. Enabled, the fetch always proceeds and the
+  // promise always settles. applyRoleRestrictions() decides application.
   //
   // MUST stay synchronous with the applyRoleRestrictions() call at the end of
-  // this function. A disabled stylesheet may not be fetched at all, so if that
-  // call ever moves behind an await/setTimeout/rAF, neither load nor error
-  // fires, this promise never settles, and the surface silently stays blank.
-  link.disabled = true;
+  // this function: that is the only thing preventing a brief flash of ST
+  // styling in player preview, since the browser cannot paint between two
+  // synchronous statements. If it ever moves behind an await/setTimeout/rAF the
+  // failure is a visible flash — cosmetic, and preferred over the silent blank
+  // surface `disabled` would have produced from the same refactor (D9).
 
   const promise = new Promise(resolve => {
     // Degrade, never fail: a bad href costs styling, not the whole surface.
