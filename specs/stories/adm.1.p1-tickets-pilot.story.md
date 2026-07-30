@@ -263,3 +263,39 @@ Direction pending Imhotep. The SM's working proposal is a per-surface `css/admin
 | 2026-07-30 | 1.1 | Stage A implemented (PR1 `406b6d08`, PR2 `70b8a7ad`). Stage B halted pre-implementation on the `admin-layout.css` CSS-coverage blocker; escalated and confirmed. | Ptah (DEV) |
 
 ## QA Results
+
+### Review — 2026-07-30, Ma'at (Test Architect)
+
+**Gate: PASS (Stage A only)** → `specs/qa/gates/adm.1-stage-a.yml`
+
+**Scope.** Stage A only, on the SM's instruction. Stage B is halted pre-implementation and is not in these PRs; **AC4-18 are not adjudicated**. Story `Status` left at `Approved` — the dev's reasoning for not advancing it is right and QA has not altered it.
+
+**Verdict: Stage A can merge, independently of the Stage B ruling.** PR1 then PR2, in that order; PR2 is stacked on PR1 and must not be retargeted to dev before PR1 lands.
+
+> **Commit provenance.** Reviewed against `aa7e6c40` (what `gh` reported as PR2's head at dispatch). PR2's branch was **rebased mid-review** onto `5dc5cbab` — `aa7e6c40` is not an ancestor of it. Re-verified rather than assumed: `git diff aa7e6c40 5dc5cbab -- public/` is **empty**, so every product file is byte-identical and all code verdicts carry over. The story changed: Stage A AC1-3 unchanged in substance, invariants renumbered **11/12/13 → 19/20/21**, Stage B grew to AC4-18.
+>
+> **Second finding, since resolved:** when Stage A merged, this story on dev was still **Rev 3** while ADR-008 on dev was **Rev 4** (`0d78620b` merged the ADR alone) — the Rev 4 story revisions never reached dev via #1069/#1070. The story was brought to Rev 4 first (#1072) and only then was this gate landed, so it sits beside the numbering it cites. Gate AC verdicts retain **both** numberings deliberately. Stage A verdicts are unaffected either way — AC1-3 are identical in substance in both revisions.
+
+#### Re-derived, not accepted
+
+| Claim | Verdict | Basis |
+|---|---|---|
+| #t-tickets unreachable | **Confirmed** | Checked against the **pre-PR1** tree (`406b6d08^`). No nav entry, no More-grid entry, no hardcoded `goTab('tickets')`, no `NAV_ALIAS` entry. |
+| 31 deleted CSS lines dead | **Confirmed, per-rule** | 29 rule blocks, each comma-group split, word-boundary matched. **0 index-reachable emitters.** |
+| Settings form works | **Confirmed** | Markup `app.js:1737` and wiring `app.js:1799` both intact; PR2 doesn't touch `app.js`. |
+
+**Extension beyond the two prior checks.** A literal `tickets` grep cannot rule out a *generic* router — the one route class three reviewers could all miss the same way. Checked separately: no `hashchange`/`popstate`/`location.hash`/pathname tab routing exists anywhere in `public/js`. The only dynamic call sites interpolate from nav metadata (`MORE_APPS` 18 ids, `NAV_ITEMS` 48 entries — enumerated programmatically, `tickets` in neither) plus `goTab(currentTab)`, which reads `.tab.active` from the DOM at `app.js:1065` and so can only re-enter an already-open tab, never introduce one.
+
+**Line accounting reconciles the declared 31-vs-28:** 1 section comment + 1 `#t-tickets.active` + 28 `.tk-*` rules + 1 trailing blank. Brace balance 1442/1442, independently recomputed.
+
+**The apparent exceptions, resolved.** `admin/tickets-views.js` + `admin-layout.css` are the dual-authoring shape — emitted into `admin.html`, which never loads `suite.css`. `mockups/font-test.html` is fully self-contained (inline `<style>`, no local links). `stk-*` is substring noise, correctly excluded by the word boundary.
+
+#### Invariants (Rev 3 AC11-13 / Rev 4 AC19-21)
+
+D7.1 PASS (inventory names none of the four touched files — caveat: checked against the version at this tip; `write-path-inventory-rev4` is in flight). D7.2 PASS, not triggered (0 additions; the deliberate new call site Rev 4 anticipates belongs to Stage B). No-components.css-promotion PASS. ADR-004 PASS. ADR-007 D8 two-step PASS.
+
+#### Notes
+
+- Boot smoke run **with the API up deliberately**: the harness's BENIGN filter includes `/Failed to load resource/`, broad enough to swallow a 404 — exactly the failure a delete-only change could cause. `benignFiltered: 0` both roles, so the clean result isn't a filter artefact. Static server confirmed 404 on `/js/tabs/tickets-tab.js`.
+- **The dual-authoring finding is corroborated and matters for gating, not just design.** "Is this rule dead?" has a different answer *per document*, and a tree-wide grep cannot express that. A reviewer who greps and finds `tickets-views.js` emitting `.tk-badge` would wrongly conclude the `suite.css` copy is live. Same failure shape as the `.map-*` family-granularity error: the measurement must be scoped to the unit the decision applies to — here the **document**, not the repository. This is worth carrying into AC12, which asks the next dev to derive the `admin-layout.css` count from the tree: that count is also document-scoped.
+- Fourth surface found live-in-source and unreachable-in-fact. The third check was proportionate — but all three of us checked the same *way*. If a fifth instance arises, adding the generic-router check is worth more than a fourth pair of eyes on the same method.
