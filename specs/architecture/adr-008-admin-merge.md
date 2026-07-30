@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 8
+revision: 9
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -25,6 +25,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 9 | 2026-07-30 | Records the Chromium confirmation that the Rev 6 injector hazard was **live, not latent** (sheet never fetched, promise never settled, blank surface, zero console output), with severity bounded honestly — recoverable by toggling back to ST view, which does not make the old shape acceptable. Corrects the record that the proposed guard was never written into the code. Adds a second D8 preamble from James: **a check only produces truth if halting is cheap for the person who runs it** — the executor holds both the cheapest access to a counterexample and the strongest incentive to rationalise it away, so the rules in D8 degrade into rubber stamps under schedule pressure while looking unchanged in the record. Distinguishes 'one cut closes it' from 'one path reaches it' in the leak gate. | Imhotep (Architect) |
 | 8 | 2026-07-30 | Corrects the Rev 6 injector shape, which James found unsafe while implementing it. A `disabled` stylesheet link may never be fetched, so `load`/`error` never fire and a promise awaiting them never settles — the Rev 6 `disabled = true` initial state could leave an ST in player preview with a blank surface and no error. Corrected to inject enabled and let `applyRoleRestrictions()` own application, which removes the dependency instead of guarding it and downgrades the failure mode from silent-and-total to cosmetic. Also fixes the leak gate's docstring (it presented one representative import path as the only one) and adds `--paths`. | Imhotep (Architect) |
 | 7 | 2026-07-30 | Rewords the D9 custom-property precondition after Ma'at ran the negative control the rest of us only reasoned about. Rev 6 stated it as "resolves in `theme.css`", a name-presence test against a *file*; the hazard has a second dimension, *scope*. `admin-layout.css`'s `--ar-*` are declared under `.ar-pending`/`.ar-valid`/`.ar-complete`, not `:root`, so a property declared in a shared sheet under an admin-only selector would pass the stated check and still render unstyled. Correct form: resolves from a **document-agnostic scope** in a sheet both documents load, alias chains followed. Also records that D7.2 is a delta invariant rather than a count. | Imhotep (Architect) |
 | 6 | 2026-07-30 | AC8/D4 restated as **attributable + ratchet** after James found the criterion unmeasurable: `app.js` already statically reaches `admin/downtime-story.js` (~214 KB of ST code) through `story-tab.js:9`, so "zero" is already false and sixteen future passes against it would assert nothing. Adds `specs/qa/harness/admin-leak-gate.py` with a named-set baseline that may only shrink. Adds a D9 precondition — custom properties must resolve in the destination document, since scope separation relocates rules but not the properties they resolve against. Resolves the injector's application-state question to a single composition site. #1075 confirmed as independent debt with one sequencing constraint. | Imhotep (Architect) |
@@ -225,6 +226,16 @@ For CSS specifically, the test is per rule — *could this selector match an ele
 
 **Preamble, added at Rev 5 and governing all five rules below: three checks by the same method are one check.** On Tickets, three people independently ran rule 3 and all three passed it the same way — by grepping for the literal surface name. A literal name-grep *cannot find a generic router by construction*, so those were three correlated passes, not three independent ones, and a fourth reviewer would have bought nothing. When a blind spot is shaped by the method, the marginal value is in a different method, never in more eyes on the same one. Ask what the check you just ran is structurally incapable of seeing, and run something that can.
 
+**Second preamble, added at Rev 9: a check only produces truth if halting is cheap for the person who runs it.**
+
+Every rule below produces findings of one shape — *the work is not done*. And the person best placed to find a counterexample is the one executing the check, who therefore holds both the cheapest access to it **and** the strongest incentive to explain it away. That asymmetry is structural, not a matter of character.
+
+Three specification errors were corrected during ADM P1 — the D5 reachability premise, the D9 property precondition, and the Rev 6 injector shape — each caught by whoever executed the thing that had been specified, and each surfaced as a halt rather than a workaround. That happened because halting was cheap and expected. It is a property of how the work is dispatched, not of anyone's diligence, and it is the load-bearing precondition for everything in this section.
+
+If halting becomes expensive — schedule pressure, a surface count to hit, a reviewer treating a halt as a defect in the work rather than an output of it — these rules do not fail loudly. They degrade into rubber stamps **while continuing to look identical in the record**. That is the same false green this entire ADR is built against, arriving through the process rather than through an instrument.
+
+Operationally, and it is P2's sixteen surfaces where the pressure will come from: **a tripped precondition is the process succeeding.** Say so when it happens. A story that halts on a D9 precondition has done its job better than one that does not.
+
 Five operating rules follow:
 
 - **Enumerate, do not count.** A reachability measurement returns a list. That list is a reviewable checklist, which is worth more than the number ever was. `specs/qa/harness/admin-collision-map.py` is checked in with this ADR and emits the P2 list.
@@ -337,7 +348,11 @@ Note what changed about the failure mode, because it is the general lesson and n
 | Rev 6 shape (`disabled = true`) | blank surface, no error, no console output |
 | Rev 8 shape (inject enabled) | brief flash of ST styling |
 
-**Prefer the mechanism whose failure mode is cosmetic over the one whose failure mode is silent and total.** Rev 6 chose `disabled` because it read as the safer default; it is the more dangerous one, because it couples *application* to *fetching* — the two concerns this decision had just carefully separated. A guard such as `if (link.disabled) return Promise.resolve(false)` would also work and was proposed, but it defends a mechanism that should not be in use.
+**Prefer the mechanism whose failure mode is cosmetic over the one whose failure mode is silent and total.** Rev 6 chose `disabled` because it read as the safer default; it is the more dangerous one, because it couples *application* to *fetching* — the two concerns this decision had just carefully separated. A guard such as `if (link.disabled) return Promise.resolve(false)` would also work and **was proposed in the record but never written into the code** — the developer declined to alter a specified shape while awaiting a ruling, which was correct. Rev 8 is purely the removal of `disabled = true`; there was no guard to delete. It is noted here only because it defends a mechanism that should not be in use.
+
+**Empirically confirmed, Chromium, against the Rev 6/7 shape (Rev 9).** The hazard was live, not latent. ST in player preview, `goTab('tickets')`: tab active, `contentLen` 0, zero rows; the `<link>` injected with `disabled` true; `admin-tickets.css` network responses `[]` — **never fetched**; zero `pageError`s and zero console output. Measured by instrumenting network responses rather than inferred from the blank tab.
+
+*Severity bounded honestly:* from the blank state, toggling back to ST view settled the pending promise and the surface rendered. So the failure was silent and total but **recoverable**, not wedged. That must not be read as making the Rev 6 shape acceptable — a failure a user escapes only by accidentally toggling an unrelated mode is still a silent total failure — and it is recorded because the record should say the true thing rather than the one that makes the decision look better.
 
 This ruling does not depend on resolving what any particular browser does with a disabled link. The corrected shape is correct under either answer, which is why it is preferred to establishing the behaviour and relying on it.
 
