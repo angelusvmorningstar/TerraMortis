@@ -347,35 +347,51 @@ exit 1
 
 Reverted; `app.js` matches `HEAD`. So the gate detects precisely the failure this story would be blamed for, and it caught the exact module in question.
 
-*Procedure warning for anyone repeating this:* I reverted the simulated leak with `git checkout -- public/js/app.js`, which also discarded an **uncommitted** change I had in that file (the note-9 injector edit), and `git status` then read clean — which looks like success. Commit or stash before injecting a simulated failure into a file you are also editing, or revert the injected lines specifically rather than the file. Note the reported path differs from the one I originally traced (`archive-tab.js` rather than `dt-lookup.js`) — consistent with the single-edge finding, since all three importers of `story-tab.js` inherit the leak through the same line and the gate reports whichever it reaches first.
+*Procedure warning for anyone repeating this:* I reverted the simulated leak with `git checkout -- public/js/app.js`, which also discarded an **uncommitted** change I had in that file (the note-9 injector edit), and `git status` then read clean — which looks like success. Commit or stash before injecting a simulated failure into a file you are also editing, or revert the injected lines specifically rather than the file. `--paths` resolves what looked like a discrepancy between my trace (`dt-lookup.js`) and the gate's default output (`archive-tab.js`) — both are real, and they are two of three:
+
+```
+$ python3 specs/qa/harness/admin-leak-gate.py --paths
+  public/js/admin/downtime-story.js  (200 KB)
+     3 static path(s):
+       app.js -> archive-tab.js  -> story-tab.js -> downtime-story.js
+       app.js -> downtime-tab.js -> story-tab.js -> downtime-story.js
+       app.js -> dt-lookup.js    -> story-tab.js -> downtime-story.js
+```
+
+All three converge on `story-tab.js`, so **the join point at `story-tab.js:9` is the only cut that closes the leak** — removing any single importer changes nothing. The default one-representative-path output would have hidden that, which is why `--paths` exists (QA's finding, #1075).
 
 **9. The injector no longer answers a presentation question (Rev 6 correction).**
 
 Superseded my earlier `link.disabled = _viewMode === 'player'`. The objection was correct and better than the one I anticipated: reading `_viewMode` was not a purity problem, it was a **second site computing "should ST presentation apply"**. It agreed with `effectiveRole()` only because `effectiveRole()`'s condition happens to be exactly that comparison; a third role, a dev-preview mode or an impersonation flag would have made them disagree *silently*, surfacing only as wrongly-applied CSS. That is the documented two-views-of-the-same-arithmetic failure mode.
 
-Now:
+Final shape (after the Rev 8 correction in note 10):
 
-- `loadSurfaceSheet` injects with `link.disabled = true` — fail-safe, so ST styling cannot flash into a player preview even for a frame — tags `data-surface-sheet`, and calls `applyRoleRestrictions()`. It reads no view state at all.
+- `loadSurfaceSheet` creates the link, tags `data-surface-sheet`, appends it **enabled**, and calls `applyRoleRestrictions()`. It reads no view state and never writes `disabled`.
 - `applySurfaceSheetVisibility` queries `document.querySelectorAll('[data-surface-sheet]')` rather than the promise cache, so it owns every surface sheet however it arrived.
-- The promise cache now maps `href → promise` directly; the element is no longer needed there.
+- The promise cache maps `href → promise` directly; the element is no longer needed there.
 
-`applyRoleRestrictions` remains the **single** owner of the decision, still reusing the `role` it computes at `:1580`. **Call-site count unchanged: 9 on `dev`, 9 now.** No recursion — `applySurfaceSheetVisibility` does not reach `loadSurfaceSheet`.
+`applyRoleRestrictions` is the **single** owner of the decision, reusing the `role` it computes at `:1580`. Verified: exactly one `disabled` write for surface sheets exists in the file, inside `applySurfaceSheetVisibility`. **Call-site count unchanged: 9 on `dev`, 9 now.** No recursion — `applySurfaceSheetVisibility` does not reach `loadSurfaceSheet`.
 
-**10. RISK INTRODUCED BY THE FAIL-SAFE INJECTION — flagged, not silently accepted.**
+**10. `disabled = true` at injection was CONSIDERED AND SUPERSEDED (Rev 8) — recorded so the reasoning survives, not just its absence.**
 
-Injecting with `disabled = true` interacts with a browser optimisation: **a disabled `<link rel="stylesheet">` may not be fetched at all** (this is the basis of the well-known lazy-CSS trick). If the resource is never fetched, neither `load` nor `error` fires, so `loadSurfaceSheet`'s promise never settles and the `Promise.all` in `initTicketsSurface` never resolves — the tab stays **blank with no error**.
+Rev 6 specified injecting with `link.disabled = true` as a fail-safe, so ST styling could not flash into a player preview. I implemented that, then found a defect in it: **a disabled `<link rel="stylesheet">` may never be fetched at all** (the basis of the lazy-CSS trick). If it is not fetched, neither `load` nor `error` fires, `loadSurfaceSheet`'s promise never settles, the `Promise.all` in `initTicketsSurface` never resolves, and the tab stays **blank with no error**. One live edge followed: a real ST already in player preview passes the `getRole()` authority gate correctly, then gets `disabled = true` from `effectiveRole()`, so the surface could hang.
 
-On the normal path this is safe *only because* `applyRoleRestrictions()` is called synchronously in the same task, so `disabled` flips to `false` before the browser yields and the fetch proceeds. **If anyone later moves that call behind an `await`, `setTimeout` or `requestAnimationFrame`, the surface will silently stop rendering.** Worth a comment guard on that line more than a code change.
+I offered a one-line guard — `if (link.disabled) return Promise.resolve(false);` — and left the design alone pending the Architect.
 
-One live edge remains: a **real ST already in player preview** who opens Tickets passes the `getRole()` authority gate (correctly — `getRole()` is `'st'`), but `applyRoleRestrictions()` then sets `disabled = true` because `effectiveRole()` is `'player'`, so the sheet may never fetch and the promise may never settle — blank tab. Only reachable via a console `goTab('tickets')` today, since the tile is `effectiveRole`-filtered, so no user path hits it.
+**Ruled: drop `disabled` at injection entirely.** The guard was rejected for a better reason than "unnecessary": it **defends a mechanism that should not be in use.** `disabled` couples *application* to *fetching*, which are precisely the two concerns Rev 6 had just separated. Injecting enabled means the fetch always proceeds, so the promise always settles, so the hazard is **gone rather than guarded** — including on the ST-in-preview edge, which now renders unstyled. That is the semantics the guard was reaching for, arrived at without a special case.
 
-I have **not** changed the design to cover this; the injector shape was specified and it is the Architect's call. The minimal fix if wanted is one line — resolve immediately when the sheet is injected disabled, since in player preview the ST sheet must not apply anyway, making the wait pointless:
+No flash results, because `applyRoleRestrictions()` runs synchronously in the same task and the browser cannot paint between two synchronous statements. The fail-safe was protecting against something that cannot happen on the normal path.
 
-```js
-if (link.disabled) return Promise.resolve(false);   // after applyRoleRestrictions()
-```
+**The general rule this produced (now D9), which came out of the ordering worry rather than the defect:** compare what a future refactor that moves `applyRoleRestrictions()` behind an `await`/`setTimeout`/`rAF` costs under each shape —
 
-Browser-dependent and **not testable from this environment**, so it is written as a check for QA rather than a claim: *in player-preview mode, console `goTab('tickets')` — does the tab render, or stay blank?*
+| shape | failure mode of that refactor |
+|---|---|
+| `disabled = true` | blank surface, no error, no console output |
+| inject enabled | brief flash of ST styling |
+
+**Prefer the mechanism whose failure mode is cosmetic over the one whose failure mode is silent and total.** `disabled = true` was chosen because it *read* as the safer default; it was the more dangerous one. The synchronous-ordering comment is kept at the line, since the ordering still matters — now for the no-flash property rather than for settling — and the comment is the only thing protecting it.
+
+**What this ruling does not depend on:** what any browser actually does with a disabled link. The corrected shape is correct under either answer. QA still runs the preview-mode check because the answer is worth knowing — if the fetch does proceed, the hazard was latent rather than live — but no design decision rests on the result.
 
 ### What I could not verify — Ma'at's gate is load-bearing
 
