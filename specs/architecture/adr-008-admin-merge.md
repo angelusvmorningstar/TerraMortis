@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 2
+revision: 4
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -24,9 +24,10 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
-| 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
+| 4 | 2026-07-30 | Adds D9 (a merged surface owns its stylesheet; scope separation as the third resolution class) and extends D4 to presentation, after ADM P1 Stage B could not render: `index.html` never loads `admin-layout.css`, so a moved surface arrives with zero styling and two of AC9's four verbs become invisible. Names the independent-co-authoring shape the ~118-rule enumeration was counting without distinguishing. Records the `_viewMode` co-render precondition and the getRole/effectiveRole double gate. Reframes P2 from sixteen collision negotiations to sixteen mechanical extractions. | Imhotep (Architect) |
 | 3 | 2026-07-29 | Adds D8 operating rule 4 (measure at the granularity of the decision; treat your own first number as a hypothesis), after Khepri's entry-path sweep of all 17 admin surfaces and 33 player tabs. Sweep result: every admin surface is live, so P1 does not shrink; two player tabs are dead, `t-tickets` (already handled by D5a) and `t-map`, a fourth instance of the pattern. The sweep also produced two first-pass false positives that its author caught by re-deriving, which is the finding rule 4 records. `t-map` is deliberately NOT absorbed into this epic; see the note under Phase sequencing. | Imhotep (Architect) |
 | 2 | 2026-07-29 | D5's reason 1 corrected and D5a added, after Khepri (SM) ran a reachability check at story-drafting time and found the player-side Tickets tab is dead code. This was the count-for-reachability pattern recurring a third time, inside the ADR that locks D8 against it: D5 cited a static import and a dispatcher call site as evidence a surface was live. Tickets remains the pilot and the discovery improves it (see D5). Adds a third operating rule to D8 making the reachability check routine at drafting time. | Imhotep (Architect) |
+| 1 | 2026-07-29 | Initial. Re-scopes the epic around the admin merge after USF was stopped. Supersedes ADR-007 D9-D15. Locks D1-D8. | Imhotep (Architect) |
 
 ## Context
 
@@ -49,11 +50,13 @@ A count is a proxy. The obstacle is whatever a reachability measurement returns.
 
 A decomposition whose phases complete cleanly but produce nothing the commissioner can open and see is different will be read as progress toward the goal while not moving it. Competent execution makes this worse, because clean completions look like momentum. This is why the admin merge is **one epic** below and not three.
 
-### D9 re-tested
+### ADR-007 D9 re-tested
+
+*(ADR-007's D9, the deferral. Not to be confused with this ADR's D9 below.)*
 
 Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
 
-**All three of D9's factual claims are confirmed.** `admin-layout.css` is 2,501 rules / 2,686 single selectors (D9 said ~2,472). Its definition overlap with `components.css` is 4 keys. And admin genuinely does not consume the design system, now measured directly rather than inferred from overlap:
+**All three of ADR-007 D9's factual claims are confirmed.** `admin-layout.css` is 2,501 rules / 2,686 single selectors (D9 said ~2,472). Its definition overlap with `components.css` is 4 keys. And admin genuinely does not consume the design system, now measured directly rather than inferred from overlap:
 
 | Design-system adoption | components.css classes emitted |
 |---|---|
@@ -79,7 +82,7 @@ The exposure is small because the two class vocabularies barely intersect. Admin
 
 All figures in this section are reproducible with `python3 specs/qa/harness/admin-collision-map.py`, checked in with this ADR. Its docstring carries the method limits; D8 explains why they live there rather than here.
 
-So D9 deferred the merge on a CSS obstacle of ~118 enumerable rules while stating it as 2,686. Roughly twenty-fold.
+So ADR-007 D9 deferred the merge on a CSS obstacle of ~118 enumerable rules while stating it as 2,686. Roughly twenty-fold.
 
 **D9's other two reasons are not withdrawn.** Reason 2 (the ST editor is the highest-consequence write path and should not be churned inside an epic already churning that cascade) stands and shapes the phase order below. Reason 3 (the expensive half already happened) is confirmed: `admin.js` and `app.js` share 23 modules including all of `data/` and the `editor/` core.
 
@@ -139,6 +142,8 @@ Rejected: CSS-first. It is the ordering that feels safer and is not. It defers t
 - `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1. They are 67% of the weight and they sit on the D7 write path, so they carry both risks at once and should land when the pattern is proven rather than while it is being established.
 
 Rejected: a build step or bundler to solve this. It would be the largest new piece of infrastructure this project has taken on, to solve a problem `import()` solves natively, in a codebase whose stated architecture is "no build step, no router, no framework".
+
+**Rev 4 extension: code-splitting covers presentation, not only modules.** A surface that loads its own JavaScript must load its own CSS. Stylesheet linking is per *document*, and the two documents link disjoint app sheets — `index.html` takes `theme/layout/components/suite` and never `admin-layout.css`; `admin.html` takes `theme/components/admin-layout` and never `suite.css`. So moving a surface's module across a document boundary moves its behaviour and leaves its appearance behind. See D9.
 
 ### D5: P1 opens with one surface, end to end, and that surface is Tickets. (locks)
 
@@ -213,6 +218,43 @@ Two operating rules follow:
   So the rule is not "enumerate instead of counting" alone. It is: **the measurement's granularity must match the granularity of what you are about to do.** If the action is per-rule, the evidence must be per-rule.
 
   The operating half is a habit rather than a technique. A first-pass measurement is a hypothesis, and the person who produced it is the one best placed to falsify it before anyone acts on it. Both false positives in the 2026-07-29 sweep — a default-routed admin domain flagged as unrouted, and the eleven-rules figure — were caught by their own author re-deriving before reporting. That is the discipline working, and it is worth more than any of the individual findings.
+
+### D9: A merged surface owns its stylesheet. Scope separation is the third resolution class. (locks)
+
+Added at Rev 4, after ADM P1 Stage B could not render. The finding that forced it is worth stating before the decision, because it generalises past Tickets.
+
+**The problem is coverage, not collision.** After Stage A correctly deleted the 10 `.tk-*` rules that `suite.css` and `admin-layout.css` both defined, the merged Tickets surface in `index.html` had **zero** of its definable classes styled, because `index.html` never loads `admin-layout.css`. This is not cosmetic: three of the missing rules *are* the interaction state, and all three exist only in `admin-layout.css` — `.tk-filter-btn-on` (the only signal of which filter is active), `.tk-admin-row-expanded` (the only signal of which row is expanded), and `.tk-admin-split` (`display:grid`, without which both queue panels stack). Verified: each is defined once, in `admin-layout.css`, and nowhere else. AC9 requires an ST to list, **filter**, **expand** and edit; two of those four become invisible. A functional failure, reached through CSS alone.
+
+**The shape underneath is independent co-authoring, and ADR-008 has been counting it without naming it.** `suite.css` and `admin-layout.css` independently authored the same class names with different values, one per document. Neither is "the duplicate", so there is no obviously-correct copy to delete. The ~118-rule enumeration in Context counts this shape; the framing of P2 as "reconcile collisions" presumes one side is canonical and does not hold for it.
+
+**Three resolution classes, and the third is new:**
+
+1. **Reconcile** (ADR-007 D5 corollary 1) — one component, two copies. Keep one. Presumes a canonical side.
+2. **Rename** (ADR-007 D13) — two components sharing a name that **must coexist** in one document. Give one its own name.
+3. **Scope separation** (this decision) — two components sharing a name that **need not coexist**, because they are role-gated and never render together. Load them apart. No rename, no reconciliation, no rule edited.
+
+The third is available here precisely because these surfaces are role-exclusive, and it is the cheapest of the three: it edits no declarations and makes no design judgement. **For role-exclusive surfaces it is the preferred resolution.**
+
+**The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
+
+Static links from `index.html` were also rejected in favour of injection: they would ship ST CSS to every player. That does not breach D4's module-fetch criterion, but it breaches its intent. **Zero ST presentation reaches a player, not merely zero ST JavaScript.**
+
+**The precondition, and the one place it fails.** Scope separation is sound only where the two surfaces cannot co-render. This codebase has exactly one violation: the `_viewMode` ST-preview toggle (`app.js:1777-1779`). An ST who opens an admin surface, injecting its sheet, and then toggles to player preview would keep admin rules applied to player markup. It is moot for Tickets (the player copy is dead, per D5a) and live for the other fifteen.
+
+Therefore the injected sheet is **gated in both directions, and the two gates are different**, which is ADR-007 D3 applied to presentation:
+
+- **Injection gates on `getRole()`** — authority. Should this session ever load this sheet?
+- **Application gates on `effectiveRole()`** — presentation. Should it apply right now? Enforced by toggling `link.disabled` inside `applyRoleRestrictions()`, which is already idempotent and already runs on boot, on view toggle and on role-affecting state changes.
+
+That D3's read/write-versus-visibility split lands cleanly on fetch-versus-apply is a check on the design rather than a coincidence. Retracting by `disabled` rather than removing the element avoids a refetch on every toggle.
+
+**Consequence for P2, which is the larger half of this decision.** P2 was framed as sixteen collision negotiations. For role-exclusive surfaces it becomes sixteen mechanical extractions, and the independent-co-authoring problem largely dissolves because each surface's rules live in a namespace that only loads with it. Reconciliation and rename remain for whatever genuinely coexists after the merge; that set is expected to be small, and it must be **measured per surface rather than assumed** (D8 rule 4).
+
+Do not pre-emptively design for sixteen sheets. Land one, for Tickets. If surfaces two through four show the extraction is mechanical, the pattern is proven; if they do not, that is learned at a cost of three surfaces. With no build step, a stylesheet that never loads costs nothing, and whether the files are later concatenated is a packaging decision, not an architectural one.
+
+`admin.html` static-links the extracted sheet while it still exists; `index.html` injects it. The asymmetry is transitional and ends at P3 when `admin.html` is retired.
+
+**Mechanism or scaffolding under D2.** The injection helper is **mechanism**. Khepri's proposed line — a helper called from within a surface's own load path is mechanism, one landed as its own story is scaffolding — reaches the right answer, and the criterion underneath it is D2 itself: *does the story that lands the helper also deliver something openable?* The helper arriving inside the Tickets slice, used by Tickets, ships with a working surface. The same helper landed as "add CSS injection infrastructure", with no surface attached, is the trap. Judge the story, not the file.
 
 ## Phase sequencing
 
