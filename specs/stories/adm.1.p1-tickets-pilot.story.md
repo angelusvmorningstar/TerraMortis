@@ -47,9 +47,9 @@ Lands before Stage B. The admin view must never be introduced alongside a dead r
 
 ## Tasks / Subtasks
 
-- [ ] **Stage A PR1 — dereference** (AC: 1)
-- [ ] **Stage A PR2 — delete** (AC: 2, 3)
-  - [ ] Confirm by word-boundary check that no surviving `.tk-*` emitter exists outside `tickets-tab.js` before deleting the 28 rules.
+- [x] **Stage A PR1 — dereference** (AC: 1)
+- [x] **Stage A PR2 — delete** (AC: 2, 3)
+  - [x] Confirm by word-boundary check that no surviving `.tk-*` emitter exists outside `tickets-tab.js` before deleting the 28 rules.
 - [ ] **Stage B — nav entry + gated dynamic import** (AC: 4, 5, 6, 7)
 - [ ] **Stage B — verify** (AC: 8, 9, 10)
   - [ ] Network panel, player session: zero `public/js/admin/` requests.
@@ -117,12 +117,95 @@ No unit framework. Verify in-browser:
 
 ## Dev Agent Record
 
+**Scope of this record: Stage A only.** Stage B is halted before implementation, not attempted and not partially done — see "Stage B halted" below. Story `Status` is deliberately left at `Approved` rather than advanced to `Ready for Review`, because advancing it would signal whole-story completion when only Stage A exists. Stage A is independently correct and independently mergeable; Ma'at gates it now on Khepri's instruction (2026-07-30).
+
 ### Agent Model Used
+
+Ptah (DEV) — claude-opus-5
 
 ### Debug Log References
 
+Branches (stacked off pushed `origin/piatra/issue-1068-adm-p1-tickets`; neither pushed at time of writing):
+
+| Branch | Commit | Content |
+|--------|--------|---------|
+| `piatra/issue-1068-adm-p1-tickets-pr1` | `406b6d08` | Stage A PR1 — dereference |
+| `piatra/issue-1068-adm-p1-tickets-pr2` | `70b8a7ad` | Stage A PR2 — delete (stacked on PR1) |
+
+Worked in a dedicated worktree at `/private/tmp/tm-ptah/adm1-pr1`. The main checkout advanced mid-session (Imhotep committing on `piatra/write-path-inventory-rev4`); it was never touched by this work. Three git-status checkpoints run per dispatch (branch creation, pre-staging, pre-commit).
+
+Stacked sub-branches rather than the story branch itself: the story branch was checked out in the SM's worktree, so git refuses a second worktree on it. Two PRs required two branches regardless. Adaptation confirmed correct by Khepri.
+
 ### Completion Notes List
 
+**1. Word-boundary check re-run independently (AC2 subtask).** Not taken on the SM's assertion. Result confirms the `#stk-*` substring-noise diagnosis and is *stronger* than the story states: after PR2, `app.js` contains **zero** word-boundary `tk-` tokens. Every apparent `.tk-*` use in it was substring noise from the Settings form's `#stk-*` IDs (`stk-body` contains `tk-body`). Post-PR2 sweep of `renderTicketsTab`, `tickets-tab`, `t-tickets` and word-boundary `tk-` across `public/` returns empty.
+
+**2. AC3 verified — Settings ticket-submit form unaffected.** Now at `app.js:1807` (was `:1812`; shifted by PR1's 5-line deletion). Addresses only `#stk-*` IDs, carries no `.tk-*` class, `POST /api/tickets` still wired. Untouched by both PRs.
+
+**3. DECLARED SCOPE ADDITION — 31 lines removed from `suite.css`, not 28.** The story specifies 28 dead `.tk-*` rules. The `suite.css` "Tickets tab (css-3)" section also contained a `#t-tickets.active` rule (pre-edit line 1589) and its section comment. PR2 removes the whole section: section comment + `#t-tickets.active` + the 28 `.tk-*` rules = 31 lines including the trailing blank. Justification: `#t-tickets.active` styles an id whose element is deleted in this same PR, so leaving it would leave a rule for an element that no longer exists — the precise condition ADR-007 D8 exists to prevent. Declared here rather than left for QA to discover as an unexplained 31-vs-28 discrepancy. **Approved by Khepri (SM) 2026-07-30.** Brace balance verified (1442/1442) and section spacing preserved after the cut.
+
+**4. Deliberately not done.** No "dynamic import scaffolding" commit, helper module, or story (ADR-008 D2). No `components.css` promotion and no rule promoted anywhere (AC13). No `effectiveRole()` call site added (D7.2 not triggered). No write-path inventory entry touched (D7.1 not triggered). #1067 (`t-map`) **not** folded into PR1 despite the ADR-008 Rev 3 carve-out permitting it: PR1 merges without Peter review, which is the wrong vehicle for an out-of-epic change. Left standalone; endorsed by Khepri.
+
+**5. MECHANISM FINDING — independent dual authoring, not duplication.** `suite.css` and `admin-layout.css` **independently define the same 10 class names** that `admin/tickets-views.js` emits — `tk-badge`, `tk-input`, `tk-select`, `tk-textarea`, `tk-form-row`, `tk-form-label`, `tk-submit-form`, `tk-btn-submit`, `tk-empty`, `tk-error` — with different values, one set per document.
+
+This is a different and worse shape than a duplicated rule. **Neither copy is "the duplicate"**, so there is no obviously-correct one to delete: each was authored independently for its own document and is correct within it. The two authorings only collide when the documents merge. ADR-008's ~118-rule collision enumeration counts this shape but does not distinguish it, and the distinction is what makes it dangerous — a collision audit that reports a count invites "delete the duplicate", which is not a well-defined operation here.
+
+This is why Stage A precedes Stage B and why the deletion is load-bearing rather than tidying: left in place, `suite.css`'s **player-authored** values would land on **admin markup** the moment the documents merge, producing a rendering fault whose cause is two-candidate. Expect this shape on the remaining 16 surfaces.
+
+**6. Stage A did not stall on the Stage B blocker.** Every resolution path to the Stage B CSS question still deletes these 10 `suite.css` definitions, so the deletion is unconditionally correct and Stage A shipped while the blocker was escalated.
+
+### Stage B halted — not implemented
+
+Halted before any implementation, on the ADR-008 escalation condition covering `admin-layout.css`'s 47 `.tk-*` rules. Escalated to Khepri (SM), who verified the claim independently and referred the CSS pattern question to Imhotep (architect) because it sets precedent for all 16 remaining surfaces. **Halt confirmed correct by SM.**
+
+The story's Dev Notes assert Stage B "renders correctly by loading what exists". It does not, because **stylesheet linking is per-document**:
+
+- `index.html` links `theme.css`, `layout.css`, `components.css`, `suite.css` — **never** `admin-layout.css`
+- `admin.html` links `theme.css`, `components.css`, `admin-layout.css` — **never** `suite.css`
+
+`admin/tickets-views.js` emits 37 distinct `tk-` tokens (36 real + one `tk-badge-${status}` template prefix):
+
+| Count | Where defined | Consequence in `index.html` |
+|-------|---------------|------------------------------|
+| 10 | `suite.css` **and** `admin-layout.css`, independently | correctly deleted from `suite.css` in PR2 |
+| 20 | `admin-layout.css` only | `index.html` never loads it |
+| 6 | `tk-adm-*` — nowhere at all | pre-existing; see below |
+
+After Stage A the merged surface would have **0 of 30** definable classes styled.
+
+**This blocks AC9 functionally, not cosmetically.** Interaction state in this surface is conveyed by CSS alone:
+
+- `tickets-views.js:138` — `const on = f === activeFilter ? ' tk-filter-btn-on' : ''`; `admin-layout.css:3998` is the *only* signal of which filter is active
+- `tickets-views.js:185` — `const rowClass = isExpanded ? ' tk-admin-row-expanded' : ''`; `admin-layout.css:4002` is the *only* signal of which row is expanded
+- `tickets-views.js:47` — `tk-admin-split` is `display: grid; grid-template-columns: 1fr 1fr` (`admin-layout.css:3972`); without it both panels stack full-width
+
+So AC9's "list, **filter**, **expand** and edit" is not satisfiable: filter-active and expanded-row become invisible to the ST. AC4–AC8 and the loading pattern itself are unaffected — the pattern is sound, only its rendering is unresolved. If the ruling is "CSS is P2, re-scope", AC9 requires rewording before Stage B can pass.
+
+Direction pending Imhotep. The SM's working proposal is a per-surface `css/admin-tickets.css` whose `<link>` is injected idempotently by the dynamic-import path under the same `getRole()` gate, so zero ST CSS (not merely zero ST JavaScript) reaches a player.
+
+### Out of scope — filed separately, not folded in
+
+6 `tk-adm-*` classes (`tk-adm-body`, `tk-adm-error`, `tk-adm-inner`, `tk-adm-submit`, `tk-adm-title`, `tk-adm-type`) are defined in **no stylesheet at all**, including for `admin.html`. The current ST Tickets surface therefore has 6 unstyled classes in production today. Pre-existing defect, unrelated to this story; Khepri is filing it separately. Explicitly **not** folded in.
+
 ### File List
+
+**Modified**
+
+- `public/js/app.js` — PR1: removed `renderTicketsTab` import (`:74`) and the `if (t === 'tickets')` dispatcher branch (`:524`). 5 deletions.
+- `public/index.html` — PR2: removed `<div id="t-tickets" class="tab">` (`:368`). 1 deletion.
+- `public/css/suite.css` — PR2: removed the entire "Tickets tab (css-3)" section — section comment, `#t-tickets.active`, and the 28 dead `.tk-*` rules. 31 deletions (see Completion Note 3).
+- `specs/stories/adm.1.p1-tickets-pilot.story.md` — this record; Stage A task checkboxes.
+
+**Deleted**
+
+- `public/js/tabs/tickets-tab.js` — 217 lines. Fully unreferenced after PR1.
+
+**Net:** 249 deletions, zero additions across Stage A. No file created.
+
+### Change Log addendum
+
+| Date | Version | Description | Author |
+|------|---------|-------------|--------|
+| 2026-07-30 | 1.1 | Stage A implemented (PR1 `406b6d08`, PR2 `70b8a7ad`). Stage B halted pre-implementation on the `admin-layout.css` CSS-coverage blocker; escalated and confirmed. | Ptah (DEV) |
 
 ## QA Results
