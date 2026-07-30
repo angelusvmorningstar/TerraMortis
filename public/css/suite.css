@@ -1585,37 +1585,6 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .arc-detail-body { margin-top: 8px; font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.6; }
 .arc-retired { padding: 0 0 16px; }
 
-/* ── Tickets tab (css-3) ── */
-#t-tickets.active { display: flex; flex-direction: column; overflow-y: auto; }
-.tk-layout { display: flex; flex-direction: column; gap: 16px; padding: 16px 16px 80px; }
-.tk-submit-form { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; padding: 16px; }
-.tk-submit-form h4 { font-family: var(--fl); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
-.tk-form-row { margin-bottom: 10px; }
-.tk-form-label { display: block; font-family: var(--fl); font-size: 11px; color: var(--txt3); margin-bottom: 4px; letter-spacing: .06em; }
-.tk-select,.tk-input { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); padding: 8px 10px; font-family: var(--ft); font-size: 13px; box-sizing: border-box; }
-.tk-textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); padding: 8px 10px; font-family: var(--ft); font-size: 13px; box-sizing: border-box; resize: vertical; min-height: 80px; }
-.tk-btn-submit,.tk-btn-save { background: none; border: 1px solid var(--accent); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; padding: 10px 18px; border-radius: 4px; cursor: pointer; margin-top: 6px; min-height: 44px; }
-.tk-btn-submit:hover,.tk-btn-save:hover { background: var(--accent-a8); }
-.tk-error,.tk-edit-error { color: var(--crim); font-size: 12px; margin-top: 6px; }
-.tk-list { display: flex; flex-direction: column; gap: 8px; }
-.tk-item { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; padding: 12px 14px; }
-.tk-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-.tk-item-title { font-family: var(--fl); font-weight: 700; font-size: 13px; color: var(--txt); flex: 1; }
-.tk-item-meta,.tk-item-body,.tk-item-body-full { font-size: 12px; color: var(--txt2); line-height: 1.5; }
-.tk-item-body-full { font-size: 13px; white-space: pre-wrap; margin-top: 8px; }
-.tk-empty { color: var(--txt3); font-style: italic; font-family: var(--ft); font-size: 13px; padding: 20px 0; }
-.tk-badge { font-family: var(--fl); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
-.tk-badge-open { background: var(--accent-a8); color: var(--accent); border: 1px solid var(--accent-a25); }
-.tk-badge-closed,.tk-badge-other { background: var(--surf3); color: var(--txt3); border: 1px solid var(--bdr); }
-.tk-badge-resolved { background: var(--green-dk-bg); color: var(--green-dk); border: 1px solid var(--green-dk-bdr); }
-.tk-badge-bug { background: var(--crim-a8); color: var(--crim); border: 1px solid var(--crim-a25); }
-.tk-badge-feature,.tk-badge-question,.tk-badge-sheet,.tk-badge-in_progress { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr2); }
-.tk-detail { border-top: 1px solid var(--bdr); padding-top: 12px; margin-top: 8px; }
-.tk-item-chevron { font-size: 13px; color: var(--txt3); margin-left: auto; }
-.tk-item-expanded { border-color: var(--accent); }
-.tk-item-toggle:hover .tk-item-title { color: var(--accent); }
-.tk-edit-hint { font-family: var(--fl); font-size: 10px; letter-spacing: .04em; color: var(--accent); opacity: .6; }
-
 /* ── Tab display and padding baseline (css-4) ── */
 /* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
 #t-status.active,#t-downtime.active,#t-feeding.active,
