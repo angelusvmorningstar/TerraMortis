@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 10
+revision: 11
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 11 | 2026-07-30 | Corrects D10's documented invocation, which passed vacuously. `--touches` diffs the working tree against the ref, so the bare `<ref>` form — copied from Rev 10 into a story and a dispatch and run as `--touches <own-branch>` — produced a zero-line diff, printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 unexamined lines. Now documented as `--touches origin/dev` with the reason attached, and the tool refuses an empty diff with exit 2 rather than passing it. Notable for its shape: the failure required no carelessness, it was produced by following the instructions. Adds a commit-before-negative-control warning to both gate harnesses, after a revert step destroyed uncommitted work while leaving `git status` clean. | Imhotep (Architect) |
 | 10 | 2026-07-30 | Adds D8 rule 6 — **a caveat that does not travel with the number it qualifies is decoration** — after two instances a week apart by different authors, each of whom wrote the correct limitation and then published a figure that reads as unqualified because the two sat in different paragraphs. Adds **D10**: a fix may ship ahead of its gate only when it cannot alter what is persisted; the criterion is display-only, not diff size, and it is established by `write-path-inventory.py --touches` rather than judged. Also carries forward the stranded ADR-007 Rev 4 write-path generator, which had never reached `dev`. | Imhotep (Architect) |
 | 9 | 2026-07-30 | Records the Chromium confirmation that the Rev 6 injector hazard was **live, not latent** (sheet never fetched, promise never settled, blank surface, zero console output), with severity bounded honestly — recoverable by toggling back to ST view, which does not make the old shape acceptable. Corrects the record that the proposed guard was never written into the code. Adds a second D8 preamble from James: **a check only produces truth if halting is cheap for the person who runs it** — the executor holds both the cheapest access to a counterexample and the strongest incentive to rationalise it away, so the rules in D8 degrade into rubber stamps under schedule pressure while looking unchanged in the record. Distinguishes 'one cut closes it' from 'one path reaches it' in the leak gate. | Imhotep (Architect) |
 | 8 | 2026-07-30 | Corrects the Rev 6 injector shape, which James found unsafe while implementing it. A `disabled` stylesheet link may never be fetched, so `load`/`error` never fire and a promise awaiting them never settles — the Rev 6 `disabled = true` initial state could leave an ST in player preview with a blank surface and no error. Corrected to inject enabled and let `applyRoleRestrictions()` own application, which removes the dependency instead of guarding it and downgrades the failure mode from silent-and-total to cosmetic. Also fixes the leak gate's docstring (it presented one representative import path as the only one) and adds `--paths`. | Imhotep (Architect) |
@@ -380,7 +381,19 @@ Added at Rev 10, after a player-blocking defect was shipped ahead of QA on the S
 
 The property that actually bounds the risk is **display-only**: can this change alter what is *persisted*, or only what is *displayed*? Character sheets and downtime submissions are lost through write paths (ADR-007 D7); a change that provably cannot reach one cannot lose them, whatever its size.
 
-This is **established, not asserted**. `write-path-inventory.py --touches <ref>` intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
+This is **established, not asserted**:
+
+```
+python3 specs/qa/harness/write-path-inventory.py --touches origin/dev
+```
+
+It intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required; exit 2 means the invocation examined nothing. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
+
+**Always `--touches origin/dev`, the branch point — never your own branch and never `HEAD` (Rev 11).** The mode diffs the *working tree* against the ref, so passing the branch you are standing on produces a zero-line diff that examines nothing. Rev 10 documented the bare form `--touches <ref>`, and that form was copied into a story and a dispatch and run as `--touches <own-branch>`, where it printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 lines of unexamined change.
+
+That failure deserves stating rather than quietly fixing, because of its shape: **it does not require anyone to be careless — it is produced by following the instructions.** The vacuous pass is textually identical to a real one, and it propagates to every story that copies the documented invocation. It is D8 rule 6 applied to an *instruction* rather than to a number: the bare form is what travels, so the reason must be attached to it.
+
+The tool now refuses an empty diff with exit 2 and names the likely cause, rather than printing a pass. That is D9's cosmetic-over-silent preference applied to the harness itself: a loud operator error in place of a silent vacuous green.
 
 Two limits, both load-bearing:
 
