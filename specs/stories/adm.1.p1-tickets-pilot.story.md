@@ -1,6 +1,6 @@
 ---
 epic: ADM (#1064)
-adr: ADR-008 D4/D5/D5a (Rev 3)
+adr: ADR-008 D4/D5/D5a/D9 (Rev 4)
 phase: 1
 slice: Tickets (pilot)
 issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/1068
@@ -26,7 +26,7 @@ Approved
 Lands before Stage B. The admin view must never be introduced alongside a dead renderer for the same surface — that ambiguity is what D8 exists to prevent.
 
 1. **PR1 (dereference):** the `app.js:74` import of `renderTicketsTab` and the `app.js:524` `if (t === 'tickets')` branch are removed.
-2. **PR2 (delete):** `public/js/tabs/tickets-tab.js`, the `#t-tickets` div at `index.html:368`, and the 28 dead `.tk-*` rules in `suite.css` are deleted.
+2. **PR2 (delete):** `public/js/tabs/tickets-tab.js`, the `#t-tickets` div at `index.html:368`, and the dead `.tk-*` rules in `suite.css` are deleted. *(Delivered as 31 lines, not 28 — the block also held a `#t-tickets.active` rule whose element dies in the same PR. Declared as a scope addition in the Dev Agent Record.)*
 3. The Settings ticket-submit form is **unaffected** (`app.js:1812`, `POST /api/tickets`). It is the live player-side ticket path and uses no `.tk-*` class.
 
 ### Stage B — merge the surface
@@ -54,9 +54,9 @@ Added by Rev 4 after Stage A established that the merged surface has **zero** of
 
 ### Invariants
 
-11. **D7.1** — no write-path inventory entry is touched. A diff touching one is the ADR-007 D7 escalation, not a judgement call.
-12. **D7.2** — every new `effectiveRole()` call site is a review stop.
-13. No `components.css` promotion in this story. Tickets carries zero collisions after Stage A.
+19. **D7.1** — no write-path inventory entry is touched. A diff touching one is the ADR-007 D7 escalation, not a judgement call.
+20. **D7.2** — every new `effectiveRole()` call site is a review stop. Note AC15 adds one deliberately, inside `applyRoleRestrictions()`; that one is the design and is reviewed as such. Any *other* new call site is the escalation.
+21. No `components.css` promotion in this story. Scope separation (D9) is not promotion — the rules move to a private per-surface sheet, not into the shared lib, and Tickets carries zero collisions after Stage A.
 
 ## Tasks / Subtasks
 
