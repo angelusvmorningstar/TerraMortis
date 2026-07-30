@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 5
+revision: 6
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -12,6 +12,7 @@ related:
   - specs/architecture/adr-004-st-mods-overlay.md (Rev 4, single applyStMods composition site)
   - specs/architecture/adr-006-defence-penalty-readpath.md (render-path orchestrator discipline)
   - specs/qa/harness/admin-collision-map.py (the P2 checklist, checked in with this ADR)
+  - specs/qa/harness/admin-leak-gate.py (D4 attributability gate, Rev 6)
   - specs/qa/harness/css-overlap.py (retained as a one-number regression check)
   - public/admin.html (the entry this epic retires)
   - public/js/app.js:150-152 (effectiveRole), :1483-1524 (applyRoleRestrictions)
@@ -24,6 +25,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 6 | 2026-07-30 | AC8/D4 restated as **attributable + ratchet** after James found the criterion unmeasurable: `app.js` already statically reaches `admin/downtime-story.js` (~214 KB of ST code) through `story-tab.js:9`, so "zero" is already false and sixteen future passes against it would assert nothing. Adds `specs/qa/harness/admin-leak-gate.py` with a named-set baseline that may only shrink. Adds a D9 precondition — custom properties must resolve in the destination document, since scope separation relocates rules but not the properties they resolve against. Resolves the injector's application-state question to a single composition site. #1075 confirmed as independent debt with one sequencing constraint. | Imhotep (Architect) |
 | 5 | 2026-07-30 | Two additions from Ma'at's Stage A gate, both class errors in the method D8 prescribes rather than gaps in diligence. Adds a D8 preamble — **three checks by the same method are one check** — after three people passed rule 3 by the same name-grep, which cannot find a generic router by construction. Gives rule 3 an explicit second half (enumerate nav metadata programmatically; rule out the routing class separately; trace dynamic dispatch to source). Adds **rule 5: match the scope**, since for CSS the decision unit is the document and a tree-wide search cannot express per-document deadness at any granularity — a false red that would have blocked a correct deletion. Settles the 47-vs-48 counting convention (blocks is the extraction unit; 0 mixed comma groups). Records in D5a that the D8 two-step protected a real intermediate state. | Imhotep (Architect) |
 | 4 | 2026-07-30 | Adds D9 (a merged surface owns its stylesheet; scope separation as the third resolution class) and extends D4 to presentation, after ADM P1 Stage B could not render: `index.html` never loads `admin-layout.css`, so a moved surface arrives with zero styling and two of AC9's four verbs become invisible. Names the independent-co-authoring shape the ~118-rule enumeration was counting without distinguishing. Records the `_viewMode` co-render precondition and the getRole/effectiveRole double gate. Reframes P2 from sixteen collision negotiations to sixteen mechanical extractions. | Imhotep (Architect) |
 | 3 | 2026-07-29 | Adds D8 operating rule 4 (measure at the granularity of the decision; treat your own first number as a hypothesis), after Khepri's entry-path sweep of all 17 admin surfaces and 33 player tabs. Sweep result: every admin surface is live, so P1 does not shrink; two player tabs are dead, `t-tickets` (already handled by D5a) and `t-map`, a fourth instance of the pattern. The sweep also produced two first-pass false positives that its author caught by re-deriving, which is the finding rule 4 records. `t-map` is deliberately NOT absorbed into this epic; see the note under Phase sequencing. | Imhotep (Architect) |
@@ -139,7 +141,19 @@ Rejected: CSS-first. It is the ordering that feels safer and is not. It defers t
 
 `applyRoleRestrictions()` (`app.js:1483`) already knows the role and is already idempotent. Admin modules load through dynamic `import()` at the point of use, gated on `getRole()`, **not** `effectiveRole()` (see D7).
 
-- A player session must never fetch a module from `public/js/admin/`. This is a network-panel check, not an assertion in code, and it is the acceptance criterion for every phase that moves a surface across.
+- **The criterion is attributable-plus-ratchet, not zero (Rev 6).** "A player session fetches zero modules from `public/js/admin/`" was the original wording and it is *unmeasurable*, because it is already false. `public/js/app.js` statically imports its way into admin code today through a chain nobody placed deliberately:
+
+  `app.js` → `tabs/archive-tab.js` (also `tabs/downtime-tab.js`, `game/dt-lookup.js`) → `tabs/story-tab.js:9` → `admin/downtime-story.js` (200 KB) → `admin/downtime-constants.js` (14 KB)
+
+  ~214 KB of ST-only code (`downtime-story.js` imports `isSTRole`) shipped to every player session. A reviewer checking "zero" sees two modules and cannot distinguish expected legacy from new regression, so sixteen future passes would assert nothing. **A gate that cannot fail meaningfully is worse than no gate** — the same defect this project found in `usf-smoke.mjs`, one level up. Restated:
+
+  1. **Attributable.** No admin module may become statically reachable from the player entry *because of a merged surface*. A moved surface reaches its module through dynamic `import()` only.
+  2. **Ratchet.** The set of leaked modules may shrink, never grow. The baseline is a **named set**, not a count — a count of 2 would let a different leak silently substitute for a fixed one.
+
+  Machine-checked by `specs/qa/harness/admin-leak-gate.py --check`, with the baseline in `admin-leak-baseline.json`. `--bless` refuses to record a larger set, so the only sanctioned direction is down. The gate does not follow `import()` by design: dynamic import is the sanctioned path, and a gate that flagged it would fire on every correct migration.
+
+  The baseline lives in the generated artefact rather than in this prose, per the ADR-007 D7 Rev 4 lesson: a hand-maintained list of a moving target decays silently and is worse than none, because reviewers trust it.
+- The legacy leak is tracked as **#1075**, independent debt rather than a P1 prerequisite. It is a live user-facing performance bug today — 214 KB on player phones, unrelated to the merge — and holding the pilot for it would be the D2 non-delivering-part trap, on a frozen-write-path file this ADR sequences last. **One sequencing constraint:** it must land before or with the downtime surfaces move, since that is when the same file is opened. The chokepoint is a *single edge*, `story-tab.js:9`, importing one function (`compilePushOutcome`); three modules import `story-tab.js`, but cutting that one edge closes the leak for all of them.
 - `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1. They are 67% of the weight and they sit on the D7 write path, so they carry both risks at once and should land when the pattern is proven rather than while it is being established.
 
 Rejected: a build step or bundler to solve this. It would be the largest new piece of infrastructure this project has taken on, to solve a problem `import()` solves natively, in a codebase whose stated architecture is "no build step, no router, no framework".
@@ -265,6 +279,10 @@ The third is available here precisely because these surfaces are role-exclusive,
 
 **Blocks is the extraction unit, because extraction moves whole rules.** The last row is the one that must be checked rather than assumed: a mixed comma group cannot be moved without splitting it, which would be a rule edit rather than a relocation and would take the change out of class 3. Here it is zero, so the extraction is a pure relocation — the same grouped-selector safety check ADR-007's Tier 0 ran, with the same clean result.
 
+**Precondition, checked before any extraction (Rev 6): custom properties must resolve in the destination document.** Scope separation relocates *rules*; it does not relocate the custom properties those rules resolve against. If a moved rule references a `var(--x)` defined in `admin-layout.css`, the extracted sheet loads into `index.html` where `--x` does not exist, and the elements render **silently unstyled** — the same failure mode, and the same silence, as the mixed-comma-group hazard.
+
+The hazard is real, not theoretical: `admin-layout.css` defines three custom properties locally (`--ar-bdr`, `--ar-bg`, `--ar-c`). For Tickets it is clean — all 23 `var(--…)` references in the extracted block resolve in `theme.css`, which **both** documents load, and none resolve in `admin-layout.css`. Check it per surface; do not assume it from Tickets.
+
 **The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
 
 Static links from `index.html` were also rejected in favour of injection: they would ship ST CSS to every player. That does not breach D4's module-fetch criterion, but it breaches its intent. **Zero ST presentation reaches a player, not merely zero ST JavaScript.**
@@ -277,6 +295,13 @@ Therefore the injected sheet is **gated in both directions, and the two gates ar
 - **Application gates on `effectiveRole()`** — presentation. Should it apply right now? Enforced by toggling `link.disabled` inside `applyRoleRestrictions()`, which is already idempotent and already runs on boot, on view toggle and on role-affecting state changes.
 
 That D3's read/write-versus-visibility split lands cleanly on fetch-versus-apply is a check on the design rather than a coincidence. Retracting by `disabled` rather than removing the element avoids a refetch on every toggle.
+
+**One composition site owns the application state (Rev 6).** The injector must not compute "should this apply" for itself, even from `_viewMode` directly — that would be a second view of the same arithmetic, which this codebase has a documented history of drifting (`feedback_two_views_same_arithmetic`). Instead:
+
+- `loadSurfaceSheet` injects with `link.disabled = true` — a fail-safe default that can never flash ST styling into a player preview — tags the element (`data-surface-sheet`), and calls `applyRoleRestrictions()`.
+- `applyRoleRestrictions()` owns every surface sheet's state: `document.querySelectorAll('[data-surface-sheet]').forEach(l => l.disabled = !isST)`, reusing the `role` it already computes at its top (`app.js:1480`).
+
+This adds **zero** new `effectiveRole()` call sites, so D7.2 is not engaged, and the injector stays presentation-agnostic.
 
 **Consequence for P2, which is the larger half of this decision.** P2 was framed as sixteen collision negotiations. For role-exclusive surfaces it becomes sixteen mechanical extractions, and the independent-co-authoring problem largely dissolves because each surface's rules live in a namespace that only loads with it. Reconciliation and rename remain for whatever genuinely coexists after the merge; that set is expected to be small, and it must be **measured per surface rather than assumed** (D8 rule 4).
 
