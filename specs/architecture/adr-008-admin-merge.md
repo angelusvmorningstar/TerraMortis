@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 6
+revision: 7
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -25,6 +25,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 7 | 2026-07-30 | Rewords the D9 custom-property precondition after Ma'at ran the negative control the rest of us only reasoned about. Rev 6 stated it as "resolves in `theme.css`", a name-presence test against a *file*; the hazard has a second dimension, *scope*. `admin-layout.css`'s `--ar-*` are declared under `.ar-pending`/`.ar-valid`/`.ar-complete`, not `:root`, so a property declared in a shared sheet under an admin-only selector would pass the stated check and still render unstyled. Correct form: resolves from a **document-agnostic scope** in a sheet both documents load, alias chains followed. Also records that D7.2 is a delta invariant rather than a count. | Imhotep (Architect) |
 | 6 | 2026-07-30 | AC8/D4 restated as **attributable + ratchet** after James found the criterion unmeasurable: `app.js` already statically reaches `admin/downtime-story.js` (~214 KB of ST code) through `story-tab.js:9`, so "zero" is already false and sixteen future passes against it would assert nothing. Adds `specs/qa/harness/admin-leak-gate.py` with a named-set baseline that may only shrink. Adds a D9 precondition — custom properties must resolve in the destination document, since scope separation relocates rules but not the properties they resolve against. Resolves the injector's application-state question to a single composition site. #1075 confirmed as independent debt with one sequencing constraint. | Imhotep (Architect) |
 | 5 | 2026-07-30 | Two additions from Ma'at's Stage A gate, both class errors in the method D8 prescribes rather than gaps in diligence. Adds a D8 preamble — **three checks by the same method are one check** — after three people passed rule 3 by the same name-grep, which cannot find a generic router by construction. Gives rule 3 an explicit second half (enumerate nav metadata programmatically; rule out the routing class separately; trace dynamic dispatch to source). Adds **rule 5: match the scope**, since for CSS the decision unit is the document and a tree-wide search cannot express per-document deadness at any granularity — a false red that would have blocked a correct deletion. Settles the 47-vs-48 counting convention (blocks is the extraction unit; 0 mixed comma groups). Records in D5a that the D8 two-step protected a real intermediate state. | Imhotep (Architect) |
 | 4 | 2026-07-30 | Adds D9 (a merged surface owns its stylesheet; scope separation as the third resolution class) and extends D4 to presentation, after ADM P1 Stage B could not render: `index.html` never loads `admin-layout.css`, so a moved surface arrives with zero styling and two of AC9's four verbs become invisible. Names the independent-co-authoring shape the ~118-rule enumeration was counting without distinguishing. Records the `_viewMode` co-render precondition and the getRole/effectiveRole double gate. Reframes P2 from sixteen collision negotiations to sixteen mechanical extractions. | Imhotep (Architect) |
@@ -209,6 +210,8 @@ Three, stated before any code is written rather than discovered in review.
 
 2. **ADR-007 D3 becomes load-bearing in a way it has not been until now.** Once the ST editor and the player view live in one document, `effectiveRole()` gating a fetch stops being a subtle bug and becomes a way to show an ST partial data in the application they administer with. Reads, writes and module loading select on `getRole()`. Visibility selects on `effectiveRole()`. **Every new `effectiveRole()` call site in this epic is a review stop.** This is the invariant most likely to bite in P1.
 
+*D7.2 is a DELTA invariant, not a count (Rev 7).* Three defensible absolutes exist for the same tree — 9 counting distinct guarded sites, 13 counting invocations (a line like `effectiveRole() === 'st' || effectiveRole() === 'dev'` contains two), and 14 by raw grep including prose in comments. Do not try to reconcile them. **The invariant is that a non-write-path change adds none**, measured the same way before and after. Stage B's delta is zero under all three.
+
 3. **ADR-007 D9 is superseded, not deleted.** Its deferral was correct on reason 2 and wrong on reason 1, and the deferral bought the shared-module consolidation that makes P1 cheap now. The record of a decision that was right for one of its stated reasons and wrong for another is more useful than its removal.
 
 ADR-004's cache-entry invariant and ADR-006's render-path orchestrator discipline are unchanged and unaffected. No phase of this epic may add a second `applyStMods` composition site.
@@ -279,9 +282,26 @@ The third is available here precisely because these surfaces are role-exclusive,
 
 **Blocks is the extraction unit, because extraction moves whole rules.** The last row is the one that must be checked rather than assumed: a mixed comma group cannot be moved without splitting it, which would be a rule edit rather than a relocation and would take the change out of class 3. Here it is zero, so the extraction is a pure relocation — the same grouped-selector safety check ADR-007's Tier 0 ran, with the same clean result.
 
-**Precondition, checked before any extraction (Rev 6): custom properties must resolve in the destination document.** Scope separation relocates *rules*; it does not relocate the custom properties those rules resolve against. If a moved rule references a `var(--x)` defined in `admin-layout.css`, the extracted sheet loads into `index.html` where `--x` does not exist, and the elements render **silently unstyled** — the same failure mode, and the same silence, as the mixed-comma-group hazard.
+**Precondition, checked before any extraction (Rev 6, reworded Rev 7): every referenced custom property must RESOLVE FROM A DOCUMENT-AGNOSTIC SCOPE IN A SHEET BOTH DOCUMENTS LOAD.**
 
-The hazard is real, not theoretical: `admin-layout.css` defines three custom properties locally (`--ar-bdr`, `--ar-bg`, `--ar-c`). For Tickets it is clean — all 23 `var(--…)` references in the extracted block resolve in `theme.css`, which **both** documents load, and none resolve in `admin-layout.css`. Check it per surface; do not assume it from Tickets.
+Scope separation relocates *rules*; it does not relocate the custom properties those rules resolve against. If a moved rule references a `var(--x)` that does not resolve in the destination document, the elements render **silently unstyled** — the same failure mode, and the same silence, as the mixed-comma-group hazard.
+
+**The hazard has two dimensions, and Rev 6 stated a check that only saw one.** Rev 6 said the properties must "resolve in `theme.css`, which both documents load". That is a *name-presence* test against a file, and it misses the second dimension:
+
+1. **Wrong file** — the property is declared only in `admin-layout.css`, which `index.html` never loads.
+2. **Wrong scope** — the property is declared in a shared sheet but under a selector that does not apply in the destination document.
+
+`admin-layout.css`'s three local properties demonstrate the second: `--ar-bdr`, `--ar-bg` and `--ar-c` are declared under `.ar-pending` / `.ar-valid` / `.ar-complete` (`admin-layout.css:6206-6208`), i.e. inherited from an ancestor carrying one of those classes — not from `:root`. A property declared *in `theme.css`* but under an admin-only selector would pass Rev 6's stated check and still render unstyled. Hence the reworded form: what matters is the **scope it resolves from**, not the file it appears in.
+
+The check, operationally:
+
+- Collect every `var(--…)` in the rules being moved, then **follow alias chains** (`--accent` → `var(--crim)`, `--txt1` → `var(--txt)`) until closed.
+- For each property in that closure, confirm it is declared under a document-agnostic selector — `:root`, `html`, `body`, or a theme attribute like `[data-theme="dark"]` — in a sheet **both** documents load.
+- A property declared only under a component or state class fails, wherever it lives.
+
+Tickets passes the strong form: the closure is 24 properties (23 references plus alias targets), all declared on `:root`, 14 with `[data-theme="dark"]` overrides, so it holds in both documents *and* both themes. `theme.css` declares its 188 properties under `:root` and 153 under `[data-theme="dark"]` and nothing under a component selector, which is why the weaker check happened to give the right answer here — and exactly why it should not be generalised from.
+
+Negative control, run rather than reasoned about: a rule referencing `--ar-bdr` takes the closure's not-agnostic count from 0 to 1 and halts with the property and its three class scopes named. **Check it per surface. Do not assume it from Tickets.**
 
 **The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
 
