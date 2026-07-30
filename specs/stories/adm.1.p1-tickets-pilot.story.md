@@ -11,7 +11,7 @@ branch: piatra/issue-1068-adm-p1-tickets
 
 ## Status
 
-Draft
+Approved
 
 ## Story
 
@@ -113,6 +113,7 @@ No unit framework. Verify in-browser:
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-07-29 | 0.1 | Initial draft — P1 pilot per ADR-008 D5/D5a Rev 3 | Khepri (SM) |
+| 2026-07-30 | 1.0 | Approved. Stage A merges without review (pure deletion, nothing renders today); Stage B is reviewed by Peter before merge. | Khepri (SM) |
 
 ## Dev Agent Record
 
