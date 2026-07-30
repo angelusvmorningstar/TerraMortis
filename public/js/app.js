@@ -152,6 +152,61 @@ function effectiveRole() {
 }
 
 // ══════════════════════════════════════════════
+//  SURFACE STYLESHEETS (ADR-008 D9 — scope separation)
+// ══════════════════════════════════════════════
+
+// An admin surface's rules are loaded *apart* from the player sheets rather than
+// reconciled with them. That option exists only because the two surfaces are
+// role-exclusive and need never co-render; it edits no declarations and makes no
+// design judgement, which is what separates it from reconcile and rename.
+//
+// Two gates, deliberately different (ADR-007 D3, authority vs visibility):
+//   injection   getRole()        authority  — should this session ever fetch it?
+//   application effectiveRole()  visibility — should it apply right now?
+//
+// The application gate is the co-render precondition: an ST who opens an admin
+// surface and then toggles player preview would otherwise have admin rules
+// applying to player markup. Enforced by toggling link.disabled in
+// applyRoleRestrictions(), which already runs on both the toggle and on boot.
+
+const _surfaceSheets = new Map();   // href -> { link, promise }
+
+function loadSurfaceSheet(href) {
+  // Cache the PROMISE, not the element. A presence-check on the <link> would
+  // pass a second caller while the sheet is still in flight, rendering that
+  // open unstyled — and only ever the second open, which is the hard one to see.
+  const cached = _surfaceSheets.get(href);
+  if (cached) return cached.promise;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.dataset.surfaceSheet = href;
+  // Initial application state, so a sheet injected while in player preview does
+  // not apply on arrival. Reads the _viewMode state variable directly rather
+  // than calling effectiveRole() again — the authority gate is the caller's job.
+  link.disabled = _viewMode === 'player';
+
+  const promise = new Promise(resolve => {
+    // Degrade, never fail: a bad href costs styling, not the whole surface.
+    link.addEventListener('load', () => resolve(true), { once: true });
+    link.addEventListener('error', () => {
+      console.warn('[surface-sheet] failed to load, rendering unstyled:', href);
+      resolve(false);
+    }, { once: true });
+  });
+
+  _surfaceSheets.set(href, { link, promise });
+  document.head.appendChild(link);
+  return promise;
+}
+
+function applySurfaceSheetVisibility(isSTView) {
+  // disabled, not element removal — removal makes every view toggle refetch.
+  for (const { link } of _surfaceSheets.values()) link.disabled = !isSTView;
+}
+
+// ══════════════════════════════════════════════
 //  DIRTY STATE MANAGEMENT (editor)
 // ══════════════════════════════════════════════
 
@@ -520,6 +575,7 @@ function goTab(t) {
     const el = document.getElementById('t-combat');
     if (el) initCombatTab(el);
   }
+  if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -549,6 +605,35 @@ function populateSuiteDropdowns(chars) {
       o.textContent = displayName(c);
       sel.appendChild(o);
     });
+  }
+}
+
+// Tickets surface (ADM-1 pilot, ADR-008 D4/D9). The ST ticket queue renders here
+// from the same module admin.html uses — admin/tickets-views.js is the surface,
+// not a reference implementation, so there is no second copy to drift.
+//
+// Gated on getRole(), NOT effectiveRole(): whether to fetch admin code is a
+// question of authority, and effectiveRole() reports 'player' for a real ST in
+// preview mode. Gating the fetch on it would strip an ST of their own admin code
+// the moment they toggle preview, and inverts the ADR-007 D3 contract.
+//
+// Module and stylesheet are fetched CONCURRENTLY and both awaited before render:
+// awaiting them in series would add a round trip, and rendering before the sheet
+// resolves would flash unstyled. Neither trade is necessary.
+async function initTicketsSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/tickets-views.js'),
+      loadSurfaceSheet('css/admin-tickets.css'),
+    ]);
+    await mod.initTicketsView(el);
+  } catch (err) {
+    console.error('[tickets] surface failed to load:', err);
+    el.innerHTML = '<div class="tk-empty">Tickets failed to load. Reload the page or check your connection.</div>';
   }
 }
 
@@ -1486,6 +1571,11 @@ function applyRoleRestrictions() {
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();
 
+  // Surface stylesheets (ADR-008 D9): applied only while the *effective* role is
+  // ST, so an ST in player preview does not have admin rules apply to player
+  // markup. Reuses `role` above rather than calling effectiveRole() again.
+  applySurfaceSheetVisibility(role === 'st' || role === 'dev');
+
   // Contested Roll — ST only (Feeding is now in More grid)
   const btnContested = document.getElementById('btn-contested');
   if (btnContested) btnContested.style.display = isST ? '' : 'none';
@@ -1556,7 +1646,8 @@ const MORE_APPS = [
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
   { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'st', stOnly: true },
-  // Tickets removed — submit form is in Settings
+  // The player-side Tickets tab was retired in ADM-1 Stage A; players submit via
+  // Settings. The ST queue below is the admin surface, merged in Stage B.
   // Challenge tile hidden (#1015). The click-handler + modal (openChallengeModal) remain wired for future programmatic use.
   // ── Lore section (gated by show_guides setting) ──
   { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
@@ -1565,6 +1656,7 @@ const MORE_APPS = [
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
+  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
