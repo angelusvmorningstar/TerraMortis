@@ -15,8 +15,14 @@ USAGE
     python3 specs/qa/harness/write-path-inventory.py            # regenerate the .md
     python3 specs/qa/harness/write-path-inventory.py --check    # exit 1 if the tree disagrees
     python3 specs/qa/harness/write-path-inventory.py --print    # to stdout, write nothing
-    python3 specs/qa/harness/write-path-inventory.py --touches <ref>
-                                        # exit 0 if the diff vs <ref> is DISPLAY-ONLY
+    python3 specs/qa/harness/write-path-inventory.py --touches <BASE>
+                                        # exit 0 if the diff vs <BASE> is DISPLAY-ONLY
+
+<BASE> IS THE BRANCH POINT -- normally `origin/dev`, NEVER your own branch or HEAD. The
+mode diffs the WORKING TREE against <BASE>, so passing the branch you are standing on
+yields a zero-line diff that examines nothing and would otherwise print a pass. The tool
+now refuses that case loudly (exit 2) rather than passing it, but the invocation is what
+travels into stories, so write it as `--touches origin/dev` with the reason attached.
 
 --touches ESTABLISHES THE SHIP-AHEAD-OF-QA CRITERION (ADR-008 D10). The property that
 bounds the risk of shipping a fix before its gate is not diff SIZE -- a ten-line change
@@ -65,7 +71,11 @@ METHOD LIMITS — read before trusting a negative.
      at coarser granularity than a delete decision, so do NOT delete on it — use it to decide
      what to investigate. `public/js/tabs/wizard.js` is the current worked example: no importer,
      yet it holds POST /api/characters/wizard against a live server route.
-  3. FRONTEND ONLY. The server routes are the enforcement surface and are not enumerated here;
+  3. COMMIT BEFORE RUNNING A NEGATIVE CONTROL. Verifying that this gate can go red means
+     injecting a change and then reverting the file. That revert DESTROYS UNCOMMITTED WORK
+     in the file under test, and `git status` reads clean afterwards, so the loss looks
+     like success. Commit first.
+  4. FRONTEND ONLY. The server routes are the enforcement surface and are not enumerated here;
      see server/routes/characters.js and server/routes/downtime_submissions.js.
 """
 
@@ -267,6 +277,14 @@ def touched(ref):
     print('=' * 74)
     print(f'DISPLAY-ONLY CHECK vs {ref}   (ADR-008 D10)')
     print('=' * 74)
+    if not diff.strip():
+        print('  REFUSED — the diff against this ref is EMPTY, so nothing was examined.')
+        print(f'  You are probably standing on the branch you passed. <BASE> must be the')
+        print(f'  BRANCH POINT, normally origin/dev:')
+        print(f'      python3 {Path(__file__).name} --touches origin/dev')
+        print('  A vacuous pass here is indistinguishable from a real one, so it is an')
+        print('  operator error rather than a result (ADR-008 D10, Rev 11).')
+        return 2
     if not hits:
         print('  DISPLAY-ONLY ESTABLISHED — the diff reaches no persistence site.')
         print('  Shipping ahead of the gate is within D10.')

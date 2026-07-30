@@ -65,7 +65,11 @@ METHOD LIMITS
      on every correct surface migration.
   2. LITERAL SPECIFIERS ONLY. A specifier built at runtime is invisible here. Floor, not
      ceiling.
-  3. IT MEASURES REACHABILITY, NOT BYTES FETCHED. A browser fetches a statically imported
+  3. COMMIT BEFORE RUNNING A NEGATIVE CONTROL. Verifying this gate can go red means
+     injecting a static import and then reverting the file. That revert DESTROYS
+     UNCOMMITTED WORK in the file under test, and `git status` reads clean afterwards, so
+     the loss looks like success. Commit first.
+  4. IT MEASURES REACHABILITY, NOT BYTES FETCHED. A browser fetches a statically imported
      module whether or not any code path uses it, so reachability is the right proxy for the
      network cost -- but the KB figures printed are file sizes on disk, uncompressed.
 """
