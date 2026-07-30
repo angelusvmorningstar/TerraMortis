@@ -23,7 +23,14 @@ creates: someone fixing #1075 cuts ONE of the three importers, re-runs the gate,
 module count unchanged, and concludes the fix failed -- when in fact cutting any single
 caller of `story-tab.js` achieves nothing, because the other two still reach it. Only
 cutting the JOIN POINT (`story-tab.js:9`) closes the leak, and it closes it for all three.
-Use `--paths` to see every route to a module before concluding anything about a partial fix. A reviewer checking "zero" sees two modules and cannot tell an expected legacy
+Use `--paths` to see every route to a module before concluding anything about a partial fix.
+
+DISTINGUISH TWO CLAIMS THAT SOUND THE SAME. "One cut closes it" is about the FIX: severing
+`story-tab.js:9` removes the admin dependency for every importer at once. "One path reaches
+it" is about the TOPOLOGY and is FALSE here: three paths reach `story-tab.js`. Both
+sentences are about a single edge and only the first is true, which is exactly how a
+correct fix-plan and a wrong mental model of the graph can be stated in the same breath.
+`--paths` is the check that separates them. A reviewer checking "zero" sees two modules and cannot tell an expected legacy
 leak from a new regression, so sixteen future passes against it would assert nothing. A gate
 that cannot fail meaningfully is worse than no gate: it manufactures confidence. That is the
 same defect this project found in usf-smoke.mjs, one level up.
