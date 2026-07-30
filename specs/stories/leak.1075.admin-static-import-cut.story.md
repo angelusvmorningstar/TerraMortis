@@ -25,7 +25,8 @@ Approved
 4. The prewarm **must not** produce an unhandled rejection — swallow its failure (`.catch(() => {})`). The save path's `await` is what surfaces a genuine load failure, so failing there is correct and failing at prewarm is noise.
 5. **`admin-leak-gate.py` goes from 2 modules / 214 KB to 0 modules / 0 KB**, printing `IMPROVED` for both. Then `--bless` is run, and the baseline records `"modules": []`.
 6. **The ratchet is confirmed to re-tighten** after blessing: reintroducing the static import fails with exit 1 and both modules named. Revert the reintroduction.
-7. **ADR-008 D10:** `write-path-inventory.py --touches <branch>` exits 0 — display-only established. This changes *when* a module loads, never what is persisted.
+7. **ADR-008 D10:** `write-path-inventory.py --touches origin/dev` exits 0 — display-only established. This changes *when* a module loads, never what is persisted.
+   **Invoke against the BASE, never against your own branch.** `--touches <ref>` diffs the WORKING TREE against `<ref>`, so `--touches <your-own-branch>` compares HEAD to itself, examines **zero lines**, and prints a PASS that is textually identical to a real one. An earlier draft of this story said `--touches <branch>` and would have granted a free pass to anyone following the instructions.
 8. An ST can still edit and save a story section, and the recompiled `published_outcome` persists across a reload. This is the only behavioural risk in the change.
 
 ### Invariants
@@ -84,7 +85,7 @@ Blessing the baseline at zero makes it meaningful for the first time, and QA has
 No unit framework. Gates and one browser path:
 
 - `python3 specs/qa/harness/admin-leak-gate.py` → 0 modules, `IMPROVED` ×2; then `--bless`; then confirm re-tighten and revert
-- `python3 specs/qa/harness/write-path-inventory.py --touches <branch>` → exit 0
+- `python3 specs/qa/harness/write-path-inventory.py --touches origin/dev` → exit 0 (against the BASE — see AC7; against your own branch it examines nothing and passes vacuously)
 - Browser, ST session: edit a story section on a closed/complete cycle, save, reload, confirm the recompiled outcome persisted. Watch the network panel to confirm the module fetches on **edit**, not on boot.
 - Browser, player session: confirm **zero** requests to `public/js/admin/*`.
 
