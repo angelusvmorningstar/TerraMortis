@@ -71,7 +71,6 @@ import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js'
 import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
 import { renderPrimerTab } from './tabs/primer-tab.js';
-import { renderTicketsTab } from './tabs/tickets-tab.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
 import { renderOfficeTab } from './tabs/office-tab.js';
@@ -520,10 +519,6 @@ function goTab(t) {
   if (t === 'combat') {
     const el = document.getElementById('t-combat');
     if (el) initCombatTab(el);
-  }
-  if (t === 'tickets') {
-    const el = document.getElementById('t-tickets');
-    if (el) renderTicketsTab(el);
   }
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
