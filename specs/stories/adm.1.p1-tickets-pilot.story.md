@@ -63,18 +63,18 @@ Added by Rev 4 after Stage A established that the merged surface has **zero** of
 - [x] **Stage A PR1 — dereference** (AC: 1)
 - [x] **Stage A PR2 — delete** (AC: 2, 3)
   - [x] Confirm by word-boundary check that no surviving `.tk-*` emitter exists outside `tickets-tab.js` before deleting the 28 rules.
-- [ ] **Stage B — surface stylesheet** (AC: 11, 12, 13)
-  - [ ] Assert the extraction unit is rule BLOCKS (47) and that zero comma groups mix `.tk-` with non-`.tk-` selectors; state the scope counted.
-- [ ] **Stage B — nav entry + gated dynamic import** (AC: 4, 5, 6, 7)
-- [ ] **Stage B — dual gating** (AC: 14, 15)
-  - [ ] Verify the view-mode toggle disables the sheet, and re-enables it, without a refetch.
-- [ ] **Stage B — concurrent load, cached promise, graceful degrade** (AC: 16, 17, 18)
-  - [ ] Open the surface twice in one session and confirm the second open is styled.
-  - [ ] Point the href at a missing file and confirm the surface still renders.
-- [ ] **Stage B — verify** (AC: 8, 9, 10)
-  - [ ] Network panel, player session: zero `public/js/admin/` requests.
-  - [ ] ST session: list, filter, expand, edit, and confirm each write persists.
-  - [ ] `admin.html` Tickets domain still works.
+- [x] **Stage B — surface stylesheet** (AC: 11, 12, 13)
+  - [x] Assert the extraction unit is rule BLOCKS (47) and that zero comma groups mix `.tk-` with non-`.tk-` selectors; state the scope counted.
+- [x] **Stage B — nav entry + gated dynamic import** (AC: 4, 5, 6, 7)
+- [x] **Stage B — dual gating** (AC: 14, 15) — implemented
+  - [ ] Verify the view-mode toggle disables the sheet, and re-enables it, without a refetch. *(browser-only; Ma'at)*
+- [x] **Stage B — concurrent load, cached promise, graceful degrade** (AC: 16, 17, 18) — implemented
+  - [ ] Open the surface twice in one session and confirm the second open is styled. *(browser-only; Ma'at)*
+  - [ ] Point the href at a missing file and confirm the surface still renders. *(browser-only; Ma'at)*
+- [ ] **Stage B — verify** (AC: 8, 9, 10) — **not verifiable here; see "What I could not verify"**
+  - [ ] Network panel, player session: zero `public/js/admin/` requests. **Static analysis says this FAILS on a pre-existing leak unrelated to Tickets — see Stage B note 6.**
+  - [ ] ST session: list, filter, expand, edit, and confirm each write persists. *(browser-only; Ma'at)*
+  - [ ] `admin.html` Tickets domain still works. *(browser-only; Ma'at)*
 
 ## Dev Notes
 
@@ -171,7 +171,9 @@ No unit framework. Verify in-browser:
 
 ## Dev Agent Record
 
-**Scope of this record: Stage A only.** Stage B is halted before implementation, not attempted and not partially done — see "Stage B halted" below. Story `Status` is deliberately left at `Approved` rather than advanced to `Ready for Review`, because advancing it would signal whole-story completion when only Stage A exists. Stage A is independently correct and independently mergeable; Ma'at gates it now on Khepri's instruction (2026-07-30).
+**Both stages implemented.** Stage A merged to `dev` (`d360f597`) via PR #1069 then #1070, Ma'at gate PASS. Stage B was halted before implementation on the CSS-coverage blocker, escalated, ruled on by Imhotep as ADR-008 Rev 4 D9 (scope separation), and then implemented — the halt record is kept below because the ruling grew out of it.
+
+`Status` is left at `Approved` rather than advanced to `Ready for Review` because **Stage B's browser-only criteria cannot be exercised from this environment** (no browser, no Discord OAuth session). What is implemented is complete and statically verified; what remains is AC8/AC9/AC10 and three subtasks that require a real session. Ma'at's gate is not a formality here — it is the only place those ACs can be met. See "What I could not verify".
 
 ### Agent Model Used
 
@@ -237,30 +239,141 @@ So AC9's "list, **filter**, **expand** and edit" is not satisfiable: filter-acti
 
 Direction pending Imhotep. The SM's working proposal is a per-surface `css/admin-tickets.css` whose `<link>` is injected idempotently by the dynamic-import path under the same `getRole()` gate, so zero ST CSS (not merely zero ST JavaScript) reaches a player.
 
+### Stage B — implemented (commit `aa901d4f`, branch `piatra/issue-1068-adm-p1-tickets-stage-b` off `dev`)
+
+**1. AC12 — ASSERTED (the count itself is settled; this is the relocatability assertion).**
+
+**THE LOAD-BEARING ASSERTION, which is what makes this a relocation rather than an edit:**
+
+| Assertion | Value |
+|---|---|
+| comma groups mixing a `.tk-` selector with a non-`.tk-` selector | **0** |
+| `.tk-*` rules inside an `@media` block | **0** |
+
+Both are **zero**, so **every rule moved whole and the extraction is a pure relocation.** This is the condition D9 rests on. A mixed comma group could not be relocated without splitting it, and splitting a rule is an *edit* — which would drop the change out of resolution class 3 (scope separation) and back into reconciliation, i.e. out of this story's scope entirely.
+
+**Rule for later surfaces: if either figure is non-zero, fail the story. Do not split the group.** The split is the reconcile decision wearing an extraction's clothes, and the person best placed to notice is whoever runs this assertion.
+
+**Scope counted** (stated for the next surface's dev, since "the count" is meaningless without it): rules **defined in `admin-layout.css`**, which is linked by **`admin.html` only**. Per D8 rule 5, the decision unit for CSS is the *document*, not the repository — granularity and scope are orthogonal, and a per-rule measurement taken tree-wide is correctly granular at the wrong scope. Every reachability question here was asked as "which document loads this?", never "does this class appear in the tree?".
+
+**Method:** brace-depth parse, comments stripped, `@media` context tracked, word-boundary match on `.tk-` (`(^|[^A-Za-z0-9_-])\.tk-`) so `#stk-*` substrings cannot contribute. Source: `origin/dev:public/css/admin-layout.css`, block spanning lines 3970–4018.
+
+**Confirming the settled count rather than re-deriving it:** 47 rule blocks / 48 selectors, delta exactly one all-`.tk-` comma group (`.tk-select, .tk-input`). Blocks is the extraction unit. Also observed, and *not* a source of the discrepancy: seven compound/descendant selectors (`.tk-submit-form h4`, `.tk-admin-row:hover`, `.tk-admin-note label`, …), each counting once under both conventions.
+
+**Post-extraction check:** `admin-layout.css` contains 0 `.tk-`; `admin-tickets.css` carries 47 rule blocks / 48 selectors.
+
+**2. AC11 — declarations byte-identical, verified not asserted.** Extraction was done programmatically, then the 47 non-comment lines were diffed against `HEAD:public/css/admin-layout.css` lines 3970–4018: **byte-identical**. Brace balance checked. Nothing was reformatted, reordered, or renamed. Two comments travelled with the block (its section header and one interior comment); a new file header was added recording provenance and the counting convention.
+
+**3. The extraction is genuinely mechanical — the class-3 premise holds for this surface.** This was the halt condition worth checking hardest, since sixteen surfaces are sequenced on it. Two things could have made it non-mechanical and neither did:
+
+- **Custom properties.** The block references 23 `var(--…)` properties, including eight `--tk-*-bg`/`--tk-*-fg` pairs and `--txt1`. **All 23 are defined in `theme.css`**, which *both* documents load (`--txt1` is an alias of `--txt` at `theme.css:45`); zero are defined in `admin-layout.css`. So the move leaves nothing dangling. Had any lived in `admin-layout.css`, extraction would have silently produced unstyled badges in `index.html` and scope separation would have needed a property carve-out.
+- **Host container.** No new container rule was needed. `.tab.active{display:block}` (`suite.css:76`) covers display generically, and `#bnav` is a `position: relative` flex sibling of `.tab-wrap` rather than an overlay, so no bottom-nav clearance padding is required. **Zero declarations were added, edited, or promoted** — AC21 holds, and nothing here was a design judgement.
+
+**4. AC15/AC20 — zero new `effectiveRole()` call sites, not the one anticipated.** AC20 expected the application gate to add one deliberate call site. It adds none: `applyRoleRestrictions()` already computes `const role = effectiveRole()` at its top, so `applySurfaceSheetVisibility(role === 'st' || role === 'dev')` reuses it. Verified by parsing call sites with comments and prose stripped: **9 real call sites on `origin/dev`, 9 now, none added, none removed.** A naive grep reports 15 because the new code *documents* the distinction in prose; that is comment text, not a call.
+
+One related judgement, flagged rather than buried: `loadSurfaceSheet` sets the link's initial `disabled` state from the `_viewMode` module variable directly instead of calling `effectiveRole()`. This is so a sheet injected while in player preview does not apply on arrival, without adding a D7.2 call site. It reads presentation state, which is what `_viewMode` is. The only path that can inject while in preview is a `window.goTab` console call, since the tile itself is `effectiveRole`-filtered.
+
+**5. AC5 — the entry path I created, stated explicitly (the inverse of Ma'at's router check).**
+
+One declaration produces two UI entry points:
+
+```
+MORE_APPS { id: 'tickets', section: 'st', stOnly: true }
+  ├─ More-grid tile        app.js:1973   onclick="goTab('tickets')"
+  └─ desktop sidebar tile  app.js:2176   onclick="goTab('tickets')"
+        └─ goTab('tickets') → dispatcher app.js:578
+              └─ initTicketsSurface(#t-tickets)
+                    ├─ getRole() gate (authority) — returns early for players
+                    └─ Promise.all[ import('./admin/tickets-views.js'),
+                                    loadSurfaceSheet('css/admin-tickets.css') ]
+                          └─ mod.initTicketsView(el)
+```
+
+Tile *visibility* filters on `effectiveRole` (existing `app.stOnly && !isST` guards); the *fetch* gates on `getRole`. Enumerated programmatically: `tickets` appears as an object-literal `id` exactly once. **Deliberately not added to `NAV_ITEMS`** — the bottom nav is unchanged (0 occurrences); one nav entry was asked for and one exists. The pre-existing `window.goTab` console path is unchanged and was not created here.
+
+**What this enumeration is structurally incapable of seeing** (applying D8's preamble to my own check rather than only to QA's): it is a literal enumeration of object-literal `id:` declarations, so it cannot see an entry whose id is computed at runtime, an entry pushed into `MORE_APPS` by another module after load, or a server-supplied nav config. I did not find any of those, but not finding them with *this* method is weak evidence, and a second literal grep would be a correlated pass rather than an independent one.
+
+The independent check that does cover it is structural rather than enumerative: **the `getRole()` gate sits inside `initTicketsSurface`, not at the nav layer.** Any entry path — declared, computed, injected, or a console `goTab('tickets')` — funnels through the single dispatcher branch at `app.js:578` and hits that gate before either fetch. So an entry path nobody enumerated still cannot leak admin code to a player. The gate is what makes this safe; the enumeration only tells us what a *user* can click.
+
+**6. AC8 CANNOT PASS AS WRITTEN — a pre-existing leak, not caused by this diff. Escalated.**
+
+AC8 requires a player session to fetch **zero** modules from `public/js/admin/`. Static graph analysis of `index.html`'s module tree (121 modules walked from `app.js`) found this **static** import chain:
+
+```
+public/js/app.js
+  → public/js/game/dt-lookup.js
+    → public/js/tabs/story-tab.js
+      → public/js/admin/downtime-story.js      200 KB
+        → public/js/admin/downtime-constants.js  14 KB
+```
+
+Confirmed **pre-existing on untouched `origin/dev`** (checked by restoring `public/js` from `origin/dev` and re-walking): the identical two modules leak. A static `import` is fetched regardless of role, so **a player session already downloads ~214 KB from `public/js/admin/` today.**
+
+This diff adds **zero** new leaks — `admin/tickets-views.js` is reachable only through the dynamic `import()` at `app.js:630`, and no other module in the static graph references it.
+
+Two reasons this matters beyond bookkeeping. First, `downtime-story.js` is precisely the module ADR-008 D4 sequences **last** because it sits on the frozen write path — so the pilot's headline criterion is blocked by the one surface the epic deliberately deferred. Second, AC8 is described as "the criterion for every later surface move"; if it is failing before the first move, every later pass against it is meaningless. **AC8 needs restating** (e.g. "no *new* modules from `public/js/admin/`, and none attributable to the merged surface") or the leak needs fixing first — which is out of scope here and touches deferred, write-path code. **Not fixed, not worked around, escalated.**
+
+**7. AC13 — the transitional asymmetry, implemented as specified.** `admin.html` static-links `css/admin-tickets.css` (line 16, with a comment noting the asymmetry and its P3 end); `index.html` does **not** link it statically (verified 0 occurrences in served bytes) and receives it only by injection from the gated path.
+
+### What I could not verify — Ma'at's gate is load-bearing
+
+No browser and no authenticated session in this environment, so every criterion that is a *behavioural* check remains open. I did not tick them and did not infer them from the code:
+
+- **AC8** — network panel, player session. Static analysis above says it fails on the pre-existing leak; a real panel is still needed to confirm the Tickets modules themselves stay absent.
+- **AC9** — ST lists, filters, expands, edits; five writes persist across reload. Includes the visible-state check the halt was about (`tk-filter-btn-on`, `tk-admin-row-expanded`).
+- **AC10** — `admin.html` Tickets domain unchanged. Higher risk than it looks: `admin.html` now depends on a *second* stylesheet for rules it previously had in one, so a missing link there breaks the existing ST surface.
+- **AC15 subtask** — toggle disables and re-enables the sheet with no refetch (check the network panel shows no second request).
+- **AC17 subtask** — second open in one session is styled (the promise-cache property).
+- **AC18 subtask** — break the href, confirm the surface still renders unstyled rather than dying.
+
+What I *did* verify statically or by serving locally: `app.js` parses; all assets serve 200 (`admin-tickets.css` 5,981 B, 47 rule lines, including the three state rules the halt turned on); `tickets-tab.js` is 404 (Stage A); `index.html` does not statically link the sheet; `admin.html` does; `admin-layout.css` has zero `.tk-`; declarations byte-identical; call-site counts unchanged; no write-path inventory file touched.
+
+### Bookkeeping — `dev` carries Rev 3 of this story, not Rev 4
+
+Flagging for the SM rather than fixing unilaterally. The Stage A PRs (#1069, #1070) were cut from branches based on the pre-ruling story, so what merged to `dev` is **Rev 3's** acceptance criteria plus my Stage A record. Khepri's Rev 4 revision — which adds AC11–18 and renumbers the invariants to 19–21 — exists only on `origin/piatra/issue-1068-adm-p1-tickets` and has not reached `dev`. This branch carries the reconciled file (Rev 4 ACs + Stage A record + Stage B record), so merging Stage B resolves it; noted because anyone reading the story on `dev` right now sees ACs that understate the work, and because Ma'at gating Stage B needs Rev 4's AC11–21.
+
 ### Out of scope — filed separately, not folded in
 
 6 `tk-adm-*` classes (`tk-adm-body`, `tk-adm-error`, `tk-adm-inner`, `tk-adm-submit`, `tk-adm-title`, `tk-adm-type`) are defined in **no stylesheet at all**, including for `admin.html`. The current ST Tickets surface therefore has 6 unstyled classes in production today. Pre-existing defect, unrelated to this story; Khepri is filing it separately. Explicitly **not** folded in.
 
 ### File List
 
-**Modified**
+**Stage A — merged to `dev` (#1069, #1070)**
+
+*Modified*
 
 - `public/js/app.js` — PR1: removed `renderTicketsTab` import (`:74`) and the `if (t === 'tickets')` dispatcher branch (`:524`). 5 deletions.
 - `public/index.html` — PR2: removed `<div id="t-tickets" class="tab">` (`:368`). 1 deletion.
 - `public/css/suite.css` — PR2: removed the entire "Tickets tab (css-3)" section — section comment, `#t-tickets.active`, and the 28 dead `.tk-*` rules. 31 deletions (see Completion Note 3).
-- `specs/stories/adm.1.p1-tickets-pilot.story.md` — this record; Stage A task checkboxes.
 
-**Deleted**
+*Deleted*
 
 - `public/js/tabs/tickets-tab.js` — 217 lines. Fully unreferenced after PR1.
 
-**Net:** 249 deletions, zero additions across Stage A. No file created.
+*Net:* 249 deletions, zero additions. No file created.
+
+**Stage B — branch `piatra/issue-1068-adm-p1-tickets-stage-b`, commit `aa901d4f`**
+
+*Created*
+
+- `public/css/admin-tickets.css` — the 47 extracted rule blocks, declarations byte-identical, plus a provenance/convention header. 66 lines.
+
+*Modified*
+
+- `public/css/admin-layout.css` — removed the "Tickets admin domain" section (47 rule blocks + 2 comments + a blank). 50 deletions; 0 `.tk-` remain.
+- `public/js/app.js` — added the surface-stylesheet helpers (`_surfaceSheets`, `loadSurfaceSheet`, `applySurfaceSheetVisibility`), `initTicketsSurface`, the `goTab` dispatch branch (`:578`), the `MORE_APPS` Tickets entry, and the `applySurfaceSheetVisibility` call inside `applyRoleRestrictions`. Replaced the stale "Tickets removed" epitaph comment. Net +93.
+- `public/index.html` — re-added `<div id="t-tickets" class="tab">` as a **live** container (Stage A's was dead), with a comment naming its filler. +3.
+- `public/admin.html` — static `<link>` for `css/admin-tickets.css` (`:16`) with a comment recording the transitional asymmetry. +3.
+- `specs/stories/adm.1.p1-tickets-pilot.story.md` — this record; task checkboxes. Also carries the reconciled Rev 4 story text that has not yet reached `dev` (see Bookkeeping).
+
+*Net:* +165 / −51 across 5 files.
 
 ### Change Log addendum
 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-07-30 | 1.1 | Stage A implemented (PR1 `406b6d08`, PR2 `70b8a7ad`). Stage B halted pre-implementation on the `admin-layout.css` CSS-coverage blocker; escalated and confirmed. | Ptah (DEV) |
+| 2026-07-30 | 1.2 | Stage A merged to `dev` (`d360f597`), Ma'at PASS. Stage B implemented per ADR-008 Rev 4 D9 (`aa901d4f`): 47 rule blocks extracted byte-identical, dual gating, concurrent load, cached promise, graceful degrade. AC12 count reconciled (47 blocks = 48 selectors, one comma group). **AC8 found unpassable on a pre-existing 214 KB `admin/downtime-story.js` static leak — escalated, not fixed.** Browser-only ACs 8/9/10 remain for Ma'at. | Ptah (DEV) |
 
 ## QA Results
 
