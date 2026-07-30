@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 7
+revision: 8
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -25,6 +25,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 8 | 2026-07-30 | Corrects the Rev 6 injector shape, which James found unsafe while implementing it. A `disabled` stylesheet link may never be fetched, so `load`/`error` never fire and a promise awaiting them never settles — the Rev 6 `disabled = true` initial state could leave an ST in player preview with a blank surface and no error. Corrected to inject enabled and let `applyRoleRestrictions()` own application, which removes the dependency instead of guarding it and downgrades the failure mode from silent-and-total to cosmetic. Also fixes the leak gate's docstring (it presented one representative import path as the only one) and adds `--paths`. | Imhotep (Architect) |
 | 7 | 2026-07-30 | Rewords the D9 custom-property precondition after Ma'at ran the negative control the rest of us only reasoned about. Rev 6 stated it as "resolves in `theme.css`", a name-presence test against a *file*; the hazard has a second dimension, *scope*. `admin-layout.css`'s `--ar-*` are declared under `.ar-pending`/`.ar-valid`/`.ar-complete`, not `:root`, so a property declared in a shared sheet under an admin-only selector would pass the stated check and still render unstyled. Correct form: resolves from a **document-agnostic scope** in a sheet both documents load, alias chains followed. Also records that D7.2 is a delta invariant rather than a count. | Imhotep (Architect) |
 | 6 | 2026-07-30 | AC8/D4 restated as **attributable + ratchet** after James found the criterion unmeasurable: `app.js` already statically reaches `admin/downtime-story.js` (~214 KB of ST code) through `story-tab.js:9`, so "zero" is already false and sixteen future passes against it would assert nothing. Adds `specs/qa/harness/admin-leak-gate.py` with a named-set baseline that may only shrink. Adds a D9 precondition — custom properties must resolve in the destination document, since scope separation relocates rules but not the properties they resolve against. Resolves the injector's application-state question to a single composition site. #1075 confirmed as independent debt with one sequencing constraint. | Imhotep (Architect) |
 | 5 | 2026-07-30 | Two additions from Ma'at's Stage A gate, both class errors in the method D8 prescribes rather than gaps in diligence. Adds a D8 preamble — **three checks by the same method are one check** — after three people passed rule 3 by the same name-grep, which cannot find a generic router by construction. Gives rule 3 an explicit second half (enumerate nav metadata programmatically; rule out the routing class separately; trace dynamic dispatch to source). Adds **rule 5: match the scope**, since for CSS the decision unit is the document and a tree-wide search cannot express per-document deadness at any granularity — a false red that would have blocked a correct deletion. Settles the 47-vs-48 counting convention (blocks is the extraction unit; 0 mixed comma groups). Records in D5a that the D8 two-step protected a real intermediate state. | Imhotep (Architect) |
@@ -318,10 +319,27 @@ That D3's read/write-versus-visibility split lands cleanly on fetch-versus-apply
 
 **One composition site owns the application state (Rev 6).** The injector must not compute "should this apply" for itself, even from `_viewMode` directly — that would be a second view of the same arithmetic, which this codebase has a documented history of drifting (`feedback_two_views_same_arithmetic`). Instead:
 
-- `loadSurfaceSheet` injects with `link.disabled = true` — a fail-safe default that can never flash ST styling into a player preview — tags the element (`data-surface-sheet`), and calls `applyRoleRestrictions()`.
+- `loadSurfaceSheet` injects the link **enabled**, tags the element (`data-surface-sheet`), and calls `applyRoleRestrictions()` **synchronously in the same task**.
 - `applyRoleRestrictions()` owns every surface sheet's state: `document.querySelectorAll('[data-surface-sheet]').forEach(l => l.disabled = !isST)`, reusing the `role` it already computes at its top (`app.js:1480`).
 
 This adds **zero** new `effectiveRole()` call sites, so D7.2 is not engaged, and the injector stays presentation-agnostic.
+
+**Rev 8 correction: do not inject with `disabled = true`.** Rev 6 specified a `disabled = true` initial state as a fail-safe against flashing ST styling into a player preview. That was wrong, and wrong in the worst available direction.
+
+A `disabled` stylesheet link **may never be fetched** — that is the basis of the lazy-CSS trick — so neither `load` nor `error` fires and a promise awaiting them never settles. Under the Rev 6 shape, an ST already in player preview who opens an admin surface would get a **blank surface with no error**: not a slow render, not an unstyled render, nothing. The normal path survived only because `applyRoleRestrictions()` flips `disabled` synchronously before the browser yields, which is an invisible ordering constraint that a later refactor moving that call behind an `await`, a `setTimeout` or a `rAF` would silently break.
+
+The corrected shape removes the dependency rather than guarding it. Injecting enabled means the fetch always proceeds and the promise always settles; `applyRoleRestrictions()`, running synchronously in the same task, sets `disabled` before the browser can paint, so there is no flash to protect against. The preview case then renders the surface *unstyled*, which is the correct semantics of previewing what a player sees.
+
+Note what changed about the failure mode, because it is the general lesson and not a detail of this file:
+
+| | if the synchronous ordering is later broken |
+|---|---|
+| Rev 6 shape (`disabled = true`) | blank surface, no error, no console output |
+| Rev 8 shape (inject enabled) | brief flash of ST styling |
+
+**Prefer the mechanism whose failure mode is cosmetic over the one whose failure mode is silent and total.** Rev 6 chose `disabled` because it read as the safer default; it is the more dangerous one, because it couples *application* to *fetching* — the two concerns this decision had just carefully separated. A guard such as `if (link.disabled) return Promise.resolve(false)` would also work and was proposed, but it defends a mechanism that should not be in use.
+
+This ruling does not depend on resolving what any particular browser does with a disabled link. The corrected shape is correct under either answer, which is why it is preferred to establishing the behaviour and relying on it.
 
 **Consequence for P2, which is the larger half of this decision.** P2 was framed as sixteen collision negotiations. For role-exclusive surfaces it becomes sixteen mechanical extractions, and the independent-co-authoring problem largely dissolves because each surface's rules live in a namespace that only loads with it. Reconciliation and rename remain for whatever genuinely coexists after the merge; that set is expected to be small, and it must be **measured per surface rather than assumed** (D8 rule 4).
 

@@ -7,13 +7,23 @@ THE PROBLEM THIS EXISTS FOR
 D4 originally made "a player session fetches zero modules from public/js/admin/" the
 acceptance criterion for every phase that moves a surface across. That criterion is
 UNMEASURABLE, because it is already false: `public/js/app.js` statically imports its way
-into admin code today, through a chain nobody put there on purpose --
+into admin code today, through a chain nobody put there on purpose. The admin dependency
+enters at ONE join point --
 
-    app.js:56  ->  game/dt-lookup.js:4  ->  tabs/story-tab.js:9
-               ->  admin/downtime-story.js:16  ->  admin/downtime-constants.js
+    tabs/story-tab.js:9  ->  admin/downtime-story.js  ->  admin/downtime-constants.js
 
--- costing every player session ~214 KB of ST-only code (downtime-story.js imports
-`isSTRole`). A reviewer checking "zero" sees two modules and cannot tell an expected legacy
+-- and `tabs/story-tab.js` is itself held reachable by THREE independent index-side
+importers: `tabs/archive-tab.js:16` and `tabs/downtime-tab.js:6` (both for
+`renderOutcomeWithCards`), and `game/dt-lookup.js:4` (for `renderLatestReport`). Cost is
+~214 KB of ST-only code on every player session (`downtime-story.js` imports `isSTRole`).
+
+READ THE `via` LINE AS ONE REPRESENTATIVE PATH, NOT THE ONLY ONE. The report prints a
+single path per leaked module because printing all of them is noise. The failure mode that
+creates: someone fixing #1075 cuts ONE of the three importers, re-runs the gate, sees the
+module count unchanged, and concludes the fix failed -- when in fact cutting any single
+caller of `story-tab.js` achieves nothing, because the other two still reach it. Only
+cutting the JOIN POINT (`story-tab.js:9`) closes the leak, and it closes it for all three.
+Use `--paths` to see every route to a module before concluding anything about a partial fix. A reviewer checking "zero" sees two modules and cannot tell an expected legacy
 leak from a new regression, so sixteen future passes against it would assert nothing. A gate
 that cannot fail meaningfully is worse than no gate: it manufactures confidence. That is the
 same defect this project found in usf-smoke.mjs, one level up.
@@ -33,7 +43,8 @@ from a blocker into tracked debt with a number attached (issue #1075).
 
 USAGE
 
-    python3 specs/qa/harness/admin-leak-gate.py            # report
+    python3 specs/qa/harness/admin-leak-gate.py            # report, one path per module
+    python3 specs/qa/harness/admin-leak-gate.py --paths    # ALL static paths to each module
     python3 specs/qa/harness/admin-leak-gate.py --check    # exit 1 if the set grew
     python3 specs/qa/harness/admin-leak-gate.py --bless    # rewrite baseline (SHRINK ONLY)
 
@@ -96,6 +107,26 @@ def closure(entry):
     return order, paths
 
 
+def all_paths(target, entry):
+    """Every simple static path from entry to target. Used by --paths."""
+    found, stack = [], [(entry, [entry])]
+    while stack:
+        cur, path = stack.pop()
+        try:
+            src = cur.read_text(encoding='utf-8', errors='ignore')
+        except Exception:
+            continue
+        for spec in STATIC_IMPORT.findall(src):
+            nxt = resolve(spec, cur)
+            if not nxt or nxt in path:
+                continue
+            if nxt == target:
+                found.append(path + [nxt])
+            else:
+                stack.append((nxt, path + [nxt]))
+    return found
+
+
 def leaked():
     order, paths = closure(ENTRY)
     out = []
@@ -141,9 +172,17 @@ def main():
     print(f'  admin modules statically reachable : {len(rows)}')
     print(f'  uncompressed weight                : {total/1024:.0f} KB')
     print()
+    show_all = '--paths' in sys.argv
     for name, path, size in rows:
         print(f'  {name}  ({size/1024:.0f} KB)')
-        print('     via ' + ' -> '.join(p.split('/')[-1] for p in path))
+        if show_all:
+            routes = all_paths(ROOT / name, ENTRY)
+            print(f'     {len(routes)} static path(s):')
+            for r in routes:
+                print('       ' + ' -> '.join(p.name for p in r))
+        else:
+            print('     via ' + ' -> '.join(p.split('/')[-1] for p in path)
+                  + '   (one representative path — use --paths for all)')
     print()
 
     base = load_baseline()
