@@ -146,6 +146,17 @@ function _terrOidForName(name) {
   return t?._id ? String(t._id) : null;
 }
 
+// Issue #496 / #816: the REVERSE of _buildTerritoryOidMap. collectResponses()
+// remaps territory slugs to OIDs at the save boundary, so any renderer or
+// click handler that compares a saved value against TERRITORY_DATA's `slug`
+// must normalise first — otherwise it compares an OID to a slug and silently
+// never matches. Pass-through for values that are already slugs (or unknown).
+function _terrSlugFromSaved(val) {
+  if (!val || !/^[a-f0-9]{24}$/i.test(String(val))) return val || '';
+  const t = (_territories || []).find(t => String(t._id) === String(val));
+  return t?.slug || val;
+}
+
 function _terrGridVal(grid, displayName, legacyKey) {
   if (!grid) return undefined;
   const oid = _terrOidForName(displayName);
@@ -2971,7 +2982,11 @@ function renderForm(container) {
       const targetKey = `project_${slot}_ambience_target`;
       const dirKey    = `project_${slot}_ambience_direction`;
       const baseResponses = (responseDoc && responseDoc.responses) || {};
-      const curTarget = baseResponses[targetKey] || '';
+      // Issue #496 / #816: normalise before comparing. `data-amb-target` is a
+      // slug, but after a collect the stored value is an OID — without this the
+      // same-arrow-twice case read as "new row" and re-set instead of toggling
+      // off, so the selection could never be cleared.
+      const curTarget = _terrSlugFromSaved(baseResponses[targetKey]);
       const curDir    = baseResponses[dirKey]    || '';
       let nextTarget;
       let nextDir;
@@ -3864,10 +3879,16 @@ function renderProjectSlots(saved, mode = 'advanced') {
       // Read selection. Backward-compat seed: if new fields are empty but
       // legacy `_target_terr` + `_ambience_dir` exist, derive selection
       // from those so pre-redesign drafts surface correctly on first render.
-      let savedTarget = saved[`project_${n}_ambience_target`] || '';
+      // Issue #496 / #816: normalise to a SLUG before the row-match below.
+      // collectResponses() OID-remaps `_ambience_target` at the save boundary
+      // (line ~770), so on every render after the first collect this value is
+      // a 24-hex OID while `t.slug` is a slug — the comparison never matched
+      // and every arrow rendered off. The hidden input keeps the normalised
+      // slug so the next collect remaps it cleanly.
+      let savedTarget = _terrSlugFromSaved(saved[`project_${n}_ambience_target`]);
       let savedDir    = saved[`project_${n}_ambience_direction`] || '';
       if (!savedTarget) {
-        const legacyTerr = saved[`project_${n}_target_terr`] || '';
+        const legacyTerr = _terrSlugFromSaved(saved[`project_${n}_target_terr`]);
         if (legacyTerr) savedTarget = legacyTerr;
       }
       if (!savedDir) {

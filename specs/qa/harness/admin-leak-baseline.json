@@ -1,0 +1,8 @@
+{
+  "_comment": "ADR-008 D4 ratchet. May shrink, never grow. See admin-leak-gate.py.",
+  "issue": "https://github.com/angelusvmorningstar/TerraMortis/issues/1075",
+  "modules": [
+    "public/js/admin/downtime-constants.js",
+    "public/js/admin/downtime-story.js"
+  ]
+}
