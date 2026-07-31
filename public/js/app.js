@@ -595,6 +595,7 @@ function goTab(t) {
     const el = document.getElementById('t-combat');
     if (el) initCombatTab(el);
   }
+  if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
   if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
@@ -640,6 +641,32 @@ function populateSuiteDropdowns(chars) {
 // Module and stylesheet are fetched CONCURRENTLY and both awaited before render:
 // awaiting them in series would add a round trip, and rendering before the sheet
 // resolves would flash unstyled. Neither trade is necessary.
+// Spheres surface (ADM P1 surface 2, #1096). Same shape as Tickets with one
+// structural difference: initSpheresView() takes NO container argument and
+// calls document.getElementById('spheres-content') itself (spheres-view.js:29).
+// index.html therefore provides that id as a child of the tab container, which
+// is what keeps spheres-view.js unmodified — the property that made Tickets
+// clean. Do not add a container parameter to the module.
+async function initSpheresSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/spheres-view.js'),
+      loadSurfaceSheet('css/admin-spheres.css'),
+    ]);
+    await mod.initSpheresView();          // reads #spheres-content itself
+  } catch (err) {
+    console.error('[spheres] surface failed to load:', err);
+    // Write into the inner container, not the tab: replacing the tab would
+    // destroy #spheres-content and a retry could then never find it.
+    const target = el.querySelector('#spheres-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
 async function initTicketsSurface(el) {
   if (!el) return;
   const role = getRole();
@@ -1677,6 +1704,7 @@ const MORE_APPS = [
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
+  { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
