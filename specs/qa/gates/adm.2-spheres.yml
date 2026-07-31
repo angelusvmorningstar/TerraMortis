@@ -5,6 +5,9 @@ story_title: "ADM-2 — merge the Spheres surface into index.html behind the rol
 gate: PASS
 reviewer: "Ma'at (Test Architect)"
 updated: "2026-07-31"
+amended: "2026-07-31 (rev 2) — AC8 wording narrowed after ADR-008 Rev 14 confirmed 55 ST-only classes
+  already reach the player via components.css. Verdicts unchanged; the claims are stated at the width
+  they were actually checked. See scope_correction on the AC8 check."
 reviewed_commit: "f2d5f95c (PR #1098), base origin/dev"
 
 status_reason: >
@@ -119,12 +122,25 @@ behavioural_results:
         widths, auto-fill with a 260px floor would give 3 columns and with 380px would give 2.
         Observed 2 columns in BOTH documents — admin.html 485.594px + 485.609px, index.html
         430px + 430px. The override wins in both.
-    - id: "AC8 — no admin JS or CSS reaches a player"
-      verdict: PASS for everything exercised
+    - id: "AC8 — no admin SHEET or MODULE reaches a player"
+      verdict: PASS for everything exercised, and narrower than the heading first read
       evidence: >
         Player session: NONE on boot, NONE after opening the Downtime tab with the form fully
         rendered, zero elements carrying any .sphere-*/.sph-* class in the player DOM, zero injected
         surface sheets. Session sanity asserted first.
+      scope_correction: >
+        AMENDED 2026-07-31 after ADR-008 Rev 14. What this verdict establishes is that no admin
+        STYLESHEET and no admin MODULE reaches a player. It does NOT establish that no ST-authored
+        RULE reaches a player, and those are different claims with a measured gap between them.
+        components.css is loaded by the player document and already contains 55 classes emitted only
+        by admin sources across 88 rule blocks — 45 of them the stm-audit-* family. I ran
+        `admin-collision-map.py --st-in-lib --check` on dev d818b4c0 myself rather than cite the
+        figure: exit 0, 55 classes, 88 blocks, no increase over the blessed baseline of 55. The tool
+        prints its own method limit — static emitter analysis treats a class the player side builds
+        by string concatenation as admin-only, so 55 is an UPPER BOUND.
+        This PR neither adds to that set nor touches components.css, so the ratchet is unaffected; the
+        pre-existing gap is named and gated, not unknown. The correction is to the wording of the
+        claim, not to the result.
     - id: "AC8 — the player-submits half"
       verdict: NOT DEMONSTRATED — see limits, not a pass and not a failure
       evidence: >
@@ -144,8 +160,10 @@ limits:
   - id: "1 — the player-submits half of AC8 is untested"
     detail: >
       It is a rig limitation, not a finding against the change, and it does not bear on what this PR
-      alters. The claim AC8 exists to protect is that no admin JS or CSS reaches a player, and that is
-      demonstrated across boot and a fully-rendered downtime form. A submission write exercises the DT
+      alters. The claim AC8 exists to protect is that no admin SHEET or MODULE reaches a player (see the
+      scope_correction on that check — it is not a claim about ST-authored RULES, of which 55 already
+      reach the player via components.css), and that narrower claim is demonstrated across boot and a
+      fully-rendered downtime form. A submission write exercises the DT
       save path, which this diff does not touch: write-path-inventory certifies display-only at file
       granularity, and none of the four files holding inventory write sites appears in the diff. So
       the untested limb is orthogonal to the risk. It should still be closed the next time the DT save
