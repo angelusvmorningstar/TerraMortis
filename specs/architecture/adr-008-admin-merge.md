@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 13
+revision: 14
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 14 | 2026-07-31 | **Logs a pre-existing exception to D9's zero-ST-presentation rule** that Rev 4 and Rev 13 both stated as though absolute: 55 classes / 88 blocks in `components.css` are emitted only by admin, dominated by `stm-audit-*`. Rev 13's decision stands but its rationale is restated on cascade separability, which holds independently. Converted to a shrink-only ratchet gated by `--st-in-lib`. Records the emitter-exclusivity sweep — **no surface passes outright**, so `admin-shared.css` is the normal path, and `downtime-views.js` is the most common sharing partner despite being sequenced last. Adds a **fifth precondition**: no rule block may span two buckets; leave it behind rather than cut it. Names **structural demonstration** as the preferred form for D2's negative limb. | Imhotep (Architect) |
 | 13 | 2026-07-31 | Adds D9's **fourth precondition: emitter exclusivity**, after Spheres (#1096) passed all three existing ones and was still not a per-surface family — 5 of its classes are emitted by `downtime-views.js` as well. Records why it recurs (families are named after a domain concept, surfaces after a screen) and that Tickets passed by luck of naming. Establishes **extract by emitter set, never by name prefix**, above the block-counting convention: the 49-block Spheres 'section' is two prefix families merged by a `.sph` substring search. Adds a shared admin sheet for classes two or more surfaces emit, rather than filing them under the first migrant's filename, and makes a surface declare the SET of sheets it needs. | Imhotep (Architect) |
 | 12 | 2026-07-31 | **D10 corrected to FILE granularity** after Ma'at found it certifying display-only for a change that can *prevent* a write: hunk intersection sees changes to a write site but not changes to whether one is reached (early `return` at `story-tab.js:1063` vs untouched `apiPut` at `:1079`). Affordable because 47 sites sit in 14 of 162 files. Adds a **second limb to D2** after Peter's steer — every phase must also demonstrate no player-facing regression, downtime first while a cycle is open. States the **live-cycle reason** in D4, which outlives the weight and write-path reasons. Re-points P1's success condition to player parity, with an explicit move/retire/defer decision per surface. | Imhotep (Architect) |
 | 11 | 2026-07-30 | Corrects D10's documented invocation, which passed vacuously. `--touches` diffs the working tree against the ref, so the bare `<ref>` form — copied from Rev 10 into a story and a dispatch and run as `--touches <own-branch>` — produced a zero-line diff, printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 unexamined lines. Now documented as `--touches origin/dev` with the reason attached, and the tool refuses an empty diff with exit 2 rather than passing it. Notable for its shape: the failure required no carelessness, it was produced by following the instructions. Adds a commit-before-negative-control warning to both gate harnesses, after a revert step destroyed uncommitted work while leaving `git status` clean. | Imhotep (Architect) |
@@ -141,6 +142,8 @@ So every phase carries both limbs:
 
 - **Positive** — something can be opened and seen to be different.
 - **Negative** — nothing player-facing has regressed, demonstrated rather than assumed, with **downtime first** while a cycle is open.
+
+**Prefer a structural demonstration to an observational one (Rev 14).** Showing that no mechanism exists for a regression is stronger than showing none was observed, and it does not decay when someone forgets to look. The Spheres gate is the model: `index.html` references `admin-layout.css` zero times, so the edited file is not in the player's cascade at all and there is no path by which the change could reach a player. That closes the limb for every player surface at once, where an observational check closes it for the surfaces someone happened to open. Use the observational form only where no structural argument is available.
 
 The negative limb is the harder one and it is the one under schedule pressure, because a regression that nobody opened the app to look for reads exactly like a clean phase.
 
@@ -345,6 +348,10 @@ The first three preconditions can all pass on a family that is not per-surface a
 
 **Extract by EMITTER SET, never by name prefix.** This sits above the block-versus-selector counting convention and supersedes it where they disagree — it is D8 rule 5 applied to modules rather than documents: the decision unit is the emitting surface, not the name. The Spheres section is 49 blocks only under a `.sph` substring search, which silently merges **two separate prefix families** — 31 `.sph-*` and 18 `.sphere*`/`.spheres*` — because `.sphere` begins with `.sph`. Same substring trap as `#stk-` matching `tk-` on Tickets, inverted: there it produced false positives, here it merged two families into one number and made the discrepancy look like a counting convention.
 
+**Fifth precondition (Rev 14): no rule block may span two buckets.** The first three preconditions ask whether a family can *leave* `admin-layout.css`. Bucketing asks a second question one level down: can the family be **split internally without editing a rule**? A block whose selector spans two buckets cannot go into either sheet without being cut, and cutting is an *edit*, which drops it out of resolution class 3 exactly as a mixed comma group does — the same failure mode, one level down.
+
+When the count is non-zero, **leave that block behind** in `admin-layout.css` rather than cut it. On Spheres it is exactly one (`.sphere-dominant .sphere-char-name`, spanning dead and Downtime-only), and both its buckets stay put, so nothing that moved was entangled.
+
 **Resolution, and it is not simply "extract what this surface emits":**
 
 | bucket | destination |
@@ -358,7 +365,26 @@ The first three preconditions can all pass on a family that is not per-surface a
 
 Rejected: putting the shared rules in the first-migrating surface's sheet. It works today and fails at the worst possible moment — when the second surface moves, which for Downtime is P1-last, on the frozen write path, against a live cycle. It also files one surface's rules under another's filename, and a filename that lies is discovered by whoever is least expecting it.
 
-Rejected: promoting the shared rules to `components.css`. That is where ADR-007 D5's promotion test would send a class used by two or more consumers, but `components.css` is loaded by the player document, so it would breach D9's own rule that **zero ST presentation reaches a player**. The shared-admin sheet is the D5 promotion confined to the admin cascade.
+Rejected: promoting the shared rules to `components.css`. That is where ADR-007 D5's promotion test would send a class used by two or more consumers, but `components.css` is loaded by the player document. Two reasons, and at Rev 14 the second is the load-bearing one:
+
+1. It would add to the ST presentation reaching every player — see the ratchet below.
+2. **It would fuse the admin cascade into the shared lib**, which is the thing that has to stay separable. Peter's steer is that much of this app's function moves to another app; a rule that lives in `components.css` cannot travel with the surface that owns it. `admin-shared.css` is ADR-007 D5's promotion **confined to the admin cascade**, and it stays movable.
+
+**Logged exception, added at Rev 14: the "zero ST presentation reaches a player" rule already has a large pre-existing violation, and Rev 4 and Rev 13 both stated it as though it did not.**
+
+Measured on `dev`: **55 classes** defined in `components.css` are emitted by admin sources and by no player-side file, across **88 rule blocks**. The `stm-audit-*` family is 45 of them; the rest are `cc-*`, `char-card`/`char-detail`, `cd-sheet` and a few loose state classes. *Method limit, stated in the claim per D8 rule 6: this is static emitter analysis, so a class the player side builds by string concatenation would look admin-only. Treat 55 as an **upper bound** on the exception.*
+
+This matters because the rule was cited at Rev 13 to refuse five classes while roughly ten times that number was already there. **The Rev 13 decision stands, but its rationale was overstated and is restated above on reason 2**, which holds independently of the legacy.
+
+Resolution is a **ratchet, not a grandfather clause**: the rule is absolute for new work, and the existing set is a named baseline that may shrink and never grow. Same mechanism and the same reasoning as the D4 leak ratchet, including that the baseline is a **named set rather than a count**, so a new violation cannot substitute for a retired one — which also absorbs the imprecision the method limit admits to.
+
+Gated by `admin-collision-map.py --st-in-lib --check`, baseline in `st-in-lib-baseline.json`, `--bless` refuses to grow it. Not fixed now, deliberately: it is cost-free in bytes beside the 214 KB already cut, and `stm-audit-*` belongs to a surface Peter has said is being retooled with a new data interface, so ripping it out now is work aimed at a moving target. Cleanup is tracked separately.
+
+**`admin-shared.css` is the NORMAL path, not an exception mechanism (Rev 14).** An emitter-exclusivity sweep across all 14 admin surfaces found that **every surface with substantial styling shares classes with another**; not one passes exclusivity outright. The two apparent passes are artefacts — `st-mods-audit` because its styling already sits in `components.css` (the logged exception above), and `tickets` because its family has already been extracted. Shared counts run 3 to 8 per surface.
+
+A reader meeting `admin-shared.css` for the first time will assume it is for edge cases, and will be wrong. Expect most surfaces to contribute to it.
+
+Two consequences worth stating rather than discovering. **`downtime-views.js` is the most common sharing partner in the table** — the module D4 sequences *last* is entangled with nearly every surface sequenced before it. That is not an argument to resequence: the frozen-write-path and live-cycle reasons stand and are stronger. It does mean Downtime arrives last to a shared sheet it had no say in, so every earlier surface should record *which* of its shared classes are Downtime's, and the Downtime story should open by reviewing that accumulated set rather than accepting it.
 
 Entry rule for `admin-shared.css`, to stop it becoming a second `admin-layout.css`: a class enters when **two or more surfaces emit it** — migrated or not, since emitter exclusivity is a property of the code rather than of migration order — and the emitter set is recorded alongside it. Deferring on the grounds that the second surface has not moved yet is exactly what creates the surprise.
 

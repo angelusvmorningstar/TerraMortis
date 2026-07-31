@@ -27,6 +27,20 @@ USAGE
     python3 specs/qa/harness/admin-collision-map.py            # summary
     python3 specs/qa/harness/admin-collision-map.py --list     # + every colliding rule
     python3 specs/qa/harness/admin-collision-map.py --dead     # + unreferenced admin classes
+    python3 specs/qa/harness/admin-collision-map.py --st-in-lib          # ST-only classes in the lib
+    python3 specs/qa/harness/admin-collision-map.py --st-in-lib --check  # exit 1 if the set grew
+    python3 specs/qa/harness/admin-collision-map.py --st-in-lib --bless  # SHRINK-ONLY baseline
+
+--st-in-lib GATES ADR-008 D9's "zero ST presentation reaches a player". components.css is
+loaded by BOTH documents, so an ST-only class defined there ships to every player. That
+rule was stated absolutely and the tree does not conform: a measured set of ST-only
+classes predates it, dominated by the stm-audit-* family. They are recorded as a NAMED
+BASELINE that may shrink and never grow -- the same ratchet as admin-leak-gate.py, and
+for the same reason: a count would let a new violation substitute for a retired one.
+
+This is a ratchet, NOT a grandfather clause. The rule is absolute for new work; the
+baseline is debt with a direction, and it is the thing that stops the exception growing
+quietly while the rule keeps being cited in rulings.
 
 METHOD LIMITS — read these before quoting any number this script prints.
 
@@ -134,7 +148,76 @@ def reachable_from(css_name, other_emits):
     return hits, bare
 
 
+ST_BASELINE = Path(__file__).resolve().parent / 'st-in-lib-baseline.json'
+
+
+def st_only_in_lib():
+    """components.css classes emitted by admin sources and by no player-side file."""
+    adm = set(emitted(ADMIN_JS, ADMIN_HTML))
+    app = set(emitted(APP_JS, APP_HTML))
+    out = {}
+    for media, sel, d in selectors('components'):
+        for c in re.findall(r'\.([A-Za-z_][\w-]*)', sel):
+            if c in adm and c not in app:
+                out.setdefault(c, []).append(sel)
+    return out
+
+
+def run_st_in_lib(argv):
+    import json
+    found = st_only_in_lib()
+    names = set(found)
+    blocks = sum(len(v) for v in found.values())
+    base = None
+    if ST_BASELINE.exists():
+        base = set(json.loads(ST_BASELINE.read_text())['classes'])
+
+    if '--bless' in argv:
+        if base is not None and not names <= base:
+            print('REFUSED: --bless may only SHRINK the baseline (ratchet).')
+            for n in sorted(names - base):
+                print('  would add:', n)
+            return 1
+        ST_BASELINE.write_text(json.dumps(
+            {'_comment': 'ADR-008 D9 ratchet: ST-only classes in components.css. '
+                         'May shrink, never grow. See admin-collision-map.py --st-in-lib.',
+             'classes': sorted(names)}, indent=2) + '\n', encoding='utf-8')
+        print(f'baseline written — {len(names)} classes')
+        return 0
+
+    print('=' * 74)
+    print('ST-ONLY CLASSES IN components.css   (ADR-008 D9 ratchet)')
+    print('=' * 74)
+    print(f'  classes emitted only by admin : {len(names)}')
+    print(f'  rule blocks involved          : {blocks}')
+    fams = {}
+    for c in names:
+        fams.setdefault(c.split('-')[0], []).append(c)
+    for k, v in sorted(fams.items(), key=lambda x: -len(x[1]))[:8]:
+        print(f'     {k + "-*":<18} {len(v):3d}   e.g. ' + ', '.join(sorted(v)[:3]))
+    print()
+    print('  METHOD LIMIT: static emitter analysis. A class the player side builds by')
+    print('  string concatenation looks admin-only, so this is an UPPER BOUND.')
+    print()
+    if base is None:
+        print('  no baseline recorded; run --st-in-lib --bless to create one')
+        return 1 if '--check' in argv else 0
+    added, removed = names - base, base - names
+    for n in sorted(removed):
+        print(f'  IMPROVED: {n} no longer ST-only in the lib — run --bless')
+    if added:
+        print('  FAIL: new ST-only presentation added to components.css (D9).')
+        for n in sorted(added):
+            print('    +', n)
+        print('  Put it in the surface sheet or admin-shared.css, not the lib.')
+        return 1
+    print(f'  OK — no increase over baseline ({len(base)} classes).')
+    return 0
+
+
 def main():
+    if '--st-in-lib' in sys.argv:
+        return run_st_in_lib(sys.argv)
     want_list = '--list' in sys.argv
     want_dead = '--dead' in sys.argv
 
