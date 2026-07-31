@@ -653,8 +653,17 @@ async function initSpheresSurface(el) {
   if (role !== 'st' && role !== 'dev') return;
 
   try {
+    // A surface declares the SET of sheets it needs, not one sheet (D9 Rev 13).
+    // admin-shared.css holds classes two or more admin surfaces emit; Downtime
+    // will inject the same sheet when it moves. loadSurfaceSheet is idempotent
+    // and promise-cached, so the second injection costs nothing and there is no
+    // ordering dependency between surfaces. Listed in source order for the
+    // cascade, though no cross-sheet conflict exists: the only cross-bucket
+    // co-occurrence is .sphere-card + .sphere-card-vacant, whose declarations
+    // are disjoint (background/border/padding vs opacity).
     const [mod] = await Promise.all([
       import('./admin/spheres-view.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
       loadSurfaceSheet('css/admin-spheres.css'),
     ]);
     await mod.initSpheresView();          // reads #spheres-content itself
