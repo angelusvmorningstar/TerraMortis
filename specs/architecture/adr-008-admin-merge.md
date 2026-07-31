@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 11
+revision: 12
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 12 | 2026-07-31 | **D10 corrected to FILE granularity** after Ma'at found it certifying display-only for a change that can *prevent* a write: hunk intersection sees changes to a write site but not changes to whether one is reached (early `return` at `story-tab.js:1063` vs untouched `apiPut` at `:1079`). Affordable because 47 sites sit in 14 of 162 files. Adds a **second limb to D2** after Peter's steer — every phase must also demonstrate no player-facing regression, downtime first while a cycle is open. States the **live-cycle reason** in D4, which outlives the weight and write-path reasons. Re-points P1's success condition to player parity, with an explicit move/retire/defer decision per surface. | Imhotep (Architect) |
 | 11 | 2026-07-30 | Corrects D10's documented invocation, which passed vacuously. `--touches` diffs the working tree against the ref, so the bare `<ref>` form — copied from Rev 10 into a story and a dispatch and run as `--touches <own-branch>` — produced a zero-line diff, printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 unexamined lines. Now documented as `--touches origin/dev` with the reason attached, and the tool refuses an empty diff with exit 2 rather than passing it. Notable for its shape: the failure required no carelessness, it was produced by following the instructions. Adds a commit-before-negative-control warning to both gate harnesses, after a revert step destroyed uncommitted work while leaving `git status` clean. | Imhotep (Architect) |
 | 10 | 2026-07-30 | Adds D8 rule 6 — **a caveat that does not travel with the number it qualifies is decoration** — after two instances a week apart by different authors, each of whom wrote the correct limitation and then published a figure that reads as unqualified because the two sat in different paragraphs. Adds **D10**: a fix may ship ahead of its gate only when it cannot alter what is persisted; the criterion is display-only, not diff size, and it is established by `write-path-inventory.py --touches` rather than judged. Also carries forward the stranded ADR-007 Rev 4 write-path generator, which had never reached `dev`. | Imhotep (Architect) |
 | 9 | 2026-07-30 | Records the Chromium confirmation that the Rev 6 injector hazard was **live, not latent** (sheet never fetched, promise never settled, blank surface, zero console output), with severity bounded honestly — recoverable by toggling back to ST view, which does not make the old shape acceptable. Corrects the record that the proposed guard was never written into the code. Adds a second D8 preamble from James: **a check only produces truth if halting is cheap for the person who runs it** — the executor holds both the cheapest access to a counterexample and the strongest incentive to rationalise it away, so the rules in D8 degrade into rubber stamps under schedule pressure while looking unchanged in the record. Distinguishes 'one cut closes it' from 'one path reaches it' in the leak gate. | Imhotep (Architect) |
@@ -133,6 +134,15 @@ Splitting this into three epics is the trap, not the mitigation: three clean don
 
 A unit of work that cannot be demonstrated that way is a task inside a phase, not a phase.
 
+**Second limb, added at Rev 12 after a product steer.** D2's positive limb — something openable and *different* — was written when the deliverable was ST surfaces appearing in the main app. Peter's steer re-points it: what he most wants to open and see is the **player experience, unchanged**. A phase that visibly adds an ST surface while subtly regressing player downtime satisfies D2 as originally written and fails the condition that actually matters.
+
+So every phase carries both limbs:
+
+- **Positive** — something can be opened and seen to be different.
+- **Negative** — nothing player-facing has regressed, demonstrated rather than assumed, with **downtime first** while a cycle is open.
+
+The negative limb is the harder one and it is the one under schedule pressure, because a regression that nobody opened the app to look for reads exactly like a clean phase.
+
 Consequence, and it is the operative half: **cleanup with no visible output never becomes a phase.** The 503 `admin-layout.css` classes emitted by neither app (26% of the file, a reachability-deletion lead) ride inside a delivering phase or they do not happen. Same for the `body` rule and the residual overlap in D6.
 
 ### D3: Shell first, reconcile second. Invert USF's order. (locks)
@@ -160,7 +170,7 @@ Rejected: CSS-first. It is the ordering that feels safer and is not. It defers t
 
   The baseline lives in the generated artefact rather than in this prose, per the ADR-007 D7 Rev 4 lesson: a hand-maintained list of a moving target decays silently and is worse than none, because reviewers trust it.
 - The legacy leak is tracked as **#1075**, independent debt rather than a P1 prerequisite. It is a live user-facing performance bug today — 214 KB on player phones, unrelated to the merge — and holding the pilot for it would be the D2 non-delivering-part trap, on a frozen-write-path file this ADR sequences last. **One sequencing constraint:** it must land before or with the downtime surfaces move, since that is when the same file is opened. The chokepoint is a *single edge*, `story-tab.js:9`, importing one function (`compilePushOutcome`); three modules import `story-tab.js`, but cutting that one edge closes the leak for all of them.
-- `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1. They are 67% of the weight and they sit on the D7 write path, so they carry both risks at once and should land when the pattern is proven rather than while it is being established.
+- `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1, for three reasons, and the third is the one that outlives the others. They are 67% of the weight; they sit on the ADR-007 D7 write path; and **downtime is live** — a cycle is open and players are submitting into it, so touching these files mid-cycle risks real submissions rather than a rollback. Stated explicitly at Rev 12 because the first two reasons evaporate once the weight problem is solved, and the third does not. **Sequence these against the downtime cycle, not only against the epic.**
 
 Rejected: a build step or bundler to solve this. It would be the largest new piece of infrastructure this project has taken on, to solve a problem `import()` solves natively, in a codebase whose stated architecture is "no build step, no router, no framework".
 
@@ -389,6 +399,14 @@ python3 specs/qa/harness/write-path-inventory.py --touches origin/dev
 
 It intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required; exit 2 means the invocation examined nothing. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
 
+**Certification is at FILE granularity, deliberately (Rev 12).** If the diff touches any file containing a write site, D10 does not certify — even when no changed hunk overlaps a site.
+
+Rev 10 and 11 intersected changed hunks with inventory sites, and that measured the wrong thing. **Hunk intersection sees changes *to* a write site but not changes to whether a write site is *reached*.** The worked case: an early `return` added at `story-tab.js:1063` in a catch block can stop an untouched `await apiPut('/api/downtime_submissions/…')` at `:1079` — same function, sacrosanct collection — from ever executing. The `apiPut` line is in no hunk, the intersection is empty, and Rev 11 printed `DISPLAY-ONLY ESTABLISHED`.
+
+This is D8 rules 4 and 5 arriving one level up, inside an instrument built to enforce them: the unit measured (changed lines) was not the unit the decision needs (reachability of writes). Establishing reachability properly needs control-flow analysis. File granularity is the cheap, robust, parser-free over-approximation, and **a bypass criterion must fail toward requiring the gate** — a false-conservative result costs one QA pass, a false-permissive one costs a submission.
+
+It is affordable because write sites concentrate: 47 sites in **14 of 162** files, so most display-only changes touch no write-site file at all. When a changed file does contain sites, the report names them so the reviewer knows where to look, but D10 does not grant the bypass.
+
 **Always `--touches origin/dev`, the branch point — never your own branch and never `HEAD` (Rev 11).** The mode diffs the *working tree* against the ref, so passing the branch you are standing on produces a zero-line diff that examines nothing. Rev 10 documented the bare form `--touches <ref>`, and that form was copied into a story and a dispatch and run as `--touches <own-branch>`, where it printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 lines of unexamined change.
 
 That failure deserves stating rather than quietly fixing, because of its shape: **it does not require anyone to be careless — it is produced by following the instructions.** The vacuous pass is textually identical to a real one, and it propagates to every story that copies the documented invocation. It is D8 rule 6 applied to an *instruction* rather than to a number: the bare form is what travels, so the reason must be attached to it.
@@ -403,6 +421,10 @@ Two limits, both load-bearing:
 Recorded here rather than left as process for the reason Rev 9 gives: this is a decision about **when the gates may be bypassed**, which is exactly the class of rule that erodes silently under pressure.
 
 ## Phase sequencing
+
+**P1's success condition is player parity, not surface count (Rev 12).** Peter's steer: much of this app's function will be removed and reimplemented in another app, so the two halves need not match perfectly; what is wanted first is a merged app that *at least duplicates the existing player experience*, downtime especially.
+
+Two consequences. First, "all 17 admin surfaces moved" is not the goal and never was the done-condition — D1's done-condition (`admin.html` gone, `index.html` serves both roles) is unchanged. Second, each surface now takes an explicit **move / retire / defer** decision at drafting time rather than being assumed to move: a surface whose function is migrating to the other app should be retired or deferred, because moving it is work that gets discarded. Record the decision and its reason per surface; do not let "defer" become an unexamined default.
 
 **P1: merge the shell.** Admin's sidebar and nav into `index.html` under the existing role gate, with the admin module graph behind dynamic `import()` (D4). Opens with the Tickets surface end to end (D5), then the remaining surfaces, with `downtime-views.js` and `downtime-story.js` last. Not write-path-touching, and D7.1 is the standing check that it stays that way.
 
