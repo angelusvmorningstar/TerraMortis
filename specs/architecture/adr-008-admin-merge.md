@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 10
+revision: 16
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,12 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 16 | 2026-07-31 | Corrects Rev 15's attribution: the 56/77 was Khepri's own measurement, not Ma'at's, and she produced no competing figure — so I corrected Khepri, and the misattribution was relayed to the person it was about. Names the failure: **a number passed on without its provenance checked**. Adds the rule 7 corollary — **suspect an instrument before a convention** — and anchors it to `.sph`/`.sphere` rather than to 56/55, because that incident had no competing derivation and therefore does not demonstrate the rule. Records that **independence of execution is not independence of method**: the tokeniser defect netted to zero across the baseline while changing its membership, which no number of re-runs could have caught. | Imhotep (Architect) |
+| 15 | 2026-07-31 | Adds **D8 rule 7: prefer syntax-aware extraction; parse or declare**, from Ma'at, diagnosing four boundary failures as one defect — a measurement whose tokeniser disagreed with the language it was reading. Applying it to this ADR's own instruments found the same defect in every emitter scan: a naive class-attribute regex truncates on `${...}` interpolation, both missing real classes and inventing phantom ones, across 385 interpolated attributes in 53 files. Corrects merge exposure **~118 → ~89** and player adoption **900 → 922**; the D9 baseline stays at 55 with changed membership and was re-blessed from scratch. | Imhotep (Architect) |
+| 14 | 2026-07-31 | **Logs a pre-existing exception to D9's zero-ST-presentation rule** that Rev 4 and Rev 13 both stated as though absolute: 55 classes / 88 blocks in `components.css` are emitted only by admin, dominated by `stm-audit-*`. Rev 13's decision stands but its rationale is restated on cascade separability, which holds independently. Converted to a shrink-only ratchet gated by `--st-in-lib`. Records the emitter-exclusivity sweep — **no surface passes outright**, so `admin-shared.css` is the normal path, and `downtime-views.js` is the most common sharing partner despite being sequenced last. Adds a **fifth precondition**: no rule block may span two buckets; leave it behind rather than cut it. Names **structural demonstration** as the preferred form for D2's negative limb. | Imhotep (Architect) |
+| 13 | 2026-07-31 | Adds D9's **fourth precondition: emitter exclusivity**, after Spheres (#1096) passed all three existing ones and was still not a per-surface family — 5 of its classes are emitted by `downtime-views.js` as well. Records why it recurs (families are named after a domain concept, surfaces after a screen) and that Tickets passed by luck of naming. Establishes **extract by emitter set, never by name prefix**, above the block-counting convention: the 49-block Spheres 'section' is two prefix families merged by a `.sph` substring search. Adds a shared admin sheet for classes two or more surfaces emit, rather than filing them under the first migrant's filename, and makes a surface declare the SET of sheets it needs. | Imhotep (Architect) |
+| 12 | 2026-07-31 | **D10 corrected to FILE granularity** after Ma'at found it certifying display-only for a change that can *prevent* a write: hunk intersection sees changes to a write site but not changes to whether one is reached (early `return` at `story-tab.js:1063` vs untouched `apiPut` at `:1079`). Affordable because 47 sites sit in 14 of 162 files. Adds a **second limb to D2** after Peter's steer — every phase must also demonstrate no player-facing regression, downtime first while a cycle is open. States the **live-cycle reason** in D4, which outlives the weight and write-path reasons. Re-points P1's success condition to player parity, with an explicit move/retire/defer decision per surface. | Imhotep (Architect) |
+| 11 | 2026-07-30 | Corrects D10's documented invocation, which passed vacuously. `--touches` diffs the working tree against the ref, so the bare `<ref>` form — copied from Rev 10 into a story and a dispatch and run as `--touches <own-branch>` — produced a zero-line diff, printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 unexamined lines. Now documented as `--touches origin/dev` with the reason attached, and the tool refuses an empty diff with exit 2 rather than passing it. Notable for its shape: the failure required no carelessness, it was produced by following the instructions. Adds a commit-before-negative-control warning to both gate harnesses, after a revert step destroyed uncommitted work while leaving `git status` clean. | Imhotep (Architect) |
 | 10 | 2026-07-30 | Adds D8 rule 6 — **a caveat that does not travel with the number it qualifies is decoration** — after two instances a week apart by different authors, each of whom wrote the correct limitation and then published a figure that reads as unqualified because the two sat in different paragraphs. Adds **D10**: a fix may ship ahead of its gate only when it cannot alter what is persisted; the criterion is display-only, not diff size, and it is established by `write-path-inventory.py --touches` rather than judged. Also carries forward the stranded ADR-007 Rev 4 write-path generator, which had never reached `dev`. | Imhotep (Architect) |
 | 9 | 2026-07-30 | Records the Chromium confirmation that the Rev 6 injector hazard was **live, not latent** (sheet never fetched, promise never settled, blank surface, zero console output), with severity bounded honestly — recoverable by toggling back to ST view, which does not make the old shape acceptable. Corrects the record that the proposed guard was never written into the code. Adds a second D8 preamble from James: **a check only produces truth if halting is cheap for the person who runs it** — the executor holds both the cheapest access to a counterexample and the strongest incentive to rationalise it away, so the rules in D8 degrade into rubber stamps under schedule pressure while looking unchanged in the record. Distinguishes 'one cut closes it' from 'one path reaches it' in the leak gate. | Imhotep (Architect) |
 | 8 | 2026-07-30 | Corrects the Rev 6 injector shape, which James found unsafe while implementing it. A `disabled` stylesheet link may never be fetched, so `load`/`error` never fire and a promise awaiting them never settles — the Rev 6 `disabled = true` initial state could leave an ST in player preview with a blank surface and no error. Corrected to inject enabled and let `applyRoleRestrictions()` own application, which removes the dependency instead of guarding it and downgrades the failure mode from silent-and-total to cosmetic. Also fixes the leak gate's docstring (it presented one representative import path as the only one) and adds `--paths`. | Imhotep (Architect) |
@@ -70,7 +76,7 @@ Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
 |---|---|
 | components.css defines | 1,266 |
 | emitted by admin sources | 86 (6.8%) |
-| emitted by player-app sources | 900 (71.1%) |
+| emitted by player-app sources | 922 (72.8%) |
 
 *(The tempting correction — that D9 inferred non-adoption from low definition overlap, which are opposite readings, since a class used but never redefined gives zero overlap and total adoption — was tested and did not hold. D9's conclusion survives direct measurement. Recorded because the check was made and came back negative.)*
 
@@ -78,10 +84,10 @@ Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
 
 | Merge cascade exposure | rules |
 |---|---|
-| `admin-layout.css` rules whose every class token is emitted by the player app | 55 |
-| `suite.css` rules whose every class token is emitted by admin | 62 |
+| `admin-layout.css` rules whose every class token is emitted by the player app | 43 |
+| `suite.css` rules whose every class token is emitted by admin | 45 |
 | unscoped element rules in admin-layout (the `body` rule at `admin-layout.css:5`) | 1 |
-| **genuinely new exposure created by merging the documents** | **~118** |
+| **genuinely new exposure created by merging the documents** | **~89** (was stated as ~118 before Rev 15; see D8 rule 7) |
 | `components.css` rules matching admin elements | 108, and **not a merge cost** |
 
 That last row matters most. **`admin.html:12` already loads `components.css`**, before `admin-layout.css`. Those 108 apply today. Admin is not outside the design-system cascade waiting to be dragged into it; it is already inside it and overriding it. D9 described a boundary that does not exist.
@@ -90,7 +96,7 @@ The exposure is small because the two class vocabularies barely intersect. Admin
 
 All figures in this section are reproducible with `python3 specs/qa/harness/admin-collision-map.py`, checked in with this ADR. Its docstring carries the method limits; D8 explains why they live there rather than here.
 
-So ADR-007 D9 deferred the merge on a CSS obstacle of ~118 enumerable rules while stating it as 2,686. Roughly twenty-fold.
+So ADR-007 D9 deferred the merge on a CSS obstacle of ~89 enumerable rules while stating it as 2,686. Roughly thirty-fold.
 
 **D9's other two reasons are not withdrawn.** Reason 2 (the ST editor is the highest-consequence write path and should not be churned inside an epic already churning that cascade) stands and shapes the phase order below. Reason 3 (the expensive half already happened) is confirmed: `admin.js` and `app.js` share 23 modules including all of `data/` and the `editor/` core.
 
@@ -132,6 +138,17 @@ Splitting this into three epics is the trap, not the mitigation: three clean don
 
 A unit of work that cannot be demonstrated that way is a task inside a phase, not a phase.
 
+**Second limb, added at Rev 12 after a product steer.** D2's positive limb — something openable and *different* — was written when the deliverable was ST surfaces appearing in the main app. Peter's steer re-points it: what he most wants to open and see is the **player experience, unchanged**. A phase that visibly adds an ST surface while subtly regressing player downtime satisfies D2 as originally written and fails the condition that actually matters.
+
+So every phase carries both limbs:
+
+- **Positive** — something can be opened and seen to be different.
+- **Negative** — nothing player-facing has regressed, demonstrated rather than assumed, with **downtime first** while a cycle is open.
+
+**Prefer a structural demonstration to an observational one (Rev 14).** Showing that no mechanism exists for a regression is stronger than showing none was observed, and it does not decay when someone forgets to look. The Spheres gate is the model: `index.html` references `admin-layout.css` zero times, so the edited file is not in the player's cascade at all and there is no path by which the change could reach a player. That closes the limb for every player surface at once, where an observational check closes it for the surfaces someone happened to open. Use the observational form only where no structural argument is available.
+
+The negative limb is the harder one and it is the one under schedule pressure, because a regression that nobody opened the app to look for reads exactly like a clean phase.
+
 Consequence, and it is the operative half: **cleanup with no visible output never becomes a phase.** The 503 `admin-layout.css` classes emitted by neither app (26% of the file, a reachability-deletion lead) ride inside a delivering phase or they do not happen. Same for the `body` rule and the residual overlap in D6.
 
 ### D3: Shell first, reconcile second. Invert USF's order. (locks)
@@ -159,7 +176,7 @@ Rejected: CSS-first. It is the ordering that feels safer and is not. It defers t
 
   The baseline lives in the generated artefact rather than in this prose, per the ADR-007 D7 Rev 4 lesson: a hand-maintained list of a moving target decays silently and is worse than none, because reviewers trust it.
 - The legacy leak is tracked as **#1075**, independent debt rather than a P1 prerequisite. It is a live user-facing performance bug today — 214 KB on player phones, unrelated to the merge — and holding the pilot for it would be the D2 non-delivering-part trap, on a frozen-write-path file this ADR sequences last. **One sequencing constraint:** it must land before or with the downtime surfaces move, since that is when the same file is opened. The chokepoint is a *single edge*, `story-tab.js:9`, importing one function (`compilePushOutcome`); three modules import `story-tab.js`, but cutting that one edge closes the leak for all of them.
-- `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1. They are 67% of the weight and they sit on the D7 write path, so they carry both risks at once and should land when the pattern is proven rather than while it is being established.
+- `downtime-views.js` (604 KB) and `downtime-story.js` (205 KB) are moved **last** within P1, for three reasons, and the third is the one that outlives the others. They are 67% of the weight; they sit on the ADR-007 D7 write path; and **downtime is live** — a cycle is open and players are submitting into it, so touching these files mid-cycle risks real submissions rather than a rollback. Stated explicitly at Rev 12 because the first two reasons evaporate once the weight problem is solved, and the third does not. **Sequence these against the downtime cycle, not only against the epic.**
 
 Rejected: a build step or bundler to solve this. It would be the largest new piece of infrastructure this project has taken on, to solve a problem `import()` solves natively, in a codebase whose stated architecture is "no build step, no router, no framework".
 
@@ -255,6 +272,31 @@ Five operating rules follow:
 
   Step 3 is the difference between a check and an argument. A check reports what it found; an argument establishes what could not have been there.
 
+- **Prefer syntax-aware extraction over pattern matching wherever a parser exists; where none exists, declare the measurement textual in the claim.** Added at Rev 15, from Ma'at, with four instances as its evidence:
+
+  | pattern | target | outcome |
+  |---|---|---|
+  | `tk-` | `#stk-` | false positives, caught |
+  | `.sph` | `.sphere` | **silently merged two families**, disguised as a counting disagreement |
+  | `.placeholder` | `.placeholder-msg` | near-miss, caught on recheck |
+  | `class="([^"]*)"` | `class="a${c ? ' b' : ''}"` | truncated the capture, returned zero cross-bucket pairs where there was one |
+
+  **These are one defect with four faces, not four mistakes: a measurement whose tokeniser disagreed with the language it was reading.** Three read a *substring* where a *token* was meant; the fourth stopped at a delimiter the target language does not treat as one. "Be careful with regexes" is the wrong lesson, because care does not change what a tokeniser is capable of expressing.
+
+  It predicts where the next one lands: **any extraction that treats source as text rather than as syntax.** `css-overlap.py` is a real parser for CSS, and nothing in the rig is one for JS — which is exactly why all four landed on the JS side or the CSS/JS boundary. The rule cannot be "always parse", because there is no JS parser here today. It is **parse or declare**.
+
+  *Self-correction, recorded because this rule was written against my own instruments.* Every emitter scan in `admin-collision-map.py` used `class\s*=\s*["']([^"']*)["']`. Against the real line `class="sphere-card${vacant ? ' sphere-card-vacant' : ''}"` it captured `sphere-card` and a **phantom class `vacant`** (a JS identifier) while missing the real `sphere-card-vacant` — both error directions from one line. There are **385 interpolated class attributes across 53 files**. Restricted to classes some stylesheet actually defines, the old scan missed 36 admin and 48 player classes — overwhelmingly state modifiers (`expanded`, `done`, `hidden`, `flagged`) — and invented a handful of phantoms.
+
+  Consequences, now corrected in Context above: merge exposure **~118 → ~89** (phantoms like `d`, `done`, `open` were matching rules and inflating collisions), player-side design-system adoption **900 → 922**. The D9 `st-in-lib` baseline stays at 55 but **its membership changed**: `done` leaves as a phantom, `stm-mod-row--inactive` enters. The baseline was deleted and re-blessed rather than amended, because a baseline established by a defective instrument is not a baseline. The ratchet **refused** the first attempt to amend it — the mechanism working against the person who built it, at the moment he most wanted it to yield, which is the only real test a safety mechanism gets.
+
+  *Attribution corrected at Rev 16.* Rev 15 recorded this as "Ma'at's 56 was closer than my 55". Wrong on both halves. The 56/77 was **Khepri's own parallel measurement from his own script**, relayed to me; Ma'at produced no independent figure — she ran `admin-collision-map.py` and read 55/88, which is the tool's number read correctly. So I corrected **Khepri**, not Ma'at, and the misattribution was then relayed to the person it was about. Two failures, and the second is the more instructive: **a number was passed along without its provenance being checked, by the person who had produced the original in his own output.** Provenance travels worse than the number does, which is D8 rule 6 one level up — the caveat that falls off is not always a limit, sometimes it is *whose measurement this is*.
+
+- **When two people produce different numbers, suspect an instrument before suspecting a convention.** Added at Rev 16 as a corollary to rule 7, and anchored deliberately.
+
+  The anchor is **`.sph` / `.sphere`**, not the 56/55 incident. Two people derived block counts independently, disagreed, reached for a counting-convention explanation, and *believed it* — while underneath one tokeniser was silently merging two prefix families. The convention story was plausible, was reached first, and was wrong.
+
+  The 56/55 incident does **not** demonstrate this rule and must not be cited for it: one of those two numbers was simply the tool being read correctly, so there was no competing derivation to adjudicate. A rule anchored to an example that does not exhibit it is a rule that will be discarded the first time someone checks the example — the evidence has to bear the weight, not merely accompany the claim.
+
 - **A caveat that does not travel with the number it qualifies is decoration.** Added at Rev 6's successor, Rev 10. This is the *delivery* half of rules 4 and 5: those govern how a measurement is taken, this governs whether its limit survives contact with a reader.
 
   Two instances a week apart, by different authors, which is the argument for treating it as structural rather than as two mistakes. A PR carried the sentence *"this count is a floor — a site sniffing differently would not appear"* and then built its headline on the narrow figure: *"zero 24-hex sniffs remain."* There were four normalisation implementations in that file, and two of them resolve by `(_territories || []).find(t => String(t._id) === key)` with **no sniff at all** (`downtime-form.js:3947`, `:7203`, and the same shape at `:2403`, `:7353`), so they were invisible to the grep *by construction* — a more careful grep would not have found them; only a different question would. Separately, a QA gate that declared a harness UNVERIFIED later reported a coverage figure from it without restating the caveat beside the number.
@@ -325,6 +367,56 @@ Tickets passes the strong form: the closure is 24 properties (23 references plus
 
 Negative control, run rather than reasoned about: a rule referencing `--ar-bdr` takes the closure's not-agnostic count from 0 to 1 and halts with the property and its three class scopes named. **Check it per surface. Do not assume it from Tickets.**
 
+**Fourth precondition, added at Rev 13: EMITTER EXCLUSIVITY. Does exactly one surface emit this family?**
+
+The first three preconditions can all pass on a family that is not per-surface at all. On Spheres (#1096) they did: zero mixed comma groups, zero `@media` nesting, and a clean 10/10 `var()` closure at `:root` — and the family is still shared. Of the sphere-family classes, 22 are emitted only by `spheres-view.js`, **5 are emitted by both it and `downtime-views.js`** (`sphere-card`, `sphere-head`, `sphere-name`, `sphere-total`, `spheres-grid`), 4 only by `downtime-views.js`, and the rest by nothing.
+
+**Why this will recur, and why Tickets passing was luck rather than structure:** CSS families are named after a **domain concept** ("sphere"), while surfaces are named after a **screen**. Two screens can show the same concept. Tickets happened to have a family nobody else emitted, so the question never came up. With thirteen surfaces left, a concept appearing on two screens is the normal case.
+
+**Extract by EMITTER SET, never by name prefix.** This sits above the block-versus-selector counting convention and supersedes it where they disagree — it is D8 rule 5 applied to modules rather than documents: the decision unit is the emitting surface, not the name. The Spheres section is 49 blocks only under a `.sph` substring search, which silently merges **two separate prefix families** — 31 `.sph-*` and 18 `.sphere*`/`.spheres*` — because `.sphere` begins with `.sph`. Same substring trap as `#stk-` matching `tk-` on Tickets, inverted: there it produced false positives, here it merged two families into one number and made the discrepancy look like a counting convention.
+
+**Fifth precondition (Rev 14): no rule block may span two buckets.** The first three preconditions ask whether a family can *leave* `admin-layout.css`. Bucketing asks a second question one level down: can the family be **split internally without editing a rule**? A block whose selector spans two buckets cannot go into either sheet without being cut, and cutting is an *edit*, which drops it out of resolution class 3 exactly as a mixed comma group does — the same failure mode, one level down.
+
+When the count is non-zero, **leave that block behind** in `admin-layout.css` rather than cut it. On Spheres it is exactly one (`.sphere-dominant .sphere-char-name`, spanning dead and Downtime-only), and both its buckets stay put, so nothing that moved was entangled.
+
+**Resolution, and it is not simply "extract what this surface emits":**
+
+| bucket | destination |
+|---|---|
+| emitted by this surface only | the surface's own sheet (`admin-spheres.css`) |
+| emitted by **two or more** surfaces | a shared admin sheet (`admin-shared.css`) |
+| emitted only by a surface that has not moved | leave in `admin-layout.css` until it moves |
+| emitted by nothing | leave; it is dead and a deletion question, not a migration one |
+
+**A surface's load path declares the SET of sheets it needs, not one sheet.** `loadSurfaceSheet` is already idempotent and promise-cached, so a surface injecting both its own sheet and a shared one costs nothing.
+
+Rejected: putting the shared rules in the first-migrating surface's sheet. It works today and fails at the worst possible moment — when the second surface moves, which for Downtime is P1-last, on the frozen write path, against a live cycle. It also files one surface's rules under another's filename, and a filename that lies is discovered by whoever is least expecting it.
+
+Rejected: promoting the shared rules to `components.css`. That is where ADR-007 D5's promotion test would send a class used by two or more consumers, but `components.css` is loaded by the player document. Two reasons, and at Rev 14 the second is the load-bearing one:
+
+1. It would add to the ST presentation reaching every player — see the ratchet below.
+2. **It would fuse the admin cascade into the shared lib**, which is the thing that has to stay separable. Peter's steer is that much of this app's function moves to another app; a rule that lives in `components.css` cannot travel with the surface that owns it. `admin-shared.css` is ADR-007 D5's promotion **confined to the admin cascade**, and it stays movable.
+
+**Logged exception, added at Rev 14: the "zero ST presentation reaches a player" rule already has a large pre-existing violation, and Rev 4 and Rev 13 both stated it as though it did not.**
+
+Measured on `dev`: **55 classes** defined in `components.css` are emitted by admin sources and by no player-side file, across **88 rule blocks**. The `stm-audit-*` family is 45 of them; the rest are `cc-*`, `char-card`/`char-detail`, `cd-sheet` and a few loose state classes. *Method limit, stated in the claim per D8 rule 6: this is static emitter analysis, so a class the player side builds by string concatenation would look admin-only. Treat 55 as an **upper bound** on the exception.*
+
+This matters because the rule was cited at Rev 13 to refuse five classes while roughly ten times that number was already there. **The Rev 13 decision stands, but its rationale was overstated and is restated above on reason 2**, which holds independently of the legacy.
+
+Resolution is a **ratchet, not a grandfather clause**: the rule is absolute for new work, and the existing set is a named baseline that may shrink and never grow. Same mechanism and the same reasoning as the D4 leak ratchet, including that the baseline is a **named set rather than a count**, so a new violation cannot substitute for a retired one — which also absorbs the imprecision the method limit admits to.
+
+Gated by `admin-collision-map.py --st-in-lib --check`, baseline in `st-in-lib-baseline.json`, `--bless` refuses to grow it. Not fixed now, deliberately: it is cost-free in bytes beside the 214 KB already cut, and `stm-audit-*` belongs to a surface Peter has said is being retooled with a new data interface, so ripping it out now is work aimed at a moving target. Cleanup is tracked separately.
+
+**`admin-shared.css` is the NORMAL path, not an exception mechanism (Rev 14).** An emitter-exclusivity sweep across all 14 admin surfaces found that **every surface with substantial styling shares classes with another**; not one passes exclusivity outright. The two apparent passes are artefacts — `st-mods-audit` because its styling already sits in `components.css` (the logged exception above), and `tickets` because its family has already been extracted. Shared counts run 3 to 8 per surface.
+
+A reader meeting `admin-shared.css` for the first time will assume it is for edge cases, and will be wrong. Expect most surfaces to contribute to it.
+
+Two consequences worth stating rather than discovering. **`downtime-views.js` is the most common sharing partner in the table** — the module D4 sequences *last* is entangled with nearly every surface sequenced before it. That is not an argument to resequence: the frozen-write-path and live-cycle reasons stand and are stronger. It does mean Downtime arrives last to a shared sheet it had no say in, so every earlier surface should record *which* of its shared classes are Downtime's, and the Downtime story should open by reviewing that accumulated set rather than accepting it.
+
+Entry rule for `admin-shared.css`, to stop it becoming a second `admin-layout.css`: a class enters when **two or more surfaces emit it** — migrated or not, since emitter exclusivity is a property of the code rather than of migration order — and the emitter set is recorded alongside it. Deferring on the grounds that the second surface has not moved yet is exactly what creates the surprise.
+
+**Not every class is a candidate for scope separation.** `spheres-view.js` emits `class="placeholder"` for its loading and error states; `.placeholder` is defined once, in `admin-layout.css`, and used by nine admin modules. It must not be extracted with any one surface. Accepted consequence: those two transient messages render as unstyled paragraphs in `index.html`. Text remains visible, and a class with many consumers needs a broader decision than a per-surface extraction can make.
+
 **The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
 
 Static links from `index.html` were also rejected in favour of injection: they would ship ST CSS to every player. That does not breach D4's module-fetch criterion, but it breaches its intent. **Zero ST presentation reaches a player, not merely zero ST JavaScript.**
@@ -380,7 +472,27 @@ Added at Rev 10, after a player-blocking defect was shipped ahead of QA on the S
 
 The property that actually bounds the risk is **display-only**: can this change alter what is *persisted*, or only what is *displayed*? Character sheets and downtime submissions are lost through write paths (ADR-007 D7); a change that provably cannot reach one cannot lose them, whatever its size.
 
-This is **established, not asserted**. `write-path-inventory.py --touches <ref>` intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
+This is **established, not asserted**:
+
+```
+python3 specs/qa/harness/write-path-inventory.py --touches origin/dev
+```
+
+It intersects the diff's changed hunks with the generated inventory's sites and scans the diff for any mutating call to a sacrosanct collection, including ones not yet in the inventory. Exit 0 means display-only holds; exit 1 means the full gate is required; exit 2 means the invocation examined nothing. It runs in about a second, needs no browser, and composes with ADR-007 D7 — if the diff touches no inventory entry and introduces no persistence call, display-only is a measured fact.
+
+**Certification is at FILE granularity, deliberately (Rev 12).** If the diff touches any file containing a write site, D10 does not certify — even when no changed hunk overlaps a site.
+
+Rev 10 and 11 intersected changed hunks with inventory sites, and that measured the wrong thing. **Hunk intersection sees changes *to* a write site but not changes to whether a write site is *reached*.** The worked case: an early `return` added at `story-tab.js:1063` in a catch block can stop an untouched `await apiPut('/api/downtime_submissions/…')` at `:1079` — same function, sacrosanct collection — from ever executing. The `apiPut` line is in no hunk, the intersection is empty, and Rev 11 printed `DISPLAY-ONLY ESTABLISHED`.
+
+This is D8 rules 4 and 5 arriving one level up, inside an instrument built to enforce them: the unit measured (changed lines) was not the unit the decision needs (reachability of writes). Establishing reachability properly needs control-flow analysis. File granularity is the cheap, robust, parser-free over-approximation, and **a bypass criterion must fail toward requiring the gate** — a false-conservative result costs one QA pass, a false-permissive one costs a submission.
+
+It is affordable because write sites concentrate: 47 sites in **14 of 162** files, so most display-only changes touch no write-site file at all. When a changed file does contain sites, the report names them so the reviewer knows where to look, but D10 does not grant the bypass.
+
+**Always `--touches origin/dev`, the branch point — never your own branch and never `HEAD` (Rev 11).** The mode diffs the *working tree* against the ref, so passing the branch you are standing on produces a zero-line diff that examines nothing. Rev 10 documented the bare form `--touches <ref>`, and that form was copied into a story and a dispatch and run as `--touches <own-branch>`, where it printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 lines of unexamined change.
+
+That failure deserves stating rather than quietly fixing, because of its shape: **it does not require anyone to be careless — it is produced by following the instructions.** The vacuous pass is textually identical to a real one, and it propagates to every story that copies the documented invocation. It is D8 rule 6 applied to an *instruction* rather than to a number: the bare form is what travels, so the reason must be attached to it.
+
+The tool now refuses an empty diff with exit 2 and names the likely cause, rather than printing a pass. That is D9's cosmetic-over-silent preference applied to the harness itself: a loud operator error in place of a silent vacuous green.
 
 Two limits, both load-bearing:
 
@@ -390,6 +502,10 @@ Two limits, both load-bearing:
 Recorded here rather than left as process for the reason Rev 9 gives: this is a decision about **when the gates may be bypassed**, which is exactly the class of rule that erodes silently under pressure.
 
 ## Phase sequencing
+
+**P1's success condition is player parity, not surface count (Rev 12).** Peter's steer: much of this app's function will be removed and reimplemented in another app, so the two halves need not match perfectly; what is wanted first is a merged app that *at least duplicates the existing player experience*, downtime especially.
+
+Two consequences. First, "all 17 admin surfaces moved" is not the goal and never was the done-condition — D1's done-condition (`admin.html` gone, `index.html` serves both roles) is unchanged. Second, each surface now takes an explicit **move / retire / defer** decision at drafting time rather than being assumed to move: a surface whose function is migrating to the other app should be retired or deferred, because moving it is work that gets discarded. Record the decision and its reason per surface; do not let "defer" become an unexamined default.
 
 **P1: merge the shell.** Admin's sidebar and nav into `index.html` under the existing role gate, with the admin module graph behind dynamic `import()` (D4). Opens with the Tickets surface end to end (D5), then the remaining surfaces, with `downtime-views.js` and `downtime-story.js` last. Not write-path-touching, and D7.1 is the standing check that it stays that way.
 

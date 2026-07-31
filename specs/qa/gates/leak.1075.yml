@@ -1,0 +1,187 @@
+schema: 1
+story: "leak-1075"
+stage: "Cut the 214 KB static admin import from the player entry"
+story_title: "LEAK-1075 — admin/downtime-story.js loaded on use, not on boot"
+gate: PASS
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-30"
+reviewed_commit: "8fa72156 (PR #1089), base origin/dev"
+
+status_reason: >
+  The leak is cut and the cut is measured: 2 modules / 214 KB -> 0 / 0, baseline blessed to an empty
+  set, and the ratchet verified to re-tighten. Both dynamic specifiers are byte-identical, no static
+  admin import remains, and no player or ST session fetches anything under public/js/admin/ on boot
+  or across a tour of six tabs. PASS is on the change, which does what it claims and nothing else.
+  It is NOT a report that AC8 was verified: the ST chronicle edit surface that AC8 exercises is
+  UNREACHABLE in the shipped app, so the save round-trip cannot be performed by any user action and
+  I have recorded it as not-exercisable rather than as passing. That finding is pre-existing and not
+  caused by this PR, but it reframes the change — see leak1075-01, which is the most consequential
+  thing here.
+
+waiver: { active: false }
+
+static_verification:
+  - id: "AC4 — leak gate on this tree (verbatim)"
+    verdict: PASS
+    evidence: >
+      `python3 specs/qa/harness/admin-leak-gate.py --check` -> exit 0.
+        admin modules statically reachable : 0
+        uncompressed weight                : 0 KB
+        OK — no increase over baseline (0 modules).
+      admin-leak-baseline.json reads {"modules": []}. Third independent run after the dev's and the
+      SM's.
+  - id: "AC4 — negative control (re-tighten)"
+    verdict: PASS
+    evidence: >
+      Re-added the static import to story-tab.js as a simulated regression: exit code 1 (captured
+      without a pipe, see limits), FAIL printed, both public/js/admin/downtime-constants.js and
+      public/js/admin/downtime-story.js named. Restored via git checkout; tree clean; pristine re-run
+      exit 0. Followed the new commit-before-negative-control discipline — pre-flight confirmed zero
+      uncommitted changes, so the revert could not destroy work.
+  - id: "AC3 static — one specifier, no static admin import"
+    verdict: PASS
+    evidence: >
+      Two dynamic import() specifiers in story-tab.js, both '../admin/downtime-story.js', one unique
+      value — so the module map serves the save-path await from the prewarm's fetch. Zero remaining
+      static imports matching admin/ anywhere in the file.
+  - id: "D10 — write-path inventory, corrected invocation"
+    verdict: PASS (with a caveat on the instrument — see leak1075-02)
+    evidence: >
+      `--touches origin/dev` (NOT the vacuous `--touches <own-branch>`) -> exit 0,
+      "DISPLAY-ONLY ESTABLISHED — the diff reaches no persistence site."
+
+behavioural_verification:
+  environment: "headless Chromium via Playwright, local http-server + local API on :3000 with Atlas connected"
+  session_sanity: >
+    Stated because every result below is a NEGATIVE, and a negative from a logged-out session is
+    worthless. Each run asserted the session was real before trusting it: token set, role correct
+    ('player' / 'st'), 40 and 96 character elements rendered respectively, and no sign-in screen.
+  checks:
+    - id: "AC3 — player session fetches zero public/js/admin/*"
+      verdict: PASS
+      evidence: "NONE on boot, and NONE after touring Story, Archive, Downtime, Feeding, Ordeals and Settings."
+    - id: "AC3 — ST session: the 200 KB must not arrive on boot"
+      verdict: PASS (boot half)
+      evidence: >
+        NONE on ST boot, and NONE across the same six-tab tour. The complementary half — that it
+        arrives ON EDIT CLICK — could not be tested, because the edit click is unreachable
+        (leak1075-01).
+    - id: "AC8 — ST save round-trip (edit, save, reload, outcome recompiled and persisted)"
+      verdict: NOT EXERCISABLE — recorded as neither PASS nor FAIL
+      evidence: >
+        The affordance never renders. `.story-section-edit` appeared 0 times across six tabs in both
+        a player and an ST session. This is not a rendering timing problem; it is structural, and the
+        static trace agrees with the behavioural result (leak1075-01). Since the button cannot be
+        clicked, the save handler cannot run, so the round-trip has no user path to exercise. I could
+        not drive it synthetically either: the delegated click listener is assigned as `el.onclick`
+        INSIDE renderStoryTab, as is the `_chronicleCtx` that handleSectionEditClick needs to resolve
+        the submission — so injecting markup would find no listener and no context.
+    - id: "James's prediction — the save issues NO network request when preceded by an edit click"
+      verdict: NOT EXERCISABLE, for the same reason
+      evidence: >
+        Asked to break this rather than confirm it, and I could not do either: the edit click has no
+        user path, so there is no save-after-edit to observe. The static half stands — the two
+        specifiers are byte-identical, which is the precondition for the module map serving the
+        second call — but the behavioural confirmation he wanted remains open. It becomes testable
+        only if the chronicle surface is revived.
+
+findings:
+  - id: leak1075-01
+    severity: high
+    headline: true
+    finding: >
+      THE SURFACE THIS 214 KB EXISTED TO SERVE IS UNREACHABLE. The ST chronicle inline-edit feature
+      cannot be reached by any user action in the shipped app, and the whole of it lives behind one
+      uncalled function.
+        - renderStoryTab (story-tab.js:80) is exported and has ZERO callers: no static import
+          anywhere in public/js, no dynamic import() of story-tab, no window assignment, no
+          reference to the name outside its own file.
+        - renderChronicle (:178) — the ONLY call site that passes { editable } — is called once, at
+          :162, from inside renderStoryTab.
+        - The three REACHABLE renderOutcomeWithCards call sites all pass no opts, so `editable` is
+          undefined and _renderEditButton() is never emitted: dt-lookup.js -> renderLatestReport
+          (:75), archive-tab.js:166, downtime-tab.js:183.
+        - The delegated click listener is `el.onclick = …` set inside renderStoryTab, and
+          `_chronicleCtx` — which handleSectionEditClick needs to find the submission — is set there
+          too. So even hand-injected markup has no listener and no context.
+      Confirmed by two independent methods, which is the standard this project now holds: a static
+      trace (importers, call sites, dynamic-import and window sweeps) and a behavioural sweep
+      (`.story-section-edit` count = 0 across six tabs, both roles, with the session asserted real).
+      CONSEQUENCE, and it cuts in the change's favour: every player has been downloading 200 KB of
+      downtime-story.js to support a feature nobody can open. The leak was not merely mis-scoped, it
+      was entirely unearned. It also means the behavioural risk the SM identified as "the only real
+      one" does not exist in production — and that the dynamic-import machinery this PR adds
+      (prewarm + save-path await) is itself currently unreachable scaffolding, correct but dormant
+      until the surface is revived.
+    recommendation: >
+      Do not block this PR on it — the change is right either way and removing the static import is
+      strictly good. But raise it as its own issue and decide deliberately: revive the chronicle edit
+      surface (it appears complete — handlers, in-place re-render, flag affordance) or delete it. It
+      is a fifth instance of live-in-source / unreachable-in-fact after player.html, the 193
+      suite/player duplications, t-map (#1067) and tabs/tickets-tab.js, and the same D8 method found
+      it: the name-grep said "exported, therefore probably used", and the question that actually
+      settled it was "what calls this, and can anything reach it dynamically?"
+  - id: leak1075-02
+    severity: medium
+    finding: >
+      write-path-inventory.py --touches reports DISPLAY-ONLY for a diff that can change whether a
+      write executes. It intersects the diff's changed hunks with inventory SITES, so it sees changes
+      TO a write site but not changes to whether a write site is REACHED. In this diff the new
+      early-return sits at story-tab.js:1063 — `return;` when the dynamic import fails — directly
+      above an untouched `await apiPut('/api/downtime_submissions/…')` at :1079, a SACROSANCT
+      collection. The apiPut line itself is not in any hunk, so the intersection is empty and the
+      tool prints "DISPLAY-ONLY ESTABLISHED — Shipping ahead of the gate is within D10".
+      The practical risk here is low and fails closed: the import failure is caught, surfaced in
+      statusEl as "Failed: …", and the prewarm makes it unlikely. But D10 is precisely a rule about
+      when gates may be bypassed, which the SM rightly said erodes silently under pressure, and a
+      tool that certifies "cannot alter what is persisted" for a change that can prevent a downtime
+      submission from being written is that erosion.
+      This is the same shape as D8 rules 4 and 5: the unit measured (does the diff touch a write
+      site) is not the unit the decision needs (can the diff change what is persisted).
+    recommendation: >
+      Widen the intersection from "changed lines that ARE a write site" to "changed lines in a
+      function that CONTAINS a write site", or at minimum downgrade the wording from ESTABLISHED to a
+      qualified pass when a changed hunk shares a function with an inventory site. Architect's
+      instrument and Architect's call.
+  - id: leak1075-03
+    severity: low
+    finding: >
+      Pre-existing and NOT attributable to this PR, verified rather than assumed: both roles emit
+      `SyntaxError: Cannot convert local-test-<role> to a BigInt` as an uncaught pageError. I ran the
+      identical sweep against untouched origin/dev and reproduced it exactly on both roles, so it is
+      not introduced here. It is a dev-token artefact — something coerces the Discord user id to a
+      BigInt and the local bypass id is not a numeric snowflake — and it is invisible with a real
+      Discord login. Same family as the dev-fixtures defects in #1061 and #1085.
+    recommendation: "Fold into the dev-tooling sweep #1085 already opens. No action for this PR."
+
+limits:
+  - id: "1 — AC8 and the single-fetch prediction are open, not passed"
+    detail: >
+      Neither could be exercised, and I have not dressed that up as a pass. If the chronicle surface
+      is revived, both need running then: the save round-trip end to end, and the network-panel
+      observation that a save preceded by an edit click issues no request. The static precondition
+      for the latter (identical specifiers) is verified; the behaviour is not.
+  - id: "2 — one measurement of mine needed correcting mid-run"
+    detail: >
+      My first negative-control run reported exit 0 alongside a printed FAIL, which would have been a
+      serious finding — a gate that reports failure but cannot fail CI. It was my shell: piping to
+      tail captured tail's status. Re-run without the pipe, the true exit code is 1. Recorded because
+      "FAIL printed, exit 0" is exactly the claim that gets relayed once and never re-checked, and I
+      came close to relaying it.
+
+corrections_carried:
+  - "#1075 does NOT carry #816. Neither admin file was opened by this change, so the nine sites in downtime-views.js still need their own entry when a P1 downtime surface opens that file. With the four in downtime-form.js (two of which #1084 consolidates), #816's total remains thirteen."
+  - "Harness invocation: --touches must target origin/dev. Run from the branch under review it compares HEAD to itself, examines zero lines, and prints a pass textually identical to a real one."
+
+recommendation: >
+  PASS — merge. The leak is cut and independently measured at 0 modules / 0 KB with the baseline
+  blessed and the ratchet confirmed to re-tighten; the specifiers are identical so the prewarm and
+  the save-path await share one fetch; and no session of either role touches public/js/admin/ on boot
+  or across a six-tab tour. The change is minimal, opens neither admin file, and is strictly better
+  than the alternative of extraction.
+  Two things must travel with that verdict rather than beside it. AC8 was NOT verified — it was not
+  exercisable, because the surface it tests cannot be reached by a user (leak1075-01), and that is
+  the headline finding rather than a footnote: the 214 KB was being shipped to every player for a
+  feature nobody can open. And the D10 display-only certification for this diff is weaker than the
+  tool's wording implies (leak1075-02), because an early-return above an untouched write is invisible
+  to hunk intersection. Neither blocks the merge; both should outlive it.

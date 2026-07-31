@@ -1,0 +1,61 @@
+/* ══════════════════════════════════════════════
+   Shared admin surface rules (ADR-008 D9 Rev 13)
+
+   Extracted verbatim from admin-layout.css by story ADM P1 surface 2
+   (#1096, ADR-008 D9 Rev 13). Declarations are UNCHANGED — scope
+   separation relocates rules between documents, it edits no values.
+
+   Bucket: classes emitted by TWO OR MORE admin surfaces. A class enters
+   here when a second surface emits it — MIGRATED OR NOT — because emitter
+   exclusivity is a property of the code, not of migration order. Waiting
+   for the second surface to move is what manufactures the surprise.
+
+   NOT a components.css promotion: components.css is loaded by the PLAYER
+   document, so promoting these would breach D9's rule that zero ST
+   presentation reaches a player. This is D5's promotion confined to the
+   admin cascade.
+
+   Every surface that emits any class here must inject this sheet
+   alongside its own. Injection is idempotent and promise-cached, so a
+   second injection costs nothing and there is no ordering dependency.
+
+   EMITTER SETS (keep updated when a surface is added or retired):
+     .spheres-grid   admin/spheres-view.js, admin/downtime-views.js
+     .sphere-card    admin/spheres-view.js, admin/downtime-views.js
+     .sphere-head    admin/spheres-view.js, admin/downtime-views.js
+     .sphere-name    admin/spheres-view.js, admin/downtime-views.js
+     .sphere-total   admin/spheres-view.js, admin/downtime-views.js
+   ══════════════════════════════════════════════ */
+
+.sphere-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bdr);
+}
+.sphere-name {
+  font-family: var(--fl);
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+.sphere-total {
+  font-size: 12px;
+  color: var(--txt3);
+  text-transform: uppercase;
+}
+.spheres-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  padding: 8px 16px;
+}
+.sphere-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.spheres-grid { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
