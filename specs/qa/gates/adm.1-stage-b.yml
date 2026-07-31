@@ -5,6 +5,8 @@ story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind
 gate: PASS
 reviewer: "Ma'at (Test Architect)"
 updated: "2026-07-30"
+amended: "2026-07-31 (rev 2) — AC8 wording narrowed after ADR-008 Rev 14. Verdict unchanged; see
+  scope_correction on the AC8 check."
 reviewed_commit: "548f956a (PR #1076, base dev 97eee188 / ADR-008 Rev 8)"
 
 scope_note: >
@@ -184,6 +186,20 @@ behavioural_results:
       attributability claim: the merged surface reaches its module through dynamic import() only.
       --paths confirms the shape: three static routes to each, all converging on
       story-tab.js -> downtime-story.js.
+    scope_correction: >
+      AMENDED 2026-07-31 after ADR-008 Rev 14. AC8 as gated here is about admin MODULES reaching the
+      player entry, and the D4 criterion this PR was measured against is attributable-plus-ratchet
+      over that module set. It does NOT establish that no ST-authored RULE reaches a player.
+      components.css is loaded by the player document and already contains 55 classes emitted only by
+      admin sources across 88 rule blocks, 45 of them stm-audit-*. Verified independently on dev
+      d818b4c0 with `admin-collision-map.py --st-in-lib --check`: exit 0, 55 classes, 88 blocks, no
+      increase over the blessed baseline of 55; the tool prints its own limit, that static emitter
+      analysis makes 55 an UPPER BOUND because a class the player side concatenates looks admin-only.
+      Relevant to this story specifically: the D9 work here moved rules into a private per-surface
+      sheet rather than into components.css, so it is on the right side of that rule and does not add
+      to the baseline. AC13/AC21's "no components.css promotion" verdict is unaffected and is in fact
+      the invariant that keeps this gap from growing. The correction is to what the AC8 verdict
+      should be read as claiming, not to the result.
 
 instrument_verification:
   note: >
