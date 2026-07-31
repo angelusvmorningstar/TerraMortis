@@ -28,10 +28,23 @@ travels into stories, so write it as `--touches origin/dev` with the reason atta
 bounds the risk of shipping a fix before its gate is not diff SIZE -- a ten-line change
 that moves a write path is far more dangerous than a hundred-line change that cannot
 touch one. It is whether the change CAN ALTER WHAT IS PERSISTED, or only what is
-DISPLAYED. This mode answers that by intersecting the diff's changed hunks with the
-inventory's sites, and by scanning the diff itself for any mutating call to a sacrosanct
-collection that is not yet in the inventory. Exit 0 means display-only is ESTABLISHED
-rather than asserted; exit 1 means the full gate is required.
+DISPLAYED.
+
+CERTIFICATION IS AT FILE GRANULARITY, DELIBERATELY (Rev 12). If the diff touches any file
+containing a write site, this mode does NOT certify, even when no changed hunk overlaps a
+site. Rev 10/11 intersected hunks with sites, and that measured the wrong thing: hunk
+intersection sees changes TO a write site but not changes to WHETHER A WRITE SITE IS
+REACHED. An early `return` added to a catch block can stop an untouched `apiPut` twenty
+lines below from ever executing, and the intersection is empty. Establishing reachability
+properly needs control-flow analysis; file granularity is the cheap, robust, parser-free
+over-approximation, and a bypass criterion must fail toward REQUIRING the gate -- a
+false-conservative result costs one QA pass, a false-permissive one costs a submission.
+
+Concentration makes this affordable: 47 sites live in 14 of 162 files, so most
+display-only changes touch no write-site file at all.
+
+Exit 0 = certified display-only. Exit 1 = not certified, full gate required. Exit 2 =
+the invocation examined nothing.
 
 It establishes only that what is PERSISTED cannot change. What is DISPLAYED still needs
 its gate -- this is a bypass criterion for one class of risk, not a substitute for QA.
@@ -252,13 +265,14 @@ def touched(ref):
     for r in collect():
         sites.setdefault(r['file'], set()).add(r['line'])
 
-    hits, cur = [], None
+    hits, cur, touched_files = [], None, set()
     hunk = re.compile(r'^@@ -\S+ \+(\d+)(?:,(\d+))? @@')
     mutating = re.compile(r'api(?:Post|Put|Patch|Delete)\s*\(|[\'"`](?:POST|PUT|PATCH|DELETE)[\'"`]')
     for line in diff.split('\n'):
         m = re.match(r'^\+\+\+ b/(.+)$', line)
         if m:
             cur = m.group(1)
+            touched_files.add(cur)
             continue
         m = hunk.match(line)
         if m and cur:
@@ -285,17 +299,32 @@ def touched(ref):
         print('  A vacuous pass here is indistinguishable from a real one, so it is an')
         print('  operator error rather than a result (ADR-008 D10, Rev 11).')
         return 2
-    if not hits:
-        print('  DISPLAY-ONLY ESTABLISHED — the diff reaches no persistence site.')
+    # FILE-granularity certification (Rev 12). Reachability, not just modification.
+    risky = {f: sorted(sites[f]) for f in touched_files if f in sites}
+
+    if not hits and not risky:
+        print('  DISPLAY-ONLY CERTIFIED — the diff touches no file containing a write site.')
         print('  Shipping ahead of the gate is within D10.')
         print('  This establishes only that what is PERSISTED cannot change.')
         print('  What is DISPLAYED still needs its gate.')
         return 0
-    print('  NOT display-only. The diff reaches persistence:')
-    for f, ln, why in sorted(set(hits)):
-        print(f'    {f}' + (f':{ln}' if ln else '') + f'  — {why}')
+
+    print('  NOT CERTIFIED. Full gate required.')
+    if hits:
+        print()
+        print('  Direct reach into persistence:')
+        for f, ln, why in sorted(set(hits)):
+            print(f'    {f}' + (f':{ln}' if ln else '') + f'  — {why}')
+    quiet = {f: v for f, v in risky.items()
+             if not any(h[0] == f for h in hits)}
+    if quiet:
+        print()
+        print('  Changed files that CONTAIN write sites (no hunk overlaps them, but a')
+        print('  control-flow change can still stop a write being reached — Rev 12):')
+        for f, lines in sorted(quiet.items()):
+            print(f'    {f}  — sites at ' + ', '.join(str(x) for x in lines))
     print()
-    print('  Full gate required. ADR-007 D7 escalation may also apply.')
+    print('  ADR-007 D7 escalation may also apply.')
     return 1
 
 
