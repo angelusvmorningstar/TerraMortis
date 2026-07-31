@@ -44,7 +44,13 @@ quietly while the rule keeps being cited in rulings.
 
 METHOD LIMITS — read these before quoting any number this script prints.
 
-  1. CLASS EXTRACTION IS OVER LITERALS. Emitted classes are scraped from class="...",
+  1. INTERPOLATION IS HANDLED, NESTING IS NOT PARSED. Class attributes are scanned with a
+     brace-tracking reader rather than a naive quoted-string regex, so `${...}` segments no
+     longer truncate the capture, and string literals inside them are read as candidate
+     class names. This is still not a JS parser: a class name computed rather than written
+     as a literal is invisible, and an identifier inside an interpolation that merely looks
+     like a class name may be over-counted.
+  2. CLASS EXTRACTION IS OVER LITERALS. Emitted classes are scraped from class="...",
      className="..." and classList.add/remove/toggle/contains("...") in the JS sources
      and the entry HTML. Class names ASSEMBLED BY STRING CONCATENATION ARE MISSED.
      Every collision figure here is therefore a FLOOR, NOT A CEILING. A rule absent
@@ -52,18 +58,18 @@ METHOD LIMITS — read these before quoting any number this script prints.
      (Same limit css-overlap.py admits to, and the same hedge applies: if a family
      prefix appears in the other app, check the whole family by hand.)
 
-  2. IT MEASURES MATCH-POSSIBILITY, NOT CASCADE OUTCOME. Which rule actually wins in a
+  3. IT MEASURES MATCH-POSSIBILITY, NOT CASCADE OUTCOME. Which rule actually wins in a
      merged document depends on stylesheet load order and selector specificity, and this
      script models NEITHER. A collision listed here may resolve harmlessly. A rule not
      listed here will not suddenly start matching.
 
-  3. A RULE IS COUNTED ONLY IF *EVERY* CLASS TOKEN IN ITS SELECTOR IS EMITTED BY THE
+  4. A RULE IS COUNTED ONLY IF *EVERY* CLASS TOKEN IN ITS SELECTOR IS EMITTED BY THE
      OTHER APP. This is deliberately conservative in the direction of a shorter list:
      `.adm-tab.active` is excluded because `.adm-tab` is admin-only, even though
      `.active` is shared. Selectors carrying an #id are excluded outright as shell-
      scoped. Bare element selectors are reported separately because they always apply.
 
-  4. THE DEAD-CLASS FIGURE (--dead) CARRIES LIMIT 1 AT ITS STRONGEST, because
+  5. THE DEAD-CLASS FIGURE (--dead) CARRIES LIMIT 1 AT ITS STRONGEST, because
      "unreferenced by static grep" is exactly the claim string concatenation defeats.
      Treat it as a lead to investigate, never as a deletion list.
 """
@@ -89,9 +95,51 @@ APP_JS = [ROOT / 'public/js/app.js', ROOT / 'public/js/tabs',
           ROOT / 'public/js/suite', ROOT / 'public/js/game', ROOT / 'public/js/editor']
 APP_HTML = ROOT / 'public/index.html'
 
-CLASS_ATTR = (r'class\s*=\s*["\']([^"\']*)["\']',
-              r'className\s*=\s*["\']([^"\']*)["\']')
 CLASS_LIST = r'classList\.(?:add|remove|toggle|contains)\(\s*["\']([\w-]+)["\']'
+ATTR_OPEN = re.compile(r'class(?:Name)?\s*=\s*(["\'])')
+
+
+def _attr_values(src):
+    """Full class-attribute values, respecting ${...} interpolation.
+
+    A naive `class="([^"]*)"` terminates on the first quote INSIDE an interpolation, e.g.
+
+        class="sphere-card${vacant ? \' sphere-card-vacant\' : \'\'}"
+
+    which both TRUNCATES the real class (sphere-card-vacant is never seen) and INVENTS a
+    phantom one (vacant, a JS identifier, is captured as though it were a class). Both
+    error directions from one line. See ADR-008 D8 rule 7.
+    """
+    for m in ATTR_OPEN.finditer(src):
+        q, i, depth, buf = m.group(1), m.end(), 0, []
+        while i < len(src):
+            if src.startswith('${', i):
+                depth += 1; buf.append('${'); i += 2; continue
+            c = src[i]
+            if c == '}' and depth:
+                depth -= 1; buf.append(c); i += 1; continue
+            if c == q and depth == 0:
+                break
+            buf.append(c); i += 1
+        yield ''.join(buf)
+
+
+def _names(attr):
+    """Literal tokens outside ${}, plus string literals inside them."""
+    names, depth, lit, i = set(), 0, [], 0
+    while i < len(attr):
+        if attr.startswith('${', i):
+            depth += 1; i += 2; continue
+        if attr[i] == '}' and depth:
+            depth -= 1; i += 1; continue
+        if depth == 0:
+            lit.append(attr[i])
+        i += 1
+    names.update(re.findall(r'[A-Za-z_][\w-]*', ''.join(lit)))
+    for inner in re.findall(r'\$\{(.*?)\}', attr, re.S):
+        for s in re.findall(r'["\']([^"\']*)["\']', inner):
+            names.update(re.findall(r'[A-Za-z_][\w-]*', s))
+    return names
 
 
 def emitted(js_paths, html_path):
@@ -106,10 +154,9 @@ def emitted(js_paths, html_path):
     if html_path.exists():
         blobs.append(html_path.read_text(encoding='utf-8', errors='ignore'))
     for text in blobs:
-        for pat in CLASS_ATTR:
-            for attr in re.findall(pat, text):
-                for c in re.findall(r'[A-Za-z_][\w-]*', attr):
-                    seen[c] += 1
+        for attr in _attr_values(text):
+            for c in _names(attr):
+                seen[c] += 1
         for c in re.findall(CLASS_LIST, text):
             seen[c] += 1
     return seen

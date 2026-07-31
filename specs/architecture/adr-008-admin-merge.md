@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 14
+revision: 15
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 15 | 2026-07-31 | Adds **D8 rule 7: prefer syntax-aware extraction; parse or declare**, from Ma'at, diagnosing four boundary failures as one defect — a measurement whose tokeniser disagreed with the language it was reading. Applying it to this ADR's own instruments found the same defect in every emitter scan: a naive class-attribute regex truncates on `${...}` interpolation, both missing real classes and inventing phantom ones, across 385 interpolated attributes in 53 files. Corrects merge exposure **~118 → ~89** and player adoption **900 → 922**; the D9 baseline stays at 55 with changed membership and was re-blessed from scratch. | Imhotep (Architect) |
 | 14 | 2026-07-31 | **Logs a pre-existing exception to D9's zero-ST-presentation rule** that Rev 4 and Rev 13 both stated as though absolute: 55 classes / 88 blocks in `components.css` are emitted only by admin, dominated by `stm-audit-*`. Rev 13's decision stands but its rationale is restated on cascade separability, which holds independently. Converted to a shrink-only ratchet gated by `--st-in-lib`. Records the emitter-exclusivity sweep — **no surface passes outright**, so `admin-shared.css` is the normal path, and `downtime-views.js` is the most common sharing partner despite being sequenced last. Adds a **fifth precondition**: no rule block may span two buckets; leave it behind rather than cut it. Names **structural demonstration** as the preferred form for D2's negative limb. | Imhotep (Architect) |
 | 13 | 2026-07-31 | Adds D9's **fourth precondition: emitter exclusivity**, after Spheres (#1096) passed all three existing ones and was still not a per-surface family — 5 of its classes are emitted by `downtime-views.js` as well. Records why it recurs (families are named after a domain concept, surfaces after a screen) and that Tickets passed by luck of naming. Establishes **extract by emitter set, never by name prefix**, above the block-counting convention: the 49-block Spheres 'section' is two prefix families merged by a `.sph` substring search. Adds a shared admin sheet for classes two or more surfaces emit, rather than filing them under the first migrant's filename, and makes a surface declare the SET of sheets it needs. | Imhotep (Architect) |
 | 12 | 2026-07-31 | **D10 corrected to FILE granularity** after Ma'at found it certifying display-only for a change that can *prevent* a write: hunk intersection sees changes to a write site but not changes to whether one is reached (early `return` at `story-tab.js:1063` vs untouched `apiPut` at `:1079`). Affordable because 47 sites sit in 14 of 162 files. Adds a **second limb to D2** after Peter's steer — every phase must also demonstrate no player-facing regression, downtime first while a cycle is open. States the **live-cycle reason** in D4, which outlives the weight and write-path reasons. Re-points P1's success condition to player parity, with an explicit move/retire/defer decision per surface. | Imhotep (Architect) |
@@ -74,7 +75,7 @@ Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
 |---|---|
 | components.css defines | 1,266 |
 | emitted by admin sources | 86 (6.8%) |
-| emitted by player-app sources | 900 (71.1%) |
+| emitted by player-app sources | 922 (72.8%) |
 
 *(The tempting correction — that D9 inferred non-adoption from low definition overlap, which are opposite readings, since a class used but never redefined gives zero overlap and total adoption — was tested and did not hold. D9's conclusion survives direct measurement. Recorded because the check was made and came back negative.)*
 
@@ -82,10 +83,10 @@ Measured 2026-07-29 against the tree at `origin/dev` `9953e2e6`.
 
 | Merge cascade exposure | rules |
 |---|---|
-| `admin-layout.css` rules whose every class token is emitted by the player app | 55 |
-| `suite.css` rules whose every class token is emitted by admin | 62 |
+| `admin-layout.css` rules whose every class token is emitted by the player app | 43 |
+| `suite.css` rules whose every class token is emitted by admin | 45 |
 | unscoped element rules in admin-layout (the `body` rule at `admin-layout.css:5`) | 1 |
-| **genuinely new exposure created by merging the documents** | **~118** |
+| **genuinely new exposure created by merging the documents** | **~89** (was stated as ~118 before Rev 15; see D8 rule 7) |
 | `components.css` rules matching admin elements | 108, and **not a merge cost** |
 
 That last row matters most. **`admin.html:12` already loads `components.css`**, before `admin-layout.css`. Those 108 apply today. Admin is not outside the design-system cascade waiting to be dragged into it; it is already inside it and overriding it. D9 described a boundary that does not exist.
@@ -94,7 +95,7 @@ The exposure is small because the two class vocabularies barely intersect. Admin
 
 All figures in this section are reproducible with `python3 specs/qa/harness/admin-collision-map.py`, checked in with this ADR. Its docstring carries the method limits; D8 explains why they live there rather than here.
 
-So ADR-007 D9 deferred the merge on a CSS obstacle of ~118 enumerable rules while stating it as 2,686. Roughly twenty-fold.
+So ADR-007 D9 deferred the merge on a CSS obstacle of ~89 enumerable rules while stating it as 2,686. Roughly thirty-fold.
 
 **D9's other two reasons are not withdrawn.** Reason 2 (the ST editor is the highest-consequence write path and should not be churned inside an epic already churning that cascade) stands and shapes the phase order below. Reason 3 (the expensive half already happened) is confirmed: `admin.js` and `app.js` share 23 modules including all of `data/` and the `editor/` core.
 
@@ -269,6 +270,23 @@ Five operating rules follow:
   3. **Trace any dynamic dispatch call to its source.** `goTab(currentTab)` looks capable of introducing a tab and is not: `currentTab` derives at `app.js:1065` from `document.querySelector('.tab.active')?.id`, so it reads the *already-active* tab out of the DOM and can only re-enter one something else opened.
 
   Step 3 is the difference between a check and an argument. A check reports what it found; an argument establishes what could not have been there.
+
+- **Prefer syntax-aware extraction over pattern matching wherever a parser exists; where none exists, declare the measurement textual in the claim.** Added at Rev 15, from Ma'at, with four instances as its evidence:
+
+  | pattern | target | outcome |
+  |---|---|---|
+  | `tk-` | `#stk-` | false positives, caught |
+  | `.sph` | `.sphere` | **silently merged two families**, disguised as a counting disagreement |
+  | `.placeholder` | `.placeholder-msg` | near-miss, caught on recheck |
+  | `class="([^"]*)"` | `class="a${c ? ' b' : ''}"` | truncated the capture, returned zero cross-bucket pairs where there was one |
+
+  **These are one defect with four faces, not four mistakes: a measurement whose tokeniser disagreed with the language it was reading.** Three read a *substring* where a *token* was meant; the fourth stopped at a delimiter the target language does not treat as one. "Be careful with regexes" is the wrong lesson, because care does not change what a tokeniser is capable of expressing.
+
+  It predicts where the next one lands: **any extraction that treats source as text rather than as syntax.** `css-overlap.py` is a real parser for CSS, and nothing in the rig is one for JS — which is exactly why all four landed on the JS side or the CSS/JS boundary. The rule cannot be "always parse", because there is no JS parser here today. It is **parse or declare**.
+
+  *Self-correction, recorded because this rule was written against my own instruments.* Every emitter scan in `admin-collision-map.py` used `class\s*=\s*["']([^"']*)["']`. Against the real line `class="sphere-card${vacant ? ' sphere-card-vacant' : ''}"` it captured `sphere-card` and a **phantom class `vacant`** (a JS identifier) while missing the real `sphere-card-vacant` — both error directions from one line. There are **385 interpolated class attributes across 53 files**. Restricted to classes some stylesheet actually defines, the old scan missed 36 admin and 48 player classes — overwhelmingly state modifiers (`expanded`, `done`, `hidden`, `flagged`) — and invented a handful of phantoms.
+
+  Consequences, now corrected in Context above: merge exposure **~118 → ~89** (phantoms like `d`, `done`, `open` were matching rules and inflating collisions), player-side design-system adoption **900 → 922**. The D9 `st-in-lib` baseline stays at 55 but **its membership changed**: `done` leaves as a phantom, `stm-mod-row--inactive` enters. The baseline was deleted and re-blessed rather than amended, because a baseline established by a defective instrument is not a baseline. Ma'at's 56 was closer than my 55, and my correction of her figure was the wrong one.
 
 - **A caveat that does not travel with the number it qualifies is decoration.** Added at Rev 6's successor, Rev 10. This is the *delivery* half of rules 4 and 5: those govern how a measurement is taken, this governs whether its limit survives contact with a reader.
 
