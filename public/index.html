@@ -367,6 +367,12 @@
     <div id="t-relationships" class="tab"></div>
     <!-- ST Tickets queue (ADM-1). Filled by initTicketsSurface from
          admin/tickets-views.js, gated on getRole(). -->
+    <!-- ST Spheres (#1096). The inner id is required: initSpheresView() takes no
+         container argument and looks up #spheres-content itself
+         (spheres-view.js:29). Providing the id here is what keeps that module
+         unmodified. Do not rename it or merge the two elements — goTab needs
+         the outer #t-spheres, the module needs the inner #spheres-content. -->
+    <div id="t-spheres" class="tab"><div id="spheres-content"></div></div>
     <div id="t-tickets" class="tab"></div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>
