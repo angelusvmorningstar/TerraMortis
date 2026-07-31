@@ -3,7 +3,7 @@ id: ADR-008
 title: 'Admin merge: one app, shell first, code-split behind the role gate'
 status: approved
 date: 2026-07-29
-revision: 12
+revision: 13
 author: Imhotep (Architect)
 supersedes: ADR-007 D9 through D15 (Rev 2 addendum and the Phase 1 shard plan)
 related:
@@ -26,6 +26,7 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
+| 13 | 2026-07-31 | Adds D9's **fourth precondition: emitter exclusivity**, after Spheres (#1096) passed all three existing ones and was still not a per-surface family — 5 of its classes are emitted by `downtime-views.js` as well. Records why it recurs (families are named after a domain concept, surfaces after a screen) and that Tickets passed by luck of naming. Establishes **extract by emitter set, never by name prefix**, above the block-counting convention: the 49-block Spheres 'section' is two prefix families merged by a `.sph` substring search. Adds a shared admin sheet for classes two or more surfaces emit, rather than filing them under the first migrant's filename, and makes a surface declare the SET of sheets it needs. | Imhotep (Architect) |
 | 12 | 2026-07-31 | **D10 corrected to FILE granularity** after Ma'at found it certifying display-only for a change that can *prevent* a write: hunk intersection sees changes to a write site but not changes to whether one is reached (early `return` at `story-tab.js:1063` vs untouched `apiPut` at `:1079`). Affordable because 47 sites sit in 14 of 162 files. Adds a **second limb to D2** after Peter's steer — every phase must also demonstrate no player-facing regression, downtime first while a cycle is open. States the **live-cycle reason** in D4, which outlives the weight and write-path reasons. Re-points P1's success condition to player parity, with an explicit move/retire/defer decision per surface. | Imhotep (Architect) |
 | 11 | 2026-07-30 | Corrects D10's documented invocation, which passed vacuously. `--touches` diffs the working tree against the ref, so the bare `<ref>` form — copied from Rev 10 into a story and a dispatch and run as `--touches <own-branch>` — produced a zero-line diff, printed `DISPLAY-ONLY ESTABLISHED` and exited 0 against 34 unexamined lines. Now documented as `--touches origin/dev` with the reason attached, and the tool refuses an empty diff with exit 2 rather than passing it. Notable for its shape: the failure required no carelessness, it was produced by following the instructions. Adds a commit-before-negative-control warning to both gate harnesses, after a revert step destroyed uncommitted work while leaving `git status` clean. | Imhotep (Architect) |
 | 10 | 2026-07-30 | Adds D8 rule 6 — **a caveat that does not travel with the number it qualifies is decoration** — after two instances a week apart by different authors, each of whom wrote the correct limitation and then published a figure that reads as unqualified because the two sat in different paragraphs. Adds **D10**: a fix may ship ahead of its gate only when it cannot alter what is persisted; the criterion is display-only, not diff size, and it is established by `write-path-inventory.py --touches` rather than judged. Also carries forward the stranded ADR-007 Rev 4 write-path generator, which had never reached `dev`. | Imhotep (Architect) |
@@ -335,6 +336,33 @@ The check, operationally:
 Tickets passes the strong form: the closure is 24 properties (23 references plus alias targets), all declared on `:root`, 14 with `[data-theme="dark"]` overrides, so it holds in both documents *and* both themes. `theme.css` declares its 188 properties under `:root` and 153 under `[data-theme="dark"]` and nothing under a component selector, which is why the weaker check happened to give the right answer here — and exactly why it should not be generalised from.
 
 Negative control, run rather than reasoned about: a rule referencing `--ar-bdr` takes the closure's not-agnostic count from 0 to 1 and halts with the property and its three class scopes named. **Check it per surface. Do not assume it from Tickets.**
+
+**Fourth precondition, added at Rev 13: EMITTER EXCLUSIVITY. Does exactly one surface emit this family?**
+
+The first three preconditions can all pass on a family that is not per-surface at all. On Spheres (#1096) they did: zero mixed comma groups, zero `@media` nesting, and a clean 10/10 `var()` closure at `:root` — and the family is still shared. Of the sphere-family classes, 22 are emitted only by `spheres-view.js`, **5 are emitted by both it and `downtime-views.js`** (`sphere-card`, `sphere-head`, `sphere-name`, `sphere-total`, `spheres-grid`), 4 only by `downtime-views.js`, and the rest by nothing.
+
+**Why this will recur, and why Tickets passing was luck rather than structure:** CSS families are named after a **domain concept** ("sphere"), while surfaces are named after a **screen**. Two screens can show the same concept. Tickets happened to have a family nobody else emitted, so the question never came up. With thirteen surfaces left, a concept appearing on two screens is the normal case.
+
+**Extract by EMITTER SET, never by name prefix.** This sits above the block-versus-selector counting convention and supersedes it where they disagree — it is D8 rule 5 applied to modules rather than documents: the decision unit is the emitting surface, not the name. The Spheres section is 49 blocks only under a `.sph` substring search, which silently merges **two separate prefix families** — 31 `.sph-*` and 18 `.sphere*`/`.spheres*` — because `.sphere` begins with `.sph`. Same substring trap as `#stk-` matching `tk-` on Tickets, inverted: there it produced false positives, here it merged two families into one number and made the discrepancy look like a counting convention.
+
+**Resolution, and it is not simply "extract what this surface emits":**
+
+| bucket | destination |
+|---|---|
+| emitted by this surface only | the surface's own sheet (`admin-spheres.css`) |
+| emitted by **two or more** surfaces | a shared admin sheet (`admin-shared.css`) |
+| emitted only by a surface that has not moved | leave in `admin-layout.css` until it moves |
+| emitted by nothing | leave; it is dead and a deletion question, not a migration one |
+
+**A surface's load path declares the SET of sheets it needs, not one sheet.** `loadSurfaceSheet` is already idempotent and promise-cached, so a surface injecting both its own sheet and a shared one costs nothing.
+
+Rejected: putting the shared rules in the first-migrating surface's sheet. It works today and fails at the worst possible moment — when the second surface moves, which for Downtime is P1-last, on the frozen write path, against a live cycle. It also files one surface's rules under another's filename, and a filename that lies is discovered by whoever is least expecting it.
+
+Rejected: promoting the shared rules to `components.css`. That is where ADR-007 D5's promotion test would send a class used by two or more consumers, but `components.css` is loaded by the player document, so it would breach D9's own rule that **zero ST presentation reaches a player**. The shared-admin sheet is the D5 promotion confined to the admin cascade.
+
+Entry rule for `admin-shared.css`, to stop it becoming a second `admin-layout.css`: a class enters when **two or more surfaces emit it** — migrated or not, since emitter exclusivity is a property of the code rather than of migration order — and the emitter set is recorded alongside it. Deferring on the grounds that the second surface has not moved yet is exactly what creates the surprise.
+
+**Not every class is a candidate for scope separation.** `spheres-view.js` emits `class="placeholder"` for its loading and error states; `.placeholder` is defined once, in `admin-layout.css`, and used by nine admin modules. It must not be extracted with any one surface. Accepted consequence: those two transient messages render as unstyled paragraphs in `index.html`. Text remains visible, and a class with many consumers needs a broader decision than a per-surface extraction can make.
 
 **The mechanism.** Extract the surface's rules from `admin-layout.css` into a private per-surface sheet (`public/css/admin-tickets.css` for the pilot), and have the surface's own dynamic-`import()` load path inject the `<link>`, idempotently. Rejected alternatives: linking `admin-layout.css` from `index.html` (it is a full layout sheet, would collide broadly with `layout.css` and `suite.css`, and destroys the pilot's zero-collision property at the moment of the merge); and shipping Stage B unstyled (breaks D2 in the exact way D2 exists to prevent — Peter opens it and sees a broken surface, learning that the phase failed when only its styling was unresolved; a false red is as damaging as a false green).
 
