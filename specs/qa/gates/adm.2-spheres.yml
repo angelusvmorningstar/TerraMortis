@@ -5,7 +5,7 @@ story_title: "ADM-2 — merge the Spheres surface into index.html behind the rol
 gate: PASS
 reviewer: "Ma'at (Test Architect)"
 updated: "2026-07-31"
-amended: "2026-07-31 (rev 2) — AC8 wording narrowed after ADR-008 Rev 14 confirmed 55 ST-only classes
+amended: "2026-07-31 (rev 3, was rev 2) — AC8 wording narrowed after ADR-008 Rev 14 confirmed 55 ST-only classes
   already reach the player via components.css. Verdicts unchanged; the claims are stated at the width
   they were actually checked. See scope_correction on the AC8 check."
 reviewed_commit: "f2d5f95c (PR #1098), base origin/dev"
@@ -138,6 +138,22 @@ behavioural_results:
         figure: exit 0, 55 classes, 88 blocks, no increase over the blessed baseline of 55. The tool
         prints its own method limit — static emitter analysis treats a class the player side builds
         by string concatenation as admin-only, so 55 is an UPPER BOUND.
+        MEMBERSHIP AMENDED 2026-07-31 (ADR-008 Rev 15). The COUNT above is unchanged and still correct
+        at 55, but the SET is not the one I measured: the emitter scan that produced it used a
+        quote-terminated regex, so `done` was a PHANTOM (a JS identifier captured out of
+        `${cond ? ' x' : ''}`) and leaves, while stm-mod-row--inactive was being missed and enters. The
+        Architect deleted and re-blessed rather than amending, on the grounds that a baseline
+        established by a defective instrument is not a baseline — and the ratchet refused his amendment
+        when he first tried it, which is the mechanism working against its own author. Re-verified on
+        dev 176ae0e4: exit 0, 55 classes, 88 blocks, upper-bound qualifier printed, and
+        st-in-lib-baseline.json holds 55 entries with `done` absent and stm-mod-row--inactive present.
+        AND A CORRECTION TO MY OWN CLAIM, which matters more than the membership. I wrote that I had
+        "verified the baseline rather than citing it". That was weaker than I presented it: I ran the
+        SAME INSTRUMENT its author ran. That is independence of EXECUTION, not of METHOD, and by the
+        correlated-checks rule I have applied to everyone else this epic it was one check run twice,
+        not two checks. The count survived only because the tokeniser defect happened to net to zero
+        across the set while changing which classes were in it. A second RUN would never have caught
+        that; only a second METHOD did, and it was the Architect's, not mine.
         This PR neither adds to that set nor touches components.css, so the ratchet is unaffected; the
         pre-existing gap is named and gated, not unknown. The correction is to the wording of the
         claim, not to the result.
