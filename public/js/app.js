@@ -599,6 +599,7 @@ function goTab(t) {
   if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
   if (t === 'players') initPlayersSurface(document.getElementById('t-players'));
   if (t === 'equipment') initEquipmentSurface(document.getElementById('t-equipment'));
+  if (t === 'attendance') initAttendanceSurface(document.getElementById('t-attendance'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -678,6 +679,37 @@ async function initSpheresSurface(el) {
   }
 }
 
+// Attendance surface (#1064 Wave 2). The domain mounts TWO modules, matching
+// admin.js:321 (`initNextSession(); initAttendance(chars);`). Neither takes a
+// container; each looks up its own id, so index.html supplies both and the
+// modules stay unmodified.
+//
+// Load-bearing for XP: game XP is derived at render time from game_sessions
+// attendance data, so this surface is the write side of a number shown on every
+// character sheet. The modules are unchanged here, so no write behaviour moves.
+async function initAttendanceSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [ns, att] = await Promise.all([
+      import('./admin/next-session.js'),
+      import('./admin/attendance.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
+      loadSurfaceSheet('css/admin-attendance.css'),
+    ]);
+    ns.initNextSession();
+    await att.initAttendance(suiteState.chars || []);
+  } catch (err) {
+    console.error('[attendance] surface failed to load:', err);
+    // Target the inner container: replacing the tab would destroy both ids and
+    // a retry could then never find them.
+    const target = el.querySelector('#attendance-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">Attendance failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
 // Equipment Catalogue surface (#1064 Wave 2). First surface whose CSS family
 // FAILED emitter exclusivity, and the reference for how that is handled: the
 // `ec-` blocks were split by which module emits each class, not by prefix.
@@ -726,6 +758,7 @@ async function initPlayersSurface(el) {
   try {
     const [mod] = await Promise.all([
       import('./admin/players-view.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
       loadSurfaceSheet('css/admin-players.css'),
     ]);
     await mod.initPlayersView(suiteState.chars || []);
@@ -1778,6 +1811,7 @@ const MORE_APPS = [
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   { id: 'players',      label: 'Players',     icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', section: 'st', stOnly: true },
   { id: 'equipment',    label: 'Equipment',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 4-3 7.5-7 10-4-2.5-7-6-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', section: 'st', stOnly: true },
+  { id: 'attendance',   label: 'Attendance',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },

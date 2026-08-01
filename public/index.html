@@ -387,6 +387,14 @@
          initEquipmentCatalogueAdmin(container, chars) TAKES its container, so
          no inner id is needed here. -->
     <div id="t-equipment" class="tab"></div>
+    <!-- ST Attendance (#1064 Wave 2). The domain mounts TWO modules that each
+         look up their own container: initNextSession() reads
+         #next-session-content, initAttendance(chars) reads #attendance-content.
+         Both ids are required and neither module takes a container argument. -->
+    <div id="t-attendance" class="tab">
+      <div id="next-session-content"></div>
+      <div id="attendance-content"></div>
+    </div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>
     <div id="t-combat" class="tab"></div>
