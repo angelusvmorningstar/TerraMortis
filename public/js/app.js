@@ -597,6 +597,7 @@ function goTab(t) {
   }
   if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
   if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
+  if (t === 'players') initPlayersSurface(document.getElementById('t-players'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -673,6 +674,37 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+// Players surface (#1064 Wave 2). Third surface on the pattern Tickets and
+// Spheres established, and the first whose CSS family passed emitter
+// exclusivity outright: `pv-` is emitted by admin/players-view.js and nothing
+// else, so admin-players.css has no shared bucket and admin-shared.css is not
+// needed here.
+//
+// initPlayersView() takes the CHARACTERS array (not a container) and looks up
+// #players-content itself, so the module is used unmodified. suiteState.chars
+// is the boot-populated array every other read site uses; passing it keeps the
+// ST-mods overlay invariant intact, since those entries already have
+// applyStMods applied.
+async function initPlayersSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/players-view.js'),
+      loadSurfaceSheet('css/admin-players.css'),
+    ]);
+    await mod.initPlayersView(suiteState.chars || []);
+  } catch (err) {
+    console.error('[players] surface failed to load:', err);
+    // Write into the inner container, not the tab: replacing the tab would
+    // destroy #players-content and a retry could then never find it.
+    const target = el.querySelector('#players-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">Players failed to load. Reload the page or check your connection.</p>';
   }
 }
 
@@ -1714,6 +1746,7 @@ const MORE_APPS = [
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
+  { id: 'players',      label: 'Players',     icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },

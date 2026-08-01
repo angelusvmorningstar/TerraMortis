@@ -374,6 +374,15 @@
          the outer #t-spheres, the module needs the inner #spheres-content. -->
     <div id="t-spheres" class="tab"><div id="spheres-content"></div></div>
     <div id="t-tickets" class="tab"></div>
+    <!-- ST Players (#1064 Wave 2). Same shape as Spheres: initPlayersView()
+         takes the characters array, not a container, and looks up
+         #players-content itself (players-view.js:37). Do not rename the inner
+         id — goTab needs the outer #t-players, the module needs the inner one.
+         No heading here: admin.html supplied one from its own domain chrome
+         (.domain-count lives in admin-layout.css, which this document does not
+         load). players-view.js guards the count with `if (count)` at :57, so
+         omitting it is safe and keeps this extraction free of new rules. -->
+    <div id="t-players" class="tab"><div id="players-content"></div></div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>
     <div id="t-combat" class="tab"></div>
