@@ -59,3 +59,10 @@
   padding: 8px 10px;
 }
 .spheres-grid { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+
+
+/* ── .ec-empty — emitted by BOTH admin/equipment-catalogue-admin.js and
+   admin.js's equipment modal, so it belongs to neither surface sheet.
+   Moved here verbatim during #1064 Wave 2. ── */
+.ec-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; }
+.ec-empty { color: var(--txt3); text-align: center; padding: 24px 12px; }

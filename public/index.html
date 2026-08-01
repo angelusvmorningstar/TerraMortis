@@ -383,6 +383,10 @@
          load). players-view.js guards the count with `if (count)` at :57, so
          omitting it is safe and keeps this extraction free of new rules. -->
     <div id="t-players" class="tab"><div id="players-content"></div></div>
+    <!-- ST Equipment Catalogue (#1064 Wave 2). Unlike Spheres and Players,
+         initEquipmentCatalogueAdmin(container, chars) TAKES its container, so
+         no inner id is needed here. -->
+    <div id="t-equipment" class="tab"></div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>
     <div id="t-combat" class="tab"></div>

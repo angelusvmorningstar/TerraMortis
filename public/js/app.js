@@ -598,6 +598,7 @@ function goTab(t) {
   if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
   if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
   if (t === 'players') initPlayersSurface(document.getElementById('t-players'));
+  if (t === 'equipment') initEquipmentSurface(document.getElementById('t-equipment'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -674,6 +675,35 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+// Equipment Catalogue surface (#1064 Wave 2). First surface whose CSS family
+// FAILED emitter exclusivity, and the reference for how that is handled: the
+// `ec-` blocks were split by which module emits each class, not by prefix.
+// admin.js's own equipment modal (.ec-modal-*, .ec-row, .ec-val, .ec-lbl,
+// .ec-close-btn) kept its 9 blocks in admin-layout.css; .ec-empty, emitted by
+// both, went to admin-shared.css; the remaining 44 are this surface's.
+//
+// Both sheets are therefore required. loadSurfaceSheet is promise-cached and
+// idempotent, so admin-shared.css costs nothing when Spheres already injected it
+// and there is no ordering dependency between the two.
+async function initEquipmentSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/equipment-catalogue-admin.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
+      loadSurfaceSheet('css/admin-equipment.css'),
+    ]);
+    // Takes its container, unlike Spheres/Players which look theirs up.
+    await mod.initEquipmentCatalogueAdmin(el, suiteState.chars || []);
+  } catch (err) {
+    console.error('[equipment] surface failed to load:', err);
+    el.innerHTML = '<p class="placeholder-msg">Equipment Catalogue failed to load. Reload the page or check your connection.</p>';
   }
 }
 
@@ -1747,6 +1777,7 @@ const MORE_APPS = [
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   { id: 'players',      label: 'Players',     icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', section: 'st', stOnly: true },
+  { id: 'equipment',    label: 'Equipment',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 4-3 7.5-7 10-4-2.5-7-6-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
