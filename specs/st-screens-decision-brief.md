@@ -71,9 +71,10 @@ Session attendance and finance. Writes `game_sessions`, `game_sessions/next`, `s
 
 ---
 
-### 7. Relationship Editor · 20 KB · 8 writes
+### 7. Relationship Editor · 20 KB · 8 writes — **CUT** (Peter, 2026-08-02)
 
-Writes `relationships`.
+Writes `relationships`. Not part of the final app; do not port. Its blocks stay
+in `admin-layout.css` and go when `admin.html` does.
 
 ### 8. Dice Engine · 18 KB · **0 writes**
 
@@ -110,13 +111,13 @@ Listed for completeness. No decision needed unless you want to un-move them.
 | 1 | Data (import/export) | 69 | 45 | 12 (5 leaving) | |
 | 2 | Rule Data | 38 | 10 | rules | |
 | 3 | Rules Engine | 29 | 9 | rules | |
-| 4 | ST Mods | 33 | 12 | st_mods, audit, settings | |
+| 4 | ST Mods | 33 | 12 | st_mods, audit, settings | **KEEP** (blocked: ADR-009) |
 | 5 | NPC Register | 23 | 11 | npcs, npc-flags | |
-| 6 | Attendance | 21 | 19 | game_sessions, session_logs | |
-| 7 | Relationship Editor | 20 | 8 | relationships | |
+| 6 | Attendance | 21 | 19 | game_sessions, session_logs | **DONE** |
+| 7 | Relationship Editor | 20 | 8 | relationships | **CUT** |
 | 8 | Dice Engine | 18 | 0 | none | |
-| 9 | Equipment Catalogue | 16 | 7 | equipment_catalogue | |
-| 10 | Players | 12 | 8 | players | |
+| 9 | Equipment Catalogue | 16 | 7 | equipment_catalogue | **DONE** |
+| 10 | Players | 12 | 8 | players | **DONE** |
 | 11 | Primer | 2 | 1 | archive_documents | |
 | | **total to decide** | **281 KB** | | | |
 
