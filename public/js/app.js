@@ -612,6 +612,7 @@ function goTab(t) {
   if (t === 'players') initPlayersSurface(document.getElementById('t-players'));
   if (t === 'equipment') initEquipmentSurface(document.getElementById('t-equipment'));
   if (t === 'attendance') initAttendanceSurface(document.getElementById('t-attendance'));
+  if (t === 'st-mods') initStModsSurface(document.getElementById('t-st-mods'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -688,6 +689,59 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+// ST Mods panel (#1064 Wave 2). Unblocked by ADR-009: initStModsPanel's
+// onMutate has to re-run the overlay composition, and until the sequence was
+// extracted into data/sheet-composition.js the only implementation lived in
+// admin.js. Reimplementing it here would have created the second composition
+// path CLAUDE.md forbids without an ADR.
+//
+// PER-CHARACTER, not global. The panel works on whichever character is open
+// (editorState.editIdx); with none open it renders its own "select a
+// character" placeholder. It therefore re-mounts on every tab entry rather
+// than once, so switching character and returning shows the right subject.
+//
+// No surface stylesheet: all 41 classes it emits are already covered by
+// player-loaded sheets, and zero live only in admin-layout.css -- its stm-*
+// rules sit in components.css, shared with editor/st-mod-popover.js.
+async function initStModsSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const mod = await import('./admin/st-mods-panel.js');
+    const idx = editorState.editIdx;
+    const c = (idx != null && idx >= 0) ? editorState.chars[idx] : null;
+    await mod.initStModsPanel(
+      document.getElementById('st-mods-panel-content'),
+      c,
+      // Bugfix #405: read chars[editIdx] FRESH inside the callback rather than
+      // closing over `c`. The closure pins the value at mount time, and the
+      // mutation then lands on a stale reference -- observed as
+      // _st_mod_overlay staying undefined after a successful POST.
+      () => {
+        const liveChar = editorState.chars[editorState.editIdx];
+        if (!liveChar) return;
+        composeAndRenderSheet(liveChar, {
+          renderSheet: editorRenderSheet,
+          loadTrackerState: ensureTrackerLoaded,
+        });
+        // index.html shows two views of one character where admin.html showed
+        // one. Repaint the suite sheet too when it is displaying the same
+        // character, or a mod applied from the panel would appear on the ST
+        // editor sheet and not on the sheet next to it.
+        if (String(suiteState.sheetChar?._id) === String(liveChar._id)) {
+          suiteRenderSheet();
+        }
+      },
+    );
+  } catch (err) {
+    console.error('[st-mods] surface failed to load:', err);
+    const target = el.querySelector('#st-mods-panel-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">ST Mods failed to load. Reload the page or check your connection.</p>';
   }
 }
 
@@ -1831,6 +1885,7 @@ const MORE_APPS = [
   { id: 'players',      label: 'Players',     icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', section: 'st', stOnly: true },
   { id: 'equipment',    label: 'Equipment',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 4-3 7.5-7 10-4-2.5-7-6-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', section: 'st', stOnly: true },
   { id: 'attendance',   label: 'Attendance',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', section: 'st', stOnly: true },
+  { id: 'st-mods',      label: 'ST Mods',     icon: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },

@@ -111,7 +111,7 @@ Listed for completeness. No decision needed unless you want to un-move them.
 | 1 | Data (import/export) | 69 | 45 | 12 (5 leaving) | |
 | 2 | Rule Data | 38 | 10 | rules | |
 | 3 | Rules Engine | 29 | 9 | rules | |
-| 4 | ST Mods | 33 | 12 | st_mods, audit, settings | **KEEP** (blocked: ADR-009) |
+| 4 | ST Mods | 33 | 12 | st_mods, audit, settings | **DONE** (panel; audit still deferred) |
 | 5 | NPC Register | 23 | 11 | npcs, npc-flags | |
 | 6 | Attendance | 21 | 19 | game_sessions, session_logs | **DONE** |
 | 7 | Relationship Editor | 20 | 8 | relationships | **CUT** |

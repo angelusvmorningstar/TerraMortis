@@ -1,6 +1,6 @@
 # ADR-009 — One overlay composition site, shared by both entry points
 
-**Status:** accepted — **D3 taken** (Peter, 2026-08-02). Step 1 landed; steps 2–4 pending.
+**Status:** accepted and **implemented** — D3 taken (Peter, 2026-08-02). All four steps landed. D3's behavioural change awaits browser verification.
 **Date:** 2026-08-02
 **Decision owner:** Peter
 **Relates to:** ADR-004 (ST mods overlay), ADR-006 (defence penalty read path), #1064 (admin merge)

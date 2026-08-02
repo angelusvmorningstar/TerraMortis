@@ -395,6 +395,12 @@
       <div id="next-session-content"></div>
       <div id="attendance-content"></div>
     </div>
+    <!-- ST Mods panel (#1064 Wave 2, unblocked by ADR-009). Per-character
+         workbench: it operates on whichever character is currently open, so it
+         re-mounts on tab entry rather than once at boot. No surface stylesheet
+         is injected for it: its stm-* rules already live in components.css,
+         shared with editor/st-mod-popover.js which is in the player graph. -->
+    <div id="t-st-mods" class="tab"><div id="st-mods-panel-content"></div></div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>
     <div id="t-combat" class="tab"></div>
