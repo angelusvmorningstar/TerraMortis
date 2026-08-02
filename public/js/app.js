@@ -613,6 +613,8 @@ function goTab(t) {
   if (t === 'equipment') initEquipmentSurface(document.getElementById('t-equipment'));
   if (t === 'attendance') initAttendanceSurface(document.getElementById('t-attendance'));
   if (t === 'st-mods') initStModsSurface(document.getElementById('t-st-mods'));
+  if (t === 'rule-data') initRuleDataSurface(document.getElementById('t-rule-data'));
+  if (t === 'rules-engine') initRulesEngineSurface(document.getElementById('t-rules-engine'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -689,6 +691,54 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+// ST Rule Data + Rules Engine (#1064 Wave 2). Two separate sidebar screens.
+//
+// NAMING TRAP: the module names are inverted relative to the labels they
+// serve. Sidebar "Rule Data" (domain `rules`) is admin/rules-view.js; sidebar
+// "Rules Engine" (domain `rde`) is admin/rules-data-view.js. Wired by domain
+// key deliberately -- matching on the module name is how you get these two
+// swapped, and swapped is not a visible failure, it is two plausible screens
+// showing each other's content.
+//
+// Both take their container. Neither shares a class with the other: the split
+// found 65 and 48 exclusive classes and zero in common beyond .dt-btn and
+// .placeholder-msg, which live in admin-shared.css and suite.css.
+async function initRuleDataSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/rules-view.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
+      loadSurfaceSheet('css/admin-rule-data.css'),
+    ]);
+    await mod.initRulesView(document.getElementById('rules-content'), suiteState.chars || []);
+  } catch (err) {
+    console.error('[rule-data] surface failed to load:', err);
+    const t = el.querySelector('#rules-content') || el;
+    t.innerHTML = '<p class="placeholder-msg">Rule Data failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+async function initRulesEngineSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/rules-data-view.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
+      loadSurfaceSheet('css/admin-rules-engine.css'),
+    ]);
+    await mod.initRulesDataView(document.getElementById('rde-content'));
+  } catch (err) {
+    console.error('[rules-engine] surface failed to load:', err);
+    const t = el.querySelector('#rde-content') || el;
+    t.innerHTML = '<p class="placeholder-msg">Rules Engine failed to load. Reload the page or check your connection.</p>';
   }
 }
 
@@ -1886,6 +1936,8 @@ const MORE_APPS = [
   { id: 'equipment',    label: 'Equipment',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 4-3 7.5-7 10-4-2.5-7-6-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>', section: 'st', stOnly: true },
   { id: 'attendance',   label: 'Attendance',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', section: 'st', stOnly: true },
   { id: 'st-mods',      label: 'ST Mods',     icon: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>', section: 'st', stOnly: true },
+  { id: 'rule-data',    label: 'Rule Data',   icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', section: 'st', stOnly: true },
+  { id: 'rules-engine', label: 'Rules Engine',icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },

@@ -43,7 +43,10 @@ The merits, devotions and manoeuvres catalogue. Writes eight rule endpoints: `de
 
 Writes `/api/rules`.
 
-> **Note:** screens 2 and 3 both write the same `/api/rules` surface. They may be one screen with two views. Worth asking whether you experience them as two things.
+> **Answered by the move (2026-08-02):** they are genuinely two screens. Their
+> CSS families share **nothing** — 65 and 48 exclusive classes, zero in common
+> beyond `.dt-btn` and `.placeholder-msg`, which every admin surface uses. Two
+> screens that were one screen with two views would not look like that.
 
 ---
 
@@ -55,7 +58,10 @@ You've already said the **audit** half is being retooled. The panel half is the 
 
 ---
 
-### 5. NPC Register · 23 KB · 11 writes
+### 5. NPC Register · 23 KB · 11 writes — **CUT** (Peter, 2026-08-02)
+
+Not part of the final app; do not port. Its blocks stay in `admin-layout.css`
+and go when `admin.html` does.
 
 NPC records and flags. Writes `npcs`, `npc-flags`, `npc-flags/<id>/resolve`.
 
@@ -109,10 +115,10 @@ Listed for completeness. No decision needed unless you want to un-move them.
 | # | screen | KB | writes | collections | your call |
 |---|---|---:|---:|---|---|
 | 1 | Data (import/export) | 69 | 45 | 12 (5 leaving) | |
-| 2 | Rule Data | 38 | 10 | rules | |
-| 3 | Rules Engine | 29 | 9 | rules | |
+| 2 | Rule Data | 38 | 10 | rules | **DONE** |
+| 3 | Rules Engine | 29 | 9 | rules | **DONE** |
 | 4 | ST Mods | 33 | 12 | st_mods, audit, settings | **DONE** (panel; audit still deferred) |
-| 5 | NPC Register | 23 | 11 | npcs, npc-flags | |
+| 5 | NPC Register | 23 | 11 | npcs, npc-flags | **CUT** |
 | 6 | Attendance | 21 | 19 | game_sessions, session_logs | **DONE** |
 | 7 | Relationship Editor | 20 | 8 | relationships | **CUT** |
 | 8 | Dice Engine | 18 | 0 | none | |
