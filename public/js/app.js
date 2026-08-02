@@ -101,6 +101,7 @@ import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
 import { applyOverlayToAll } from './data/st-mods.js';
+import { renderSheetWithOverlay as composeAndRenderSheet, refreshCharacterOverlay as sharedRefreshOverlay } from './data/sheet-composition.js';
 // Issue #879 (ADR-006 D4): armour-adjusted defence materialised before
 // applyOverlayToAll so STM mods on derived.defence compose on top.
 import { materialiseDerivedDefence } from './data/equipment-derivation.js';
@@ -252,22 +253,26 @@ function updDirtyBadge() {
 // audited apply-bonus affordance (STM-14, issue #1034 — installStModPopover's
 // onMutate callback) so both paths route through the same composition
 // sequence (single composition site, ADR-004 §D1/§D8).
-async function refreshCharacterOverlay(charId) {
-  const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
-  if (!target) return;
-  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
-  // armour-adjusted base is current at composition time.
-  materialiseDerivedDefence(target);
-  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
-  if (String(suiteState.sheetChar?._id) === String(charId)) {
-    suiteRenderSheet();
-  }
-  // editorRenderSheet only ever renders for STs (openChar gates it on
-  // getRole() === 'st'); mirror that gate here so a player's WS-delivered
-  // update never touches the ST-only editor sheet container.
-  if (getRole() === 'st' && editorState.editIdx >= 0 && String(editorState.chars[editorState.editIdx]?._id) === String(charId)) {
-    editorRenderSheet(target);
-  }
+// ADR-009 D1 step 2: sequence lives in data/sheet-composition.js, shared with
+// admin.js. This file supplies only what genuinely differs -- its char array
+// and its two-sheet render predicate. The getRole() gate stays HERE by design
+// (ADR-009 D2): the shared module must never learn which document it is in.
+function refreshCharacterOverlay(charId) {
+  return sharedRefreshOverlay(charId, {
+    getChars: () => suiteState.chars,
+    renderIfOpen: (target) => {
+      if (String(suiteState.sheetChar?._id) === String(charId)) {
+        suiteRenderSheet();
+      }
+      // editorRenderSheet only ever renders for STs (openChar gates it on
+      // getRole() === 'st'); mirror that gate here so a player's WS-delivered
+      // update never touches the ST-only editor sheet container.
+      if (getRole() === 'st' && editorState.editIdx >= 0 &&
+          String(editorState.chars[editorState.editIdx]?._id) === String(charId)) {
+        editorRenderSheet(target);
+      }
+    },
+  });
 }
 
 // ══════════════════════════════════════════════
@@ -318,7 +323,14 @@ function openChar(idx) {
   if (getRole() === 'st') {
     renderIdentityTab(c);
     renderAttrsTab(c);
-    editorRenderSheet(c);
+    // ADR-009 D3: route the ST editor sheet through the shared composition
+    // site, supplying the tracker loader. Only STs reach this branch, and
+    // tracker_state is ST-auth-only at the API level, so the loader is exactly
+    // as available here as it is in admin.html. This closes the parity gap
+    // where the same ST saw spliced current vitae/willpower/health in
+    // admin.html and canonical values in index.html.
+    // Not awaited, matching admin.js's openCharDetail.
+    composeAndRenderSheet(c, { renderSheet: editorRenderSheet, loadTrackerState: ensureTrackerLoaded });
   }
   suiteState.sheetChar = c;
   document.getElementById('sh-empty').style.display = 'none';
@@ -1308,7 +1320,14 @@ async function _switchChar(idx) {
   if (getRole() === 'st') {
     renderIdentityTab(c);
     renderAttrsTab(c);
-    editorRenderSheet(c);
+    // ADR-009 D3: route the ST editor sheet through the shared composition
+    // site, supplying the tracker loader. Only STs reach this branch, and
+    // tracker_state is ST-auth-only at the API level, so the loader is exactly
+    // as available here as it is in admin.html. This closes the parity gap
+    // where the same ST saw spliced current vitae/willpower/health in
+    // admin.html and canonical values in index.html.
+    // Not awaited, matching admin.js's openCharDetail.
+    composeAndRenderSheet(c, { renderSheet: editorRenderSheet, loadTrackerState: ensureTrackerLoaded });
   }
 
   // Suite sheet — renders into both desktop full sheet and phone split tabs

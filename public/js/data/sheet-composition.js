@@ -37,7 +37,7 @@
  */
 
 import { calcWillpowerMax, calcVitaeMax } from './accessors.js';
-import { loadStMods, applyStMods, spliceCurrent, stripOverlay } from './st-mods.js';
+import { loadStMods, applyStMods, spliceCurrent, stripOverlay, applyOverlayToAll } from './st-mods.js';
 import { materialiseDerivedDefence } from './equipment-derivation.js';
 import { getGlobalSettings } from './app-settings.js';
 import editorState from './state.js';
@@ -92,4 +92,40 @@ export async function renderSheetWithOverlay(c, { renderSheet, loadTrackerState 
   applyStMods(c, mods, overlayEnabled);
 
   renderSheet(c);
+}
+
+/**
+ * Re-apply the overlay for ONE character by id and re-render it if it is
+ * currently on screen. ADR-009 D1 step 2.
+ *
+ * Shared by the WebSocket onStModUpdate handler and by installStModPopover's
+ * onMutate callback in both entry points. Before this, admin.js and app.js each
+ * had their own copy of this function and each described itself as the single
+ * composition site.
+ *
+ * Note this path deliberately does NOT splice tracker state and does NOT call
+ * loadStMods: applyOverlayToAll does its own bulk fetch, and a mod update is not
+ * a reason to re-read tracker_state. Both former copies agreed on that, so the
+ * convergence changes nothing here.
+ *
+ * @param {string} charId
+ * @param {object} deps
+ * @param {function} deps.getChars      () => the live character array to search
+ * @param {function} deps.renderIfOpen  (target) => re-render iff on screen. Role
+ *                                      gating belongs HERE, in the caller, never
+ *                                      inside this module (ADR-009 D2).
+ */
+export async function refreshCharacterOverlay(charId, { getChars, renderIfOpen } = {}) {
+  if (typeof getChars !== 'function' || typeof renderIfOpen !== 'function') {
+    throw new TypeError('refreshCharacterOverlay: deps.getChars and deps.renderIfOpen are required');
+  }
+  const target = (getChars() || []).find(c => String(c?._id) === String(charId));
+  if (!target) return;
+
+  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+  // armour-adjusted base is current at composition time.
+  materialiseDerivedDefence(target);
+  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+
+  renderIfOpen(target);
 }

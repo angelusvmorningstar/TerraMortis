@@ -183,13 +183,20 @@ describe('#879 — Concern #4 (render-path orchestrator wires materialisation be
     expect(src).toMatch(/for\s*\(\s*const\s+c\s+of\s+\(suiteState\.chars\s*\|\|\s*\[\]\)\s*\)\s*materialiseDerivedDefence\(c\)/);
   });
 
-  it('admin.js + app.js onStModUpdate paths re-materialise before re-applying', () => {
-    const adminSrc = read('public/js/admin.js');
-    const appSrc   = read('public/js/app.js');
-    // Both should call materialiseDerivedDefence(target) before the
-    // applyOverlayToAll([target], ...) call in their onStModUpdate handlers.
-    expect(adminSrc).toMatch(/materialiseDerivedDefence\(target\);\s*await\s+applyOverlayToAll\(\[target\]/);
-    expect(appSrc).toMatch(/materialiseDerivedDefence\(target\);\s*await\s+applyOverlayToAll\(\[target\]/);
+  // ADR-009 D1 step 2 converged admin.js's and app.js's refreshCharacterOverlay
+  // onto one implementation, so this invariant is now asserted once at the
+  // shared site instead of twice at two copies that could disagree -- which is
+  // exactly what they had started to do.
+  it('the onStModUpdate path re-materialises before re-applying', () => {
+    const src = read('public/js/data/sheet-composition.js');
+    expect(src).toMatch(/materialiseDerivedDefence\(target\);\s*await\s+applyOverlayToAll\(\[target\]/);
+  });
+
+  it('neither entry point keeps its own copy of that sequence', () => {
+    for (const rel of ['public/js/admin.js', 'public/js/app.js']) {
+      expect(read(rel), `${rel} should delegate to data/sheet-composition.js`)
+        .not.toMatch(/materialiseDerivedDefence\(target\);\s*await\s+applyOverlayToAll\(\[target\]/);
+    }
   });
 });
 

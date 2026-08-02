@@ -18,7 +18,7 @@ import { applyOverlayToAll } from './data/st-mods.js';
 // Issue #879 (ADR-006 D4): materialise c.derived.defence between calcDefence and
 // applyStMods so STM overlay composes on top of the armour-adjusted base.
 import { materialiseDerivedDefence } from './data/equipment-derivation.js';
-import { renderSheetWithOverlay as composeAndRenderSheet } from './data/sheet-composition.js';
+import { renderSheetWithOverlay as composeAndRenderSheet, refreshCharacterOverlay as sharedRefreshOverlay } from './data/sheet-composition.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
@@ -140,17 +140,19 @@ function renderSheetWithOverlay(c) {
 // and the sheet's own audited apply-bonus affordance (STM-14, issue #1034 —
 // installStModPopover's onMutate callback) so both paths route through the
 // same composition sequence (single composition site, ADR-004 §D1/§D8).
-async function refreshCharacterOverlay(charId) {
-  const target = chars.find(c => String(c._id) === String(charId));
-  if (!target) return;
-  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
-  // armour-adjusted base is current at composition time.
-  materialiseDerivedDefence(target);
-  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
-  const idx = editorState.editIdx;
-  if (idx != null && idx >= 0 && chars[idx] === target) {
-    renderSheetWithOverlay(target);
-  }
+// ADR-009 D1 step 2: sequence lives in data/sheet-composition.js. admin.js
+// supplies its own char array and its own "is this sheet open" predicate; the
+// composition itself is no longer duplicated here.
+function refreshCharacterOverlay(charId) {
+  return sharedRefreshOverlay(charId, {
+    getChars: () => chars,
+    renderIfOpen: (target) => {
+      const idx = editorState.editIdx;
+      if (idx != null && idx >= 0 && chars[idx] === target) {
+        renderSheetWithOverlay(target);
+      }
+    },
+  });
 }
 
 // ── Auth gate ──
