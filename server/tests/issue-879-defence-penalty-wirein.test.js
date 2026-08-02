@@ -152,13 +152,21 @@ describe('#879 — Concern #8 (editor hint wording verbatim)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('#879 — Concern #4 (render-path orchestrator wires materialisation before applyStMods)', () => {
-  it('admin.js renderSheetWithOverlay calls materialiseDerivedDefence before applyStMods', () => {
-    const src = read('public/js/admin.js');
-    const fnStart = src.indexOf('async function renderSheetWithOverlay');
+  // ADR-009 D1 moved the sequence out of admin.js into data/sheet-composition.js
+  // so that admin.js and app.js could stop each keeping their own copy. The
+  // invariant this guards is unchanged and is now asserted at the single site.
+  // Do not re-point this at an entry point: if the sequence reappears in one,
+  // adr-009-single-composition-site.test.js is what should fail.
+  it('sheet-composition.js calls materialiseDerivedDefence before applyStMods', () => {
+    const src = read('public/js/data/sheet-composition.js');
+    const fnStart = src.indexOf('export async function renderSheetWithOverlay');
     expect(fnStart).toBeGreaterThan(-1);
-    const fnBody = src.slice(fnStart, fnStart + 1800);
-    const idxMaterialise = fnBody.indexOf('materialiseDerivedDefence');
-    const idxApply       = fnBody.indexOf('applyStMods(');
+    const fnBody = src.slice(fnStart);
+    // Anchor past the edit-mode early return, which strips and re-materialises
+    // without ever reaching applyStMods.
+    const nonEdit = fnBody.slice(fnBody.indexOf('loadTrackerState === '));
+    const idxMaterialise = nonEdit.indexOf('materialiseDerivedDefence');
+    const idxApply       = nonEdit.indexOf('applyStMods(');
     expect(idxMaterialise).toBeGreaterThan(-1);
     expect(idxApply).toBeGreaterThan(-1);
     expect(idxMaterialise).toBeLessThan(idxApply);
