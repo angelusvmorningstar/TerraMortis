@@ -1,10 +1,10 @@
 ---
 id: ADR-010
 title: 'Swear By oath cost model — merit attachment, encumbrance vs suspension, and typed oath metadata'
-status: proposed
+status: approved
 date: 2026-08-06
 author: Imhotep (Architect)
-revision: 1
+revision: 2
 supersedes: null
 issue: 'https://github.com/angelusvmorningstar/TerraMortis/issues/1111'
 related:
@@ -17,7 +17,8 @@ related:
   - public/js/editor/domain.js:309 (`meritEffectiveRating` — designated canonical effective-dots helper)
   - public/js/editor/xp.js:190 (`meritRating` — owned-dots helper, distinct from effective)
   - public/js/editor/merits.js:20 (`isMeritExcluded` — existing exclusion walk)
-  - 2026-07-25_meeting.md §2 "Rules & sheets" (prior recorded direction on oaths and on forced merit loss)
+  - 2026-07-25_meeting.md §2 "Rules & sheets" (prior recorded direction on oaths and on forced merit loss — superseded by #1111 per Peter, 2026-08-06)
+  - 'https://github.com/angelusvmorningstar/TerraMortis/issues/1119 (merits.N.dots dead read path in the st_mods whitelist — filed from §5 of this ADR; independent of this work)'
   - memory: project_necropolis_merit_family, feedback_two_views_same_arithmetic, feedback_verify_issue_cited_paths
 ---
 
@@ -27,7 +28,8 @@ related:
 
 | Rev | Date | Change | Author |
 |---|---|---|---|
-| 1 | 2026-08-06 | Initial. Written ahead of a story for issue #1111 at Peter's direction (ADR before story). Grounding by Khepri (SM) on the Chapter-boundary question and the `cost_model` reachability question was taken as given and then re-verified against live Atlas and the route code; three of the SM's framing assumptions changed as a result (see Context §3). Six decisions requested; eight recorded (D7 and D8 are consequences the survey forced). One decision — D3b, restoration trigger — is deliberately left open for Peter with a recommendation, per dispatch. | Imhotep (Architect) |
+| 1 | 2026-08-06 | Initial. Written ahead of a story for issue #1111 at Peter's direction (ADR before story). Grounding by Khepri (SM) on the Chapter-boundary question and the `cost_model` reachability question was taken as given and then re-verified against live Atlas and the route code; three of the SM's framing assumptions changed as a result (see Context §3). Six decisions requested; eight recorded (D7 and D8 are consequences the survey forced). Four questions left open, one of them (Q1) blocking. | Imhotep (Architect) |
+| 2 | 2026-08-06 | **Status → approved.** No decision text changed; D1–D8 stand exactly as drafted in Rev 1. Three status updates only. (a) **Q1 resolved by Peter: build it — the issue supersedes the 2026-07-25 meeting, full scope.** The ST-mod alternative is not pursued; the `merits.N.dots` dead read path from §5 was filed independently as #1119 and is no longer a cost on this work. (b) **Q3 resolved by Khepri (SM), not escalated: partner shared-domain sums stay untouched**, with the added justification that touching them would pre-judge the deferred MNEC-prerequisite audit. (c) The two-story implementation seam in the closing note is **adopted** rather than merely offered. Q2 (uniqueness scope) and Q4 (restoration trigger) remain open with Peter; neither blocks Story A, and Q4 affects only the trigger step of Story B. Approved-with-opens follows the ADR-005 Rev 2 precedent of a deferred non-blocking question inside an approved ADR. | Imhotep (Architect) |
 
 ---
 
@@ -286,25 +288,32 @@ The two pre-existing `sub_category` inconsistencies (`null` on three rows, `'oat
 
 ---
 
-## Open questions for Peter
+## Open questions
 
-**1. The 2026-07-25 meeting said not to hard-code this.** The meeting recorded "Swear-by mechanic simplified — implement via a swear-by merit or ST mod toggle rather than hard-coding", and #1111 asks for the mechanism. This ADR follows the newer artefact (the issue). If the meeting position still stands, most of D1/D2/D6/D7 collapses into an ST-mod toggle plus a free-text note — a much smaller piece of work, but it also means the ST adjudicates the forfeiture clock by hand, and it carries the unbudgeted `merits.N.dots` read-path fix from §5. **This is the highest-leverage question here and it should be answered before the story is written, not after.**
+Two of the four are resolved (2026-08-06, relayed via Khepri). Two remain with Peter.
 
-**2. Uniqueness scope (D5).** Oath of Action's rules text constrains "as vassal or liege" — one *per pair of characters*, not one per character. #1111's ACs omit Oath of Action entirely. Should the story cover all three oaths and add a cross-character variant, or ship `one_per_character` for the two named oaths and defer Oath of Action?
+**1. ~~The 2026-07-25 meeting said not to hard-code this.~~ RESOLVED 2026-08-06 — build it.** The meeting recorded "Swear-by mechanic simplified — implement via a swear-by merit or ST mod toggle rather than hard-coding"; #1111 asks for the mechanism. **Peter's ruling: the issue supersedes the meeting. ADR-010 stands as drafted, full scope.** The ST-mod alternative is therefore not pursued, and the `merits.N.dots` dead read path from §5 is no longer a cost on this work — it has been filed independently as **#1119** (reject-or-route, plus an audit of `DYNAMIC_PATH_RE` for other accepted leaves with no corresponding field).
 
-**3. Suspended dots and partner sharing (D2).** If a character breaks an oath pledged against a shared Safe Place, do the suspended dots stop counting toward their partner's total? Rules-silent. This ADR leaves partner sums untouched (suspension is invisible to partners), which is the conservative reading and consistent with ADR-005's deferral, but it is a guess.
+**2. Uniqueness scope (D5). OPEN — with Peter.** Oath of Action's rules text constrains "as vassal or liege" — one *per pair of characters*, not one per character. #1111's ACs omit Oath of Action entirely. Should the story cover all three oaths and add a cross-character variant, or ship `one_per_character` for the two named oaths and defer Oath of Action?
 
-**4. Restoration trigger (D3b).** Recommendation above is ST-actioned with a computed due-date. Confirm or overrule.
+**3. ~~Suspended dots and partner sharing (D2).~~ RESOLVED 2026-08-06 — leave partner sums untouched.** Resolved by Khepri (SM) rather than escalated. The conservative reading stands, and it carries a second justification this ADR did not originally claim: touching partner sums would pre-judge the deferred MNEC-prerequisite audit, which is already load-bearing for the `domain.js:48` vs `characters.js:249` divergence recorded in ADR-005 Rev 2 §D6(b). A rules-silent question should not be answered as a side effect of an unrelated story. Suspension is invisible to partners; D2 is unchanged.
+
+**4. Restoration trigger (D3b). OPEN — with Peter.** Recommendation above is ST-actioned with a computed due-date. Confirm or overrule. Overruling moves only the trigger — the due-date computation is identical either way — so it does not block the story past the restoration step.
 
 ---
 
-## Implementation note — the split is still available
+## Implementation note — the two-story seam (adopted, Rev 2)
 
-Khepri flagged that purchase-time attachment plus XP-parity validation is separable from the forfeiture schedule, and that Peter chose the full ADR over that split. The ADR is full-scope; the *implementation* can still land in two stories along a clean seam:
+Khepri flagged that purchase-time attachment plus XP-parity validation is separable from the forfeiture schedule, and that Peter chose the full ADR over that split. The ADR is full-scope; the *implementation* **lands in two stories** along this seam (adopted by the SM, 2026-08-06):
 
 - **Story A** — D1, D1b, D4, D5, D8: swear an oath, nominate merits, validate parity, derived ratings, uniqueness, schema and allowlist. Delivers a working purchase flow. Ships without any of the forfeiture machinery.
 - **Story B** — D2, D3, D6, D7: exit events, suspension, chapter anchor, restoration.
 
 Story A is independently useful and independently testable, and it does not build anything Story B discards. Per [feedback_decomposition_into_nondelivering_parts](memory/feedback_decomposition_into_nondelivering_parts.md), the seam is only legitimate because Story A is openable on its own — a player can swear an oath and see it on the sheet. If it were split any finer (schema-only, then UI) it would not be.
 
-Recommended regardless of the split: **do not begin either story until Open Question 1 is answered**, since a "yes, keep it simple" reply changes what gets built rather than merely when.
+~~Do not begin either story until Open Question 1 is answered.~~ **Q1 is answered (build it), so both stories are unblocked.** Q2 scopes Story A's uniqueness work and Q4 scopes Story B's restoration step; neither blocks the story from starting.
+
+Two acceptance obligations carry from the Risks section into the stories as **hard ACs, not notes** (SM, 2026-08-06):
+
+1. The `meritEffectiveRating` read-path audit must be **demonstrated**, not asserted. A docstring claiming universal use is not evidence of universal use.
+2. The suspension resolver must be exercised with `chapter_number` **absent**, not merely present — the indeterminate-not-expired rule is otherwise untested on the data that actually exists (§3b).
