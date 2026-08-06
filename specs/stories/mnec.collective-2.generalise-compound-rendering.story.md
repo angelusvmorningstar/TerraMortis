@@ -237,4 +237,49 @@ One rename-caused failure outside the three suites the story named, repaired und
 
 ## QA Results
 
-_(Ma'at fills this in)_
+**Gate: CONCERNS** (Ma'at, 2026-08-06, commit 941fec49). No defect in shipped behaviour. Two findings, both disclosure/coverage; neither blocks on correctness.
+
+### Correction to the baseline I supplied
+
+The baseline I gave the SM (2 failed files / 4 failed / 2112 tests) was **contaminated by my own working branch**, which carries a fix to `issue-836-legacy-tracker-cache-removed.test.js` that is not on dev. On `origin/dev` that file reads the deleted `public/js/suite/tracker.js` and throws `ENOENT` at collection. Measured in a clean detached worktree at `b44afc1a`, Mongo up, corpus symlinked:
+
+| | origin/dev (true) | Ptah 941fec49 |
+|---|---|---|
+| Test Files | 3 failed / 156 passed (159) | 3 failed / 157 passed (160) |
+| Tests | 4 failed / 2074 passed (2078) | 4 failed / 2109 passed (2113) |
+| Duration | 128.3s | 131.8s |
+
+Failing set identical on both sides: `n7-n9` meritPrereqOK ×1, `epic.708.3` ×3, `issue-836` collection error. **AC7 as restated is MET.** +35 net passing = the new suite, exactly as reported. Ptah's third failed file is dev's, not his.
+
+### Verified by measurement, not by reading the report
+
+- **Ring-fence HELD.** `n7-n9-allocator-readers.test.js` — the `600` window and `meritPrereqOK(c, rule)` assertions are byte-identical to dev; `git diff origin/dev...HEAD` contains zero occurrences of either string.
+- **Mutation 1** (`_compoundsView` filtered back to `necro`): 4 failures, every one view-mode-named, all 56 edit-mode tests green. Reproduces exactly.
+- **Mutation 2** (Necropolis dropped from discovery): **25 failures across 5 suites**, louder than the 23/3 reported.
+- **De-dupe is real.** Removing the `seen` guard fails exactly `collapses duplicate seeds of the same compound` and nothing else.
+- **AC3 view mode: byte-identical.** Rendered the Yusuf/Xavier/Zanzibar fixture through `shRenderDomainMerits` under dev's renderer and this branch's, and diffed the HTML.
+- **No weakened assertions.** `collective-1-virtual-rows.test.js` is a faithful rename carrying its values unchanged, plus *added* negative cases (null/malformed descriptor) and *added* `not.toMatch` guards against the old symbol names.
+- Element ids, `name`s, values and the `free_grants.necro` write path confirmed unchanged **in the rendered HTML**, not in source.
+- `markdown` symlink absent from the diff.
+
+### Concern 1 — a second rendered-output deviation, undisclosed
+
+Edit mode differs in **12 hunks reducible to three kinds**, not one:
+
+1. `aria-label` "Necropolis pool allocation" → "Necropolis Sepulcher pool allocation" (×6) — **sanctioned**.
+2. `dom-total-lbl` `title` "Cumulative across all Sepulcher-owners" → "Cumulative across all Necropolis Sepulcher owners" (×6) — **not disclosed in the Dev Agent Record**, though visibly updated in the `collective-1` test diff rather than deleted.
+3. Virtual-row `onchange` `shAllocateNecroVirtual('X',…)` → `shAllocateCompoundVirtual('X','necro',…)` (×2) — covered by the approved scope extension.
+
+The itemised sub-claims in the Dev Agent Record are all true; the summarising claim "this is the only rendered-output difference on a Necropolis fixture" is not. (2) is the same kind of change as (1) — descriptor-derived label text — and my recommendation is to sanction it alongside the aria-label rather than treat it as scope creep, and to correct the Dev Agent Record to list all three.
+
+Note also that the story's own AC3 regression test compares *Necropolis-only-seeded vs all-four-seeded on the new code*. That is a seed-independence check, not a before/after check, and cannot detect any of these three.
+
+### Concern 2 — `sharing_scope.merit` is entirely unexercised
+
+Mutation: `const gateMerit = scope.merit || r.source` → `const gateMerit = r.source`. **Zero new failures** across all seven collective/n7 suites — the only failure was the pre-existing ring-fenced one. Every fixture, including the AC5 synthetic fourth compound, sets `sharing_scope.merit === source`, so the field AC4 relies on is indistinguishable from `source`.
+
+The `min_dots` half of this was covered well (`Silent Vigil` uses `min_dots: 2` with a below-threshold member asserted to get no rows). Fix is one fixture line: give the synthetic compound a gate merit whose name differs from its `source`.
+
+### Not raised as findings
+
+`hasNecropolisSepulcher` left exported while dead in production is correctly deferred per `feedback_reachability_before_retire`. The uncapped cumulative is preserved. AC6's colliding-target case is genuinely exercised (`Shared Crypt` at `{aslug: 2, bslug: 3}` asserting 5 own dots, one row, both steppers).
