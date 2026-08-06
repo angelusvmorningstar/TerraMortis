@@ -4,7 +4,7 @@ title: 'Swear By oath cost model — merit attachment, encumbrance vs suspension
 status: approved
 date: 2026-08-06
 author: Imhotep (Architect)
-revision: 2
+revision: 3
 supersedes: null
 issue: 'https://github.com/angelusvmorningstar/TerraMortis/issues/1111'
 related:
@@ -30,6 +30,7 @@ related:
 |---|---|---|---|
 | 1 | 2026-08-06 | Initial. Written ahead of a story for issue #1111 at Peter's direction (ADR before story). Grounding by Khepri (SM) on the Chapter-boundary question and the `cost_model` reachability question was taken as given and then re-verified against live Atlas and the route code; three of the SM's framing assumptions changed as a result (see Context §3). Six decisions requested; eight recorded (D7 and D8 are consequences the survey forced). Four questions left open, one of them (Q1) blocking. | Imhotep (Architect) |
 | 2 | 2026-08-06 | **Status → approved.** No decision text changed; D1–D8 stand exactly as drafted in Rev 1. Three status updates only. (a) **Q1 resolved by Peter: build it — the issue supersedes the 2026-07-25 meeting, full scope.** The ST-mod alternative is not pursued; the `merits.N.dots` dead read path from §5 was filed independently as #1119 and is no longer a cost on this work. (b) **Q3 resolved by Khepri (SM), not escalated: partner shared-domain sums stay untouched**, with the added justification that touching them would pre-judge the deferred MNEC-prerequisite audit. (c) The two-story implementation seam in the closing note is **adopted** rather than merely offered. Q2 (uniqueness scope) and Q4 (restoration trigger) remain open with Peter; neither blocks Story A, and Q4 affects only the trigger step of Story B. Approved-with-opens follows the ADR-005 Rev 2 precedent of a deferred non-blocking question inside an approved ADR. | Imhotep (Architect) |
+| 3 | 2026-08-06 | **Q2 and Q4 answered by Peter; no open questions remain.** Both answers shrink the build, and one corrects a factual premise. (a) **Q2 — uniqueness is not enforced in code at all.** "I would rather have the STs coordinate and check this rather than enforce in code." That is not a choice between the scoping options offered; it declines enforcement. **D5 is withdrawn**, not narrowed — no `uniqueness` field, no write-path check, no picker filter — and survives only as a rejected alternative recording the *product* reasoning, so a later reader who finds the constraint in the rules text does not file its absence as a bug. (b) **Q4 part 1 — a Chapter IS a month.** This voids D3b's argument (i) outright: "one dot per month" and "one dot per chapter" are the same rate in different units, so **there is no wall-clock dependency anywhere in this mechanic**. Arguments (ii) sparse data and (iii) the recorded ST-call preference stand. (c) **Q4 part 2 — restoration is deferred entirely**; no scheduler, no due-date computation, no trigger. **D3b is withdrawn** as a shipping decision and restated as the deferred work's specification. Consequential amendments the survey forced, none of them requested: D6's `restored` event is **load-bearing and must survive the deferral** (see D3b); D7's `session` variant **cannot ship** with restoration deferred; and D3a's binding obligation moves from render-time to **write-time**. D1, D1b, D2, D4, D6, D8 are unchanged. | Imhotep (Architect) |
 
 ---
 
@@ -61,7 +62,7 @@ Four facts from that table matter architecturally:
 
 - **`rating_range: null` is already correct** on the two derived-rating oaths. D4 does not need to displace a wrong value; it needs to supply the missing basis.
 - **`sub_category` is inconsistent** across the family: the three older rows are `null`, the two newer are `'oath'`. Any picker or filter keyed on `sub_category === 'oath'` will silently see two of five.
-- **`exclusive` is `null` on all five.** The uniqueness constraint is unexpressed today.
+- **`exclusive` is `null` on all five.** The uniqueness constraint is unexpressed today — and per Rev 3 (D5 withdrawn) it stays that way by decision.
 - **Zero characters hold any of the five.** `characters` was scanned for all five names: no holders. **This work is greenfield — there is no backfill, no migration, and no live data to preserve.** That is the single largest simplification available and it should be spent, not banked.
 
 ### 3. Three corrections to the dispatch framing
@@ -79,7 +80,7 @@ The five rows exist only because they were written directly to Atlas, bypassing 
 
 The boundary is therefore derivable in principle and unreliable in practice. This does not block D3a (which anchor), but it is decisive for D3b (whether the forfeiture clock may run unattended).
 
-**(c) There is prior art for a per-character uniqueness constraint.** The SM reported none. `purchasable_powers.exclusive` is a comma-separated name list walked by `isMeritExcluded` (`public/js/editor/merits.js:20-27`), which lowercases both sides. A **self-referential** `exclusive` value therefore yields one-per-character uniqueness with zero new code. D5 declines this shim, but on maintainability grounds, not for want of a mechanism.
+**(c) There is prior art for a per-character uniqueness constraint.** The SM reported none. `purchasable_powers.exclusive` is a comma-separated name list walked by `isMeritExcluded` (`public/js/editor/merits.js:20-27`), which lowercases both sides. A **self-referential** `exclusive` value therefore yields one-per-character uniqueness with zero new code. Rev 1's D5 declined this shim on maintainability grounds, not for want of a mechanism; Rev 3 withdrew enforcement altogether as a product decision. The correction to the SM's grounding stands either way — the mechanism exists, it was simply not used.
 
 ### 4. The real difficulty: merit-dot arithmetic is already forked
 
@@ -177,17 +178,57 @@ suspended while  current_chapter_number <= sworn_by.history[breach].chapter_numb
 
 Given §3(b) — 3 of 14 sessions populated — the resolver must degrade honestly, not guess: when no current `chapter_number` can be resolved, the sheet displays the suspension as **indeterminate and ST-resolvable**, never as silently expired. A missing ordinal must not release dots.
 
-### D3b — Restoration is ST-actioned, with the system computing and surfacing the due schedule — **OPEN, recommendation only**
+#### D3a amendment (Rev 3) — with restoration deferred, the binding obligation moves from render-time to write-time
 
-This is the one genuinely product-side question and per dispatch it is flagged rather than guessed. The recommendation, and the evidence for it:
+The SM's reading was that deferring restoration makes the indeterminate rule above *more* important — "the only thing standing between sparse data and dots quietly coming back". **The opposite is true, and the real risk lies elsewhere.** With restoration deferred there is no code path that releases dots: `_suspended_dots` becomes a pure function of the exit events in `sworn_by.history`, with no chapter arithmetic evaluated at all. Nothing computes expiry, so nothing can mis-expire. The indeterminate rule stays in the ADR because it governs the deferred work, but in the shipped scope its urgency is close to zero.
 
-1. **"One dot per month" is wall-clock, and nothing else in this schema derives from wall-clock.** Every other time-like derivation in TM keys off cycles, sessions, or chapters. Introducing a wall-clock derivation for one merit family creates a dependency on real elapsed time that has no other consumer and no existing test shape.
-2. **The chapter data is too sparse to run a clock unattended** (§3b). An automatic restorer would, on today's data, restore dots on the basis of a `chapter_number` that is absent from 11 of 14 sessions.
-3. **Peter has already stated a preference on the adjacent mechanic.** For forced merit loss, the 2026-07-25 meeting records "recovery rate is an ST call", with the "no-code solve" being dots that unlock over time on the sheet. Same problem class, explicit answer.
+What the deferral actually endangers is the opposite end: **`chapter_number` must be stamped onto the exit event at the moment of breach, even though nothing reads it yet.** This is precisely the field a story drops when its only consumer is deferred — it looks like dead weight. It is not: which chapter an oath was broken in is unrecoverable after the fact. Miss it and the deferred restoration work has no anchor to compute from, and the only remedy is ST archaeology across session logs.
 
-**Recommendation: the system computes and displays the schedule; an ST confirms each restoration.** The suspension row shows "2 of 4 dots restored; next due 2026-09-14" and an ST action applies it. This keeps the derivation visible and auditable, degrades safely when chapter data is missing, matches the recorded preference, and leaves a fully automatic restorer available later as a pure addition (the due-date computation is the same either way — only the trigger changes).
+So the obligation is: **capture at write time, tolerate at render time.** Story B must record `chapter_number` on every exit event and treat its absence at render as indeterminate. Only the first of those has teeth in the shipped scope, and it is the one with no visible consumer to protect it.
 
-**Peter needs to confirm.** If he wants it automatic, D6's history shape and the due-date computation are unchanged; only the trigger moves, so the story is not blocked on this beyond the restoration step itself.
+### D3b — Restoration is DEFERRED. Nothing computes it. **There is no wall-clock anywhere in this mechanic.**
+
+Peter, 2026-08-06: *"note that a chapter is a month so back at one per chapter, however this need not be encoded now."* Two rulings in one sentence.
+
+#### The correction — a Chapter is a month
+
+Rev 1 argued that "one dot per month" introduced a wall-clock dependency with no other consumer in the schema. **That argument is void.** A Chapter *is* a month, so "one dot per month" and "one dot per chapter" are the same rate expressed in two units, and the whole mechanic runs on a single unit end to end:
+
+| Quantity | Unit |
+|---|---|
+| Blackout span ("that Chapter and the next") | chapters |
+| Restoration rate ("one dot per month") | chapters — **one dot per chapter** |
+| Anchor | `game_sessions.chapter_number` (D3a) |
+
+**No date arithmetic is required anywhere in this family.** Anyone building the deferred restoration must build chapter arithmetic against the D3a ordinal, not a date scheduler. This is stated prominently because Rev 1 taught the opposite, and a future implementer reaching for a timer would be following this ADR's own retracted reasoning.
+
+Note this correction does not decay the way §3(b)'s counts do: **it is a rules fact, not a data fact.** The snapshot caveat that applies to the sparsity numbers applies here in reverse.
+
+The other two Rev 1 arguments survive intact — the chapter data is too sparse to run a clock unattended (§3b), and the 2026-07-25 meeting already recorded "recovery rate is an ST call" for the adjacent forced-loss mechanic.
+
+#### The ruling — not encoded now
+
+**No scheduler, no due-date computation, no automatic trigger, in either story.** The system suspends and records; it does not restore. An ST clears a suspension by hand.
+
+#### The amendment this forces — `restored` must survive the deferral
+
+The SM's boundary ("keeps D2, D6 and D7 whole and removes only D3b") is right in substance and needs one correction to be implementable.
+
+**Suspension is a derived value.** Per D2 it is computed per render from `sworn_by.history` and materialised as the transient `m._suspended_dots`. **A computed value cannot be cleared by hand.** The only way an ST can change it is by appending an event to the history that the computation reads. That event is D6's `restored`.
+
+So what is deferred is the *automatic computation of when restoration is due* — not the restoration event, and not the ability to restore. **D6's `restored` event is load-bearing in the shipped scope and must not be dropped as part of "deferring restoration".** Drop it and suspension becomes irreversible: dots go dark at breach with no path back short of hand-editing a character document, which is exactly what the append-only log exists to prevent.
+
+The shipped model is therefore:
+
+- Breach appends `exited` with `reason` and `chapter_number` → dots suspend.
+- ST judges the schedule out-of-band (one dot per chapter, by the rules) and appends `restored { dots: n }` when due → dots return.
+- Nothing computes *when* that should happen. The ST does.
+
+That is coherent, and the deferred work is a pure addition: compute the due chapter from the D3a ordinal and either prompt or auto-append. **No shape changes** — the deferred story adds a computation over an event log that already records everything it needs, which is why D3a's write-time capture obligation matters now rather than later.
+
+#### Rate, recorded for the deferred work
+
+`one dot per chapter`, beginning after the blackout span of the breach chapter and the next. Recorded here so the deferred story does not have to re-derive it from the source text or re-litigate the units.
 
 ### D4 — Variable rating bases: a discriminator-typed `rating_basis` on the rule, resolved at render time
 
@@ -209,17 +250,31 @@ Note the interaction with D1b: the basis determines what the purchase UI *offers
 
 An expression language (`expr: 'blood_potency * 2'`) was rejected: it is a parser and a sandbox for two call sites, and ADR-005 §D5 explicitly requires each variant to stay inspectable rather than generalised.
 
-### D5 — Uniqueness is an explicit typed field, enforced server-side
+### D5 — ~~Uniqueness is an explicit typed field, enforced server-side~~ **WITHDRAWN (Rev 3). Uniqueness is not enforced in code at all.**
 
-```js
-uniqueness: { type: 'one_per_character' }
-```
+*The number is retained rather than reused so that references to D6/D7/D8 in the stories, issue comments and prior revisions stay valid.*
 
-on the rule, checked in the character write path and used to filter the merit picker.
+**Peter, 2026-08-06: "i would rather have the STs coordinate and check this rather than enforce in code."**
 
-**Rejected: self-referential `exclusive`.** It works — `isMeritExcluded` lowercases both sides, so `exclusive: "Oath of Burning Blood"` on `oath-of-burning-blood` makes owning one exclude adding another, with zero new code. It is rejected because (i) a rule that excludes itself reads as a data-entry error to the next maintainer and invites a well-meaning "fix"; (ii) `exclusive` means "this merit forbids those *other* merits" everywhere else it appears, and overloading it costs the field its one clear meaning; (iii) it is enforced only in the client picker — `isMeritExcluded` is a dropdown filter, not a write-path check — so it is a suggestion, not a constraint. The failure mode of the shim is a second oath silently appearing on a sheet; the failure mode of the explicit field is a 400. [feedback_prefer_cosmetic_failure_mode](memory/feedback_prefer_cosmetic_failure_mode.md) prefers the visible one.
+This is not a narrowing of the Rev 1 decision, it is a refusal of the category. **No `uniqueness` field, no write-path check, no picker filter, no display gating.** The oaths that the rules text limits to one at a time may be added twice by the app; the STs catch it.
 
-**Scope correction.** #1111's acceptance criteria name Oath of Burning Blood and Oath of the Bloody Hand. The live `rules_text` for **Oath of Action** also states: *"A character may be part of only one Oath of Action at a time, as vassal or liege."* That is three oaths, not two, and the "as vassal or liege" clause is a **cross-character** constraint that `one_per_character` does not express. Flagged as Open Question 2; the discriminator leaves room for a second variant (`{ type: 'one_per_character_either_role' }`) without reopening the schema.
+**This is a product decision, not a technical concession, and it is recorded here for one reason:** the next person to read the live `rules_text` will find an explicit constraint ("A character may be part of only one Oath of Action at a time, as vassal or liege"), find nothing enforcing it, and file that gap as a bug. **It is not a bug.** It was priced and declined.
+
+#### What made the price visible
+
+The Rev 1 analysis is retained because it is what produced the answer rather than a cheaper wrong one:
+
+- The constraint covers **three** oaths, not the two in #1111's acceptance criteria. Oath of Action's live `rules_text` carries it too.
+- Oath of Action's clause is **"as vassal or liege"** — a constraint on a *relationship*, not on a character. Enforcing it means validating a write against **another character's sheet**, which would be the first cross-character write validation in the system.
+- The cheap shim is not a substitute. `isMeritExcluded` (`public/js/editor/merits.js:20-27`) lowercases both sides, so a **self-referential** `exclusive` value yields one-per-character uniqueness with zero new code — but it is a **dropdown filter, not a write-path check**. It suggests; it does not constrain. Offering it as "enforcement" would have been misrepresenting it.
+
+Presented with the honest cost — a novel cross-character validation path for a rule the STs already track between themselves — the STs were judged cheaper than the machinery. That trade is only visible once the real price is on the table, which is the argument for pricing rejected options rather than dismissing them.
+
+#### Optional, and explicitly *not* enforcement: an ST-facing "also held by" display
+
+Coordination needs something to coordinate against. A cheap, honest affordance is a read-only line on the oath's merit row in the **admin** sheet listing other characters who currently hold the same oath. The admin already has the full character set in `state.chars`, so it is a render-time scan with no new fetch and no new field — the same shape as ADR-005 §D3's render-time synthesis.
+
+Two constraints if it is built: it is **admin-only** (the player portal would need a new server projection to see other characters' merits, which is a real cost and out of scope), and it **must be presented as information, never as validation**. A display that looks like a check invites the belief that something is checking. Optional; not part of either story unless Peter asks.
 
 ### D6 — Exit is an append-only typed event, not a mutable field
 
@@ -260,12 +315,24 @@ Absent `forfeiture` defaults to the first form, so the four other rows need no d
 
 This is the ADR-005 §D3 lesson applied: the variant that "obviously" does not exist yet already exists, in row five of five.
 
+#### D7 amendment (Rev 3) — the `session` variant cannot ship while restoration is deferred
+
+The SM's Rev 3 brief kept D7 "whole". It is not whole, and the part that breaks is the one that looks most harmless.
+
+**`{ type: 'session', sessions: 1 }` is entirely a restoration rule.** Its whole content is "this suspension ends automatically at the end of the session". With restoration deferred (D3b), nothing ends it — so shipping the variant would start a suspension that never terminates. Bloody Hand's duty lapse is a *temporary penalty with a defined natural end*, not a forfeiture with a recovery schedule; implemented half-way it silently over-penalises, indefinitely. **That is worse than not implementing it at all**, because the failure is invisible: the sheet shows a correct-looking suspension that simply never lifts.
+
+So the session variant **defers together with restoration**. Story B ships the discriminator and the default variant only.
+
+**And the default variant's parameters are inert in the shipped scope.** `chapters: 2` and `restore_per_month: 1` are both restoration parameters; with D3b deferred, nothing reads either. The field is still *declared* (D8 requires it) and still *populated* — it is correct rules data whose consumer arrives later.
+
+**This is not a repeat of the `cost_model` mistake in §3(a), and the distinction is worth stating** because a careful reader will reach for it. `cost_model`'s defect was never "nothing reads it". It was that the field was **undeclared in the schema, absent from the PUT allowlist, unwritable through the API, and in violation of its own validator** — reference data the application could neither create, edit, nor validate. A field that is properly declared, ST-editable, schema-valid, and consumed by a named deferred story is ordinary forward-declared rules data. **Declared-and-manageable-but-not-yet-consumed is fine; undeclared-and-unwritable is not.** D8 is what keeps `forfeiture` on the right side of that line.
+
 ### D8 — Schema and route reachability ship with the field family, not after it
 
 Per §3(a), every field in this ADR is unreachable through the app unless three files change in the same PR:
 
-1. `server/schemas/purchasable_power.schema.js` — declare `cost_model`, `rating_basis`, `uniqueness`, `forfeiture`. **Required**: the object is `additionalProperties: false`, so `POST /api/rules` rejects any oath row carrying them until they are declared. Declaring `cost_model` also regularises the five rows, which fail their own schema today.
-2. `server/routes/rules.js` `UPDATABLE_FIELDS` — add the same four, or STs cannot edit them in the admin Rule Data UI and the reference data becomes code-deploy-only, contradicting the standing MongoDB-backed convention in CLAUDE.md.
+1. `server/schemas/purchasable_power.schema.js` — declare `cost_model`, `rating_basis`, `forfeiture`. (Rev 3: `uniqueness` is **not** declared — D5 is withdrawn, so the field does not exist.) **Required**: the object is `additionalProperties: false`, so `POST /api/rules` rejects any oath row carrying them until they are declared. Declaring `cost_model` also regularises the five rows, which fail their own schema today.
+2. `server/routes/rules.js` `UPDATABLE_FIELDS` — add the same three, or STs cannot edit them in the admin Rule Data UI and the reference data becomes code-deploy-only, contradicting the standing MongoDB-backed convention in CLAUDE.md. This matters most for `forfeiture`, whose consumer is deferred (D7 amendment): a forward-declared field that STs cannot edit is precisely the `cost_model` failure repeating.
 3. `server/schemas/character.schema.js` merit definition — declare `sworn_by`. Also `additionalProperties: false`; without it, saving a character who has sworn an oath fails validation.
 
 The transient `_suspended_dots` and the reverse index are **not** declared and **not** persisted; they are stripped by the existing `_`-prefix strips in `buildSaveBody` (`public/js/admin.js:962`) and `charsForSave` (`public/js/editor/export.js:79`). Both must be confirmed to fire for `sworn_by`'s transient siblings; note that `sworn_by` itself is **not** `_`-prefixed and must persist.
@@ -276,29 +343,28 @@ The two pre-existing `sub_category` inconsistencies (`null` on three rows, `'oat
 
 ## Consequences
 
-**Positive.** Encumbrance costs zero accessor changes (D2). Suspension touches one helper with an existing cap idiom, and the owned-vs-effective boundary it needs already exists. Greenfield data means no backfill and no migration. Three of the four new rule fields are discriminator-typed, so the next oath variant is a data change.
+**Positive.** Encumbrance costs zero accessor changes (D2). Suspension touches one helper with an existing cap idiom, and the owned-vs-effective boundary it needs already exists. Greenfield data means no backfill and no migration. Both surviving new rule fields are discriminator-typed, so the next oath variant is a data change. Rev 3's two rulings removed roughly a third of the build: no uniqueness enforcement, no restoration engine, no date arithmetic anywhere.
 
-**Negative.** `meritEffectiveRating` gains a second responsibility (it already has caps and Herd bonuses; suspension makes four). Four new fields cross the schema/allowlist boundary, so D8 is unavoidable ceremony. The client/server shareable divergence stays unresolved and now has one more reason to be audited.
+**Negative.** `meritEffectiveRating` gains a second responsibility (it already has caps and Herd bonuses; suspension makes four). Three new rule fields plus `sworn_by` cross the schema/allowlist boundary, so D8 is unavoidable ceremony. The client/server shareable divergence stays unresolved and now has one more reason to be audited. Two behaviours the rules text specifies ship absent by decision — uniqueness (D5, declined) and Bloody Hand's session-scoped suspension (D7 amendment, deferred with restoration).
 
 **Risks.**
 
 1. **`meritEffectiveRating` is not universally used.** Its docstring claims it should be, which is not evidence that it is. Before the story is accepted, every read that displays or rolls merit dots must be checked to confirm it routes through the helper; any that does not will show unsuspended dots after a breach. This is the §4 fork restated as a test obligation, and it is the single most likely way this ships broken.
-2. **Sparse chapter data (§3b) will make suspensions look wrong before it makes them look absent.** The indeterminate-not-expired rule in D3a is the mitigation and must be tested with `chapter_number` missing, not merely present.
-3. **The `merits.N.dots` dead path (§5) remains live** in the `st_mods` whitelist. Out of scope here, but if an ST tries to hand-adjust a suspended merit via ST Mods it will appear to work and do nothing. Worth its own issue.
+2. **~~Sparse chapter data will make suspensions look wrong.~~ Superseded by the D3a amendment (Rev 3).** With restoration deferred, no code path evaluates chapter arithmetic, so sparse data cannot mis-expire a suspension. The live risk inverted: **`chapter_number` may be silently omitted from exit events** because nothing reads it in the shipped scope, which would make the deferred restoration work uncomputable and the data unrecoverable. Test that the exit event records it, not merely that the renderer tolerates its absence.
+3. **`restored` may be dropped as "part of the deferred restoration".** It is not — it is the only mechanism by which a suspension can ever lift (D3b). Dropping it ships irreversible dot loss. The most likely way Rev 3's scope reduction goes wrong.
+4. **The `merits.N.dots` dead path (§5) remains live** in the `st_mods` whitelist. Filed as #1119. Relevant here because an ST trying to hand-adjust a suspended merit via ST Mods will appear to succeed and do nothing — a plausible workaround for exactly the suspension this ADR introduces.
 
 ---
 
-## Open questions
-
-Two of the four are resolved (2026-08-06, relayed via Khepri). Two remain with Peter.
+## Open questions — **all four resolved (2026-08-06). None remain.**
 
 **1. ~~The 2026-07-25 meeting said not to hard-code this.~~ RESOLVED 2026-08-06 — build it.** The meeting recorded "Swear-by mechanic simplified — implement via a swear-by merit or ST mod toggle rather than hard-coding"; #1111 asks for the mechanism. **Peter's ruling: the issue supersedes the meeting. ADR-010 stands as drafted, full scope.** The ST-mod alternative is therefore not pursued, and the `merits.N.dots` dead read path from §5 is no longer a cost on this work — it has been filed independently as **#1119** (reject-or-route, plus an audit of `DYNAMIC_PATH_RE` for other accepted leaves with no corresponding field).
 
-**2. Uniqueness scope (D5). OPEN — with Peter.** Oath of Action's rules text constrains "as vassal or liege" — one *per pair of characters*, not one per character. #1111's ACs omit Oath of Action entirely. Should the story cover all three oaths and add a cross-character variant, or ship `one_per_character` for the two named oaths and defer Oath of Action?
+**2. ~~Uniqueness scope (D5).~~ RESOLVED 2026-08-06 — not enforced in code at all.** Peter: *"i would rather have the STs coordinate and check this rather than enforce in code."* Not a choice between the offered scopings — a refusal of the category. **D5 withdrawn**; see it for the full record, including why the absence of enforcement is a decision and not a bug, and the optional non-enforcing ST display.
 
 **3. ~~Suspended dots and partner sharing (D2).~~ RESOLVED 2026-08-06 — leave partner sums untouched.** Resolved by Khepri (SM) rather than escalated. The conservative reading stands, and it carries a second justification this ADR did not originally claim: touching partner sums would pre-judge the deferred MNEC-prerequisite audit, which is already load-bearing for the `domain.js:48` vs `characters.js:249` divergence recorded in ADR-005 Rev 2 §D6(b). A rules-silent question should not be answered as a side effect of an unrelated story. Suspension is invisible to partners; D2 is unchanged.
 
-**4. Restoration trigger (D3b). OPEN — with Peter.** Recommendation above is ST-actioned with a computed due-date. Confirm or overrule. Overruling moves only the trigger — the due-date computation is identical either way — so it does not block the story past the restoration step.
+**4. ~~Restoration trigger (D3b).~~ RESOLVED 2026-08-06 — deferred, and the premise was corrected.** Peter: *"note that a chapter is a month so back at one per chapter, however this need not be encoded now."* Restoration is not encoded in either story; the ST clears suspensions by hand via D6's `restored` event. Separately, **a Chapter is a month**, which voids Rev 1's wall-clock argument entirely — the mechanic runs on `chapter_number` end to end and needs no date arithmetic. See D3b.
 
 ---
 
@@ -306,14 +372,15 @@ Two of the four are resolved (2026-08-06, relayed via Khepri). Two remain with P
 
 Khepri flagged that purchase-time attachment plus XP-parity validation is separable from the forfeiture schedule, and that Peter chose the full ADR over that split. The ADR is full-scope; the *implementation* **lands in two stories** along this seam (adopted by the SM, 2026-08-06):
 
-- **Story A** — D1, D1b, D4, D5, D8: swear an oath, nominate merits, validate parity, derived ratings, uniqueness, schema and allowlist. Delivers a working purchase flow. Ships without any of the forfeiture machinery.
-- **Story B** — D2, D3, D6, D7: exit events, suspension, chapter anchor, restoration.
+- **Story A** — D1, D1b, D4, D8: swear an oath, nominate merits, validate dot parity, derived rating bases, schema and allowlist. Delivers a working purchase flow. Ships without any forfeiture machinery. *(Rev 3: D5 removed — withdrawn, nothing to build.)*
+- **Story B** — D2, D3a, D6, D7: exit events, suspension, the chapter anchor and its write-time capture, and the forfeiture discriminator with its default variant only. *(Rev 3: D3b removed — deferred. D7 ships partial; its `session` variant defers with restoration.)*
 
-Story A is independently useful and independently testable, and it does not build anything Story B discards. Per [feedback_decomposition_into_nondelivering_parts](memory/feedback_decomposition_into_nondelivering_parts.md), the seam is only legitimate because Story A is openable on its own — a player can swear an oath and see it on the sheet. If it were split any finer (schema-only, then UI) it would not be.
+Story A is independently useful and independently testable, and it does not build anything Story B discards. Per [feedback_decomposition_into_nondelivering_parts](memory/feedback_decomposition_into_nondelivering_parts.md), the seam is only legitimate because Story A is openable on its own — a player can swear an oath and see it on the sheet. If it were split any finer (schema-only, then UI) it would not be. **Rev 3's reductions do not disturb the seam**: both stories lost work, neither lost its deliverable.
 
-~~Do not begin either story until Open Question 1 is answered.~~ **Q1 is answered (build it), so both stories are unblocked.** Q2 scopes Story A's uniqueness work and Q4 scopes Story B's restoration step; neither blocks the story from starting.
+**All four open questions are answered, so both stories are unblocked and fully scoped.**
 
-Two acceptance obligations carry from the Risks section into the stories as **hard ACs, not notes** (SM, 2026-08-06):
+Acceptance obligations carrying from the Risks section into the stories as **hard ACs, not notes** (SM, 2026-08-06; items 2 and 3 revised by Rev 3):
 
 1. The `meritEffectiveRating` read-path audit must be **demonstrated**, not asserted. A docstring claiming universal use is not evidence of universal use.
-2. The suspension resolver must be exercised with `chapter_number` **absent**, not merely present — the indeterminate-not-expired rule is otherwise untested on the data that actually exists (§3b).
+2. **Every exit event records `chapter_number`.** Assert on the persisted event, not the render. Nothing reads it in the shipped scope, which is exactly why it will otherwise be dropped — and it is unrecoverable after the fact (D3a amendment). The Rev 2 form of this AC — exercise the resolver with `chapter_number` absent — is now the *weaker* half; keep it, but it is no longer the one that protects the deferred work.
+3. **A suspension can be lifted.** Assert that appending `restored` returns the dots. Guards against `restored` being dropped as "part of the deferred restoration", which would ship irreversible dot loss (D3b).
