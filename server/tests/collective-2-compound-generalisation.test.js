@@ -107,6 +107,16 @@ const SANCTIFIED_GRANT = {
 // AC 5 — the fourth compound. Invented here, seeded nowhere, referenced by no
 // production code. If this renders, adding a real fourth compound is a seed
 // script plus catalogue rows.
+//
+// AC 5b (#1110 QA): this compound's `sharing_scope.merit` deliberately DIFFERS
+// from its `source`. All three live compounds set the two to the same string,
+// so a fixture that copies them leaves `scope.merit` indistinguishable from
+// `r.source` and the `gateMerit` read is untestable — mutating
+// `scope.merit || r.source` to plain `r.source` passed every test in the first
+// version of this suite. Splitting them here separates the two roles:
+//   source    — funds the pool, names the inherited card ("Inherited from …")
+//   scope.merit — gates collective MEMBERSHIP
+const FOURTH_GATE = 'Keeper of the Ossuary';
 const FOURTH_GRANT = {
   source: 'Silent Vigil',
   source_slug: 'ossuary',
@@ -116,7 +126,7 @@ const FOURTH_GRANT = {
   amount_basis: 'rating_of_source',
   pool_targets: ['Reliquary Vault', 'Bone Choir'],
   partner_shareable: true,
-  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Silent Vigil', min_dots: 2 },
+  sharing_scope: { type: 'collective_owners_of_merit', merit: FOURTH_GATE, min_dots: 2 },
 };
 
 // Non-compound pool grants — present in live rule_grant, must NOT be
@@ -212,6 +222,20 @@ describe('COLLECTIVE-2 — getCollectiveCompounds discovery', () => {
     expect(getCollectiveCompounds(ruleCache([FOURTH_GRANT]))[0].minDots).toBe(2);
   });
 
+  it('gateMerit comes from sharing_scope.merit, NOT from source, when they differ', () => {
+    // AC 5b: the discriminating case. If gateMerit were read off `source`
+    // this would be 'Silent Vigil'.
+    const [cmp] = getCollectiveCompounds(ruleCache([FOURTH_GRANT]));
+    expect(cmp.source).toBe('Silent Vigil');
+    expect(cmp.gateMerit).toBe('Keeper of the Ossuary');
+    expect(cmp.gateMerit).not.toBe(cmp.source);
+  });
+
+  it('gateMerit falls back to source only when sharing_scope.merit is absent', () => {
+    const grant = { ...FOURTH_GRANT, sharing_scope: { type: 'collective_owners_of_merit', min_dots: 2 } };
+    expect(getCollectiveCompounds(ruleCache([grant]))[0].gateMerit).toBe('Silent Vigil');
+  });
+
   it('falls back to category when source_slug is absent', () => {
     const grant = { ...NECRO_GRANT };
     delete grant.source_slug;
@@ -249,8 +273,17 @@ describe('COLLECTIVE-2 — ownsCompound membership gate', () => {
 
   it('respects a compound min_dots above 1', () => {
     const [cmp] = getCollectiveCompounds(ruleCache([FOURTH_GRANT]));
-    expect(ownsCompound(mkChar('A', [{ name: 'Silent Vigil', cp: 1 }]), cmp)).toBe(false);
-    expect(ownsCompound(mkChar('B', [{ name: 'Silent Vigil', cp: 2 }]), cmp)).toBe(true);
+    expect(ownsCompound(mkChar('A', [{ name: FOURTH_GATE, cp: 1 }]), cmp)).toBe(false);
+    expect(ownsCompound(mkChar('B', [{ name: FOURTH_GATE, cp: 2 }]), cmp)).toBe(true);
+  });
+
+  it('AC 5b: membership follows sharing_scope.merit, and owning the SOURCE merit confers none', () => {
+    const [cmp] = getCollectiveCompounds(ruleCache([FOURTH_GRANT]));
+    // Owns the gate merit only → member.
+    expect(ownsCompound(mkChar('Gate', [{ name: FOURTH_GATE, cp: 3 }]), cmp)).toBe(true);
+    // Owns the SOURCE merit lavishly but not the gate → NOT a member.
+    // This is the assertion that fails if gateMerit is read off `source`.
+    expect(ownsCompound(mkChar('Source', [{ name: 'Silent Vigil', cp: 5 }]), cmp)).toBe(false);
   });
 });
 
@@ -399,14 +432,19 @@ describe('COLLECTIVE-2 — AC2 Sanctified compound (Black Cathedral) renders', (
 
 describe('COLLECTIVE-2 — AC5 a fourth compound needs no production-code change', () => {
   // FOURTH_GRANT is invented in this file. No production module names
-  // 'Silent Vigil', 'ossuary', 'Reliquary Vault' or 'Bone Choir'.
+  // 'Silent Vigil', 'Keeper of the Ossuary', 'ossuary', 'Reliquary Vault' or
+  // 'Bone Choir'.
+  //
+  // AC 5b: members hold the GATE merit ('Keeper of the Ossuary') and NOT the
+  // source ('Silent Vigil'), so every render assertion below fails if
+  // membership is resolved against `source` instead of `sharing_scope.merit`.
   function vigilFixture() {
     const brother = mkChar('Brother Anselm', [
-      { name: 'Silent Vigil', category: 'domain', cp: 2, xp: 0 },
+      { name: FOURTH_GATE, category: 'domain', cp: 2, xp: 0 },
       { name: 'Reliquary Vault', category: 'domain', cp: 0, xp: 0, free_grants: { ossuary: 2 } },
     ]);
     const sister = mkChar('Sister Perpetua', [
-      { name: 'Silent Vigil', category: 'domain', cp: 3, xp: 0 },
+      { name: FOURTH_GATE, category: 'domain', cp: 3, xp: 0 },
       { name: 'Reliquary Vault', category: 'domain', cp: 0, xp: 0, free_grants: { ossuary: 1 } },
       { name: 'Bone Choir', category: 'domain', cp: 0, xp: 0, free_grants: { ossuary: 3 } },
     ]);
@@ -417,8 +455,16 @@ describe('COLLECTIVE-2 — AC5 a fourth compound needs no production-code change
     primeCache([NECRO_GRANT, CRONE_GRANT, SANCTIFIED_GRANT, FOURTH_GRANT]);
     const { brother, sister } = vigilFixture();
     const { edit } = renderBoth(brother, [brother, sister]);
+    // AC 5b — the two roles are visibly distinct in the output:
+    // the inherited card is named after the SOURCE merit …
     expect(edit).toContain('Inherited from Silent Vigil');
-    expect(edit).toContain('Cumulative across all Silent Vigil owners');
+    // … while the cumulative-dots title names the GATE merit, because that is
+    // who the dots are cumulative ACROSS. Reading gateMerit off `source`
+    // would make this read 'Silent Vigil' instead.
+    expect(edit).toContain('Cumulative across all Keeper of the Ossuary owners');
+    expect(edit).not.toContain('Cumulative across all Silent Vigil owners');
+    // The pool stepper is named after the source merit that funds it.
+    expect(edit).toContain('aria-label="Silent Vigil pool allocation"');
     expect(edit).toContain('free_grants.ossuary');
     expect(edit).toContain('>OSSUARY<');
     expect(edit).toContain("shAllocateCompoundVirtual('Bone Choir','ossuary'");
@@ -438,7 +484,7 @@ describe('COLLECTIVE-2 — AC5 a fourth compound needs no production-code change
     primeCache([FOURTH_GRANT]);
     const { sister } = vigilFixture();
     const novice = mkChar('Novice', [
-      { name: 'Silent Vigil', category: 'domain', cp: 1, xp: 0 }, // below min_dots
+      { name: FOURTH_GATE, category: 'domain', cp: 1, xp: 0 }, // below min_dots
     ]);
     const { edit, view } = renderBoth(novice, [novice, sister]);
     expect(edit).not.toContain('Inherited from Silent Vigil');
@@ -453,7 +499,7 @@ describe('COLLECTIVE-2 — AC5 a fourth compound needs no production-code change
       'public/js/editor/xp.js',
       'public/js/editor/edit-domain.js',
     ].map(read).join('\n');
-    for (const token of ['Silent Vigil', 'ossuary', 'Reliquary Vault', 'Bone Choir']) {
+    for (const token of ['Silent Vigil', FOURTH_GATE, 'ossuary', 'Reliquary Vault', 'Bone Choir']) {
       expect(sources).not.toContain(token);
     }
   });

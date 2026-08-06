@@ -183,7 +183,21 @@ Two incidental findings, neither acted on:
 
 **Necropolis regression (AC 3).** `collective-2-...test.js` renders a Necropolis-only fixture twice — once with only the Necropolis seeded, once with all four compounds seeded — and asserts the two outputs are **string-identical in both modes**. Mutation-tested: dropping the Necropolis from discovery (the Task 0 hazard) fails 23 tests across 3 suites, so the regression would be loud, not silent.
 
-**One deliberate deviation from byte-identity.** The pool stepper's `aria-label` was the hardcoded `"Necropolis pool allocation"`; it is now built from the compound descriptor and reads `"Necropolis Sepulcher pool allocation"` (Crone: `"Blood and Sacrifice pool allocation"`). Element ids, names, the `NECRO` label text and the `free_grants.necro` write path are all unchanged for the Necropolis because they derive from the slug. Four a11y sentinel assertions in `n7c` / `n7d` were updated. Flagged for Ma'at: this is the only rendered-output difference on a Necropolis fixture, it is an accessibility label becoming more specific, and no assertion was weakened.
+**Rendered-output deviations from byte-identity — THREE kinds, all sanctioned.**
+
+> **Corrected 2026-08-06 after QA.** The first version of this section disclosed only kind 1 and closed with "this is the only rendered-output difference on a Necropolis fixture". **That sentence was false** — kind 2 was equally real and undisclosed. Every itemised claim around it was true, which is exactly what makes the summarising sentence the dangerous part: it is the line a future reader trusts instead of re-deriving. Ma'at found kind 2 by rendering the Yusuf/Xavier/Zanzibar fixture through dev's renderer and through this branch's and diffing the HTML — the method that finds what a diff-grep of your own change cannot, because it does not depend on the author already knowing what to look for. The rule these exceptions sit under is **disclosure, not count**: a disclosed deviation is a decision the SM can make, an undisclosed one is a gate failure whatever its content.
+
+View mode is **byte-identical**. Edit mode differs in 12 hunks of three kinds (Necropolis fixture):
+
+| # | deviation | count | status |
+|---|---|---|---|
+| 1 | stepper `aria-label`: `"Necropolis pool allocation"` → `"Necropolis Sepulcher pool allocation"` | x6 | sanctioned (941fec49) |
+| 2 | `dom-total-lbl` title: `"Cumulative across all Sepulcher-owners"` → `"Cumulative across all Necropolis Sepulcher owners"` | x6 | sanctioned (1c502d06) |
+| 3 | virtual-row `onchange`: `shAllocateNecroVirtual(name, v)` → `shAllocateCompoundVirtual(name, slug, v)` | x2 | covered by the approved scope extension |
+
+Kinds 1 and 2 are the same change in two places: label text that was a hardcoded Necropolis string is now derived from the compound descriptor and becomes more specific (Crone: `"Blood and Sacrifice pool allocation"` / `"Cumulative across all Blood and Sacrifice owners"`). Element ids, `name` attributes, the `NECRO` label text and the `free_grants.necro` write path are all unchanged for the Necropolis, because they derive from the slug. The affected assertions were **updated, never deleted or weakened** — four a11y sentinels in `n7c`/`n7d` for kind 1, two in `collective-1-virtual-rows` for kind 2.
+
+**Limitation of the in-repo AC 3 test, recorded so it is not over-read.** `collective-2-…test.js` compares a Necropolis-only-seeded render against an all-four-seeded render **on the new code**. That is *seed-independence* — it proves sibling compounds cannot perturb a Necropolis sheet — and it is worth having, but it is **not** a before/after comparison and by construction cannot detect any of the three deviations above. The real AC 3 evidence is Ma'at's dev-vs-branch render diff.
 
 **Scope extended beyond the listed call sites — three sites, with reasons.** Each was required for AC 1/2 to be true rather than cosmetically true:
 1. `shAllocateNecroVirtual(name, value)` → `shAllocateCompoundVirtual(name, slug, value)` (`edit-domain.js`, re-exported in `edit.js` + `admin.js`). Without the slug parameter, a Crone virtual row's stepper would have written the allocation into `free_grants.necro` — a silent cross-compound data corruption.
@@ -194,11 +208,21 @@ Two incidental findings, neither acted on:
 
 **`hasNecropolisSepulcher` is now dead in production code** — `sheet.js` was its only consumer. Left exported because `n7-n9-allocator-readers.test.js` still unit-tests it; per `feedback_reachability_before_retire` this is a delete-dead-code follow-up, not this story's business.
 
+**AC 5b — `sharing_scope.merit` coverage (added 2026-08-06 after QA).** The field the AC 4 claim rests on was **entirely unexercised**. All three live compounds set `sharing_scope.merit === source`, and every fixture in the first version of this suite copied that shape, so `scope.merit` was indistinguishable from `r.source` and mutating the read to plain `r.source` passed everything.
+
+The fix is in the fixture, not the code: the synthetic fourth compound now has `source: 'Silent Vigil'` but `sharing_scope.merit: 'Keeper of the Ossuary'`, and its members hold the **gate** merit and not the source. That splits the two roles so the output makes them visible — the inherited card reads `"Inherited from Silent Vigil"` (source names the card and funds the pool) while the cumulative-dots title reads `"Cumulative across all Keeper of the Ossuary owners"` (gate merit defines who the dots are cumulative across). Both directions are asserted: a gate-merit owner **is** a member, and a character owning the source merit at 5 dots but not the gate is **not**.
+
+This was the one place I applied a weaker standard to my own work than I applied to the dual-renderer wiring — I mutation-tested the hazard I had been warned about and assumed the rest of the fixture data was exercising what it named. A fixture whose values are all equal cannot distinguish the fields that read them.
+
 ### Debug Log References
 
 - Task 0 query: ad-hoc read-only script against live `tm_suite` (scratchpad, not committed).
 - Mutation test 1 — view mode un-generalised: 4 failed / 31 passed, all four failures `VIEW MODE`.
-- Mutation test 2 — Necropolis dropped from discovery: 23 failed / 45 passed across 3 suites.
+- Mutation test 2 — Necropolis dropped from discovery: 23 failed / 45 passed across 3 suites *(QA re-ran wider and measured **25 across 5 suites** — their figure supersedes mine; I ran it over 3 suites, not the full collective/n7 set)*.
+- **Mutation test 3 (AC 5b, post-QA)** — `const gateMerit = scope.merit || r.source` → `const gateMerit = r.source`, over all seven collective/n7 suites:
+  - **before the fixture fix: 0 failures** — the hazard was invisible.
+  - **after: 5 failures / 108 passed** — `gateMerit comes from sharing_scope.merit…`, `respects a compound min_dots above 1`, `AC 5b: membership follows sharing_scope.merit…`, `renders in EDIT MODE…`, `renders in VIEW MODE…`. Unit and both renderers.
+  - Restored source re-run: 38/38 clean.
 
 ### AC 7 — suite result, and the precondition I could NOT satisfy
 
@@ -250,6 +274,7 @@ One rename-caused failure outside the three suites the story named, repaired und
 | 2026-08-06 | Task 0 gate cleared against live `tm_suite`; all three compounds carry `sharing_scope` |
 | 2026-08-06 | Primitives generalised, both renderers wired, allocator write path made slug-aware |
 | 2026-08-06 | New suite (35 tests); 9 existing suites repaired; both critical gates mutation-tested |
+| 2026-08-06 | QA CONCERNS addressed: AC 5b fixture splits `sharing_scope.merit` from `source` (suite now 38 tests; the gateMerit mutation goes 0 → 5 failures); Dev Agent Record corrected to disclose all three rendered-output deviations and to record the AC 3 seed-independence limitation |
 
 ## QA Results
 
