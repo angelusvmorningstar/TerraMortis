@@ -58,7 +58,19 @@ sha256   a34547c36ca8863d5e42aa476667da2a4d21336e941c5a78f89f2c41f82e05e7
 bytes    464786      newlines 0      entries 74
 ```
 
-This exact expectation is legitimate, not over-tight: `JSON.parse` → `JSON.stringify` in **Node** on dev's fixture with no renames reproduces dev byte-for-byte (independently confirmed by Ma'at and SM — note it is **not** reproducible in Python, whose float formatting differs, so verify in Node). The round trip therefore contributes nothing of its own and every byte of the delta is attributable to the 5 renames. Any deviation is a fail. Structural field-by-field diffing is the tool for *explaining* a failure, not the primary check.
+This exact expectation is legitimate, not over-tight: a parse → serialise round trip on dev's fixture **with no renames reproduces dev byte-for-byte**, so the round trip contributes nothing of its own and every byte of the delta is attributable to the 5 renames. Any deviation is a fail. Structural field-by-field diffing is the tool for *explaining* a failure, not the primary check.
+
+The digest above is a hash of **bytes on disk**, so it is recipe-free and safe to compare across machines. Re-deriving it yourself needs the right serialiser settings:
+
+| runtime | reproduces dev byte-for-byte? |
+|---|---|
+| Node `JSON.stringify` | **yes**, no options needed |
+| Python `json.dumps(doc, separators=(',',':'), ensure_ascii=False)` | **yes** |
+| Python `json.dumps(doc, separators=(',',':'))` | **no** — 464,826 bytes |
+
+The Python default fails only because `ensure_ascii=True` escapes non-ASCII. First divergence is at byte 225875, `René Meyer` against the raw UTF-8 é, in The Houseboat's `residents`. The file holds 11 non-ASCII characters in three distinct forms (`·`, `é`, `’`). **Floats are not implicated** — all 31,197 of them round-trip verbatim, zero exceptions. (An earlier draft of this note blamed float formatting. Wrong cause, right conclusion, and it would have sent the next person to the wrong knob; corrected by Ma'at and re-measured.)
+
+Per-entry digests are a different matter and are **not** portable — they hash a re-serialisation, so they depend on `sort_keys` and separator choices. Compare individual entries by field value, never by digest.
 
 1. `server/scripts/sync-fixture-renames.mjs` is on this branch (recovered verbatim from `d4c9c69a`; it is not on dev).
 2. `_locations-local.json`'s hq entry reads **`Black Cathedral`** (was `Old Lance HQ`).
@@ -78,7 +90,9 @@ Entry count 74 can hold while ms content has been carried in, so it is not suffi
 | `lat` / `lon` | `-33.8251` / `151.2404` | `-33.8677697` / `151.1936963` |
 | `geocode_query` key | **absent** | **present** (a key that exists nowhere in dev's fixture) |
 
-Checked by field rather than by hash deliberately: a per-entry hash depends on the serialisation recipe and is not portable between rigs.
+Checked by field rather than by hash deliberately: a per-entry hash depends on the serialisation recipe and is not portable between rigs (SM and QA computed different sha1s for the same correct entry).
+
+The `geocode_query` tell is confirmed against the **key inventory**, not just the diff: the key appears at zero occurrences across all 74 dev entries, so its presence cannot be explained away as a field that merely happens to be absent from the five renamed ones.
 
 ## Tasks / Subtasks
 
