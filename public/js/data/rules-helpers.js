@@ -248,24 +248,112 @@ export function poolAvailableFor(c, slug) {
 }
 
 /**
- * Necropolis target merit names from the rules cache.
+ * Target merit names for one Collective Compound, from the rules cache.
  *
  * Caller passes the rules cache (from `editor/rule_engine/load-rules.js`)
  * so this helper stays free of the rules-cache + api.js import chain —
  * rules-helpers.js MUST remain pure / no-browser-imports per the N-1
- * convention. Returns the `pool_targets` array on the
- * `source: 'Necropolis Sepulcher'` rule_grant doc, or `[]` if the cache
- * is empty / the rule isn't seeded.
+ * convention. Returns the `pool_targets` array on the matching `rule_grant`
+ * doc, or `[]` if the cache is empty / the rule isn't seeded.
+ *
+ * COLLECTIVE-2 (issue #1110): `source` is now a parameter. Pre-#1110 this
+ * was `getNecropolisTargets` with the source merit name hardcoded, which is
+ * exactly what stopped a second compound from rendering.
  *
  * @param {object} [ruleCache] - rules cache shape `{ rule_grant: [...] }`
+ * @param {string} source      - the compound's source merit name
  * @returns {string[]}
  */
-export function getNecropolisTargets(ruleCache) {
+export function getCompoundTargets(ruleCache, source) {
+  if (!source) return [];
   const grants = (ruleCache && ruleCache.rule_grant) || [];
   const rule = grants.find(r =>
-    r && r.source === 'Necropolis Sepulcher' && r.grant_type === 'pool'
+    r && r.source === source && r.grant_type === 'pool'
   );
   return (rule && Array.isArray(rule.pool_targets)) ? rule.pool_targets : [];
+}
+
+/**
+ * COLLECTIVE-2 (issue #1110) — discover every Collective Compound seeded in
+ * the rules cache.
+ *
+ * A Collective Compound is a `rule_grant` doc with `grant_type: 'pool'` AND
+ * `sharing_scope.type === 'collective_owners_of_merit'` (ADR-005 Rev 2 D3).
+ * That discriminator is the ONLY predicate — no merit-name list, no slug
+ * allowlist — so a fourth compound is a seed script plus catalogue rows with
+ * no code change (AC 5).
+ *
+ * Verified against live `tm_suite` 2026-08-06 (story Task 0): all three
+ * seeded compounds (Necropolis Sepulcher / Blood and Sacrifice / Prayer and
+ * Penance) carry `sharing_scope`, and no OTHER `rule_grant` doc carries it
+ * at all — so the predicate selects exactly the compounds, with no
+ * Necropolis drop and no false positives from the 25 non-compound grants.
+ *
+ * Descriptor shape:
+ *   `{ source, slug, gateMerit, minDots, targets }`
+ *     source    — the compound's source merit ('Necropolis Sepulcher')
+ *     slug      — `free_grants` allocation channel ('necro')
+ *     gateMerit — merit that gates collective membership; normally === source
+ *     minDots   — purchased dots (cp + xp) required to be a member
+ *     targets   — the compound's target merit names
+ *
+ * Duplicate docs (the live `rule_grant` collection has repeated seeds for
+ * MCI and OHM) are collapsed on `source|slug` so a re-run seed can't double
+ * a compound's rows.
+ *
+ * Pure — `ruleCache` is passed in, never imported (N-1 no-browser-imports).
+ *
+ * @param {object} [ruleCache] - rules cache shape `{ rule_grant: [...] }`
+ * @returns {{source: string, slug: string, gateMerit: string, minDots: number, targets: string[]}[]}
+ */
+export function getCollectiveCompounds(ruleCache) {
+  const grants = (ruleCache && ruleCache.rule_grant) || [];
+  const out = [];
+  const seen = new Set();
+  for (const r of grants) {
+    if (!r || r.grant_type !== 'pool') continue;
+    const scope = r.sharing_scope;
+    if (!scope || scope.type !== 'collective_owners_of_merit') continue;
+    // `category` is the pool-evaluator's fallback for `source_slug`
+    // (pool-evaluator.js:40, issue #775) — mirror it so a doc seeded with
+    // only one of the two still resolves an allocation channel.
+    const slug = r.source_slug || r.category;
+    const gateMerit = scope.merit || r.source;
+    if (!slug || !gateMerit) continue;
+    const key = r.source + '|' + slug;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      source: r.source,
+      slug,
+      gateMerit,
+      // Defaults to 1 when absent — matches the pre-#1110
+      // `minSepulcherDots = 1` default.
+      minDots: scope.min_dots == null ? 1 : scope.min_dots,
+      targets: Array.isArray(r.pool_targets) ? r.pool_targets.slice() : [],
+    });
+  }
+  return out;
+}
+
+/**
+ * True if `c` is a member of `compound` — owns its gate merit at
+ * `minDots` purchased dots (cp + xp).
+ *
+ * Purchased-only matches `hasNecropolisSepulcher` and the pool-evaluator
+ * membership semantics: a grant the collective itself confers must not
+ * feed back into eligibility for that collective.
+ *
+ * @param {object} c
+ * @param {{gateMerit: string, minDots: number}} compound
+ * @returns {boolean}
+ */
+export function ownsCompound(c, compound) {
+  if (!c || !Array.isArray(c.merits) || !compound || !compound.gateMerit) return false;
+  const minDots = compound.minDots == null ? 1 : compound.minDots;
+  return c.merits.some(m =>
+    m && m.name === compound.gateMerit && ((m.cp || 0) + (m.xp || 0)) >= minDots
+  );
 }
 
 /**
@@ -406,82 +494,76 @@ export function synthesiseCollectiveOwners(scope, c, chars, _rule) {
 // ── COLLECTIVE-1 (issue #800) — virtual row synthesis primitives ─────────────
 
 /**
- * Cumulative `free_grants.necro` allocation for a single target merit across
- * ALL Necropolis Sepulcher owners in `allChars` (including the current
- * character if they own Sepulcher).
+ * Cumulative `free_grants.<compound.slug>` allocation for a single target
+ * merit across ALL members of `compound` in `allChars` (including the
+ * current character if they are a member).
  *
  * Used by the renderer to compute the per-row partner-dots split: own dots
  * (solid) + (cumulative - own) (hollow). The result is NOT capped at the
  * merit's rating_range — per Peter 2026-06-16, cumulative across owners can
- * exceed the per-instance 5-dot cap.
+ * exceed the per-instance 5-dot cap. Do not "fix" that.
  *
- * Owner gate uses purchased Sepulcher dots only (cp + xp ≥ minSepulcherDots)
- * — consistent with `hasNecropolisSepulcher` and the pool-evaluator
- * membership semantics.
+ * Owner gate uses purchased gate-merit dots only (cp + xp >= compound.minDots)
+ * — consistent with `ownsCompound` and the pool-evaluator membership
+ * semantics.
+ *
+ * COLLECTIVE-2 (issue #1110): was `collectiveNecroDots`, with the gate merit
+ * name and the `necro` slug hardcoded. Both now come off the descriptor
+ * returned by `getCollectiveCompounds`.
  *
  * @param {object[]} allChars  - full chars array
  * @param {string} meritName   - target merit name (e.g. 'Catacombs')
- * @param {number} [minSepulcherDots=1]
- * @returns {number} cumulative dots allocated to this target across owners
+ * @param {{gateMerit: string, minDots: number, slug: string}} compound
+ * @returns {number} cumulative dots allocated to this target across members
  */
-export function collectiveNecroDots(allChars, meritName, minSepulcherDots = 1) {
-  if (!Array.isArray(allChars) || !meritName) return 0;
+export function collectiveCompoundDots(allChars, meritName, compound) {
+  if (!Array.isArray(allChars) || !meritName || !compound) return 0;
+  if (!compound.gateMerit || !compound.slug) return 0;
   let sum = 0;
   for (const ch of allChars) {
-    if (!ch || !Array.isArray(ch.merits)) continue;
-    const isOwner = ch.merits.some(m =>
-      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
-    );
-    if (!isOwner) continue;
+    if (!ownsCompound(ch, compound)) continue;
     const target = ch.merits.find(m => m && m.name === meritName);
     if (!target) continue;
-    sum += (target.free_grants && target.free_grants.necro) || 0;
+    sum += freeOf(target, compound.slug);
   }
   return sum;
 }
 
 /**
- * Union of Necropolis target merit names that ANY Sepulcher-owner in
- * `allChars` has allocated dots to OR has on their sheet. This is the
- * candidate set for virtual row synthesis on the current character's sheet.
+ * Union of `compound`'s target merit names that ANY member in `allChars`
+ * has allocated dots to OR has on their sheet. This is the candidate set
+ * for virtual row synthesis on the current character's sheet.
  *
- * **Sepulcher boundary:** returns `[]` when `c` doesn't own Sepulcher at
- * `minSepulcherDots`. Non-members of the collective never see virtual rows.
+ * **Membership boundary:** returns `[]` when `c` is not a member of
+ * `compound`. Non-members never see that compound's virtual rows.
  *
- * **`necroTargets`** must be passed in (sourced from
- * `getNecropolisTargets(getRulesCache())`) so this helper stays pure and
- * does not import the rules cache directly. Mirrors the existing
- * `getNecropolisTargets` parameterisation convention.
+ * **Membership criterion:** a target name is in the union if any member has
+ * a merit with that name AND any allocation (cp + xp + the compound's own
+ * free-grant channel > 0). A merit row with no dots on any member is
+ * excluded — it would be meaningless to render an all-empty row.
  *
- * **Membership criterion:** a target name is in the union if any owner has
- * a merit with that name AND any allocation (cp + xp + free_grants.necro
- * > 0). A merit row with no dots on any owner is excluded — it would be
- * meaningless to render an all-empty row.
+ * COLLECTIVE-2 (issue #1110): was `synthesiseCollectiveNecroNames(c,
+ * allChars, necroTargets, minSepulcherDots)`. The separate `necroTargets`
+ * parameter is gone — targets come off the descriptor, so a caller can no
+ * longer pair one compound's targets with another's gate.
  *
- * @param {object} c              - the character whose sheet is rendering
- * @param {object[]} allChars     - full chars array
- * @param {string[]} necroTargets - target merit names (from getNecropolisTargets)
- * @param {number} [minSepulcherDots=1]
+ * @param {object} c          - the character whose sheet is rendering
+ * @param {object[]} allChars - full chars array
+ * @param {{gateMerit: string, minDots: number, slug: string, targets: string[]}} compound
  * @returns {string[]} target merit names present on the collective (may be empty)
  */
-export function synthesiseCollectiveNecroNames(c, allChars, necroTargets, minSepulcherDots = 1) {
-  if (!c || !Array.isArray(c.merits) || !Array.isArray(allChars) || !Array.isArray(necroTargets)) return [];
-  // Sepulcher boundary: c must be an owner.
-  const cIsOwner = c.merits.some(m =>
-    m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
-  );
-  if (!cIsOwner) return [];
-  const targetSet = new Set(necroTargets);
+export function synthesiseCollectiveCompoundNames(c, allChars, compound) {
+  if (!c || !Array.isArray(c.merits) || !Array.isArray(allChars)) return [];
+  if (!compound || !Array.isArray(compound.targets)) return [];
+  // Membership boundary: c must be a member.
+  if (!ownsCompound(c, compound)) return [];
+  const targetSet = new Set(compound.targets);
   const names = new Set();
   for (const ch of allChars) {
-    if (!ch || !Array.isArray(ch.merits)) continue;
-    const isOwner = ch.merits.some(m =>
-      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= minSepulcherDots
-    );
-    if (!isOwner) continue;
+    if (!ownsCompound(ch, compound)) continue;
     for (const m of ch.merits) {
       if (!m || !targetSet.has(m.name)) continue;
-      const total = (m.cp || 0) + (m.xp || 0) + ((m.free_grants && m.free_grants.necro) || 0);
+      const total = (m.cp || 0) + (m.xp || 0) + freeOf(m, compound.slug);
       if (total <= 0) continue; // skip empty rows
       names.add(m.name);
     }

@@ -224,9 +224,13 @@ describe('#774 — sibling stepper a11y (id + name + aria-label)', () => {
   it('NECRO stepper a11y preserved from N-7c', () => {
     // Regression sentinel — N-7c's a11y wiring must remain intact across the
     // #774 sibling pass.
-    const html = meritBdRow(1, fixture({ free_grants: {} }), null, { showNECRO: true });
+    // COLLECTIVE-2 (#1110): opts.showNECRO became opts.compoundPools, one
+    // descriptor per compound. The id keeps the slug-derived shape, so
+    // `bd-necro-1` is unchanged; the aria-label now names the compound's
+    // source merit (data-derived) rather than a hardcoded 'Necropolis'.
+    const html = meritBdRow(1, fixture({ free_grants: {} }), null, { compoundPools: [{ slug: 'necro', source: 'Necropolis Sepulcher' }] });
     expect(html).toContain('id="bd-necro-1"');
-    expect(html).toContain('aria-label="Necropolis pool allocation"');
+    expect(html).toContain('aria-label="Necropolis Sepulcher pool allocation"');
   });
 });
 
@@ -260,6 +264,9 @@ describe('#790 + #774 — placement sanity guards', () => {
     expect(src).toContain('aria-label="Lorekeeper pool allocation"');
     expect(src).toContain('aria-label="Oath of the Hard Motherfucker pool allocation"');
     expect(src).toContain('aria-label="Invested pool allocation"');
-    expect(src).toContain('aria-label="Necropolis pool allocation"');
+    // COLLECTIVE-2 (#1110): the compound stepper's aria-label is built from
+    // the compound descriptor, so there is no literal to grep. The rendered
+    // behaviour is asserted above and in collective-2-compound-generalisation.
+    expect(src).toContain("aria-label=\"' + esc(_cmp.source || _cmp.slug) + ' pool allocation\"");
   });
 });

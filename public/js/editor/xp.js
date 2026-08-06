@@ -6,6 +6,9 @@
 import { getRuleByKey } from '../data/loader.js';
 // N-1: map-fallback shape for per-slug free reads (see rules-helpers.js).
 import { freeOf } from '../data/rules-helpers.js';
+// COLLECTIVE-2 (#1110): compound slug + source names reach the bd-row from
+// rule data, so they are escaped like every other data-sourced label.
+import { esc } from '../data/helpers.js';
 
 /**
  * Convert XP spent into dot count (flat rate).
@@ -202,8 +205,14 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = freeOf(mc, 'bloodline'), fret = freeOf(mc, 'pet'), fmci = freeOf(mc, 'mci'), fvm = freeOf(mc, 'vm'), flk = freeOf(mc, 'lk'), fohm = freeOf(mc, 'ohm'), finv = freeOf(mc, 'inv'), fpt = freeOf(mc, 'pt'), fmdb = freeOf(mc, 'mdb'), fsw = freeOf(mc, 'sw'), fnecro = freeOf(mc, 'necro');
-  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + fnecro + (opts.attachBonus || 0);
+  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = freeOf(mc, 'bloodline'), fret = freeOf(mc, 'pet'), fmci = freeOf(mc, 'mci'), fvm = freeOf(mc, 'vm'), flk = freeOf(mc, 'lk'), fohm = freeOf(mc, 'ohm'), finv = freeOf(mc, 'inv'), fpt = freeOf(mc, 'pt'), fmdb = freeOf(mc, 'mdb'), fsw = freeOf(mc, 'sw');
+  // COLLECTIVE-2 (issue #1110): Collective Compound allocation channels are
+  // data-driven — the caller passes the discovered slugs rather than this
+  // function naming one. Defaults to ['necro'] so call sites that predate
+  // the compound wiring keep their pre-#1110 total exactly.
+  const _cmpSlugs = Array.isArray(opts.compoundSlugs) ? opts.compoundSlugs : ['necro'];
+  const fcompound = _cmpSlugs.reduce((s, slug) => s + freeOf(mc, slug), 0);
+  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + fcompound + (opts.attachBonus || 0);
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
@@ -236,14 +245,22 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-lk-lbl-' + realIdx + '">LK</span><input id="bd-lk-' + realIdx + '" name="bd-lk-' + realIdx + '" aria-label="Lorekeeper pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
   if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-ohm-lbl-' + realIdx + '">OHM</span><input id="bd-ohm-' + realIdx + '" name="bd-ohm-' + realIdx + '" aria-label="Oath of the Hard Motherfucker pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
   if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-inv-lbl-' + realIdx + '">INV</span><input id="bd-inv-' + realIdx + '" name="bd-inv-' + realIdx + '" aria-label="Invested pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
-  // N-7 (issue #760): Necropolis allocator — writes directly to
-  // m.free_grants.necro (map shape, no new legacy free_necro field) per the
+  // N-7 (issue #760): Collective Compound allocator — writes directly to
+  // m.free_grants.<slug> (map shape, no new legacy free_<slug> field) per the
   // ADR-005 allocator-write-path amendment.
   // N-7c (issue #771): id + aria-label so browsers don't flag "form field
   // element should have an id or name attribute / No label associated with a
   // form field". The 5 sibling steppers (LK/INV/VM/OHM/MCI) got the same
   // treatment in #774 — see lines above.
-  if (opts.showNECRO) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-necro-lbl-' + realIdx + '">NECRO</span><input id="bd-necro-' + realIdx + '" name="bd-necro-' + realIdx + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fnecro + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.necro\',+this.value)"></div>';
+  // COLLECTIVE-2 (issue #1110): one stepper per compound the character
+  // belongs to that claims this merit, each writing its OWN slug. Pre-#1110
+  // this was a single `showNECRO` flag hardwired to free_grants.necro, which
+  // would have written a Crone or Sanctified allocation into the Necropolis
+  // pool. The descriptor supplies slug + source; no name literals here.
+  for (const _cmp of (opts.compoundPools || [])) {
+    if (!_cmp || !_cmp.slug) continue;
+    h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl" id="bd-' + _cmp.slug + '-lbl-' + realIdx + '">' + esc(_cmp.slug.toUpperCase()) + '</span><input id="bd-' + _cmp.slug + '-' + realIdx + '" name="bd-' + _cmp.slug + '-' + realIdx + '" aria-label="' + esc(_cmp.source || _cmp.slug) + ' pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + freeOf(mc, _cmp.slug) + '" onchange="shEditMeritPt(' + realIdx + ',\'free_grants.' + _cmp.slug + '\',+this.value)"></div>';
+  }
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
   // N-9 (issue #762, Bug 2): standing-merit render paths (MCI, PT) don't read

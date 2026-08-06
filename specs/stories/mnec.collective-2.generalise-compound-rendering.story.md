@@ -12,7 +12,7 @@ base: origin/dev (b44afc1a)
 
 ## Status
 
-Ready for Dev
+Ready for Review
 
 ## Story
 
@@ -44,26 +44,26 @@ Ready for Dev
 
 ## Tasks / Subtasks
 
-- [ ] **Task 0 — verify the seeded `rule_grant` shape BEFORE designing the discovery predicate (blocking).**
-  - [ ] Query live `tm_suite` for all three compounds' `rule_grant` docs (Necropolis Sepulcher, Blood and Sacrifice, Prayer and Penance). Record for each: `source`, `source_slug`, `grant_type`, `sharing_scope` (present? `type`? `merit`? `min_dots`?), `pool_targets`.
-  - [ ] **HALT and report to Khepri if the Necropolis doc lacks `sharing_scope`.** `sharing_scope` is optional in `server/schemas/rules/rule-grant.schema.js:67`. If discovery keys on `sharing_scope.type === 'collective_owners_of_merit'` and the Necropolis doc predates that field, discovery finds the two *new* compounds and silently drops the Necropolis — AC 3 fails as a total regression, not a visible error. Do not paper over it with a name-based fallback; report the shape and get a seed-fix or a predicate decision.
-- [ ] **Task 1 — compound discovery helper** (AC: 4, 5)
-  - [ ] Add `getCollectiveCompounds(ruleCache)` to `public/js/data/rules-helpers.js`. Returns a descriptor array `[{ source, slug, gateMerit, minDots, targets }]` built from every `rule_grant` doc matching the predicate settled in Task 0. Pure — `ruleCache` is passed in, never imported (the N-1 no-browser-imports convention this file lives under).
-  - [ ] `minDots` defaults to 1 when `sharing_scope.min_dots` is absent, matching today's `minSepulcherDots = 1`.
-- [ ] **Task 2 — generalise the three primitives** (AC: 1, 2, 3, 4)
-  - [ ] `rules-helpers.js:263` `getNecropolisTargets(ruleCache)` → `getCompoundTargets(ruleCache, source)`; drop the `'Necropolis Sepulcher'` literal at `:266`.
-  - [ ] `rules-helpers.js:427` `collectiveNecroDots(allChars, meritName, minSepulcherDots)` → `collectiveCompoundDots(allChars, meritName, compound)`. Owner gate reads `compound.gateMerit` / `compound.minDots` (`:433`); allocation reads `compound.slug` via the existing `freeOf(m, slug)` helper rather than a fresh `free_grants.necro` literal (`:438`).
-  - [ ] `rules-helpers.js:467` `synthesiseCollectiveNecroNames(c, allChars, necroTargets, minSepulcherDots)` → `synthesiseCollectiveCompoundNames(c, allChars, compound)`; the three owner-gate literals at `:471`, `:479` and the slug at `:484` all come from the descriptor. `targets` now comes off the descriptor, so the separate `necroTargets` parameter goes away.
-  - [ ] **Rename, do not wrap.** The issue leaves this open; the decision is rename with no Necropolis-named aliases. Aliases would leave a second name for one call graph and the next compound author would not know which is canonical. Every call site is in this repo and is listed below, so the rename is complete and mechanical.
-- [ ] **Task 3 — `sheet.js`: both renderers** (AC: 1, 2, 3, 6)
-  - [ ] Edit-mode renderer: `:1039`, `:1047`, `:1127`, `:1128`, `:1277`.
-  - [ ] View-mode renderer: `:1392`, `:1393`, `:1411`, `:1432`, `:1433`, `:1506`.
-  - [ ] Stepper gate: `:1772`.
-  - [ ] Each becomes a loop over `getCollectiveCompounds(getRulesCache())` filtered to the compounds `c` actually owns, instead of a single implicit Necropolis.
-  - [ ] Update the import at `:26`.
-- [ ] **Task 4 — tests** (AC: 5, 7)
-  - [ ] Extend `collective-1-virtual-rows.test.js` (or add a sibling) with Crone and Sanctified fixtures mirroring the existing Yusuf/Xavier/Zanzibar shape, plus the synthetic fourth compound for AC 5 and a dual-compound owner for AC 6.
-  - [ ] Repair the source-text regexes in `n7b-necro-input-suppression.test.js:238` and `issue-793-alphabetical-inherited.test.js:377-378`.
+- [x] **Task 0 — verify the seeded `rule_grant` shape BEFORE designing the discovery predicate (blocking).**
+  - [x] Query live `tm_suite` for all three compounds' `rule_grant` docs (Necropolis Sepulcher, Blood and Sacrifice, Prayer and Penance). Record for each: `source`, `source_slug`, `grant_type`, `sharing_scope` (present? `type`? `merit`? `min_dots`?), `pool_targets`.
+  - [x] **HALT and report to Khepri if the Necropolis doc lacks `sharing_scope`.** `sharing_scope` is optional in `server/schemas/rules/rule-grant.schema.js:67`. If discovery keys on `sharing_scope.type === 'collective_owners_of_merit'` and the Necropolis doc predates that field, discovery finds the two *new* compounds and silently drops the Necropolis — AC 3 fails as a total regression, not a visible error. Do not paper over it with a name-based fallback; report the shape and get a seed-fix or a predicate decision.
+- [x] **Task 1 — compound discovery helper** (AC: 4, 5)
+  - [x] Add `getCollectiveCompounds(ruleCache)` to `public/js/data/rules-helpers.js`. Returns a descriptor array `[{ source, slug, gateMerit, minDots, targets }]` built from every `rule_grant` doc matching the predicate settled in Task 0. Pure — `ruleCache` is passed in, never imported (the N-1 no-browser-imports convention this file lives under).
+  - [x] `minDots` defaults to 1 when `sharing_scope.min_dots` is absent, matching today's `minSepulcherDots = 1`.
+- [x] **Task 2 — generalise the three primitives** (AC: 1, 2, 3, 4)
+  - [x] `rules-helpers.js:263` `getNecropolisTargets(ruleCache)` → `getCompoundTargets(ruleCache, source)`; drop the `'Necropolis Sepulcher'` literal at `:266`.
+  - [x] `rules-helpers.js:427` `collectiveNecroDots(allChars, meritName, minSepulcherDots)` → `collectiveCompoundDots(allChars, meritName, compound)`. Owner gate reads `compound.gateMerit` / `compound.minDots` (`:433`); allocation reads `compound.slug` via the existing `freeOf(m, slug)` helper rather than a fresh `free_grants.necro` literal (`:438`).
+  - [x] `rules-helpers.js:467` `synthesiseCollectiveNecroNames(c, allChars, necroTargets, minSepulcherDots)` → `synthesiseCollectiveCompoundNames(c, allChars, compound)`; the three owner-gate literals at `:471`, `:479` and the slug at `:484` all come from the descriptor. `targets` now comes off the descriptor, so the separate `necroTargets` parameter goes away.
+  - [x] **Rename, do not wrap.** The issue leaves this open; the decision is rename with no Necropolis-named aliases. Aliases would leave a second name for one call graph and the next compound author would not know which is canonical. Every call site is in this repo and is listed below, so the rename is complete and mechanical.
+- [x] **Task 3 — `sheet.js`: both renderers** (AC: 1, 2, 3, 6)
+  - [x] Edit-mode renderer: `:1039`, `:1047`, `:1127`, `:1128`, `:1277`.
+  - [x] View-mode renderer: `:1392`, `:1393`, `:1411`, `:1432`, `:1433`, `:1506`.
+  - [x] Stepper gate: `:1772`.
+  - [x] Each becomes a loop over `getCollectiveCompounds(getRulesCache())` filtered to the compounds `c` actually owns, instead of a single implicit Necropolis.
+  - [x] Update the import at `:26`.
+- [x] **Task 4 — tests** (AC: 5, 7)
+  - [x] Extend `collective-1-virtual-rows.test.js` (or add a sibling) with Crone and Sanctified fixtures mirroring the existing Yusuf/Xavier/Zanzibar shape, plus the synthetic fourth compound for AC 5 and a dual-compound owner for AC 6.
+  - [x] Repair the source-text regexes in `n7b-necro-input-suppression.test.js:238` and `issue-793-alphabetical-inherited.test.js:377-378`.
 
 ## Dev Notes
 
@@ -137,7 +137,101 @@ The merit data (seeded and verified). The Swear By cost model (#1111). The Sway/
 
 ## Dev Agent Record
 
-_(Ptah fills this in)_
+### Agent Model Used
+
+Ptah (DEV) — claude-opus-5
+
+### Task 0 — live `rule_grant` shapes (BLOCKING GATE: CLEARED)
+
+Queried live `tm_suite.rule_grant` (28 docs) on 2026-08-06. **All three compounds carry `sharing_scope`, so the Necropolis is not dropped and no HALT was required.**
+
+| source | source_slug | grant_type | sharing_scope | pool_targets |
+|---|---|---|---|---|
+| Necropolis Sepulcher | `necro` | pool | `{type: collective_owners_of_merit, merit: 'Necropolis Sepulcher', min_dots: 1}` | 6 |
+| Blood and Sacrifice | `darktemple` | pool | `{type: collective_owners_of_merit, merit: 'Blood and Sacrifice', min_dots: 1}` | 6 |
+| Prayer and Penance | `blackcathedral` | pool | `{type: collective_owners_of_merit, merit: 'Prayer and Penance', min_dots: 1}` | 6 |
+
+Stronger than the gate required: **no other `rule_grant` doc has `sharing_scope` at all** (checked all 28). The predicate `grant_type === 'pool' && sharing_scope.type === 'collective_owners_of_merit'` therefore selects exactly the three compounds — no Necropolis drop, no false positives from the 25 non-compound grants (MCI x5, OHM x4, Bloodline x3, LK, Invested, VM, Attaché x3, ...).
+
+Two incidental findings, neither acted on:
+- `rule_grant` contains duplicate seeds (MCI x5, OHM x4). None of the compounds are duplicated today, but `getCollectiveCompounds` de-duplicates on `source|slug` so a re-run seed cannot double a compound's rows.
+- The pool evaluator (`pool-evaluator.js:40`) was already fully generic — it creates a `_grant_pools` entry per pool grant keyed by `source_slug ?? category`. Crone and Sanctified owners have had correct pool *capacity* all along; only the *rendering* was Necropolis-bound.
+
+### Completion Notes
+
+**Design.** One descriptor type, `{source, slug, gateMerit, minDots, targets}`, produced by `getCollectiveCompounds(ruleCache)` and threaded through every consumer. Renamed, not wrapped, per the story decision — no Necropolis-named aliases survive (asserted negatively in `collective-1-virtual-rows.test.js`).
+
+**Both renderers.** Edit mode and view mode were wired from the same descriptors and are asserted independently for the Crone compound, the Sanctified compound, the synthetic fourth compound and the dual-compound owner. Mutation-tested: filtering `_compoundsView` back down to `necro` (i.e. leaving view mode un-generalised, the exact silent failure the Dev Notes warn about) fails **4 VIEW MODE tests while every edit-mode test still passes**. The gate demonstrably catches the hazard rather than merely being present.
+
+**Necropolis regression (AC 3).** `collective-2-...test.js` renders a Necropolis-only fixture twice — once with only the Necropolis seeded, once with all four compounds seeded — and asserts the two outputs are **string-identical in both modes**. Mutation-tested: dropping the Necropolis from discovery (the Task 0 hazard) fails 23 tests across 3 suites, so the regression would be loud, not silent.
+
+**One deliberate deviation from byte-identity.** The pool stepper's `aria-label` was the hardcoded `"Necropolis pool allocation"`; it is now built from the compound descriptor and reads `"Necropolis Sepulcher pool allocation"` (Crone: `"Blood and Sacrifice pool allocation"`). Element ids, names, the `NECRO` label text and the `free_grants.necro` write path are all unchanged for the Necropolis because they derive from the slug. Four a11y sentinel assertions in `n7c` / `n7d` were updated. Flagged for Ma'at: this is the only rendered-output difference on a Necropolis fixture, it is an accessibility label becoming more specific, and no assertion was weakened.
+
+**Scope extended beyond the listed call sites — three sites, with reasons.** Each was required for AC 1/2 to be true rather than cosmetically true:
+1. `shAllocateNecroVirtual(name, value)` → `shAllocateCompoundVirtual(name, slug, value)` (`edit-domain.js`, re-exported in `edit.js` + `admin.js`). Without the slug parameter, a Crone virtual row's stepper would have written the allocation into `free_grants.necro` — a silent cross-compound data corruption.
+2. `meritBdRow` `opts.showNECRO` → `opts.compoundPools` (array of descriptors, one stepper each) + `opts.compoundSlugs` (channels counted into the row total). `compoundSlugs` defaults to `['necro']`, so every call site that does not pass it keeps its pre-#1110 total exactly.
+3. `_renderPoolCounters` filtered `p.category === 'necro'`; it now tests membership of the discovered slug set. Without it a Crone owner would get rows and steppers but no pool counter.
+
+**Deliberately left hardcoded** (story Dev Notes scope boundary): `getNecropolisInfectedTerritories` / the White Ants territory union, the Trap Door dual anchor, and the N-8 Mandragora Garden `attached_to` anchor at `sheet.js:1228` — the last is the single surviving `'Necropolis Sepulcher'` literal in `shRenderDomainMerits`, and its **count is pinned at 1** by an AC4 test so a second literal fails rather than sliding in.
+
+**`hasNecropolisSepulcher` is now dead in production code** — `sheet.js` was its only consumer. Left exported because `n7-n9-allocator-readers.test.js` still unit-tests it; per `feedback_reachability_before_retire` this is a delete-dead-code follow-up, not this story's business.
+
+### Debug Log References
+
+- Task 0 query: ad-hoc read-only script against live `tm_suite` (scratchpad, not committed).
+- Mutation test 1 — view mode un-generalised: 4 failed / 31 passed, all four failures `VIEW MODE`.
+- Mutation test 2 — Necropolis dropped from discovery: 23 failed / 45 passed across 3 suites.
+
+### AC 7 — suite result, and the precondition I could NOT satisfy
+
+Precondition 1 (`ls markdown | wc -l` → **10**) satisfied; with the symlink present the `issue-1013` failures disappeared and the base collapsed to exactly the canonical four.
+
+**Precondition 2 (Mongo up, zero skips) NOT satisfied.** Both runs below have **1074 skipped tests**. Three blockers, reported rather than worked around:
+1. No `mongod` binary on this machine (`mongodb-database-tools` and `mongosh` only).
+2. `server/db.js:31` sets `tls: true` unconditionally, so a plain local / in-memory `mongod` is refused with a TLS handshake error. I started one on 27017 and every DB suite still failed to connect.
+3. The Atlas URI lives in `server/.env`, which a security hook blocks me from copying into the worktree.
+
+Base and after were measured **like-for-like in the same (Mongo-down) environment**, both with the `markdown/` symlink present:
+
+| | total | passed | failed | skipped |
+|---|---|---|---|---|
+| base (`origin/dev` + story commits, changes stashed) | 2064 | 986 | **4** | 1074 |
+| after | 2099 | 1021 | **4** | 1074 |
+
+**4 failed → 4 failed, same four names, none on a COLLECTIVE-2 surface:**
+- `n7-n9-allocator-readers.test.js :: all three dropdown builders consume meritPrereqOK (not _meetsPrereq directly)` — **ring-fenced, untouched**; `git diff origin/dev` on that file shows no change to the proximity window or the `meritPrereqOK` assertion.
+- `epic.708.3-cycle-phase-controls.test.js` x3.
+
+**The gap, stated plainly:** the 1074 skipped tests are the DB-integration suites, and I have not executed them. My diff touches only `public/js/**` client modules and test files — no route, schema, or DB code — but that is an argument, not a check. **Ma'at should re-run the named-set comparison with Mongo up before the gate passes.** The +35 net passing tests are `collective-2-compound-generalisation.test.js`.
+
+One rename-caused failure outside the three suites the story named, repaired under the stated rule: `n7-n9-allocator-readers.test.js :: _renderPoolCounters surfaces the necro pool in the domain section` asserted on the source symbol `necroPools`, which I renamed to `compoundPools`. The section gate (`'domain'`, not `'general'`) that the assertion exists to protect is unchanged. A fifth suite, `n7a-necro-domain-render.test.js`, also asserts on source text and needed the same repair; the story named four.
+
+### File List
+
+**Modified — production:**
+- `public/js/data/rules-helpers.js` — `getNecropolisTargets`→`getCompoundTargets(ruleCache, source)`; new `getCollectiveCompounds`, `ownsCompound`; `collectiveNecroDots`→`collectiveCompoundDots`; `synthesiseCollectiveNecroNames`→`synthesiseCollectiveCompoundNames`
+- `public/js/editor/sheet.js` — import; both renderers; general-merit stepper gate; `_renderPoolCounters`
+- `public/js/editor/xp.js` — `meritBdRow` `compoundPools` / `compoundSlugs`; `esc` import
+- `public/js/editor/edit-domain.js` — `shAllocateNecroVirtual`→`shAllocateCompoundVirtual(name, slug, value)`
+- `public/js/editor/edit.js` — re-export rename
+- `public/js/admin.js` — import + window binding rename
+
+**Added — tests:**
+- `server/tests/collective-2-compound-generalisation.test.js` (35 tests)
+
+**Modified — tests:**
+- `server/tests/collective-1-virtual-rows.test.js` — renamed primitives, descriptor-passing, fixture `sharing_scope`, negative alias assertions
+- `server/tests/n7-n9-allocator-readers.test.js` — `getCompoundTargets`, `compoundPools`, `_poolCompoundSlugs` (**not** the ring-fenced `meritPrereqOK` test)
+- `server/tests/n7a-necro-domain-render.test.js`, `n7b-necro-input-suppression.test.js`, `n7c-necro-orchestrator-pipeline.test.js`, `n7d-meritfreesum-necro-gate.test.js` — source-regex + a11y sentinel repairs, fixture `sharing_scope`
+- `server/tests/issue-793-alphabetical-inherited.test.js`, `issue-827-subtitle-order.test.js`, `issue-832-domain-merit-expand.test.js`, `n4a-picker-renderer-placement.test.js` — fixture `sharing_scope`, warn-text + symbol repairs
+
+### Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-06 | Task 0 gate cleared against live `tm_suite`; all three compounds carry `sharing_scope` |
+| 2026-08-06 | Primitives generalised, both renderers wired, allocator write path made slug-aware |
+| 2026-08-06 | New suite (35 tests); 9 existing suites repaired; both critical gates mutation-tested |
 
 ## QA Results
 
