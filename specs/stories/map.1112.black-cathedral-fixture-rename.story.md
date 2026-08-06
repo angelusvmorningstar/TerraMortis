@@ -10,7 +10,7 @@ base: origin/dev (b44afc1a)
 
 ## Status
 
-Ready for Dev
+Ready for Review
 
 ## Story
 
@@ -96,17 +96,17 @@ The `geocode_query` tell is confirmed against the **key inventory**, not just th
 
 ## Tasks / Subtasks
 
-- [ ] Recover the script (AC: 1)
-  - [ ] `git show d4c9c69a:server/scripts/sync-fixture-renames.mjs > server/scripts/sync-fixture-renames.mjs`
-  - [ ] Do not modify it. The rename tables inside it are already correct for dev's fixture (verified by SM dry run, below).
-- [ ] Apply (AC: 2, 3, 4)
-  - [ ] `cd server && node scripts/sync-fixture-renames.mjs` (dry run) — must match the expected output below **exactly**.
-  - [ ] `node scripts/sync-fixture-renames.mjs --write`
-- [ ] Verify (AC: 0, 5, 6, 7)
-  - [ ] **Self-test before reporting done** — `shasum -a 256 server/scripts/_locations-local.json` must equal `a34547c3…f82e05e7` (AC0). If it does, AC2-AC5 and AC7 are satisfied by construction and you are done verifying.
-  - [ ] If the hash differs: check the Belfry discriminator first (address must still read Mosman, no `geocode_query` key). A Pyrmont address means ms content was carried in, not a rename bug.
-  - [ ] Re-run dry: `Matched 0 rename(s):` **plus** both survivor lines at count 1.
-  - [ ] `git diff --stat` shows exactly two files: the fixture and the new script.
+- [x] Recover the script (AC: 1)
+  - [x] `git show d4c9c69a:server/scripts/sync-fixture-renames.mjs > server/scripts/sync-fixture-renames.mjs`
+  - [x] Do not modify it. The rename tables inside it are already correct for dev's fixture (verified by SM dry run, below).
+- [x] Apply (AC: 2, 3, 4)
+  - [x] `cd server && node scripts/sync-fixture-renames.mjs` (dry run) — must match the expected output below **exactly**.
+  - [x] `node scripts/sync-fixture-renames.mjs --write`
+- [x] Verify (AC: 0, 5, 6, 7)
+  - [x] **Self-test before reporting done** — `shasum -a 256 server/scripts/_locations-local.json` must equal `a34547c3…f82e05e7` (AC0). If it does, AC2-AC5 and AC7 are satisfied by construction and you are done verifying.
+  - [x] If the hash differs: check the Belfry discriminator first (address must still read Mosman, no `geocode_query` key). A Pyrmont address means ms content was carried in, not a rename bug.
+  - [x] Re-run dry: `Matched 0 rename(s):` **plus** both survivor lines at count 1.
+  - [x] `git diff --stat` shows exactly two files: the fixture and the new script.
 
 ## Dev Notes
 
@@ -143,7 +143,69 @@ The ms branch has Wan Yelong's haven relocated to St Bede's, Pyrmont, which is l
 
 ## Dev Agent Record
 
-_(Ptah fills this in)_
+### Agent Model Used
+
+Ptah (DEV) — claude-opus-5
+
+### AC0 gate — PASSED
+
+```
+shasum -a 256 server/scripts/_locations-local.json
+a34547c36ca8863d5e42aa476667da2a4d21336e941c5a78f89f2c41f82e05e7   <- matches expectation exactly
+bytes 464786      newlines 0      entries 74
+```
+
+Pre-state confirmed before touching anything: 464,783 bytes, 74 entries, sha256 `a1f392b4…a726c56b`. Post-write is +3 bytes, consistent with the five renames.
+
+Per AC0, that digest subsumes AC2-AC5 and AC7. I ran the independent field checks anyway rather than resting on a single method — a hash and a field read are correlated only through the file itself, and the discriminator is the check that names *which path* was taken.
+
+### Dry run — verbatim match to the SM expectation
+
+Output was identical to the story's expected block: 5 matches (Black Cathedral / Swift Manor / Crone Temple / The Underground / The Belfry) with both survivor lines at count 1, naming the correct other owners (Eve Lockridge, Cazz). Since it matched, `--write` was authorised; no deviation, so no stop-and-report.
+
+### The Belfry discriminator — script path confirmed, by field
+
+| check | value | verdict |
+|---|---|---|
+| `address` | `Mosman, Vista Street - the Art Gallery crypt` | script path (ms would read Pyrmont) |
+| `lat` / `lon` | `-33.8251` / `151.2404` | script path |
+| `geocode_query` on the entry | absent | script path |
+| `geocode_query` across all 74 entries | **0 occurrences** | key inventory confirms absence is meaningful, not incidental |
+
+No ms content was carried in.
+
+### AC6 idempotence — both halves in one output
+
+```
+Matched 0 rename(s):
+  (still named "The Penthouse": 1 — expect the OTHER owner's, e.g. Eve Lockridge)
+  (still named "The Loft": 1 — expect the OTHER owner's, e.g. Cazz)
+```
+
+Count-0 **and** both survivor lines at 1 in the same run, so the emptied/truncated-fixture false pass is excluded.
+
+### Content spot-check (74 entries)
+
+All three old HQ names at 0 occurrences; all five new names at exactly 1; the two shared haven names survive once each, owned by Eve Lockridge and Cazz respectively.
+
+### Notes
+
+- The script was recovered verbatim via `git show d4c9c69a:server/scripts/sync-fixture-renames.mjs` and **not modified**. I read it before running: its only write is `l.name = …` and its only serialisation is `JSON.stringify(data)` (compact), so geometry, reveal data and formatting cannot change on this path by construction.
+- `d4c9c69a` was **not** cherry-picked. No blob-level operation was performed on the fixture.
+- Nothing was written to MongoDB. Repo-only, as scoped.
+- Staged file-by-file; the untracked `markdown` symlink is **not** in the commit (verified).
+- Deliberately left open, per the story: Wan Yelong's address still reads Mosman.
+
+### File List
+
+- `server/scripts/sync-fixture-renames.mjs` — **added**, recovered verbatim from `d4c9c69a`
+- `server/scripts/_locations-local.json` — modified, 5 name renames only (1 line changed, compact single-line format preserved)
+
+### Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-06 | Script recovered from `d4c9c69a`; dry run matched the SM expectation verbatim; `--write` applied; AC0 hash, Belfry discriminator and idempotence all pass |
 
 ## QA Results
 
