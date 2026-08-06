@@ -209,4 +209,12 @@ All three old HQ names at 0 occurrences; all five new names at exactly 1; the tw
 
 ## QA Results
 
-_(Ma'at fills this in)_
+**Gate: PASS** (Ma'at, 2026-08-06, commits db8f0dda + e62f3400). Verified independently against the expectation I derived before implementation began, in a separate rig.
+
+- **AC0 exact.** `sha256 a34547c36ca8863d5e42aa476667da2a4d21336e941c5a78f89f2c41f82e05e7`, 464,786 bytes, 0 newlines, 74 entries. Matches the file I produced by running the recovered script against dev's fixture, byte for byte.
+- **Script recovered verbatim.** `diff` against `d4c9c69a:server/scripts/sync-fixture-renames.mjs` is empty.
+- **Discriminator clean.** `geocode_query` occurs 0 times across all 74 entries — the key exists nowhere in dev's schema, so its absence proves the semantic script path was taken rather than the ms blob. Corroborated by The Belfry remaining at `Mosman, Vista Street - the Art Gallery crypt`, `-33.8251 / 151.2404`; the ms blob would have placed it at St Bede's, Pyrmont.
+- **Wrong-owner havens survive.** Eve Lockridge's `The Penthouse` and Cazz's `The Loft` both present and unrenamed. Reed Justice → `The Underground`, Wan Yelong → `The Belfry`. Three HQs read `Black Cathedral` / `Swift Manor` / `Crone Temple`.
+- **Three files, no more.** Fixture, script, story. The corrected AC is right — the story file carrying the Dev Agent Record is part of every story commit.
+
+Flagging the Wan Yelong address forward, not against this story: the fixture now says Mosman while the live map says Pyrmont, so a re-seed still moves that haven. The story's own rationale — a re-seed must not reintroduce a stale value — applies to the address as much as the name. Correctly out of scope here; filed separately for Peter to rule on.
