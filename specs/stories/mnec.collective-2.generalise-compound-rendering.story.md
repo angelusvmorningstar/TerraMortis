@@ -28,7 +28,17 @@ Ready for Dev
 4. **No hardcoding in the synthesis path.** No merit name literal (`'Necropolis Sepulcher'`, `'Blood and Sacrifice'`, `'Prayer and Penance'`) and no `free_grants` slug literal (`.necro`, `.darktemple`, `.blackcathedral`) appears in the COLLECTIVE synthesis primitives or in their `sheet.js` call sites. Both come from the compound's `rule_grant`.
 5. **Fourth compound is data-only.** Adding a compound requires only a `rule_grant` doc (with `grant_type: 'pool'`, `sharing_scope`, `source_slug`, `pool_targets`) plus catalogue rows. Demonstrate with a test that seeds a synthetic fourth compound into the rules-cache fixture and asserts its rows synthesise, with **zero** production-code change in that test's diff.
 6. **Multi-compound characters.** A character owning two compounds at once sees the union of both compounds' rows. Per-target dots are summed per owning compound's slug; if the same target merit name belongs to two compounds the character owns, both slugs contribute.
-7. **Suite green.** `npx vitest run` in `server/` is green, including the four suites that currently name the old symbols: `collective-1-virtual-rows.test.js`, `n7-n9-allocator-readers.test.js`, `n7b-necro-input-suppression.test.js`, `issue-793-alphabetical-inherited.test.js`. The last two assert on **source text via regex** and will fail on rename — update the regexes to the new symbols, do not delete the assertions.
+7. **Suite unchanged, not green.** `origin/dev` is **already red**: 4 failures across 2 files, none of them MNEC-related (measured by Ma'at, verified by SM). "Green" is therefore unsatisfiable and is **not** the criterion.
+
+   The criterion is a **named-set comparison**: `npx vitest run` in `server/` goes **4 failed → 4 failed, with the same four test names**, and **no COLLECTIVE-2 surface among them**. This is strictly stronger than "green" for our purposes — it catches a new failure that a green-chasing repair might otherwise mask.
+
+   The pre-existing four (baseline artefact held by Ma'at):
+   - `n7-n9-allocator-readers.test.js` — *"all three dropdown builders consume meritPrereqOK (not \_meetsPrereq directly)"* — **RING-FENCED, see below**
+   - `epic.708.3-cycle-phase-controls.test.js` — 3 failures, stale contract assertions
+
+   Three suites name the old symbols and **must** fail on your rename; repairing those regexes to the new symbol names **is** the sanctioned fix: `collective-1-virtual-rows.test.js`, `n7b-necro-input-suppression.test.js:238`, `issue-793-alphabetical-inherited.test.js:377-378`. Do not delete assertions to make a rename fit.
+
+   **Rule for telling them apart:** if an assertion fails *because you renamed something*, repair it. If it fails on the base *before you touched anything*, leave it and report.
 
 ## Tasks / Subtasks
 
@@ -54,6 +64,22 @@ Ready for Dev
   - [ ] Repair the source-text regexes in `n7b-necro-input-suppression.test.js:238` and `issue-793-alphabetical-inherited.test.js:377-378`.
 
 ## Dev Notes
+
+### RING-FENCED — do not "fix" `n7-n9-allocator-readers.test.js:234`
+
+This test is red on the base **and** it is on AC7's list of suites expected to fail on the rename. That coincidence makes it a trap: it fails with a source-regex mismatch, and the obvious repair looks exactly like the repair AC7 sanctions.
+
+It is **not** a rename failure and **not** a behavioural regression. `meritPrereqOK(c, rule)` is present and correct in all three builders. The assertion uses character-distance proximity windows, and one builder's body outgrew its window:
+
+| builder | decl | call | distance | window | |
+|---|---|---|---|---|---|
+| `buildMeritOptions` | 11985 | 12849 | 864 | 600 | **exceeds by 264** |
+| `buildSubCategoryMeritOptions` | 14413 | 15105 | 692 | 800 | ok |
+| `buildMCIGrantOptions` | 16597 | 17024 | 427 | 600 | ok |
+
+Cause: `buildMeritOptions` grew in the Carthian Law hotfix (`b6098ccd`) and fighting styles (`726b6eda`); nobody re-ran the assertion.
+
+**Leave it failing exactly as it fails now.** Widening 600 → 900 is a one-character change that buries the only signal that a load-bearing dropdown builder grew ~45% through a hotfix path. Filed separately. Ring-fenced **by test name**, not by suite — the rest of `n7-n9-allocator-readers.test.js` is in scope as normal.
 
 ### Scope boundary — what is NOT a compound
 `getNecropolisInfectedTerritories` (`rules-helpers.js:297`), the Trap Door dual-anchor validation, White Ants and Mandragora Garden are **Necropolis game content**, not compound-generic machinery. The Crone and Sanctified compounds have no equivalent. Leave all of it hardcoded to the Necropolis and leave `hasNecropolisSepulcher` (`:217`) alone unless a listed call site forces a change. Generalising them would invent behaviour no compound has asked for.
