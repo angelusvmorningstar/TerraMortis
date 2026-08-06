@@ -34,7 +34,9 @@ Ready for Dev
 
    The pre-existing four (baseline artefact held by Ma'at):
    - `n7-n9-allocator-readers.test.js` — *"all three dropdown builders consume meritPrereqOK (not \_meetsPrereq directly)"* — **RING-FENCED, see below**
-   - `epic.708.3-cycle-phase-controls.test.js` — 3 failures, stale contract assertions
+   - `epic.708.3-cycle-phase-controls.test.js` — 3 failures: *"exports setGamePhase function"*, *"uses data-phase attribute on phase buttons"*, *"highlights active phase with gold2 colour"*
+
+   **Run the suite with MongoDB up.** The baseline is only valid against a comparable run — see below.
 
    Three suites name the old symbols and **must** fail on your rename; repairing those regexes to the new symbol names **is** the sanctioned fix: `collective-1-virtual-rows.test.js`, `n7b-necro-input-suppression.test.js:238`, `issue-793-alphabetical-inherited.test.js:377-378`. Do not delete assertions to make a rename fit.
 
@@ -64,6 +66,22 @@ Ready for Dev
   - [ ] Repair the source-text regexes in `n7b-necro-input-suppression.test.js:238` and `issue-793-alphabetical-inherited.test.js:377-378`.
 
 ## Dev Notes
+
+### The baseline is only valid with MongoDB running — check this before comparing anything
+
+Two SM/QA runs of the same commit disagreed, and the cause was local MongoDB availability, not the code:
+
+| | Ma'at (Mongo **up**) | SM (Mongo **down**) |
+|---|---|---|
+| Test Files | 2 failed / 158 passed | **83 failed** / 77 passed |
+| Tests | 4 failed / 2108 passed | 7 failed / 1018 passed / **1074 skipped** |
+| Duration | 130.9s | 422.4s |
+
+With no Mongo, 38 files hit `connectDb() failed: ECONNREFUSED …:27017`, skip their tests, and count as failed *files*. **1074 tests — over half the suite — become inert.** A skipped test cannot fail, so comparing two Mongo-down runs would pass a regression in any DB-backed path in silence. That is the whole gate defeating itself.
+
+The three extra failures in the Mongo-down run are `issue-1013-indomitable-rules-text.test.js` (2) and one sibling in the rules-text family; they read seeded rules data and *fail* rather than *skip* when it is absent, unlike the 38 files that guard properly.
+
+**Ma'at's Mongo-up run is the canonical baseline.** Start Mongo before running the suite, and confirm the total reads ~2112 tests and ~131s. If you see 1074 skips, your run is not comparable and proves nothing. Both of Ma'at's four failure names reproduce identically in both environments, so the ring-fenced set itself is confirmed.
 
 ### RING-FENCED — do not "fix" `n7-n9-allocator-readers.test.js:234`
 
