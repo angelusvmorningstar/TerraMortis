@@ -26,9 +26,25 @@ Ready for Review
 2. **Sanctified compound renders.** Given a character with `Prayer and Penance` dots, the Black Cathedral targets do likewise.
 3. **Necropolis regression.** Given a `Necropolis Sepulcher` owner, rendered output is byte-identical to the pre-change output for the same fixture, **with one sanctioned exception recorded below**.
 
-   > **Sanctioned deviation (SM, 2026-08-06).** The pool stepper's `aria-label` now derives from the compound descriptor and reads `"Necropolis Sepulcher pool allocation"` where it was the hardcoded `"Necropolis pool allocation"`. Accepted: it is an a11y label becoming more specific, no assertion was weakened, and element ids, names, the NECRO label text and the `free_grants.necro` write path are all unchanged (they derive from the slug). **This is one exception, not a licence** — a second rendered-output deviation on a Necropolis fixture is a gate failure. `server/tests/collective-1-virtual-rows.test.js` behavioural assertions pass unchanged in substance (regex-on-source assertions may be rewritten to the new symbol names — see AC 7 — but the *rendered HTML* assertions must not be weakened).
+   > **Sanctioned deviations (SM, 2026-08-06 — revised after QA render diff).** Ma'at rendered the Yusuf/Xavier/Zanzibar fixture through dev's renderer and this branch's and diffed the HTML. **View mode is byte-identical.** Edit mode differs in 12 hunks reducible to three kinds, **all three sanctioned**:
+   >
+   > 1. `aria-label` `"Necropolis pool allocation"` → `"Necropolis Sepulcher pool allocation"` (x6)
+   > 2. `dom-total-lbl` title `"Cumulative across all Sepulcher-owners"` → `"Cumulative across all Necropolis Sepulcher owners"` (x6)
+   > 3. virtual-row `onchange` `shAllocateNecroVirtual('X', v)` → `shAllocateCompoundVirtual('X', 'necro', v)` (x2) — covered by the approved scope extension
+   >
+   > (2) was **not disclosed** in the Dev Agent Record and was found by the render diff, not by reading the diff for strings. It is sanctioned on the same grounds as (1) — descriptor-derived user-visible label text becoming more specific, with the assertion updated rather than deleted. Everything else is identical: element ids (`bd-necro-3`, `bd-necro-v-dark-temple`), names, classes, `type`, `min`, `value`, and the `free_grants.necro` write path.
+   >
+   > **The rule these exceptions sit under is disclosure, not count.** An undisclosed deviation is a gate failure whatever its content.
+
+   > **AC3's in-repo test does NOT verify this AC (QA structural finding).** The regression test compares Necropolis-only-seeded against all-four-seeded **on the new code**. That is a *seed-independence* check, not a before/after check, and it cannot detect any of the three deviations above — all of which appear identically under both seedings. The genuine before/after evidence for AC3 is the QA render diff recorded here, performed at gate. Do not read the passing in-repo test as satisfying AC3. `server/tests/collective-1-virtual-rows.test.js` behavioural assertions pass unchanged in substance (regex-on-source assertions may be rewritten to the new symbol names — see AC 7 — but the *rendered HTML* assertions must not be weakened).
 4. **No hardcoding in the synthesis path.** No merit name literal (`'Necropolis Sepulcher'`, `'Blood and Sacrifice'`, `'Prayer and Penance'`) and no `free_grants` slug literal (`.necro`, `.darktemple`, `.blackcathedral`) appears in the COLLECTIVE synthesis primitives or in their `sheet.js` call sites. Both come from the compound's `rule_grant`.
 5. **Fourth compound is data-only.** Adding a compound requires only a `rule_grant` doc (with `grant_type: 'pool'`, `sharing_scope`, `source_slug`, `pool_targets`) plus catalogue rows. Demonstrate with a test that seeds a synthetic fourth compound into the rules-cache fixture and asserts its rows synthesise, with **zero** production-code change in that test's diff.
+
+   **5b. `sharing_scope.merit` must be exercised (QA finding, REOPENED).** Every fixture currently sets `sharing_scope.merit === source`, so `const gateMerit = scope.merit || r.source` is indistinguishable from `r.source`. Ma'at mutated it to `r.source` and ran all seven collective/n7 suites: **zero new failures.** The field AC4's central claim depends on is entirely untested.
+
+   The fix is one fixture line: give the synthetic fourth compound a **gate merit whose name differs from its `source`**, and assert membership follows the gate merit rather than the source. Verify by re-running that mutation — it must now fail.
+
+   *`min_dots` is already covered properly* (Silent Vigil at `min_dots: 2`, with a below-threshold member asserted to receive no rows). This is the other half of the same sharpened requirement.
 6. **Multi-compound characters.** A character owning two compounds at once sees the union of both compounds' rows. Per-target dots are summed per owning compound's slug; if the same target merit name belongs to two compounds the character owns, both slugs contribute.
 7. **Suite unchanged, not green.** `origin/dev` is **already red**: 4 failures across 2 files, none of them MNEC-related (measured by Ma'at, verified by SM). "Green" is therefore unsatisfiable and is **not** the criterion.
 
