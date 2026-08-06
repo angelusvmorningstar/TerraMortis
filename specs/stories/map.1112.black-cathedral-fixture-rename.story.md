@@ -106,7 +106,7 @@ The `geocode_query` tell is confirmed against the **key inventory**, not just th
   - [x] **Self-test before reporting done** — `shasum -a 256 server/scripts/_locations-local.json` must equal `a34547c3…f82e05e7` (AC0). If it does, AC2-AC5 and AC7 are satisfied by construction and you are done verifying.
   - [x] If the hash differs: check the Belfry discriminator first (address must still read Mosman, no `geocode_query` key). A Pyrmont address means ms content was carried in, not a rename bug.
   - [x] Re-run dry: `Matched 0 rename(s):` **plus** both survivor lines at count 1.
-  - [x] `git diff --stat` shows exactly two files: the fixture and the new script.
+  - [x] `git diff --stat` shows exactly **three** files: the fixture, the new script, and this story file carrying the Dev Agent Record. *(SM correction 2026-08-06 — the AC originally said "two" and omitted the story file, which every story commit carries. Three is correct; a fourth is scope creep. Ptah flagged the mismatch rather than quietly satisfying the literal wording.)*
 
 ## Dev Notes
 
