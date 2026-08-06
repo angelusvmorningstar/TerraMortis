@@ -67,21 +67,32 @@ Ready for Dev
 
 ## Dev Notes
 
-### The baseline is only valid with MongoDB running — check this before comparing anything
+### The baseline has TWO preconditions. Check both before comparing anything.
 
-Two SM/QA runs of the same commit disagreed, and the cause was local MongoDB availability, not the code:
+```
+1.  ls markdown | wc -l      → 10, not 0
+2.  mongod up                → summary reads ~2112 tests, ~131s, ZERO skips
+```
 
-| | Ma'at (Mongo **up**) | SM (Mongo **down**) |
+If either fails, your run is not comparable to the baseline and AC7's four-name comparison does not apply.
+
+**Precondition 1 — the untracked `markdown/` corpus.** `server/scripts/uplift-power-rules-text.js:67` resolves `MARKDOWN_DIR` to the **repo-root `markdown/` directory, which is untracked** — `git ls-files markdown` returns 0, and no ignore rule covers it. It was simply never committed. It exists in the main working tree (10 files) and is **absent from every `git worktree` by construction**, since worktrees do not carry untracked files. *(SM has symlinked it into this worktree; verify rather than assume.)*
+
+`issue-1013-indomitable-rules-text.test.js` reads the real corpus via `loadAllBlocks()`. That function guards each book with `existsSync` and **continues** on a miss — it never throws. So with the corpus absent, `allBlocks` is `[]` and three assertions fail with content-shaped messages like `expected [] to equal [CofD Rulebook, VtR 2e Rulebook]`. It reads as *"Indomitable has gone missing from the VtR 2e Rulebook"* in the middle of a compound-rendering story.
+
+**This is the more dangerous of the two**, because Mongo-down announces itself and corpus-absent does not. `issue-992-uplift-rules-text.test.js` is **not** affected — it writes its own fixture book to a temp dir and passes `markdownDir` explicitly.
+
+**Precondition 2 — MongoDB.** Two runs of the same commit disagreed:
+
+| | Ma'at (Mongo up, corpus present) | SM (Mongo down, corpus absent) |
 |---|---|---|
 | Test Files | 2 failed / 158 passed | **83 failed** / 77 passed |
 | Tests | 4 failed / 2108 passed | 7 failed / 1018 passed / **1074 skipped** |
 | Duration | 130.9s | 422.4s |
 
-With no Mongo, 38 files hit `connectDb() failed: ECONNREFUSED …:27017`, skip their tests, and count as failed *files*. **1074 tests — over half the suite — become inert.** A skipped test cannot fail, so comparing two Mongo-down runs would pass a regression in any DB-backed path in silence. That is the whole gate defeating itself.
+With no Mongo, 38 files hit `connectDb() failed: ECONNREFUSED …:27017`, skip their tests and count as failed *files*. **1074 tests — over half the suite — become inert.** A skipped test cannot fail, so comparing two Mongo-down runs passes a regression in any DB-backed path in silence.
 
-The three extra failures in the Mongo-down run are `issue-1013-indomitable-rules-text.test.js` (2) and one sibling in the rules-text family; they read seeded rules data and *fail* rather than *skip* when it is absent, unlike the 38 files that guard properly.
-
-**Ma'at's Mongo-up run is the canonical baseline.** Start Mongo before running the suite, and confirm the total reads ~2112 tests and ~131s. If you see 1074 skips, your run is not comparable and proves nothing. Both of Ma'at's four failure names reproduce identically in both environments, so the ring-fenced set itself is confirmed.
+**Ma'at's run is the canonical baseline.** Her four failure names reproduce identically in both environments, so the ring-fenced set itself is confirmed regardless.
 
 ### RING-FENCED — do not "fix" `n7-n9-allocator-readers.test.js:234`
 
