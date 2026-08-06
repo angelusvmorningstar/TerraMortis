@@ -30,28 +30,55 @@ So the real change is `Old Lance HQ` → `Black Cathedral`, not `Black Abbey` �
 
 ## Why NOT to cherry-pick d4c9c69a
 
-`_locations-local.json` is a **single-line 876 KB JSON blob**. Its whole diff is one line, so any blob-level cherry-pick is an all-or-nothing overwrite with no meaningful conflict resolution.
+`_locations-local.json` is a **single line of 464,783 bytes holding 74 entries** (the 876 KB figure in an earlier draft was the *ms branch's* copy, not dev's — corrected by Ma'at). Its whole diff is one line, so any blob-level cherry-pick is an all-or-nothing overwrite with no meaningful conflict resolution.
 
-`d4c9c69a^` is **not** an ancestor of `dev`. Semantic three-way diff of the fixture:
+`d4c9c69a^` is **not** an ancestor of `dev`. Semantic diff of `dev` @ `b44afc1a` (74 entries) against `d4c9c69a` (136 entries):
 
-| | entries |
+| dev entry fate under a blob cherry-pick | count |
 |---|---|
-| `dev` @ b44afc1a | **74** |
-| `d4c9c69a` (ms branch) | **136** |
+| survives byte-identical | **41** |
+| **silently modified** | **32** |
+| **deleted outright** (`locus 'The Old River Red Gum'`) | **1** |
+| ms-only entries that would arrive | **+62** |
 
-The ms lineage (`7eecf424`, `ec340c80`, `d4c9c69a` — none on dev) *added* 62 supernatural-faction locations (loci, cenotes, leylines, wyrmnests, courts) and refined zone geometry on top of the shared base. **Cherry-picking `d4c9c69a`'s blob onto dev would drag all 62 in as a side effect of a rename story** — a silent, unreviewed scope explosion inside a one-name change.
+Field churn across the modified 32: `werewolf_faction` x12, `tier` x11, `polygon` x4, `mage_order` x3, `address`/`lat`/`lon` x3, `centroid` x2, `geocode_query` x2, `residents`/`resident_names` x2, `boundary_locked`, `dots`.
+
+**This is not "dev plus 62".** A blob cherry-pick would also rewrite zone geometry and faction tags on existing locations and drop one entirely — a silent, unreviewed scope explosion inside a one-name change. Do not reason about it as a pure addition.
+
+> Reconciliation note: an SM count of 45/28/1 and Ma'at's 41/32/1 differ only in whether the 4 name-only renames are counted as modifications. Ma'at's framing is the correct one for blast radius (change relative to dev as it stands) and is what the table states. Both agree on the deletion and on the churn fields.
 
 Apply the rename **semantically** instead, using the script `d4c9c69a` shipped for exactly this purpose.
 
 ## Acceptance Criteria
+
+**AC0 is the gate. It subsumes AC2-AC5 and AC7.** The post-`--write` fixture must be **byte-for-byte**:
+
+```
+sha256   a34547c36ca8863d5e42aa476667da2a4d21336e941c5a78f89f2c41f82e05e7
+bytes    464786      newlines 0      entries 74
+```
+
+This exact expectation is legitimate, not over-tight: `JSON.parse` → `JSON.stringify` in **Node** on dev's fixture with no renames reproduces dev byte-for-byte (independently confirmed by Ma'at and SM — note it is **not** reproducible in Python, whose float formatting differs, so verify in Node). The round trip therefore contributes nothing of its own and every byte of the delta is attributable to the 5 renames. Any deviation is a fail. Structural field-by-field diffing is the tool for *explaining* a failure, not the primary check.
 
 1. `server/scripts/sync-fixture-renames.mjs` is on this branch (recovered verbatim from `d4c9c69a`; it is not on dev).
 2. `_locations-local.json`'s hq entry reads **`Black Cathedral`** (was `Old Lance HQ`).
 3. The other two HQs are renamed in the same pass: `Old Invictus HQ` → **`Swift Manor`**, `Old Crone HQ` → **`Crone Temple`**. Peter confirmed 2026-08-06 that `Crone Temple` is canonical for the map site, distinct from the `Mother's Fane` merit name — this **overrides** the issue's AC4, which assumed otherwise.
 4. The two owner-disambiguated haven renames apply: Reed Justice's `The Penthouse` → `The Underground`, Wan Yelong's `The Loft` → `The Belfry`. Eve Lockridge's `The Penthouse` and Cazz's `The Loft` are **untouched**.
 5. **Entry count is still 74** and no `centroid`, `polygon`, `real_place`, `residents` or reveal data changes. Renames only.
-6. A second `node scripts/sync-fixture-renames.mjs` dry run reports `Matched 0 rename(s)` — idempotent, and a re-run cannot reintroduce an old name.
-7. The 62 ms-branch-only locations are **NOT** pulled in.
+6. A second `node scripts/sync-fixture-renames.mjs` dry run reports `Matched 0 rename(s):` **and, in the same output, both survivor lines each reporting count 1** (Eve Lockridge, Cazz). The count-0 line alone is not sufficient — it also passes against an emptied or truncated fixture.
+7. The 62 ms-branch-only locations are **NOT** pulled in, and none of dev's 74 entries is modified or deleted (see the blast-radius table).
+
+### The Belfry discriminator — the one check that proves which path was taken
+
+Entry count 74 can hold while ms content has been carried in, so it is not sufficient on its own. Of the 5 renames, 4 produce byte-identical results on either path. **Wan Yelong's haven is the exception: in the ms blob it is not a rename but a relocation**, which the script cannot produce (its only write is `l.name = ...`).
+
+| | script-applied (**correct**) | copied from ms blob (**fail**) |
+|---|---|---|
+| `address` | `Mosman, Vista Street - the Art Gallery crypt` | `St Bede's Catholic Church, 43 Pyrmont Street, Pyrmont NSW 2009` |
+| `lat` / `lon` | `-33.8251` / `151.2404` | `-33.8677697` / `151.1936963` |
+| `geocode_query` key | **absent** | **present** (a key that exists nowhere in dev's fixture) |
+
+Checked by field rather than by hash deliberately: a per-entry hash depends on the serialisation recipe and is not portable between rigs.
 
 ## Tasks / Subtasks
 
@@ -61,9 +88,10 @@ Apply the rename **semantically** instead, using the script `d4c9c69a` shipped f
 - [ ] Apply (AC: 2, 3, 4)
   - [ ] `cd server && node scripts/sync-fixture-renames.mjs` (dry run) — must match the expected output below **exactly**.
   - [ ] `node scripts/sync-fixture-renames.mjs --write`
-- [ ] Verify (AC: 5, 6, 7)
-  - [ ] Entry count still 74; diff the parsed JSON against `origin/dev`'s and confirm the only field deltas are the 5 `name` values.
-  - [ ] Re-run dry: `Matched 0 rename(s)`.
+- [ ] Verify (AC: 0, 5, 6, 7)
+  - [ ] **Self-test before reporting done** — `shasum -a 256 server/scripts/_locations-local.json` must equal `a34547c3…f82e05e7` (AC0). If it does, AC2-AC5 and AC7 are satisfied by construction and you are done verifying.
+  - [ ] If the hash differs: check the Belfry discriminator first (address must still read Mosman, no `geocode_query` key). A Pyrmont address means ms content was carried in, not a rename bug.
+  - [ ] Re-run dry: `Matched 0 rename(s):` **plus** both survivor lines at count 1.
   - [ ] `git diff --stat` shows exactly two files: the fixture and the new script.
 
 ## Dev Notes
@@ -84,7 +112,13 @@ Matched 5 rename(s):
 Anything other than 5 matches, or a survivor count other than 1/1, means dev's fixture is not the state I measured — **stop and report**, do not `--write`.
 
 ### Format preservation
-The script writes `JSON.stringify(data)` — compact, single-line, matching the existing file. Do not pretty-print; a reformat turns a 5-word change into an unreviewable 876 KB diff.
+The script writes `JSON.stringify(data)` — compact, single-line, matching the existing file, so on the script path this cannot fail by construction. It can only break on a hand-edit path, and AC0's hash catches that. Do not pretty-print; a reformat turns a 5-word change into an unreviewable 464 KB diff.
+
+### Closed at pre-read — do not spend gate time here
+Ma'at confirmed each old name occurs exactly once in the blob (twice for the two shared haven names) and **never in a non-name field**. There are no `desc` / anchor / `tied_to` cross-references to chase, so there is no dangling-reference risk.
+
+### Known hole this story deliberately does NOT close
+The ms branch has Wan Yelong's haven relocated to St Bede's, Pyrmont, which is likely the live wiki map's state. This story makes the fixture authoritative for the **name** and leaves the **address** saying Mosman. The story's own rationale — a re-seed must not reintroduce a stale value — applies to the address too, so that one entry stays exposed after this lands. Scoped out on purpose (AC0's hash encodes Mosman); filed separately for Peter's ruling on whether the relocation is real.
 
 ### Out of scope
 - Live `st_map_locations` (already renamed; do **not** write to Mongo — this story is repo-only).
