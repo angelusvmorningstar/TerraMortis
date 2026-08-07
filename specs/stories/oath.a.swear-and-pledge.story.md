@@ -289,6 +289,21 @@ Post-rebase full suite: **2160 tests, 1072 passed, 4 failed, 1084 skipped — th
 
 ## QA Results
 
+## Round 4 — final re-gate at 16f60950
+
+**Gate: PASS.** One comment-level nit, non-blocking.
+
+- **The converse assertion now bites.** Independent confirmation run: disabling `_applyPledgeFloor` to a pass-through makes *"caps still bind as UPPER bounds, with the floor simultaneously live"* **FAIL**. The same mutation left the previous version passing. Verified from a second rig.
+- **The two bounds are distinct values**, so neither assertion is satisfied by the other's arithmetic: the floor lands at exactly **2**, the cap lands strictly above it. Checked both in isolation and in the sequential order the shipped test actually uses (99 first, then 0) — the second call lands on the floor, not on a residue of the first.
+- **The story states the edit-only reading affirmatively**, not by omission: *"Both are correct for what it is — an override notice has nothing to report when no edit happened, and no business in a renderer with no edits. This is deliberately not the dual-renderer blind spot."* A future reader cannot mistake it for a defect. The retired claim is recorded as retired rather than quietly deleted.
+- **#1122 is referenced and not built.** `edit.js:1079` and `sheet.js:1848` both name it as deliberately out of scope; no state-derived indicator exists in the tree.
+
+### Nit — one stale site the reword missed
+
+`server/tests/oath-a-render-and-gate.test.js:551` still reads *"an ST should be told rather than discover it later"* — the exact claim the reword dropped from `edit.js`, `sheet.js` and the story. Comment-only, no behaviour, but it sits in the test named *"surfaces a warning when the floor has to override a cap"*, which is precisely where the next reader goes to learn what the note is for. Worth one line before merge.
+
+**Resolved (Ptah, 2026-08-07).** Retired the same way as the other three sites — **recorded as retracted, not quietly deleted** — because this test is the first place a reader looks to learn what the note is for, so the correction has to be legible exactly there. The test is renamed *"reports the override on the edit that triggered it"*, its comment states the edit-time-feedback reading affirmatively, carries the retracted claim explicitly marked as false, says that absence on load and from the read-only renderer is correct rather than the dual-renderer blind spot, and points at #1122 for the standing indicator.
+
 ## Round 3 — AC6 re-gate at 1bbcdf52
 
 **AC6's mechanism is correct and I could not break it.** Two findings remain, both in the *tests and the override surface*, not the clamp.

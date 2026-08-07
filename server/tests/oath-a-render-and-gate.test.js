@@ -545,10 +545,25 @@ describe('OATH-A AC6 — invariant: after ANY edit, owned dots >= pledged dots',
     expect(meritRating(c, c.merits[0])).toBeGreaterThanOrEqual(4);
   });
 
-  it('surfaces a warning when the floor has to override a cap', () => {
-    // A silent clamp is correct arithmetic and a bad user experience: the
-    // state means the pool is over-committed against a standing pledge, and
-    // an ST should be told rather than discover it later.
+  it('reports the override on the edit that triggered it', () => {
+    // EDIT-TIME FEEDBACK: "the change you just made was overridden, and here
+    // is why". A silent clamp is correct arithmetic and unhelpful at the
+    // moment the player's input is quietly changed underneath them.
+    //
+    // RETRACTED RATIONALE, recorded rather than deleted because this test is
+    // the first place a reader looks to learn what the note is for: an
+    // earlier version of this comment said "an ST should be told rather than
+    // discover it later". That claim is FALSE of this note and was retired
+    // from edit.js, sheet.js and the story. The note is set only as a side
+    // effect of an edit, so it cannot tell anyone about an over-commitment
+    // they would otherwise discover later — a freshly loaded character shows
+    // nothing. Its absence on load, and from the read-only renderer, is
+    // correct for an override notice and is NOT the dual-renderer blind
+    // spot.
+    //
+    // The standing "this character is over-committed" indicator is a
+    // separate feature (render-time, both renderers, no edit required) —
+    // filed as #1122, deliberately not built here.
     const c = mkChar([
       { category: 'general', name: 'Resources', cp: 2, xp: 0, free_inv: 3 },
       {
