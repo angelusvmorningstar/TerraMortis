@@ -6,7 +6,11 @@ import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { pruneContactsSpheres, domKey } from './domain.js';
-import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+// OATH-A (#1111, ADR-010 D1/D1b/D4): pledge validation + the sworn_by
+// builder are pure helpers; meritRating is the OWNED-dots formula they
+// take injected, so no second copy of merit-dot arithmetic is created.
+import { freeOf, normaliseAttachedTo, validatePledge, buildSwornBy, resolveRatingBasis } from '../data/rules-helpers.js';
+import { meritRating } from './xp.js';
 import { resolveSharedWithMember as _resolveSharedWithMember } from '../data/helpers.js';
 
 function ruleKeyFor(name) {
@@ -676,5 +680,175 @@ export function shRemovePick(pickIdx) {
   if (!c.fighting_picks || !c.fighting_picks[pickIdx]) return;
   c.fighting_picks.splice(pickIdx, 1);
   _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
+   OATH-A (issue #1111, ADR-010 D1 / D1b / D4) — Swear By oaths
+══════════════════════════════════════════════════════════ */
+
+/**
+ * The dots a Swear By oath requires, for the merit row at `realIdx`.
+ *
+ * ADR-010 D4: a derived `rating_basis` on the rule wins; otherwise the fixed
+ * `rating_range` low bound. Resolved at RENDER time and never stored — what
+ * gets stored is the snapshot taken at swear time (D1b).
+ */
+export function oathDotsRequired(c, m) {
+  const rule = meritRuleFor(m && m.name);
+  if (!rule) return 0;
+  const derived = resolveRatingBasis(c, rule);
+  if (derived != null) return derived;
+  return Array.isArray(rule.rating_range) ? (rule.rating_range[0] || 0) : 0;
+}
+
+/** True when the merit's rule is a Swear By oath (cost_model). */
+export function isSwearByOath(m) {
+  const rule = meritRuleFor(m && m.name);
+  return !!rule && rule.cost_model === 'swear_by';
+}
+
+/** Rule doc for a merit name, via the rules cache. */
+function meritRuleFor(name) {
+  if (!name) return null;
+  const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return getRuleByKey(slug) || null;
+}
+
+/**
+ * ADR-010 D1 — swear the oath at `realIdx` against `attachments`.
+ *
+ * `attachments` is `[{ name, qualifier, dots }]`, referencing merits by
+ * NAME + QUALIFIER — never by array index, because `c.merits` indices move
+ * under splice.
+ *
+ * Parity (D1b) is validated BEFORE anything is written: a pledge that does
+ * not total the requirement is rejected with a message naming the shortfall
+ * or excess, and nothing is persisted. The requirement is SNAPSHOTTED into
+ * `sworn_by.dots_required` at this moment and never recomputed — otherwise a
+ * rising Blood Potency would silently invalidate a standing Oath of
+ * Abstinence every time it moved.
+ *
+ * No XP is charged: that is what `cost_model: 'swear_by'` means.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shSwearOath(realIdx, attachments) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  if (!c) return { ok: false, message: 'No character in edit.' };
+  const m = c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+
+  const required = oathDotsRequired(c, m);
+  // `m` itself is excluded so re-swearing an existing pledge does not read
+  // its own dots as already spoken for.
+  const check = validatePledge(c, attachments, required, meritRating, m);
+  if (!check.valid) return { ok: false, message: check.message };
+
+  m.sworn_by = buildSwornBy(required, attachments, {
+    chapter_number: currentChapterNumber(),
+    iso: new Date().toISOString().slice(0, 10),
+  });
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
+}
+
+/**
+ * Release the pledge on the oath at `realIdx`, leaving the merit itself in
+ * place.
+ *
+ * This is the swear-flow's undo, NOT the D6 exit event: it removes the
+ * pledge outright rather than recording a breach. Breaking an oath, its
+ * consequences and its history are OATH-B, and nothing here appends to
+ * `sworn_by.history`.
+ */
+export function shReleaseOath(realIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  delete m.sworn_by;
+  _markDirty();
+  _renderSheet(c);
+}
+
+/**
+ * The current Chapter ordinal, for `sworn_by.sworn_at.chapter_number`.
+ *
+ * ADR-010 D3a anchors the mechanic on `game_sessions.chapter_number`.
+ * Nothing in OATH-A reads this value back — which is precisely why it is
+ * captured now: it is unrecoverable after the fact, and OATH-B's deferred
+ * restoration work is uncomputable without it (Risk 2).
+ *
+ * Returns null when no chapter context is loaded, rather than inventing a
+ * number. A wrong ordinal is worse than an absent one.
+ */
+function currentChapterNumber() {
+  const n = state.currentChapterNumber;
+  return Number.isInteger(n) ? n : null;
+}
+
+/**
+ * OATH-A — stage one merit's pledged dots on the oath at `realIdx`.
+ *
+ * Writes to a TRANSIENT `m._pledge_draft`, never to `m.sworn_by`. The draft
+ * is underscore-prefixed, so both existing save paths strip it
+ * (`buildSaveBody` for API writes, `charsForSave` for the localStorage
+ * mirror) and a half-built pledge can never reach a persisted document or a
+ * stale cache entry. Only `shCommitOath` promotes a draft to `sworn_by`, and
+ * only after `validatePledge` passes.
+ *
+ * `dots: 0` removes the entry rather than storing a zero, so the draft and
+ * the persisted shape agree (attachments carry `minimum: 1`).
+ */
+export function shSetPledgeDots(realIdx, name, qualifier, dots) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  const q = qualifier == null || qualifier === '' ? null : qualifier;
+  const val = Math.max(0, parseInt(dots) || 0);
+
+  const draft = Array.isArray(m._pledge_draft)
+    ? m._pledge_draft.slice()
+    : ((m.sworn_by && m.sworn_by.attachments) || []).map(a => ({ ...a }));
+
+  const i = draft.findIndex(a => a.name === name && (a.qualifier ?? null) === q);
+  if (val === 0) { if (i >= 0) draft.splice(i, 1); }
+  else if (i >= 0) draft[i].dots = val;
+  else draft.push({ name, qualifier: q, dots: val });
+
+  m._pledge_draft = draft;
+  delete m._oathError;
+  _markDirty();
+  _renderSheet(c);
+}
+
+/**
+ * OATH-A — commit the staged draft on the oath at `realIdx`.
+ *
+ * Parity is validated inside `shSwearOath`; a failure leaves the draft in
+ * place and surfaces the message on the row, so the player can correct it
+ * rather than losing what they had entered. Nothing is persisted on failure.
+ */
+export function shCommitOath(realIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  const draft = Array.isArray(m._pledge_draft)
+    ? m._pledge_draft
+    : ((m.sworn_by && m.sworn_by.attachments) || []);
+  const res = shSwearOath(realIdx, draft);
+  if (!res.ok) {
+    m._oathError = res.message;
+    _markDirty();
+    _renderSheet(c);
+    return;
+  }
+  delete m._pledge_draft;
+  delete m._oathError;
   _renderSheet(c);
 }

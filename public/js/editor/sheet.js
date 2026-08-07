@@ -17,14 +17,21 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
 import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
-import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
+import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
+// OATH-A (#1111): the pledge editor needs to know whether a merit is a
+// Swear By oath and what its requirement resolves to. edit-domain.js owns
+// both (it owns the write path); no cycle - edit-domain does not import
+// sheet.js.
+import { isSwearByOath, oathDotsRequired } from './edit-domain.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
 // N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
 // N-5: validateTrapDoorAnchor reports the render-time non-functional state.
 // COLLECTIVE-2 (#1110): getCollectiveCompounds + ownsCompound drive the
 // allocator stepper and the virtual-row synthesis for EVERY compound.
-import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, getCollectiveCompounds, ownsCompound, freeOf, collectiveCompoundDots, synthesiseCollectiveCompoundNames } from '../data/rules-helpers.js';
+// OATH-A (#1111, ADR-010 D1): buildPledgeIndex is the RENDER-TIME reverse
+// index (merit -> the oaths holding it). Never persisted; rebuilt per render.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, getCollectiveCompounds, ownsCompound, freeOf, collectiveCompoundDots, synthesiseCollectiveCompoundNames, buildPledgeIndex, pledgeKeyFor, pledgeableDots, meritMatchesRef } from '../data/rules-helpers.js';
 import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
@@ -1812,6 +1819,99 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   h += '</div>'; return h;
 }
 
+/**
+ * OATH-A (issue #1111, ADR-010 D1/D1b) — the pledge editor.
+ *
+ * Rendered under a Swear By oath's row in EDIT MODE only. Lists every merit
+ * the character owns that has dots free to pledge, plus the ones already
+ * pledged to THIS oath, each with a dot stepper. A running total against the
+ * requirement makes the parity rule visible before the player commits, and
+ * the Swear button re-validates server-side of the UI in `shSwearOath` — the
+ * display total is a convenience, never the check.
+ *
+ * Returns '' for any merit that is not a Swear By oath, so the oath family is
+ * the only thing that grows a pledge editor.
+ */
+/**
+ * OATH-A (#1111) — report that the edit just made was overridden by a
+ * pledge floor.
+ *
+ * EDIT-TIME FEEDBACK, not a status indicator. It renders only after an edit
+ * has set `_pledgeFloorNote`, so a freshly loaded over-committed character
+ * shows nothing — correct for an override notice, which has nothing to
+ * report when no edit happened. Its absence from the read-only renderer is
+ * likewise correct rather than the dual-renderer blind spot: there are no
+ * edits to override there.
+ *
+ * A standing "this character is over-committed" indicator is a different
+ * feature — render-time derived from pledges versus pool capacity, in both
+ * renderers, independent of any edit. Filed as #1122.
+ *
+ * `_pledgeFloorNote` is transient and `_`-prefixed, so both save paths strip
+ * it per merit and it never persists.
+ */
+function _pledgeFloorNote(m) {
+  if (!m || !m._pledgeFloorNote) return '';
+  return '<div class="dom-cap-warn">\u26A0 ' + esc(m._pledgeFloorNote) + '</div>';
+}
+
+function _oathPledgeEditor(c, m, rIdx) {
+  if (!isSwearByOath(m)) return '';
+  const required = oathDotsRequired(c, m);
+  const sb = m.sworn_by || null;
+  const current = sb && Array.isArray(sb.attachments) ? sb.attachments : [];
+  const currentOf = (cand) => {
+    const hit = current.find(a => meritMatchesRef(cand, a));
+    return hit ? (hit.dots || 0) : 0;
+  };
+
+  // Candidates: anything with spare dots, plus anything already pledged here
+  // (so an existing pledge can be reduced rather than only increased).
+  const candidates = (c.merits || []).filter(cand => {
+    if (cand === m) return false;               // an oath cannot pledge itself
+    if (cand.sworn_by) return false;            // nor can another oath be pledged
+    return pledgeableDots(c, cand, meritRating, m) > 0 || currentOf(cand) > 0;
+  });
+
+  const total = current.reduce((s, a) => s + (a.dots || 0), 0);
+  const parityCls = total === required ? 'sc-full' : total > required ? 'sc-over' : 'sc-val';
+
+  let h = '<div class="dom-edit-block oath-pledge-editor">';
+  h += '<div class="dom-inherited-card-title">Sworn by — pledge '
+     + required + ' dot' + (required === 1 ? '' : 's')
+     + ' <span class="' + parityCls + '">' + total + '/' + required + '</span></div>';
+
+  if (!candidates.length) {
+    h += '<div class="dom-cap-warn">⚠ No merits with dots free to pledge.</div>';
+  }
+
+  for (const cand of candidates) {
+    const label = cand.name + (cand.qualifier ? ' (' + cand.qualifier + ')' : '');
+    const spare = pledgeableDots(c, cand, meritRating, m);
+    const now = currentOf(cand);
+    const slug = (cand.name + '-' + (cand.qualifier || '')).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    h += '<div class="merit-bd-row"><div class="bd-grp">'
+      + '<span class="bd-lbl bd-bonus-lbl" id="bd-pledge-lbl-' + slug + '">' + esc(label) + '</span>'
+      + '<input id="bd-pledge-' + slug + '" name="bd-pledge-' + slug + '"'
+      + ' aria-label="Dots of ' + esc(label) + ' pledged to ' + esc(m.name) + '"'
+      + ' class="merit-bd-input bd-bonus-input" type="number" min="0" max="' + (spare + now) + '"'
+      + ' value="' + now + '"'
+      + ' onchange="shSetPledgeDots(' + rIdx + ',\'' + esc(cand.name).replace(/'/g, "\\'") + '\','
+      + (cand.qualifier ? '\'' + esc(cand.qualifier).replace(/'/g, "\\'") + '\'' : 'null')
+      + ',+this.value)">'
+      + '</div><div class="bd-eq"><span class="bd-val">' + (spare + now) + ' free</span></div></div>';
+  }
+
+  h += '<div class="dev-add-row">'
+    + '<button class="dev-add-btn" onclick="shCommitOath(' + rIdx + ')">'
+    + (sb ? 'Re-swear' : 'Swear') + '</button>';
+  if (sb) h += '<button class="dev-rm-btn" onclick="shReleaseOath(' + rIdx + ')" title="Release the pledge">&times;</button>';
+  h += '</div>';
+  if (m._oathError) h += '<div class="dom-cap-warn">⚠ ' + esc(m._oathError) + '</div>';
+  h += '</div>';
+  return h;
+}
+
 export function shRenderGeneralMerits(c, editMode) {
   const oM = (c.merits || []).filter(m => m.category === 'general');
   if (!editMode && !oM.length) return '';
@@ -1822,6 +1922,34 @@ export function shRenderGeneralMerits(c, editMode) {
   let _meritAlert = meritCPRem < 0 ? 'red' : null;
   for (const _p of (c._grant_pools || []).filter(_p2 => _p2.category === 'any')) { const _u = getMCIPoolUsed(c); if (_u > _p.amount) { _meritAlert = 'red'; break; } else if (_u < _p.amount && _meritAlert !== 'red') _meritAlert = 'yellow'; }
   const _meritBadge = editMode ? _alertBadge(_meritAlert) : '';
+  // -- OATH-A (issue #1111, ADR-010 D1/D2) -----------------------------
+  // Encumbrance is DISPLAY + EDIT GATE with zero accessor changes: the
+  // badge reports what is pledged and NOTHING here alters a dot sum. The
+  // pledged dots remain fully usable.
+  //
+  // Computed once for the whole renderer so BOTH the edit-mode branch and
+  // the view-mode branch read the same index. Wiring one and not the other
+  // is the silent failure mode this codebase has hit before.
+  const _pledgeIdx = buildPledgeIndex(c);
+  // "This merit is pledged" - shown on the ENCUMBERED merit.
+  const _pledgeBadge = (m) => {
+    const e = _pledgeIdx.get(pledgeKeyFor(m));
+    if (!e || !e.dots) return '';
+    const by = e.oaths.map(o => o.oath + ' (' + o.dots + ')').join(', ');
+    return '<span class="gen-granted-tag" title="Pledged to ' + esc(by)
+      + ' - still fully usable, but cannot be sold while the oath stands">Pledged '
+      + e.dots + '</span>';
+  };
+  // "This oath holds a pledge" - shown on the OATH row itself.
+  const _oathPledgeNote = (m) => {
+    const sb = m && m.sworn_by;
+    if (!sb || !Array.isArray(sb.attachments) || !sb.attachments.length) return '';
+    const what = sb.attachments
+      .map(a => a.name + (a.qualifier ? ' (' + a.qualifier + ')' : '') + ' ' + a.dots)
+      .join(', ');
+    return '<span class="gen-granted-tag" title="Sworn against ' + esc(what)
+      + '">Sworn ' + sb.dots_required + '</span>';
+  };
   let h = '<div class="sh-sec"><div class="sh-sec-title">Merits' + _meritBadge + '</div><div class="merit-list">';
   if (editMode) {
     const _bpXP = (c.bp_creation && c.bp_creation.xp) || 0, _bpLost = (c.bp_creation && c.bp_creation.lost) || 0;
@@ -1864,7 +1992,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1880,8 +2008,11 @@ export function shRenderGeneralMerits(c, editMode) {
         } else if (_FREE_TEXT_QUAL.has(m.name) || m.qualifier) h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
         const _mBonus = m.bonus || 0;
         h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
+          + _pledgeBadge(m) + _oathPledgeNote(m)
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs });
+        h += _pledgeFloorNote(m);
+        h += _oathPledgeEditor(c, m, rIdx);
         // N-4a (issue #781): White Ants + Trap Door pickers moved to
         // shRenderDomainMerits (their merits are sub_category='domain').
         // Calls removed here — would never have fired in the general renderer
@@ -1900,9 +2031,9 @@ export function shRenderGeneralMerits(c, editMode) {
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
-        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag);
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m));
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m)); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;

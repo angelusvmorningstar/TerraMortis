@@ -9,8 +9,11 @@ import {
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
-import { freeOf, poolAvailableFor } from '../data/rules-helpers.js';
-import { xpToDots } from './xp.js';
+import { freeOf, poolAvailableFor, pledgedDots, swornOaths, meritMatchesRef } from '../data/rules-helpers.js';
+// OATH-A (#1111): meritRating is the OWNED-dots helper. The pledge gate
+// clamps against owned dots, never effective ones — encumbrance reduces no
+// rating anywhere (ADR-010 D2).
+import { xpToDots, meritRating } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
@@ -31,6 +34,10 @@ import {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAllocateCompoundVirtual,
+  shSwearOath,
+  shReleaseOath,
+  shSetPledgeDots,
+  shCommitOath,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
@@ -46,6 +53,10 @@ export {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAllocateCompoundVirtual,
+  shSwearOath,
+  shReleaseOath,
+  shSetPledgeDots,
+  shCommitOath,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
@@ -981,6 +992,22 @@ export function shStepMeritRating(realIdx, dir) {
   _renderSheet(c);
 }
 
+/**
+ * A shallow copy of merit `m` with `field` zeroed, for measuring how much
+ * that field contributes to the merit's owned rating. Handles both the flat
+ * shape (`cp`, `xp`, `free_mci`) and the dotted allocator shape
+ * (`free_grants.<slug>`). Never mutates `m`.
+ */
+function _meritWithFieldCleared(m, field) {
+  if (field.startsWith('free_grants.')) {
+    const slug = field.slice('free_grants.'.length);
+    const fg = { ...(m.free_grants || {}) };
+    delete fg[slug];
+    return { ...m, free_grants: fg };
+  }
+  return { ...m, [field]: 0 };
+}
+
 export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
@@ -988,6 +1015,83 @@ export function shEditMeritPt(realIdx, field, val) {
   const m = c.merits[realIdx];
   if (!m) return;
   val = Math.max(0, parseInt(val) || 0);
+  // ── OATH-A (issue #1111, ADR-010 D1/D2) — pledged-dot edit gate ──────────
+  // The editor refuses to sell or reallocate dots pledged to a standing
+  // Swear By oath. This is a FLOOR ON THE WRITE and nothing else: no sum
+  // anywhere is altered, and the pledged dots remain fully usable
+  // (encumbrance is display + edit gate, D2). Same clamp idiom as the pool
+  // caps below.
+  //
+  // The floor is computed against what this field CONTRIBUTES, measured by
+  // re-running meritRating on a copy of the merit with the field cleared.
+  //
+  // #1111 QA: this was previously `_ownedNow - (m[field] || 0)` behind a
+  // `!field.startsWith('free_grants.')` guard, which had the bypass exactly
+  // backwards. meritRating SUMS ten free_grants channels (bloodline, pet,
+  // mci, vm, lk, ohm, inv, pt, mdb, sw) and pledgeableDots measures pledges
+  // in meritRating terms, so the dots that CAN be pledged were precisely the
+  // ones the guard exempted from the floor protecting them — and xp.js emits
+  // shEditMeritPt(idx, 'free_grants.mci', ...) straight from the bd-row, so
+  // it was reachable from the UI. The failure was UNDER-clamping, not the
+  // over-clamping the guard was written to avoid.
+  //
+  // Clearing the field and re-measuring handles dotted and flat paths alike
+  // with no per-slug allowlist. Channels meritRating does NOT count (e.g.
+  // free_grants.necro) still measure a 0 contribution and so still never
+  // clamp — that property now falls out of the measurement instead of
+  // depending on a prefix guard.
+  //
+  // #1111 QA round 2: the floor is COMPUTED here but APPLIED after the pool
+  // caps below, because each cap does `val = Math.min(val, available)` and
+  // would otherwise push val straight back under the floor just computed.
+  // Round 1 fixed the measurement; the enforcement was still non-uniform
+  // underneath it. Several channels passed only by accident of whether their
+  // pool's "used" helper counts the merit being edited, so this is a
+  // class-wide ordering fix rather than a per-channel one.
+  const _pledgedHere = pledgedDots(c, m);
+  let _floor = 0;
+  if (_pledgedHere > 0 && typeof field === 'string') {
+    const _ownedWithoutField = meritRating(c, _meritWithFieldCleared(m, field));
+    _floor = Math.max(0, _pledgedHere - _ownedWithoutField);
+  }
+  delete m._pledgeFloorNote;
+  /**
+   * Apply the pledge floor AFTER every cap. Floor wins on reductions (SM
+   * ruling): when a cap sits below the floor the merit ALREADY holds more
+   * dots than the pool can fund, that over-commitment predates this edit,
+   * and a reduction does not worsen it — whereas letting the cap win would
+   * silently void part of a standing pledge, invisibly, leaving the oath
+   * claiming dots the merit no longer has.
+   *
+   * Caps still bind as UPPER bounds: this only ever raises val, never lowers
+   * it, so it cannot license allocating dots a pool does not have.
+   *
+   * When the floor overrides a cap, `_pledgeFloorNote` records it so the
+   * editor can say so. It is EDIT-TIME FEEDBACK: "the change you just made
+   * was overridden, and here is why". It is set as a side effect of an edit
+   * and is therefore absent on a fresh load, which is correct for what it
+   * is — an override notice has nothing to report when no edit happened,
+   * and has no business in the read-only renderer.
+   *
+   * It is NOT a standing "this character is over-committed" indicator. That
+   * is a different feature: it would have to be derived at render time from
+   * pledges versus pool capacity, independent of any edit, and surface in
+   * both renderers. Filed as #1122; deliberately not built here, because
+   * folding it in would smuggle a feature into a bug fix.
+   *
+   * The note is `_`-prefixed, so both save paths strip it per merit and it
+   * can never persist.
+   */
+  const _applyPledgeFloor = (v) => {
+    if (_floor <= 0 || v >= _floor) return v;
+    const _oaths = swornOaths(c)
+      .filter(o => o.sworn_by.attachments.some(a => meritMatchesRef(m, a)))
+      .map(o => o.name);
+    m._pledgeFloorNote = 'Held at ' + _floor + ' dot' + (_floor === 1 ? '' : 's')
+      + ' - ' + _pledgedHere + ' pledged to ' + (_oaths.join(', ') || 'a standing oath')
+      + '. The pool cannot fund what is already sworn.';
+    return _floor;
+  };
   // Cap CP edits by the 10-point merit creation budget
   if (field === 'cp') {
     const otherCP = (c.merits || []).reduce((s, m2, i) => s + (i === realIdx ? 0 : (m2.cp || 0)), 0)
@@ -1035,6 +1139,7 @@ export function shEditMeritPt(realIdx, field, val) {
     const current = (m.free_grants && m.free_grants[slug]) || 0;
     const avail = poolAvailableFor(c, slug) + current;
     val = Math.min(val, Math.max(0, avail));
+    val = _applyPledgeFloor(val);
     m.free_grants = m.free_grants || {};
     if (val > 0) m.free_grants[slug] = val;
     else delete m.free_grants[slug];
@@ -1044,6 +1149,7 @@ export function shEditMeritPt(realIdx, field, val) {
     _renderSheet(c);
     return;
   }
+  val = _applyPledgeFloor(val);
   m[field] = val;
   // Sync stored rating via shared helper — never hand-roll the sum or new
   // free_* channels get silently dropped on every edit (was the case for
