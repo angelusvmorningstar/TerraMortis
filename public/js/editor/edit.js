@@ -992,6 +992,22 @@ export function shStepMeritRating(realIdx, dir) {
   _renderSheet(c);
 }
 
+/**
+ * A shallow copy of merit `m` with `field` zeroed, for measuring how much
+ * that field contributes to the merit's owned rating. Handles both the flat
+ * shape (`cp`, `xp`, `free_mci`) and the dotted allocator shape
+ * (`free_grants.<slug>`). Never mutates `m`.
+ */
+function _meritWithFieldCleared(m, field) {
+  if (field.startsWith('free_grants.')) {
+    const slug = field.slice('free_grants.'.length);
+    const fg = { ...(m.free_grants || {}) };
+    delete fg[slug];
+    return { ...m, free_grants: fg };
+  }
+  return { ...m, [field]: 0 };
+}
+
 export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
@@ -1006,13 +1022,27 @@ export function shEditMeritPt(realIdx, field, val) {
   // (encumbrance is display + edit gate, D2). Same clamp idiom as the pool
   // caps below.
   //
-  // The floor is computed against what this field CONTRIBUTES, so reducing
-  // an unrelated channel on the same merit is unaffected. Fields outside
-  // meritRating's channel list contribute 0, so they never clamp spuriously.
+  // The floor is computed against what this field CONTRIBUTES, measured by
+  // re-running meritRating on a copy of the merit with the field cleared.
+  //
+  // #1111 QA: this was previously `_ownedNow - (m[field] || 0)` behind a
+  // `!field.startsWith('free_grants.')` guard, which had the bypass exactly
+  // backwards. meritRating SUMS ten free_grants channels (bloodline, pet,
+  // mci, vm, lk, ohm, inv, pt, mdb, sw) and pledgeableDots measures pledges
+  // in meritRating terms, so the dots that CAN be pledged were precisely the
+  // ones the guard exempted from the floor protecting them — and xp.js emits
+  // shEditMeritPt(idx, 'free_grants.mci', ...) straight from the bd-row, so
+  // it was reachable from the UI. The failure was UNDER-clamping, not the
+  // over-clamping the guard was written to avoid.
+  //
+  // Clearing the field and re-measuring handles dotted and flat paths alike
+  // with no per-slug allowlist. Channels meritRating does NOT count (e.g.
+  // free_grants.necro) still measure a 0 contribution and so still never
+  // clamp — that property now falls out of the measurement instead of
+  // depending on a prefix guard.
   const _pledgedHere = pledgedDots(c, m);
-  if (_pledgedHere > 0 && typeof field === 'string' && !field.startsWith('free_grants.')) {
-    const _ownedNow = meritRating(c, m);
-    const _ownedWithoutField = _ownedNow - (m[field] || 0);
+  if (_pledgedHere > 0 && typeof field === 'string') {
+    const _ownedWithoutField = meritRating(c, _meritWithFieldCleared(m, field));
     const _floor = Math.max(0, _pledgedHere - _ownedWithoutField);
     if (val < _floor) val = _floor;
   }

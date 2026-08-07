@@ -260,6 +260,55 @@ describe('OATH-A AC6 — the editor refuses to sell pledged dots', () => {
     expect(c.merits[strikingIdx].cp).toBe(0);
   });
 
+  it('REGRESSION (#1111 QA): a free_grants.* channel counted by meritRating is ALSO clamped', () => {
+    // The bypass Ma'at measured. meritRating sums ten free_grants channels
+    // (bloodline, pet, mci, vm, lk, ohm, inv, pt, mdb, sw) and pledgeableDots
+    // measures pledges in meritRating terms, so the dots that CAN be pledged
+    // were exactly the ones the floor exempted. xp.js emits
+    // shEditMeritPt(idx, 'free_grants.mci', ...) straight from the bd-row, so
+    // the bypass is reachable from the UI, not theoretical.
+    //
+    // Direction matters: this is UNDER-clamping, not over-clamping. The
+    // original guard skipped every dotted path, so these fields never
+    // clamped at all.
+    const c = mkChar([
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_grants: { mci: 3 } },
+      {
+        category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+        sworn_by: buildSwornBy(4, [{ name: 'Resources', dots: 4 }], null),
+      },
+    ]);
+    stateMod.chars = [c];
+    stateMod.editIdx = 0;
+    stateMod.editMode = true;
+    expect(meritRating(c, c.merits[0])).toBe(5); // 2 cp + 3 mci
+
+    // Selling the MCI channel to 0 would drop owned 5 -> 2 against a
+    // standing 4-dot pledge. The floor must stop it at 2 mci (2 + 2 = 4).
+    shEditMeritPt(0, 'free_grants.mci', 0);
+    expect(meritRating(c, c.merits[0])).toBeGreaterThanOrEqual(4);
+    expect(c.merits[0].free_grants.mci).toBe(2);
+  });
+
+  it('REGRESSION (#1111 QA): a free_grants.* channel NOT counted by meritRating still never clamps', () => {
+    // The property the old prefix guard provided must survive its removal.
+    // free_grants.necro is genuinely absent from meritRating's sum, so it
+    // contributes 0 and must remain freely editable even under a pledge.
+    const c = mkChar([
+      { category: 'general', name: 'Resources', cp: 4, xp: 0, free_grants: { necro: 3 } },
+      {
+        category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+        sworn_by: buildSwornBy(4, [{ name: 'Resources', dots: 4 }], null),
+      },
+    ]);
+    stateMod.chars = [c];
+    stateMod.editIdx = 0;
+    stateMod.editMode = true;
+    shEditMeritPt(0, 'free_grants.necro', 0);
+    expect(c.merits[0].free_grants.necro).toBeUndefined();
+    expect(c.merits[0].cp).toBe(4); // the pledged dots are untouched
+  });
+
   it('the floor tracks the pledge, not a fixed number', () => {
     const c = setup();
     // Raise the Contacts pledge to 2 by re-swearing, then try to sell it out.

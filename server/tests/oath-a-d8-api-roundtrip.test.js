@@ -54,7 +54,7 @@ afterAll(async () => {
 
 describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
   it('creates a swear_by oath carrying cost_model, rating_basis and forfeiture', async () => {
-    const res = await request(app).post('/api/rules').set(stUser()).send(OATH_ROW);
+    const res = await request(app).post('/api/rules').set('X-Test-User', stUser()).send(OATH_ROW);
     expect(res.status).toBe(201);
     expect(res.body.cost_model).toBe('swear_by');
     expect(res.body.rating_basis).toEqual({ type: 'blood_potency_multiple', factor: 2 });
@@ -64,7 +64,7 @@ describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
   it('accepts cost_model "free" — the OTHER five live rows use it', async () => {
     // Declaring the enum as ['swear_by'] alone would have made five live
     // rows newly invalid while fixing five.
-    const res = await request(app).post('/api/rules').set(stUser())
+    const res = await request(app).post('/api/rules').set('X-Test-User', stUser())
       .send({ ...OATH_ROW, key: KEY + '-free', cost_model: 'free', rating_basis: null });
     expect(res.status).toBe(201);
     expect(res.body.cost_model).toBe('free');
@@ -72,7 +72,7 @@ describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
   });
 
   it('accepts the highest_status rating_basis variant', async () => {
-    const res = await request(app).post('/api/rules').set(stUser()).send({
+    const res = await request(app).post('/api/rules').set('X-Test-User', stUser()).send({
       ...OATH_ROW, key: KEY + '-status',
       rating_basis: { type: 'highest_status', pools: ['covenant', 'clan'] },
     });
@@ -82,7 +82,7 @@ describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
   });
 
   it('REJECTS an unknown cost_model rather than accepting anything', async () => {
-    const res = await request(app).post('/api/rules').set(stUser())
+    const res = await request(app).post('/api/rules').set('X-Test-User', stUser())
       .send({ ...OATH_ROW, key: KEY + '-bad', cost_model: 'barter' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
@@ -91,7 +91,7 @@ describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
   it('REJECTS a rating_basis whose neighbouring fields belong to the other variant', async () => {
     // Discriminator-typed means each variant carries its OWN fields and does
     // not overload another variant's (ADR-005 D3/D5).
-    const res = await request(app).post('/api/rules').set(stUser())
+    const res = await request(app).post('/api/rules').set('X-Test-User', stUser())
       .send({ ...OATH_ROW, key: KEY + '-mixed', rating_basis: { type: 'blood_potency_multiple', pools: ['clan'] } });
     expect(res.status).toBe(400);
   });
@@ -102,7 +102,7 @@ describe('OATH-A D8 — PUT /api/rules/:key lets an ST edit the oath fields', ()
     // Without UPDATABLE_FIELDS entries these are silently filtered out and
     // the reference data becomes code-deploy-only, contradicting the
     // MongoDB-backed convention.
-    const res = await request(app).put('/api/rules/' + KEY).set(stUser()).send({
+    const res = await request(app).put('/api/rules/' + KEY).set('X-Test-User', stUser()).send({
       cost_model: 'free',
       rating_basis: { type: 'highest_status', pools: ['clan'] },
       forfeiture: { type: 'default', dots: 1 },
@@ -146,7 +146,7 @@ describe('OATH-A D8 — the character schema accepts sworn_by', () => {
   it('saves a character whose oath carries a pledge', async () => {
     // characterSchema is additionalProperties:false, so without the
     // declaration this POST fails and a player simply cannot swear an oath.
-    const res = await request(app).post('/api/characters').set(stUser()).send(CHAR);
+    const res = await request(app).post('/api/characters').set('X-Test-User', stUser()).send(CHAR);
     expect(res.status).toBe(201);
     id = res.body._id;
     const saved = res.body.merits.find(m => m.sworn_by);
@@ -158,7 +158,7 @@ describe('OATH-A D8 — the character schema accepts sworn_by', () => {
   it('REJECTS an attachment referencing a merit by array index', async () => {
     // Index-based references are a defect even when they pass every test,
     // so the schema refuses the shape outright.
-    const res = await request(app).post('/api/characters').set(stUser()).send({
+    const res = await request(app).post('/api/characters').set('X-Test-User', stUser()).send({
       ...CHAR,
       name: 'OATH-A Bad Ref Probe',
       merits: [{
@@ -170,7 +170,7 @@ describe('OATH-A D8 — the character schema accepts sworn_by', () => {
   });
 
   it('REJECTS a zero-dot attachment', async () => {
-    const res = await request(app).post('/api/characters').set(stUser()).send({
+    const res = await request(app).post('/api/characters').set('X-Test-User', stUser()).send({
       ...CHAR,
       name: 'OATH-A Zero Dot Probe',
       merits: [{
