@@ -150,7 +150,7 @@ Parity rejection is **demonstrated failing**, per the story's explicit obligatio
 
 Full suite: **4 failed → 4 failed, the same four canonical names, none of them an OATH-A surface.** 2120 tests, 1032 passed.
 
-### AC 8 — prod write, HELD pending Peter's ruling
+### AC 8 — prod write, APPLIED 2026-08-07 (Peter approved on the dry-run numbers)
 
 `server/scripts/fix-1111-oath-row-hygiene.js` — dry-run by default, backs up every targeted document to `server/scripts/_backups/` before writing, `--apply` to write. **It has not been applied.** Dry-run output against live `tm_suite`:
 
@@ -163,7 +163,27 @@ Summary: 10/10 rows validate after this change.
 Out of scope (filed separately): 656 rows keep `selected` and 517 keep `special`, of 673 total.
 ```
 
-Per the SM's adopted separation: **AC 7's D8 round-trip proof runs entirely on `tm_suite_test` and needs no production write.** Only AC 8 does. If the write is deferred, AC 8 carries forward as a follow-up and the story still delivers a working purchase flow.
+Per the SM's adopted separation: **AC 7's D8 round-trip proof runs entirely on `tm_suite_test` and needs no production write.** Only AC 8 does.
+
+#### Applied — before/after, verified INDEPENDENTLY of the script
+
+The script's own summary is not evidence that the script worked; that is the ECM failure shape and the reason this was held. A separate probe compiled `purchasablePowerSchema` with ajv and counted the collection directly, before and after.
+
+| measure | before | after | required |
+|---|---|---|---|
+| oath rows passing the schema | 0 / 10 | **10 / 10** | all pass |
+| total rows failing the schema | 666 | **656** | drop by exactly 10 |
+| out-of-scope rows keeping `selected` | 656 | **656** | unchanged |
+| out-of-scope rows keeping `special` | 517 | **517** | unchanged |
+| total rows in collection | 673 | **673** | unchanged |
+| oath rows carrying `selected` / `special` | 10 / 10 | **0 / 0** | stripped |
+| `rating_basis` on the two D4 targets | null, null | **both seeded** | seeded |
+
+All seven checks pass. The delta is exactly 10 and nothing outside the ten rows moved, so the write did what the approved diff said and no more.
+
+Sequence followed, per the SM's four conditions: before-state captured as evidence independently of the backup; dry run re-run immediately pre-apply and confirmed still `Matched: 10` with the out-of-scope line still 656/517/673, so the approved diff was still the applicable diff; applied; postcondition verified by the independent probe.
+
+Rollback artefact: `fix-1111-oath-rows-2026-08-07T09-46-30-245Z.json`, 10 full pre-change documents (all 10 carry `selected` and `special` as they were). `server/scripts/_backups/` is gitignored and the worktree is disposable, so the file was **copied to the main repository's `server/scripts/_backups/`** — a recovery artefact that only exists inside a temporary worktree is not a recovery artefact.
 
 ### Environment limitation — the same one as #1110, pre-escalated
 
@@ -199,4 +219,52 @@ Preconditions: `ls markdown | wc -l` → **10** (satisfied). **MongoDB NOT reach
 
 ## QA Results
 
-_(Ma'at)_
+**Gate: CHANGES REQUESTED** (Ma'at, 2026-08-07, commit 5429c16c). **AC6 is not met** — the edit gate has a reachable bypass. AC7's proof suite has never executed anywhere; after a one-line harness fix it passes 10/10, so the D8 implementation itself is sound.
+
+### AC6 — the edit gate does NOT hold. Reachable bypass, measured.
+
+The clamp exempts every `free_grants.*` field:
+
+```js
+if (_pledgedHere > 0 && typeof field === 'string' && !field.startsWith('free_grants.')) {
+```
+
+But `meritRating` (`xp.js:190`) *counts* ten of those channels — `bloodline, pet, mci, vm, lk, ohm, inv, pt, mdb, sw` — and `pledgeableDots` measures pledges in `meritRating` terms. So dots that can be pledged are exempt from the floor that protects them.
+
+Reachable through the editor: `xp.js` emits `shEditMeritPt(i, 'free_grants.mci', v)` from the merit breakdown row.
+
+Measured on a fixture — Resources at cp 2 + `free_grants.mci` 3 = 5 owned, **4 dots sworn**:
+
+```
+shEditMeritPt(1, 'free_grants.mci', 0)
+  →  meritRating 5 → 2, unclamped, against a standing 4-dot pledge
+```
+
+The failure is the opposite of the one anticipated: **under-clamping, not over-clamping.** No warning, no refusal; the oath keeps claiming 4 dots on a merit that now rates 2.
+
+The other four negative-space cases all behave correctly: a field outside the channel list never clamps; unpledging releases the clamp; an unrelated merit on a sworn character is untouched; and the flat legacy `free_mci` path leaves `free_grants.mci` alone.
+
+Suggested fix — drop the `startsWith` exemption and compute the field's contribution generically rather than by flat-key lookup, e.g. `_ownedNow - meritRating(c, {…m, <field cleared>})`. That handles dotted and flat paths alike and needs no per-slug allowlist. `free_grants.necro` (and the COLLECTIVE-2 slugs) are genuinely not in `meritRating`'s sum, so they will continue to contribute 0 and never clamp spuriously — which is what the current comment claims for all of them.
+
+### AC7 — the D8 suite has never run. Implementation sound; artefact broken.
+
+Executed with Mongo up (Atlas, `tm_suite_test`). **10 tests, 10 failed** — every one on `TypeError: Header name must be a valid HTTP token`. Cause: `.set(stUser())` with a single argument, where `stUser()` returns a JSON *value*. Every working API suite in the repo uses `.set('X-Test-User', stUser())`.
+
+The suite was skipped under Mongo-down and fails under Mongo-up, so it has never passed in any environment.
+
+Patching the 9 call sites in a scratch copy: **10/10 pass.** So D8 genuinely works — POST accepts `cost_model`/`rating_basis`/`forfeiture`, the PUT allowlist passes them, persistence is verified rather than echoed, and the rejection cases all bite (unknown `cost_model`, cross-variant `rating_basis`, merit-by-array-index attachment, zero-dot attachment). The fields are **not** left as unreachable as `cost_model` was. Fix is mechanical.
+
+### Verified by mutation, not by reading the report
+
+- **Parity rejection bites.** Disabling `validatePledge` fails 10 rejection tests. They do not pass vacuously on a correct pledge.
+- **Dual-renderer badge holds.** `_pledgeBadge` (1832) and `_oathPledgeNote` (1841) sit at function scope, above `if (editMode)` at 1851. Blanking `_pledgeBadge` fails **both** the EDIT MODE and VIEW MODE assertions — the view-mode test asserts on real badge output.
+- **Name+qualifier, never index** — confirmed on the *persisted* shape, not the helper signature: the D8 round-trip's "REJECTS an attachment referencing a merit by array index" passes against the live API, and the helper suite's splice-survival test passes.
+- No uniqueness enforcement: agreed, correct per Peter's withdrawal of D5. Not flagged.
+
+### Not gated
+
+AC8 (prod write) is held for Peter. Untouched here.
+
+### Forward note, not a finding
+
+This branch is based on dev, so `shRenderGeneralMerits` still carries the pre-#1110 `showNECRO: _hasNecroSep && _necroTargets.includes(m.name)` shape at `sheet.js:1888`. COLLECTIVE-2 rewrites that same region. The two will conflict on merge — sequencing is worth deciding before either lands.
