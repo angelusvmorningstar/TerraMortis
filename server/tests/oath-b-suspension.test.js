@@ -46,7 +46,7 @@ function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); 
 
 let H;                       // rules-helpers
 let meritEffectiveRating, meritRating, meritFreeSum;
-let shRenderGeneralMerits, shRenderDomainMerits;
+let shRenderGeneralMerits, shRenderDomainMerits, shRenderInfluenceMerits;
 let shExitOath, shRestoreOathDots;
 let stateMod, loadRulesMod;
 
@@ -55,7 +55,7 @@ beforeAll(async () => {
   H = await import(u(['public', 'js', 'data', 'rules-helpers.js']));
   ({ meritEffectiveRating, meritFreeSum } = await import(u(['public', 'js', 'editor', 'domain.js'])));
   ({ meritRating } = await import(u(['public', 'js', 'editor', 'xp.js'])));
-  ({ shRenderGeneralMerits, shRenderDomainMerits } = await import(u(['public', 'js', 'editor', 'sheet.js'])));
+  ({ shRenderGeneralMerits, shRenderDomainMerits, shRenderInfluenceMerits } = await import(u(['public', 'js', 'editor', 'sheet.js'])));
   const editMod = await import(u(['public', 'js', 'editor', 'edit.js']));
   editMod.registerCallbacks(() => {}, () => {});
   ({ shExitOath, shRestoreOathDots } = await import(u(['public', 'js', 'editor', 'edit-domain.js'])));
@@ -505,6 +505,30 @@ describe('OATH-B AC7 — every surface that displays merit dots reflects a suspe
     }
   });
 
+  it('SURFACE: the Contacts AGGREGATE row reflects a suspension on one instance', () => {
+    // Contacts renders as ONE row summed across every instance, while a
+    // suspension is per-instance — so the suspension has to be summed over
+    // the same instance set rather than applied to the aggregate.
+    //
+    // The original sweep used a plain Allies row and never exercised this
+    // path at all, which is its own small lesson: a sweep is only as wide as
+    // its fixtures, and "influence" is not one shape.
+    const c = mkChar([
+      { category: 'influence', name: 'Contacts', qualifier: 'Police', cp: 3, rating: 3 },
+      { category: 'influence', name: 'Contacts', qualifier: 'Press', cp: 2, rating: 2 },
+      oath('Contacts', 3, [EXITED('broken')], 'Police'),
+    ]);
+    H.applySuspensions(c);
+    expect(c.merits[0]._suspended_dots).toBe(3);
+    expect(c.merits[1]._suspended_dots).toBeUndefined();   // only one instance pledged
+
+    stateMod.chars = [c]; stateMod.editIdx = 0; stateMod.editMode = false;
+    const view = shRenderInfluenceMerits(c, false);
+    // Aggregate purchased is 5; 3 suspended leaves 2 usable.
+    expect(view).not.toContain('●●●●●');
+    expect(view).toContain('●●');
+  });
+
   it('FIXED BYPASS: the downtime contact dot display subtracts the suspension', () => {
     const src = read('public/js/tabs/downtime-form.js');
     expect(src).toContain("'\\u25CF'.repeat(applySuspensionTo(m, m.rating || 1))");
@@ -525,6 +549,34 @@ describe('OATH-B AC7 — every surface that displays merit dots reflects a suspe
     // And the key is byte-identical when nothing is suspended, so no
     // previously-saved response is orphaned.
     expect(src).toContain("merit._suspended_dots ? `_susp${merit._suspended_dots}` : ''");
+  });
+
+  it('PRESENTATION: suspended dots vanish from the SOLID band; the hollow band never shrinks', () => {
+    // Peter's ruling 2026-08-07: the dot row means what you can use right
+    // now. Suspended dots vanish rather than rendering hollow, because ○
+    // already means "bonus" and reusing it would make it mean "bonus OR
+    // suspended" with nothing telling them apart.
+    //
+    // The hollow half is the invariant the comment on shDotsSuspended
+    // promises: bonus dots are not pledgeable (pledges are measured in
+    // meritRating terms), so they are never what is lost. If a suspension
+    // ever ate into the hollow band it would mean something upstream is
+    // treating bonus dots as pledgeable — a bug, not a display choice — so
+    // it is asserted rather than left to the floor to absorb silently.
+    const c = mkChar([
+      // 2 purchased + 2 bonus (free_mci counts as a bonus band dot here).
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_grants: { mci: 2 } },
+      oath('Resources', 2, [EXITED('broken')]),
+    ]);
+    H.applySuspensions(c);
+    stateMod.chars = [c]; stateMod.editIdx = 0; stateMod.editMode = true;
+    const html = shRenderGeneralMerits(c, true);
+
+    const solid = (html.match(/●/g) || []).length;
+    const hollow = (html.match(/○/g) || []).length;
+    // 2 purchased - 2 suspended = 0 solid; the 2 bonus dots are untouched.
+    expect(solid, 'solid band should have shrunk to 0').toBe(0);
+    expect(hollow, 'hollow band must NOT shrink').toBeGreaterThanOrEqual(2);
   });
 
   it('STATED EXCLUSION: the virtual compound row is deliberately NOT suspended', () => {

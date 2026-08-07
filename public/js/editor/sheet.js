@@ -179,28 +179,40 @@ function _alertBadge(lvl) {
 }
 
 /**
- * OATH-B (#1111) — the ONE place that decides how an oath suspension looks.
+ * OATH-B (#1111) — how an oath suspension renders. Peter's ruling, 2026-08-07.
  *
- * Every merit-dot display computes its purchased/bonus bands locally, so
- * rather than teaching each of them a rendering rule, they all funnel the
- * suspended COUNT through here and this function decides the presentation.
- * Peter's ruling on vanish-vs-hollow is therefore a one-line change inside
- * this function, not a sweep across the sheet.
+ * SUSPENDED DOTS VANISH FROM THE SOLID BAND.
  *
- * INTERIM BEHAVIOUR, pending that ruling: suspended dots are REMOVED from the
- * purchased band (they vanish). The alternative under consideration is
- * rendering them hollow, which reads as "still yours, currently unusable" but
- * overloads a glyph that already means "bonus".
+ *     Resources  ●●●●    owned 4, nothing suspended
+ *     Resources  ●       owned 4, suspended 3   + badge "Pledged 3 to ..."
  *
- * The dots are removed from the PURCHASED band specifically: a suspension
- * takes access to the pledged dots, and pledges are made against owned dots
- * (OATH-A injects meritRating, which is cp + xp + granted channels). Bonus
- * dots were never pledgeable, so they are never what is lost.
+ * The dot row means WHAT YOU CAN USE RIGHT NOW, and nothing else. The
+ * "still yours" half is the badge's job, and the badge already exists from
+ * OATH-A — so no glyph carries two meanings and no new convention is
+ * invented.
+ *
+ * WHY NOT RENDER THEM HOLLOW — the obvious future question. `○` currently
+ * means "bonus" and nothing else. Reusing it for "suspended" would make it
+ * mean "bonus OR suspended" with nothing distinguishing the two at a glance.
+ * That is the same overloading objection that rejected the self-referential
+ * `exclusive` shim in ADR-010 D5: one glyph, one meaning.
+ *
+ * ONLY THE SOLID BAND SHRINKS. Bonus dots are not pledgeable — pledges are
+ * measured in `meritRating` terms, which counts owned dots — so they are not
+ * suspendable either. If a call site ever pushes a suspension into the
+ * hollow band, that is not a display question: it means something upstream
+ * is treating bonus dots as pledgeable, which is a bug. The floor below
+ * makes that impossible here, but the invariant is asserted in the suite so
+ * it fails loudly rather than silently absorbing into the hollow count.
+ *
+ * Every merit-dot display funnels its suspended COUNT through this one
+ * function rather than each learning a rendering rule, so the presentation
+ * lives in a single place.
  */
 function shDotsSuspended(purchased, bonus, suspended) {
   const n = Math.max(0, suspended || 0);
   if (!n) return shDotsMixed(purchased, bonus);
-  // ── THE ONE LINE ── swap this for a hollow-band render if that is the ruling.
+  // Solid shrinks; bonus is passed through untouched, never reduced.
   return shDotsMixed(Math.max(0, purchased - n), bonus);
 }
 
@@ -1013,10 +1025,16 @@ export function shRenderInfluenceMerits(c, editMode) {
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
-      let totalPurch = 0, totalRating = 0;
+      // OATH-B (#1111): Contacts is displayed as ONE aggregate row summed
+      // across every instance, while a suspension is per-instance. So the
+      // suspension is summed over THE SAME instance set rather than applied
+      // to the aggregate afterwards — applying it to the total would be
+      // correct only when a single instance is pledged.
+      let totalPurch = 0, totalRating = 0, totalSusp = 0;
       ce.forEach(m => {
         totalPurch += (m.cp || 0) + (m.xp || 0);
         totalRating += (m.rating || 0);
+        totalSusp += shSuspendedOf(m);
       });
       // No 5-cap: engine bonuses (Attaché variant, OHM, PT, etc.) can lift
       // the effective Contacts rating past 5 and the renderer should show it.
@@ -1029,7 +1047,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));
       });
       const sp = [...new Set(allSp)].join(', ');
-      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsMixed(cPurch, cBon));
+      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsSuspended(cPurch, cBon, totalSusp));
     }
     h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   }

@@ -38,7 +38,11 @@ const OATH_ROW = {
   // them was rejected by `additionalProperties: false`.
   cost_model: 'swear_by',
   rating_basis: { type: 'blood_potency_multiple', factor: 2 },
-  forfeiture: { type: 'default' },
+  // OATH-B (#1111) typed `forfeiture` as a discriminator with exactly one
+  // declared variant. `{ type: 'default' }` was a placeholder in OATH-A that
+  // never named a real variant, so it is now correctly rejected — updated to
+  // the actual schedule rather than loosening the schema to accept it.
+  forfeiture: { type: 'chapter_span_then_monthly', chapters: 2, restore_per_month: 1 },
 };
 
 beforeAll(async () => {
@@ -58,7 +62,7 @@ describe('OATH-A D8 — POST /api/rules accepts the oath field family', () => {
     expect(res.status).toBe(201);
     expect(res.body.cost_model).toBe('swear_by');
     expect(res.body.rating_basis).toEqual({ type: 'blood_potency_multiple', factor: 2 });
-    expect(res.body.forfeiture).toEqual({ type: 'default' });
+    expect(res.body.forfeiture).toEqual({ type: 'chapter_span_then_monthly', chapters: 2, restore_per_month: 1 });
   });
 
   it('accepts cost_model "free" — the OTHER five live rows use it', async () => {
@@ -105,12 +109,12 @@ describe('OATH-A D8 — PUT /api/rules/:key lets an ST edit the oath fields', ()
     const res = await request(app).put('/api/rules/' + KEY).set('X-Test-User', stUser()).send({
       cost_model: 'free',
       rating_basis: { type: 'highest_status', pools: ['clan'] },
-      forfeiture: { type: 'default', dots: 1 },
+      forfeiture: { type: 'chapter_span_then_monthly', chapters: 3, restore_per_month: 2 },
     });
     expect(res.status).toBe(200);
     expect(res.body.cost_model).toBe('free');
     expect(res.body.rating_basis).toEqual({ type: 'highest_status', pools: ['clan'] });
-    expect(res.body.forfeiture).toEqual({ type: 'default', dots: 1 });
+    expect(res.body.forfeiture).toEqual({ type: 'chapter_span_then_monthly', chapters: 3, restore_per_month: 2 });
   });
 
   it('the edit is actually persisted, not just echoed', async () => {

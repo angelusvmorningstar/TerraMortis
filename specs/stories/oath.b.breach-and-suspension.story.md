@@ -131,11 +131,43 @@ Written down rather than silently skipped, so each can be re-examined instead of
 - **`public/js/suite` and `public/js/game`** — contain no merit-dot reads at all, so *"every read that rolls merit dots"* is an **empty set**. Recorded as an emptiness observation and deliberately **not** asserted as coverage: a test over an empty set passes because there is nothing in it.
 - **The three MUST-BYPASS sites** (`xp.js` XP accounting, `edit.js` OATH-A pledge floor, `data/audit.js`) read **owned** dots by design and are asserted to contain no suspension symbol. The pledge floor is the subtle one: if a suspension lowered it, breaking an oath would unlock selling the very dots that were staked.
 
+### Presentation — ruled, not guessed
+
+Peter, 2026-08-07: **suspended dots vanish from the solid band.** The dot row means *what you can use right now*; the "still yours" half is the badge's job, and the badge already exists from OATH-A.
+
+Not hollow, because `○` currently means "bonus" and nothing else — reusing it would make it mean "bonus OR suspended" with nothing telling them apart at a glance. Same overloading objection that rejected the self-referential `exclusive` shim in D5. One glyph, one meaning.
+
+**Only the solid band shrinks**, and that is arithmetic rather than presentation: pledges are measured in `meritRating` terms, so bonus dots were never pledgeable and are never what is lost. Asserted, not merely floored — if a suspension ever ate into the hollow band it would mean something upstream is treating bonus dots as pledgeable, which is a bug.
+
+The ruling cost nothing to apply because every display funnels its suspended *count* through one function rather than each learning a rendering rule.
+
+### A regression I introduced, caught only because Mongo was briefly up
+
+Tightening `forfeiture` to a single declared variant **broke OATH-A's D8 round-trip suite**: its fixture used `{ type: 'default' }`, which was a placeholder that never named a real variant, so five tests began failing on a 400.
+
+Fixed by updating the fixture to the real schedule rather than loosening the schema to accept a value that was never valid.
+
+Two things worth recording about *how* it surfaced. It appeared only in a run where MongoDB happened to be reachable — every Mongo-down run skipped those tests and showed a clean named-set match. And my own sweep could not have found it, because it is a cross-story schema interaction rather than a rendering one. **This is the concrete cost of the DB-backed suites being unrunnable in a worktree**: a real regression sat invisible behind 1084 skips, and only an intermittent connection exposed it.
+
+Mongo went away again before I could re-run, so **the fix itself is unverified** — see below.
+
 ### Test results
 
 `oath-b-suspension.test.js` — **49 tests, all passing, no DB required.** The API round-trip proving `chapter_number` and the forfeiture params survive persistence is `oath-b-d6-api-roundtrip.test.js`, which is DB-backed and **skipped in this worktree**.
 
-Full suite: **4 failed → 4 failed**, the deterministic set by name (`n7-n9` meritPrereqOK ×1, `epic.708.3` ×3), no OATH-B surface. 2224 tests, 1136 passed, 1084 skipped.
+Full suite, Mongo-down: **4 failed → 4 failed**, the deterministic set by name (`n7-n9` meritPrereqOK ×1, `epic.708.3` ×3), no OATH-B surface.
+
+Full suite in a brief **Mongo-up** window: 2257 tests, **0 skipped** — which surfaced the 5 OATH-A round-trip failures above. After the fixture fix, Mongo was unreachable again across three retries, so **the repair is unverified and Ma'at must confirm it**, along with OATH-B's own 15 round-trip tests, which have still never executed.
+
+### The pattern this epic kept hitting
+
+Three times the stated implementation site was wrong, and twice the correction itself needed correcting — including the SM's. In every case the claim was *true at the granularity anyone checked it at*:
+
+> **A site can be right about which function and wrong about which point inside it, and only a case that exercises the boundary distinguishes them.**
+
+"The fall-through applies to every category" was true of the function and false of the branch. "Subtracting at the exit is safe" was true while the cap did not bind. "`domMeritContribSingle` is the own term" was true for the sum and false for the gate. Each survived review because reviewing it at the level it was stated at confirms it.
+
+The defence that worked was never a sharper reading — it was building the stated version and measuring the property across every input, which does not require guessing which layer is wrong.
 
 ### Change Log
 
