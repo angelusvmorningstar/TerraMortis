@@ -4,7 +4,7 @@ title: 'Swear By oath cost model — merit attachment, encumbrance vs suspension
 status: approved
 date: 2026-08-06
 author: Imhotep (Architect)
-revision: 3
+revision: 4
 supersedes: null
 issue: 'https://github.com/angelusvmorningstar/TerraMortis/issues/1111'
 related:
@@ -31,6 +31,7 @@ related:
 | 1 | 2026-08-06 | Initial. Written ahead of a story for issue #1111 at Peter's direction (ADR before story). Grounding by Khepri (SM) on the Chapter-boundary question and the `cost_model` reachability question was taken as given and then re-verified against live Atlas and the route code; three of the SM's framing assumptions changed as a result (see Context §3). Six decisions requested; eight recorded (D7 and D8 are consequences the survey forced). Four questions left open, one of them (Q1) blocking. | Imhotep (Architect) |
 | 2 | 2026-08-06 | **Status → approved.** No decision text changed; D1–D8 stand exactly as drafted in Rev 1. Three status updates only. (a) **Q1 resolved by Peter: build it — the issue supersedes the 2026-07-25 meeting, full scope.** The ST-mod alternative is not pursued; the `merits.N.dots` dead read path from §5 was filed independently as #1119 and is no longer a cost on this work. (b) **Q3 resolved by Khepri (SM), not escalated: partner shared-domain sums stay untouched**, with the added justification that touching them would pre-judge the deferred MNEC-prerequisite audit. (c) The two-story implementation seam in the closing note is **adopted** rather than merely offered. Q2 (uniqueness scope) and Q4 (restoration trigger) remain open with Peter; neither blocks Story A, and Q4 affects only the trigger step of Story B. Approved-with-opens follows the ADR-005 Rev 2 precedent of a deferred non-blocking question inside an approved ADR. | Imhotep (Architect) |
 | 3 | 2026-08-06 | **Q2 and Q4 answered by Peter; no open questions remain.** Both answers shrink the build, and one corrects a factual premise. (a) **Q2 — uniqueness is not enforced in code at all.** "I would rather have the STs coordinate and check this rather than enforce in code." That is not a choice between the scoping options offered; it declines enforcement. **D5 is withdrawn**, not narrowed — no `uniqueness` field, no write-path check, no picker filter — and survives only as a rejected alternative recording the *product* reasoning, so a later reader who finds the constraint in the rules text does not file its absence as a bug. (b) **Q4 part 1 — a Chapter IS a month.** This voids D3b's argument (i) outright: "one dot per month" and "one dot per chapter" are the same rate in different units, so **there is no wall-clock dependency anywhere in this mechanic**. Arguments (ii) sparse data and (iii) the recorded ST-call preference stand. (c) **Q4 part 2 — restoration is deferred entirely**; no scheduler, no due-date computation, no trigger. **D3b is withdrawn** as a shipping decision and restated as the deferred work's specification. Consequential amendments the survey forced, none of them requested: D6's `restored` event is **load-bearing and must survive the deferral** (see D3b); D7's `session` variant **cannot ship** with restoration deferred; and D3a's binding obligation moves from render-time to **write-time**. D1, D1b, D2, D4, D6, D8 are unchanged. | Imhotep (Architect) |
+| 4 | 2026-08-07 | **D2's implementation site corrected. Decisions otherwise unchanged; OATH-A already merged (`dev` at `b2cf0d21`) and is unaffected.** Found by Ptah at build time by implementing the briefed version and **measuring all seven categories**; confirmed by the SM; re-verified here against `origin/dev`. (a) **The fall-through is not universal.** `meritEffectiveRating` has three early returns inside its `domain` branch, so a suspension applied only in the fall-through is silently ignored by Haven, Mandragora Garden, Safe Place, Feeding Grounds and every shared domain merit. **D1's own worked example pledges Safe Place**, so the ADR's canonical case was precisely the one its stated site would miss. D2's surrounding reasoning — no sixth fork, suspension is another cap, `meritEffectiveRating` is the designated read — all stands; only the named branch was wrong. (b) **New finding, not in the SM's brief: the subtraction must precede the cap.** The approved fix (subtract once at the exported exit) closes the coverage gap but is order-wrong: both combining branches return `min(5, own + partner)`, so subtracting after the cap under-reports whenever the cap binds, and drives the owner's total below the partner's contribution. The SM's stated equivalence of the two designs does not hold. Decision: subtract on the **own-dots term, before combination and capping**, in every branch; the zero floor is required rather than defensive because `CAP_DOMAIN` can return less than own dots. (c) The SM's test #1 is **correctly designed and will fail** on the briefed implementation — its two clauses are mutually unsatisfiable in the capped case — so it must not be weakened to go green. | Imhotep (Architect) |
 
 ---
 
@@ -127,7 +128,7 @@ m.sworn_by = {
   attachments: [
     { name: 'Resources',  qualifier: null,          dots: 2 },
     { name: 'Contacts',   qualifier: 'Police',      dots: 1 },
-    { name: 'Safe Place', qualifier: '12 Rue Morgue', dots: 1 },
+    { name: 'Safe Place', qualifier: '12 Rue Morgue', dots: 1 },   // <-- see D2 Rev 4: this row is the counterexample
   ],
   sworn_at: { chapter_number: 2, iso: '2026-08-06' },
   history: [ /* D6 */ ],
@@ -158,13 +159,51 @@ The SM framed this as one new third state beyond purchased/granted. It is two st
 
 **Suspended (post-breach) is arithmetic, and it lands in `meritEffectiveRating`.**
 
-`public/js/editor/domain.js:309` already carries the docstring *"Effective merit rating ... Use this everywhere a calc references a merit's effective dots. Do NOT read m.rating directly."* It is already the designated canonical effective-dots helper, and it already applies exactly this shape of reduction — the Haven/Mandragora cap, the Carthian exclusion, the Herd bonuses. **Suspension is another cap.** It goes in the general fall-through branch so it applies to every merit category, not just `domain`.
+`public/js/editor/domain.js:309` already carries the docstring *"Effective merit rating ... Use this everywhere a calc references a merit's effective dots. Do NOT read m.rating directly."* It is already the designated canonical effective-dots helper, and it already applies exactly this shape of reduction — the Haven/Mandragora cap, the Carthian exclusion, the Herd bonuses. **Suspension is another cap.** ~~It goes in the general fall-through branch so it applies to every merit category, not just `domain`.~~ **That sentence is wrong — corrected in Rev 4 below.** The intent (one helper, one reduction, no sixth fork) stands; the named site does not.
 
 The critical boundary: **suspension must not touch `meritRating` (`xp.js:190`) or `xpSpent`.** A vampire who breaks an oath loses *access* to dots, not the XP that bought them. Refunding or discounting the XP would be a rules error, and it would make `xpLeft` jump on breach. The existing `meritRating` (owned) vs `meritEffectiveRating` (effective) split is therefore not an obstacle to route around — it is precisely the distinction the rules require, already implemented. Suspension is the first consumer to give it teeth.
 
 `domMeritShareableSingle` and the server's `characters.js` enrichment are deliberately **not** touched, consistent with ADR-005 §D6(b): whether suspended dots stop contributing to a *partner's* domain total is a genuine rules question nobody has asked, and folding it in here would silently pre-judge the deferred MNEC-prerequisite audit. Recorded as Open Question 3.
 
 **Composition.** The suspension amount is derived per render from `sworn_by.history` (D6) plus the schedule (D7); it is never stored on the encumbered merit. It is materialised onto the in-memory character as a transient `m._suspended_dots` at the same composition site that already runs `applyDerivedMerits`, before any accessor reads — the ADR-004 §D8 cache-entry invariant. `meritEffectiveRating` subtracts `m._suspended_dots`, floored at zero. `_`-prefixed, therefore stripped on **both** existing save paths — `buildSaveBody` (`public/js/admin.js:962`, API writes) and `charsForSave` (`public/js/editor/export.js:79`, the localStorage mirror) — so it can never reach a persisted document or a stale cache entry (ADR-005 §D3 / Concern #3 precedent).
+
+#### D2 amendment (Rev 4) — the fall-through is not universal, and the subtraction must precede the cap
+
+Found by Ptah at build time by implementing the briefed version and **measuring all seven categories** rather than reasoning about them; confirmed by the SM and re-verified here against `origin/dev` at `b2cf0d21`.
+
+**Correction 1 — the site.** `meritEffectiveRating` has three early returns above the fall-through, all inside `if (m.category === 'domain')`:
+
+| Predicate | Members | Returns |
+|---|---|---|
+| `CAP_DOMAIN.has(m.name)` | Haven, Mandragora Garden | the capped value |
+| `MULTI_INSTANCE_DOMAIN.has(m.name)` | Safe Place, Feeding Grounds | `domMeritTotalSingle(c, m)` |
+| `(m.shared_with \|\| []).length > 0` | any shared domain merit | `domMeritTotal(c, m.name)` |
+
+A suspension applied only in the fall-through is silently ignored by all five named merits and by every shared domain merit. General, influence and plain domain merits work.
+
+**This is not academic: D1's own worked example is the counterexample.** It pledges `{ name: 'Safe Place', qualifier: '12 Rue Morgue' }` — `MULTI_INSTANCE_DOMAIN`, an early return. The pledge editor applies no category filter, so domain merits are ordinary targets. Shipped as briefed, an ST breaks the oath, the event records correctly, and the dots do not move: no error, correct-looking history, unchanged sheet.
+
+**Correction 2 — order of operations. The subtraction must be applied to the character's OWN dots, before any partner contribution is combined and before any cap.** The SM's approved fix (existing body becomes the unsuspended computation; the exported function subtracts once before returning) fixes the coverage gap but introduces an ordering error, and the reasoning offered for it — that subtracting at the exit and subtracting from own give "identical answers in every reachable case" — is false wherever the 5-cap binds.
+
+Both combining branches cap: `domMeritTotalSingle` returns `Math.min(5, own + partnerTotal)`, and `domMeritTotal` returns `Math.min(cap, own + partnerTotal)` with `cap = 5` (Herd-with-Flock excepted). Worked counterexample, all values reachable:
+
+```
+Safe Place, own = 4, partner = 3, pledge = 4 dots, oath broken.
+
+  unsuspended effective   = min(5, 4 + 3)          = 5
+  subtract at the exit    = 5 - 4                  = 1     <-- SM's approved fix
+  subtract from own first = min(5, (4-4) + 3)      = 3     <-- correct
+```
+
+Two dots wrong, and the owner's displayed total (1) drops **below the partner's contribution (3)** — the precise outcome the SM's own test #1 asserts must never occur. The divergence appears exactly where a partner contribution is combined under a binding cap, which is also exactly where this brushes Open Question 3: the exit subtraction does not write to the partner's sheet, but it does visibly consume the partner's dots on the owner's.
+
+`CAP_DOMAIN` is unaffected — both orderings yield the same result there (Haven own 4, cap 2, pledge 4: exit gives `max(0, 2-4) = 0`; own-first gives `min(0, 2) = 0`) because there is no partner term to protect. So the only divergent paths are the two combining branches.
+
+**Decision.** Subtract on the own-dots term, before combination and capping, in every branch. `domMeritContribSingle` is the own-term for both combining branches, so it is one site for both; the `CAP_DOMAIN` branch and the fall-through have no partner term and may take the subtraction at the exported exit, provided it is not applied twice. D2's constraint is unchanged in spirit — **one subtraction rule, applied at the same logical point in every path** — and the floor at zero is *required*, not defensive, because `CAP_DOMAIN` can return less than the character's own dots.
+
+**Warning on the SM's test #1.** Its two clauses — "drops by exactly the suspended amount" *and* "never below the partner's contribution" — are **mutually unsatisfiable** under the exit-subtraction implementation in the capped case above (5 → 1 is exactly −4 *and* below the partner's 3). The test is correctly designed and will **fail** on the briefed implementation. It is expected to pass, so the risk is that the assertion gets weakened to make it green rather than the ordering being fixed. Per [feedback_baseline_red_before_gate](memory/feedback_baseline_red_before_gate.md), the test is right; the implementation under it is what must change.
+
+**What this failure was.** Not a reasoning error — a code-reading error of a specific kind. The docstring's "use this everywhere a calc references a merit's effective dots" is a true statement about the **function** and says nothing about which **branch** a given merit takes through it. Universality of a helper is not evidence about any particular path through it. That is the same species as the `meritEffectiveRating` read-path audit already carried as a hard AC in the Risks section, one level further in: the audit asks *which callers reach the helper*, and this asks *which branch they land on once inside*. Both must be measured, not inferred.
 
 ### D3a — The Chapter span anchors on the ordinal, `game_sessions.chapter_number`
 
@@ -349,7 +388,7 @@ The two pre-existing `sub_category` inconsistencies (`null` on three rows, `'oat
 
 **Risks.**
 
-1. **`meritEffectiveRating` is not universally used.** Its docstring claims it should be, which is not evidence that it is. Before the story is accepted, every read that displays or rolls merit dots must be checked to confirm it routes through the helper; any that does not will show unsuspended dots after a breach. This is the §4 fork restated as a test obligation, and it is the single most likely way this ships broken.
+1. **`meritEffectiveRating` is not universally used, AND reaching it is not enough.** Two distinct checks, and Rev 4 proved the second the hard way. (a) *Which callers reach the helper* — its docstring claims universal use, which is not evidence that they do; every read that displays or rolls merit dots must be confirmed to route through it. (b) *Which branch they land on once inside* — the helper has three early returns above its fall-through, and the Rev 1 text placed the suspension in a branch that five named merits never reach (D2 Rev 4 amendment). **A claim about a helper's universality is not evidence about any particular path through it.** Both must be measured category-by-category, as Ptah did, not inferred from the docstring. This is the §4 fork restated as a test obligation and remains the single most likely way this ships broken.
 2. **~~Sparse chapter data will make suspensions look wrong.~~ Superseded by the D3a amendment (Rev 3).** With restoration deferred, no code path evaluates chapter arithmetic, so sparse data cannot mis-expire a suspension. The live risk inverted: **`chapter_number` may be silently omitted from exit events** because nothing reads it in the shipped scope, which would make the deferred restoration work uncomputable and the data unrecoverable. Test that the exit event records it, not merely that the renderer tolerates its absence.
 3. **`restored` may be dropped as "part of the deferred restoration".** It is not — it is the only mechanism by which a suspension can ever lift (D3b). Dropping it ships irreversible dot loss. The most likely way Rev 3's scope reduction goes wrong.
 4. **The `merits.N.dots` dead path (§5) remains live** in the `st_mods` whitelist. Filed as #1119. Relevant here because an ST trying to hand-adjust a suspended merit via ST Mods will appear to succeed and do nothing — a plausible workaround for exactly the suspension this ADR introduces.
