@@ -179,11 +179,42 @@ export const purchasablePowerSchema = {
       ],
     },
 
-    // `forfeiture` — ADR-010 D7. Declared here so STs can author it; its
-    // consumer is OATH-B. A forward-declared field STs cannot edit is
-    // precisely the `cost_model` failure repeating (D8), so it is declared
-    // and allowlisted now even though nothing reads it yet.
-    forfeiture: { type: ['object', 'null'], additionalProperties: true },
+    // `forfeiture` — ADR-010 D7. Discriminator-typed like `rating_basis`.
+    //
+    // OATH-B (#1111) tightens this from a free-form object to the DEFAULT
+    // VARIANT ONLY. `{ type: 'session', sessions: n }` is deliberately NOT
+    // accepted: its entire content is "this suspension ends automatically at
+    // the end of the session", and with restoration deferred (ADR-010 D3b)
+    // nothing ends it — so accepting it would let an ST author a suspension
+    // that never terminates, and the failure would be invisible (a
+    // correct-looking suspension that simply never lifts). It defers together
+    // with restoration. Enforcing that here makes it a schema fact rather
+    // than a convention someone can seed around, which is exactly how the
+    // five oath rows came to exist while failing their own validator.
+    //
+    // Verified before tightening: 0 live rows carry `forfeiture` at all
+    // (tm_suite 2026-08-07), so this cannot reject existing data.
+    //
+    // Both parameters are RESTORATION parameters, so nothing reads either in
+    // the shipped scope. That is fine because D8 makes the field declared,
+    // schema-valid and ST-editable — declared-and-manageable-but-not-yet-
+    // consumed is ordinary forward-declared rules data, unlike `cost_model`,
+    // which was undeclared and unwritable.
+    forfeiture: {
+      oneOf: [
+        {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type:              { type: 'string', enum: ['chapter_span_then_monthly'] },
+            chapters:          { type: 'integer', minimum: 0 },
+            restore_per_month: { type: 'integer', minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+        { type: 'null' },
+      ],
+    },
 
     // Tracking flag — not consumed by game logic yet.
     // Issue #5 (2026-05-07): the legacy `selected` boolean was retired. Holder

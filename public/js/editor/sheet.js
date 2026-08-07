@@ -178,6 +178,49 @@ function _alertBadge(lvl) {
   return lvl === 'red' ? '<span class="sh-sec-alert red" title="Data error">!</span>' : '<span class="sh-sec-alert yellow" title="Unspent pool dots">&#9679;</span>';
 }
 
+/**
+ * OATH-B (#1111) — how an oath suspension renders. Peter's ruling, 2026-08-07.
+ *
+ * SUSPENDED DOTS VANISH FROM THE SOLID BAND.
+ *
+ *     Resources  ●●●●    owned 4, nothing suspended
+ *     Resources  ●       owned 4, suspended 3   + badge "Pledged 3 to ..."
+ *
+ * The dot row means WHAT YOU CAN USE RIGHT NOW, and nothing else. The
+ * "still yours" half is the badge's job, and the badge already exists from
+ * OATH-A — so no glyph carries two meanings and no new convention is
+ * invented.
+ *
+ * WHY NOT RENDER THEM HOLLOW — the obvious future question. `○` currently
+ * means "bonus" and nothing else. Reusing it for "suspended" would make it
+ * mean "bonus OR suspended" with nothing distinguishing the two at a glance.
+ * That is the same overloading objection that rejected the self-referential
+ * `exclusive` shim in ADR-010 D5: one glyph, one meaning.
+ *
+ * ONLY THE SOLID BAND SHRINKS. Bonus dots are not pledgeable — pledges are
+ * measured in `meritRating` terms, which counts owned dots — so they are not
+ * suspendable either. If a call site ever pushes a suspension into the
+ * hollow band, that is not a display question: it means something upstream
+ * is treating bonus dots as pledgeable, which is a bug. The floor below
+ * makes that impossible here, but the invariant is asserted in the suite so
+ * it fails loudly rather than silently absorbing into the hollow count.
+ *
+ * Every merit-dot display funnels its suspended COUNT through this one
+ * function rather than each learning a rendering rule, so the presentation
+ * lives in a single place.
+ */
+function shDotsSuspended(purchased, bonus, suspended) {
+  const n = Math.max(0, suspended || 0);
+  if (!n) return shDotsMixed(purchased, bonus);
+  // Solid shrinks; bonus is passed through untouched, never reduced.
+  return shDotsMixed(Math.max(0, purchased - n), bonus);
+}
+
+/** The suspended-dot count for a merit row, or 0. */
+function shSuspendedOf(m) {
+  return (m && m._suspended_dots) || 0;
+}
+
 /** Render merit dots split into purchased (full gold) and bonus (empty circle). */
 function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
@@ -933,7 +976,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       } else {
         _areaHtml = _inflArea(m, idx, false);
       }
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + shDotsSuspended(_iPurch, Math.max(0, dd + (m.bonus || 0) - _iPurch), shSuspendedOf(m)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       const _isAttacheVariant = m.name?.startsWith('Attach\u00e9 (');
@@ -954,7 +997,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         return INFLUENCE_SPHERES.filter(sp => !used.has(sp) || sp === currentSel)
           .map(sp => '<option' + (currentSel === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
       };
-      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + '\u25CF'.repeat(baseDots) + '\u25CB'.repeat(Math.max(0, rating - baseDots)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
+      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + shDotsSuspended(baseDots, Math.max(0, rating - baseDots), shSuspendedOf(m)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       const _cKey = contactsEntry.area ? 'Contacts (' + contactsEntry.area + ')' : 'Contacts';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0, attachBonus: attacheBonusDots(c, _cKey) });
       const _cAttBonus = attacheBonusDots(c, _cKey);
@@ -978,14 +1021,20 @@ export function shRenderInfluenceMerits(c, editMode) {
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
       const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
-      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m)));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
-      let totalPurch = 0, totalRating = 0;
+      // OATH-B (#1111): Contacts is displayed as ONE aggregate row summed
+      // across every instance, while a suspension is per-instance. So the
+      // suspension is summed over THE SAME instance set rather than applied
+      // to the aggregate afterwards — applying it to the total would be
+      // correct only when a single instance is pledged.
+      let totalPurch = 0, totalRating = 0, totalSusp = 0;
       ce.forEach(m => {
         totalPurch += (m.cp || 0) + (m.xp || 0);
         totalRating += (m.rating || 0);
+        totalSusp += shSuspendedOf(m);
       });
       // No 5-cap: engine bonuses (Attaché variant, OHM, PT, etc.) can lift
       // the effective Contacts rating past 5 and the renderer should show it.
@@ -998,7 +1047,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));
       });
       const sp = [...new Set(allSp)].join(', ');
-      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsMixed(cPurch, cBon));
+      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsSuspended(cPurch, cBon, totalSusp));
     }
     h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   }
@@ -1160,7 +1209,7 @@ export function shRenderDomainMerits(c, editMode) {
       const _cmpOwn = _rowCompounds.reduce((s, cmp) => s + freeOf(m, cmp.slug), 0);
       const _cmpCumulative = _rowCompounds.reduce((s, cmp) => s + collectiveCompoundDots(chars, m.name, cmp), 0);
       const _cmpPartner = Math.max(0, _cmpCumulative - _cmpOwn);
-      const _cmpDotsHtml = shDotsMixed(_cmpOwn, _cmpPartner);
+      const _cmpDotsHtml = shDotsSuspended(_cmpOwn, _cmpPartner, shSuspendedOf(m));
       const _cmpGateLbl = _rowCompounds.map(cmp => cmp.gateMerit).join(' + ');
       // Issue #827: subtitle for Haven / Mandragora Garden / White Ants
       // renders BEFORE the dots column inside the main row (LHS-justified),
@@ -1213,7 +1262,7 @@ export function shRenderDomainMerits(c, editMode) {
       if (_isCompoundTargetHere) {
         h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_cmpOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all ' + esc(_cmpGateLbl) + ' owners (\u25CF own, \u25CB partners)">Total: ' + _cmpDotsHtml + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + shDotsSuspended(_dPurch, Math.max(0, dd + (m.bonus || 0) - _dPurch), shSuspendedOf(m)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -1500,7 +1549,7 @@ export function shRenderDomainMerits(c, editMode) {
         const _own = _rowCompoundsView.reduce((s, cmp) => s + freeOf(m, cmp.slug), 0);
         const _cumul = _rowCompoundsView.reduce((s, cmp) => s + collectiveCompoundDots(chars, m.name, cmp), 0);
         const _partner = Math.max(0, _cumul - _own);
-        dotHtml = shDotsMixed(_own, _partner);
+        dotHtml = shDotsSuspended(_own, _partner, shSuspendedOf(m));
       } else if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
@@ -1672,7 +1721,7 @@ export function shRenderStandingMerits(c, editMode) {
     if (m.name === 'Mystery Cult Initiation') h += _renderMCI(c, m, si, rIdx, m, dd, editMode);
     else if (m.name === 'Professional Training') h += _renderPT(c, m, si, rIdx, m, dd, editMode, _standMciPool);
     else if (editMode) {
-      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + '\u25CF'.repeat(_stPurch) + '\u25CB'.repeat(Math.max(0, dd - _stPurch)) + '</span></div>';
+      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDotsSuspended(_stPurch, Math.max(0, dd - _stPurch), shSuspendedOf(m)) + '</span></div>';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 });
       h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
@@ -1681,7 +1730,7 @@ export function shRenderStandingMerits(c, editMode) {
         h += '<div class="derived-note">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsSuspended(_stPurch, Math.max(0, (m.rating || 0) - _stPurch), shSuspendedOf(m)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -1992,7 +2041,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDotsSuspended(_gPurch, Math.max(0, dd - _gPurch), shSuspendedOf(m)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -2007,7 +2056,7 @@ export function shRenderGeneralMerits(c, editMode) {
           }
         } else if (_FREE_TEXT_QUAL.has(m.name) || m.qualifier) h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
         const _mBonus = m.bonus || 0;
-        h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
+        h += '<span class="infl-dots-derived">' + shDotsSuspended(_gPurch, Math.max(0, dd + _mBonus - _gPurch), shSuspendedOf(m)) + '</span>'
           + _pledgeBadge(m) + _oathPledgeNote(m)
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs });
@@ -2027,7 +2076,7 @@ export function shRenderGeneralMerits(c, editMode) {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
       const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m) + (m.bonus || 0);
-      const dotH = shDotsMixed(purch, bon);
+      const dotH = shDotsSuspended(purch, bon, shSuspendedOf(m));
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';

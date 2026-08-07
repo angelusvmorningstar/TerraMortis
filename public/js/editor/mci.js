@@ -8,7 +8,7 @@ import { addMerit, ensureMeritSync } from './merits.js';
 import { syncMeritRating, pruneContactsSpheres } from './domain.js';
 // N-9 (issue #762): pool readers consume freeOf so they union-read map +
 // legacy fields (post-N-2 backfill the persisted data lives in the map).
-import { freeOf } from '../data/rules-helpers.js';
+import { freeOf, applySuspensions } from '../data/rules-helpers.js';
 import { getRulesBySource, getRulesCache } from './rule_engine/load-rules.js';
 import { applyPTRulesFromDb } from './rule_engine/pt-evaluator.js';
 import { applyMCIRulesFromDb } from './rule_engine/mci-evaluator.js';
@@ -172,6 +172,21 @@ export function applyDerivedMerits(c, allChars = []) {
     // surface stale options the character no longer holds.
     pruneContactsSpheres(m);
   });
+
+  // ── OATH-B (issue #1111, ADR-010 D2) — materialise oath suspension ──
+  // LAST, deliberately: it must run after ensureMeritSync/syncMeritRating
+  // above, because those write `m.rating` from the OWNED channels and would
+  // otherwise be reading a merit mid-way through composition. Suspension is
+  // derived from `sworn_by.history` and written to the transient
+  // `m._suspended_dots`; `meritEffectiveRating` subtracts it, once, at its
+  // single exit.
+  //
+  // This is the ADR-004 §D8 cache-entry invariant applied to suspension:
+  // every in-memory character passes through here, so every consumer of
+  // `meritEffectiveRating` sees the suspension with no per-callsite change.
+  // Note it deliberately does NOT touch `m.rating` — that is the owned
+  // rating, and breaking an oath costs access, not the XP that bought it.
+  applySuspensions(c);
 }
 
 const _MCI_DEFAULT_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier (1-indexed), 0 unused

@@ -17,7 +17,10 @@ import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEED
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
-import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+// OATH-B (#1111): applySuspensionTo is the single expression for what an
+// oath suspension does to a dot figure — used here by the three sites that
+// legitimately compute dots without going through meritEffectiveRating.
+import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
@@ -285,7 +288,16 @@ function _clearLocalSnapshot() {
 /** Build a stable key for a merit (used as field prefix and toggle key). */
 function meritKey(merit) {
   const area = merit.area || merit.qualifier || '';
-  return `${merit.name}_${merit.rating}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  // OATH-B (#1111): a suspension changes the merit's EFFECTIVE dots while
+  // `rating` (owned) stays put, so without this the key would be stable
+  // across a breach and the cached form entry would go stale — a form field
+  // still keyed to dots the character can no longer use. Not a display, so
+  // no render assertion would ever catch it.
+  //
+  // Appended only WHEN suspended, so unsuspended merits keep byte-identical
+  // keys and no previously-saved downtime response is orphaned.
+  const susp = merit._suspended_dots ? `_susp${merit._suspended_dots}` : '';
+  return `${merit.name}_${merit.rating}${susp}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
 /** Format a merit for display: "Allies ●●● (Health)" using effective rating. */
@@ -1488,7 +1500,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       // Cap uses stored dots/rating (not effectiveDomainDots which requires
       // attached_to → Safe Place to compute the haven-cap override).
       const mgMerit = currentChar.merits?.find(m => m.category === 'domain' && m.name === 'Mandragora Garden');
-      const mgCap = mgMerit ? (mgMerit.dots || mgMerit.rating || parked.length) : parked.length;
+      // OATH-B (#1111): suspended dots are not available to seed slots with.
+      // Applied to the figure this site already computes rather than routing
+      // through meritEffectiveRating, which would additionally impose the
+      // haven cap and change behaviour beyond this story.
+      const mgCap = mgMerit
+        ? applySuspensionTo(mgMerit, mgMerit.dots || mgMerit.rating || parked.length)
+        : parked.length;
       const toSeed = parked.slice(0, mgCap);
       const seeded = { sorcery_slot_count: String(toSeed.length) };
       toSeed.forEach((rite, i) => {
@@ -6656,7 +6674,8 @@ function renderMeritToggles(saved) {
     for (let n = 1; n <= maxContacts; n++) {
       const m = detectedMerits.contacts[n - 1];
       const area = m.area || m.qualifier || '— sphere unset —';
-      const dots = '\u25CF'.repeat(m.rating || 1);
+      // OATH-B (#1111): the displayed dots must reflect a suspension.
+      const dots = '\u25CF'.repeat(applySuspensionTo(m, m.rating || 1));
       const savedInfo = saved[`contact_${n}_info`] || '';
       const savedReq = saved[`contact_${n}_request`] || '';
       const isUsed = savedInfo || savedReq;
