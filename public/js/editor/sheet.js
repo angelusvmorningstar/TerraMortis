@@ -1832,6 +1832,20 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
  * Returns '' for any merit that is not a Swear By oath, so the oath family is
  * the only thing that grows a pledge editor.
  */
+/**
+ * OATH-A (#1111) — surface a pledge floor that had to override a pool cap.
+ *
+ * The state means the pool is over-committed relative to a standing pledge.
+ * Clamping to the floor is the correct arithmetic, but doing it silently
+ * leaves an ST to discover the over-commitment later; the visible failure
+ * mode is the better one. `_pledgeFloorNote` is transient and `_`-prefixed,
+ * so both save paths strip it per merit and it never persists.
+ */
+function _pledgeFloorNote(m) {
+  if (!m || !m._pledgeFloorNote) return '';
+  return '<div class="dom-cap-warn">\u26A0 ' + esc(m._pledgeFloorNote) + '</div>';
+}
+
 function _oathPledgeEditor(c, m, rIdx) {
   if (!isSwearByOath(m)) return '';
   const required = oathDotsRequired(c, m);
@@ -1969,7 +1983,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1988,6 +2002,7 @@ export function shRenderGeneralMerits(c, editMode) {
           + _pledgeBadge(m) + _oathPledgeNote(m)
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
         h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs });
+        h += _pledgeFloorNote(m);
         h += _oathPledgeEditor(c, m, rIdx);
         // N-4a (issue #781): White Ants + Trap Door pickers moved to
         // shRenderDomainMerits (their merits are sub_category='domain').

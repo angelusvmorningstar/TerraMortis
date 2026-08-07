@@ -201,6 +201,22 @@ Fixed per QA: drop the `startsWith` exemption, measure the field's contribution 
 
 **Fix 2 — the D8 proof suite had never passed anywhere.** Skipped under Mongo-down, and under Mongo-up all 10 tests died on `TypeError: Header name must be a valid HTTP token`: `.set(stUser())` with one argument, where the repo convention is `.set('X-Test-User', stUser())`. Nine call sites corrected. QA confirmed a patched copy gives 10/10, so D8 itself is sound and only its proof was broken — but a proof that has never executed is not weaker evidence than a passing one, it is none.
 
+### QA round 2 — the enforcement was non-uniform under the measurement
+
+Round 1 fixed **how** the floor was measured. Round 2 found the floor was measured correctly and then **applied in the wrong place**: it ran before the pool caps, and each cap does `val = Math.min(val, available)`, so a cap could push the value straight back under the floor that had just been computed. `free_inv` was where it bit in QA's rig; `free_mci` also bit in mine. The channels that passed did so by accident of whether their pool's "used" helper counts the merit being edited — the measurement was uniform across the class and the enforcement was not.
+
+**Fix (Ma'at's, tested rather than suggested):** hoist `_floor` out of the if-block and re-apply it after the whole cap block — on both the flat-field path and the `free_grants.*` early-return path. A class-wide ordering fix, not a per-channel patch.
+
+**Floor-vs-cap ruling (SM): floor wins on reductions.** When a cap sits below the floor, the merit already holds more dots than the pool can fund; that over-commitment predates the edit and a reduction does not worsen it (5 → 4 leaves the pool no worse off than 5 did). Letting the cap win would silently void part of a standing pledge and leave the oath claiming dots the merit no longer has. Caps still bind as **upper** bounds — `_applyPledgeFloor` only ever raises the value, so it cannot license allocating dots a pool does not have. Asserted in both directions.
+
+**The override is surfaced, not silent.** When the floor has to beat a cap, a `_pledgeFloorNote` naming the oath and the pledged count renders on the merit row. Correct arithmetic applied silently would leave an ST to discover an over-committed pool later; the visible failure mode is the better one. The note is `_`-prefixed — verified that **both** save paths strip `_`-prefixed keys *per merit* (`buildSaveBody` in `admin.js`, `charsForSave` in `export.js`, both under the N-1 Concern #3 loop), so it cannot persist.
+
+#### What I changed about how I tested it
+
+Both rounds, the per-case reasoning was sound and the gap sat one layer below where I was aiming. So round 2's test is a **property test, not a mechanism test**: assert the invariant — *after any `shEditMeritPt` on a pledged merit, `meritRating >= pledgedDots`* — and enumerate all thirteen fields the UI can emit. It does not care which mechanism leaks, only that none does, which is precisely what a per-field test cannot give: a change to any channel's pool maths would move the failure without touching this code, and the invariant would still catch it.
+
+Writing it that way immediately found `free_mci` alongside the `free_inv` QA reported. It also flagged two of my own fixtures as ill-formed (they pledged more than the merit owned *before* any edit, so they started already-violating) — the pledge is now sized from the merit's actual owned rating, so channels `meritRating` does not count leave owned unmoved and the invariant holds trivially for them, which is the correct expectation rather than a loophole.
+
 ### Rebase onto dev — DONE (2026-08-07)
 
 The rebase was initially **held**: the instruction assumed #1110 had landed, but `origin/dev` was still at `b44afc1a` with PR #1121 open and unmerged. Rebasing onto the unmerged branch would have folded all of COLLECTIVE-2's commits into OATH-A's diff and duplicated them on a squash merge. Checking the premise rather than executing the instruction is what avoided that.
@@ -250,8 +266,60 @@ Post-rebase full suite: **2160 tests, 1072 passed, 4 failed, 1084 skipped — th
 | 2026-08-07 | 46 non-DB tests green; AC8 script dry-run 10/10 FAIL→PASS, write held for Peter |
 | 2026-08-07 | AC8 APPLIED to production on Peter's approval; 10/10 rows validate, verified independently of the script |
 | 2026-08-07 | QA round 1: edit-gate bypass closed (regression test confirmed failing first); D8 proof suite header call fixed at 9 sites; 48 non-DB tests green |
+| 2026-08-07 | Rebased onto dev c5693580; 7 conflict hunks resolved take-both; no retired #1110 symbol resurrected |
+| 2026-08-07 | QA round 2: floor re-applied AFTER the pool caps (ordering, class-wide); floor-over-cap surfaced via transient `_pledgeFloorNote`; invariant probe across all 13 emittable fields |
 
 ## QA Results
+
+## Round 2 — re-gate at dc010204 (rebased onto dev c5693580)
+
+**Gate: CHANGES REQUESTED.** AC7 and AC8 now PASS and are verified independently. **AC6 still fails** — the measurement fix is correct and closes the class I reported, but it exposed a *second, distinct* defect underneath it.
+
+### AC7 — PASS, executed for the first time
+
+Verified the committed test file is exactly the file I patched: reverse-applying my `sed` to `HEAD` and diffing against `5429c16c` is byte-identical, so the only change is the header-argument fix. Then ran it on the committed branch against Atlas `tm_suite_test`: **10 tests, 10 passed.** D8's fields are genuinely reachable — POST accepts them, the PUT allowlist passes them, persistence is verified rather than echoed, and every rejection case bites.
+
+### AC6 — the measurement is fixed; the ORDERING is not
+
+`_meritWithFieldCleared` + `meritRating` is the right fix and it mirrors the write's `delete` semantics exactly, which also makes it correct for the 36 merit-slug pairs in live data that carry **both** a `free_grants.<slug>` map entry and a legacy `free_<slug>` key.
+
+But the floor is applied at `edit.js:1043-1048`, and the pool caps run **after** it at `:1050+`, each doing `val = Math.min(val, available)`. A cap can therefore push the value back below the floor that was just computed.
+
+Probed every field the UI can emit — `cp`, `xp`, `free_grants.mci`, `free_grants.<compound slug>`, `free_inv`, `free_lk`, `free_ohm`, `free_vm` — asserting one invariant: *after any `shEditMeritPt` on a pledged merit, `meritRating >= pledgedDots`.* Nine hold. One does not:
+
+```
+free_inv (flat, summed)   owned 5 -> 2   (pledged 4)   UNCLAMPED
+```
+
+Same shape as the original bug. `free_vm`, `free_lk`, `free_ohm` and `free_grants.mci` escape only by accident of their pool accounting — whether the channel's "used" helper counts the merit being edited — not by design. So the class is *measured* correctly now but still not *enforced* uniformly.
+
+**Fix verified, not just suggested:** re-applying the floor after the cap block (`if (val < _floor) val = _floor;` immediately before `m[field] = val`) makes all 10 cases pass. I ran that experiment and restored the file.
+
+One judgement call for the SM, flagged not decided: if a pool genuinely cannot fund the dots, floor and cap conflict. For a *reduction* the floor should win; refusing the edit outright is better than silently dropping pledged dots.
+
+### AC8 — PASS, verified independently against live data
+
+Compiled the post-story schema and ran it over the whole collection myself. Every reported figure reproduces:
+
+| | measured |
+|---|---|
+| total rows | 673 (unchanged) |
+| failing schema | **656** (was 666 — delta exactly 10) |
+| rows with `selected` | 656 (out-of-scope debt untouched) |
+| rows with `special` | 517 (untouched) |
+| rows with `cost_model` | 10, **all PASS**, no stray `selected`/`special` |
+
+`rating_basis` is correctly typed where required — `blood_potency_multiple` on Oath of Abstinence, `highest_status` on Oath of the Model Prisoner, absent elsewhere. **0 characters carry `sworn_by`**, so the prod write touched only the 10 rule rows and greenfield is intact.
+
+### Rebase resolution — PASS
+
+Both general-merit call sites carry both feature sets: `:1972` (the `granted_by` branch) and `:1990-1991` (the main branch) each pass `compoundPools` / `compoundSlugs` to `meritBdRow` *and* call `_oathPledgeEditor`. Behaviourally, the six interacting suites run together give **135/136**, the single failure being the pre-existing ring-fenced `meritPrereqOK` assertion — untouched, as required.
+
+Round-1 mutation results (dual-renderer badge, parity rejection) were not disturbed by the rebase and are not re-litigated.
+
+---
+
+## Round 1 — gate at 5429c16c
 
 **Gate: CHANGES REQUESTED** (Ma'at, 2026-08-07, commit 5429c16c). **AC6 is not met** — the edit gate has a reachable bypass. AC7's proof suite has never executed anywhere; after a one-line harness fix it passes 10/10, so the D8 implementation itself is sound.
 

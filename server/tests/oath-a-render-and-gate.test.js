@@ -34,17 +34,20 @@ globalThis.document = globalThis.document || {
 };
 
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
 
 let shRenderGeneralMerits;
 let shEditMeritPt;
 let shSwearOath;
 let meritRating;
 let buildSwornBy;
+let pledgedDots;
 let stateMod;
 let loadRulesMod;
 
@@ -68,7 +71,7 @@ const FEALTY = {
 
 beforeAll(async () => {
   const helpers = await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'data', 'rules-helpers.js')).href);
-  ({ buildSwornBy } = helpers);
+  ({ buildSwornBy, pledgedDots } = helpers);
   ({ shRenderGeneralMerits } = await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'editor', 'sheet.js')).href));
   const editMod = await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'editor', 'edit.js')).href);
   ({ shEditMeritPt } = editMod);
@@ -380,5 +383,166 @@ describe('OATH-A AC1 — shSwearOath writes the pledge, or refuses', () => {
     expect(sb.sworn_at).toHaveProperty('chapter_number');
     expect(sb.sworn_at).toHaveProperty('iso');
     expect(sb.sworn_at.iso).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AC 6 — the INVARIANT, across every field the UI can emit
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('OATH-A AC6 — invariant: after ANY edit, owned dots >= pledged dots', () => {
+  // This is a property test, not a mechanism test, and that is the point.
+  //
+  // Round 1 fixed the MEASUREMENT (the floor was computed from the wrong
+  // contribution). Round 2 found the ENFORCEMENT was non-uniform underneath
+  // it: the floor ran BEFORE the pool caps, and a cap doing
+  // `val = Math.min(val, available)` could push val straight back below the
+  // floor that had just been computed. Both rounds the per-case reasoning
+  // was sound and the gap sat one layer below where it was aimed.
+  //
+  // Enumerating every field and asserting the property is what surfaces
+  // that: it does not care which mechanism leaks, only that none does.
+  // Several channels passed round 2 only BY ACCIDENT of whether their pool's
+  // "used" helper counts the merit being edited — so a change to any
+  // channel's pool maths could move the failure without touching this code.
+  // The invariant catches that class; a per-field test would not.
+
+  const FIELDS = [
+    'cp', 'xp',
+    'free_mci', 'free_vm', 'free_lk', 'free_inv', 'free_ohm',
+    'free_pt', 'free_mdb', 'free_sw',
+    'free_grants.mci', 'free_grants.inv', 'free_grants.necro',
+  ];
+
+  for (const field of FIELDS) {
+    it(`holds when ${field} is driven to 0 on a pledged merit`, () => {
+      // A merit whose owned rating is made up of BOTH the field under test
+      // and a base, pledged at more than the base alone. Driving the field
+      // to 0 must not take owned below the pledge.
+      const target = { category: 'general', name: 'Resources', cp: 2, xp: 0 };
+      if (field === 'cp') { target.cp = 5; }
+      else if (field === 'xp') { target.xp = 3; }
+      else if (field.startsWith('free_grants.')) {
+        target.free_grants = { [field.slice('free_grants.'.length)]: 3 };
+      } else {
+        target[field] = 3;
+      }
+
+      // The pledge is sized from the merit's ACTUAL owned rating, so the
+      // fixture is never already-violating before the edit. Channels
+      // meritRating does not count (free_grants.necro) leave owned at the
+      // base, and the invariant then holds trivially — which is the correct
+      // expectation for them, not a loophole.
+      const probe = mkChar([target]);
+      const ownedBefore = meritRating(probe, probe.merits[0]);
+      const pledge = Math.max(1, ownedBefore - 1);
+
+      const c = mkChar([
+        target,
+        {
+          category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+          sworn_by: buildSwornBy(pledge, [{ name: 'Resources', dots: pledge }], null),
+        },
+      ]);
+      // Give the character generous pools so a cap cannot be the thing that
+      // holds the line — the floor has to.
+      c._grant_pools = [
+        { source: 'X', category: 'mci', amount: 20 },
+        { source: 'X', category: 'inv', amount: 20 },
+        { source: 'X', category: 'necro', amount: 20 },
+      ];
+      stateMod.chars = [c];
+      stateMod.editIdx = 0;
+      stateMod.editMode = true;
+
+      const pledged = pledgedDots(c, c.merits[0]);
+      expect(pledged).toBe(pledge);
+
+      shEditMeritPt(0, field, 0);
+
+      const ownedAfter = meritRating(c, c.merits[0]);
+      // The invariant. Channels meritRating does not count (free_grants.necro)
+      // contribute 0, so owned does not move and the invariant holds
+      // trivially — which is correct, not a loophole.
+      expect(
+        ownedAfter,
+        `${field}: owned ${ownedBefore} -> ${ownedAfter}, pledged ${pledged}`
+      ).toBeGreaterThanOrEqual(pledged);
+    });
+  }
+
+  it('a pool cap cannot push the value back below the floor (order, not measurement)', () => {
+    // The exact round-2 defect: free_inv, with an Invested pool too small to
+    // fund what the merit already holds. The cap says "2", the floor says
+    // "4". Floor wins on reductions, per the SM ruling: the merit ALREADY
+    // holds more than the pool can fund, that over-commitment predates this
+    // edit, and a reduction does not worsen it — whereas letting the cap win
+    // silently voids part of a standing pledge.
+    const c = mkChar([
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_inv: 3 },
+      {
+        category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+        sworn_by: buildSwornBy(4, [{ name: 'Resources', dots: 4 }], null),
+      },
+    ]);
+    c._grant_pools = [];      // no Invested pool at all: the cap computes 0
+    stateMod.chars = [c];
+    stateMod.editIdx = 0;
+    stateMod.editMode = true;
+
+    expect(meritRating(c, c.merits[0])).toBe(5); // 2 cp + 3 inv
+    shEditMeritPt(0, 'free_inv', 0);
+    expect(meritRating(c, c.merits[0])).toBeGreaterThanOrEqual(4);
+    expect(c.merits[0].free_inv).toBe(2);
+  });
+
+  it('caps still bind as UPPER bounds — the floor does not license over-allocation', () => {
+    // Floor is a lower bound, cap an upper bound. Making the floor win on
+    // reductions must not turn it into permission to allocate dots a pool
+    // does not have.
+    const c = mkChar([
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_grants: { necro: 1 } },
+      {
+        category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+        sworn_by: buildSwornBy(2, [{ name: 'Resources', dots: 2 }], null),
+      },
+    ]);
+    c._grant_pools = [{ source: 'X', category: 'necro', amount: 2 }];
+    stateMod.chars = [c];
+    stateMod.editIdx = 0;
+    stateMod.editMode = true;
+
+    shEditMeritPt(0, 'free_grants.necro', 99);
+    expect(c.merits[0].free_grants.necro).toBeLessThanOrEqual(2);
+  });
+
+  it('surfaces a warning when the floor has to override a cap', () => {
+    // A silent clamp is correct arithmetic and a bad user experience: the
+    // state means the pool is over-committed against a standing pledge, and
+    // an ST should be told rather than discover it later.
+    const c = mkChar([
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_inv: 3 },
+      {
+        category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
+        sworn_by: buildSwornBy(4, [{ name: 'Resources', dots: 4 }], null),
+      },
+    ]);
+    c._grant_pools = [];
+    stateMod.chars = [c];
+    stateMod.editIdx = 0;
+    stateMod.editMode = true;
+
+    shEditMeritPt(0, 'free_inv', 0);
+    expect(c.merits[0]._pledgeFloorNote).toBeTruthy();
+    expect(c.merits[0]._pledgeFloorNote).toContain('Oath Of Fealty');
+    expect(c.merits[0]._pledgeFloorNote).toContain('4');
+  });
+
+  it('the warning is transient — underscore-prefixed so it never persists', () => {
+    // Same discipline as _pledge_draft: both existing save paths strip
+    // `_`-prefixed keys, so a UI note cannot reach a persisted document.
+    const src = read('public/js/editor/edit.js');
+    expect(src).toContain('_pledgeFloorNote');
+    expect(src).not.toMatch(/\bpledgeFloorNote\b(?<!_pledgeFloorNote)/);
   });
 });
