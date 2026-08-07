@@ -179,4 +179,36 @@ The defence that worked was never a sharper reading — it was building the stat
 
 ## QA Results
 
+**Gate: PASS** (Ma'at, 2026-08-07, commit e5af8e49). No findings. I built independent fixtures rather than re-running the shipped sweep, and found no counterexample to it.
+
+### Executed for the first time — both round-trip suites
+
+`oath-b-d6-api-roundtrip` **15/15** and `oath-a-d8-api-roundtrip` **10/10** against Atlas `tm_suite_test`. That is the first execution of the AC10 payload fix, the array-index payload fix, and the OATH-A forfeiture fixture repair.
+
+**Every REJECT verified as load-bearing**, not merely asserted. Neutralising the forfeiture type enum, the exit-reason enum, the `chapter_number` required entry and the merit `additionalProperties` at once fails exactly the reject tests that depend on them. `_suspended_dots` rejects with the error naming `/merits/0 must NOT have additional properties` — the right guard, correctly identified.
+
+### The schema direction held — it was not widened
+
+Probed seven forfeiture variants against the shipped schema. Only `chapter_span_then_monthly` and an explicit `null` are accepted. `{ type: 'default' }` — the old OATH-A placeholder whose removal caused the five failures — is still **rejected at `/forfeiture/type`**. So the fixture was corrected and D7's restriction is intact; the tempting widening did not happen.
+
+### Render sweep — my fixtures, not his
+
+Confirmed the solid band shrinks by **exactly** the suspended count for general (both modes), influence (both modes), the Contacts aggregate in view, and Total Influence.
+
+**My own aggregate candidate: Total Influence.** It is an aggregate *number* rather than a row, so a renderer × mode sweep does not reach it. It routes correctly — `calcMeritInfluence` and `calcContactsInfluence` both go through `meritEffectiveRating`, and Contacts sums per-instance effective ratings rather than capping the aggregate afterwards.
+
+*Not adjudicated by my probe:* domain edit/view, standing edit/view and Contacts edit as glyph counts. Those renderers emit the same row more than once, so a raw `●` count does not isolate a single display in my fixtures. I did not contradict the shipped sweep there; I simply cannot independently confirm those four by this method, and say so rather than implying wider coverage than I have.
+
+### The four hostile items
+
+- **Gate/sum split.** Owner suspended to exactly 0 still passes the gate and keeps the partner's dots. Owner with genuinely 0 own dots does not. The boundary is where the ruling puts it.
+- **Ordering.** Safe Place own 4, partner 3, pledge 4 gives **exactly 3**. Both clauses hold: it drops by the suspended amount and never below the partner's contribution.
+- **No double subtraction.** `meritEffectiveRating` returns **1** for 4 owned / 3 suspended — 4−3, not 4−6. The domain edit renderer's larger glyph drop is two repeated displays of the same row, verified as a whole multiple of the suspended count, not a second application.
+- **Stated exclusions.** All five written down with reasoning. The roller is framed as an **emptiness observation and explicitly not a coverage claim**, which is the correct treatment — a test over an empty set passes because there is nothing in it.
+
+### Also verified
+
+- **Hard boundary holds.** `meritRating`, `xpSpent` and `xpLeft` are all identical before and after a breach. Breaking an oath costs access, not XP.
+- **The full cycle works.** Suspended → append `restored` → `_suspended_dots` is gone and the effective rating is back to 4. The `restored` event survived the deferral.
+
 _(Ma'at)_
