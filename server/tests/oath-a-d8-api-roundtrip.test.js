@@ -167,7 +167,12 @@ describe('OATH-A D8 — the character schema accepts sworn_by', () => {
       name: 'OATH-A Bad Ref Probe',
       merits: [{
         category: 'general', name: 'Oath Of The Round Trip', cp: 0,
-        sworn_by: { dots_required: 1, attachments: [{ index: 0, dots: 1 }] },
+        // Otherwise VALID — `name` present, `dots` present — so the stray
+        // `index` is the ONLY thing that can produce the 400. With `name`
+        // omitted the payload had two reasons to fail and the test could not
+        // tell which one fired: it would still pass if index-based
+        // references were later permitted.
+        sworn_by: { dots_required: 1, attachments: [{ name: 'Resources', dots: 1, index: 0 }] },
       }],
     });
     expect(res.status).toBe(400);

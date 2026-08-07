@@ -81,10 +81,17 @@ describe('OATH-B AC9 — the forfeiture schedule is reachable through the API', 
       key: RULE_KEY + '-session',
       name: 'Oath Of The Session',
       category: 'merit',
-      forfeiture: { type: 'session', sessions: 1 },
+      // NO `sessions` key. A stray property trips additionalProperties
+      // INDEPENDENTLY of the variant, so including it would let this test
+      // pass even if someone later widened the enum to accept 'session' —
+      // exactly what AC10 exists to prevent. The variant must be the ONLY
+      // thing that can produce the 400.
+      forfeiture: { type: 'session' },
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+    // And assert WHICH rule fired, so the test cannot drift onto another.
+    expect(JSON.stringify(res.body)).toContain('/forfeiture/type');
   });
 
   it('REJECTS an unknown forfeiture type', async () => {
