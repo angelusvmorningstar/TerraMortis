@@ -191,6 +191,30 @@ Preconditions: `ls markdown | wc -l` → **10** (satisfied). **MongoDB NOT reach
 
 **Ma'at must run `oath-a-d8-api-roundtrip.test.js` with Mongo up.** It is the AC 7 proof and I have not executed it. The other 46 OATH-A tests need no DB and are verified here.
 
+### QA round 1 — two fixes (2026-08-07)
+
+**Fix 1 — the edit gate had a reachable bypass. AC 6 was not met.** The clamp exempted every `free_grants.*` field, but `meritRating` SUMS ten of those channels and `pledgeableDots` measures pledges in `meritRating` terms — so the dots that *can* be pledged were exactly the ones exempt from the floor protecting them, and `xp.js` emits `shEditMeritPt(idx, 'free_grants.mci', …)` straight from the bd-row, making it reachable from the UI.
+
+The part I got wrong is the direction. My comment claimed fields outside `meritRating`'s channel list contribute 0 and so never clamp spuriously — true, and not the gap. The gap was the inverse: fields *inside* the list written by a dotted path were skipped by the prefix guard and never clamped **at all**. I reasoned carefully about over-clamping and shipped under-clamping, then wrote a comment asserting the safety of the case that was broken. A guard justified by one direction of failure needs the other direction tested, not argued.
+
+Fixed per QA: drop the `startsWith` exemption, measure the field's contribution as `meritRating(c, <merit with the field cleared>)`. Handles dotted and flat paths with no per-slug allowlist, and the property the guard used to provide now falls out of the measurement rather than depending on it — `free_grants.necro` is absent from `meritRating`'s sum, so it measures a 0 contribution and still never clamps. Both directions are pinned by regression tests; the first was confirmed **failing before the fix** (`expected 2 to be greater than or equal to 4`).
+
+**Fix 2 — the D8 proof suite had never passed anywhere.** Skipped under Mongo-down, and under Mongo-up all 10 tests died on `TypeError: Header name must be a valid HTTP token`: `.set(stUser())` with one argument, where the repo convention is `.set('X-Test-User', stUser())`. Nine call sites corrected. QA confirmed a patched copy gives 10/10, so D8 itself is sound and only its proof was broken — but a proof that has never executed is not weaker evidence than a passing one, it is none.
+
+### Rebase onto #1110 — HELD, because #1110 has not landed
+
+`origin/dev` is still at `b44afc1a` and carries no #1110 commit; PR #1121 is open but unmerged. Rebasing onto the unmerged branch would fold all of COLLECTIVE-2's commits into OATH-A's diff and duplicate them if the PR squash-merges, so the rebase waits for #1110 to reach `dev`.
+
+The conflict is characterised rather than left as a surprise. A test merge in a throwaway worktree (removed afterwards; no HEAD leaked into a shared tree) gives **7 hunks across 3 files, all mechanical "both sides added here"**:
+
+| file | hunks | nature |
+|---|---|---|
+| `public/js/admin.js` | 2 | my handler exports beside #1110's `shAllocateNecroVirtual` → `shAllocateCompoundVirtual` rename |
+| `public/js/editor/edit.js` | 2 | same, in the import list and the re-export block |
+| `public/js/editor/sheet.js` | 3 | the rules-helpers import line, and two `meritBdRow` call sites where OATH-A appends `_oathPledgeEditor(c, m, rIdx)` and #1110 replaces `showNECRO` with `compoundPools` / `compoundSlugs` |
+
+Resolution is **take both sides** in every hunk — the two stories touch adjacent concerns in the same lines and neither supersedes the other. `rules-helpers.js` and `edit-domain.js` auto-merged cleanly.
+
 ### File List
 
 **Modified — server:**
@@ -216,6 +240,8 @@ Preconditions: `ls markdown | wc -l` → **10** (satisfied). **MongoDB NOT reach
 | 2026-08-07 | Live survey: greenfield confirmed; ten `cost_model` rows across two values; 666/673 rows fail the schema |
 | 2026-08-07 | D8 schema + allowlist + character schema; pure helpers; swear write path; pledge editor and badge in both renderers; edit gate |
 | 2026-08-07 | 46 non-DB tests green; AC8 script dry-run 10/10 FAIL→PASS, write held for Peter |
+| 2026-08-07 | AC8 APPLIED to production on Peter's approval; 10/10 rows validate, verified independently of the script |
+| 2026-08-07 | QA round 1: edit-gate bypass closed (regression test confirmed failing first); D8 proof suite header call fixed at 9 sites; 48 non-DB tests green |
 
 ## QA Results
 
