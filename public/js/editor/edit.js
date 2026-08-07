@@ -9,8 +9,11 @@ import {
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
-import { freeOf, poolAvailableFor } from '../data/rules-helpers.js';
-import { xpToDots } from './xp.js';
+import { freeOf, poolAvailableFor, pledgedDots } from '../data/rules-helpers.js';
+// OATH-A (#1111): meritRating is the OWNED-dots helper. The pledge gate
+// clamps against owned dots, never effective ones — encumbrance reduces no
+// rating anywhere (ADR-010 D2).
+import { xpToDots, meritRating } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { getPoolTotal, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmPool, vmUsed, investedPool, investedUsed, lorekeeperPool, lorekeeperUsed, syncMeritRating, pruneContactsSpheres } from './domain.js';
@@ -31,6 +34,10 @@ import {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAllocateCompoundVirtual,
+  shSwearOath,
+  shReleaseOath,
+  shSetPledgeDots,
+  shCommitOath,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
@@ -46,6 +53,10 @@ export {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shTogglePT, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAllocateCompoundVirtual,
+  shSwearOath,
+  shReleaseOath,
+  shSetPledgeDots,
+  shCommitOath,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shSetWhiteAntsTerritory,
@@ -988,6 +999,23 @@ export function shEditMeritPt(realIdx, field, val) {
   const m = c.merits[realIdx];
   if (!m) return;
   val = Math.max(0, parseInt(val) || 0);
+  // ── OATH-A (issue #1111, ADR-010 D1/D2) — pledged-dot edit gate ──────────
+  // The editor refuses to sell or reallocate dots pledged to a standing
+  // Swear By oath. This is a FLOOR ON THE WRITE and nothing else: no sum
+  // anywhere is altered, and the pledged dots remain fully usable
+  // (encumbrance is display + edit gate, D2). Same clamp idiom as the pool
+  // caps below.
+  //
+  // The floor is computed against what this field CONTRIBUTES, so reducing
+  // an unrelated channel on the same merit is unaffected. Fields outside
+  // meritRating's channel list contribute 0, so they never clamp spuriously.
+  const _pledgedHere = pledgedDots(c, m);
+  if (_pledgedHere > 0 && typeof field === 'string' && !field.startsWith('free_grants.')) {
+    const _ownedNow = meritRating(c, m);
+    const _ownedWithoutField = _ownedNow - (m[field] || 0);
+    const _floor = Math.max(0, _pledgedHere - _ownedWithoutField);
+    if (val < _floor) val = _floor;
+  }
   // Cap CP edits by the 10-point merit creation budget
   if (field === 'cp') {
     const otherCP = (c.merits || []).reduce((s, m2, i) => s + (i === realIdx ? 0 : (m2.cp || 0)), 0)

@@ -572,3 +572,305 @@ export function synthesiseCollectiveCompoundNames(c, allChars, compound) {
   // convention). Callers can sort for display if alphabetical is desired.
   return Array.from(names);
 }
+
+// -- OATH-A (issue #1111, ADR-010 D1 / D1b / D4) - Swear By oaths ------------
+
+/**
+ * ADR-010 D4 - resolve a rule's variable rating basis against a character.
+ *
+ * `rating_range` stays as-is for fixed powers and stays `null` for the two
+ * derived oaths; a sibling `rating_basis` field supplies the basis, following
+ * the ADR-005 D3/D5 discriminator pattern - each variant carries its own
+ * neighbouring fields and never overloads another variant's.
+ *
+ *   { type: 'blood_potency_multiple', factor: 2 }          - Oath of Abstinence
+ *   { type: 'highest_status', pools: ['covenant','clan'] }  - Oath of the Model Prisoner
+ *   absent / null                                           - every other power
+ *
+ * Returns `null` when the rule has no basis, so the caller falls back to
+ * `rating_range`. An UNKNOWN discriminator warns and also returns `null`
+ * (ADR-005 D5 safe degradation) rather than throwing or guessing - a new
+ * variant deployed to data before code must not break the sheet.
+ *
+ * NEVER stored on the character (the never-store-derived rule). This is the
+ * value the purchase UI OFFERS; what was actually sworn is snapshotted into
+ * `sworn_by.dots_required` (D1b) and does not move afterwards.
+ *
+ * Pure - no imports, no rules-cache access.
+ *
+ * @param {object} c    - character
+ * @param {object} rule - the purchasable_power doc
+ * @returns {number|null} dots, or null to fall back to rating_range
+ */
+export function resolveRatingBasis(c, rule) {
+  const basis = rule && rule.rating_basis;
+  if (!basis || !basis.type) return null;
+  if (!c) return null;
+  switch (basis.type) {
+    case 'blood_potency_multiple': {
+      const factor = basis.factor == null ? 1 : basis.factor;
+      return Math.max(0, (c.blood_potency || 0) * factor);
+    }
+    case 'highest_status': {
+      const pools = Array.isArray(basis.pools) ? basis.pools : [];
+      const st = c.status || {};
+      let best = 0;
+      for (const pool of pools) {
+        // `covenant` is an object keyed by covenant NAME (see
+        // project_status_unified_shape) - read the character's own covenant.
+        // Every other pool ('clan', 'city') is a plain integer.
+        const v = pool === 'covenant'
+          ? ((st.covenant && st.covenant[c.covenant]) || 0)
+          : (st[pool] || 0);
+        if (v > best) best = v;
+      }
+      return best;
+    }
+    default:
+      try { console.warn('[rules-helpers] unknown rating_basis.type:', basis.type); } catch { /* console may be absent */ }
+      return null;
+  }
+}
+
+/**
+ * ADR-010 D1 - does a merit match an attachment reference?
+ *
+ * References are by name + qualifier, never by array index: `c.merits` is
+ * array-indexed and indices move under splice. This is the single matching
+ * rule, so the multi-instance cases (Safe Place, Contacts) behave the same
+ * at every call site rather than each inventing their own.
+ *
+ * A missing/empty qualifier on EITHER side is normalised to null, so
+ * `{ name: 'Resources' }` matches a Resources row with no qualifier and does
+ * not match `Contacts (Police)`.
+ *
+ * @param {object} m - a merit row
+ * @param {{name: string, qualifier?: string|null}} ref
+ * @returns {boolean}
+ */
+export function meritMatchesRef(m, ref) {
+  if (!m || !ref || !ref.name) return false;
+  if (m.name !== ref.name) return false;
+  const a = m.qualifier == null || m.qualifier === '' ? null : m.qualifier;
+  const b = ref.qualifier == null || ref.qualifier === '' ? null : ref.qualifier;
+  return a === b;
+}
+
+/**
+ * ADR-010 D1 - resolve an attachment reference to the merit row it names.
+ *
+ * @param {object} c
+ * @param {{name: string, qualifier?: string|null}} ref
+ * @returns {object|null}
+ */
+export function resolveAttachment(c, ref) {
+  if (!c || !Array.isArray(c.merits)) return null;
+  return c.merits.find(m => meritMatchesRef(m, ref)) || null;
+}
+
+/**
+ * Every merit row on `c` that is a standing Swear By oath - i.e. carries a
+ * `sworn_by` pledge.
+ *
+ * @param {object} c
+ * @returns {object[]}
+ */
+export function swornOaths(c) {
+  if (!c || !Array.isArray(c.merits)) return [];
+  return c.merits.filter(m => m && m.sworn_by && Array.isArray(m.sworn_by.attachments));
+}
+
+/**
+ * Lookup key for the reverse index. Accepts a merit row or a reference -
+ * both carry `name` and `qualifier`.
+ *
+ * @param {{name: string, qualifier?: string|null}} m
+ * @returns {string}
+ */
+export function pledgeKeyFor(m) {
+  if (!m || !m.name) return '';
+  const q = m.qualifier == null || m.qualifier === '' ? '' : m.qualifier;
+  // NUL separator, written as an escape so it stays visible in source and
+  // greppable. NOT a space: merit names contain spaces, so a space join
+  // makes { name: 'Safe', qualifier: 'Place' } collide with
+  // { name: 'Safe Place', qualifier: null }. NUL cannot occur in either.
+  return m.name + '\u0000' + q;
+}
+
+/**
+ * ADR-010 D1 - the RENDER-TIME reverse index: "is this merit pledged, and to
+ * what?".
+ *
+ * The forward direction (oath -> merits) is persisted on the oath row. The
+ * reverse direction is rebuilt per render and NEVER persisted - the
+ * ADR-005 D3 render-time-synthesis discipline and the project's
+ * never-store-derived rule applied to a relationship rather than a stat.
+ *
+ * Keyed via `pledgeKeyFor`, which joins on NUL so a qualifier can never
+ * collide with a name that happens to contain the separator.
+ *
+ * @param {object} c
+ * @returns {Map<string, {dots: number, oaths: {oath: string, qualifier: string|null, dots: number}[]}>}
+ */
+export function buildPledgeIndex(c) {
+  const index = new Map();
+  for (const oath of swornOaths(c)) {
+    for (const att of oath.sworn_by.attachments) {
+      if (!att || !att.name) continue;
+      const key = pledgeKeyFor(att);
+      const entry = index.get(key) || { dots: 0, oaths: [] };
+      entry.dots += att.dots || 0;
+      entry.oaths.push({
+        oath: oath.name,
+        qualifier: oath.qualifier == null || oath.qualifier === '' ? null : oath.qualifier,
+        dots: att.dots || 0,
+      });
+      index.set(key, entry);
+    }
+  }
+  return index;
+}
+
+/**
+ * Dots on the merit named by `ref` already pledged to standing oaths.
+ *
+ * `exceptOath` lets the swear/edit UI ask "how many dots are pledged by
+ * OTHER oaths", so re-editing an existing pledge does not count itself as
+ * competing with itself.
+ *
+ * @param {object} c
+ * @param {{name: string, qualifier?: string|null}} ref
+ * @param {object} [exceptOath] - an oath merit row to exclude
+ * @returns {number}
+ */
+export function pledgedDots(c, ref, exceptOath) {
+  let sum = 0;
+  for (const oath of swornOaths(c)) {
+    if (exceptOath && oath === exceptOath) continue;
+    for (const att of oath.sworn_by.attachments) {
+      if (meritMatchesRef(att, ref)) sum += att.dots || 0;
+    }
+  }
+  return sum;
+}
+
+/**
+ * ADR-010 D1b - dots on `m` available to pledge: the dots the character
+ * actually owns, minus dots already pledged to other standing oaths.
+ *
+ * `ratingOf` is REQUIRED and injected deliberately. The owned-dots formula
+ * lives in `meritRating` (`public/js/editor/xp.js`), which sits behind the
+ * browser import chain this module must stay clear of. Re-implementing it
+ * here would create a SIXTH fork of merit-dot arithmetic in a codebase where
+ * the existing five already disagree - so there is no default. Callers pass
+ * `meritRating`.
+ *
+ * Note this is the OWNED rating, not the effective one: pledging is about
+ * what you bought, and encumbrance deliberately reduces no sum anywhere
+ * (ADR-010 D2 - zero accessor changes).
+ *
+ * @param {object} c
+ * @param {object} m - the candidate merit row
+ * @param {(c: object, m: object) => number} ratingOf
+ * @param {object} [exceptOath]
+ * @returns {number}
+ */
+export function pledgeableDots(c, m, ratingOf, exceptOath) {
+  if (!c || !m || typeof ratingOf !== 'function') return 0;
+  const owned = ratingOf(c, m) || 0;
+  return Math.max(0, owned - pledgedDots(c, m, exceptOath));
+}
+
+/**
+ * ADR-010 D1b - validate a proposed pledge.
+ *
+ * Parity is DOT COUNT, not XP maths: merits are 1 XP per dot (`xpSpentMerits`
+ * sums `m.xp` with no multiplier, `xp.js:119`), so "an equal XP value of
+ * merits" reduces to `sum(attachments[].dots) === dots_required`. Integer
+ * addition - no cost table, no XP lookup.
+ *
+ * Checks, in the order a player would hit them:
+ *   - every attachment resolves to a merit the character owns
+ *   - no attachment pledges more dots than that merit has spare
+ *   - no duplicate references
+ *   - the total equals `dotsRequired` exactly
+ *
+ * @returns {{valid: boolean, message: string|null, total: number}}
+ */
+export function validatePledge(c, attachments, dotsRequired, ratingOf, exceptOath) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  let total = 0;
+  const seen = new Set();
+
+  for (const att of list) {
+    if (!att || !att.name) {
+      return { valid: false, message: 'A pledged merit is missing its name.', total: 0 };
+    }
+    const label = att.name + (att.qualifier ? ' (' + att.qualifier + ')' : '');
+    const dots = att.dots || 0;
+    if (dots < 1) {
+      return { valid: false, message: label + ' must pledge at least 1 dot.', total: 0 };
+    }
+    const key = pledgeKeyFor(att);
+    if (seen.has(key)) {
+      return { valid: false, message: label + ' is pledged twice - combine it into one entry.', total: 0 };
+    }
+    seen.add(key);
+
+    const m = resolveAttachment(c, att);
+    if (!m) {
+      return { valid: false, message: label + ' is not a merit this character owns.', total: 0 };
+    }
+    const spare = pledgeableDots(c, m, ratingOf, exceptOath);
+    if (dots > spare) {
+      return {
+        valid: false,
+        message: label + ' has only ' + spare + ' dot' + (spare === 1 ? '' : 's')
+          + ' free to pledge (asked for ' + dots + ').',
+        total: 0,
+      };
+    }
+    total += dots;
+  }
+
+  const required = dotsRequired || 0;
+  if (total !== required) {
+    const diff = Math.abs(required - total);
+    const word = diff === 1 ? 'dot' : 'dots';
+    return {
+      valid: false,
+      message: total < required
+        ? 'Pledge is ' + diff + ' ' + word + ' short - ' + total + ' of ' + required + ' pledged.'
+        : 'Pledge is ' + diff + ' ' + word + ' over - ' + total + ' pledged, ' + required + ' required.',
+      total,
+    };
+  }
+  return { valid: true, message: null, total };
+}
+
+/**
+ * Build the persisted `sworn_by` object for a newly sworn oath (ADR-010 D1).
+ *
+ * `dotsRequired` is SNAPSHOTTED here and never recomputed. For the two
+ * derived-rating oaths (D4) the basis moves - Blood Potency rises, Status
+ * changes - and a live-recomputed requirement would silently invalidate a
+ * standing oath's parity every time it moved. Rules-wise the pledge was made
+ * at a rating; that rating is what was pledged.
+ *
+ * `history` starts empty. OATH-A never appends to it; OATH-B (exit events)
+ * is its only writer.
+ *
+ * @returns {object} the `sworn_by` value
+ */
+export function buildSwornBy(dotsRequired, attachments, swornAt) {
+  return {
+    dots_required: dotsRequired || 0,
+    attachments: (Array.isArray(attachments) ? attachments : []).map(a => ({
+      name: a.name,
+      qualifier: a.qualifier == null || a.qualifier === '' ? null : a.qualifier,
+      dots: a.dots || 0,
+    })),
+    sworn_at: swornAt || null,
+    history: [],
+  };
+}
