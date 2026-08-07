@@ -68,6 +68,7 @@ beforeAll(async () => {
       grant_type: 'pool',
       pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
       category: 'necro',
+      sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
     }],
     rule_nine_again: [],
     rule_skill_bonus: [],
@@ -145,26 +146,29 @@ describe('N-7a — showNECRO renders in the domain renderer', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('N-7a — placement sanity guards', () => {
-  it('shRenderDomainMerits computes the Necropolis flags', () => {
+  it('shRenderDomainMerits computes the compound flags', () => {
     const src = read('public/js/editor/sheet.js');
-    // The string `_hasNecroSep = hasNecropolisSepulcher(c)` must appear
-    // AFTER `export function shRenderDomainMerits` and BEFORE the next
-    // exported function — i.e. inside shRenderDomainMerits's body.
+    // The compound discovery + membership filter must appear AFTER
+    // `export function shRenderDomainMerits` and BEFORE the next exported
+    // function — i.e. inside shRenderDomainMerits's body.
     const fnStart = src.indexOf('export function shRenderDomainMerits');
     expect(fnStart).toBeGreaterThan(0);
     const nextExport = src.indexOf('export function ', fnStart + 1);
     const fnBody = src.slice(fnStart, nextExport > 0 ? nextExport : src.length);
-    expect(fnBody).toMatch(/_hasNecroSep\s*=\s*hasNecropolisSepulcher\(c\)/);
-    expect(fnBody).toMatch(/_necroTargets/);
-    // N-7b (issue #768) introduced `_isNecroTarget = _necroTargets.includes(m.name)`
-    // as a local intermediate so the same boolean threads into hideCP/XP/MCI/
-    // Bonus alongside showNECRO. Semantic check stays the same: showNECRO is
-    // gated on Sepulcher ownership AND target-name membership.
-    expect(fnBody).toMatch(/showNECRO:\s*_hasNecroSep\s*&&\s*(_necroTargets\.includes\(m\.name\)|_isNecroTarget)/);
+    // COLLECTIVE-2 (#1110): _hasNecroSep = hasNecropolisSepulcher(c) is gone;
+    // membership is per-compound.
+    expect(fnBody).toMatch(/_compounds\s*=\s*getCollectiveCompounds\(getRulesCache\(\)\)/);
+    expect(fnBody).toMatch(/_ownedCompounds\s*=\s*_compounds\.filter\(cmp\s*=>\s*ownsCompound\(c,\s*cmp\)\)/);
+    // N-7b (issue #768) introduced a local intermediate so the same boolean
+    // threads into hideCP/XP/MCI/Bonus alongside the pool stepper. Semantic
+    // check stays the same: the stepper list is gated on membership
+    // (_ownedCompounds) AND target-name membership (cmp.targets).
+    expect(fnBody).toMatch(/_rowPools\s*=\s*_rowCompounds\.filter\(cmp\s*=>\s*_ownedCompounds\.includes\(cmp\)\)/);
+    expect(fnBody).toMatch(/compoundPools:\s*_rowPools/);
   });
 
-  it('_renderPoolCounters surfaces necro in domain section, not general', () => {
+  it('_renderPoolCounters surfaces compound pools in domain section, not general', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toMatch(/necroPools\s*=\s*category === 'domain'/);
+    expect(src).toMatch(/compoundPools\s*=\s*category === 'domain'/);
   });
 });
