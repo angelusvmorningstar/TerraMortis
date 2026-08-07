@@ -496,24 +496,53 @@ describe('OATH-A AC6 — invariant: after ANY edit, owned dots >= pledged dots',
     expect(c.merits[0].free_inv).toBe(2);
   });
 
-  it('caps still bind as UPPER bounds — the floor does not license over-allocation', () => {
+  it('caps still bind as UPPER bounds, with the floor simultaneously live', () => {
     // Floor is a lower bound, cap an upper bound. Making the floor win on
     // reductions must not turn it into permission to allocate dots a pool
     // does not have.
+    //
+    // #1111 QA round 3: the first version of this test edited
+    // free_grants.necro — a channel meritRating does not sum — so
+    // _ownedWithoutField always equalled _ownedNow, _floor was structurally
+    // <= 0, and NO FLOOR WAS EVER PRESENT to misbehave. It passed with
+    // _applyPledgeFloor disabled entirely: it proved the pool cap works in
+    // isolation, which is true and is not what it is named for. I picked the
+    // channel that made the test easy to write rather than the one that
+    // makes it capable of failing — the same species as the defect it was
+    // written to guard, one level up. A vacuous test is worse than a missing
+    // one because it reads as coverage.
+    //
+    // So: a SUMMED channel (free_grants.mci) against a real MCI pool, with
+    // the pledge sized so _floor > 0. Both bounds are live at once, and the
+    // test asserts each of them separately.
     const c = mkChar([
-      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_grants: { necro: 1 } },
+      { category: 'general', name: 'Resources', cp: 2, xp: 0, free_grants: { mci: 3 } },
       {
         category: 'general', name: 'Oath Of Fealty', cp: 0, xp: 0,
-        sworn_by: buildSwornBy(2, [{ name: 'Resources', dots: 2 }], null),
+        sworn_by: buildSwornBy(4, [{ name: 'Resources', dots: 4 }], null),
       },
     ]);
-    c._grant_pools = [{ source: 'X', category: 'necro', amount: 2 }];
+    c._grant_pools = [{ source: 'Mystery Cult Initiation', category: 'mci', amount: 6 }];
     stateMod.chars = [c];
     stateMod.editIdx = 0;
     stateMod.editMode = true;
 
-    shEditMeritPt(0, 'free_grants.necro', 99);
-    expect(c.merits[0].free_grants.necro).toBeLessThanOrEqual(2);
+    // owned 5 (2 cp + 3 mci), pledged 4, so clearing mci would leave 2 and
+    // the floor sits at 2 — strictly positive, therefore genuinely live.
+    expect(meritRating(c, c.merits[0])).toBe(5);
+    expect(pledgedDots(c, c.merits[0])).toBe(4);
+
+    // UPPER bound: an absurd request is limited by the pool, not granted.
+    shEditMeritPt(0, 'free_grants.mci', 99);
+    expect(c.merits[0].free_grants.mci).toBeLessThanOrEqual(6);
+    expect(c.merits[0].free_grants.mci).toBeLessThan(99);
+
+    // LOWER bound on the SAME fixture: driving it to 0 stops at the floor.
+    // This is the assertion that makes the test bite — disabling
+    // _applyPledgeFloor leaves mci at 0 and fails here.
+    shEditMeritPt(0, 'free_grants.mci', 0);
+    expect(c.merits[0].free_grants.mci).toBe(2);
+    expect(meritRating(c, c.merits[0])).toBeGreaterThanOrEqual(4);
   });
 
   it('surfaces a warning when the floor has to override a cap', () => {

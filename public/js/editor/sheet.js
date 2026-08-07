@@ -1833,13 +1833,22 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
  * the only thing that grows a pledge editor.
  */
 /**
- * OATH-A (#1111) — surface a pledge floor that had to override a pool cap.
+ * OATH-A (#1111) — report that the edit just made was overridden by a
+ * pledge floor.
  *
- * The state means the pool is over-committed relative to a standing pledge.
- * Clamping to the floor is the correct arithmetic, but doing it silently
- * leaves an ST to discover the over-commitment later; the visible failure
- * mode is the better one. `_pledgeFloorNote` is transient and `_`-prefixed,
- * so both save paths strip it per merit and it never persists.
+ * EDIT-TIME FEEDBACK, not a status indicator. It renders only after an edit
+ * has set `_pledgeFloorNote`, so a freshly loaded over-committed character
+ * shows nothing — correct for an override notice, which has nothing to
+ * report when no edit happened. Its absence from the read-only renderer is
+ * likewise correct rather than the dual-renderer blind spot: there are no
+ * edits to override there.
+ *
+ * A standing "this character is over-committed" indicator is a different
+ * feature — render-time derived from pledges versus pool capacity, in both
+ * renderers, independent of any edit. Filed as #1122.
+ *
+ * `_pledgeFloorNote` is transient and `_`-prefixed, so both save paths strip
+ * it per merit and it never persists.
  */
 function _pledgeFloorNote(m) {
   if (!m || !m._pledgeFloorNote) return '';

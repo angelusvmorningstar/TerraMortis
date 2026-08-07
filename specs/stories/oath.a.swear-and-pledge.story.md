@@ -209,7 +209,25 @@ Round 1 fixed **how** the floor was measured. Round 2 found the floor was measur
 
 **Floor-vs-cap ruling (SM): floor wins on reductions.** When a cap sits below the floor, the merit already holds more dots than the pool can fund; that over-commitment predates the edit and a reduction does not worsen it (5 → 4 leaves the pool no worse off than 5 did). Letting the cap win would silently void part of a standing pledge and leave the oath claiming dots the merit no longer has. Caps still bind as **upper** bounds — `_applyPledgeFloor` only ever raises the value, so it cannot license allocating dots a pool does not have. Asserted in both directions.
 
-**The override is surfaced, not silent.** When the floor has to beat a cap, a `_pledgeFloorNote` naming the oath and the pledged count renders on the merit row. Correct arithmetic applied silently would leave an ST to discover an over-committed pool later; the visible failure mode is the better one. The note is `_`-prefixed — verified that **both** save paths strip `_`-prefixed keys *per merit* (`buildSaveBody` in `admin.js`, `charsForSave` in `export.js`, both under the N-1 Concern #3 loop), so it cannot persist.
+**The override is reported, not silent.** When the floor beats a cap, a `_pledgeFloorNote` naming the oath and the pledged count renders on the merit row.
+
+It is **edit-time feedback** — *"the change you just made was overridden, and here is why"* — and nothing more. It is set as a side effect of an edit, so a freshly loaded over-committed character shows nothing, and it does not appear in the read-only renderer. Both are **correct for what it is**: an override notice has nothing to report when no edit happened, and no business in a renderer with no edits. This is deliberately *not* the dual-renderer blind spot.
+
+A standing "this character is over-committed" indicator is a **different feature**: derived at render time from pledges versus pool capacity, independent of any edit, surfacing in both renderers. Filed as **#1122** and deliberately not built here — folding it in would smuggle a feature into a bug fix.
+
+*(The original rationale claimed the note stops an ST "discovering it later". It does not, and cannot: it only fires on an edit. The implementation was the brief thing asked for; the claim attached to it was not achievable by it, and has been dropped rather than left to read as delivered.)*
+
+The note is `_`-prefixed. **Verified behaviourally by QA** rather than asserted: setting `_pledgeFloorNote` and `_pledge_draft` on a merit and running `charsForSave` leaves zero `_`-prefixed keys on the saved copy while the in-memory object keeps them, so the strip is copy-only as it must be. `admin.js` runs the same per-merit loop.
+
+#### QA round 3 — the converse assertion was vacuous
+
+The guard I added in round 2 to pay the "fixed one direction, shipped the other" debt — *caps still bind as UPPER bounds* — **passed with `_applyPledgeFloor` disabled entirely.**
+
+Its fixture edited `free_grants.necro`, a channel `meritRating` does not sum. So `_ownedWithoutField` always equalled `_ownedNow`, `_floor` was structurally `<= 0`, and **no floor was ever present to misbehave**. The test proved the pool cap works in isolation — true, and not what it was named for. It was structurally incapable of detecting the thing it claimed to guard.
+
+That is the same species as the defect it was written against, one level up: I picked the channel that made the test easy to write rather than the one that makes it capable of failing. The debt was real and the payment landed in the wrong account. **A vacuous test is worse than a missing one, because it reads as coverage** — which is why it had to be fixed before merge rather than filed.
+
+Rewritten against a **summed** channel (`free_grants.mci`) with a real MCI pool and the pledge sized so `_floor > 0`, so both bounds are live simultaneously and each is asserted separately. Verified by mutation in both directions: with `_applyPledgeFloor` disabled the test now **fails** (`expected undefined to be 2`), and restored it passes — where the old version passed under the same mutation.
 
 #### What I changed about how I tested it
 
@@ -270,6 +288,42 @@ Post-rebase full suite: **2160 tests, 1072 passed, 4 failed, 1084 skipped — th
 | 2026-08-07 | QA round 2: floor re-applied AFTER the pool caps (ordering, class-wide); floor-over-cap surfaced via transient `_pledgeFloorNote`; invariant probe across all 13 emittable fields |
 
 ## QA Results
+
+## Round 3 — AC6 re-gate at 1bbcdf52
+
+**AC6's mechanism is correct and I could not break it.** Two findings remain, both in the *tests and the override surface*, not the clamp.
+
+### The mechanism — PASS, across a third configuration
+
+Khepri's point stands that my round-2 rig and Ptah's were two samples of a space: the same defect surfaced on `free_inv` in mine and `free_mci` in his purely from pool configuration. So I built the **opposite corner** — every pool *source* merit present and generously rated (MCI, Invested, Lorekeeper, Viral Mythology all at 5), so no cap binds — and re-ran the invariant across all 13 emitted fields.
+
+**All 13 hold.** No third channel leaks. Combined with the two empty-pool rigs, the fix behaves across the configuration space rather than at one point. `_applyPledgeFloor` is reached on both write paths (`:1132` inside the `free_grants.*` branch before its early return, `:1142` on the flat tail) and the probe exercises both.
+
+Fixtures are **not** weakened into triviality: `pledge = ownedBefore - 1` leaves the clamp load-bearing for every summed channel (base 2 against a pledge of 4). For `free_grants.necro`, which `meritRating` does not sum, the invariant holds trivially — which is the correct expectation there, not a loophole.
+
+### Finding 1 — the converse assertion is vacuous (required fix)
+
+*"caps still bind as UPPER bounds — the floor does not license over-allocation"* **passes with `_applyPledgeFloor` disabled entirely.** I ran that mutation.
+
+Its fixture edits `free_grants.necro` — a channel `meritRating` does not sum — so `_ownedWithoutField` always equals `_ownedNow` and `_floor` is structurally `≤ 0`. The floor never engages, and the test verifies only that the pool cap works in isolation. It cannot detect the thing it is named for.
+
+Fix: use a **summed** channel with a binding pool cap — e.g. `free_grants.mci` against a small MCI pool, with a pledge large enough that `_floor > 0` — so both bounds are live at once.
+
+For completeness: mutating `_applyPledgeFloor` to also *lower* `val` does fail a test — **"allows an increase freely"**. So increases are protected; they are just protected somewhere else, and the assertion written for the purpose is not the one doing the work.
+
+### Finding 2 — `_pledgeFloorNote` is edit-only, and transient by construction (SM judgement)
+
+Edit mode renders it; **view mode does not**. But the sharper problem is upstream of the renderer: the note is set only as a *side effect of an edit*. A fresh load of the same over-committed character shows nothing in either mode, because nothing set the key.
+
+That defeats the stated rationale — *"doing it silently leaves an ST to discover the over-commitment later; the visible failure mode is the better one"*. An ST who never touches the stepper never sees it.
+
+Two coherent resolutions, and this is the SM's call:
+- **Accept it as edit-time feedback** and reword the rationale to drop the "discover later" claim; then view-mode absence is correct and no code changes.
+- **Derive the condition from state at render time** (pledged dots exceed what the pools can fund) so it surfaces in both renderers regardless of whether an edit happened. More work, and arguably Story B territory.
+
+### Verified clean
+
+- **`_`-prefixed keys are stripped PER MERIT, behaviourally.** Set `_pledgeFloorNote` and `_pledge_draft` on a merit, ran `charsForSave`: both gone from the saved copy, no `_`-prefixed keys survive on that merit, and the live in-memory object still carries them (the strip is copy-only, as it must be). `admin.js` `buildSaveBody` runs the same per-merit loop. Neither the note nor the draft can reach a persisted document or the localStorage mirror.
 
 ## Round 2 — re-gate at dc010204 (rebased onto dev c5693580)
 

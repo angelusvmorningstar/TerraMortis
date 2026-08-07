@@ -1066,11 +1066,21 @@ export function shEditMeritPt(realIdx, field, val) {
    * Caps still bind as UPPER bounds: this only ever raises val, never lowers
    * it, so it cannot license allocating dots a pool does not have.
    *
-   * When the floor has to override a cap the state is surfaced rather than
-   * silently corrected — an over-committed pool against a standing pledge is
-   * something an ST should be told about, not left to discover. The note is
-   * `_`-prefixed, so both existing save paths strip it and it can never
-   * persist.
+   * When the floor overrides a cap, `_pledgeFloorNote` records it so the
+   * editor can say so. It is EDIT-TIME FEEDBACK: "the change you just made
+   * was overridden, and here is why". It is set as a side effect of an edit
+   * and is therefore absent on a fresh load, which is correct for what it
+   * is — an override notice has nothing to report when no edit happened,
+   * and has no business in the read-only renderer.
+   *
+   * It is NOT a standing "this character is over-committed" indicator. That
+   * is a different feature: it would have to be derived at render time from
+   * pledges versus pool capacity, independent of any edit, and surface in
+   * both renderers. Filed as #1122; deliberately not built here, because
+   * folding it in would smuggle a feature into a bug fix.
+   *
+   * The note is `_`-prefixed, so both save paths strip it per merit and it
+   * can never persist.
    */
   const _applyPledgeFloor = (v) => {
     if (_floor <= 0 || v >= _floor) return v;
