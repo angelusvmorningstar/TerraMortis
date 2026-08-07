@@ -201,11 +201,13 @@ Fixed per QA: drop the `startsWith` exemption, measure the field's contribution 
 
 **Fix 2 — the D8 proof suite had never passed anywhere.** Skipped under Mongo-down, and under Mongo-up all 10 tests died on `TypeError: Header name must be a valid HTTP token`: `.set(stUser())` with one argument, where the repo convention is `.set('X-Test-User', stUser())`. Nine call sites corrected. QA confirmed a patched copy gives 10/10, so D8 itself is sound and only its proof was broken — but a proof that has never executed is not weaker evidence than a passing one, it is none.
 
-### Rebase onto #1110 — HELD, because #1110 has not landed
+### Rebase onto dev — DONE (2026-08-07)
 
-`origin/dev` is still at `b44afc1a` and carries no #1110 commit; PR #1121 is open but unmerged. Rebasing onto the unmerged branch would fold all of COLLECTIVE-2's commits into OATH-A's diff and duplicate them if the PR squash-merges, so the rebase waits for #1110 to reach `dev`.
+The rebase was initially **held**: the instruction assumed #1110 had landed, but `origin/dev` was still at `b44afc1a` with PR #1121 open and unmerged. Rebasing onto the unmerged branch would have folded all of COLLECTIVE-2's commits into OATH-A's diff and duplicated them on a squash merge. Checking the premise rather than executing the instruction is what avoided that.
 
-The conflict is characterised rather than left as a surprise. A test merge in a throwaway worktree (removed afterwards; no HEAD leaked into a shared tree) gives **7 hunks across 3 files, all mechanical "both sides added here"**:
+Both PRs have since merged. Rebased onto `origin/dev` @ `c5693580`, verified independently before starting (`getCollectiveCompounds` present in dev's `rules-helpers.js`; the map fixture at 74 entries with the renamed HQs).
+
+The conflict had been characterised in advance via a test merge in a throwaway worktree (removed afterwards; no HEAD leaked into a shared tree). The prediction held exactly — **7 hunks across 3 files, all mechanical "both sides added here"**:
 
 | file | hunks | nature |
 |---|---|---|
@@ -213,7 +215,13 @@ The conflict is characterised rather than left as a surprise. A test merge in a 
 | `public/js/editor/edit.js` | 2 | same, in the import list and the re-export block |
 | `public/js/editor/sheet.js` | 3 | the rules-helpers import line, and two `meritBdRow` call sites where OATH-A appends `_oathPledgeEditor(c, m, rIdx)` and #1110 replaces `showNECRO` with `compoundPools` / `compoundSlugs` |
 
-Resolution is **take both sides** in every hunk — the two stories touch adjacent concerns in the same lines and neither supersedes the other. `rules-helpers.js` and `edit-domain.js` auto-merged cleanly.
+Resolution was **take both sides** in every hunk — the two stories touch adjacent concerns on the same lines and neither supersedes the other. `rules-helpers.js` and `edit-domain.js` auto-merged cleanly.
+
+Verified after resolving that none of COLLECTIVE-2's retired symbols were reintroduced by the take-both merge — `hasNecropolisSepulcher`, `getNecropolisTargets`, `collectiveNecroDots`, `synthesiseCollectiveNecroNames` and `shAllocateNecroVirtual` are all at **0 occurrences** across the three resolved files, and the single surviving `showNECRO` is a historical comment, not a call site. A take-both resolution can silently resurrect a renamed symbol, so that check is the point rather than a formality.
+
+`git diff --name-only origin/dev HEAD` contains **no COLLECTIVE-2 files**, confirming the rebase did not absorb #1110's work.
+
+Post-rebase full suite: **2160 tests, 1072 passed, 4 failed, 1084 skipped — the same four canonical names, none an OATH-A surface.**
 
 ### File List
 
