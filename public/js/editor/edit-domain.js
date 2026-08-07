@@ -9,7 +9,7 @@ import { pruneContactsSpheres, domKey } from './domain.js';
 // OATH-A (#1111, ADR-010 D1/D1b/D4): pledge validation + the sworn_by
 // builder are pure helpers; meritRating is the OWNED-dots formula they
 // take injected, so no second copy of merit-dot arithmetic is created.
-import { freeOf, normaliseAttachedTo, validatePledge, buildSwornBy, resolveRatingBasis } from '../data/rules-helpers.js';
+import { freeOf, normaliseAttachedTo, validatePledge, buildSwornBy, resolveRatingBasis, OATH_EXIT_REASONS, buildOathExitEvent, buildOathRestoredEvent, oathSuspendedDots } from '../data/rules-helpers.js';
 import { meritRating } from './xp.js';
 import { resolveSharedWithMember as _resolveSharedWithMember } from '../data/helpers.js';
 
@@ -851,4 +851,82 @@ export function shCommitOath(realIdx) {
   delete m._pledge_draft;
   delete m._oathError;
   _renderSheet(c);
+}
+
+/**
+ * OATH-B (issue #1111, ADR-010 D6) — record an exit on the oath at `realIdx`.
+ *
+ * APPENDS to `sworn_by.history`; never mutates or replaces an earlier event.
+ * An oath can be sworn, broken, partly restored and re-sworn, and a single
+ * mutable status field would lose that — the forfeiture clock the deferred
+ * restoration work needs is reconstructed from this log.
+ *
+ * Only `broken` and `abandoned` forfeit. The other three end the oath with no
+ * suspension: `released_by_liege` is the explicit no-forfeiture exit from the
+ * source text, `fulfilled` is Oath of Action completing successfully, and
+ * `st_void` is the adjudication-error escape hatch — without it the only way
+ * to undo a mis-recorded breach would be to edit history.
+ *
+ * `chapter_number` is captured here even though NOTHING in this story reads
+ * it. It is unrecoverable after the fact: without it the deferred restoration
+ * work has no anchor and the remedy is ST archaeology across session logs.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shExitOath(realIdx, reason) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+  if (!m.sworn_by) return { ok: false, message: 'That oath has not been sworn.' };
+  if (!OATH_EXIT_REASONS.includes(reason)) {
+    return { ok: false, message: 'Unknown exit reason: ' + reason };
+  }
+  m.sworn_by.history = Array.isArray(m.sworn_by.history) ? m.sworn_by.history : [];
+  m.sworn_by.history.push(buildOathExitEvent(
+    reason,
+    currentChapterNumber(),
+    new Date().toISOString().slice(0, 10),
+  ));
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
+}
+
+/**
+ * OATH-B (ADR-010 D6) — restore `dots` to a suspended oath.
+ *
+ * Restoration TIMING is deferred; the restoration EVENT is not, and the
+ * distinction is load-bearing. Suspension is a DERIVED value recomputed per
+ * render from this history, so it cannot be hand-cleared — appending this
+ * event is the only way an ST lifts a suspension. Without it, dots go dark at
+ * breach with no route back short of hand-editing a character document, which
+ * is exactly what an append-only log exists to prevent.
+ *
+ * Nothing computes WHEN restoration is due; the ST decides and records it.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shRestoreOathDots(realIdx, dots) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+  if (!m.sworn_by) return { ok: false, message: 'That oath has not been sworn.' };
+  const n = Math.max(0, parseInt(dots) || 0);
+  if (n < 1) return { ok: false, message: 'Restore at least 1 dot.' };
+  const outstanding = oathSuspendedDots(m);
+  if (outstanding <= 0) return { ok: false, message: 'Nothing is suspended on that oath.' };
+  if (n > outstanding) {
+    return { ok: false, message: 'Only ' + outstanding + ' dot' + (outstanding === 1 ? '' : 's') + ' suspended.' };
+  }
+  m.sworn_by.history = Array.isArray(m.sworn_by.history) ? m.sworn_by.history : [];
+  m.sworn_by.history.push(buildOathRestoredEvent(
+    n,
+    currentChapterNumber(),
+    new Date().toISOString().slice(0, 10),
+  ));
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
 }

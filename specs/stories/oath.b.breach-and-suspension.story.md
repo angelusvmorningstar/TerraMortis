@@ -10,7 +10,7 @@ depends_on: OATH-A
 
 ## Status
 
-Ready for Dev (blocked on OATH-A)
+Ready for Review
 
 ## Story
 
@@ -68,7 +68,82 @@ Merit-dot arithmetic is already forked five ways and the five **disagree today**
 
 ## Dev Agent Record
 
-_(Ptah)_
+### Agent Model Used
+
+Ptah (DEV) — claude-opus-5
+
+### Two premise corrections, both measured before building
+
+**1. The briefed implementation site was wrong.** ADR-010 D2 and AC5 both said suspension goes in `meritEffectiveRating`'s general fall-through "so it applies to every merit category". Measured, that is false — three branches return early above it. I implemented the briefed version, set a 2-dot suspension on a 3-dot merit and measured all seven categories:
+
+```
+general / influence / domain plain      effective 1   suspended ok
+Safe Place, Feeding Grounds             effective 3   NOT SUSPENDED
+Haven, Mandragora Garden                effective 3   NOT SUSPENDED
+any shared domain merit                 effective 3   NOT SUSPENDED
+```
+
+ADR-010 D1's own worked example pledges **Safe Place**, so the ADR's canonical case was precisely the one its stated site would miss. The failure is invisible: correct-looking history, unchanged sheet, no error.
+
+**2. Then the first correction was also wrong, and the second correction was incomplete.** Subtracting at the exported exit fails once the cap binds — `domMeritTotal` ends `Math.min(cap, total)` with cap 5, so `Safe Place own 4 + partner 3, pledge 4` gives `5 - 4 = 1`, below the partner's own 3. Moving the subtraction into `domMeritContribSingle` then broke it the other way: both combining branches gate the partner term on `if (own >= 1)`, so suspending the own term to 0 **closed the gate** and discarded the partner contribution entirely — 0 instead of 3.
+
+**Resolution (ADR-010 Rev 4, SM ruling): the gate reads UNSUSPENDED own, the sum reads SUSPENDED own.** Not a workaround — it is the owned-vs-effective distinction D2's hard boundary already rests on, surfacing at the one place both values are needed at once:
+
+- the **gate** asks *"do you hold at least one dot of your own"* — an **ownership** question
+- the **sum** asks *"how many dots do you have access to"* — an **access** question
+
+A suspension does not unmake ownership; that is exactly why it must not reach `meritRating` or `xpSpent`. Partners therefore keep contributing even when the owner's own dots are suspended to zero.
+
+### Where the subtraction lands
+
+One subtraction **rule** at the same **logical** point in every path — the own term, before combination and before capping:
+
+| path | site | partner term? |
+|---|---|---|
+| MULTI_INSTANCE (`domMeritTotalSingle`) | `ownEff` before the sum | yes — gate stays on unsuspended `own` |
+| shared (`domMeritTotal`) | `ownEff` before the sum | yes — same |
+| CAP_DOMAIN | at its own return, after the cap | no |
+| fall-through | at its own return | no |
+
+The two paths with a partner term subtract inside their combining helper and return before the fall-through, so the suspension is applied **exactly once** on every path. The 7-category sweep asserts `after === before - 2` for each, which is the no-double-application proof: a second application would show as `before - 4`.
+
+The zero floor is **required**, not defensive — a capped merit already returns fewer dots than the character owns, so cap-minus-pledge is routinely negative.
+
+### AC7 — the read-path audit found the primary sheet
+
+The audit is what AC7 was written for and it found a surface much larger than the three downtime sites: **7 of 8 renderer × mode combinations displayed unsuspended dots after a breach.** `sheet.js` calls `meritEffectiveRating` three times; the general, influence and standing rows hand-roll `'●'.repeat((m.cp||0)+(m.xp||0))`.
+
+Domain **view** was already correct because it reads `meritEffectiveRating` directly — that is the reference shape, and where a site could be made to look like it, it was.
+
+Scoped by measurement rather than by symbol count, which mattered: of the nine `shDotsMixed` sites originally identified, **4 were already fixed** by the `domain.js` work, **1 was not applicable**, and most of the real failures were at plain `'●'.repeat()` emitters that a `shDotsMixed` grep does not see.
+
+All eight combinations now correct.
+
+**Presentation is a one-line change.** Every display funnels its suspended *count* through `shDotsSuspended`, which is the only place that decides how a suspension looks. Interim behaviour removes the dots from the purchased band; the hollow-band alternative is one line inside that function, pending Peter's ruling. Dots come off the **purchased** band specifically — pledges are made against owned dots, so bonus dots were never pledgeable and are never what is lost.
+
+### Stated exclusions
+
+Written down rather than silently skipped, so each can be re-examined instead of reading as an oversight:
+
+- **`sheet.js:1348`, the virtual compound row** — `_vOwn` is hardcoded 0. The row exists *because* the character does not own that merit, and an unowned merit cannot be pledged. Nothing to suspend.
+- **`tabs/wizard.js`** — character creation cannot have a broken oath: a character that does not exist yet has no oath history, and the pledge editor lives in the sheet editor. If oaths ever become creatable at creation time, this needs revisiting.
+- **Fighting styles and manoeuvres** — two more two-band emitters, not merit dots, not pledgeable.
+- **`public/js/suite` and `public/js/game`** — contain no merit-dot reads at all, so *"every read that rolls merit dots"* is an **empty set**. Recorded as an emptiness observation and deliberately **not** asserted as coverage: a test over an empty set passes because there is nothing in it.
+- **The three MUST-BYPASS sites** (`xp.js` XP accounting, `edit.js` OATH-A pledge floor, `data/audit.js`) read **owned** dots by design and are asserted to contain no suspension symbol. The pledge floor is the subtle one: if a suspension lowered it, breaking an oath would unlock selling the very dots that were staked.
+
+### Test results
+
+`oath-b-suspension.test.js` — **49 tests, all passing, no DB required.** The API round-trip proving `chapter_number` and the forfeiture params survive persistence is `oath-b-d6-api-roundtrip.test.js`, which is DB-backed and **skipped in this worktree**.
+
+Full suite: **4 failed → 4 failed**, the deterministic set by name (`n7-n9` meritPrereqOK ×1, `epic.708.3` ×3), no OATH-B surface. 2224 tests, 1136 passed, 1084 skipped.
+
+### Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-07 | Measured the briefed site as wrong across 7 categories; SM approved the restructure |
+| 2026-08-07 | Ordering corrected twice (exit → own term → gate/sum split) per ADR-010 Rev 4 |
+| 2026-08-07 | AC7 audit found 7 of 8 renderer × mode combinations wrong; all fixed behind a single presentation seam |
 
 ## QA Results
 

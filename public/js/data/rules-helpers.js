@@ -874,3 +874,219 @@ export function buildSwornBy(dotsRequired, attachments, swornAt) {
     history: [],
   };
 }
+
+// -- OATH-B (issue #1111, ADR-010 D2 / D3a / D6 / D7) - breach + suspension --
+
+/**
+ * ADR-010 D6 - the exit reasons, and which of them forfeit.
+ *
+ * Only `broken` and `abandoned` forfeit. `released_by_liege` is the explicit
+ * no-forfeiture exit from the source text; `fulfilled` is required by Oath of
+ * Action, whose rules text ends the oath on successful completion with the
+ * consequences falling on the LIEGE; `st_void` is the escape hatch for
+ * adjudication error - without it the only way to undo a mis-recorded breach
+ * would be to edit history, which defeats an append-only log.
+ */
+export const OATH_EXIT_REASONS = ['broken', 'abandoned', 'released_by_liege', 'fulfilled', 'st_void'];
+const FORFEITING_REASONS = new Set(['broken', 'abandoned']);
+
+/** True when this exit reason suspends the pledged dots. */
+export function oathReasonForfeits(reason) {
+  return FORFEITING_REASONS.has(reason);
+}
+
+/**
+ * ADR-010 D7 - resolve a rule's forfeiture schedule, discriminator-typed.
+ *
+ * ONLY the default variant ships. `{ type: 'session' }` is deliberately NOT
+ * accepted: its entire content is "this suspension ends automatically at the
+ * end of the session", and with restoration deferred (D3b) nothing ends it -
+ * so shipping it would start a suspension that never terminates, and the
+ * failure would be invisible (a correct-looking suspension that never lifts).
+ * It defers together with restoration.
+ *
+ * Unknown types warn and fall back to the default rather than releasing dots:
+ * a schedule nobody recognises must not silently mean "no forfeiture".
+ *
+ * NOTE both parameters are RESTORATION parameters, so nothing reads either in
+ * the shipped scope. That is fine because D8 makes the field declared,
+ * schema-valid and ST-editable - declared-and-manageable-but-not-yet-consumed
+ * is ordinary forward-declared rules data. Do not "clean up" an unread field.
+ *
+ * @param {object} [rule]
+ * @returns {{type: string, chapters: number, restore_per_month: number}}
+ */
+export function resolveForfeitureSchedule(rule) {
+  const DEFAULT = { type: 'chapter_span_then_monthly', chapters: 2, restore_per_month: 1 };
+  const f = rule && rule.forfeiture;
+  if (!f || !f.type) return DEFAULT;
+  if (f.type === 'chapter_span_then_monthly') {
+    return {
+      type: f.type,
+      chapters: f.chapters == null ? DEFAULT.chapters : f.chapters,
+      restore_per_month: f.restore_per_month == null ? DEFAULT.restore_per_month : f.restore_per_month,
+    };
+  }
+  try { console.warn('[rules-helpers] unknown forfeiture.type, using default:', f.type); } catch { /* console may be absent */ }
+  return DEFAULT;
+}
+
+/**
+ * ADR-010 D6 - build an exit event for `sworn_by.history`.
+ *
+ * `chapter_number` is captured HERE and is the single most important field in
+ * this story, despite nothing reading it in the shipped scope. Which chapter
+ * an oath broke in is UNRECOVERABLE after the fact: miss it and the deferred
+ * restoration work has no anchor, and the remedy is ST archaeology across
+ * session logs. It records `null` rather than inventing an ordinal when no
+ * chapter context is loaded - a wrong ordinal is worse than an absent one,
+ * and the resolver tolerates null without throwing (AC11).
+ *
+ * A CHAPTER IS A MONTH (Peter, 2026-08-06): "one dot per month" and "one dot
+ * per chapter" are the same rate in different units, so the whole mechanic
+ * anchors on chapter_number and there is NO date arithmetic anywhere. `at` is
+ * a provenance stamp for the audit trail, never an input to a computation.
+ * ADR-010 Rev 1 argued otherwise and was retracted.
+ */
+export function buildOathExitEvent(reason, chapterNumber, at, by) {
+  return {
+    event: 'exited',
+    reason,
+    chapter_number: Number.isInteger(chapterNumber) ? chapterNumber : null,
+    at: at || null,
+    ...(by ? { by } : {}),
+  };
+}
+
+/**
+ * ADR-010 D6 - build a restoration event.
+ *
+ * Restoration TIMING is deferred; the restoration EVENT is not. Suspension is
+ * a derived value computed from this history, so it cannot be hand-cleared -
+ * appending this event is the ONLY way an ST lifts a suspension. Dropping it
+ * as part of "deferring restoration" would leave dots dark at breach with no
+ * route back except hand-editing a character document, which is precisely
+ * what an append-only log exists to prevent.
+ */
+export function buildOathRestoredEvent(dots, chapterNumber, at, by) {
+  return {
+    event: 'restored',
+    dots: Math.max(0, dots || 0),
+    chapter_number: Number.isInteger(chapterNumber) ? chapterNumber : null,
+    at: at || null,
+    ...(by ? { by } : {}),
+  };
+}
+
+/**
+ * Total dots currently suspended on ONE oath, derived from its history.
+ *
+ * Walks the append-only log in order, which is what makes sworn -> broken ->
+ * partly restored -> re-sworn expressible at all; a single mutable status
+ * field would lose it.
+ *
+ *   exited, forfeiting reason  -> suspend the whole pledge
+ *   exited, non-forfeiting     -> the oath ends with no suspension
+ *   restored { dots: n }       -> release n, floored at 0
+ *
+ * NEVER stored. Recomputed per render from the persisted history.
+ *
+ * @param {object} oath - a merit row carrying `sworn_by`
+ * @returns {number}
+ */
+export function oathSuspendedDots(oath) {
+  const sb = oath && oath.sworn_by;
+  if (!sb || !Array.isArray(sb.attachments)) return 0;
+  const pledged = sb.attachments.reduce((s, a) => s + (a.dots || 0), 0);
+  let suspended = 0;
+  for (const ev of (Array.isArray(sb.history) ? sb.history : [])) {
+    if (!ev) continue;
+    if (ev.event === 'exited') {
+      suspended = oathReasonForfeits(ev.reason) ? pledged : 0;
+    } else if (ev.event === 'restored') {
+      suspended = Math.max(0, suspended - (ev.dots || 0));
+    }
+  }
+  return Math.min(suspended, pledged);
+}
+
+/**
+ * Per-merit suspended dots across every oath on the character.
+ *
+ * An oath's suspension is allocated to its attachments in order, so a
+ * partially restored oath releases its earliest-pledged merits first. That
+ * ordering is arbitrary but it must be DETERMINISTIC - the alternative is a
+ * suspension total that reshuffles between renders.
+ *
+ * Returns a Map keyed by `pledgeKeyFor`, the same key the OATH-A reverse
+ * index uses, so both directions of the relationship share one key rule.
+ *
+ * @param {object} c
+ * @returns {Map<string, number>}
+ */
+export function suspendedDotsByMerit(c) {
+  const out = new Map();
+  for (const oath of swornOaths(c)) {
+    let remaining = oathSuspendedDots(oath);
+    if (remaining <= 0) continue;
+    for (const att of oath.sworn_by.attachments) {
+      if (remaining <= 0) break;
+      if (!att || !att.name) continue;
+      const take = Math.min(remaining, att.dots || 0);
+      if (take <= 0) continue;
+      const key = pledgeKeyFor(att);
+      out.set(key, (out.get(key) || 0) + take);
+      remaining -= take;
+    }
+  }
+  return out;
+}
+
+/**
+ * Apply a merit's oath suspension to a dot figure, floored at zero.
+ *
+ * The ONE place the subtraction is written. `meritEffectiveRating` uses it at
+ * its single exit, and the three display sites that legitimately compute dots
+ * without going through that helper use it too — so there is one rule for
+ * what a suspension does to a number, not four copies that can drift.
+ *
+ * This is NOT a sixth merit-dot sum: it sums nothing. It takes a figure the
+ * caller already computed and applies the suspension to it.
+ *
+ * @param {object} m    - the merit row (carries the transient _suspended_dots)
+ * @param {number} dots - the unsuspended figure
+ * @returns {number}
+ */
+export function applySuspensionTo(m, dots) {
+  return Math.max(0, (dots || 0) - ((m && m._suspended_dots) || 0));
+}
+
+/**
+ * ADR-010 D2 - materialise suspension onto the in-memory character as the
+ * transient `m._suspended_dots`.
+ *
+ * Called from the SAME composition site that already runs the derived-merit
+ * evaluators, before any accessor reads - the ADR-004 §D8 cache-entry
+ * invariant. Every consumer of `meritEffectiveRating` therefore sees the
+ * suspension without a single per-callsite change.
+ *
+ * `_`-prefixed, so both existing save paths strip it PER MERIT
+ * (`buildSaveBody` in admin.js, `charsForSave` in export.js, both inside the
+ * N-1 Concern #3 loop) and it can never reach a persisted document or the
+ * localStorage mirror.
+ *
+ * Deletes the key when there is no suspension rather than writing 0, so a
+ * lifted suspension leaves no residue on the object.
+ *
+ * @param {object} c
+ */
+export function applySuspensions(c) {
+  if (!c || !Array.isArray(c.merits)) return;
+  const byMerit = suspendedDotsByMerit(c);
+  for (const m of c.merits) {
+    if (!m) continue;
+    const n = byMerit.get(pledgeKeyFor(m)) || 0;
+    if (n > 0) m._suspended_dots = n;
+    else delete m._suspended_dots;
+  }
+}

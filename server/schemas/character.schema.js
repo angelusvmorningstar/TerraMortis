@@ -522,10 +522,70 @@ export const characterSchema = {
               },
               additionalProperties: false,
             },
-            // D6 exit events. OATH-A writes an empty array and reads
-            // nothing from it; OATH-B is its only consumer. Declared now so
-            // a sworn oath round-trips whole.
-            history: { type: 'array', items: { type: 'object', additionalProperties: true } },
+            // ADR-010 D6 — the append-only exit/restore log. OATH-A wrote an
+            // empty array; OATH-B is its consumer and types it here.
+            //
+            // Append-only: nothing rewrites an earlier entry. An oath can be
+            // sworn, broken, partly restored and re-sworn, and a single
+            // mutable status field would lose that history — which is what
+            // the deferred restoration work reconstructs the clock from.
+            //
+            // `chapter_number` is required on every event and may be null,
+            // never absent. Nothing reads it in the shipped scope, which is
+            // precisely why it is pinned at the schema: which chapter an oath
+            // broke in is UNRECOVERABLE after the fact, and typing it here is
+            // what makes the API round-trip prove it was persisted rather
+            // than merely written to an in-memory fixture.
+            //
+            // A CHAPTER IS A MONTH, so the whole mechanic anchors on this
+            // ordinal and there is no date arithmetic anywhere; `at` is a
+            // provenance stamp, never a computation input.
+            history: {
+              type: 'array',
+              items: {
+                oneOf: [
+                  {
+                    type: 'object',
+                    required: ['event', 'reason', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['exited'] },
+                      reason:         { type: 'string', enum: ['broken', 'abandoned', 'released_by_liege', 'fulfilled', 'st_void'] },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    type: 'object',
+                    required: ['event', 'dots', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['restored'] },
+                      dots:           { type: 'integer', minimum: 1 },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    // ADR-010 D6's example also shows a `sworn` entry. OATH-A
+                    // does not write one (it rebuilds sworn_by wholesale on
+                    // swear), but it is permitted so a future writer
+                    // following the ADR is not rejected.
+                    type: 'object',
+                    required: ['event', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['sworn'] },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                ],
+              },
+            },
           },
           additionalProperties: false,
         },
