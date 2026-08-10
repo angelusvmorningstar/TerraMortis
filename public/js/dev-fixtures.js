@@ -1,3 +1,4 @@
+import { BLOODLINE_DISCS as _BLD, BLOODLINE_CLANS as _BLC } from './data/constants.js';
 /* dev-fixtures.js — fixture intercept for local dev (index.html).
  * AUTO-GENERATED 2026-04-19 from live Atlas export (real player names).
  * Dynamically imported only when tm_auth_token === local-test-token.
@@ -24,6 +25,16 @@ window.fetch=function devFix(url,opts){
   if(apiIdx<0)return _orig(url,opts);
   var path=urlStr.slice(apiIdx);
   var seg=path.replace(/[?].*/,'').slice(5).split('/');
+  // BL-2 (#1008), HAND-ADDED to this otherwise auto-generated file: every new
+  // endpoint needs a fixtures branch or local dev falls through to a real
+  // fetch. Without it the bloodline cache fails to load and every fixture
+  // character with a bloodline is hard-locked and mis-costed locally.
+  // Derived from the constants so it cannot drift from what the seed writes.
+  if(method==='GET'&&seg[0]==='bloodlines'&&!seg[1]){
+    var _clanOf={};Object.keys(_BLC).forEach(function(cl){(_BLC[cl]||[]).forEach(function(n){_clanOf[n]=cl;});});
+    var _bls=Object.keys(_BLD).map(function(n,i){return{_id:'bl-'+i,name:n,slug:String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-'),clan:_clanOf[n],disciplines:_BLD[n]};});
+    return _mock(_bls);
+  }
   if(method==='GET'&&seg[0]==='characters'&&!seg[1])return _mock(CHARS);
   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='public')return _mock(CHARS);
   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='status')return _mock(CHARS.map(function(c){return{_id:c._id,name:c.name,honorific:c.honorific,moniker:c.moniker,clan:c.clan,covenant:c.covenant,status:c.status,court_category:c.court_category,court_title:c.court_title,player:c.player,powers:c.powers||[],_player_info:{discord_id:null,discord_avatar:null},_ots_covenant_bonus:0};}));

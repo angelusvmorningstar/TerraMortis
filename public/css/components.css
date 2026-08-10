@@ -652,8 +652,29 @@ html:not([data-theme="dark"]) .edit-icon {
 .rel-flag-chip.resolved{color:var(--accent);border-color:var(--accent);background:var(--gold2-a12);cursor:pointer;text-transform:none;font-size:10px;letter-spacing:.02em;}
 .rel-flag-chip.resolved:hover{background:var(--gold2-a25);}
 
+/* ── BL-2 (#1008): shared page-level banner chrome ──
+   Grouped base per coding-standards "Shared Chrome Pattern": layout lives
+   once, each variant supplies only its own colours. `.rel-pending-banner`
+   (NPCR.10, gold/attention) previously carried both in one rule body; the
+   split is byte-identical in computed style. `.bl-warn-banner` is the
+   unresolved-bloodline warning, which is an error state, not an attention
+   state, hence the --err tokens. */
+.rel-pending-banner,
+.bl-warn-banner{display:flex;align-items:center;gap:12px;border-radius:6px;padding:10px 12px;margin-bottom:10px;flex-wrap:wrap;}
+
 /* NPCR.10 Pending incoming banner */
-.rel-pending-banner{display:flex;align-items:center;gap:12px;background:var(--gold2-a12);border:1px solid var(--accent);border-radius:6px;padding:10px 12px;margin-bottom:10px;flex-wrap:wrap;}
+.rel-pending-banner{background:var(--gold2-a12);border:1px solid var(--accent);}
+
+/* BL-2 unresolved-bloodline warning. Deliberately not dismissible: it is
+   reporting that XP costs on screen are wrong, and it clears when the data
+   is fixed, not when the reader is tired of it. */
+.bl-warn-banner{background:var(--err-a12);border:1px solid var(--err);flex-direction:column;align-items:stretch;gap:6px;}
+.bl-warn-row{font-family:var(--ft);font-size:13px;color:var(--txt);line-height:1.5;}
+.bl-warn-row strong{color:var(--err);font-weight:700;}
+
+/* BL-2 in-editor note on the Disciplines panel, stating why the inputs will
+   not take. Same error register as the banner, sized as a section note. */
+.bl-disc-locked{background:var(--err-a12);border:1px solid var(--err);border-radius:4px;color:var(--txt);font-family:var(--ft);font-size:12px;line-height:1.5;margin:0 0 8px;padding:8px 10px;}
 .rel-pending-text{flex:1;min-width:220px;font-family:var(--ft);font-size:13px;color:var(--txt);line-height:1.5;}
 .rel-pending-text strong{color:var(--accent);font-weight:700;}
 .rel-pending-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}

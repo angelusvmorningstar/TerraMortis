@@ -18,6 +18,10 @@ import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
 import { initWS } from './data/ws.js';
 import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
+// BL-2 (#1008): see the matching block in app.js. Primed before characters are
+// fetched so nothing renders, or is edited, against an unloaded cache.
+import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
+import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { preloadRules } from './editor/rule_engine/load-rules.js';
@@ -1300,6 +1304,17 @@ async function init() {
     await loadEquipmentCatalogue();
   } catch (err) {
     console.error('[admin] loadEquipmentCatalogue failed — equipment dropdown will be empty until cache loads:', err);
+  }
+
+  // BL-2 (#1008): bloodline disciplines. Awaited BEFORE the character fetch
+  // below, so no sheet is ever costed against an unloaded cache — the
+  // transient miss is the dangerous one, because it hits every bloodline
+  // character at once and heals on reload before anyone can report it.
+  // loadBloodlines() never rejects; a real failure is read from the flag.
+  await loadBloodlines();
+  mountBloodlineWarnBanner();
+  if (bloodlinesLoadFailed()) {
+    console.error('[admin] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
   }
 
   try {

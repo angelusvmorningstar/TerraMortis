@@ -63,6 +63,12 @@ import { initWS } from './data/ws.js';
 // onCatalogueUpdate so remote admin catalogue edits propagate without
 // a page reload.
 import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
+// BL-2 (#1008): bloodline disciplines come from the collection, not the
+// constants. Primed in the boot Promise.allSettled below so nothing is costed
+// against an unloaded cache; the banner surfaces any bloodline that does not
+// resolve, because an unresolved one silently mis-costs XP.
+import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
+import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initFinanceTab } from './game/finance-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -717,7 +723,20 @@ async function loadAllData() {
     // non-fatal-on-failure shape — the DT form's equipment dropdown
     // degrades to empty options + a console warning on failure.
     loadEquipmentCatalogue(),
+    // BL-2 (#1008): awaited here, before the first render, so the transient
+    // "cache not loaded" miss cannot fire spuriously. loadBloodlines() never
+    // rejects — a genuine failure is read from bloodlinesLoadFailed() below.
+    loadBloodlines(),
   ]);
+
+  // BL-2 (#1008): mount before the first sheet render so any miss registered
+  // during it is already on screen. Unlike the equipment catalogue this is NOT
+  // console-only: a failed load means every bloodline character is being
+  // costed as fully out-of-clan, which is a wrong number, not a missing one.
+  mountBloodlineWarnBanner();
+  if (bloodlinesLoadFailed()) {
+    console.error('[app] loadBloodlines failed — every bloodline character is being costed as out-of-clan and discipline editing is locked.');
+  }
 
   // Issue #249 (HOTFIX 2026-05-09): preloadRules failure surfaces via
   // console.error + best-effort status banner. The downstream

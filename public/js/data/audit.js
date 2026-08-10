@@ -17,7 +17,7 @@
 import { xpEarned, xpSpent, xpLeft, xpSpentAttrs, xpSpentSkills,
          xpSpentMerits, xpSpentPowers, xpSpentSpecial, meritRating } from '../editor/xp.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS, CORE_DISCS, RITUAL_DISCS } from './constants.js';
-import { isInClanDisc } from './accessors.js';
+import { isInClanDisc, bloodlineUnresolved } from './accessors.js';
 import { meetsPrereq } from './prereq.js';
 import { getRuleByKey } from './loader.js';
 // N-1: per-slug free reads via the map-fallback helper (rules-helpers.js).
@@ -110,11 +110,21 @@ export function auditCharacter(c) {
   if (discCPTotal > 3) {
     errors.push({ gate: 'disc_cp_over', message: `Discipline CP: ${discCPTotal} used, budget 3`, detail: { inClan: discCPIn, outClan: discCPOut } });
   }
-  if (discCPOut > 1) {
+  // BL-2 (#1008): both of these gates read in-clan/out-of-clan, and when the
+  // character's bloodline does not resolve EVERY discipline counts as
+  // out-of-clan. Left unguarded they would fire on every affected character at
+  // once, reporting a character-build violation that does not exist and hiding
+  // the real cause behind a plausible-looking one. The banner and the editor
+  // lock already report the actual problem.
+  const _blUnresolved = bloodlineUnresolved(c);
+  if (discCPOut > 1 && !_blUnresolved) {
     errors.push({ gate: 'disc_oc_over', message: `Out-of-clan discipline CP: ${discCPOut}, max 1`, detail: { outClan: discCPOut } });
   }
-  if (discCPIn < 2 && discCPTotal > 0) {
+  if (discCPIn < 2 && discCPTotal > 0 && !_blUnresolved) {
     warnings.push({ gate: 'disc_ic_low', message: `In-clan discipline CP: ${discCPIn}, expected at least 2`, detail: { inClan: discCPIn } });
+  }
+  if (_blUnresolved) {
+    warnings.push({ gate: 'disc_bloodline_unresolved', message: `Bloodline "${c.bloodline}" could not be resolved, so in-clan discipline gates cannot be checked`, detail: { bloodline: c.bloodline } });
   }
   if (discCPTotal < 3) {
     warnings.push({ gate: 'disc_cp_under', message: `${3 - discCPTotal} discipline CP unspent`, detail: { used: discCPTotal, budget: 3 } });

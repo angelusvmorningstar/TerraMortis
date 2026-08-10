@@ -2,7 +2,7 @@
 
 import state from '../data/state.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { isInClanDisc } from '../data/accessors.js';
+import { isInClanDisc, bloodlineUnresolved } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
@@ -628,6 +628,26 @@ export function shSetClanAttr(val) {
 export function shEditDiscPt(disc, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
+
+  // BL-2 (#1008): refuse the write while this character's bloodline does not
+  // resolve. The in-clan answer feeding discCostMult below is untrustworthy
+  // until it does, and committing a dot bought against it bakes a wrong cost
+  // into the document - which is the defect this epic exists to stop. The
+  // guard lives HERE rather than only on the input's `disabled` attribute
+  // because there are two independent discipline-editing surfaces; enforcing
+  // in one template would leave the rule true on one screen and false on the
+  // other. Nothing is mutated, not even an empty disciplines map.
+  if (bloodlineUnresolved(c)) {
+    console.warn(`[edit] discipline edit refused: "${c.bloodline}" does not resolve for ${c.name || 'this character'}.`);
+    // Re-render so the input snaps back to the stored value. Without this the
+    // typed number sits in the box looking accepted, and reverts later at some
+    // unrelated re-render — which is a worse lie than the one this guards.
+    // The inputs also carry `disabled` (sheet.js), so this is the belt to that
+    // brace: the handler is reachable from a second editing surface.
+    if (_renderSheet) _renderSheet(c);
+    return;
+  }
+
   if (!c.disciplines) c.disciplines = {};
   if (!c.disciplines[disc]) c.disciplines[disc] = { dots: 0, cp: 0, free: 0, xp: 0, rule_key: null };
   val = Math.max(0, val || 0);
