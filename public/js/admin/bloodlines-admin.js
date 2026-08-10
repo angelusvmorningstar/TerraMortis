@@ -64,6 +64,7 @@ let _searchName = '';
 let _sortKey = 'name';        // 'name' | 'clan'
 let _sortDir = 'asc';
 let _editingId = null;        // ObjectId-string, or null in create mode
+let _loadError = null;        // message when the list read itself failed
 
 /** Trim + case-fold. The same normalisation the cache resolves costing
  *  through, and the same one the server's delete guard uses, so the holder
@@ -107,9 +108,17 @@ async function loadItems() {
     // The ST-gated read, not the public one: `notes` is projected out of the
     // public list and this screen round-trips it.
     _items = await apiGet('/api/bloodlines/admin');
+    _loadError = null;
   } catch (err) {
     console.error('[bloodlines-admin] load failed:', err);
     _items = [];
+    // A failed read is NOT an empty collection, and this screen used to say it
+    // was: an expired token or a transient API error rendered "No bloodlines
+    // in the collection, create one or run the seed", which invites an ST to
+    // start correcting a collection that is merely unreadable. Found by this
+    // story's review.
+    _loadError = err?.message || 'The bloodlines list could not be read.';
+
   }
 }
 
@@ -150,9 +159,13 @@ function render() {
         <button id="bl-new" class="ec-btn-primary">+ New bloodline</button>
       </div>
 
-      <div class="ec-count">${rows.length} of ${_items.length} bloodline${_items.length === 1 ? '' : 's'}</div>
+      ${_loadError ? '' : `<div class="ec-count">${rows.length} of ${_items.length} bloodline${_items.length === 1 ? '' : 's'}</div>`}
 
-      ${_items.length === 0
+      ${_loadError
+        ? `<div class="ec-empty ec-form-msg--error">The bloodlines list could not be loaded, so this screen is showing nothing rather than an empty collection. ${esc(_loadError)}
+             <div><button id="bl-retry" class="ec-btn-sm">Try again</button></div>
+           </div>`
+        : _items.length === 0
         ? `<div class="ec-empty">No bloodlines in the collection. Create one, or run the seed script to import the chronicle's existing set.</div>`
         : `<table class="ec-table">
              <thead>
@@ -175,14 +188,43 @@ function render() {
   wireListEvents();
 }
 
+/**
+ * Why Delete is refused for this row, or null when it is offered.
+ *
+ * AC 12 requires Delete to be hard-disabled whenever the impact join is
+ * non-empty, and BL-4 shipped it reading only the client-side holder count, so
+ * a bloodline with no holders but a `rule_grant` reference offered an enabled
+ * Delete and then took the ST through a destructive confirmation for an
+ * operation the API refuses with a 409. Found by this story's review. The
+ * grant count comes from `GET /api/bloodlines/admin`, which computes it for
+ * the whole list in one read: the client cannot join `rule_grant` itself, and
+ * an /impact fetch per row would be an N+1 on a 23-row screen.
+ *
+ * Exported so it is testable without a DOM, for the same reason as
+ * `buildHoldersIndex`: the UI mirrors the gate, and a mirror that disagrees
+ * with the gate is worse than no mirror.
+ */
+export function deleteDisabledReason(holdersCount, grantCount) {
+  const holders = Number(holdersCount) || 0;
+  const grants = Number(grantCount) || 0;
+  if (holders > 0 && grants > 0) {
+    return `Held by ${holders} character${holders === 1 ? '' : 's'} and referenced by ${grants} bloodline grant rule${grants === 1 ? '' : 's'}. Edit its clan or disciplines instead.`;
+  }
+  if (holders > 0) {
+    return `Held by ${holders} character${holders === 1 ? '' : 's'}. A bloodline with holders cannot be deleted; edit its clan or disciplines instead.`;
+  }
+  if (grants > 0) {
+    return `Referenced by ${grants} bloodline grant rule${grants === 1 ? '' : 's'} in the rules engine. Remove those grants first, in the Rules Engine admin.`;
+  }
+  return null;
+}
+
 function renderRow(b, holdersCount) {
   const discs = Array.isArray(b.disciplines) ? b.disciplines : [];
-  // The UI mirrors the gate; the API is the gate. A grant rule can also block
-  // the delete, and this client-side join cannot see those, so the disabled
-  // state is a courtesy and the 409 is the truth.
-  const deleteAttrs = holdersCount > 0
-    ? `disabled title="Held by ${holdersCount} character${holdersCount === 1 ? '' : 's'}. A bloodline with holders cannot be deleted; edit its clan or disciplines instead."`
-    : '';
+  // The UI mirrors the gate; the API is still the gate, and its 409 is
+  // surfaced verbatim if it fires anyway.
+  const refusal = deleteDisabledReason(holdersCount, b.grant_rule_count);
+  const deleteAttrs = refusal ? `disabled title="${esc(refusal)}"` : '';
   return `
     <tr data-id="${esc(String(b._id))}">
       <td>${esc(b.name || '')}</td>
@@ -203,6 +245,7 @@ function wireListEvents() {
   $('bl-sort-key')?.addEventListener('change', e => { _sortKey = e.target.value; render(); });
   $('bl-sort-dir')?.addEventListener('click', () => { _sortDir = _sortDir === 'asc' ? 'desc' : 'asc'; render(); });
   $('bl-new')?.addEventListener('click', () => openCreateForm());
+  $('bl-retry')?.addEventListener('click', async () => { await loadItems(); render(); });
 
   _container.querySelectorAll('.ec-table tbody tr').forEach(row => {
     const id = row.dataset.id;
@@ -231,11 +274,18 @@ async function openEditForm(id) {
   } catch (err) {
     console.warn('[bloodlines-admin] impact fetch failed:', err);
   }
+  // Staleness guard, added by this story's review. `_editingId` is module
+  // state set synchronously, but the fetch above is not, so Edit(A) then
+  // Edit(B) can resolve in either order. Rendering A's document while
+  // `_editingId` still says B would show one bloodline in the form and PATCH
+  // the OTHER one on Save, silently re-costing every holder of B. If this call
+  // is no longer the open one, it has nothing left to draw.
+  if (String(_editingId) !== String(id)) return;
   renderForm(item, impact);
 }
 
 function discSelect(index, selected) {
-  const opts = ['<option value="">— choose —</option>']
+  const opts = ['<option value="">Choose a discipline</option>']
     .concat(PICKABLE_DISCS.map(d => `<option value="${esc(d)}"${d === selected ? ' selected' : ''}>${esc(d)}</option>`))
     .join('');
   return `

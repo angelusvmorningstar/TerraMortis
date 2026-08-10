@@ -42,6 +42,8 @@ import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { bloodlineSchema, BLOODLINE_UPDATABLE_FIELDS } from '../schemas/bloodline.schema.js';
 import { deriveSlug } from '../lib/bloodline-slug.js';
+import { ensureBloodlineNameIndex } from '../lib/bloodline-name-index.js';
+import { deleteBloodlineGuarded } from '../lib/bloodline-delete-guard.js';
 import { broadcastBloodlineUpdate } from '../ws.js';
 // The same cross-boundary import the seed script already makes. BL-3b deletes
 // only the three BLOODLINE_* exports; CORE_DISCS / RITUAL_DISCS stay.
@@ -65,12 +67,15 @@ const validateBloodline = ajv.compile(bloodlineSchema);
  * a character carrying " khaibit" is being costed off the Khaibit document,
  * so the collision check and the delete guard must both see it that way.
  *
- * Note this is NOT what the `bloodline_name_unique` index sees — that index is
- * case-SENSITIVE and has no collation, so "Khaibit" and "khaibit" both satisfy
- * it and then collapse to one entry in the cache, leaving one document
- * permanently unreachable for costing while both still appear in the dropdown.
- * The pre-insert check below is what actually prevents that; the index is the
- * backstop, and its E11000 is mapped to a 409 rather than a raw 500.
+ * The `bloodline_name_unique` index now sees the same thing: this story's
+ * review gave it a `strength: 2` collation (`server/lib/bloodline-name-index.js`).
+ * That is what makes the rule real. The pre-insert scan below is a
+ * read-then-write with no lock, so on its own two concurrent POSTs for
+ * "Khaibit" and "khaibit" could both pass it and both land, collapsing to one
+ * entry in the cache and leaving one document permanently unreachable for
+ * costing while both still appeared in the dropdown. The scan now exists to
+ * produce a 409 that names the bloodline in the way; the INDEX is what forbids
+ * the second document, and its E11000 is mapped to a 409 rather than a 500.
  */
 function normKey(name) {
   return typeof name === 'string' ? name.trim().toLowerCase() : '';
@@ -105,11 +110,36 @@ function badRequest(res, message, errors) {
 }
 
 /**
+ * Trim, and adopt the canonical spelling of any discipline that differs from a
+ * known one only by case. `"Auspex "` and `"auspex"` are the discipline field's
+ * version of the whitespace and case tolerance `name` has always had, and
+ * rejecting them as "Unknown discipline" was an avoidable refusal on a value
+ * this function can resolve exactly. What is stored is always the canonical
+ * spelling, because the character's own discipline keys are matched against it
+ * literally: a stored `"auspex"` would resolve the bloodline and then never
+ * match the discipline, which is precisely the silent mis-costing the known-set
+ * check exists to prevent.
+ *
+ * Anything not resolvable is passed through untouched, so
+ * `unknownDisciplineMessage` still reports it verbatim.
+ */
+function canonicaliseDisciplines(disciplines) {
+  if (!Array.isArray(disciplines)) return disciplines; // shape is the schema's job
+  return disciplines.map(d => {
+    if (typeof d !== 'string') return d;
+    const trimmed = d.trim();
+    return KNOWN_DISCIPLINES.find(k => k.toLowerCase() === trimmed.toLowerCase()) || trimmed;
+  });
+}
+
+/**
  * Check every discipline name against the known set. A typo like "Vigor" is
  * drift pattern #15 arriving through the discipline field: the bloodline name
  * resolves, the discipline never matches the character's own list, and the
  * holder is charged out-of-clan for it forever. Returns a message naming the
  * offending value, or null when the list is clean.
+ *
+ * Runs on the canonicalised list, so it reports what would actually be stored.
  */
 function unknownDisciplineMessage(disciplines) {
   if (!Array.isArray(disciplines)) return null; // shape is the schema's job
@@ -138,6 +168,28 @@ export default function buildBloodlinesRouter(authMiddleware) {
   const col = () => getCollection('bloodlines');
   const chars = () => getCollection('characters');
   const grants = () => getCollection('rule_grant');
+
+  /**
+   * Make sure the case-insensitive unique index exists before the first write
+   * of the process. It is the only atomic guard on the normalised name, and
+   * the seed script is not a precondition of this screen working — a
+   * collection created entirely through POST would otherwise carry no unique
+   * index at all.
+   *
+   * Memoised, so it costs one round trip per process rather than per write. A
+   * failure is logged and cleared rather than thrown: it must not take the
+   * write path down, and the pre-insert scan still rejects the ordinary case.
+   */
+  let _indexReady = null;
+  function ensureNameIndex() {
+    if (!_indexReady) {
+      _indexReady = ensureBloodlineNameIndex(col()).catch(err => {
+        console.error('[bloodlines] could not ensure the unique name index:', err);
+        _indexReady = null;
+      });
+    }
+    return _indexReady;
+  }
 
   // `notes` is ST bookkeeping, not player-facing flavour (ruled by Angelus
   // 2026-08-10). These reads are unauthenticated, so it is projected out at
@@ -202,7 +254,25 @@ export default function buildBloodlinesRouter(authMiddleware) {
     authMiddleware, requireRole('st'),
     async (req, res) => {
       const docs = await col().find({}).sort({ name: 1 }).toArray();
-      res.json(docs);
+
+      // `grant_rule_count` is computed here, in ONE read of `rule_grant` for
+      // the whole list, because the admin screen's Delete button has to mirror
+      // the server's delete gate and the client cannot see grant rules at all.
+      // Its own holder join covers `characters.bloodline`; without this a
+      // bloodline with no holders but a grant rule offered an enabled Delete
+      // that the API then refused with a 409 (AC 12). The alternative, an
+      // /impact fetch per row, is an N+1 on a screen that renders 23 rows.
+      const grantRows = await grants()
+        .find({ condition: 'bloodline' }, { projection: { bloodline_name: 1 } })
+        .toArray();
+      const grantsByKey = new Map();
+      for (const g of grantRows) {
+        const key = normKey(g.bloodline_name);
+        if (!key) continue;
+        grantsByKey.set(key, (grantsByKey.get(key) || 0) + 1);
+      }
+
+      res.json(docs.map(d => ({ ...d, grant_rule_count: grantsByKey.get(normKey(d.name)) || 0 })));
     }
   );
 
@@ -247,7 +317,7 @@ export default function buildBloodlinesRouter(authMiddleware) {
         name,
         slug,
         clan: src.clan,
-        disciplines: src.disciplines,
+        disciplines: canonicaliseDisciplines(src.disciplines),
         notes: src.notes === undefined ? null : src.notes,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -260,9 +330,12 @@ export default function buildBloodlinesRouter(authMiddleware) {
       const discMsg = unknownDisciplineMessage(doc.disciplines);
       if (discMsg) return badRequest(res, discMsg);
 
-      // Collision on the NORMALISED key, checked before the insert. The unique
-      // index cannot do this: it is case-sensitive, so it would accept both
-      // "Khaibit" and "khaibit" and leave one of them unreachable for costing.
+      // The index is the guard; this scan is the message. Two concurrent
+      // POSTs can both clear the scan, which is why the collation was added
+      // (`server/lib/bloodline-name-index.js`) — but a lone ST typing a name
+      // that already exists should be told which bloodline is in the way, not
+      // handed a bare conflict from the driver.
+      await ensureNameIndex();
       const existing = await col().find({}, { projection: { name: 1 } }).toArray();
       const clash = existing.find(b => normKey(b.name) === normKey(name));
       if (clash) {
@@ -278,12 +351,14 @@ export default function buildBloodlinesRouter(authMiddleware) {
         const result = await col().insertOne(doc);
         insertedId = result.insertedId;
       } catch (err) {
-        // Backstop for the race the pre-check cannot close. Without this the
-        // raw driver error reaches the client as a 500.
+        // This is where the race is actually lost by the loser: the collated
+        // unique index refuses the second of two concurrent case-different
+        // creates, and without this the raw driver error would reach the
+        // client as a 500.
         if (err && err.code === 11000) {
           return res.status(409).json({
             error: 'CONFLICT',
-            message: `A bloodline named "${name}" already exists.`,
+            message: `A bloodline named "${name}" already exists. Names must be distinct ignoring case and surrounding spaces, because that is how a character's bloodline is matched.`,
           });
         }
         throw err;
@@ -303,6 +378,7 @@ export default function buildBloodlinesRouter(authMiddleware) {
       for (const [field, value] of Object.entries(req.body || {})) {
         if (BLOODLINE_UPDATABLE_FIELDS.has(field)) filtered[field] = value;
       }
+      if ('disciplines' in filtered) filtered.disciplines = canonicaliseDisciplines(filtered.disciplines);
       if (!Object.keys(filtered).length) {
         return badRequest(res, 'No updatable fields provided. Name and slug are immutable: correct a mis-typed name by deleting and recreating, which is possible while it has no holders.');
       }
@@ -348,22 +424,33 @@ export default function buildBloodlinesRouter(authMiddleware) {
       // guard rather than as a missing feature, because create-only plus an
       // immutable name plus no delete would make a single typo permanent and
       // visible in every ST's dropdown forever, with no correction path.
-      const refs = await referencesFor(doc.name);
-      if (refs.holders > 0 || refs.grant_rules > 0) {
+      //
+      // The check runs on both sides of the delete and the document is put
+      // back if a reference lands in between — see
+      // `server/lib/bloodline-delete-guard.js` for why that, and not a
+      // transaction, is what closes the window.
+      const outcome = await deleteBloodlineGuarded({
+        findReferences: () => referencesFor(doc.name),
+        deleteDoc: async () => (await col().deleteOne({ _id: req._oid })).deletedCount,
+        restoreDoc: () => col().insertOne(doc),   // same _id, verbatim
+      });
+
+      if (!outcome.found) {
+        return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
+      }
+      if (!outcome.deleted) {
+        const refs = outcome.refs;
         const parts = [];
         if (refs.holders > 0) parts.push(`held by ${refs.holders} character${refs.holders === 1 ? '' : 's'}`);
         if (refs.grant_rules > 0) parts.push(`referenced by ${refs.grant_rules} bloodline grant rule${refs.grant_rules === 1 ? '' : 's'}`);
         return res.status(409).json({
           error: 'CONFLICT',
-          message: `Cannot delete "${doc.name}": ${parts.join(' and ')}.`,
+          message: `Cannot delete "${doc.name}": ${parts.join(' and ')}.`
+            + (outcome.restored ? ' The reference arrived while the delete was running, so the bloodline has been kept.' : ''),
           ...refs,
         });
       }
 
-      const result = await col().deleteOne({ _id: req._oid });
-      if (result.deletedCount === 0) {
-        return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
-      }
       broadcastBloodlineUpdate(req._oid, 'delete');
       res.status(204).end();
     }

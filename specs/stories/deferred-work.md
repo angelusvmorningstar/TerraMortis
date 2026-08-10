@@ -133,3 +133,29 @@ The 8 patched findings are in the story's Senior Developer Review.
   `onBloodlineUpdate` wiring in `app.js` is asserted by test and the frame was observed arriving at a
   connected browser client, but the last hop is unobservable until **BL-3b** rewires
   `dev-fixtures.js`. Re-verify the player app once BL-3b lands.
+
+## Deferred from: bl-4-admin-crud external code review (Codex, 2026-08-11)
+
+- **`withObjectId`'s case-insensitive round-trip is still missing from the ECM twin.** BL-4's own
+  router header already registers this: `server/routes/bloodlines.js`'s `withObjectId` compares
+  `String(new ObjectId(raw)) !== raw.toLowerCase()`, because `ObjectId.prototype.toString()` always
+  renders lowercase hex and a strict comparison 404s an UPPERCASE id that addresses a real document.
+  `server/routes/equipment-catalogue.js`'s copy is still strict. One line, but it belongs to an ECM
+  fix, not to a bloodlines review pass, and the two routers are otherwise deliberately parallel.
+- **The player-app DT-form hop is now measured, not inferred, and is still BL-3b's.** The entry
+  above recorded this as an environment limitation; this pass confirmed it by direct measurement
+  rather than by reading the interceptor. `dev-fixtures.js` replaces `window.fetch` wholesale under
+  `local-test-token`, so in the player app even a raw `fetch('/api/bloodlines')` typed into the
+  console returns the fixture list derived from the constants. No amount of care in the browser can
+  show that page a bloodline created on the admin screen; only BL-3b's rewiring can. What WAS
+  observed live in this pass is the rule itself rendering from the cache in the DT form
+  (`Nightmare (4 -> 5) [clan, 3 XP]` for a character whose clan does not grant Nightmare).
+- **The seed script's own duplicate-name pre-check is still exact-match.**
+  `server/scripts/seed-bloodlines.js` aborts `--apply` when the collection already holds two
+  documents with the identical name, so the operator gets a readable message instead of a driver
+  error. Now that the index carries a `strength: 2` collation, a case-DIFFERING pair also blocks the
+  index and is reported by `ensureBloodlineNameIndex`'s own error instead — readable, but from a
+  different place, and the seed's summary object still reports `duplicateNames: []` for that case.
+  Harmless while the collection has no such pair (production has none, and the collated index now
+  prevents new ones), and it is the seed, which BL-3b retires to `scripts/archive/`. Left alone
+  rather than edited on its way out.

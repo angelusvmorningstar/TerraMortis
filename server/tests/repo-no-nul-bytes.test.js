@@ -16,6 +16,15 @@
  *
  * Cheap to run, and it fails loudly on exactly the thing that is otherwise
  * invisible until review.
+ *
+ * The explicit timeout is not decoration. This is a synchronous walk over
+ * several thousand files, and on a cold filesystem cache under a parallel run
+ * it takes 9-16 seconds where the same scan takes 165ms warm and alone. At
+ * vitest's 5s default it therefore went red on the FIRST file of a batch and
+ * green on every run after, which BL-4's record wrote down as "a false alarm
+ * from a file mid-write" — a plausible explanation for the wrong cause.
+ * Reproduced and diagnosed by BL-4's review; a NUL byte is a fact about a
+ * file, so this test must only ever be red for that reason.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -56,5 +65,5 @@ describe('repo hygiene — no NUL bytes in text files', () => {
       }
     }
     expect(offenders, 'a NUL byte makes git treat the file as binary: no diff, no clean merge').toEqual([]);
-  });
+  }, 60_000);
 });

@@ -55,6 +55,7 @@ import { connectDb, getCollection, closeDb } from '../db.js';
 import { bloodlineSchema } from '../schemas/bloodline.schema.js';
 import { CLAN_NAMES } from '../schemas/character.schema.js';
 import { deriveSlug } from '../lib/bloodline-slug.js';
+import { ensureBloodlineNameIndex } from '../lib/bloodline-name-index.js';
 import { BLOODLINE_DISCS, BLOODLINE_CLANS, CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
 
 const COLLECTION = 'bloodlines';
@@ -340,8 +341,9 @@ export async function seedBloodlines(opts = {}) {
       throw new Error(`Seed aborted: the collection already holds duplicate name(s), so the unique index cannot be created: ${duplicateNames.join(', ')}. Nothing written.`);
     }
     // Unique index first, so a duplicate cannot slip in underneath the insert.
-    // createIndex is idempotent — safe on every run.
-    await col.createIndex({ name: 1 }, { unique: true, name: 'bloodline_name_unique' });
+    // Idempotent, and it upgrades the pre-BL-4 case-sensitive index in place;
+    // see `server/lib/bloodline-name-index.js` for why the collation matters.
+    await ensureBloodlineNameIndex(col);
     if (toInsert.length) {
       try {
         const result = await col.insertMany(toInsert);

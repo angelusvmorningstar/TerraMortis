@@ -142,6 +142,81 @@ describe('BL-4 AC 9 — a failed refetch must NOT destroy a working cache', () =
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Response ordering — added by this story's review
+//
+//  BL-4 justified not sharing `_inFlight` by asserting that boot priming is
+//  awaited before `initWS` in both apps, so a load and a refetch cannot
+//  overlap. That is true of `app.js` and false of `admin.js`, which calls
+//  `init()` without awaiting it and opens the socket immediately. And two
+//  refetches overlap on every ST write anyway: the screen refetches directly
+//  AND the WS echo refetches. The cache was last-RESPONSE-wins; it is now
+//  newest-STARTED-wins.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 review — an older fetch may never overwrite a newer one', () => {
+  /** A promise plus its resolve/reject, so response order is the test's choice. */
+  function deferred() {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  it('a boot load that RESOLVES after a refetch does not roll the cache back', async () => {
+    const boot = deferred();
+    const m = await freshCache(() => boot.promise);
+    const loading = m.loadBloodlines();          // gen 1, still in flight
+
+    api.get = async () => DOCS_PLUS;
+    await m.refetchBloodlines();                 // gen 2, applied
+    expect(m.bloodlineDiscs('Hounds of Actaeon')).toHaveLength(4);
+
+    boot.resolve(DOCS);                          // gen 1 answers last, with the older collection
+    await loading;
+    expect(m.bloodlineDiscs('Hounds of Actaeon'), 'the stale boot load overwrote a newer refetch').toHaveLength(4);
+    expect(m.approvedBloodlines()).toHaveLength(3);
+  });
+
+  it('a boot load that FAILS after a successful refetch does not wipe the cache', async () => {
+    // The live failure mode: admin boot opens the WS before priming, a frame
+    // fires a refetch that succeeds, then the boot fetch fails and its failure
+    // path empties `_items` — hard-locking every bloodline character at 4
+    // XP/dot behind a banner blaming the system.
+    const boot = deferred();
+    const m = await freshCache(() => boot.promise);
+    const loading = m.loadBloodlines();
+
+    api.get = async () => DOCS_PLUS;
+    await m.refetchBloodlines();
+    expect(m.bloodlinesResolvable()).toBe(true);
+
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    boot.reject(new Error('boot blip'));
+    await loading;
+    spy.mockRestore();
+
+    expect(m.bloodlinesResolvable(), 'a superseded boot failure wiped the cache').toBe(true);
+    expect(m.loadFailed()).toBe(false);
+    expect(m.isLoaded()).toBe(true);
+    expect(m.approvedBloodlines()).toHaveLength(3);
+  });
+
+  it('of two overlapping refetches, the one that STARTED last wins', async () => {
+    const slow = deferred();
+    const m = await freshCache();
+    await m.loadBloodlines();
+
+    api.get = () => slow.promise;
+    const first = m.refetchBloodlines();          // gen 2, reads the older collection
+    api.get = async () => DOCS_PLUS;
+    await expect(m.refetchBloodlines()).resolves.toBe(true);   // gen 3, newer, lands first
+
+    slow.resolve(DOCS);
+    await expect(first, 'the superseded refetch reported success').resolves.toBe(false);
+    expect(m.bloodlineDiscs('Hounds of Actaeon'), 'the older refetch rolled the cache back').toHaveLength(4);
+  });
+});
+
 describe('BL-4 AC 10 — a miss the refetch resolves stops being reported', () => {
   it('clears an unknown-bloodline miss once the bloodline exists', async () => {
     // MISS_UNKNOWN survives a load by design, and clearBloodlineMissesFor only

@@ -30,7 +30,7 @@ vi.mock('../../public/js/data/api.js', () => ({
   apiRaw: async () => ({ status: 204, ok: true, body: null }),
 }));
 
-import { buildHoldersIndex, validationRefusal, REQUIRED_DISCIPLINES } from '../../public/js/admin/bloodlines-admin.js';
+import { buildHoldersIndex, validationRefusal, deleteDisabledReason, REQUIRED_DISCIPLINES } from '../../public/js/admin/bloodlines-admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -68,6 +68,44 @@ describe('BL-4 AC 12 — the client-side holder count', () => {
   it('ignores characters with no bloodline, and a missing character array', () => {
     expect(buildHoldersIndex([{ bloodline: null }, { bloodline: '' }, {}]).size).toBe(0);
     expect(buildHoldersIndex(null).size).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  The Delete affordance mirrors the whole gate (AC 12)
+//
+//  BL-4 disabled Delete on the client-side holder count alone, so a bloodline
+//  with no holders but a `rule_grant` reference offered an enabled Delete and
+//  took the ST through a destructive confirmation for an operation the API
+//  refuses. Found by this story's review.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 AC 12 — Delete is disabled for every kind of reference', () => {
+  it('offers Delete only when nothing references the bloodline', () => {
+    expect(deleteDisabledReason(0, 0)).toBeNull();
+    expect(deleteDisabledReason(undefined, undefined)).toBeNull();
+  });
+
+  it('refuses on holders, and says how many', () => {
+    expect(deleteDisabledReason(2, 0)).toMatch(/held by 2 characters/i);
+    expect(deleteDisabledReason(1, 0)).toMatch(/held by 1 character\b/i);
+  });
+
+  it('refuses on a grant reference with no holders at all, and points at the Rules Engine', () => {
+    const msg = deleteDisabledReason(0, 1);
+    expect(msg).toMatch(/grant rule/i);
+    expect(msg).toMatch(/rules engine/i);
+  });
+
+  it('names both when both apply', () => {
+    const msg = deleteDisabledReason(3, 2);
+    expect(msg).toMatch(/3 characters/);
+    expect(msg).toMatch(/2 bloodline grant rules/);
+  });
+
+  it('the row reads the grant count the admin list read supplies', () => {
+    const view = read('public/js/admin/bloodlines-admin.js');
+    expect(view).toMatch(/deleteDisabledReason\(holdersCount, b\.grant_rule_count\)/);
   });
 });
 
@@ -151,13 +189,50 @@ describe('BL-4 AC 11 — writes broadcast and both apps listen', () => {
     expect(serverWs).toContain('bloodline_id');
   });
 
-  it('all three write handlers fire it', () => {
+  it('EACH write handler fires it, with its own op', () => {
+    // The original assertion was file-wide: three calls anywhere, and each op
+    // string anywhere. It stayed green if all three calls sat in one handler,
+    // or if a write path lost its broadcast while another gained a duplicate.
+    // Sliced per handler instead, which is what AC 11 actually says.
     const route = read('server/routes/bloodlines.js');
-    for (const op of ['create', 'update', 'delete']) {
-      expect(route, `expected a ${op} broadcast`).toContain(`broadcastBloodlineUpdate(`);
-      expect(route).toContain(`'${op}')`);
+    const handlers = [
+      ['create', "router.post('/'", "router.patch('/:id'"],
+      ['update', "router.patch('/:id'", "router.delete('/:id'"],
+      ['delete', "router.delete('/:id'", '  return router;'],
+    ];
+    for (const [op, from, to] of handlers) {
+      const start = route.indexOf(from);
+      const end = route.indexOf(to, start + 1);
+      expect(start, `could not locate the ${op} handler`).toBeGreaterThan(0);
+      expect(end).toBeGreaterThan(start);
+      const handler = route.slice(start, end);
+      const calls = handler.match(/broadcastBloodlineUpdate\(/g) || [];
+      expect(calls, `the ${op} handler must broadcast exactly once`).toHaveLength(1);
+      expect(handler, `the ${op} handler must broadcast op '${op}'`).toMatch(
+        new RegExp(`broadcastBloodlineUpdate\\([^)]*'${op}'\\)`)
+      );
     }
     expect(route.match(/broadcastBloodlineUpdate\(/g)).toHaveLength(3);
+  });
+
+  it('one client that throws on send cannot abort the broadcast, or the write', () => {
+    // Every broadcaster is called after the Mongo mutation and before the HTTP
+    // response, so an unguarded `ws.send` that throws both skips the remaining
+    // clients and rejects the route handler — Express 5 forwards that, and the
+    // ST sees a 500 for a write that succeeded. Found by this story's review;
+    // all four broadcasters shared the gap, so they share one guarded fan-out.
+    const serverWs = read('server/ws.js');
+    expect(serverWs).toMatch(/function _fanOut\(msg\)/);
+    const fanOut = serverWs.slice(serverWs.indexOf('function _fanOut(msg)'), serverWs.indexOf('Broadcast a tracker update'));
+    expect(fanOut).toMatch(/try\s*\{[\s\S]*ws\.send\(msg\)[\s\S]*\}\s*catch/);
+    // No broadcaster may keep its own unguarded loop.
+    const sends = serverWs.match(/ws\.send\(/g) || [];
+    expect(sends, 'ws.send must appear only inside the guarded fan-out').toHaveLength(1);
+    for (const fn of ['broadcastTrackerUpdate', 'broadcastStModUpdate', 'broadcastCatalogueUpdate', 'broadcastBloodlineUpdate']) {
+      const start = serverWs.indexOf(`export function ${fn}(`);
+      expect(start, `expected ${fn}`).toBeGreaterThan(0);
+      expect(serverWs.slice(start, start + 500), `${fn} must fan out through the guarded helper`).toContain('_fanOut(');
+    }
   });
 
   it('the client handles the frame and exposes the callback through initWS', () => {
@@ -243,6 +318,65 @@ describe('BL-4 AC 13 — normalised CSS, reused not re-invented', () => {
       expect(expr, `unescaped document value interpolated: \${${expr}}`)
         .toMatch(/esc\(|\.map\(esc\)|\.length|\.join\(|\?\s*'[^']*'\s*:\s*'[^']*'/);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Async correctness and honest states — added by this story's review
+//
+//  Static, deliberately: these three live in DOM-driven code paths and there
+//  is no jsdom in this runner. Each pins the specific line the review found
+//  missing, which is the same method the mount-point block above uses.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 review — the edit form cannot save one bloodline over another', () => {
+  const view = read('public/js/admin/bloodlines-admin.js');
+
+  it('discards an /impact response that is no longer the open edit', () => {
+    // Edit(A) then Edit(B) before A resolves: `_editingId` is B, but A's
+    // response would render A's clan, disciplines and notes into the form, and
+    // Save then PATCHes B with them, silently re-costing every holder of B.
+    const start = view.indexOf('async function openEditForm(');
+    const end = view.indexOf('function discSelect(');
+    expect(start).toBeGreaterThan(0);
+    const fn = view.slice(start, end);
+    const awaitAt = fn.indexOf('await apiGet(');
+    const guardAt = fn.search(/if \(String\(_editingId\) !== String\(id\)\) return;/);
+    expect(guardAt, 'expected a staleness guard in openEditForm').toBeGreaterThan(0);
+    expect(guardAt, 'the guard must run AFTER the await, not before it').toBeGreaterThan(awaitAt);
+    expect(fn.indexOf('renderForm('), 'the guard must run BEFORE the render').toBeGreaterThan(guardAt);
+  });
+});
+
+describe('BL-4 review — a failed list read is not reported as an empty collection', () => {
+  const view = read('public/js/admin/bloodlines-admin.js');
+
+  it('records the failure rather than only emptying the array', () => {
+    const start = view.indexOf('async function loadItems(');
+    const fn = view.slice(start, view.indexOf('function filteredSorted('));
+    expect(fn).toMatch(/_loadError = null/);
+    expect(fn).toMatch(/catch[\s\S]*_loadError =/);
+  });
+
+  it('renders an error state with a retry, instead of "create one or run the seed"', () => {
+    // An expired token or a transient API error used to render "No bloodlines
+    // in the collection", which invites an ST to start correcting a collection
+    // that is merely unreadable.
+    const start = view.indexOf('function render(');
+    const markup = view.slice(start, view.indexOf('function renderRow('));
+    expect(markup).toMatch(/\$\{_loadError\s*\?/);
+    expect(markup).toContain('bl-retry');
+    expect(view).toMatch(/\$\('bl-retry'\)\?\.addEventListener/);
+  });
+});
+
+describe('BL-4 review — no em-dash in anything the screen prints', () => {
+  it('has none outside the comments', () => {
+    // The story's own Dev Notes: "No em-dashes in any string the app prints."
+    // The discipline picker's placeholder shipped as an em-dashed one.
+    const view = read('public/js/admin/bloodlines-admin.js');
+    const code = view.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toContain('—');
   });
 });
 

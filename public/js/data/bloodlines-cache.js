@@ -58,6 +58,26 @@ let _loaded = false;
 let _loadFailed = false;
 let _inFlight = null;
 
+/**
+ * Monotonic fetch counter. Every fetch — boot load or refetch — takes a ticket
+ * before it starts and only writes to the cache if its ticket is still the
+ * highest issued when it resolves.
+ *
+ * Without it the cache is last-RESPONSE-wins, and two things this module
+ * cannot control make that reachable. The admin app calls `init()` without
+ * awaiting it and opens the WebSocket immediately, so a `bloodline` frame can
+ * start a refetch while boot priming is still queued behind the rules and
+ * equipment loads; and a single ST write fires a direct refetch AND a WS echo,
+ * so two refetches routinely overlap. Either way an older response arriving
+ * last used to overwrite a newer one — and if the older one was a boot load
+ * that FAILED, its failure path wiped the index the refetch had just filled,
+ * hard-locking every bloodline character at 4 XP/dot until the next reload.
+ *
+ * "Newest started wins" rather than "newest finished wins" is the deliberate
+ * choice: it is the only one that is stable regardless of response order.
+ */
+let _generation = 0;
+
 /** key -> { reason, bloodline, characters: Set<string> } */
 const _misses = new Map();
 const _missListeners = new Set();
@@ -89,6 +109,7 @@ function _index(items) {
  */
 export async function loadBloodlines() {
   if (_inFlight) return _inFlight;
+  const gen = ++_generation;
   _inFlight = (async () => {
     try {
       const items = await apiGet('/api/bloodlines');
@@ -98,12 +119,21 @@ export async function loadBloodlines() {
         // turn a broken endpoint into a silent 23-character outage.
         throw new Error('malformed payload: expected an array');
       }
+      // A refetch started after this load did: its answer is the newer one,
+      // and it has either already applied or is about to. Applying this one
+      // over the top would roll the cache backward.
+      if (gen !== _generation) return;
       _index(items);
       // The transient cause is resolved by definition; the data cause is not,
       // and must survive the load that proved it real.
       _clearMisses(MISS_NOT_LOADED);
     } catch (err) {
       console.error('[bloodlines-cache] load failed:', err);
+      // The same guard matters far more on this branch: this is the path that
+      // EMPTIES the cache, and a stale boot load emptying it on top of a
+      // successful refetch is the live defect the generation counter exists
+      // for. A superseded load reports its failure and touches nothing.
+      if (gen !== _generation) return;
       _items = [];
       _byName = new Map();
       _loaded = false;
@@ -136,19 +166,33 @@ export async function loadBloodlines() {
  *   So the failure path here keeps the last good index and logs. Only the boot
  *   load, which has nothing to lose, may empty the cache.
  *
- *   It also deliberately does NOT share `_inFlight`. Boot priming is awaited
- *   before `initWS` is called in both apps, so the two cannot overlap in
- *   practice; joining them would mean a boot load that fails AFTER a
- *   successful refetch could still wipe what the refetch had just repaired.
+ *   It also deliberately does NOT share `_inFlight`: joining them would mean a
+ *   boot load that fails AFTER a successful refetch could still wipe what the
+ *   refetch had just repaired.
+ *
+ *   BL-4 justified that by claiming the two cannot overlap, because both apps
+ *   await boot priming before calling `initWS`. That was true of `app.js` and
+ *   FALSE of `admin.js`, which calls `init()` without awaiting it and opens the
+ *   socket immediately (found by this story's review). The ordering is now
+ *   enforced here instead of assumed of the callers, by `_generation` — see its
+ *   own comment. Overlap is fine; an older answer landing last is not.
  *
  * An EMPTY array is a legitimate answer, not a failure: the last bloodline
  * having been deleted is a real state the cache must reflect. Only a genuine
  * fetch error or a malformed (non-array) payload preserves the old index.
  */
 export async function refetchBloodlines() {
+  const gen = ++_generation;
   try {
     const items = await apiGet('/api/bloodlines');
     if (!Array.isArray(items)) throw new Error('malformed payload: expected an array');
+    // Superseded by a fetch that started later. Two refetches overlap on every
+    // ST write (the screen refetches directly AND the WS echo refetches), so
+    // this is the ordinary case, not the exotic one: without the check, A
+    // reading the old collection and finishing last would roll the cache back
+    // over B's newer answer, and costing would use stale rules until the next
+    // frame or reload.
+    if (gen !== _generation) return false;
     _index(items);
     _clearResolvedMisses();
     return true;

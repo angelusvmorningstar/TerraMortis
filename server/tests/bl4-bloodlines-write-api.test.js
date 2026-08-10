@@ -244,6 +244,77 @@ describe('BL-4 AC 2/3/4/7 — POST /api/bloodlines', () => {
       expect(res.body.error).toBe('CONFLICT');
     }
   });
+
+  it('trims a discipline, and adopts the canonical spelling of a case variant', async () => {
+    // Both used to be rejected as "Unknown discipline" even though the value
+    // resolves exactly. What is STORED must be canonical either way: the
+    // character's own discipline keys are matched against it literally, so a
+    // stored "auspex" would resolve the bloodline and then never match the
+    // discipline, which is the silent mis-costing the known-set check exists
+    // to prevent.
+    const res = await post(body({ name: 'Zzz Bl4 Sloppy Discs', disciplines: ['Auspex ', ' celerity', 'OBFUSCATE', 'Vigour'] }));
+    expect(res.status).toBe(201);
+    expect(res.body.disciplines).toEqual(['Auspex', 'Celerity', 'Obfuscate', 'Vigour']);
+  });
+
+  it('still rejects two spellings of the SAME discipline once they are canonicalised', async () => {
+    const res = await post(body({ name: 'Zzz Bl4 Same Twice', disciplines: ['Auspex', 'auspex ', 'Celerity', 'Vigour'] }));
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AC 4 — the index is what actually forbids the second document
+//
+//  The route's pre-insert scan is a read-then-write with no lock, so two
+//  concurrent POSTs for "Khaibit" and "khaibit" can both clear it. Only the
+//  index is atomic, and BL-4 shipped it case-SENSITIVE, which cannot see the
+//  clash at all. Found by this story's review.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 AC 4 — bloodline_name_unique is case-insensitive at the DATABASE', () => {
+  // Drop it first. The index survives between runs in `tm_suite_test`, and a
+  // test that inherits a collated index from a previous run passes whatever
+  // the code now says — which is exactly how this pair first failed to
+  // discriminate when the collation was reverted to check it.
+  beforeEach(async () => {
+    try { await getCollection('bloodlines').dropIndex('bloodline_name_unique'); }
+    catch { /* IndexNotFound / NamespaceNotFound — nothing to drop */ }
+    // A fresh router too: the route memoises the ensure once per process, so a
+    // router that has already ensured would not notice the drop.
+    app = createTestApp();
+  });
+
+  it('a write ensures the index exists, with a case-insensitive collation', async () => {
+    const res = await post(body({ name: 'Zzz Bl4 Index Ensure' }));
+    expect(res.status).toBe(201);
+    const idx = (await getCollection('bloodlines').indexes()).find(i => i.name === 'bloodline_name_unique');
+    expect(idx, 'expected the route to ensure bloodline_name_unique').toBeTruthy();
+    expect(idx.unique).toBe(true);
+    expect(idx.collation?.strength).toBe(2);
+  });
+
+  it('refuses a case-different duplicate that never passes through the route at all', async () => {
+    // Driver-level, deliberately bypassing the pre-insert scan: this is the
+    // half of the rule the application cannot enforce, and the half the race
+    // needs. If this insert succeeds, two documents collapse onto one cache
+    // key and one of them is permanently unreachable for costing.
+    // Through the route, so the index is ensured whatever order this file runs in.
+    const made = await post(body({ name: 'Zzz Bl4 Collate' }));
+    expect(made.status).toBe(201);
+    let code = null;
+    try {
+      const dupe = await getCollection('bloodlines').insertOne({
+        name: 'zzz bl4 COLLATE', slug: 'zzz-bl4-collate-2', clan: 'Mekhet',
+        disciplines: [...VALID_DISCS], notes: null,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      });
+      seededBloodlines.push(dupe.insertedId);
+    } catch (err) {
+      code = err?.code;
+    }
+    expect(code, 'expected E11000 from the collated unique index').toBe(11000);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -433,6 +504,105 @@ describe('BL-4 AC 8 — DELETE /api/bloodlines/:id', () => {
   it('404s on a well-formed id that does not exist', async () => {
     const res = await request(app).delete(`/api/bloodlines/${new ObjectId()}`).set('X-Test-User', stUser());
     expect(res.status).toBe(404);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AC 8 — the delete guard is not a read-then-write
+//
+//  BL-4 read the references, then deleted. A character assigned the name (or a
+//  grant created against it) in that gap was invisible to the guard and the
+//  delete went through on a referenced bloodline, leaving the holder costed
+//  fully out-of-clan. Found by this story's review.
+//
+//  Injected collection touches, because the ordering is the thing under test
+//  and racing a real database would test the scheduler instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 AC 8 — deleteBloodlineGuarded re-checks after the delete', () => {
+  const CLEAN = { holders: 0, character_names: [], grant_rules: 0, grant_rule_labels: [] };
+  const HELD = { holders: 1, character_names: ['Ocka Keats'], grant_rules: 0, grant_rule_labels: [] };
+
+  it('deletes when nothing references the bloodline, before or after', async () => {
+    const { deleteBloodlineGuarded } = await import('../lib/bloodline-delete-guard.js');
+    let restored = 0;
+    const out = await deleteBloodlineGuarded({
+      findReferences: async () => CLEAN,
+      deleteDoc: async () => 1,
+      restoreDoc: async () => { restored += 1; },
+    });
+    expect(out).toMatchObject({ deleted: true, found: true, restored: false });
+    expect(restored).toBe(0);
+  });
+
+  it('refuses without touching the document when the reference is already there', async () => {
+    const { deleteBloodlineGuarded } = await import('../lib/bloodline-delete-guard.js');
+    let deletes = 0;
+    const out = await deleteBloodlineGuarded({
+      findReferences: async () => HELD,
+      deleteDoc: async () => { deletes += 1; return 1; },
+      restoreDoc: async () => {},
+    });
+    expect(out).toMatchObject({ deleted: false, found: true, restored: false });
+    expect(deletes).toBe(0);
+  });
+
+  it('puts the document back when a reference lands DURING the delete', async () => {
+    const { deleteBloodlineGuarded } = await import('../lib/bloodline-delete-guard.js');
+    let call = 0;
+    let restored = 0;
+    const out = await deleteBloodlineGuarded({
+      // Clean on the way in, referenced on the way out: the write raced the delete.
+      findReferences: async () => (++call === 1 ? CLEAN : HELD),
+      deleteDoc: async () => 1,
+      restoreDoc: async () => { restored += 1; },
+    });
+    expect(out.deleted).toBe(false);
+    expect(out.restored).toBe(true);
+    expect(out.refs.holders).toBe(1);
+    expect(restored, 'the bloodline must be put back, not left deleted-but-referenced').toBe(1);
+  });
+
+  it('reports not-found rather than restoring when someone else deleted it first', async () => {
+    const { deleteBloodlineGuarded } = await import('../lib/bloodline-delete-guard.js');
+    let restored = 0;
+    const out = await deleteBloodlineGuarded({
+      findReferences: async () => CLEAN,
+      deleteDoc: async () => 0,
+      restoreDoc: async () => { restored += 1; },
+    });
+    expect(out).toMatchObject({ deleted: false, found: false, restored: false });
+    expect(restored).toBe(0);
+  });
+
+  it('the route wires the guard, and a clean delete still 204s end to end', async () => {
+    const made = await seedBloodline({ name: 'Zzz Bl4 Guarded', slug: 'zzz-bl4-guarded' });
+    const res = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
+    expect(res.status).toBe(204);
+    expect(await getCollection('bloodlines').findOne({ _id: made._id })).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AC 12's server half — the admin list carries the grant reference count
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BL-4 AC 12 — GET /api/bloodlines/admin reports grant references', () => {
+  it('counts referencing grant rules per bloodline, in the list read', async () => {
+    // The admin screen's Delete button has to mirror the delete gate, and the
+    // client cannot join `rule_grant` at all. Without this the only Delete
+    // control was enabled for a grant-referenced bloodline, taking the ST
+    // through a destructive confirmation the API then refuses with a 409.
+    const held = await seedBloodline({ name: 'Zzz Bl4 Granted', slug: 'zzz-bl4-granted' });
+    const clean = await seedBloodline({ name: 'Zzz Bl4 Ungranted', slug: 'zzz-bl4-ungranted' });
+    await seedGrant('  zzz bl4 granted ');   // normalised key, as the guard matches
+    await seedGrant('Zzz Bl4 Granted');
+
+    const res = await request(app).get('/api/bloodlines/admin').set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    const rows = Object.fromEntries(res.body.map(b => [String(b._id), b]));
+    expect(rows[String(held._id)].grant_rule_count).toBe(2);
+    expect(rows[String(clean._id)].grant_rule_count).toBe(0);
   });
 });
 

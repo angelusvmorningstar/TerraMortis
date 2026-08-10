@@ -56,18 +56,38 @@ export function attachWS(server) {
 }
 
 /**
+ * Send one frame to every open client.
+ *
+ * The per-client try/catch is the point. Every broadcaster is called from a
+ * route handler AFTER the Mongo mutation has committed but BEFORE the HTTP
+ * response is sent, so a `ws.send` that throws — a socket that closes between
+ * the readyState check and the send is the ordinary way that happens — would
+ * both skip every client after it in the iteration and reject the route's
+ * async handler. Express 5 forwards that rejection, so the ST would see a 500
+ * for a write that had already succeeded and might retry it. One bad socket
+ * must not be able to do either of those things. Added by the BL-4 review;
+ * all four broadcasters shared the gap, so all four share the fix.
+ */
+function _fanOut(msg) {
+  if (!_wss) return;
+  for (const ws of _wss.clients) {
+    if (ws.readyState !== 1) continue; // not OPEN
+    try {
+      ws.send(msg);
+    } catch (err) {
+      console.error('[ws] send failed for one client; continuing:', err?.message || err);
+    }
+  }
+}
+
+/**
  * Broadcast a tracker update to all connected clients.
  * @param {string} characterId
  * @param {object} fields — the changed tracker fields
  */
 export function broadcastTrackerUpdate(characterId, fields) {
   if (!_wss) return;
-  const msg = JSON.stringify({ type: 'tracker', characterId, fields });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  _fanOut(JSON.stringify({ type: 'tracker', characterId, fields }));
 }
 
 /**
@@ -91,17 +111,12 @@ export function broadcastTrackerUpdate(characterId, fields) {
  */
 export function broadcastStModUpdate(characterId, op, stModId) {
   if (!_wss) return;
-  const msg = JSON.stringify({
+  _fanOut(JSON.stringify({
     type: 'st_mod',
     characterId: String(characterId),
     op,
     st_mod_id: String(stModId),
-  });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  }));
 }
 
 /**
@@ -122,16 +137,11 @@ export function broadcastStModUpdate(characterId, op, stModId) {
  */
 export function broadcastCatalogueUpdate(itemId, op) {
   if (!_wss) return;
-  const msg = JSON.stringify({
+  _fanOut(JSON.stringify({
     type: 'catalogue',
     item_id: String(itemId),
     op,
-  });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  }));
 }
 
 /**
@@ -155,16 +165,11 @@ export function broadcastCatalogueUpdate(itemId, op) {
  */
 export function broadcastBloodlineUpdate(bloodlineId, op) {
   if (!_wss) return;
-  const msg = JSON.stringify({
+  _fanOut(JSON.stringify({
     type: 'bloodline',
     bloodline_id: String(bloodlineId),
     op,
-  });
-  for (const ws of _wss.clients) {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(msg);
-    }
-  }
+  }));
 }
 
 // ── Token resolution (mirrors middleware/auth.js logic) ──
