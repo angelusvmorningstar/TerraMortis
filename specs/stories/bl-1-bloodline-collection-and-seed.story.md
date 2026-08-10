@@ -438,13 +438,25 @@ not use" (`db.js:25` resolves the name with exactly the same expression), and "`
 populated in apply mode too" (it is accurate as *the number that needed inserting*; no consumer
 reads it as a to-do count).
 
-### One decision for Angelus, not blocking
+### One decision for Angelus — RESOLVED 2026-08-10
 
-**Should `notes` be public?** `GET /api/bloodlines` is unauthenticated and returns every field.
-Today every `notes` is `null`, so nothing is exposed. When BL-4 lets an ST write notes, they will be
-served to anyone who can reach the API unless the list projects them out. Bloodline notes may well be
-player-facing flavour, in which case this is fine — but it is your call, not mine, and BL-4 is where
-it lands.
+**Should `notes` be public?** `GET /api/bloodlines` is unauthenticated and returned every field.
+Nothing was exposed yet (every `notes` is `null`), but BL-4 lets an ST write them.
+
+Grounding offered before the call: the eight `rule_*` reference collections all carry a free-text
+`notes` and all sit behind `requireAuth` at `/api/rules`, so the repo has **no** precedent for an ST
+note on an unauthenticated endpoint. The ECM precedent this route was modelled on has a player-facing
+`description` and no ST-notes field at all, so "same as ECM" did not cover the case.
+
+**Ruled: `notes` is ST bookkeeping, not player-facing flavour.** Both public reads now project it
+out at the query — the same shape as `st_hidden` filtering on relationships, and per the standing
+rule that role scoping belongs in the Mongo query rather than a post-fetch strip. The document still
+stores it; BL-4 adds an ST-gated read to surface it in the admin UI, and that requirement is recorded
+on BL-4's sprint-status line so it is not lost. If bloodlines ever want player-visible flavour text,
+that is a separate `description` field, as the equipment catalogue has.
+
+Covered by a test asserting `notes` is absent from both the list and the single read while still
+present in the stored document; proved to discriminate by reverting the projection.
 
 ### Regression after patching
 

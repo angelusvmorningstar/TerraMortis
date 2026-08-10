@@ -57,13 +57,22 @@ export default function buildBloodlinesRouter(authMiddleware) {
   const router = Router();
   const col = () => getCollection('bloodlines');
 
+  // `notes` is ST bookkeeping, not player-facing flavour (ruled by Angelus
+  // 2026-08-10). These reads are unauthenticated, so it is projected out at
+  // the query rather than stripped after fetch — the same shape as the
+  // `st_hidden` filtering on relationships. Every other reference collection
+  // carrying a free-text note (the eight `rule_*` collections) sits behind
+  // requireAuth; this keeps bloodlines consistent with that. BL-4 adds an
+  // ST-gated read that includes it.
+  const PUBLIC_PROJECTION = { projection: { notes: 0 } };
+
   router.get('/', async (req, res) => {
-    const docs = await col().find({}).sort({ name: 1 }).toArray();
+    const docs = await col().find({}, PUBLIC_PROJECTION).sort({ name: 1 }).toArray();
     res.json(docs);
   });
 
   router.get('/:id', withObjectId, async (req, res) => {
-    const doc = await col().findOne({ _id: req._oid });
+    const doc = await col().findOne({ _id: req._oid }, PUBLIC_PROJECTION);
     if (!doc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Bloodline not found' });
     res.json(doc);
   });

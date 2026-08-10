@@ -90,6 +90,26 @@ describe('GET /api/bloodlines', () => {
     expect(alpha.disciplines).toHaveLength(4);
     expect(alpha.clan).toBe('Daeva');
   });
+
+  it('never publishes `notes` — these reads are unauthenticated and notes are ST-only', async () => {
+    const made = await seedBloodline({
+      name: 'Zzz Fixture Golf', slug: 'zzz-fixture-golf',
+      notes: 'ST ONLY: extinct in Sydney since 1998.',
+    });
+
+    const list = await request(app).get('/api/bloodlines');
+    const fromList = list.body.find(b => b.name === 'Zzz Fixture Golf');
+    expect(fromList).toBeTruthy();
+    expect(fromList).not.toHaveProperty('notes');
+
+    const single = await request(app).get(`/api/bloodlines/${made._id}`);
+    expect(single.status).toBe(200);
+    expect(single.body).not.toHaveProperty('notes');
+
+    // Stored, just not served. BL-4's ST-gated read is what surfaces it.
+    const stored = await getCollection('bloodlines').findOne({ _id: made._id });
+    expect(stored.notes).toBe('ST ONLY: extinct in Sydney since 1998.');
+  });
 });
 
 describe('GET /api/bloodlines/:id', () => {

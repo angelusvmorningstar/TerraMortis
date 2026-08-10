@@ -62,6 +62,11 @@ export const bloodlineSchema = {
 
     // Soft-retire rather than delete, so historical characters keep resolving.
     active: { type: 'boolean' },
+
+    // ST bookkeeping, NOT player-facing flavour (ruled 2026-08-10). The public
+    // reads in routes/bloodlines.js project it out; BL-4 adds an ST-gated read
+    // that includes it. If bloodlines ever need player-visible flavour text,
+    // that is a separate `description` field, as the equipment catalogue has.
     notes: { type: ['string', 'null'] },
 
     // ── Audit-light metadata, as ECM does ──
