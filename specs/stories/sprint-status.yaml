@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-08-10 (issue-1028-cm1-phase-as-data DEV + EXTERNAL CODEX REVIEW COMPLETE, all High/Med patched, 88/88 targeted green, 708.3 baseline unchanged; awaiting commit + Symon hand-test post-Wed-deploy + Angelus's word on PR to main. Review artefacts in specs/stories/code-review/. Ruling doc D:\Terra Mortis\cycle-model.md Rev 2)
+# last_updated: 2026-08-10 (bl-1 story created ready-for-dev, Epic BL in-progress; Actaeon hotfix merged+live via PR #1131 so BL-1 precondition met. Earlier today: CM-1 #1129 and CM-5a #1130 both merged and verified live.)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -909,9 +909,9 @@ development_status:
   # reads the constants. Without it the seed writes 22 of 23 and rebuilds the defect.
   # SEQUENCING: agreed for AFTER Game 7 (Sat 15 Aug). BL-2 changes how every character's
   # disciplines are costed and its miss path is silent - the worst thing to rush.
-  epic-bl: backlog
+  epic-bl: in-progress
 
-  bl-1-bloodline-collection-and-seed: backlog              # Collection + schema (4-disc constraint, unique name index) + seed script (dry-run default, reads the constants) + read-only GET route. Blocked until the Actaeon hotfix lands on main.
+  bl-1-bloodline-collection-and-seed: ready-for-dev              # Collection + schema (4-disc constraint, unique name index) + seed script (dry-run default, reads the constants) + read-only GET route. Blocked until the Actaeon hotfix lands on main.
   bl-2-cache-and-accessor-wiring: backlog                  # DATA-LOCK FIRST. Cache module (ECM pattern) + clanDiscList rewired with a LOUD miss path + boot priming at admin.js and app.js (DT form free-rides on app boot). The only story here that can silently produce wrong XP. Best introduced right after the hotfix, when every live value resolves and a loud miss fires on nothing.
   bl-3-retire-static-constants: backlog                    # Remove BLOODLINE_DISCS/BLOODLINE_CLANS/APPROVED_BLOODLINES; rewire the 5 remaining readers - edit.js:103, identity.js:19, sheet.js:2692, downtime-form.js:4112/4174/4176 (the DT form has its OWN in-clan check, a second implementation of the same rule). wizard.js:118 excluded, dead.
   bl-4-admin-crud: backlog                                 # ST admin CRUD. This is where #1008's actual promise lands ("add a bloodline without a deploy"). Note: the 4-discipline constraint means no partial-save - a 3-disc bloodline is invalid, not a draft.
