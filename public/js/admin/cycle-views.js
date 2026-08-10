@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
 import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
+import { resetOnTransition } from '../downtime/cycle-phase.js';
 
 const PHASE_LABELS = {
   game:       'Game',
@@ -10,7 +11,9 @@ const PHASE_LABELS = {
 
 // CM-1 (#1028): buttons follow the cycle order (cycle-model.md Rev 2 section
 // 1): downtime, processing, prep, game. Prep is the game-prep window in which
-// feeding is open; setting it never resets the tracker (only Game does).
+// feeding is open. CM-5a: entering PREP is what resets the live tracker (once
+// per chapter, from a preceding phase only); prep -> game is non-destructive
+// so the prep week's confirmed feeds survive into the session.
 const PHASES = ['downtime', 'processing', 'prep', 'game'];
 
 // The phase a row's UI reflects: the new `phase` field when set, else the
@@ -246,8 +249,10 @@ function buildChaptersPanel(chapters) {
 // ── Phase controls ───────────────────────────────────────────────────────────
 
 // Write a phase to a cycle. `phaseOrNull === null` clears the phase (neutral).
-// Only entering Game phase resets the live tracker — clearing does NOT.
-// Returns false if the ST cancels the Game-phase confirmation.
+// The live-tracker reset is decided by resetOnTransition (CM-5a): entering
+// prep from a preceding phase, or entering game from anywhere except prep.
+// Clearing to neutral never resets. Returns false if the ST cancels either
+// the zero-submission flip warning or the tracker-reset confirmation.
 async function writePhase(cy, phaseOrNull) {
   if (phaseOrNull === 'game') {
     // #1003: warn if flipping an empty cycle to game while another live cycle
@@ -255,7 +260,14 @@ async function writePhase(cy, phaseOrNull) {
     const warn = await zeroSubmissionFlipWarning(
       cy, view.cycles || [], async id => (await getSubmissionsForCycle(id)).length);
     if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return false;
-    if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return false;
+  }
+  // CM-5a: the slate-wipe moves to PREP entry, so feed rolls made during the
+  // prep week survive into game (prep -> game is non-destructive). Entering
+  // game from any non-prep state keeps the legacy reset. Cancelling the
+  // dialog aborts the phase change entirely.
+  if (resetOnTransition(uiPhase(cy), phaseOrNull)) {
+    const label = PHASE_LABELS[phaseOrNull];
+    if (!confirm(`Setting to ${label} phase will reset the live tracker (all characters reload with default states). Continue?`)) return false;
     try {
       await apiDelete('/api/tracker_state');
     } catch (err) {

@@ -1,0 +1,164 @@
+diff --git a/public/js/admin/cycle-views.js b/public/js/admin/cycle-views.js
+index 2293fe0d..694ff19a 100644
+--- a/public/js/admin/cycle-views.js
++++ b/public/js/admin/cycle-views.js
+@@ -1,5 +1,6 @@
+ import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
+ import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
++import { resetOnTransition } from '../downtime/cycle-phase.js';
+ 
+ const PHASE_LABELS = {
+   game:       'Game',
+@@ -255,7 +256,14 @@ async function writePhase(cy, phaseOrNull) {
+     const warn = await zeroSubmissionFlipWarning(
+       cy, view.cycles || [], async id => (await getSubmissionsForCycle(id)).length);
+     if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return false;
+-    if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return false;
++  }
++  // CM-5a: the slate-wipe moves to PREP entry, so feed rolls made during the
++  // prep week survive into game (prep -> game is non-destructive). Entering
++  // game from any non-prep state keeps the legacy reset. Cancelling the
++  // dialog aborts the phase change entirely.
++  if (resetOnTransition(uiPhase(cy), phaseOrNull)) {
++    const label = PHASE_LABELS[phaseOrNull];
++    if (!confirm(`Setting to ${label} phase will reset the live tracker (all characters reload with default states). Continue?`)) return false;
+     try {
+       await apiDelete('/api/tracker_state');
+     } catch (err) {
+diff --git a/public/js/admin/downtime-views.js b/public/js/admin/downtime-views.js
+index 810ccff0..3bf8a60d 100644
+--- a/public/js/admin/downtime-views.js
++++ b/public/js/admin/downtime-views.js
+@@ -9,6 +9,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+ import state from '../data/state.js';
+ import { parseDowntimeCSV } from '../downtime/parser.js';
+ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses, signoffPhase, setManualOpen, isInGamePhase, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, DTUX_PHASES } from '../downtime/db.js';
++import { resetOnTransition } from '../downtime/cycle-phase.js';
+ import { TERRITORY_DATA, AMBIENCE_FEEDING_TOLERANCE, AMBIENCE_ENTROPY, AMBIENCE_THRESHOLDS, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, MAINTENANCE_MERITS, normaliseSorceryTargets } from '../tabs/downtime-data.js';
+ import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
+ import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs, riteCost, skillAcqPoolStr } from '../data/accessors.js';
+@@ -2715,6 +2716,19 @@ async function handleOpenGamePhase() {
+     cycle, allCycles, async id => (await getSubmissionsForCycle(id)).length);
+   if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return;
+   if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
++  // CM-5a: both game-entry routes consult the same reset rule. This path
++  // historically never reset the tracker (an inconsistency with the Cycle
++  // tab's Game button); now it resets on non-prep entry exactly as that
++  // button does, and prep -> game stays non-destructive. Cancelling aborts.
++  if (resetOnTransition(cycle.phase || cycle.game_phase || null, 'game')) {
++    if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return;
++    try {
++      await apiDelete('/api/tracker_state');
++    } catch (err) {
++      alert('Tracker reset failed: ' + err.message);
++      return;
++    }
++  }
+   // CM-1 (#1028): openGamePhase routes through setCyclePhase, which mutates
+   // the passed cycle object in place - and `cycle` here IS the entry in
+   // allCycles, so no separate local patch is needed.
+diff --git a/public/js/downtime/cycle-phase.js b/public/js/downtime/cycle-phase.js
+index a142034f..9a29492c 100644
+--- a/public/js/downtime/cycle-phase.js
++++ b/public/js/downtime/cycle-phase.js
+@@ -85,6 +85,22 @@ export function isFeedingOpen(cycle, deriveStatus) {
+   return p === 'prep' || p === 'game';
+ }
+ 
++/**
++ * CM-5a: does entering `toPhase` from `fromPhase` reset the live tracker?
++ *
++ * The slate-wipe belongs at PREP entry - prep is the loading of game-starting
++ * state (Rev 2 section 2), so the wipe happens before carry-over lands, and
++ * feed rolls made during the prep week survive into the game. Entering game
++ * FROM prep is therefore non-destructive ("prep and game are deliberately
++ * seamless"). Entering game from anywhere else keeps the legacy reset, which
++ * is also the fallback path: skip prep and today's exact behaviour returns.
++ */
++export function resetOnTransition(fromPhase, toPhase) {
++  if (toPhase === 'prep') return true;
++  if (toPhase === 'game') return fromPhase !== 'prep';
++  return false;
++}
++
+ /**
+  * The update object for a non-null phase write: the new `phase` field plus its
+  * legacy mirror pair, written together in ONE update so the representations
+diff --git a/server/tests/cm5-reset-transition.test.js b/server/tests/cm5-reset-transition.test.js
+new file mode 100644
+index 00000000..4c20ec83
+--- /dev/null
++++ b/server/tests/cm5-reset-transition.test.js
+@@ -0,0 +1,72 @@
++/**
++ * CM-5a — the tracker slate-wipe moves to Prep entry; prep -> game is
++ * non-destructive. Pure decision imported directly (no mirror); UI wiring
++ * asserted via source text per the epic.708.1 convention.
++ *
++ * Ruling document: D:/Terra Mortis/cycle-model.md Rev 2 section 2;
++ * story: specs/stories/cm5-tracker-reset-to-prep.story.md.
++ */
++import { describe, it, expect } from 'vitest';
++import fs from 'fs';
++
++import { resetOnTransition } from '../../public/js/downtime/cycle-phase.js';
++
++const VIEWS  = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
++const DVIEWS = fs.readFileSync('../public/js/admin/downtime-views.js', 'utf8');
++
++describe('cm5a — resetOnTransition matrix (executable, the full table)', () => {
++  it('entering prep always resets, from every source', () => {
++    for (const from of [null, 'downtime', 'processing', 'prep', 'game']) {
++      expect(resetOnTransition(from, 'prep')).toBe(true);
++    }
++  });
++
++  it('prep to game is NON-destructive (the point of this story)', () =>
++    expect(resetOnTransition('prep', 'game')).toBe(false));
++
++  it('entering game from any non-prep state keeps the legacy reset', () => {
++    for (const from of [null, 'downtime', 'processing', 'game']) {
++      expect(resetOnTransition(from, 'game')).toBe(true);
++    }
++  });
++
++  it('downtime, processing and clear-to-neutral never reset', () => {
++    for (const from of [null, 'downtime', 'processing', 'prep', 'game']) {
++      expect(resetOnTransition(from, 'downtime')).toBe(false);
++      expect(resetOnTransition(from, 'processing')).toBe(false);
++      expect(resetOnTransition(from, null)).toBe(false);
++    }
++  });
++});
++
++describe('cm5a — UI wiring (source, per the 708.1 convention)', () => {
++  it('the Cycle tab writePhase consults resetOnTransition with the current uiPhase', () => {
++    const start = VIEWS.indexOf('async function writePhase');
++    const end = VIEWS.indexOf('function buildPhaseCell');
++    expect(start).toBeGreaterThan(-1);
++    expect(end).toBeGreaterThan(start);
++    const body = VIEWS.slice(start, end);
++    expect(body).toContain('resetOnTransition(uiPhase(cy), phaseOrNull)');
++    // The reset is no longer unconditional inside the game branch: the DELETE
++    // appears exactly once, inside the resetOnTransition guard.
++    expect(body.split("apiDelete('/api/tracker_state')").length - 1).toBe(1);
++    // Cancel aborts the phase change (returns false before any write).
++    expect(body).toMatch(/if \(!confirm\(`Setting to \$\{label\} phase will reset the live tracker[\s\S]{0,120}return false;/);
++  });
++
++  it('the dialog label is phase-aware (Prep gets its own wording via PHASE_LABELS)', () =>
++    expect(VIEWS).toContain('const label = PHASE_LABELS[phaseOrNull];'));
++
++  it('the processing-view game-entry route consults the SAME rule (historic no-reset inconsistency closed)', () => {
++    const start = DVIEWS.indexOf('async function handleOpenGamePhase');
++    expect(start).toBeGreaterThan(-1);
++    const body = DVIEWS.slice(start, start + 2500);
++    expect(body).toContain("resetOnTransition(cycle.phase || cycle.game_phase || null, 'game')");
++    expect(body).toContain("apiDelete('/api/tracker_state')");
++  });
++
++  it('resetOnTransition is imported from the pure module in both views', () => {
++    expect(VIEWS).toContain("import { resetOnTransition } from '../downtime/cycle-phase.js'");
++    expect(DVIEWS).toContain("import { resetOnTransition } from '../downtime/cycle-phase.js'");
++  });
++});
