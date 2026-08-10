@@ -54,6 +54,7 @@ import Ajv from 'ajv';
 import { connectDb, getCollection, closeDb } from '../db.js';
 import { bloodlineSchema } from '../schemas/bloodline.schema.js';
 import { CLAN_NAMES } from '../schemas/character.schema.js';
+import { deriveSlug } from '../lib/bloodline-slug.js';
 import { BLOODLINE_DISCS, BLOODLINE_CLANS, CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
 
 const COLLECTION = 'bloodlines';
@@ -69,20 +70,13 @@ const REQUIRED_DISCIPLINES = 4;
 const KNOWN_DISCIPLINES = [...CORE_DISCS, ...RITUAL_DISCS];
 
 /**
- * Stable kebab id from a display name. Diacritics are stripped rather than
- * hyphenated through, so "Lidérc" gives "liderc" and not "lid-rc".
- *
- * Nothing reads `slug` yet — it exists so a later internal join has a stable
- * key that is not the display name.
+ * Re-exported so this script's existing callers and its own suite keep their
+ * import site. The implementation moved to `server/lib/bloodline-slug.js` in
+ * BL-4 (#1008), because the write route needs the identical derivation and
+ * BL-3b retires this file to `scripts/archive/`. One implementation, two
+ * importers, no copy left behind when the archive move happens.
  */
-export function deriveSlug(name) {
-  return String(name)
-    .normalize('NFD')
-    .replace(/\p{Mn}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+export { deriveSlug };
 
 /**
  * Verify the two source structures agree with each other and with the clan

@@ -108,3 +108,28 @@ The 8 patched findings are in the story's Senior Developer Review.
 - **AC 1 and AC 7 contradict each other as written.** AC 1 lists the files permitted to mention the constants and does not include `tabs/wizard.js`; AC 7 explicitly excludes `wizard.js` as dead. The code is right (zero importers, re-confirmed repo-wide) and the AC text is sloppy. Worth fixing in BL-3b's spec so the same contradiction is not inherited.
 - **A locked discipline row still shows two contradictory dot totals.** Carried from BL-2's review and re-confirmed here: `editor/sheet.js:653` renders pips from the stored `dots` (bought at 3/dot) while the `=` readout recomputes at 4/dot for an unresolved character. Cosmetic while the lock note is up. Suppress one of them when `_blLocked`.
 - **A second inline style survives 33 lines from the one BL-3a fixed.** `editor/sheet.js:2673` carries `style="margin-top:3px;font-size:10px;color:var(--accent)"`. Outside BL-3a's instruction, which named only the line being edited, but it is the same violation on the same block and will need the same treatment.
+
+## Deferred from: bl-4-admin-crud (2026-08-11)
+
+- **Renaming a bloodline that HAS holders needs a migration script, not a UI action.** BL-4 made
+  `name` immutable and excluded it from `BLOODLINE_UPDATABLE_FIELDS`
+  (`server/schemas/bloodline.schema.js`), because three separate things key off the bloodline name as
+  a plain string with no foreign key and none of them warns when it stops resolving:
+  `characters.bloodline` (13 live holders), `rule_grant.bloodline_name` (3 live documents, all
+  "Gorgons", matched case-insensitively at `bloodline-evaluator.js:29-32` and edited as free text in
+  the Rules Engine admin), and the client cache's own `_byName` index. A rename orphans every holder
+  at once and silently drops any bloodline grants; a cascade from a reference-data screen would be
+  worse, because it performs the exact name-to-a-different-name transition Angelus ruled forbidden
+  for `characters.bloodline` on 2026-08-10, on every holder simultaneously, with no record. A
+  mis-typed name is corrected with delete + recreate, which BL-4's guarded DELETE keeps available
+  precisely because a fresh typo has no holders. **If a bloodline with holders ever genuinely needs
+  renaming**, that is a deliberate migration script updating all three referents in one pass, plus a
+  `data-map.md` entry. Not written speculatively: it has never been needed, and writing it now would
+  put a cascade in the repo for someone to reach for.
+- **The bloodlines admin screen is not reachable in the player app's local test mode, so BL-4's
+  player-side WS wiring could not be observed end to end locally.** `public/js/dev-fixtures.js:33-35`
+  intercepts `GET /api/bloodlines` under `local-test-token` and serves the list from the constants,
+  so a real create/edit/delete never reaches the player app's cache on a local machine. BL-4's
+  `onBloodlineUpdate` wiring in `app.js` is asserted by test and the frame was observed arriving at a
+  connected browser client, but the last hop is unobservable until **BL-3b** rewires
+  `dev-fixtures.js`. Re-verify the player app once BL-3b lands.

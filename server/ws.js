@@ -134,6 +134,39 @@ export function broadcastCatalogueUpdate(itemId, op) {
   }
 }
 
+/**
+ * Broadcast a bloodline create/update/delete event to all connected clients
+ * (Epic BL, BL-4 / issue #1008).
+ *
+ * Frame shape: { type: 'bloodline', bloodline_id, op }. Same advisory-op
+ * contract as broadcastCatalogueUpdate: clients refetch regardless, so an
+ * unknown op degrades gracefully to "refetch".
+ *
+ * BL-1 deliberately shipped no broadcaster because there was no write path and
+ * an unused broadcast is a claim the code cannot keep. BL-4 is the write path,
+ * so the claim is now good. Both boot paths listen (`public/js/admin.js` and
+ * `public/js/app.js`): the player app matters as much as the admin one,
+ * because the downtime form free-rides on app.js's cache priming, so an ST
+ * adding a bloodline mid-session would otherwise not reach an open DT form
+ * until the player reloads.
+ *
+ * @param {string|ObjectId} bloodlineId — the affected bloodline doc _id
+ * @param {'create' | 'update' | 'delete'} op
+ */
+export function broadcastBloodlineUpdate(bloodlineId, op) {
+  if (!_wss) return;
+  const msg = JSON.stringify({
+    type: 'bloodline',
+    bloodline_id: String(bloodlineId),
+    op,
+  });
+  for (const ws of _wss.clients) {
+    if (ws.readyState === 1) { // OPEN
+      ws.send(msg);
+    }
+  }
+}
+
 // ── Token resolution (mirrors middleware/auth.js logic) ──
 
 const _tokenCache = new Map();

@@ -206,13 +206,17 @@ describe('BL-2 — the miss registry', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// No WS refetch (AC 1)
+// WS refetch (BL-2 AC 1, converted by BL-4)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('BL-2 — scope guard', () => {
-  it('exposes no WS refetch — there is no write path until BL-4', async () => {
+describe('BL-2 scope guard, converted by BL-4', () => {
+  it('now exposes refetchBloodlines — BL-4 is the write path it was deferred to', async () => {
+    // BL-2 asserted this was undefined, on the principle that an unused
+    // listener is a claim the code makes and cannot keep. BL-4 made the claim
+    // good. Its semantics (last-good-index preservation on failure, resolved
+    // misses cleared on success) are covered in bl4-bloodlines-refetch.test.js.
     const m = await freshCache();
-    expect(m.refetchBloodlines).toBeUndefined();
+    expect(typeof m.refetchBloodlines).toBe('function');
   });
 });
 

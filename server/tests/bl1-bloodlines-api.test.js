@@ -1,17 +1,21 @@
 /**
  * BL-1 (issue #1008) — read-only /api/bloodlines.
  *
- * AC 7, 8, 9. Reads are public in the ECM manner: BL-2 will need them in the
- * player app without a token. Writes are BL-4 and must NOT exist yet — the
- * last describe block is the guard on that, because an endpoint quietly
- * arriving early is how scope leaks between stories.
+ * AC 7, 8, 9. Reads are public in the ECM manner: BL-2 needs them in the
+ * player app without a token.
+ *
+ * BL-4 (2026-08-11) converted the last describe block. It used to assert that
+ * POST / PATCH / DELETE all 404, guarding against writes arriving early; BL-4
+ * is when they arrive, so it now asserts the auth boundary those same three
+ * endpoints sit behind. Their behaviour is covered in
+ * `bl4-bloodlines-write-api.test.js`.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
 import { ObjectId } from 'mongodb';
-import { createTestApp, stUser } from './helpers/test-app.js';
+import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
@@ -143,34 +147,55 @@ describe('GET /api/bloodlines/:id', () => {
   });
 });
 
-describe('BL-1 is read-only — writes belong to BL-4', () => {
-  it('has no POST handler', async () => {
-    const res = await request(app)
-      .post('/api/bloodlines')
-      .set('X-Test-User', stUser())
-      .send({ name: 'Nope', slug: 'nope', clan: 'Mekhet', disciplines: ['a', 'b', 'c', 'd'] });
-    expect(res.status).toBe(404);
+/**
+ * CONVERTED by BL-4, not deleted. This block was titled "BL-1 is read-only —
+ * writes belong to BL-4" and asserted that POST, PATCH and DELETE all 404. BL-4
+ * is now here and those three endpoints exist, so the assertions flip; the
+ * block stays because it is the only regression cover on the auth BOUNDARY
+ * living alongside the public reads. Deleting it would leave the two public
+ * GETs and the three ST-gated writes described in separate files, which is
+ * exactly how a route quietly loses its gate.
+ *
+ * The behaviour of the writes themselves lives in
+ * `bl4-bloodlines-write-api.test.js`. This is the boundary only.
+ */
+describe('BL-4 — writes exist and are ST-gated (was: BL-1 is read-only)', () => {
+  it('POST requires auth and the ST role, and creates for an ST', async () => {
+    const payload = { name: 'Zzz Fixture Hotel', clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'] };
+
+    expect((await request(app).post('/api/bloodlines').send(payload)).status).toBe(401);
+    expect((await request(app).post('/api/bloodlines').set('X-Test-User', playerUser()).send(payload)).status).toBe(403);
+
+    const ok = await request(app).post('/api/bloodlines').set('X-Test-User', stUser()).send(payload);
+    expect(ok.status).toBe(201);
+    seeded.push(new ObjectId(ok.body._id));
+    expect(ok.body.slug).toBe('zzz-fixture-hotel');
   });
 
-  it('has no PATCH handler', async () => {
+  it('PATCH requires auth and the ST role, and edits for an ST', async () => {
     const made = await seedBloodline({ name: 'Zzz Fixture Delta', slug: 'zzz-fixture-delta', clan: 'Ventrue' });
-    const res = await request(app)
+
+    expect((await request(app).patch(`/api/bloodlines/${made._id}`).send({ notes: 'edited' })).status).toBe(401);
+    expect((await request(app).patch(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser()).send({ notes: 'edited' })).status).toBe(403);
+    expect((await getCollection('bloodlines').findOne({ _id: made._id })).notes).toBeNull();
+
+    const ok = await request(app)
       .patch(`/api/bloodlines/${made._id}`)
       .set('X-Test-User', stUser())
       .send({ notes: 'edited' });
-    expect(res.status).toBe(404);
-
-    const after = await getCollection('bloodlines').findOne({ _id: made._id });
-    expect(after.notes).toBeNull();
+    expect(ok.status).toBe(200);
+    expect((await getCollection('bloodlines').findOne({ _id: made._id })).notes).toBe('edited');
   });
 
-  it('has no DELETE handler', async () => {
+  it('DELETE requires auth and the ST role, and removes an unreferenced bloodline for an ST', async () => {
     const made = await seedBloodline({ name: 'Zzz Fixture Echo', slug: 'zzz-fixture-echo', clan: 'Ventrue' });
-    const res = await request(app)
-      .delete(`/api/bloodlines/${made._id}`)
-      .set('X-Test-User', stUser());
-    expect(res.status).toBe(404);
 
+    expect((await request(app).delete(`/api/bloodlines/${made._id}`)).status).toBe(401);
+    expect((await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', playerUser())).status).toBe(403);
     expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(1);
+
+    const ok = await request(app).delete(`/api/bloodlines/${made._id}`).set('X-Test-User', stUser());
+    expect(ok.status).toBe(204);
+    expect(await getCollection('bloodlines').countDocuments({ _id: made._id })).toBe(0);
   });
 });

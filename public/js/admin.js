@@ -20,7 +20,7 @@ import { initWS } from './data/ws.js';
 import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 // BL-2 (#1008): see the matching block in app.js. Primed before characters are
 // fetched so nothing renders, or is edited, against an unloaded cache.
-import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
+import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
 import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
@@ -47,6 +47,8 @@ import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
+// BL-4 (#1008): ST admin CRUD over the bloodlines collection.
+import { initBloodlinesAdmin } from './admin/bloodlines-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
@@ -244,6 +246,13 @@ async function boot() {
         // read. Op is advisory per the server-side comment; we refetch
         // regardless rather than per-op state-machine.
         onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+        // BL-4 (issue #1008): on remote bloodlines create/update/delete
+        // (broadcast by the bloodlines admin screen via server/ws.js's
+        // broadcastBloodlineUpdate), refetch the cache. Unlike the catalogue
+        // refetch this one must never wipe on failure — see
+        // refetchBloodlines' own header. A successful refetch also clears any
+        // banner row the new data has just resolved.
+        onBloodlineUpdate: () => { refetchBloodlines(); },
       });
 
       // Epic STM (issue #385): install delegated click handler for the
@@ -330,6 +339,7 @@ function switchDomain(domain) {
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
+  if (domain === 'bloodlines') initBloodlinesAdmin(document.getElementById('bloodlines-content'), chars);
   if (domain === 'st-mods-audit') initStModsAudit(document.getElementById('st-mods-audit-content'), chars);
   if (domain === 'devlog') initDevlogAdmin(document.getElementById('devlog-admin-content'));
   if (domain === 'st-mods') {

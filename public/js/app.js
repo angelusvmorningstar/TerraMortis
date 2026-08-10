@@ -67,7 +67,7 @@ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEqu
 // constants. Primed in the boot Promise.allSettled below so nothing is costed
 // against an unloaded cache; the banner surfaces any bloodline that does not
 // resolve, because an unresolved one silently mis-costs XP.
-import { loadBloodlines, loadFailed as bloodlinesLoadFailed } from './data/bloodlines-cache.js';
+import { loadBloodlines, loadFailed as bloodlinesLoadFailed, refetchBloodlines } from './data/bloodlines-cache.js';
 import { mountBloodlineWarnBanner } from './components/bloodline-warn-banner.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initFinanceTab } from './game/finance-tab.js';
@@ -1592,6 +1592,14 @@ async function boot() {
           // broadcastCatalogueUpdate), refetch the cache. Next render of
           // the DT form's equipment dropdown picks up the fresh items.
           onCatalogueUpdate: () => { refetchEquipmentCatalogue(); },
+          // BL-4 (issue #1008): on remote bloodlines create/update/delete,
+          // refetch the cache. The player app matters as much as the admin
+          // one here: the DT form free-rides on this boot path's priming
+          // (documented at downtime-form.js:36), so without this an ST adding
+          // a bloodline mid-session would not reach an open DT form until the
+          // player reloads, and there is no second chance. refetchBloodlines
+          // preserves the last good index on failure by design.
+          onBloodlineUpdate: () => { refetchBloodlines(); },
         });
 
         // Issue #425: install the STM popover delegated click handler for

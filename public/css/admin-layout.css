@@ -10051,7 +10051,14 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .or-prefs-null { opacity: 0.35; }
 .or-prefs-date { font-size: 0.75em; color: var(--txt3); }
 
-/* ── Equipment Catalogue admin (ECM-6, issue #873) ─────────────────────────── */
+/* ── Reference-data admin chrome ─────────────────────────────────────────────
+   Introduced for the Equipment Catalogue admin (ECM-6, issue #873) and shared
+   unchanged by the Bloodlines admin (BL-4, issue #1008). The two screens are
+   the same problem — a Mongo-backed reference collection with a list, a
+   toolbar, an inline form panel and a guarded delete — so they share these
+   selectors rather than restating them under a second prefix. The handful of
+   genuinely bloodline-shaped rules are at the end of the block, and the
+   discipline chip joins the existing tag selector rather than copying it. */
 
 .ec-admin { padding: 12px; }
 .ec-empty { color: var(--txt3); text-align: center; padding: 24px 12px; }
@@ -10120,7 +10127,8 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-table tbody tr:hover { background: var(--surf1); }
 .ec-row-actions { display: flex; gap: 6px; }
 
-.ec-bucket-tag {
+.ec-bucket-tag,
+.bl-disc-tag {
   display: inline-block;
   padding: 1px 8px;
   border-radius: 10px;
@@ -10202,6 +10210,14 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .ec-form-msg--ok    { color: var(--green2); }
 .ec-form-msg--error { color: var(--crim); }
 .ec-form-msg--info  { color: var(--txt3); }
+
+/* ── Bloodlines-specific additions (BL-4, issue #1008) ───────────────────────
+   Everything else on that screen is the shared chrome above. These two exist
+   because a bloodline row carries four discipline chips rather than one bucket
+   tag, and its form asks for exactly four pickers side by side. Tokens only. */
+
+.bl-disc-cell { display: flex; flex-wrap: wrap; gap: 4px; }
+.bl-disc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
 
 /* ── Cycle tab (issue #918) ──────────────────────────────────────────────────
    Engine → Cycle: status ribbon, chapters/cycles panels, inline edit,

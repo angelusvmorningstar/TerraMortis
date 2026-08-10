@@ -35,8 +35,8 @@
  *                      state. One character, and it persists until someone
  *                      fixes the data.
  *
- * No WS refetch: there is no write path until BL-4, and an unused listener is
- * a claim the code makes and cannot keep.
+ * BL-4 added the write path, and with it `refetchBloodlines()` — see its own
+ * header for why it is not the two-line ECM refetch.
  */
 
 import { apiGet } from './api.js';
@@ -115,6 +115,49 @@ export async function loadBloodlines() {
   return _inFlight;
 }
 
+/**
+ * Re-fetch the collection after an ST write, driven by the `bloodline` WS
+ * frame (BL-4, #1008). Returns true when the index was replaced, false when
+ * the fetch failed and the previous index was kept.
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *   Why this is not `refetchCatalogue()`
+ * ──────────────────────────────────────────────────────────────────────────
+ *
+ *   The equipment catalogue's refetch is two lines: null the in-flight
+ *   promise, call the loader again. Copying that here would be a live defect,
+ *   because `loadBloodlines()`'s failure path wipes `_items`, sets
+ *   `_loaded = false` and `_loadFailed = true`. ECM can afford that; it
+ *   degrades to an empty dropdown, which a human can see. This degrades to
+ *   every bloodline character hard-locked in the editor and costed at 4
+ *   XP/dot, from one transient network blip, behind a banner blaming the
+ *   system rather than the blip.
+ *
+ *   So the failure path here keeps the last good index and logs. Only the boot
+ *   load, which has nothing to lose, may empty the cache.
+ *
+ *   It also deliberately does NOT share `_inFlight`. Boot priming is awaited
+ *   before `initWS` is called in both apps, so the two cannot overlap in
+ *   practice; joining them would mean a boot load that fails AFTER a
+ *   successful refetch could still wipe what the refetch had just repaired.
+ *
+ * An EMPTY array is a legitimate answer, not a failure: the last bloodline
+ * having been deleted is a real state the cache must reflect. Only a genuine
+ * fetch error or a malformed (non-array) payload preserves the old index.
+ */
+export async function refetchBloodlines() {
+  try {
+    const items = await apiGet('/api/bloodlines');
+    if (!Array.isArray(items)) throw new Error('malformed payload: expected an array');
+    _index(items);
+    _clearResolvedMisses();
+    return true;
+  } catch (err) {
+    console.error('[bloodlines-cache] refetch failed; keeping the last good index:', err);
+    return false;
+  }
+}
+
 export function isLoaded() { return _loaded; }
 export function loadFailed() { return _loadFailed; }
 /**
@@ -177,6 +220,35 @@ function _clearMisses(reason) {
   let changed = false;
   for (const [key, miss] of _misses) {
     if (miss.reason === reason) { _misses.delete(key); changed = true; }
+  }
+  if (changed) _notify();
+}
+
+/**
+ * Drop every miss the CURRENT index now answers. Called from
+ * `refetchBloodlines` on the success path only (BL-4 AC 10).
+ *
+ * `MISS_UNKNOWN` entries deliberately survive a load — the data cause outlives
+ * the load that proved it real — and `clearBloodlineMissesFor` only fires from
+ * `clanDiscList`'s success path, i.e. when the affected character next
+ * renders. Between the two, an ST who creates the very bloodline the banner is
+ * complaining about would keep seeing the row until something happened to
+ * re-render that character. A banner that keeps asserting a fixed problem is
+ * how a warning stops being read, which is the same argument
+ * `clearBloodlineMissesFor` was written from.
+ *
+ * Keyed on the bloodline value rather than the character, because here it is
+ * the collection that changed, not the character.
+ */
+function _clearResolvedMisses() {
+  let changed = false;
+  for (const [key, miss] of _misses) {
+    let resolved;
+    if (miss.reason === MISS_UNKNOWN) resolved = _byName.has(_key(miss.bloodline));
+    else if (miss.reason === MISS_EMPTY_COLLECTION) resolved = _items.length > 0;
+    else if (miss.reason === MISS_NOT_LOADED) resolved = _loaded && !_loadFailed;
+    else resolved = false;
+    if (resolved) { _misses.delete(key); changed = true; }
   }
   if (changed) _notify();
 }
