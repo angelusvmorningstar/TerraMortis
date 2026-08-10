@@ -314,12 +314,22 @@ describe('cm1 — wiring', () => {
     expect(VIEWS).toContain('await setCyclePhase(cy, phaseOrNull)');
   });
 
-  it('the tracker reset still fires only on entering game, never prep', () => {
+  // SUPERSEDED BY CM-5a (2026-08-10). This guard used to assert "the tracker
+  // reset fires only on entering game, never prep". CM-5a deliberately moved
+  // the reset to prep entry so the prep week's confirmed feeds survive into
+  // the game. The old assertions still PASSED against the new code (the
+  // `phaseOrNull === 'game'` string survives as the zero-submission guard, and
+  // the new code never spells `phaseOrNull === 'prep'`), i.e. the guard had
+  // gone toothless while certifying the opposite of shipped behaviour - caught
+  // by review. Inverted rather than deleted, so the intent stays on the record.
+  it('the tracker reset is decided by resetOnTransition, NOT by a hardcoded game check', () => {
+    expect(VIEWS).toContain('resetOnTransition(uiPhase(cy), phaseOrNull)');
+    // Exactly one DELETE, and it lives inside the resetOnTransition guard.
+    expect(VIEWS.split("apiDelete('/api/tracker_state')").length - 1).toBe(1);
+    const guardIdx = VIEWS.indexOf('resetOnTransition(uiPhase(cy), phaseOrNull)');
     const resetIdx = VIEWS.indexOf("apiDelete('/api/tracker_state')");
-    const guardIdx = VIEWS.indexOf("if (phaseOrNull === 'game')");
     expect(guardIdx).toBeGreaterThan(-1);
     expect(resetIdx).toBeGreaterThan(guardIdx);
-    expect(VIEWS).not.toMatch(/phaseOrNull === 'prep'[\s\S]{0,200}tracker_state/);
   });
 
   it('the feeding tab reads through getFeedingCycle', () => {

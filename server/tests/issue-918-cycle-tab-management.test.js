@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
+import { resetOnTransition } from '../../public/js/downtime/cycle-phase.js';
 
 const DOWNTIME = fs.readFileSync('../server/routes/downtime.js', 'utf8');
 const DB       = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
@@ -57,14 +58,24 @@ describe('issue-918 — cycle-views.js wiring', () => {
     expect(VIEWS).toContain('cy-ribbon');
   });
 
+  // Toggle semantics unchanged; the read moved to uiPhase() in CM-1 (#1028),
+  // which resolves the new `phase` field before the legacy `game_phase`.
+  // (This assertion was left red by CM-1 and reached production unnoticed -
+  // caught by CM-5a's review, 2026-08-10.)
   it('phase toggle clears to neutral (active phase → null)', () =>
-    expect(VIEWS).toMatch(/\(cy\.game_phase === phase\)\s*\?\s*null\s*:\s*phase/));
+    expect(VIEWS).toMatch(/\(uiPhase\(cy\) === phase\)\s*\?\s*null\s*:\s*phase/));
 
-  it('clearing a phase does NOT reset the tracker — tracker delete is gated behind game phase', () => {
-    const gameGuardIdx = VIEWS.indexOf("phaseOrNull === 'game'");
+  // Intent unchanged and still true: clearing to neutral never wipes the
+  // tracker. The MECHANISM moved twice - CM-1 kept the hardcoded game check,
+  // CM-5a replaced it with resetOnTransition. Asserting the real decision
+  // rather than the old string, which by CM-5a would have passed vacuously.
+  it('clearing a phase does NOT reset the tracker', () => {
+    expect(resetOnTransition('game', null)).toBe(false);
+    expect(resetOnTransition('prep', null)).toBe(false);
+    const guardIdx = VIEWS.indexOf('resetOnTransition(uiPhase(cy), phaseOrNull)');
     const trackerDelIdx = VIEWS.indexOf("apiDelete('/api/tracker_state')");
-    expect(gameGuardIdx).toBeGreaterThan(-1);
-    expect(trackerDelIdx).toBeGreaterThan(gameGuardIdx);
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(trackerDelIdx).toBeGreaterThan(guardIdx);
   });
 
   it('inline-edits the label via updateCycle', () => {
