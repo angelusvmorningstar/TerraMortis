@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
-import { createCycle, updateCycle, deleteCycle, deriveCycleStatus } from '../downtime/db.js';
+import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage } from '../downtime/db.js';
 
 const PHASE_LABELS = {
   game:       'Game',
@@ -228,6 +228,11 @@ function buildChaptersPanel(chapters) {
 // Returns false if the ST cancels the Game-phase confirmation.
 async function writePhase(cy, phaseOrNull) {
   if (phaseOrNull === 'game') {
+    // #1003: warn if flipping an empty cycle to game while another live cycle
+    // holds submissions (feeding pulls from the game-phase cycle).
+    const warn = await zeroSubmissionFlipWarning(
+      cy, view.cycles || [], async id => (await getSubmissionsForCycle(id)).length);
+    if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return false;
     if (!confirm('Setting to Game phase will reset the live tracker (all characters reload with default states). Continue?')) return false;
     try {
       await apiDelete('/api/tracker_state');
@@ -235,8 +240,13 @@ async function writePhase(cy, phaseOrNull) {
       throw new Error('Tracker reset failed: ' + err.message);
     }
   }
-  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull });
+  // #1001: write the derived legacy `status` alongside game_phase so raw
+  // `status` readers (getActiveCycle, LIVE_STATUSES filters) stay consistent
+  // with the phase while legacy status-based readers still exist.
+  const status = deriveCycleStatus({ ...cy, game_phase: phaseOrNull });
+  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull, status });
   cy.game_phase = phaseOrNull;
+  cy.status = status;
   return true;
 }
 

@@ -1,14 +1,14 @@
 /**
  * N-7 (#760) + N-9 (#762) — Necropolis allocator + edit-view bug triage.
  *
- * Two adjacent surfaces share `meritBdRow` extension (showNECRO + hideBonus),
+ * Two adjacent surfaces share `meritBdRow` extension (compoundPools + hideBonus),
  * `shEditMeritPt`'s map write path (free_grants.<slug>), and the post-N-1
  * read-side helpers (freeOf / meritFreeSum / poolAvailableFor). Bundled into
  * one PR so the heterogeneous write-path codified in the ADR-005 amendment
  * lands atomically with the MCI read-side fix that depends on it.
  *
  * Test layout:
- *   - N-7 pure-function: hasNecropolisSepulcher, getNecropolisTargets,
+ *   - N-7 pure-function: hasNecropolisSepulcher, getCompoundTargets,
  *     poolAvailableFor.
  *   - N-9 pure-function: getMCIPoolUsed + getOTSPoolUsed union-read; getPoolUsed
  *     map+legacy coverage.
@@ -24,7 +24,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   hasNecropolisSepulcher,
-  getNecropolisTargets,
+  getCompoundTargets,
   poolAvailableFor,
   freeOf,
   meritFreeSum,
@@ -62,22 +62,26 @@ describe('N-7 — hasNecropolisSepulcher', () => {
   });
 });
 
-describe('N-7 — getNecropolisTargets', () => {
-  it('reads pool_targets from the Necropolis Sepulcher rule_grant', () => {
+describe('N-7 — getCompoundTargets', () => {
+  it('reads pool_targets from the named compound rule_grant', () => {
     const ruleCache = {
       rule_grant: [
         { source: 'Necropolis Sepulcher', grant_type: 'pool', pool_targets: ['Catacombs', 'Caldarium'] },
         { source: 'Lorekeeper', grant_type: 'pool', pool_targets: ['Herd'] },
       ],
     };
-    expect(getNecropolisTargets(ruleCache)).toEqual(['Catacombs', 'Caldarium']);
+    expect(getCompoundTargets(ruleCache, 'Necropolis Sepulcher')).toEqual(['Catacombs', 'Caldarium']);
+    // COLLECTIVE-2 (#1110): source is a parameter now — the same cache
+    // resolves a different compound's targets.
+    expect(getCompoundTargets(ruleCache, 'Lorekeeper')).toEqual(['Herd']);
   });
 
   it('empty list when cache missing or rule not seeded', () => {
-    expect(getNecropolisTargets(null)).toEqual([]);
-    expect(getNecropolisTargets({})).toEqual([]);
-    expect(getNecropolisTargets({ rule_grant: [] })).toEqual([]);
-    expect(getNecropolisTargets({ rule_grant: [{ source: 'Other' }] })).toEqual([]);
+    expect(getCompoundTargets(null, 'Necropolis Sepulcher')).toEqual([]);
+    expect(getCompoundTargets({}, 'Necropolis Sepulcher')).toEqual([]);
+    expect(getCompoundTargets({ rule_grant: [] }, 'Necropolis Sepulcher')).toEqual([]);
+    expect(getCompoundTargets({ rule_grant: [{ source: 'Other' }] }, 'Necropolis Sepulcher')).toEqual([]);
+    expect(getCompoundTargets({ rule_grant: [{ source: 'Other', grant_type: 'pool', pool_targets: ['X'] }] })).toEqual([]);
   });
 });
 
@@ -144,13 +148,14 @@ describe('N-9 — freeOf / meritFreeSum cover both map AND legacy', () => {
 // Static-analysis: wiring that's expensive to unit-test via browser-import
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('N-7 — meritBdRow showNECRO + free_grants.necro write path', () => {
-  it('meritBdRow accepts opts.showNECRO and emits a free_grants.necro onchange', () => {
+describe('N-7 — meritBdRow compound stepper + free_grants.<slug> write path', () => {
+  it('meritBdRow emits one stepper per opts.compoundPools entry, writing that pool slug', () => {
     const src = read('public/js/editor/xp.js');
-    expect(src).toMatch(/opts\.showNECRO/);
-    // The onchange string in the source has backslash-escaped single quotes
-    // (the row is built via string concatenation inside a JS string literal).
-    expect(src).toMatch(/free_grants\.necro/);
+    // COLLECTIVE-2 (#1110): was a single opts.showNECRO flag hardwired to
+    // free_grants.necro. The slug is now data — see the behavioural
+    // assertions in collective-2-compound-generalisation.test.js.
+    expect(src).toMatch(/opts\.compoundPools/);
+    expect(src).toMatch(/free_grants\.' \+ _cmp\.slug/);
   });
 
   it('shEditMeritPt routes free_grants.<slug> writes to the map with cap', () => {
@@ -160,12 +165,15 @@ describe('N-7 — meritBdRow showNECRO + free_grants.necro write path', () => {
     expect(src).toMatch(/m\.free_grants\s*=\s*m\.free_grants\s*\|\|\s*\{\}/);
   });
 
-  it('sheet.js wires showNECRO at both general-merit call sites', () => {
+  it('sheet.js wires the compound allocator at both general-merit call sites', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toMatch(/_hasNecroSep\s*=\s*hasNecropolisSepulcher\(c\)/);
-    expect(src).toMatch(/_necroTargets\.includes\(m\.name\)/);
-    // Both call sites (granted_by branch + main branch) pass showNECRO.
-    const matches = src.match(/showNECRO:\s*_hasNecroSep\s*&&\s*_necroTargets\.includes/g) || [];
+    // COLLECTIVE-2 (#1110): the Necropolis-named gate is gone — membership
+    // is per-compound via ownsCompound, and the stepper list per merit comes
+    // from _genPoolsFor.
+    expect(src).toMatch(/_genOwnedCompounds\s*=\s*_genCompounds\.filter\(cmp\s*=>\s*ownsCompound\(c,\s*cmp\)\)/);
+    expect(src).toMatch(/_genPoolsFor\s*=\s*\(name\)\s*=>/);
+    // Both call sites (granted_by branch + main branch) pass compoundPools.
+    const matches = src.match(/compoundPools:\s*_genPoolsFor\(m\.name\)/g) || [];
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -175,8 +183,12 @@ describe('N-7 — meritBdRow showNECRO + free_grants.necro write path', () => {
     // sub_category='domain', so the pool counter lives in the domain section
     // (alongside lk/inv), not general. Pre-N-7a this checked 'general' —
     // assertion updated to match the corrected gate.
-    expect(src).toMatch(/necroPools\s*=\s*category === 'domain'/);
-    expect(src).toMatch(/p\.category === 'necro'/);
+    // COLLECTIVE-2 (#1110): `necroPools` became `compoundPools` and the
+    // hardcoded `p.category === 'necro'` became a membership test against the
+    // discovered compound slugs. The section gate ('domain', not 'general')
+    // is what this assertion protects and it is unchanged.
+    expect(src).toMatch(/compoundPools\s*=\s*category === 'domain'/);
+    expect(src).toMatch(/_poolCompoundSlugs\.has\(p\.category\)/);
   });
 });
 

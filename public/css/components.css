@@ -785,6 +785,19 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-power-effect{font-family:var(--ft);font-size:11px;color:var(--label-secondary);line-height:1.55;}
 .disc-sub-head{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--label-tertiary);padding:7px 12px 3px;}
 
+/* ── Rules text expander (issue #994) ── */
+.rules-expander{margin-top:6px;}
+.rules-expander-toggle{display:flex;align-items:center;gap:4px;width:100%;background:none;border:none;padding:4px 0;font-family:var(--fl);font-size:10px;font-weight:700;font-variant:small-caps;letter-spacing:.05em;color:var(--label-secondary);cursor:pointer;user-select:none;text-align:left;}
+.rules-expander-toggle:hover{color:var(--accent);}
+.rules-expander-arr{font-size:10px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
+.rules-expander-toggle.open .rules-expander-arr{transform:rotate(90deg);}
+.rules-expander-body{display:none;margin-top:4px;padding:8px 10px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;font-family:var(--ft);font-size:11px;color:var(--label-secondary);line-height:1.6;max-height:320px;overflow-y:auto;overflow-wrap:anywhere;}
+.rules-expander-body.visible{display:block;}
+.rules-text-p{margin:0 0 8px 0;}
+.rules-text-p:last-child{margin-bottom:0;}
+.rules-text-hr{border-top:0.5px solid var(--bdr);margin:10px 0;}
+.rules-text-source{margin-top:8px;font-style:italic;color:var(--txt3);font-size:10px;}
+
 /* ── Rite badges ── */
 .rite-free-badge,.rite-xp-badge{font-family:var(--fl);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid;border-radius:3px;padding:1px 5px;cursor:pointer;transition:background .15s,color .15s;}
 .rite-free-badge{background:var(--accent-a8);color:var(--accent);border-color:var(--accent);}
@@ -1058,7 +1071,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .qf-select {
   background: var(--rp-surf);
   color: var(--rp-txt);
-  border-color: rgba(139,0,0,.2);
+  border-color: var(--rp-bdr2);
 }
 
 .reading-pane .qf-input:focus,
@@ -1750,21 +1763,6 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   font-family: var(--ft);
   font-size: 15px;
   transition: border-color .2s;
-}
-
-.reading-pane .qf-input,
-.reading-pane .qf-textarea,
-.reading-pane .qf-select {
-  background: rgba(255,255,255,.5);
-  color: var(--rp-txt);
-  border-color: rgba(139,0,0,.25);
-}
-
-.reading-pane .qf-input:focus,
-.reading-pane .qf-textarea:focus,
-.reading-pane .qf-select:focus {
-  border-color: var(--rp-accent);
-  background: rgba(255,255,255,.75);
 }
 
 .qf-input:focus, .qf-textarea:focus, .qf-select:focus {
@@ -4635,9 +4633,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-hist-title {
   font-family: var(--fl);
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--txt-dim);
+  color: var(--label-secondary);
   margin-bottom: 12px;
 }
 
@@ -4671,8 +4670,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .dt-hist-outcome {
   padding: 10px 12px;
+  font-family: var(--ft);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
+  color: var(--txt);
 }
 
 .dt-hist-outcome p {
@@ -4685,13 +4686,14 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-hist-section-head {
   font-family: var(--fl);
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 4px;
 }
 
-.dt-hist-mech .dt-hist-section-head { color: var(--txt-dim); }
+.dt-hist-mech .dt-hist-section-head { color: var(--label-secondary); }
 
 .dt-hist-pre {
   font-family: monospace;
@@ -4701,7 +4703,16 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin: 0;
 }
 
-.dt-hist-loading, .dt-hist-empty { padding: 16px; }
+.dt-hist-loading { padding: 16px; }
+
+.dt-hist-empty {
+  font-family: var(--ft);
+  font-size: 13px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 12px 0;
+  text-align: center;
+}
 
 
 
@@ -5827,6 +5838,18 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .stm-mod-btn--reactivate:hover { background: var(--green, #6EA05A); color: var(--txt-on-dark, #fff); }
 .stm-mod-btn--delete { border-color: var(--crim, #8B0000); color: var(--crim, #8B0000); }
 .stm-mod-btn--delete:hover { background: var(--crim, #8B0000); color: var(--txt-on-dark, #fff); }
+/* STM-14 (issue #1034): compact variant of .stm-mod-btn for inline
+   placement next to an attribute/skill name on the rendered ST sheet. */
+.stm-apply-btn {
+  padding: 0 5px;
+  margin-left: 4px;
+  line-height: 15px;
+  font-size: 11px;
+  font-weight: 700;
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+.stm-apply-btn:hover { background: var(--gold2); color: var(--txt-on-gold, #fff); }
 .stm-mod-reason { margin: 4px 0 2px; color: var(--txt2); font-size: 12px; }
 .stm-mod-meta { font-size: 11px; color: var(--txt3); margin: 0; }
 .stm-list-empty { color: var(--txt3); font-style: italic; }
@@ -5900,6 +5923,10 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 .stm-modal p { color: var(--txt2); font-size: 13px; margin: 6px 0; }
 .stm-modal-note { color: var(--txt3); font-size: 12px; }
 .stm-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+/* STM-14 (issue #1034): the apply-bonus modal isn't a destructive-action
+   warning like the delete-confirmation modal above, so its title reads
+   gold instead of the base .stm-modal h3 crimson. */
+.stm-modal h3.stm-modal-title--action { color: var(--gold2); }
 
 /* — STM-6 audit page polish (issue #379 styling) — */
 .stm-audit-root { padding: 18px 24px; font-family: var(--fl); color: var(--txt); }

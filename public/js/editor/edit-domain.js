@@ -6,7 +6,11 @@ import { mciPoolTotal } from './mci.js';
 import { getRuleByKey } from '../data/loader.js';
 import { DOMAIN_MERIT_TYPES } from '../data/constants.js';
 import { pruneContactsSpheres, domKey } from './domain.js';
-import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+// OATH-A (#1111, ADR-010 D1/D1b/D4): pledge validation + the sworn_by
+// builder are pure helpers; meritRating is the OWNED-dots formula they
+// take injected, so no second copy of merit-dot arithmetic is created.
+import { freeOf, normaliseAttachedTo, validatePledge, buildSwornBy, resolveRatingBasis, OATH_EXIT_REASONS, buildOathExitEvent, buildOathRestoredEvent, oathSuspendedDots } from '../data/rules-helpers.js';
+import { meritRating } from './xp.js';
 import { resolveSharedWithMember as _resolveSharedWithMember } from '../data/helpers.js';
 
 function ruleKeyFor(name) {
@@ -453,26 +457,33 @@ export function shAddDomMerit(name = 'Safe Place') {
 }
 
 /**
- * COLLECTIVE-1 (issue #800) — allocator handler for virtual Necropolis target
- * rows. When the player allocates a NECRO dot to a target merit they don't
- * yet own (the row exists virtually because OTHER Sepulcher-owners have it),
- * this handler ensures the merit is materialised on c.merits and routes the
- * allocation through the standard `free_grants.necro` write path.
+ * COLLECTIVE-1 (issue #800) — allocator handler for virtual Collective
+ * Compound target rows. When the player allocates a pool dot to a target
+ * merit they don't yet own (the row exists virtually because OTHER members
+ * of the compound have it), this handler ensures the merit is materialised
+ * on c.merits and routes the allocation through the standard
+ * `free_grants.<slug>` write path.
  *
  * Why a wrapper handler: virtual rows by definition have no realIdx into
- * c.merits. The existing `shEditMeritPt(realIdx, 'free_grants.necro', val)`
+ * c.merits. The existing `shEditMeritPt(realIdx, 'free_grants.<slug>', val)`
  * write path requires the index. This handler adds the merit if absent
  * (idempotent — does nothing if it's already there), then resolves the now-
  * present index and writes via the standard path. No new write target; same
- * `m.free_grants.necro` destination per ADR-005 D6 (allocator write-path).
+ * `m.free_grants` map destination per ADR-005 D6 (allocator write-path).
+ *
+ * COLLECTIVE-2 (issue #1110): `slug` is now a parameter. Pre-#1110 this was
+ * `shAllocateNecroVirtual(meritName, value)` writing a hardcoded
+ * `free_grants.necro` — a Crone or Sanctified virtual row wired to it would
+ * have silently credited the Necropolis pool.
  *
  * `value=0` on a previously-empty virtual row is a no-op (nothing to do).
- * `value=0` on a materialised row drops free_grants.necro to 0 but keeps the
- * (now-empty) merit on c.merits — render-time synthesis will keep it visible
- * if it still appears on another owner's sheet.
+ * `value=0` on a materialised row drops the slug's allocation to 0 but keeps
+ * the (now-empty) merit on c.merits — render-time synthesis will keep it
+ * visible if it still appears on another member's sheet.
  */
-export function shAllocateNecroVirtual(meritName, value) {
+export function shAllocateCompoundVirtual(meritName, slug, value) {
   if (state.editIdx < 0) return;
+  if (!slug) return;
   const c = state.chars[state.editIdx];
   if (!c) return;
   const val = Math.max(0, parseInt(value) || 0);
@@ -484,7 +495,7 @@ export function shAllocateNecroVirtual(meritName, value) {
     if (!existing) return; // defensive — addMerit failed
   }
   if (!existing.free_grants) existing.free_grants = {};
-  existing.free_grants.necro = val;
+  existing.free_grants[slug] = val;
   _markDirty();
   _renderSheet(c);
 }
@@ -670,4 +681,252 @@ export function shRemovePick(pickIdx) {
   c.fighting_picks.splice(pickIdx, 1);
   _markDirty();
   _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
+   OATH-A (issue #1111, ADR-010 D1 / D1b / D4) — Swear By oaths
+══════════════════════════════════════════════════════════ */
+
+/**
+ * The dots a Swear By oath requires, for the merit row at `realIdx`.
+ *
+ * ADR-010 D4: a derived `rating_basis` on the rule wins; otherwise the fixed
+ * `rating_range` low bound. Resolved at RENDER time and never stored — what
+ * gets stored is the snapshot taken at swear time (D1b).
+ */
+export function oathDotsRequired(c, m) {
+  const rule = meritRuleFor(m && m.name);
+  if (!rule) return 0;
+  const derived = resolveRatingBasis(c, rule);
+  if (derived != null) return derived;
+  return Array.isArray(rule.rating_range) ? (rule.rating_range[0] || 0) : 0;
+}
+
+/** True when the merit's rule is a Swear By oath (cost_model). */
+export function isSwearByOath(m) {
+  const rule = meritRuleFor(m && m.name);
+  return !!rule && rule.cost_model === 'swear_by';
+}
+
+/** Rule doc for a merit name, via the rules cache. */
+function meritRuleFor(name) {
+  if (!name) return null;
+  const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return getRuleByKey(slug) || null;
+}
+
+/**
+ * ADR-010 D1 — swear the oath at `realIdx` against `attachments`.
+ *
+ * `attachments` is `[{ name, qualifier, dots }]`, referencing merits by
+ * NAME + QUALIFIER — never by array index, because `c.merits` indices move
+ * under splice.
+ *
+ * Parity (D1b) is validated BEFORE anything is written: a pledge that does
+ * not total the requirement is rejected with a message naming the shortfall
+ * or excess, and nothing is persisted. The requirement is SNAPSHOTTED into
+ * `sworn_by.dots_required` at this moment and never recomputed — otherwise a
+ * rising Blood Potency would silently invalidate a standing Oath of
+ * Abstinence every time it moved.
+ *
+ * No XP is charged: that is what `cost_model: 'swear_by'` means.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shSwearOath(realIdx, attachments) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  if (!c) return { ok: false, message: 'No character in edit.' };
+  const m = c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+
+  const required = oathDotsRequired(c, m);
+  // `m` itself is excluded so re-swearing an existing pledge does not read
+  // its own dots as already spoken for.
+  const check = validatePledge(c, attachments, required, meritRating, m);
+  if (!check.valid) return { ok: false, message: check.message };
+
+  m.sworn_by = buildSwornBy(required, attachments, {
+    chapter_number: currentChapterNumber(),
+    iso: new Date().toISOString().slice(0, 10),
+  });
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
+}
+
+/**
+ * Release the pledge on the oath at `realIdx`, leaving the merit itself in
+ * place.
+ *
+ * This is the swear-flow's undo, NOT the D6 exit event: it removes the
+ * pledge outright rather than recording a breach. Breaking an oath, its
+ * consequences and its history are OATH-B, and nothing here appends to
+ * `sworn_by.history`.
+ */
+export function shReleaseOath(realIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  delete m.sworn_by;
+  _markDirty();
+  _renderSheet(c);
+}
+
+/**
+ * The current Chapter ordinal, for `sworn_by.sworn_at.chapter_number`.
+ *
+ * ADR-010 D3a anchors the mechanic on `game_sessions.chapter_number`.
+ * Nothing in OATH-A reads this value back — which is precisely why it is
+ * captured now: it is unrecoverable after the fact, and OATH-B's deferred
+ * restoration work is uncomputable without it (Risk 2).
+ *
+ * Returns null when no chapter context is loaded, rather than inventing a
+ * number. A wrong ordinal is worse than an absent one.
+ */
+function currentChapterNumber() {
+  const n = state.currentChapterNumber;
+  return Number.isInteger(n) ? n : null;
+}
+
+/**
+ * OATH-A — stage one merit's pledged dots on the oath at `realIdx`.
+ *
+ * Writes to a TRANSIENT `m._pledge_draft`, never to `m.sworn_by`. The draft
+ * is underscore-prefixed, so both existing save paths strip it
+ * (`buildSaveBody` for API writes, `charsForSave` for the localStorage
+ * mirror) and a half-built pledge can never reach a persisted document or a
+ * stale cache entry. Only `shCommitOath` promotes a draft to `sworn_by`, and
+ * only after `validatePledge` passes.
+ *
+ * `dots: 0` removes the entry rather than storing a zero, so the draft and
+ * the persisted shape agree (attachments carry `minimum: 1`).
+ */
+export function shSetPledgeDots(realIdx, name, qualifier, dots) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  const q = qualifier == null || qualifier === '' ? null : qualifier;
+  const val = Math.max(0, parseInt(dots) || 0);
+
+  const draft = Array.isArray(m._pledge_draft)
+    ? m._pledge_draft.slice()
+    : ((m.sworn_by && m.sworn_by.attachments) || []).map(a => ({ ...a }));
+
+  const i = draft.findIndex(a => a.name === name && (a.qualifier ?? null) === q);
+  if (val === 0) { if (i >= 0) draft.splice(i, 1); }
+  else if (i >= 0) draft[i].dots = val;
+  else draft.push({ name, qualifier: q, dots: val });
+
+  m._pledge_draft = draft;
+  delete m._oathError;
+  _markDirty();
+  _renderSheet(c);
+}
+
+/**
+ * OATH-A — commit the staged draft on the oath at `realIdx`.
+ *
+ * Parity is validated inside `shSwearOath`; a failure leaves the draft in
+ * place and surfaces the message on the row, so the player can correct it
+ * rather than losing what they had entered. Nothing is persisted on failure.
+ */
+export function shCommitOath(realIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return;
+  const draft = Array.isArray(m._pledge_draft)
+    ? m._pledge_draft
+    : ((m.sworn_by && m.sworn_by.attachments) || []);
+  const res = shSwearOath(realIdx, draft);
+  if (!res.ok) {
+    m._oathError = res.message;
+    _markDirty();
+    _renderSheet(c);
+    return;
+  }
+  delete m._pledge_draft;
+  delete m._oathError;
+  _renderSheet(c);
+}
+
+/**
+ * OATH-B (issue #1111, ADR-010 D6) — record an exit on the oath at `realIdx`.
+ *
+ * APPENDS to `sworn_by.history`; never mutates or replaces an earlier event.
+ * An oath can be sworn, broken, partly restored and re-sworn, and a single
+ * mutable status field would lose that — the forfeiture clock the deferred
+ * restoration work needs is reconstructed from this log.
+ *
+ * Only `broken` and `abandoned` forfeit. The other three end the oath with no
+ * suspension: `released_by_liege` is the explicit no-forfeiture exit from the
+ * source text, `fulfilled` is Oath of Action completing successfully, and
+ * `st_void` is the adjudication-error escape hatch — without it the only way
+ * to undo a mis-recorded breach would be to edit history.
+ *
+ * `chapter_number` is captured here even though NOTHING in this story reads
+ * it. It is unrecoverable after the fact: without it the deferred restoration
+ * work has no anchor and the remedy is ST archaeology across session logs.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shExitOath(realIdx, reason) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+  if (!m.sworn_by) return { ok: false, message: 'That oath has not been sworn.' };
+  if (!OATH_EXIT_REASONS.includes(reason)) {
+    return { ok: false, message: 'Unknown exit reason: ' + reason };
+  }
+  m.sworn_by.history = Array.isArray(m.sworn_by.history) ? m.sworn_by.history : [];
+  m.sworn_by.history.push(buildOathExitEvent(
+    reason,
+    currentChapterNumber(),
+    new Date().toISOString().slice(0, 10),
+  ));
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
+}
+
+/**
+ * OATH-B (ADR-010 D6) — restore `dots` to a suspended oath.
+ *
+ * Restoration TIMING is deferred; the restoration EVENT is not, and the
+ * distinction is load-bearing. Suspension is a DERIVED value recomputed per
+ * render from this history, so it cannot be hand-cleared — appending this
+ * event is the only way an ST lifts a suspension. Without it, dots go dark at
+ * breach with no route back short of hand-editing a character document, which
+ * is exactly what an append-only log exists to prevent.
+ *
+ * Nothing computes WHEN restoration is due; the ST decides and records it.
+ *
+ * @returns {{ok: boolean, message: string|null}}
+ */
+export function shRestoreOathDots(realIdx, dots) {
+  if (state.editIdx < 0) return { ok: false, message: 'No character in edit.' };
+  const c = state.chars[state.editIdx];
+  const m = c && c.merits[realIdx];
+  if (!m) return { ok: false, message: 'Merit not found.' };
+  if (!m.sworn_by) return { ok: false, message: 'That oath has not been sworn.' };
+  const n = Math.max(0, parseInt(dots) || 0);
+  if (n < 1) return { ok: false, message: 'Restore at least 1 dot.' };
+  const outstanding = oathSuspendedDots(m);
+  if (outstanding <= 0) return { ok: false, message: 'Nothing is suspended on that oath.' };
+  if (n > outstanding) {
+    return { ok: false, message: 'Only ' + outstanding + ' dot' + (outstanding === 1 ? '' : 's') + ' suspended.' };
+  }
+  m.sworn_by.history = Array.isArray(m.sworn_by.history) ? m.sworn_by.history : [];
+  m.sworn_by.history.push(buildOathRestoredEvent(
+    n,
+    currentChapterNumber(),
+    new Date().toISOString().slice(0, 10),
+  ));
+  _markDirty();
+  _renderSheet(c);
+  return { ok: true, message: null };
 }

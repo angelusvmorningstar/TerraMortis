@@ -1,0 +1,4471 @@
+{
+  "generated_at": "2026-07-15T03:43:21.626Z",
+  "book_status": [
+    {
+      "file": "Vampire the Requiem 2e Rulebook.md",
+      "found": true,
+      "blocks": 193
+    },
+    {
+      "file": "Chronicles of Darkness Rulebook.md",
+      "found": true,
+      "blocks": 137
+    },
+    {
+      "file": "Hurt Locker.md",
+      "found": true,
+      "blocks": 122
+    },
+    {
+      "file": "Secrets of the Covenants.md",
+      "found": true,
+      "blocks": 69
+    },
+    {
+      "file": "Blood Sorcery- New Rules.md",
+      "found": true,
+      "blocks": 0
+    },
+    {
+      "file": "Damnation City Model - New Rules.md",
+      "found": true,
+      "blocks": 3
+    },
+    {
+      "file": "Blood Sorcery Themes and Motifs.md",
+      "found": true,
+      "blocks": 25
+    },
+    {
+      "file": "Terra Mortis - Errata Master.md",
+      "found": true,
+      "blocks": 154
+    },
+    {
+      "file": "Auspex Errata.md",
+      "found": true,
+      "blocks": 0
+    }
+  ],
+  "totals": {
+    "matched": 312,
+    "ambiguous": 19,
+    "unmatched": 283,
+    "skipped_auspex": 5,
+    "total": 619
+  },
+  "by_category": {
+    "attribute": {
+      "matched": 0,
+      "unmatched": 9,
+      "ambiguous": 0,
+      "skipped_auspex": 0
+    },
+    "skill": {
+      "matched": 0,
+      "unmatched": 24,
+      "ambiguous": 0,
+      "skipped_auspex": 0
+    },
+    "discipline": {
+      "matched": 24,
+      "unmatched": 16,
+      "ambiguous": 5,
+      "skipped_auspex": 5
+    },
+    "merit": {
+      "matched": 126,
+      "unmatched": 42,
+      "ambiguous": 13,
+      "skipped_auspex": 0
+    },
+    "devotion": {
+      "matched": 0,
+      "unmatched": 45,
+      "ambiguous": 0,
+      "skipped_auspex": 0
+    },
+    "manoeuvre": {
+      "matched": 144,
+      "unmatched": 33,
+      "ambiguous": 1,
+      "skipped_auspex": 0
+    },
+    "rite": {
+      "matched": 18,
+      "unmatched": 114,
+      "ambiguous": 0,
+      "skipped_auspex": 0
+    }
+  },
+  "matches": [
+    {
+      "key": "feral-whispers",
+      "name": "Feral Whispers",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 31,
+      "after_len": 2041,
+      "preview": "To those she would command, a vampire must first make herself understood. So it is with beasts as well as men. A vampire using Feral Whispers overpowe"
+    },
+    {
+      "key": "raise-the-familiar",
+      "name": "Raise the Familiar",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 44,
+      "after_len": 2527,
+      "preview": "True beasts cannot be Embraced. They have never had the necessary Humanity. With this power, though, the vampire can complete the process halfway. By "
+    },
+    {
+      "key": "iron-edict",
+      "name": "Iron Edict",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 57,
+      "after_len": 1326,
+      "preview": "Once she’s got a hotline into her victim’s mind, the vampire can take some time to play with his thoughts and memories. While it takes more of her pow"
+    },
+    {
+      "key": "possession",
+      "name": "Possession",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 22,
+      "after_len": 3050,
+      "preview": "Controlling a victim’s memories and actions is one thing, but for some vampires the truest expression of control comes from suppressing the victim’s w"
+    },
+    {
+      "key": "awe",
+      "name": "Awe",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 49,
+      "after_len": 1469,
+      "preview": "Awe shines a spotlight on the vampire even in a crowded room. He’s the most important person around and people want to be around him. Awe creates an a"
+    },
+    {
+      "key": "confidant",
+      "name": "Confidant",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 25,
+      "after_len": 1071,
+      "preview": "The vampire doesn’t have to shout to be heard, and in a crowd that he’s already Awed, sometimes speaking quietly is the best way to get attention. Wit"
+    },
+    {
+      "key": "green-eyes",
+      "name": "Green Eyes",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 65,
+      "after_len": 2408,
+      "preview": "To a victim of this level of Majesty, the vampire’s attention feels so good that it’s addictive. His inner circle craves his attention like a crackhea"
+    },
+    {
+      "key": "idol",
+      "name": "Idol",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 71,
+      "after_len": 2323,
+      "preview": "More than just a celebrity, a vampire who can play with people’s desires becomes a king or a star, the kind of person who wouldn’t ever be so crass as"
+    },
+    {
+      "key": "loyalty",
+      "name": "Loyalty",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 28,
+      "after_len": 1257,
+      "preview": "Among his inner circle, the vampire praises some more than others, bringing them even closer to him. With a few words he can inflame their love for hi"
+    },
+    {
+      "key": "dread-presence",
+      "name": "Dread Presence",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 79,
+      "after_len": 1724,
+      "preview": "Everyone around the vampire feels the world go slightly wrong as she exudes a deeply unsettling aura. Even if they barely notice her, they feel a wave"
+    },
+    {
+      "key": "face-of-the-beast",
+      "name": "Face of the Beast",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 43,
+      "after_len": 1148,
+      "preview": "All it takes is a glance, and the vampire can magnify one of his victim’s fears to truly horrifying levels. If she knows what sort of things her victi"
+    },
+    {
+      "key": "grand-delusion",
+      "name": "Grand Delusion",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 28,
+      "after_len": 1614,
+      "preview": "Touching her victim’s mind, the vampire sparks a delusion that only she fully understands. What she makes him believe doesn’t match up with the world "
+    },
+    {
+      "key": "mortal-terror",
+      "name": "Mortal Terror",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 54,
+      "after_len": 2768,
+      "preview": "The Nosferatu can summon horrific visions from the depths of a victim’s soul. She twists everything around her victim to **Chapter Three: Laws of the "
+    },
+    {
+      "key": "waking-nightmare",
+      "name": "Waking Nightmare",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 34,
+      "after_len": 2441,
+      "preview": "Having altered her victims’ beliefs and stoked their fears, the vampire can now spark disturbing hallucinations of a kind that all vampires suffer in "
+    },
+    {
+      "key": "cloak-of-night",
+      "name": "Cloak of Night",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 17,
+      "after_len": 1862,
+      "preview": "With but a thought, the vampire slips from both sight and mind. He doesn’t just fade into the background, he vanishes entirely. He leaves no scent and"
+    },
+    {
+      "key": "face-in-the-crowd",
+      "name": "Face in the Crowd",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 71,
+      "after_len": 2216,
+      "preview": "The vampire can turn his predatory aura inwards, walking through crowds of people who pay him no heed. As long as he doesn’t do anything to obviously "
+    },
+    {
+      "key": "oubliette",
+      "name": "Oubliette",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 87,
+      "after_len": 3155,
+      "preview": "The vampire creates a realm of his own, hiding a place from mundane senses and scrambling the perceptions of everyone within. He can turn an alleyway "
+    },
+    {
+      "key": "the-familiar-stranger",
+      "name": "The Familiar Stranger",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 43,
+      "after_len": 1913,
+      "preview": "Rather than removing himself from the perceptions of other people, the vampire can instead adjust how they see him. He can either appear as a subjecti"
+    },
+    {
+      "key": "touch-of-shadow",
+      "name": "Touch of Shadow",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 43,
+      "after_len": 2602,
+      "preview": "With just a touch, the vampire can extend the muted attentions of Face in the Crowd to an object or animal, rather than himself. His subject fades out"
+    },
+    {
+      "key": "beasts-skin",
+      "name": "Beast's Skin",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 32,
+      "after_len": 1430,
+      "preview": "The Beast can warp a vampire’s flesh, taking the form of an animal that she has consumed. Her body warps and shifts, growing extra muscle or folding i"
+    },
+    {
+      "key": "predatory-aspect",
+      "name": "Predatory Aspect",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 22,
+      "after_len": 2815,
+      "preview": "All the vampire has to do is give in just a little bit, and her Beast can slip out through her flesh, warping her body into a monstrous form. While ev"
+    },
+    {
+      "key": "primeval-miasma",
+      "name": "Primeval Miasma",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 21,
+      "after_len": 53627,
+      "preview": "The Beast bursts out from the vampire’s body, dissolving it into a cloud of hungry smoke. Occasionally, her victims can see **Chapter Three: Laws of t"
+    },
+    {
+      "key": "unmarked-grave",
+      "name": "Unmarked Grave",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook",
+      "before_len": 16,
+      "after_len": 1670,
+      "preview": "With a silent command, the earth itself yawns open to embrace the vampire. She merges with the ground, becoming immune to almost any harm. She can rem"
+    },
+    {
+      "key": "unnatural-aspect",
+      "name": "Unnatural Aspect",
+      "category": "discipline",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 25,
+      "after_len": 2348,
+      "preview": "With her Beast boiling in her blood, the pathetic shell of the vampire’s human or animal form cannot contain it. Her flesh warps, twisting and crackin"
+    },
+    {
+      "key": "acute-senses",
+      "name": "Acute Senses",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 78,
+      "after_len": 857,
+      "preview": "**Effect:** The vampire can see, smell, and hear at twice the distance and with twice the accuracy of an average, healthy mortal. The vampire’s senses"
+    },
+    {
+      "key": "alley-cat",
+      "name": "Alley Cat",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 69,
+      "after_len": 1229,
+      "preview": "**Prerequisites:** Athletics ••, Stealth ••, Streetwise •• Carthians are the vampires most intimately familiar with the city streets. A Carthian with "
+    },
+    {
+      "key": "allies",
+      "name": "Allies",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 102,
+      "after_len": 3972,
+      "preview": "**Effect:** Allies help your character. They might be friends, employees, associates, or people your character has blackmailed. Each instance of this "
+    },
+    {
+      "key": "altar",
+      "name": "Altar",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 104,
+      "after_len": 1556,
+      "preview": "**Prerequisites**: Circle of the Crone Status •  **Effect:** Your character is attuned to a mystical, bloody altar. She may have crafted it herself, o"
+    },
+    {
+      "key": "ambidextrous",
+      "name": "Ambidextrous",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 36,
+      "after_len": 238,
+      "preview": "**Effect:** Your character does not suffer the -2 penalty for using his off hand in combat or to perform other actions. _Available only at character c"
+    },
+    {
+      "key": "anointed",
+      "name": "Anointed",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 90,
+      "after_len": 523,
+      "preview": "**Prerequisites:** Lancea et Sanctum Status • **Effect:** Not all Sanctified are members of the clergy. Most are lay members. Those anointed under the"
+    },
+    {
+      "key": "army-of-one",
+      "name": "Army of One",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 93,
+      "after_len": 1593,
+      "preview": "**Prerequisites:** Carthian Status at equal or higher level Carthians always have each other’s backs. A ranking member of the Movement is never alone."
+    },
+    {
+      "key": "atrocious",
+      "name": "Atrocious",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 73,
+      "after_len": 403,
+      "preview": "**Prerequisites:** Cannot have the Cutthroat or Enticing Merits **Effect:** Your character’s monstrous Beast dominates her personality. Her threats al"
+    },
+    {
+      "key": "barfly",
+      "name": "Barfly",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 52,
+      "after_len": 409,
+      "preview": "**Prerequisite:** Socialize •• **Effect:** Your character is a natural in the Rack and can procure an open invitation wherever she wishes. Whereas mos"
+    },
+    {
+      "key": "bloodhound",
+      "name": "Bloodhound",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 49,
+      "after_len": 352,
+      "preview": "**Prerequisites:** Wits ••• **Effect:** Your character can discern the intricacies of blood by smelling it, as if he had tasted it. When using his Kin"
+    },
+    {
+      "key": "breaking-the-chains",
+      "name": "Breaking The Chains",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 54,
+      "after_len": 1687,
+      "preview": "**Prerequisites:** Carthian Status • The Vinculum, the blood bond, is one of the oldest, most fearsome tools of Kindred tyrants. To the Movement, bloo"
+    },
+    {
+      "key": "cacophony-savvy",
+      "name": "Cacophony Savvy",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 61,
+      "after_len": 1365,
+      "preview": "**Prerequisite:** City Status • **Effect:** You have your finger on the pulse of the Kindred underground. You’re adept with the codes and cants that a"
+    },
+    {
+      "key": "carthian-pull",
+      "name": "Carthian Pull",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 51,
+      "after_len": 604,
+      "preview": "**Prerequisite:** Carthian Status • **Effect:** Carthians know people. Being the covenant arguably most in touch with humanity, they tend to have the "
+    },
+    {
+      "key": "casual-user",
+      "name": "Casual User",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 68,
+      "after_len": 980,
+      "preview": "**Prerequisites:** **Not** a member of the Carthian Movement While your character is not a member of the Carthian Movement, she spends enough time aro"
+    },
+    {
+      "key": "cease-fire",
+      "name": "Cease Fire",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 53,
+      "after_len": 1648,
+      "preview": "**Prerequisites:** Carthian Status ••••• Law, at its heart, boasts the ability to bring peace. Cease Fire is a Carthian Law built on that principle, e"
+    },
+    {
+      "key": "cheap-shot",
+      "name": "Cheap Shot",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 29,
+      "after_len": 599,
+      "preview": "**Prerequisites:** Street Fighting •••, Subterfuge •• **Effect:** Your character is a master at the bait and switch. She can look off in an odd direct"
+    },
+    {
+      "key": "chorister",
+      "name": "Chorister",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 65,
+      "after_len": 1090,
+      "preview": "**Prerequisites:** **Not** a member of the Circle of the Crone Your character is not a member of the Circle of the Crone, but is close enough that she"
+    },
+    {
+      "key": "claws-of-the-unholy",
+      "name": "Claws Of The Unholy",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 119,
+      "after_len": 759,
+      "preview": "**Prerequisite:** Protean •••• **Effect:** A Gangrel’s claws are deadly and bestial; yours are downright unnatural. The vampire allows the Beast out o"
+    },
+    {
+      "key": "clipping",
+      "name": "Clipping",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 32,
+      "after_len": 380,
+      "preview": "Your character has experience hitting things with her vehicle in such a way as to not hurt herself much. When voluntarily hitting another character or"
+    },
+    {
+      "key": "close-family",
+      "name": "Close Family",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 40,
+      "after_len": 642,
+      "preview": "**Effect:** Your character feels blood sympathy more keenly than most of her kind. Add +1 to all blood sympathy bonuses, and apply the 8-again quality"
+    },
+    {
+      "key": "closed-book",
+      "name": "Closed Book",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 39,
+      "after_len": 677,
+      "preview": "**Prerequisites:** Manipulation •••, Resolve ••• **Effect:** Your character is particularly tough to crack. When a character uses Social Maneuvering *"
+    },
+    {
+      "key": "coda-against-sorcery",
+      "name": "Coda Against Sorcery",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 34,
+      "after_len": 1300,
+      "preview": "**Prerequisites:** Carthian Status • The largely secular Carthian Movement maintains this ancient practice as a defense against sorcery. Precedent for"
+    },
+    {
+      "key": "contacts",
+      "name": "Contacts",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 40,
+      "after_len": 1856,
+      "preview": "**Effect:** Contacts provide your character with information. This Merit can be taken multiple times; each instance represents a sphere or organizatio"
+    },
+    {
+      "key": "court-jester",
+      "name": "Court Jester",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 86,
+      "after_len": 1390,
+      "preview": "**Prerequisites:** City Status ••, Politics •• Many domains refuse to take Carthian members seriously, since members of the Movement point out the fai"
+    },
+    {
+      "key": "crowdsourcing",
+      "name": "Crowdsourcing",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 96,
+      "after_len": 1179,
+      "preview": "**Prerequisites:** Contacts •, Resources ••• Your character is an expert at networking, and gathering together resources for the covenant’s consumptio"
+    },
+    {
+      "key": "cutthroat",
+      "name": "Cutthroat",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 73,
+      "after_len": 392,
+      "preview": "**Prerequisites:** Cannot have the Atrocious or Enticing Merits **Effect:** Your character’s competitive Beast flows in her every action. Her smug bea"
+    },
+    {
+      "key": "danger-sense",
+      "name": "Danger Sense",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 40,
+      "after_len": 195,
+      "preview": "**Effect:** You gain a +2 modifier on reflexive Wits + Composure rolls for your character to detect an impending ambush. Your character’s reflexes are"
+    },
+    {
+      "key": "demolisher",
+      "name": "Demolisher",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 44,
+      "after_len": 227,
+      "preview": "**Prerequisite:** Strength ••• or Intelligence ••• **Effect:** Your character has an innate feel for the weak points in objects. When damaging an obje"
+    },
+    {
+      "key": "devotion-experimenter",
+      "name": "Devotion Experimenter",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 64,
+      "after_len": 879,
+      "preview": "**Prerequisites:** Carthian Status ••, Science •• Since, in many cities, the Carthian Movement has the fewest elders of any covenant, some Carthians s"
+    },
+    {
+      "key": "distinguished-palate",
+      "name": "Distinguished Palate",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 82,
+      "after_len": 615,
+      "preview": "**Effect:** Your character can discern the subtle nuances in blood and Vitae. Consider any Taste of Blood roll (see p. 91) an exceptional success with"
+    },
+    {
+      "key": "double-jointed",
+      "name": "Double Jointed",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 56,
+      "after_len": 645,
+      "preview": "**Prerequisite:** Dexterity ••• **Effect:** Your character might have been a contortionist or spent time practicing yoga. She can dislodge joints when"
+    },
+    {
+      "key": "dream-visions",
+      "name": "Dream Visions",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 63,
+      "after_len": 781,
+      "preview": "**Prerequisites:** Must be Mekhet **Effect:** Your character’s Mekhet blood touches on a level of universal interconnectedness that her mind cannot tr"
+    },
+    {
+      "key": "dynasty-membership",
+      "name": "Dynasty Membership",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 87,
+      "after_len": 647,
+      "preview": "**Prerequisite:** Clan Status • **Effect:** Your character claims membership to a long-standing dynasty of Kindred. Her clan and city know her family’"
+    },
+    {
+      "key": "eidetic-memory",
+      "name": "Eidetic Memory",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 38,
+      "after_len": 365,
+      "preview": "**Effect:** Your character recalls events and details with pinpoint accuracy. You do not have to make rolls for your character to remember past experi"
+    },
+    {
+      "key": "empower-judiciary",
+      "name": "Empower Judiciary",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 44,
+      "after_len": 2205,
+      "preview": "**Prerequisites:** Carthian Status ••• In many domains, a single Kindred is established as interpreter of the law. In Carthian domains, this is freque"
+    },
+    {
+      "key": "encyclopaedic-knowledge",
+      "name": "Encyclopaedic Knowledge",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 41,
+      "after_len": 57,
+      "preview": "Cost reduced from 2 dots to 1 dot. _Source: CoD 2e pg 46_"
+    },
+    {
+      "key": "enticing",
+      "name": "Enticing",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 73,
+      "after_len": 427,
+      "preview": "**Prerequisites:** Cannot have the Atrocious or Cutthroat Merits **Effect:** Your character’s seductive Beast oozes with ease and confidence. Her smok"
+    },
+    {
+      "key": "establish-precedent",
+      "name": "Establish Precedent",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 49,
+      "after_len": 2315,
+      "preview": "**Prerequisites:** Carthian Status •••• This Carthian Law forces an enforced law upon on all others to whom it applies. On the surface, this breeds an"
+    },
+    {
+      "key": "eye-for-the-strange",
+      "name": "Eye For The Strange",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 42,
+      "after_len": 780,
+      "preview": "**Prerequisite:** Resolve ••, Occult • **Effect:** While your character does not necessarily possess a breadth of knowledge about the supernatural, sh"
+    },
+    {
+      "key": "feeding-grounds",
+      "name": "Feeding Grounds",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 158,
+      "after_len": 600,
+      "preview": "**Effect:** Your character has fertile feeding grounds, whether officially granted or not. Dots in this Merit represent the ease of hunting in that te"
+    },
+    {
+      "key": "fighting-finesse",
+      "name": "Fighting Finesse",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 63,
+      "after_len": 961,
+      "preview": "**Prerequisites:** Dexterity •••, a Specialty in Weaponry or Brawl **Effect:** Choose a Specialty in Weaponry or Brawl when you purchase this Merit. Y"
+    },
+    {
+      "key": "fixer",
+      "name": "Fixer",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 38,
+      "after_len": 424,
+      "preview": "**Prerequisite:** Contacts ••, Wits ••• **Effect:** Your character is people that knows people. She can not only get in touch with the right people to"
+    },
+    {
+      "key": "flock",
+      "name": "Flock",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 73,
+      "after_len": 733,
+      "preview": "**Prerequisite:** Herd (equal or greater level) Your character not only maintains a Herd, he empowers, emboldens, and inspires them. Because of his pr"
+    },
+    {
+      "key": "friends-in-high-places",
+      "name": "Friends In High Places",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 114,
+      "after_len": 999,
+      "preview": "**Prerequisites:** Invictus Status • **Effect:** The Invictus have their fingers in a lot of pies…but any one vampire only has so many fingers. So the"
+    },
+    {
+      "key": "fucking-thief",
+      "name": "Fucking Thief",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 68,
+      "after_len": 875,
+      "preview": "**Prerequisites:** Subterfuge ••• Fucking Thieves, or Magpies to the less resentful, are Carthians that specialize in stealing the secrets of other or"
+    },
+    {
+      "key": "giant",
+      "name": "Giant",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 47,
+      "after_len": 375,
+      "preview": "**Effect:** Your character is massive. She’s well over six feet tall, and crowds part when she approaches. She’s Size 6, and gains +1 Health. _Availab"
+    },
+    {
+      "key": "haven",
+      "name": "Haven",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 46,
+      "after_len": 872,
+      "preview": "**Prerequisite:** Safe Place • **Effect:** A good haven is not only safe from the sun, but also familiar and comforting. The dot rating reflects your "
+    },
+    {
+      "key": "herd",
+      "name": "Herd",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 60,
+      "after_len": 580,
+      "preview": "**Effect:** Your character cultivates cliques of mortals willing and eager for the Kiss. Each week, you can draw on a number of Vitae equal to twice t"
+    },
+    {
+      "key": "honey-trap",
+      "name": "Honey Trap",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 61,
+      "after_len": 234,
+      "preview": "**Effect:** Your character’s blood not only bonds, but it invigorates. When a vampire tastes your character’s Vitae, she regains a point of Willpower."
+    },
+    {
+      "key": "i-know-a-guy",
+      "name": "I Know A Guy",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 39,
+      "after_len": 770,
+      "preview": "**Prerequisites:** Carthian Status • **Effect:** When Carthians make Allies (see p. 118), their covenant acts as a sort of support network that bolste"
+    },
+    {
+      "key": "information-network",
+      "name": "Information Network",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 39,
+      "after_len": 439,
+      "preview": "**Prerequisites:** Contacts •, Invictus Status •• As a member of the Invictus, your character has support to investigate, maintain, and motivate her c"
+    },
+    {
+      "key": "invested",
+      "name": "Invested",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 78,
+      "after_len": 2657,
+      "preview": "**Prerequisite:** Invictus Status • **Effect:** In the Invictus, you get out what you put in. Through doing favors and making herself noticed, your ch"
+    },
+    {
+      "key": "iron-stamina",
+      "name": "Iron Stamina",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 41,
+      "after_len": 1340,
+      "preview": "**Prerequisites:** Stamina ••• or Resolve ••• **Effect:** Each dot eliminates a negative modifier (on a onefor-one basis) when resisting the effects o"
+    },
+    {
+      "key": "iron-will",
+      "name": "Iron Will",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 80,
+      "after_len": 426,
+      "preview": "**Prerequisite:** Resolve •••• **Effect:** Your character’s resolve is unwavering. When spending Willpower to contest or resist in a Social interactio"
+    },
+    {
+      "key": "jack-booted-thug",
+      "name": "Jack-booted Thug",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 95,
+      "after_len": 2844,
+      "preview": "**Prerequisites:** Carthian Status ••, City Status •, Intimidation ••• A Carthian with this Merit is widely recognized as a loose cannon, willing and "
+    },
+    {
+      "key": "kiss-of-the-succubus",
+      "name": "Kiss Of The Succubus",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 52,
+      "after_len": 419,
+      "preview": "**Prerequisite:** Must be Daeva **Effect:** All Kindred can evoke lustful, passionate reactions with a bite. The Daeva’s bite is downright addicting. "
+    },
+    {
+      "key": "laity",
+      "name": "Laity",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 66,
+      "after_len": 945,
+      "preview": "**Prerequisites:** _Not_ a member of the Lancea et Sanctum Your character attends Mass, but has not formally joined the church. Perhaps she’s an Invic"
+    },
+    {
+      "key": "lex-terrae",
+      "name": "Lex Terrae",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 34,
+      "after_len": 574,
+      "preview": "**Prerequisites:** Carthian Status ••, Feeding Ground • **Effect:** Territory is bond. Feeding ground is sacrosanct. Any blood poached from your chara"
+    },
+    {
+      "key": "library",
+      "name": "Library",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 49,
+      "after_len": 492,
+      "preview": "**Effect:** Your character has access to a plethora of information about a given topic. When purchasing this Merit, choose a Mental Skill. The Library"
+    },
+    {
+      "key": "lorekeeper",
+      "name": "Lorekeeper",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 74,
+      "after_len": 900,
+      "preview": "**Prerequisites:** Lancea et Sanctum Status • **Effect**: The Spear is tasked with the acquisition and maintenance of history and mystical secrets. Mo"
+    },
+    {
+      "key": "mandate-from-the-masses",
+      "name": "Mandate From The Masses",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 40,
+      "after_len": 1415,
+      "preview": "**Prerequisites:** Carthian Status ••••• **Effect:** Carthians wield consensus the way a cop wields a baton. With the power of the Movement behind her"
+    },
+    {
+      "key": "mandragora-garden",
+      "name": "Mandragora Garden",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 160,
+      "after_len": 4455,
+      "preview": "**Prerequisites:** Safe Place (same level), Crúac • Your character maintains a garden of ghouled plants. They move and act on their own in slow, almos"
+    },
+    {
+      "key": "mentor",
+      "name": "Mentor",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 93,
+      "after_len": 1857,
+      "preview": "**Effect:** This Merit gives your character a teacher who provides advice and guidance. He acts on your character’s behalf, often in the background an"
+    },
+    {
+      "key": "moderator",
+      "name": "Moderator",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 76,
+      "after_len": 172,
+      "preview": "**Prerequisites:** Computer •••, Contacts • (Online), Invictus  --- **TM Errata:** Now once per chapter, not once per story, and all dots may be used."
+    },
+    {
+      "key": "mortal-status",
+      "name": "Mortal Status",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 107,
+      "after_len": 750,
+      "preview": "**Effect:** Your character has standing within a mortal group or organisation: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Mi"
+    },
+    {
+      "key": "multilingual",
+      "name": "Multilingual",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 34,
+      "after_len": 543,
+      "preview": "**Effect:** Your character has a strong affinity for language acquisition. Each time you purchase this Merit, choose two languages. Your character can"
+    },
+    {
+      "key": "mystery-cult-initiation",
+      "name": "Mystery Cult Initiation",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 47,
+      "after_len": 2291,
+      "preview": "Cults are far more common than the people of the World of Darkness would like to admit. Mystery cult is the catch-all term for a phenomenon ranging fr"
+    },
+    {
+      "key": "night-doctor-surgery",
+      "name": "Night Doctor Surgery",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 45,
+      "after_len": 1163,
+      "preview": "**Prerequisite:** Carthian Status •• **Effect:** Carthians have adapted a bit of real-world surgery and a little body horror into a series of morbid r"
+    },
+    {
+      "key": "noblesse-oblige",
+      "name": "Noblesse Oblige",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 37,
+      "after_len": 791,
+      "preview": "**Prerequisites:** City Status ••• Some Invictus lead because they’re power hungry. Your character leads because she feels it’s her inherent responsib"
+    },
+    {
+      "key": "notary",
+      "name": "Notary",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 62,
+      "after_len": 819,
+      "preview": "**Prerequisites:** Invictus Status ••• **Effect:** The Invictus appointed your character a Notary, a scholar of Oaths. She presides over Oath agreemen"
+    },
+    {
+      "key": "oath-of-abstinence",
+      "name": "Oath Of Abstinence",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 38,
+      "after_len": 1143,
+      "preview": "This rare Oath is considered anathema to many Invictus, particularly those with strong ties to the Lancea et Sanctum. Functionally, it spits in the fa"
+    },
+    {
+      "key": "oath-of-action",
+      "name": "Oath Of Action",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 45,
+      "after_len": 1003,
+      "preview": "**Effect:** With this Oath, a vassal swears to perform a service to his liege. The service must be a difficult task with definite criteria for accompl"
+    },
+    {
+      "key": "oath-of-fealty",
+      "name": "Oath Of Fealty",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 52,
+      "after_len": 486,
+      "preview": "**Prerequisites:** Invictus Status • **Effect:** This most basic Oath establishes a foundation of trust within the Invictus. The vassal may draw a num"
+    },
+    {
+      "key": "oath-of-matrimony",
+      "name": "Oath Of Matrimony",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 38,
+      "after_len": 3195,
+      "preview": "This Oath binds two Kindred together in a powerful union, where their collective capabilities are shared, but they must maintain loyalty to one anothe"
+    },
+    {
+      "key": "oath-of-office",
+      "name": "Oath Of Office",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 54,
+      "after_len": 1091,
+      "preview": "**Prerequisites:** City Status or Invictus Status ••• This Oath seals an Invictus into an official position. She vows to uphold the duties of office, "
+    },
+    {
+      "key": "oath-of-penance",
+      "name": "Oath Of Penance",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 57,
+      "after_len": 610,
+      "preview": "**Effect:** This Oath is a form of apology from a vassal to an aggrieved liege. For the agreed-upon term, the liege receives every tenth Vitae the vas"
+    },
+    {
+      "key": "oath-of-serfdom",
+      "name": "Oath Of Serfdom",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 45,
+      "after_len": 1862,
+      "preview": "**Effect:** This Oath is a contract between a landlord and a tenant. In Invictus domains, Princes often use this Oath as the go-to for granting territ"
+    },
+    {
+      "key": "oath-of-the-handshake-deal",
+      "name": "Oath Of The Handshake Deal",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 39,
+      "after_len": 1559,
+      "preview": "This simple Oath features as a foundation for many Invictus interactions. As the name suggests, it solidifies a handshake deal. Both participants offe"
+    },
+    {
+      "key": "oath-of-the-hard-motherfucker",
+      "name": "Oath of the Hard Motherfucker",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 413,
+      "after_len": 2397,
+      "preview": "**Prerequisites:** No Invictus Status Not every Invictus Oath comes down from on high. The Invictus is an inclusive organization, full of some of the "
+    },
+    {
+      "key": "oath-of-the-model-prisoner",
+      "name": "Oath Of The Model Prisoner",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 27,
+      "after_len": 2732,
+      "preview": "Say what you will about the Invictus. However, they (usually) treat their prisoners with some degree of honor, and Invictus imprisoned by others (usua"
+    },
+    {
+      "key": "oath-of-the-refugee",
+      "name": "Oath Of The Refugee",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 38,
+      "after_len": 968,
+      "preview": "In some domains, the very act of identifying oneself as Invictus is criminal or otherwise shunned. Sometimes, Invictus ideology forces a vampire to ta"
+    },
+    {
+      "key": "oath-of-the-righteous-kill",
+      "name": "Oath Of The Righteous Kill",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 33,
+      "after_len": 1352,
+      "preview": "**Prerequisites:** Empathy •••, Invictus Status ••• In defense of the Masquerade, sometimes witnesses and offenders must die. Invictus ideology teache"
+    },
+    {
+      "key": "oath-of-the-safe-word",
+      "name": "Oath Of The Safe Word",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 519,
+      "after_len": 1370,
+      "preview": "With this Oath, two Kindred enter into a trust agreement. While mutually beneficial, either party can end the agreement in a remarkable, crippling fas"
+    },
+    {
+      "key": "oath-of-the-true-knight",
+      "name": "Oath Of The True Knight",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 47,
+      "after_len": 4123,
+      "preview": "**Prerequisites:** Invictus Status •• This Oath binds an Unconquered into service as a knight, tasked with defending the Invictus as a whole. She beco"
+    },
+    {
+      "key": "one-foot-in-the-door",
+      "name": "One Foot In The Door",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 68,
+      "after_len": 796,
+      "preview": "**Prerequisites:** **Not** a member of the Invictus ![](./assets/output_13_1.jpeg) **188** **Secrets of the Covenants:** Your character is not a membe"
+    },
+    {
+      "key": "pack-alpha",
+      "name": "Pack Alpha",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 78,
+      "after_len": 740,
+      "preview": "**Prerequisite:** Must be Gangrel **Effect:** You’re pack-minded. Your blood draws to blood. You may designate a coterie of Kindred and ghouls as your"
+    },
+    {
+      "key": "plausible-deniability",
+      "name": "Plausible Deniability",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 34,
+      "after_len": 2006,
+      "preview": "**Prerequisites:** Carthian Status ••• **Effect:** Carthians don’t break laws; they defy laws. Influential Carthians can throw law to the wind, then l"
+    },
+    {
+      "key": "prestigious-sire",
+      "name": "Prestigious Sire",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 71,
+      "after_len": 918,
+      "preview": "**Prerequisites:** Mentor •••• Invictus favor merit, but often, the concept of merit flows from sire to childe; a prestigious sire would clearly choos"
+    },
+    {
+      "key": "primal-creation",
+      "name": "Primal Creation",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 50,
+      "after_len": 274,
+      "preview": "Additionally, when purchasing a Retainer with a dot rating equal to or less than this style rating, receive a second identical Retainer for free. Thes"
+    },
+    {
+      "key": "professional-training",
+      "name": "Professional Training",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 67,
+      "after_len": 1697,
+      "preview": "**Effect:** Your character has extensive training in a particular profession, which offers distinct advantages in a handful of fields. When choosing t"
+    },
+    {
+      "key": "pusher",
+      "name": "Pusher",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 46,
+      "after_len": 282,
+      "preview": "**Prerequisite:** Persuasion •• **Effect:** Your character tempts and bribes as second nature. Any time a mark in a Social interaction accepts his sof"
+    },
+    {
+      "key": "quick-draw",
+      "name": "Quick Draw",
+      "category": "merit",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 41,
+      "after_len": 506,
+      "preview": "**Prerequisites:** Wits •••, a Specialty in the weapon or fighting style chosen **Effect:** Choose a Specialty in Weaponry or Firearms when you purcha"
+    },
+    {
+      "key": "resources",
+      "name": "Resources",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 29,
+      "after_len": 1365,
+      "preview": "**Effect:** This Merit reflects your character’s disposable income. She might live in an upscale condo, but if her income is tied up in the mortgage a"
+    },
+    {
+      "key": "retainer",
+      "name": "Retainer",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 28,
+      "after_len": 1289,
+      "preview": "**Effect:** Your character has an assistant, sycophant, servant, or follower on whom she can rely. Establish who this companion is and how he was acqu"
+    },
+    {
+      "key": "right-of-return",
+      "name": "Right Of Return",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 31,
+      "after_len": 1376,
+      "preview": "**Prerequisites:** Carthian Status ••, City Status • **Effect:** This somewhat rare Merit allows a Carthian to work within another covenant without fe"
+    },
+    {
+      "key": "safe-place",
+      "name": "Safe Place",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 28,
+      "after_len": 1426,
+      "preview": "**Effect:** Your character has somewhere she can go where she can feel secure. While she may have enemies that could attack her there, she’s prepared "
+    },
+    {
+      "key": "sanctuary",
+      "name": "Sanctuary",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 82,
+      "after_len": 853,
+      "preview": "**Prerequisites:** City Status ••, Lancea et Sanctum Status ••, Safe Place • Because of your character’s exalted status in the city and in the church,"
+    },
+    {
+      "key": "sell-out",
+      "name": "Sell Out",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 98,
+      "after_len": 1116,
+      "preview": "**Prerequisites:** Carthian Status ••••, City Status ••••, Politics ••• A Carthian that takes the role of Prince often finds herself assailed from all"
+    },
+    {
+      "key": "small-unit-tactics",
+      "name": "Small Unit Tactics",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 40,
+      "after_len": 413,
+      "preview": "**Prerequisites:** Presence ••• **Effect:** Your character is a proficient leader in the field. She can organize efforts and bark orders to remarkable"
+    },
+    {
+      "key": "social-engineering",
+      "name": "Social Engineering",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 80,
+      "after_len": 1239,
+      "preview": "**Prerequisites:** Investigation ••, Manipulation •••, Subterfuge ••, Wits ••• Your character is a master of digging up little private bits and person"
+    },
+    {
+      "key": "sorcerous-eunuch",
+      "name": "Sorcerous Eunuch",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 93,
+      "after_len": 733,
+      "preview": "**Prerequisites:** Resolve ••• **Effect:** Your character has been subject to a series of terrifying rituals and experiments, which affords him a near"
+    },
+    {
+      "key": "speaker-for-the-silent",
+      "name": "Speaker For The Silent",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 61,
+      "after_len": 798,
+      "preview": "**Prerequisite:** Dynasty Membership •, Invictus Status • **Effect:** Any Kindred may be part of a dynastic house, but the Invictus take dynasty membe"
+    },
+    {
+      "key": "staff",
+      "name": "Staff",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 95,
+      "after_len": 716,
+      "preview": "**Effect:** Your character has a crew of workers or assistants at her disposal. They may be housekeepers, designers, research assistants, animators, g"
+    },
+    {
+      "key": "stigmata",
+      "name": "Stigmata",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 109,
+      "after_len": 617,
+      "preview": "**Target number of successes:** 5 **Resisted by:** Stamina **Sacrament:** a crucifix The ritualist curses his victim — who must be present for the rit"
+    },
+    {
+      "key": "strength-of-resolution",
+      "name": "Strength of Resolution",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 29,
+      "after_len": 285,
+      "preview": "**Prerequisites:** Carthian Status • **Effect:** A Carthian stands resolute in the face of that which would force her to violate the law. Add her Cart"
+    },
+    {
+      "key": "swarm-form",
+      "name": "Swarm Form",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 69,
+      "after_len": 1541,
+      "preview": "**Prerequisite:** Protean ••• **Effect:** When taking the Beast’s Skin, some Gangrel can instead become a swarm of small creatures: Size 0 or Size 1 a"
+    },
+    {
+      "key": "table-turner",
+      "name": "Table Turner",
+      "category": "merit",
+      "source": "CofD Rulebook",
+      "before_len": 50,
+      "after_len": 340,
+      "preview": "**Prerequisites:** Composure •••, Manipulation •••, Wits ••• **Effects:** Your character can turn any attempt to leverage her into an opportunity. Any"
+    },
+    {
+      "key": "tech-savvy",
+      "name": "Tech-savvy",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 94,
+      "after_len": 972,
+      "preview": "**Prerequisites:** Computer ••, Crafts ••, Science •, Resources • Invictus members pride themselves in utilizing the best tools humanity has to offer."
+    },
+    {
+      "key": "the-mother-daughter-bond",
+      "name": "The Mother-Daughter Bond",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 261,
+      "after_len": 1037,
+      "preview": "**Prerequisites:** Circle of the Crone Status • **Effect**: The Circle exists through tribulation and mentorship. Without tight-knit bonds, the Circle"
+    },
+    {
+      "key": "toss-that-shit-right-back",
+      "name": "Toss That Shit Right Back",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 71,
+      "after_len": 1124,
+      "preview": "**Prerequisites:** Athletics ••, Dexterity ••• When the revolution is backed against the wall and outgunned, the best option is to throw the enemy’s w"
+    },
+    {
+      "key": "travel-agent",
+      "name": "Travel Agent",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 104,
+      "after_len": 1580,
+      "preview": "**Prerequisite:** Contacts (Inter-City) •, Invictus Status •• One of the perks of Invictus membership pertains directly to the Invictus’ strength of o"
+    },
+    {
+      "key": "undead-menses",
+      "name": "Undead Menses",
+      "category": "merit",
+      "source": "VtR 2e Rulebook + TM Errata",
+      "before_len": 77,
+      "after_len": 1075,
+      "preview": "**Effect:** Throughout history, various cultures attributed mystical significance to the menstrual cycle. Many of these Multiple Touchstones **Touchst"
+    },
+    {
+      "key": "unsettling-gaze",
+      "name": "Unsettling Gaze",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 75,
+      "after_len": 554,
+      "preview": "**Prerequisites:** Must be Nosferatu **Effect:** All Haunts have an unsettling effect. Your character’s Beast oozes with terror. When she evokes the m"
+    },
+    {
+      "key": "viral-mythology",
+      "name": "Viral Mythology",
+      "category": "merit",
+      "source": "Secrets of the Covenants",
+      "before_len": 71,
+      "after_len": 1238,
+      "preview": "**Prerequisites:** Crúac •, Presence •••, Expression ••• Your character has established and grooms a reputation, a personal myth that’s greater than t"
+    },
+    {
+      "key": "what-youve-done-for-her-lately",
+      "name": "What You've Done For Her Lately",
+      "category": "merit",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 71,
+      "after_len": 24633,
+      "preview": "Prerequisites: Crúac •• Members of the Circle of the Crone favor action. Acts of faith, acts of sacrifice, and acts of creation. The very act of perfo"
+    },
+    {
+      "key": "where-the-bodies-are-buried",
+      "name": "Where The Bodies Are Buried",
+      "category": "merit",
+      "source": "VtR 2e Rulebook",
+      "before_len": 75,
+      "after_len": 1291,
+      "preview": "**Prerequisites:** Invictus Status •• **Effect:** The Conspiracy of Silence covers up a lot of secrets… and your character’s been quietly keeping trac"
+    },
+    {
+      "key": "air-of-menace",
+      "name": "Air of Menace",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 79,
+      "after_len": 826,
+      "preview": "**Prerequisites:** Intimidation •• **Effect:** Your character has survived dozens of fights, and each one has taken its toll. He carries scars, featur"
+    },
+    {
+      "key": "body-as-weapon",
+      "name": "Body As Weapon",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 30,
+      "after_len": 3460,
+      "preview": "**Prerequisites:** Stamina •••, Brawl •• **Effect:** Your character has honed her body to be a hardened weapon. She has trained long, punishing hours "
+    },
+    {
+      "key": "covert-operative",
+      "name": "Covert Operative",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 68,
+      "after_len": 750,
+      "preview": "**Prerequisites:** Wits •••, Dexterity •••, Stealth •• **Style Tags:** Tactical (Military) **Effect:** Your character is trained in getting the jump o"
+    },
+    {
+      "key": "empath",
+      "name": "Empath",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 109,
+      "after_len": 1129,
+      "preview": "Prerequisites: Empathy ••  **Effect:** Your character has seen pain, and can identify it instantly. With a single Wits + Empathy roll, you can identif"
+    },
+    {
+      "key": "finger-on-the-pulse",
+      "name": "Finger On The Pulse",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 85,
+      "after_len": 144,
+      "preview": "**Prerequisites:** Carthian Status 1 Carthians with this merit are immersed in the Cacophony, and do not suffer the drawback of Cacophony Savvy."
+    },
+    {
+      "key": "honey-with-vinegar",
+      "name": "Honey With Vinegar",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 147,
+      "after_len": 200,
+      "preview": "**Prerequisites:** Carthian Status 1 Carthians earn influence from Allies, Contacts, and wide Mortal Status one step lower than normal. They gain 1 po"
+    },
+    {
+      "key": "picket-line",
+      "name": "Picket Line",
+      "category": "merit",
+      "source": "TM Errata",
+      "before_len": 207,
+      "after_len": 275,
+      "preview": "**Prerequisites:** Carthian Status 1 Each chapter, you have a pool of dots equal to their Contacts (max 5), which can be applied to Allies separately "
+    },
+    {
+      "key": "punch-drunk",
+      "name": "Punch Drunk",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 89,
+      "after_len": 448,
+      "preview": "**Prerequisite:** Willpower ••••••+ **Effect:** Your character’s resolve is unwavering, even when suffering wounds, broken limbs, and lost blood. She "
+    },
+    {
+      "key": "survivalist",
+      "name": "Survivalist",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 43,
+      "after_len": 12724,
+      "preview": "**Prerequisites:** Survival •••, Iron Stamina ••• **Effect:** Your character has been trained to fight even through the most dangerous environmental e"
+    },
+    {
+      "key": "trigger-discipline",
+      "name": "Trigger Discipline",
+      "category": "merit",
+      "source": "Hurt Locker",
+      "before_len": 92,
+      "after_len": 6150,
+      "preview": "**Prerequisites:** Wits ••, Firearms •• **Effect:** Your character is a disciplined shooter, able to maximize her shots and conserve ammo appropriatel"
+    },
+    {
+      "key": "cover-the-angles",
+      "name": "Cover the Angles",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 70,
+      "after_len": 204,
+      "preview": "Whenever you take a Dodge action, reduce the Defense penalties for multiple attackers by 1. You can apply your full Defense against the first two atta"
+    },
+    {
+      "key": "weak-spot",
+      "name": "Weak Spot",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 64,
+      "after_len": 281,
+      "preview": "You swing against your opponent’s arm, rather than his own weapon. Use this ability when defending against an armed attacker. If your Defense reduces "
+    },
+    {
+      "key": "aggressive-defence",
+      "name": "Aggressive Defence",
+      "category": "manoeuvre",
+      "source": "TM Errata",
+      "before_len": 140,
+      "after_len": 40,
+      "preview": "Bashing to Kindred. _Source: HL pg_ _46_"
+    },
+    {
+      "key": "iron-guard",
+      "name": "Iron Guard",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 58,
+      "after_len": 263,
+      "preview": "You and your weapon are one. At the start of each turn, you can choose to reduce your weapon bonus (down to a minimum of 0) to increase your Defense b"
+    },
+    {
+      "key": "press-the-advantage",
+      "name": "Press the Advantage",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 109,
+      "after_len": 407,
+      "preview": "You create an opening with a block, and lash out with a fist or foot. When you’re taking a Dodge action, if your Defense roll reduces the attacker’s s"
+    },
+    {
+      "key": "insignificance",
+      "name": "Insignificance",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 81,
+      "after_len": 423,
+      "preview": "When a fight starts you ease out of sight and try to become a part of the scenery. Make a roll of Manipulation + Stealth – the highest Composure in th"
+    },
+    {
+      "key": "coattails",
+      "name": "Coattails",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 83,
+      "after_len": 295,
+      "preview": "Your character’s reaction to being attacked is to dive behind her bigger friend and let him take care of it. When taking a Dodge action she can design"
+    },
+    {
+      "key": "whack-a-mole",
+      "name": "Whack-a-Mole",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 117,
+      "after_len": 2069,
+      "preview": "Your character makes herself into a tempting target and unsuspecting opponents end up doing more damage to themselves than her. Once per turn you may "
+    },
+    {
+      "key": "play-dead",
+      "name": "Play Dead",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 98,
+      "after_len": 863,
+      "preview": "When your character wants to bow out of a combat she makes even the most superficial wounds look fatal. After any attack your character sustained leth"
+    },
+    {
+      "key": "arcing-fire",
+      "name": "Arcing Fire",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 13,
+      "after_len": 147,
+      "preview": "Your character knows how to tilt her aim to make a shot hit true even from afar. Double range increments, or increase her range band by one degree."
+    },
+    {
+      "key": "bullseye",
+      "name": "Bullseye",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 70,
+      "after_len": 230,
+      "preview": "Your character places her shots to hit deep into an opponent’s weak spots. When attacking a specified target you may lower your bow’s damage rating to"
+    },
+    {
+      "key": "out-of-nowhere",
+      "name": "Out of Nowhere",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 145,
+      "after_len": 333,
+      "preview": "Your character fires her arrows and then ducks out of sight, leaving her enemies bleeding and confused. Roll Dexterity + Stealth as a reflexive action"
+    },
+    {
+      "key": "death-from-above",
+      "name": "Death from Above",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 99,
+      "after_len": 1161,
+      "preview": "Loose vertical shots to reach opponents behind cover. Reduce their Concealment by 1 per 10 yards (9 meters) added to the shot’s range. Or ignore entir"
+    },
+    {
+      "key": "head-protection",
+      "name": "Head Protection",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 56,
+      "after_len": 308,
+      "preview": "The head is the primary target for most boxers, so your character has learned to protect it by bobbing, weaving, and angling away from blows. Your cha"
+    },
+    {
+      "key": "defensive-jab",
+      "name": "Defensive Jab",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 86,
+      "after_len": 390,
+      "preview": "Your character interrupts attacks with well-timed punches from the lead hand. Any time an opponent misses with a Brawl or Weaponry attack, your charac"
+    },
+    {
+      "key": "knockout-artist",
+      "name": "Knockout Artist",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 77,
+      "after_len": 358,
+      "preview": "Your character knows how to knock someone out. She now treats the target’s Size as 1 lower at all times for the purposes of inflicting the Stunned Til"
+    },
+    {
+      "key": "combination",
+      "name": "Combination",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 47,
+      "after_len": 255,
+      "preview": "Your character learns to fire off several blows in rapid succession, so that if one hits, the others often follow. If your character’s Brawl strike su"
+    },
+    {
+      "key": "out-for-the-count",
+      "name": "Out for the Count",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 105,
+      "after_len": 776,
+      "preview": "When your character knocks someone out they don’t get back up any time soon. When she inflicts the Stunned Tilt it not only lasts for a number of turn"
+    },
+    {
+      "key": "backpacker",
+      "name": "Backpacker",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 76,
+      "after_len": 344,
+      "preview": "Your character is privy to all the personal ads, magazine codes, tracts, and tagging locations to find the latest Kindred news. Any time new Kindred c"
+    },
+    {
+      "key": "wearing-a-hat",
+      "name": "Wearing a Hat",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 184,
+      "after_len": 684,
+      "preview": "Your character embodies honor among thieves. She’s a highly respected part of the Cacophony, and as a result, nothing happens without her knowledge. S"
+    },
+    {
+      "key": "firing-lines",
+      "name": "Firing Lines",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 80,
+      "after_len": 326,
+      "preview": "In some situations, your character’s best option is a tactical retreat — especially if he’s inadvertently brought a knife to a gunfight. He can run fo"
+    },
+    {
+      "key": "hard-surfaces",
+      "name": "Hard Surfaces",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 109,
+      "after_len": 374,
+      "preview": "Bouncing someone’s head off a urinal, computer monitor, or brick wall is a handy way to increase the amount of hurt inflicted while not breaking the a"
+    },
+    {
+      "key": "armoured-coffin",
+      "name": "Armoured Coffin",
+      "category": "manoeuvre",
+      "source": "TM Errata",
+      "before_len": 184,
+      "after_len": 85,
+      "preview": "Applies only to worn armour. Supernatural armour or armour from Iron Skin is ignored."
+    },
+    {
+      "key": "prep-work",
+      "name": "Prep Work",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 71,
+      "after_len": 300,
+      "preview": "If your character has a second to look around, he can catch someone by surprise almost anywhere. When launching a surprise attack, your Dexterity + St"
+    },
+    {
+      "key": "turnabout",
+      "name": "Turnabout",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 169,
+      "after_len": 510,
+      "preview": "If your character’s caught short in a fight, his opponent’s weapon suits him just fine. When he attempts to Disarm his opponent, step the results up o"
+    },
+    {
+      "key": "rapid-nock",
+      "name": "Rapid Nock",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 59,
+      "after_len": 297,
+      "preview": "Your character has trained herself to have another arrow set and her bow drawn within a heartbeat of her last shot. As long as there is a supply of ar"
+    },
+    {
+      "key": "reflex-aiming",
+      "name": "Reflex Aiming",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 46,
+      "after_len": 136,
+      "preview": "Your character knows how to time her shots to hit her opponents and not her allies. Ignore penalties for firing a bow into close combat."
+    },
+    {
+      "key": "parthian-shot",
+      "name": "Parthian Shot",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 111,
+      "after_len": 290,
+      "preview": "Your character feints retreat to lure an opponent in for a close-range shot. The first time in a turn an opponent attempts a close-range attack, you m"
+    },
+    {
+      "key": "rain-of-arrows",
+      "name": "Rain of Arrows",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 55,
+      "after_len": 311,
+      "preview": "Your character fires a group of shots at multiple opponents in the blink of an eye. She can attack with a bow as an autofire medium burst with three a"
+    },
+    {
+      "key": "trick-shot",
+      "name": "Trick Shot",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 83,
+      "after_len": 1515,
+      "preview": "Your character rolls, leaps, and runs along walls while firing arrows in any direction. Your character can fire her bow simultaneously while taking an"
+    },
+    {
+      "key": "in-high-cotton",
+      "name": "In High Cotton",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 83,
+      "after_len": 230,
+      "preview": "Your character cultivates standing and respect, and carries it like a knight wears armor. You may apply one relevant Status or Fame Merit to rolls to "
+    },
+    {
+      "key": "half-cocked",
+      "name": "Half-Cocked",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 131,
+      "after_len": 210,
+      "preview": "Your character is always prepared. On the other hand, others are not. In a new Social interaction, if the impression is good, excellent, or perfect, i"
+    },
+    {
+      "key": "grace-under-fire",
+      "name": "Grace Under Fire",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 136,
+      "after_len": 217,
+      "preview": "While your character may not always win, she never looks bad. If a character opens all her Doors, and you opt to offer an alternative, his player choo"
+    },
+    {
+      "key": "predators-vigil",
+      "name": "Predator's Vigil",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 97,
+      "after_len": 342,
+      "preview": "The presence of your bird instinctively wards off prey animals. Even a flock of pigeons or swarm of rats won’t come too close when a natural predator "
+    },
+    {
+      "key": "flyby",
+      "name": "Flyby",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 97,
+      "after_len": 266,
+      "preview": "Your character commands her bird to dive past an enemy at high speed, creating a distraction. Roll Presence \\+ Intimidation against an opponent’s Reso"
+    },
+    {
+      "key": "retrieve-item",
+      "name": "Retrieve Item",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 133,
+      "after_len": 482,
+      "preview": "Your bird knows how to grab small items and bring them back to you, even snatching them from someone’s hand. On your character’s turn she can designat"
+    },
+    {
+      "key": "rake-the-eyes",
+      "name": "Rake the Eyes",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 42,
+      "after_len": 701,
+      "preview": "Your character commands her bird to claw at an opponent’s eyes. Take a –1 penalty to attack. A successful attack applies the Blinded Tilt. Grappling ("
+    },
+    {
+      "key": "always-be-closing",
+      "name": "Always Be Closing",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 75,
+      "after_len": 272,
+      "preview": "With the right leading phrases, your character can direct a mark to say what she wants, when she wants. This trips the mark into vulnerable positions."
+    },
+    {
+      "key": "jargon",
+      "name": "Jargon",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 68,
+      "after_len": 179,
+      "preview": "Your character confuses her mark using complex terminology. You may apply one relevant Specialty to any Social roll you make, even if the Specialty is"
+    },
+    {
+      "key": "devils-advocacy",
+      "name": "Devil's Advocacy",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 44,
+      "after_len": 192,
+      "preview": "Your character often poses arguments she doesn’t agree with in order to challenge a mark’s position and keep him from advancing discussion. You can re"
+    },
+    {
+      "key": "salting",
+      "name": "Salting",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 83,
+      "after_len": 256,
+      "preview": "Your character can position herself so a mark pursues a non-issue or something unimportant to her. When your character opens a Door using conversation"
+    },
+    {
+      "key": "shoot-first",
+      "name": "Shoot First",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 51,
+      "after_len": 309,
+      "preview": "In a firefight, the person shot first is usually the loser. Your character has trained herself to fire first in an altercation. If her gun is drawn, a"
+    },
+    {
+      "key": "suppressive-fire",
+      "name": "Suppressive Fire",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 150,
+      "after_len": 777,
+      "preview": "Sometimes, the purpose of a shot is to distract, not necessarily to hit. Your character is trained to fire off a handful of rounds with the intent to "
+    },
+    {
+      "key": "secondary-target",
+      "name": "Secondary Target",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 129,
+      "after_len": 627,
+      "preview": "Sometimes, shooting an opponent behind cover is all but impossible. However, a bullet can knock objects off balance, or cause ricochets. By using Seco"
+    },
+    {
+      "key": "sprawl",
+      "name": "Sprawl",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 66,
+      "after_len": 162,
+      "preview": "Your character can adjust his weight to defend himself in a grapple. While in a grapple, the character’s opponent cannot apply the Drop Prone or Take "
+    },
+    {
+      "key": "standing-throw",
+      "name": "Standing Throw",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 192,
+      "after_len": 525,
+      "preview": "Your character knows how to toss someone over his hip, trip, or sweep her while keeping his footing. He may inflict the Knocked Down Tilt as a grappli"
+    },
+    {
+      "key": "small-joint-manipulation",
+      "name": "Small Joint Manipulation",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 98,
+      "after_len": 1528,
+      "preview": "By accepting a –2 penalty to the attack roll, your character may immediately dislocate or otherwise bend the opponent’s fingers in one hand (or toes i"
+    },
+    {
+      "key": "takedown",
+      "name": "Takedown",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 171,
+      "after_len": 487,
+      "preview": "Your character can take an opponent to the ground rapidly. With a normal roll, you may choose to render an opponent prone instead of establishing a gr"
+    },
+    {
+      "key": "ippon",
+      "name": "Ippon",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 164,
+      "after_len": 276,
+      "preview": "_Additional Prerequisite: Takedown Maneuver._ While using Drop Prone with the Takedown Maneuver, your character hurls his opponent to the ground with "
+    },
+    {
+      "key": "joint-lock",
+      "name": "Joint Lock",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 199,
+      "after_len": 747,
+      "preview": "ou use joint locks and immobilizing tactics to limit your opponent’s movement. You can use the Joint Lock move in a grapple. Next turn, your opponent "
+    },
+    {
+      "key": "dynamic-guard",
+      "name": "Dynamic Guard",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 133,
+      "after_len": 339,
+      "preview": "While prone, your character uses his body to shake and redirect his enemy. Reduce the opponent’s dice pool to grapple by your character’s Dexterity. U"
+    },
+    {
+      "key": "lock-flow",
+      "name": "Lock Flow",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 50,
+      "after_len": 259,
+      "preview": "_Additional Prerequisite: Joint Lock_ _Maneuver_. When your character’s opponent slips out of one lock you know how to go with the motion and trap her"
+    },
+    {
+      "key": "positional-dominance",
+      "name": "Positional Dominance",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 71,
+      "after_len": 1215,
+      "preview": "Your character knows how to hurt and tire an opponent from any position, crushing the life out of him. No matter which maneuver you choose on a succes"
+    },
+    {
+      "key": "tap-or-snap",
+      "name": "Tap or Snap",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 233,
+      "after_len": 728,
+      "preview": "_Additional Prerequisite: Joint Lock_ _Maneuver_. If your character succeeds in a grapple in the turn after applying the Joint Lock maneuver, he may a"
+    },
+    {
+      "key": "sure-strike",
+      "name": "Sure Strike",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 125,
+      "after_len": 700,
+      "preview": "Your character doesn’t always hit the hardest or the most frequently, but she guarantees a deadly strike when she does hit. You can reflexively remove"
+    },
+    {
+      "key": "threat-range",
+      "name": "Threat Range",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 125,
+      "after_len": 364,
+      "preview": "Your character’s weapon is immense and keeps opponents at bay. If you opt not to move or Dodge during your turn, any character moving into your charac"
+    },
+    {
+      "key": "bring-the-pain",
+      "name": "Bring the Pain",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 100,
+      "after_len": 378,
+      "preview": "Your character’s strikes stun and incapacitate as well as causing massive trauma to the body. Sacrifice your character’s Defense to use Bring the Pain"
+    },
+    {
+      "key": "warding-stance",
+      "name": "Warding Stance",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 79,
+      "after_len": 236,
+      "preview": "Your character holds her weapon in such a way as to make attacks much harder. If her weapon’s drawn, spend a point of Willpower reflexively to add her"
+    },
+    {
+      "key": "rending",
+      "name": "Rending",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 86,
+      "after_len": 986,
+      "preview": "Your character’s cuts leave crippling, permanent wounds. By spending a Willpower point before making an attack roll, her successful attacks cause one "
+    },
+    {
+      "key": "always-armed",
+      "name": "Always Armed",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 116,
+      "after_len": 881,
+      "preview": "Your character can always get his hands on something dangerous, and he has an instinctive understanding of how to put it to good — and deadly — use. A"
+    },
+    {
+      "key": "in-harms-way",
+      "name": "In Harm's Way",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 112,
+      "after_len": 592,
+      "preview": "Your character’s got a knack for putting his weapon in the way of an oncoming attack, no matter how small or inappropriate for blocking it might be. W"
+    },
+    {
+      "key": "breaking-point",
+      "name": "Breaking Point",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 127,
+      "after_len": 1747,
+      "preview": "One sure way to win a fight is to hit the other guy so hard that he doesn’t get back up, even if that means losing a weapon in the process. When makin"
+    },
+    {
+      "key": "detection",
+      "name": "Detection",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 96,
+      "after_len": 714,
+      "preview": "Your character’s dog has been trained to detect a certain class of substances by smell and indicate its location. Choose from one of the following: Dr"
+    },
+    {
+      "key": "targeted-bite",
+      "name": "Targeted Bite",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 81,
+      "after_len": 116,
+      "preview": "Your character may command his dog to target specific body parts. Reduce penalties to attack specific targets by –2."
+    },
+    {
+      "key": "tactical-positioning",
+      "name": "Tactical Positioning",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 185,
+      "after_len": 760,
+      "preview": "The character’s dog knows how to position itself to make it difficult for opponents to ![](./assets/output_16_1.jpeg)![](./assets/output_16_2.png)![]("
+    },
+    {
+      "key": "takedown-bite",
+      "name": "Takedown Bite",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 119,
+      "after_len": 995,
+      "preview": "At your character’s command, his dog may inflict a Drop Prone or Hold grappling maneuver on a target if it hits with a successful bite attack. The tar"
+    },
+    {
+      "key": "hamstring",
+      "name": "Hamstring",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 86,
+      "after_len": 337,
+      "preview": "With a well-placed tendon strike, you can briefly cripple a vampire’s ability to augment their physical prowess with Vitae. By targeting a limb (and t"
+    },
+    {
+      "key": "taunt",
+      "name": "Taunt",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 111,
+      "after_len": 308,
+      "preview": "You know the way the Beast works, and how to taunt it with short, shallow swipes. Before you roll, remove a number of dice from your pool no greater t"
+    },
+    {
+      "key": "carving",
+      "name": "Carving",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 39,
+      "after_len": 222,
+      "preview": "When you strike, you curve the blade hard and strike to pull the flesh apart, making it harder to heal in the heat of the moment. When Carving, your w"
+    },
+    {
+      "key": "pincushion",
+      "name": "Pincushion",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 212,
+      "after_len": 384,
+      "preview": "You hit deep, intending to lodge your weapon in its victim. If you choose to leave your weapon in the victim on a successful strike, the victim cannot"
+    },
+    {
+      "key": "spray",
+      "name": "Spray",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 114,
+      "after_len": 653,
+      "preview": "You cut to remove mass from the body, and by extension, blood. Sacrifice your Defense for the turn to use this maneuver. On a successful attack roll, "
+    },
+    {
+      "key": "trained-bite",
+      "name": "Trained Bite",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 90,
+      "after_len": 403,
+      "preview": "If your character prevails in a grapple she may bite harder than normal, targeting sensitive parts of an opponent’s anatomy. This acts as the Damage m"
+    },
+    {
+      "key": "ripping",
+      "name": "Ripping",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 94,
+      "after_len": 462,
+      "preview": "Your character overcomes squeamishness and distractions to grab and tear earlobes, eyelids, and other soft, loose parts. She doesn’t pause before ripp"
+    },
+    {
+      "key": "trained-gouge",
+      "name": "Trained Gouge",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 111,
+      "after_len": 509,
+      "preview": "While grappling, your character can drive her fingers into an enemy’s eyes with exceptional force and persistence. If you win a grappling roll and sco"
+    },
+    {
+      "key": "continuous-bite",
+      "name": "Continuous Bite",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 140,
+      "after_len": 884,
+      "preview": "Your character knows how to apply pressure, rip flesh, and use the rest of her body’s musculature to enhance a bite. In a grapple, she may inflict let"
+    },
+    {
+      "key": "rapidity",
+      "name": "Rapidity",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 68,
+      "after_len": 242,
+      "preview": "Your character moves with swiftness to find just the right spot to strike. You can sacrifice your character’s weapon damage rating to add his Weaponry"
+    },
+    {
+      "key": "thrust",
+      "name": "Thrust",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 50,
+      "after_len": 378,
+      "preview": "Your character knows when to defend himself, and when to move in for the kill. At any time, you can sacrifice points of Defense one-for-one to add to "
+    },
+    {
+      "key": "feint",
+      "name": "Feint",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 136,
+      "after_len": 545,
+      "preview": "With a flourish in one direction, your character can distract an opponent for a cleaner, more effective follow-up strike. For example, if Feinting wit"
+    },
+    {
+      "key": "flurry",
+      "name": "Flurry",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 95,
+      "after_len": 548,
+      "preview": "Your character moves quickly enough to stab opponents with numerous pricks and swipes in the blink of an eye. As long as your character has his Defens"
+    },
+    {
+      "key": "vital-shot",
+      "name": "Vital Shot",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 93,
+      "after_len": 835,
+      "preview": "Your character can use his smaller weapon to get into an opponent’s defenses and hit where it hurts most. Sacrifice your character’s Defense for the t"
+    },
+    {
+      "key": "through-the-crosshairs",
+      "name": "Through the Crosshairs",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 53,
+      "after_len": 204,
+      "preview": "Your character is a competent sniper, able to sit in position and steel her wits. Usually, the maximum bonus from aiming is three dice. With Through t"
+    },
+    {
+      "key": "precision-shot",
+      "name": "Precision Shot",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 83,
+      "after_len": 482,
+      "preview": "With this level of training, your character knows how to effectively disable a victim instead of focusing on the kill. When attacking a specified targ"
+    },
+    {
+      "key": "a-shot-rings-out",
+      "name": "A Shot Rings Out",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 90,
+      "after_len": 230,
+      "preview": "A master sniper, your character has no worries or lack of confidence. She can fire into a crowd and strike a specific target without penalty. If she m"
+    },
+    {
+      "key": "ghost",
+      "name": "Ghost",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 95,
+      "after_len": 765,
+      "preview": "Your character has trained to shoot unseen, and vanish without a trace. Her Firearms score acts as a penalty on any roll to notice her vantage point, "
+    },
+    {
+      "key": "focused-attack",
+      "name": "Focused Attack",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 72,
+      "after_len": 558,
+      "preview": "Your character has trained extensively in striking specific parts of an opponent’s body. Reduce penalties for hitting specific targets by one. Additio"
+    },
+    {
+      "key": "leg-kick",
+      "name": "Leg Kick",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 73,
+      "after_len": 596,
+      "preview": "Your character knows how to kick an opponent’s legs out from under him. She might use a Thai-style round kick or drive her heel into his kneecap. If s"
+    },
+    {
+      "key": "cutting-elbow",
+      "name": "Cutting Elbow",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 63,
+      "after_len": 455,
+      "preview": "When striking with an elbow, your character targets thin skin in the opponent’s scalp with the aim of ripping it open. She only suffers a –2 penalty t"
+    },
+    {
+      "key": "trapping",
+      "name": "Trapping",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 99,
+      "after_len": 622,
+      "preview": "This maneuver has a lot of names, including “sticking hands” or “scissors.” Using it, your character knows how to control her opponent’s limbs so they"
+    },
+    {
+      "key": "whirlwind-strike",
+      "name": "Whirlwind Strike",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 129,
+      "after_len": 443,
+      "preview": "When engaged, your character becomes a storm of threatening kicks and punches; nothing close is safe. As long as your character has her Defense availa"
+    },
+    {
+      "key": "inch-force",
+      "name": "Inch Force",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 150,
+      "after_len": 583,
+      "preview": "Your character knows how to swiftly strike across extremely short distances. She can hit hard with an inch of movement, or smash with a shoulder, hip,"
+    },
+    {
+      "key": "the-hand-as-weapon",
+      "name": "The Hand As Weapon",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 30,
+      "after_len": 131,
+      "preview": "With this degree of training, your character’s limbs are hardened to cause massive trauma. Her unarmed strikes cause lethal damage."
+    },
+    {
+      "key": "high-momentum-strike",
+      "name": "High Momentum Strike",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 214,
+      "after_len": 1239,
+      "preview": "Tornado kicks, spinning backfists, and flying knees are hard to pull off, but in the right circumstances can be devastating. If your character has a h"
+    },
+    {
+      "key": "the-touch-of-death",
+      "name": "The Touch of Death",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 40,
+      "after_len": 430,
+      "preview": "Your character’s mastery has brought with it the daunting power of causing lethal injury with a touch. If she chooses, her unarmed strikes count as we"
+    },
+    {
+      "key": "compliance-hold",
+      "name": "Compliance Hold",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 54,
+      "after_len": 188,
+      "preview": "Gain a +2 bonus to overpowering rolls to disarm or immobilize an opponent.  --- **TM Errata:** Gain +2 bonus to all overpower rolls once a Hold has be"
+    },
+    {
+      "key": "weapon-retention",
+      "name": "Weapon Retention",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 94,
+      "after_len": 508,
+      "preview": "Opponents attempting to disarm your character or turn his weapon against him must exceed your character’s Weaponry score in successes.  --- **TM Errat"
+    },
+    {
+      "key": "speed-cuff",
+      "name": "Speed Cuff",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 79,
+      "after_len": 1109,
+      "preview": "Against an immobilized opponent, your character may apply handcuffs, cable ties, or similar restraints as a reflexive action. Shiv (• or ••)  **Prereq"
+    },
+    {
+      "key": "quick-reload",
+      "name": "Quick Reload",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 64,
+      "after_len": 196,
+      "preview": "Your character has trained herself on the steps to reload her weapon to the point it’s ingrained in her muscle memory. She reloads one turn faster tha"
+    },
+    {
+      "key": "intercept-shot",
+      "name": "Intercept Shot",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 92,
+      "after_len": 455,
+      "preview": "Your character can shoot a projectile out of the air with her own. This maneuver is not capable of stopping bullets, though it could be used to deflec"
+    },
+    {
+      "key": "penetration",
+      "name": "Penetration",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 60,
+      "after_len": 273,
+      "preview": "Your character knows how to best exploit the weaknesses in a target’s armor. She can add +2 to her weapon’s armor piercing rating for her next attack."
+    },
+    {
+      "key": "skewer",
+      "name": "Skewer",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 175,
+      "after_len": 676,
+      "preview": "Your character uses her projectiles to impale parts of an opponent’s anatomy. When attacking a specified target, reduce the penalty by –2, and any inf"
+    },
+    {
+      "key": "clinch-strike",
+      "name": "Clinch Strike",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 44,
+      "after_len": 413,
+      "preview": "**Prerequisites:** Brawl •• **Style Tags:** Striking, Grappling, Tactical (Street) **Effect:** Most people will instinctively grab anyone they want to"
+    },
+    {
+      "key": "headbutt",
+      "name": "Headbutt",
+      "category": "manoeuvre",
+      "source": "Hurt Locker + TM Errata",
+      "before_len": 104,
+      "after_len": 1326,
+      "preview": "**Prerequisites:** Brawl •• **Style Tags:** Striking, Grappling **Effect:** Your character has found few arguments she can’t end by ramming her skull "
+    },
+    {
+      "key": "phalanx-fighter",
+      "name": "Phalanx Fighter",
+      "category": "manoeuvre",
+      "source": "TM Errata",
+      "before_len": 70,
+      "after_len": 53,
+      "preview": "Cost reduced from 2 dots to 1 dot. _Source: HL pg 50_"
+    },
+    {
+      "key": "boot-party",
+      "name": "Boot Party",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 49,
+      "after_len": 345,
+      "preview": "**Prerequisites:** Brawl •• **Style Tags:** Striking **Effect:** Your character understands the effectiveness of grinding her heel into a delicate par"
+    },
+    {
+      "key": "ground-and-pound",
+      "name": "Ground and Pound",
+      "category": "manoeuvre",
+      "source": "TM Errata",
+      "before_len": 62,
+      "after_len": 54,
+      "preview": "Cost reduced from 3 dots to 2 dots. _Source: HL pg 49_"
+    },
+    {
+      "key": "ground-fighter",
+      "name": "Ground Fighter",
+      "category": "manoeuvre",
+      "source": "TM Errata",
+      "before_len": 70,
+      "after_len": 58,
+      "preview": "Cost reduced from 3 dots to 2 dots. _Source: CoD 2e pg 56_"
+    },
+    {
+      "key": "retain-weapon",
+      "name": "Retain Weapon",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 48,
+      "after_len": 776,
+      "preview": "**Prerequisites:** Wits ••, Brawl •• **Style Tags:** Light Weapon, Pistol, Tactical (Police, Military) **Effect:** Your character has trained to resis"
+    },
+    {
+      "key": "trunk-squeeze",
+      "name": "Trunk Squeeze",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 105,
+      "after_len": 795,
+      "preview": "**Prerequisites:** Brawl •• **Style Tags:** Creature (Constrictor), Grappling **Effect:** By wrapping arms or legs around an opponent’s torso, your ch"
+    },
+    {
+      "key": "ravage",
+      "name": "Ravage",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 37,
+      "after_len": 247,
+      "preview": "Due to your character’s connection to her Beast, her fangs become horrendous weapons. They look no different, but her Beast knows how to use them with"
+    },
+    {
+      "key": "primal-strength",
+      "name": "Primal Strength",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 84,
+      "after_len": 220,
+      "preview": "Your character’s Beast blasts outward in short bursts, in order to accomplish quick feats of strength. When lifting, jumping, or destroying objects as"
+    },
+    {
+      "key": "in-the-zone",
+      "name": "In the Zone",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 85,
+      "after_len": 269,
+      "preview": "When attempting to leash the Beast and ride the wave, your character still operates at peak efficiency. She still has to spend Willpower points in ord"
+    },
+    {
+      "key": "unyielding",
+      "name": "Unyielding",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 76,
+      "after_len": 196,
+      "preview": "Your character rides the wave frequently; it ceases to be taxing on her mental reserves. After a scene where she successfully rides the wave, she reco"
+    },
+    {
+      "key": "animal-grace",
+      "name": "Animal Grace",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 112,
+      "after_len": 557,
+      "preview": "Your character dodges and strikes as fluidly as an animal, with confidence and awareness. When spending Willpower to attack or defend, gain both benef"
+    },
+    {
+      "key": "firm-footing",
+      "name": "Firm Footing",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 133,
+      "after_len": 329,
+      "preview": "Your character braces herself with her weapon to skewer a charging opponent. Any opponent attempting an all-out or charge attack against your characte"
+    },
+    {
+      "key": "keep-at-bay",
+      "name": "Keep at Bay",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 123,
+      "after_len": 318,
+      "preview": "Your character can threaten an opponent with her weapon to prevent maneuvering. Choose an opponent with a shorter weapon; if that opponent takes any a"
+    },
+    {
+      "key": "strike-and-develop",
+      "name": "Strike and Develop",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 113,
+      "after_len": 872,
+      "preview": "Your character stabs an opponent with her weapon then turns the blade before removing it, leaving a more grisly wound. Attacks made with her weapon th"
+    },
+    {
+      "key": "short-grip",
+      "name": "Short Grip",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 67,
+      "after_len": 250,
+      "preview": "Your character moves her grip to the end of the staff, maximizing reach but losing speed. She gains a +1 to attack at the cost of her staff’s +1 bonus"
+    },
+    {
+      "key": "thwack-weapon",
+      "name": "Thwack Weapon",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 74,
+      "after_len": 601,
+      "preview": "Your character slaps away an opponent’s weapon with the tip of her staff. She can Disarm with a roll of Strength + Weaponry contested by an opponent’s"
+    },
+    {
+      "key": "vaulting-defense",
+      "name": "Vaulting Defense",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 92,
+      "after_len": 196,
+      "preview": "Your character knows how to use her staff to rapidly reposition herself in a fight. Spend a point of Willpower; your character can add her dots in Mel"
+    },
+    {
+      "key": "tornado-strike",
+      "name": "Tornado Strike",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 86,
+      "after_len": 1426,
+      "preview": "Your character spins her staff rapidly in a circle, hitting opponents all around her. She treats her staff attack as an autofire medium burst against "
+    },
+    {
+      "key": "duck-and-weave",
+      "name": "Duck and Weave",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 104,
+      "after_len": 328,
+      "preview": "Your character has been beaten all to hell more than a few times. Now she dodges on instinct, not on skill. You can reflexively take a one-die penalty"
+    },
+    {
+      "key": "knocking-the-wind-out",
+      "name": "Knocking the Wind Out",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 77,
+      "after_len": 703,
+      "preview": "Shots to the center mass can shake an opponent, and your character knows this well. When your character makes a successful unarmed attack, the opponen"
+    },
+    {
+      "key": "one-two-punch",
+      "name": "One-Two Punch",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 65,
+      "after_len": 185,
+      "preview": "Your character hits fast, and she follows through with every hit. Whenever she makes a successful attack, you can spend a point of Willpower to cause "
+    },
+    {
+      "key": "last-ditch-effort",
+      "name": "Last-Ditch Effort",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 193,
+      "after_len": 1145,
+      "preview": "In a street fight, every second could mean the loss of your life. A proficient street fighter is a remarkable survivalist. She bites, headbutts, trips"
+    },
+    {
+      "key": "strength-tricks",
+      "name": "Strength Tricks",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 82,
+      "after_len": 387,
+      "preview": "Your character combines trained strength with a practical knowledge of physics to perform impressive, if minor, feats of strength. He can rip phone bo"
+    },
+    {
+      "key": "lifting",
+      "name": "Lifting",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 95,
+      "after_len": 891,
+      "preview": "Your character can perform incredible feats of raw strength. When attempting a feat of strength that requires a Strength + Stamina roll, you gain the "
+    },
+    {
+      "key": "stronger-than-you",
+      "name": "Stronger Than You",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 57,
+      "after_len": 859,
+      "preview": "If your character succeeds at Strength-based tasks, he does so with an increased level of performance. You don’t gain bonus dice for Strength-related "
+    },
+    {
+      "key": "eriss-glory",
+      "name": "Eris's Glory",
+      "category": "manoeuvre",
+      "source": "Secrets of the Covenants",
+      "before_len": 169,
+      "after_len": 440,
+      "preview": "Your character’s relentless defense of her sisters inspires them to greatness. Any turn where your character takes lethal or aggravated damage from a "
+    },
+    {
+      "key": "practiced-toss",
+      "name": "Practiced Toss",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 73,
+      "after_len": 141,
+      "preview": "Your character knows how to throw her weapon with a quick and fluid motion. Add her Athletics score to Initiative when using a thrown weapon."
+    },
+    {
+      "key": "impalement-arts",
+      "name": "Impalement Arts",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 231,
+      "after_len": 1297,
+      "preview": "A well-placed throw staples an opponent’s limbs to the environment. If your character succeeds in damaging a specified target arm, leg, or hand with a"
+    },
+    {
+      "key": "balanced-grip",
+      "name": "Balanced Grip",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 114,
+      "after_len": 216,
+      "preview": "Your character knows how to use her weapons so they’re not awkward to hold. Your character does not count her weapons’ Initiative penalties as long as"
+    },
+    {
+      "key": "protective-striking",
+      "name": "Protective Striking",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 96,
+      "after_len": 217,
+      "preview": "Your character uses her off-hand weapon to deflect attacks. She adds her off-hand weapon’s bonus to her Defense for the first attack made against her "
+    },
+    {
+      "key": "dual-swipe",
+      "name": "Dual Swipe",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 140,
+      "after_len": 264,
+      "preview": "Your character attacks with both of her weapons simultaneously against one target. As part of an all-out melee attack, add her off-hand weapon’s bonus"
+    },
+    {
+      "key": "double-strike",
+      "name": "Double Strike",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 128,
+      "after_len": 999,
+      "preview": "Your character attacks two different targets simultaneously. Spend a point of Willpower and designate two targets in close range of your character. Ta"
+    },
+    {
+      "key": "like-a-book",
+      "name": "Like a Book",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 56,
+      "after_len": 196,
+      "preview": "Your character can read his opponents, knowing where they’re likely to strike. When facing an unarmed opponent and not Dodging, increase your characte"
+    },
+    {
+      "key": "studied-style",
+      "name": "Studied Style",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook + TM Errata",
+      "before_len": 169,
+      "after_len": 522,
+      "preview": "Your character focuses on reading one opponent, avoiding his attacks and frustrating him. Attacks from that opponent do not reduce your character’s De"
+    },
+    {
+      "key": "redirect",
+      "name": "Redirect",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 133,
+      "after_len": 384,
+      "preview": "When your character is being attacked by multiple opponents, he can direct their blows against one another. When he Dodges, if his Defense roll reduce"
+    },
+    {
+      "key": "joint-strike",
+      "name": "Joint Strike",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 148,
+      "after_len": 422,
+      "preview": "Your character waits until the last possible second, then lashes out at his opponent’s elbow or wrist as he attacks, hoping to cripple his limbs. Roll"
+    },
+    {
+      "key": "like-the-breeze",
+      "name": "Like the Breeze",
+      "category": "manoeuvre",
+      "source": "CofD Rulebook",
+      "before_len": 123,
+      "after_len": 209900,
+      "preview": "Your characters steps to one side as his opponent attacks, and gives her enough of a push to send her flying past him. When dodging, if your Defense r"
+    },
+    {
+      "key": "shield-bash",
+      "name": "Shield Bash",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 119,
+      "after_len": 234,
+      "preview": "Your character slams her shield into an oncoming opponent, disrupting his attack. When Dodging add her shield’s Size to her pool. If she reduces an op"
+    },
+    {
+      "key": "boars-snout",
+      "name": "Boar's Snout",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 143,
+      "after_len": 331,
+      "preview": "Your character throws everything into a forward charge, trusting in her shield to protect her. Using a weapon and shield, your character can all-out a"
+    },
+    {
+      "key": "pin-weapon",
+      "name": "Pin Weapon",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 42,
+      "after_len": 150,
+      "preview": "Your character uses her shield to trap an opponent’s weapon. If an opponent misses a melee attack against your character he is automatically disarmed."
+    },
+    {
+      "key": "tortoise-shell",
+      "name": "Tortoise Shell",
+      "category": "manoeuvre",
+      "source": "Hurt Locker",
+      "before_len": 108,
+      "after_len": 429,
+      "preview": "Your character knows how to position herself so that she’s completely protected by her shield. When using a shield she is considered behind cover with"
+    },
+    {
+      "key": "patrons-privilege",
+      "name": "Patron's Privilege",
+      "category": "manoeuvre",
+      "source": "VtR 2e Rulebook",
+      "before_len": 103,
+      "after_len": 388,
+      "preview": "Your character can take advantage of her mark’s greed or zeal. When the mark does particularly well, it’s because your character was there to set him "
+    },
+    {
+      "key": "rite-pangs-of-proserpina",
+      "name": "Pangs of Proserpina",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 66,
+      "after_len": 331,
+      "preview": "**Target number of successes:** 6 **Contested:** by Composure + Blood Potency The victim suffers feelings of intense hunger, provoking frenzy in Kindr"
+    },
+    {
+      "key": "rite-rigor-mortis",
+      "name": "Rigor Mortis",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 80,
+      "after_len": 234,
+      "preview": "**Target number of successes:** 5 **Resisted:** by Composure The victim, who must be a vampire within a mile of the ritual, suffers the loss of the re"
+    },
+    {
+      "key": "rite-cheval",
+      "name": "Cheval",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 32,
+      "after_len": 275,
+      "preview": "**Target number of successes**: 5  **Resisted:** by Composure The subject of this ritual must be present at the casting, being physically touched by t"
+    },
+    {
+      "key": "rite-the-hydras-vitae",
+      "name": "The Hydra's Vitae",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 101,
+      "after_len": 471,
+      "preview": "**Target number of successes:** 5 The ritualist lays a curse on his own blood, transforming it into poison. Vampires and Strix drinking from the ritua"
+    },
+    {
+      "key": "rite-deflection-of-wooden-doom",
+      "name": "Deflection of Wooden Doom",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 64,
+      "after_len": 157,
+      "preview": "**Target number of successes:** 6 The ritualist wards himself from having his heart impaled. All attempts to stake the ritualist fail until the next s"
+    },
+    {
+      "key": "rite-touch-of-the-morrigan",
+      "name": "Touch of the Morrigan",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 88,
+      "after_len": 401,
+      "preview": "**Target number of successes:** 6 The ritualist pours the consuming, tearing force of his Beast into his hands. He may attempt to strike an opponent w"
+    },
+    {
+      "key": "rite-blood-blight",
+      "name": "Blood Blight",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 134,
+      "after_len": 313,
+      "preview": "**Target number of successes:** 8 **Contested by:** Stamina + Blood Potency The ritualist mystically destroys his victim’s blood. Mortal victims suffe"
+    },
+    {
+      "key": "rite-blood-price",
+      "name": "Blood Price",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 92,
+      "after_len": 464,
+      "preview": "**Target number of successes:** 8 **Contested by:** Composure + Blood Potency The ritualist claims blood consumed by his ritual’s subject. The subject"
+    },
+    {
+      "key": "rite-feeding-the-crone",
+      "name": "Feeding the Crone",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 150,
+      "after_len": 466,
+      "preview": "**Target number of successes:** 10 The ritualist transforms her fangs into a maw of wicked, flesh-tearing teeth. She gains no Vitae from feeding as lo"
+    },
+    {
+      "key": "rite-willful-vitae",
+      "name": "Willful Vitae",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 71,
+      "after_len": 221,
+      "preview": "**Target number of successes:** 7 The ritualist makes herself immune to Vinculum and blood addiction for the remainder of the night. The ritual does n"
+    },
+    {
+      "key": "rite-blandishment-of-sin",
+      "name": "Blandishment of Sin",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 377,
+      "after_len": 522,
+      "preview": "**Target number of successes:** 5 **Contested by:** Resolve + Blood Potency **Sacrament:** a scrap of paper with the victim’s name written on it The r"
+    },
+    {
+      "key": "rite-blood-scourge",
+      "name": "Blood Scourge",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 266,
+      "after_len": 362,
+      "preview": "**Target number of successes:** 6 **Sacrament:** The ritualist’s own blood — at least one Vitae The ritualist transforms a portion of his blood into a"
+    },
+    {
+      "key": "rite-vitae-reliquary",
+      "name": "Vitae Reliquary",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 237,
+      "after_len": 442,
+      "preview": "**Target number of successes:** 5 **Sacrament:** any object up to size ••• The ritualist infuses an object with up to the ritual’s Potency in Vitae. T"
+    },
+    {
+      "key": "rite-curse-of-babel",
+      "name": "Curse of Babel",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 64,
+      "after_len": 230,
+      "preview": "**Target number of successes:** 6 **Resisted by:** Resolve **Sacrament:** an animal or human tongue The victim of this ritual, who must be within one "
+    },
+    {
+      "key": "rite-liars-plague",
+      "name": "Liar's Plague",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 180,
+      "after_len": 323,
+      "preview": "**Target number of successes:** 5 **Contested by:** Resolve + Blood Potency **Sacrament:** an insect carapace The ritualist curses his victim, who mus"
+    },
+    {
+      "key": "rite-malediction-of-despair",
+      "name": "Malediction of Despair",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 230,
+      "after_len": 394,
+      "preview": "**Target number of successes:** 13 **Contested by:** Resolve + Blood Potency **Sacrament:** a lock of the victim’s hair The ritualist curses her victi"
+    },
+    {
+      "key": "rite-gift-of-lazarus",
+      "name": "Gift of Lazarus",
+      "category": "rite",
+      "source": "VtR 2e Rulebook",
+      "before_len": 461,
+      "after_len": 558,
+      "preview": "**Target number of successes:** 8 **Sacrament:** a communion wafer placed under a corpse’s tongue The ritualist raises a servant by animating a human "
+    },
+    {
+      "key": "rite-stigmata",
+      "name": "Stigmata",
+      "category": "rite",
+      "source": "Secrets of the Covenants + TM Errata",
+      "before_len": 383,
+      "after_len": 2393,
+      "preview": "**Prerequisites:** Humanity (three or more dots higher than the Merit) or mortal Your character bleeds in an unnatural, holy way. Usually, this manife"
+    }
+  ],
+  "ambiguous": [
+    {
+      "key": "feral-infection",
+      "name": "Feral Infection",
+      "category": "discipline",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "lord-of-the-land",
+      "name": "Lord of the Land",
+      "category": "discipline",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "summon-the-hunt",
+      "name": "Summon the Hunt",
+      "category": "discipline",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "entombed-command",
+      "name": "Entombed Command",
+      "category": "discipline",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "the-lying-mind",
+      "name": "The Lying Mind",
+      "category": "discipline",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "anonymity",
+      "name": "Anonymity",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "area-of-expertise",
+      "name": "Area of Expertise",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "fame",
+      "name": "Fame",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "fleet-of-foot",
+      "name": "Fleet Of Foot",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "indomitable",
+      "name": "Indomitable",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "inspiring",
+      "name": "Inspiring",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "interdisciplinary-specialty",
+      "name": "Interdisciplinary Specialty",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "kindred-status",
+      "name": "Kindred Status",
+      "category": "merit",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "language",
+      "name": "Language",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "sympathetic",
+      "name": "Sympathetic",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    },
+    {
+      "key": "object-fetishism",
+      "name": "Object Fetishism",
+      "category": "merit",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "support-network",
+      "name": "Support Network",
+      "category": "merit",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "kick-em-while-theyre-down",
+      "name": "Kick 'Em While They're Down",
+      "category": "manoeuvre",
+      "reason": "rank_mismatch"
+    },
+    {
+      "key": "status",
+      "name": "Status",
+      "category": "merit",
+      "reason": "multiple_book_sources"
+    }
+  ],
+  "unmatched": [
+    {
+      "key": "intelligence",
+      "name": "Intelligence",
+      "category": "attribute"
+    },
+    {
+      "key": "wits",
+      "name": "Wits",
+      "category": "attribute"
+    },
+    {
+      "key": "resolve",
+      "name": "Resolve",
+      "category": "attribute"
+    },
+    {
+      "key": "strength",
+      "name": "Strength",
+      "category": "attribute"
+    },
+    {
+      "key": "dexterity",
+      "name": "Dexterity",
+      "category": "attribute"
+    },
+    {
+      "key": "stamina",
+      "name": "Stamina",
+      "category": "attribute"
+    },
+    {
+      "key": "presence",
+      "name": "Presence",
+      "category": "attribute"
+    },
+    {
+      "key": "manipulation",
+      "name": "Manipulation",
+      "category": "attribute"
+    },
+    {
+      "key": "composure",
+      "name": "Composure",
+      "category": "attribute"
+    },
+    {
+      "key": "academics",
+      "name": "Academics",
+      "category": "skill"
+    },
+    {
+      "key": "computer",
+      "name": "Computer",
+      "category": "skill"
+    },
+    {
+      "key": "crafts",
+      "name": "Crafts",
+      "category": "skill"
+    },
+    {
+      "key": "investigation",
+      "name": "Investigation",
+      "category": "skill"
+    },
+    {
+      "key": "medicine",
+      "name": "Medicine",
+      "category": "skill"
+    },
+    {
+      "key": "occult",
+      "name": "Occult",
+      "category": "skill"
+    },
+    {
+      "key": "politics",
+      "name": "Politics",
+      "category": "skill"
+    },
+    {
+      "key": "science",
+      "name": "Science",
+      "category": "skill"
+    },
+    {
+      "key": "athletics",
+      "name": "Athletics",
+      "category": "skill"
+    },
+    {
+      "key": "brawl",
+      "name": "Brawl",
+      "category": "skill"
+    },
+    {
+      "key": "drive",
+      "name": "Drive",
+      "category": "skill"
+    },
+    {
+      "key": "firearms",
+      "name": "Firearms",
+      "category": "skill"
+    },
+    {
+      "key": "larceny",
+      "name": "Larceny",
+      "category": "skill"
+    },
+    {
+      "key": "stealth",
+      "name": "Stealth",
+      "category": "skill"
+    },
+    {
+      "key": "survival",
+      "name": "Survival",
+      "category": "skill"
+    },
+    {
+      "key": "weaponry",
+      "name": "Weaponry",
+      "category": "skill"
+    },
+    {
+      "key": "animal-ken",
+      "name": "Animal Ken",
+      "category": "skill"
+    },
+    {
+      "key": "empathy",
+      "name": "Empathy",
+      "category": "skill"
+    },
+    {
+      "key": "expression",
+      "name": "Expression",
+      "category": "skill"
+    },
+    {
+      "key": "intimidation",
+      "name": "Intimidation",
+      "category": "skill"
+    },
+    {
+      "key": "persuasion",
+      "name": "Persuasion",
+      "category": "skill"
+    },
+    {
+      "key": "socialise",
+      "name": "Socialise",
+      "category": "skill"
+    },
+    {
+      "key": "streetwise",
+      "name": "Streetwise",
+      "category": "skill"
+    },
+    {
+      "key": "subterfuge",
+      "name": "Subterfuge",
+      "category": "skill"
+    },
+    {
+      "key": "celerity-1",
+      "name": "Celerity 1",
+      "category": "discipline"
+    },
+    {
+      "key": "celerity-2",
+      "name": "Celerity 2",
+      "category": "discipline"
+    },
+    {
+      "key": "celerity-3",
+      "name": "Celerity 3",
+      "category": "discipline"
+    },
+    {
+      "key": "celerity-4",
+      "name": "Celerity 4",
+      "category": "discipline"
+    },
+    {
+      "key": "celerity-5",
+      "name": "Celerity 5",
+      "category": "discipline"
+    },
+    {
+      "key": "mesmerise",
+      "name": "Mesmerise",
+      "category": "discipline"
+    },
+    {
+      "key": "resilience-1",
+      "name": "Resilience 1",
+      "category": "discipline"
+    },
+    {
+      "key": "resilience-2",
+      "name": "Resilience 2",
+      "category": "discipline"
+    },
+    {
+      "key": "resilience-3",
+      "name": "Resilience 3",
+      "category": "discipline"
+    },
+    {
+      "key": "resilience-4",
+      "name": "Resilience 4",
+      "category": "discipline"
+    },
+    {
+      "key": "resilience-5",
+      "name": "Resilience 5",
+      "category": "discipline"
+    },
+    {
+      "key": "vigour-1",
+      "name": "Vigour 1",
+      "category": "discipline"
+    },
+    {
+      "key": "vigour-2",
+      "name": "Vigour 2",
+      "category": "discipline"
+    },
+    {
+      "key": "vigour-3",
+      "name": "Vigour 3",
+      "category": "discipline"
+    },
+    {
+      "key": "vigour-4",
+      "name": "Vigour 4",
+      "category": "discipline"
+    },
+    {
+      "key": "vigour-5",
+      "name": "Vigour 5",
+      "category": "discipline"
+    },
+    {
+      "key": "alternate-identity",
+      "name": "Alternate Identity",
+      "category": "merit"
+    },
+    {
+      "key": "attach",
+      "name": "Attaché (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "call-the-beast",
+      "name": "Call the Beast",
+      "category": "merit"
+    },
+    {
+      "key": "defensive-combat",
+      "name": "Defensive Combat (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "defensive-driving",
+      "name": "Defensive Driving (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "drift",
+      "name": "Drift (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "faith-militant",
+      "name": "Faith Militant",
+      "category": "merit"
+    },
+    {
+      "key": "hobbyist-clique",
+      "name": "Hobbyist Clique (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "iron-skin",
+      "name": "Iron Skin",
+      "category": "merit"
+    },
+    {
+      "key": "lingering-dreams",
+      "name": "Lingering Dreams",
+      "category": "merit"
+    },
+    {
+      "key": "major-domo",
+      "name": "Major Domo",
+      "category": "merit"
+    },
+    {
+      "key": "meditative-mind",
+      "name": "Meditative Mind",
+      "category": "merit"
+    },
+    {
+      "key": "oath-of-the-scapegoat",
+      "name": "Oath Of The Scapegoat",
+      "category": "merit"
+    },
+    {
+      "key": "opening-the-void",
+      "name": "Opening The Void",
+      "category": "merit"
+    },
+    {
+      "key": "speed-demon",
+      "name": "Speed Demon (depreicated)",
+      "category": "merit"
+    },
+    {
+      "key": "striking-looks",
+      "name": "Striking Looks",
+      "category": "merit"
+    },
+    {
+      "key": "three-heads-of-kerberos",
+      "name": "Three Heads of Kerberos",
+      "category": "merit"
+    },
+    {
+      "key": "trained-observer",
+      "name": "Trained Observer",
+      "category": "merit"
+    },
+    {
+      "key": "unassuming-guise",
+      "name": "Unassuming Guise",
+      "category": "merit"
+    },
+    {
+      "key": "unbridled-chaos",
+      "name": "Unbridled Chaos",
+      "category": "merit"
+    },
+    {
+      "key": "weaponise-dissent",
+      "name": "Weaponise Dissent",
+      "category": "merit"
+    },
+    {
+      "key": "wicked-jaws",
+      "name": "Wicked Jaws",
+      "category": "merit"
+    },
+    {
+      "key": "cohesive-unit",
+      "name": "Cohesive Unit",
+      "category": "merit"
+    },
+    {
+      "key": "defender",
+      "name": "Defender",
+      "category": "merit"
+    },
+    {
+      "key": "esoteric-armoury",
+      "name": "Esoteric Armoury",
+      "category": "merit"
+    },
+    {
+      "key": "loaded-for-bear",
+      "name": "Loaded For Bear",
+      "category": "merit"
+    },
+    {
+      "key": "peacemaker",
+      "name": "Peacemaker",
+      "category": "merit"
+    },
+    {
+      "key": "whipping-boy",
+      "name": "Whipping Boy",
+      "category": "merit"
+    },
+    {
+      "key": "devotion-body-of-will",
+      "name": "Body of Will",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-chain-of-command",
+      "name": "Chain of Command",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-city-attunement",
+      "name": "City Attunement",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-cloak-the-gathering",
+      "name": "Cloak the Gathering",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-conditioning",
+      "name": "Conditioning",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-cross-contamination",
+      "name": "Cross-Contamination",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-cult-of-personality",
+      "name": "Cult of Personality",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-enchantment",
+      "name": "Enchantment",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-enfeebling-aura",
+      "name": "Enfeebling Aura",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-force-of-nature",
+      "name": "Force of Nature",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-foul-grave",
+      "name": "Foul Grave",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-gargoyles-vigilance",
+      "name": "Gargoyle's Vigilance",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-govi-trap",
+      "name": "Govi Trap",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-hint-of-fear",
+      "name": "Hint of Fear",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-hold-my-beer",
+      "name": "Hold my Beer",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-incriminating-evidence",
+      "name": "Incriminating Evidence",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-juggernauts-gait",
+      "name": "Juggernaut's Gait",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-our-mothers-mind",
+      "name": "Our Mother's Mind",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-quicken-sight",
+      "name": "Quicken Sight",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-reasons-salon",
+      "name": "Reason's Salon",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-repulsive-mien",
+      "name": "Repulsive Mien",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-rime-of-salt",
+      "name": "Rime of Salt",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-riot",
+      "name": "Riot",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-shared-sight",
+      "name": "Shared Sight",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-shatter-the-shroud",
+      "name": "Shatter the Shroud",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-skeleton-key",
+      "name": "Skeleton Key",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-skim-the-void",
+      "name": "Skim the Void",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-stalwart-servant",
+      "name": "Stalwart Servant",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-subsume-the-lesser-beast",
+      "name": "Subsume the Lesser Beast",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-summoning",
+      "name": "Summoning",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-suns-brutal-dreamscape",
+      "name": "Sun's Brutal Dreamscape",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-the-exchange-of-things-past",
+      "name": "The Exchange of Things Past",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-the-taste-of-things-lived",
+      "name": "The Taste of Things Lived",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-the-wish",
+      "name": "The Wish",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-touch-of-deprivation",
+      "name": "Touch of Deprivation",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-turn-of-phrase",
+      "name": "Turn of Phrase",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-undying-familiar",
+      "name": "Undying Familiar",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-vermin-flood",
+      "name": "Vermin Flood",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-veve-passageway",
+      "name": "Veve Passageway",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-vitae-spines",
+      "name": "Vitae Spines",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-wet-dream",
+      "name": "Wet Dream",
+      "category": "devotion"
+    },
+    {
+      "key": "devotion-wraiths-presence",
+      "name": "Wraith's Presence",
+      "category": "devotion"
+    },
+    {
+      "key": "gettin-up",
+      "name": "Gettin' Up",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "establish-the-duel",
+      "name": "Establish the Duel",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "value-of-the-spoken-word",
+      "name": "Value of the Spoken Word",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "demanding-attention",
+      "name": "Demanding Attention",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "shield-against-sorcery",
+      "name": "Shield Against Sorcery",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "silence",
+      "name": "Silence",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "a-hammer-against-witches",
+      "name": "A Hammer Against Witches",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "bless-his-heart",
+      "name": "Bless His Heart",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "losing-your-religion",
+      "name": "Losing Your Religion",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "defensive-strike",
+      "name": "Defensive Strike",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "strike-to-preempt",
+      "name": "Strike to Preempt",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "unbreakable",
+      "name": "Unbreakable",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "dying-on-your-feet",
+      "name": "Dying on Your Feet",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "subduing-strikes",
+      "name": "Subduing Strikes",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "transfer-manoeuvre",
+      "name": "Transfer Manoeuvre",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "push-pull",
+      "name": "Push/Pull",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "athenas-armour",
+      "name": "Athena's Armour",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "enyos-defence",
+      "name": "Enyo's Defence",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "honing-competitive",
+      "name": "Honing - Competitive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "honing-monstrous",
+      "name": "Honing - Monstrous",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "honing-seductive",
+      "name": "Honing - Seductive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "internalising-competitive",
+      "name": "Internalising - Competitive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "internalising-monstrous",
+      "name": "Internalising - Monstrous",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "internalising-seductive",
+      "name": "Internalising - Seductive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "cowing-competitive",
+      "name": "Cowing - Competitive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "cowing-monstrous",
+      "name": "Cowing - Monstrous",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "cowing-seductive",
+      "name": "Cowing - Seductive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "striking-competitive",
+      "name": "Striking - Competitive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "striking-monstrous",
+      "name": "Striking - Monstrous",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "striking-seductive",
+      "name": "Striking - Seductive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "the-fires-of-hell-competitive",
+      "name": "The Fires of Hell - Competitive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "the-fires-of-hell-monstrous",
+      "name": "The Fires of Hell - Monstrous",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "the-fires-of-hell-seductive",
+      "name": "The Fires of Hell - Seductive",
+      "category": "manoeuvre"
+    },
+    {
+      "key": "summoningdominate",
+      "name": "Summoning",
+      "category": "devotion"
+    },
+    {
+      "key": "eye-behind-glass",
+      "name": "Eye Behind Glass",
+      "category": "devotion"
+    },
+    {
+      "key": "arms-of-the-abyss",
+      "name": "Arms of the Abyss",
+      "category": "devotion"
+    },
+    {
+      "key": "rite-lightning-rod",
+      "name": "Lightning Rod",
+      "category": "rite"
+    },
+    {
+      "key": "rite-sanguine-clarity",
+      "name": "Sanguine Clarity",
+      "category": "rite"
+    },
+    {
+      "key": "rite-whispers-through-time",
+      "name": "Whispers Through Time",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-invisible",
+      "name": "The Invisible",
+      "category": "rite"
+    },
+    {
+      "key": "rite-pax-of-wind",
+      "name": "Pax of Wind",
+      "category": "rite"
+    },
+    {
+      "key": "rite-gora-mukhi",
+      "name": "Gora Mukhi",
+      "category": "rite"
+    },
+    {
+      "key": "rite-confidence-in-adversity",
+      "name": "Confidence in Adversity",
+      "category": "rite"
+    },
+    {
+      "key": "rite-drops-of-destiny",
+      "name": "Drops of Destiny",
+      "category": "rite"
+    },
+    {
+      "key": "rite-fires-of-inspiration",
+      "name": "Fires of Inspiration",
+      "category": "rite"
+    },
+    {
+      "key": "rite-love-lies-bleeding",
+      "name": "Love-Lies-Bleeding",
+      "category": "rite"
+    },
+    {
+      "key": "rite-taste-of-knowledge",
+      "name": "Taste of Knowledge",
+      "category": "rite"
+    },
+    {
+      "key": "rite-visage-of-the-crone",
+      "name": "Visage of the Maiden Crone",
+      "category": "rite"
+    },
+    {
+      "key": "rite-harai",
+      "name": "Harai",
+      "category": "rite"
+    },
+    {
+      "key": "rite-imperious-call",
+      "name": "Imperious Call",
+      "category": "rite"
+    },
+    {
+      "key": "rite-maiden-skin",
+      "name": "Maiden Skin",
+      "category": "rite"
+    },
+    {
+      "key": "rite-painted-fears",
+      "name": "Painted Fears",
+      "category": "rite"
+    },
+    {
+      "key": "rite-path-of-thorns",
+      "name": "Path of Thorns",
+      "category": "rite"
+    },
+    {
+      "key": "rite-souls-work",
+      "name": "Soul's Work",
+      "category": "rite"
+    },
+    {
+      "key": "rite-succulent-buboes",
+      "name": "Succulent Buboes",
+      "category": "rite"
+    },
+    {
+      "key": "rite-wisdom-of-the-soul",
+      "name": "Wisdom of the Soul",
+      "category": "rite"
+    },
+    {
+      "key": "rite-beloved-deodand",
+      "name": "Beloved Deodand",
+      "category": "rite"
+    },
+    {
+      "key": "rite-final-service-of-the-slave",
+      "name": "Final Service of the Slave",
+      "category": "rite"
+    },
+    {
+      "key": "rite-rain",
+      "name": "Rain",
+      "category": "rite"
+    },
+    {
+      "key": "rite-servant-from-the-hidden-realms",
+      "name": "Servant from the Hidden Realms",
+      "category": "rite"
+    },
+    {
+      "key": "rite-taste-of-destiny",
+      "name": "Taste of Destiny",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-metamorphosis-of-spilt-blood",
+      "name": "The Metamorphosis of Spilt Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-tiamat-offspring",
+      "name": "Tiamat Offspring",
+      "category": "rite"
+    },
+    {
+      "key": "rite-veiled-curse",
+      "name": "Veiled Curse",
+      "category": "rite"
+    },
+    {
+      "key": "rite-eternal-guardian-of-the-dark-moon",
+      "name": "Eternal Guardian of the Dark Moon",
+      "category": "rite"
+    },
+    {
+      "key": "rite-eye-of-the-norn",
+      "name": "Eye of the Norn",
+      "category": "rite"
+    },
+    {
+      "key": "rite-fount-of-wisdom",
+      "name": "Fount of Wisdom",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mask-of-blood",
+      "name": "Mask of Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-sacrifice-of-odin",
+      "name": "Sacrifice of Odin",
+      "category": "rite"
+    },
+    {
+      "key": "rite-a-child-from-the-stones",
+      "name": "A Child from the Stones",
+      "category": "rite"
+    },
+    {
+      "key": "rite-as-one",
+      "name": "As One",
+      "category": "rite"
+    },
+    {
+      "key": "rite-crones-renewal",
+      "name": "Crone's Renewal",
+      "category": "rite"
+    },
+    {
+      "key": "rite-roving-hut",
+      "name": "Roving Hut",
+      "category": "rite"
+    },
+    {
+      "key": "rite-paladins-absolution",
+      "name": "Paladin's Absolution",
+      "category": "rite"
+    },
+    {
+      "key": "rite-blood-witness",
+      "name": "Blood Witness",
+      "category": "rite"
+    },
+    {
+      "key": "rite-barrier-of-blood",
+      "name": "Barrier of Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-flower-of-demeter",
+      "name": "Flower of Demeter",
+      "category": "rite"
+    },
+    {
+      "key": "rite-preys-blood",
+      "name": "Prey's Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-celibacy",
+      "name": "Celibacy",
+      "category": "rite"
+    },
+    {
+      "key": "rite-crown-of-thorns",
+      "name": "Crown of Thorns",
+      "category": "rite"
+    },
+    {
+      "key": "rite-sinner-song",
+      "name": "Sinner Song",
+      "category": "rite"
+    },
+    {
+      "key": "rite-theban-inscription",
+      "name": "Theban Inscription",
+      "category": "rite"
+    },
+    {
+      "key": "rite-bird-of-sin",
+      "name": "Bird of Sin",
+      "category": "rite"
+    },
+    {
+      "key": "rite-damned-radiance",
+      "name": "Damned Radiance",
+      "category": "rite"
+    },
+    {
+      "key": "rite-prison-of-denial",
+      "name": "Prison of Denial",
+      "category": "rite"
+    },
+    {
+      "key": "rite-resistance-of-discipline",
+      "name": "Resistance of Discipline",
+      "category": "rite"
+    },
+    {
+      "key": "rite-sanctity",
+      "name": "Sanctity",
+      "category": "rite"
+    },
+    {
+      "key": "rite-blood-fire",
+      "name": "Blood Fire",
+      "category": "rite"
+    },
+    {
+      "key": "rite-hauberk-of-blood",
+      "name": "Hauberk of Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-lash-beyond-death",
+      "name": "Lash Beyond Death",
+      "category": "rite"
+    },
+    {
+      "key": "rite-legionnaires-blessing",
+      "name": "Legionnaire's Blessing",
+      "category": "rite"
+    },
+    {
+      "key": "rite-pharaohs-paces",
+      "name": "Pharaoh's Paces",
+      "category": "rite"
+    },
+    {
+      "key": "rite-vision-of-the-will",
+      "name": "Vision of the Will",
+      "category": "rite"
+    },
+    {
+      "key": "rite-song-of-the-prey",
+      "name": "Song of the Prey",
+      "category": "rite"
+    },
+    {
+      "key": "rite-call-of-amoniel",
+      "name": "Call of Amoniel",
+      "category": "rite"
+    },
+    {
+      "key": "rite-display-of-the-beast",
+      "name": "Display of the Beast",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mark-of-the-damned",
+      "name": "Mark of the Damned",
+      "category": "rite"
+    },
+    {
+      "key": "rite-spear-of-faith",
+      "name": "Spear of Faith",
+      "category": "rite"
+    },
+    {
+      "key": "rite-damneds-day",
+      "name": "Damned's Day",
+      "category": "rite"
+    },
+    {
+      "key": "rite-imprecation-of-sin",
+      "name": "Imprecation of Sin",
+      "category": "rite"
+    },
+    {
+      "key": "rite-fires-of-vengeance",
+      "name": "Fires of Vengeance",
+      "category": "rite"
+    },
+    {
+      "key": "rite-night-of-hell",
+      "name": "Night of Hell",
+      "category": "rite"
+    },
+    {
+      "key": "rite-rain-of-blood",
+      "name": "Rain of Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-anoint-the-spear",
+      "name": "Anoint the Spear",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-fruitful-womb",
+      "name": "The Fruitful Womb",
+      "category": "rite"
+    },
+    {
+      "key": "rite-messengers-mark",
+      "name": "Messenger's Mark",
+      "category": "rite"
+    },
+    {
+      "key": "rite-wings-of-the-seraph",
+      "name": "Wings of the Seraph",
+      "category": "rite"
+    },
+    {
+      "key": "rite-scriveners-eye",
+      "name": "Scrivener’s Eye",
+      "category": "rite"
+    },
+    {
+      "key": "rite-sacred-haven",
+      "name": "Sacred Haven",
+      "category": "rite"
+    },
+    {
+      "key": "rite-balancing-the-four-humors",
+      "name": "Balancing the Four Humors",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-heliolaters-warning",
+      "name": "The Heliolater's Warning",
+      "category": "rite"
+    },
+    {
+      "key": "rite-song-of-the-blood",
+      "name": "Song of the Blood",
+      "category": "rite"
+    },
+    {
+      "key": "rite-bleeding-the-tarantula",
+      "name": "Bleeding the Tarantula",
+      "category": "rite"
+    },
+    {
+      "key": "rite-curse-of-ahasverus",
+      "name": "Curse of Ahasverus",
+      "category": "rite"
+    },
+    {
+      "key": "rite-apple-of-eden",
+      "name": "Apple of Eden",
+      "category": "rite"
+    },
+    {
+      "key": "rite-marian-apparition",
+      "name": "Marian Apparition",
+      "category": "rite"
+    },
+    {
+      "key": "rite-revelatory-shroud",
+      "name": "Revelatory Shroud",
+      "category": "rite"
+    },
+    {
+      "key": "rite-apparition-of-the-host",
+      "name": "Apparition of the Host",
+      "category": "rite"
+    },
+    {
+      "key": "rite-bloody-icon",
+      "name": "Bloody Icon",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-walls-of-jericho",
+      "name": "The Walls of Jericho",
+      "category": "rite"
+    },
+    {
+      "key": "rite-aarons-rod",
+      "name": "Aaron's Rod",
+      "category": "rite"
+    },
+    {
+      "key": "rite-blessing-the-legion",
+      "name": "Blessing the Legion",
+      "category": "rite"
+    },
+    {
+      "key": "rite-miracle-of-the-dead-sun",
+      "name": "Miracle of the Dead Sun",
+      "category": "rite"
+    },
+    {
+      "key": "rite-pledge-to-the-worthless-one",
+      "name": "Pledge to the Worthless One",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-guiding-star",
+      "name": "The Guiding Star",
+      "category": "rite"
+    },
+    {
+      "key": "rite-great-prophecy",
+      "name": "Great Prophecy",
+      "category": "rite"
+    },
+    {
+      "key": "rite-apocalypse",
+      "name": "Apocalypse",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-judgment-fast",
+      "name": "The Judgment Fast",
+      "category": "rite"
+    },
+    {
+      "key": "rite-hag-mask",
+      "name": "Hag Mask",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-mantle-of-amorous-fire",
+      "name": "The Mantle of Amorous Fire",
+      "category": "rite"
+    },
+    {
+      "key": "rite-the-pool-of-forbidden-truths",
+      "name": "The Pool of Forbidden Truths",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mantle-of-the-beasts-breath",
+      "name": "Mantle of the Beast's Breath",
+      "category": "rite"
+    },
+    {
+      "key": "rite-shed-the-virulent-bowels",
+      "name": "Shed the Virulent Bowels",
+      "category": "rite"
+    },
+    {
+      "key": "rite-curse-of-aphrodites-favor",
+      "name": "Curse of Aphrodite's Favor",
+      "category": "rite"
+    },
+    {
+      "key": "rite-curse-of-the-beloved-toy",
+      "name": "Curse of the Beloved Toy",
+      "category": "rite"
+    },
+    {
+      "key": "rite-donning-the-beasts-flesh",
+      "name": "Donning the Beast's Flesh",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mantle-of-the-glorious-dervish",
+      "name": "Mantle of the Glorious Dervish",
+      "category": "rite"
+    },
+    {
+      "key": "rite-bounty-of-the-storm",
+      "name": "Bounty of the Storm",
+      "category": "rite"
+    },
+    {
+      "key": "rite-gorgons-gaze",
+      "name": "Gorgon's Gaze",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mantle-of-the-predator-goddess",
+      "name": "Mantle of the Predator Goddess",
+      "category": "rite"
+    },
+    {
+      "key": "rite-birthing-the-god",
+      "name": "Birthing the God",
+      "category": "rite"
+    },
+    {
+      "key": "rite-denying-hades",
+      "name": "Denying Hades",
+      "category": "rite"
+    },
+    {
+      "key": "rite-mantle-of-the-crone",
+      "name": "Mantle of the Crone",
+      "category": "rite"
+    },
+    {
+      "key": "rite-serpentine-union",
+      "name": "Serpentine Union",
+      "category": "rite"
+    },
+    {
+      "key": "rite-scapegoat",
+      "name": "Scapegoat",
+      "category": "rite"
+    },
+    {
+      "key": "rite-wrathful-judgement",
+      "name": "Wrathful Judgement",
+      "category": "rite"
+    },
+    {
+      "key": "rite-transubstantiation",
+      "name": "Transubstantiation",
+      "category": "rite"
+    },
+    {
+      "key": "rite-tempers-eye",
+      "name": "Temper's Eye",
+      "category": "rite"
+    },
+    {
+      "key": "rite-baptism-of-damnation",
+      "name": "Baptism of Damnation",
+      "category": "rite"
+    },
+    {
+      "key": "rite-blood-portrait",
+      "name": "Blood Portrait",
+      "category": "rite"
+    },
+    {
+      "key": "friends-with-benefits",
+      "name": "Friends with Benefits",
+      "category": "merit"
+    },
+    {
+      "key": "attache-safe-place",
+      "name": "Attaché (Safe Place)",
+      "category": "merit"
+    },
+    {
+      "key": "attache-contacts",
+      "name": "Attaché (Contacts)",
+      "category": "merit"
+    },
+    {
+      "key": "attache-resources",
+      "name": "Attaché (Resources)",
+      "category": "merit"
+    },
+    {
+      "key": "haven-roving-hut",
+      "name": "Animated Haven",
+      "category": "merit"
+    },
+    {
+      "key": "necropolis-sepulcher",
+      "name": "Necropolis Sepulcher",
+      "category": "merit"
+    },
+    {
+      "key": "catacombs",
+      "name": "Catacombs",
+      "category": "merit"
+    },
+    {
+      "key": "caldarium",
+      "name": "Caldarium",
+      "category": "merit"
+    },
+    {
+      "key": "garbage-pit",
+      "name": "Garbage Pit",
+      "category": "merit"
+    },
+    {
+      "key": "labyrinth-guardians",
+      "name": "Labyrinth Guardians",
+      "category": "merit"
+    },
+    {
+      "key": "dark-temple",
+      "name": "Dark Temple",
+      "category": "merit"
+    },
+    {
+      "key": "white-ants",
+      "name": "White Ants",
+      "category": "merit"
+    },
+    {
+      "key": "trap-door",
+      "name": "Trap Door",
+      "category": "merit"
+    },
+    {
+      "key": "true-worm",
+      "name": "True Worm",
+      "category": "merit"
+    }
+  ],
+  "skipped_auspex": [
+    {
+      "key": "beasts-hackles",
+      "name": "Beast's Hackles",
+      "category": "discipline"
+    },
+    {
+      "key": "lay-open-the-mind",
+      "name": "Lay Open the Mind",
+      "category": "discipline"
+    },
+    {
+      "key": "spirits-touch",
+      "name": "Spirit's Touch",
+      "category": "discipline"
+    },
+    {
+      "key": "twilight-projection",
+      "name": "Twilight Projection",
+      "category": "discipline"
+    },
+    {
+      "key": "uncanny-perception",
+      "name": "Uncanny Perception",
+      "category": "discipline"
+    }
+  ]
+}

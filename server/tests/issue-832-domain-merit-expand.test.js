@@ -55,6 +55,11 @@ const NECRO_GRANT = {
   condition: 'merit_present',
   amount_basis: 'rating_of_source',
   pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
+  // COLLECTIVE-2 (#1110): the discovery predicate is
+  // sharing_scope.type === 'collective_owners_of_merit' (ADR-005 Rev 2 D3).
+  // Live tm_suite carries this on the Necropolis doc (story Task 0), so the
+  // fixture must too or the compound is invisible to the renderer.
+  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
 };
 
 // Stub merit-rule docs so meritLookup() returns a desc for the merits in our
@@ -255,7 +260,7 @@ describe('#832 — placement sanity guards', () => {
   });
 
   it('Virtual row NECRO stepper stops propagation', () => {
-    expect(src).toMatch(/onclick="' \+ _vSp \+ '" onchange="shAllocateNecroVirtual/);
+    expect(src).toMatch(/onclick="' \+ _vSp \+ '" onchange="shAllocateCompoundVirtual/);
   });
 
   it('View-mode emits exp-row when merit has desc, merit-plain when not', () => {

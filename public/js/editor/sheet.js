@@ -17,13 +17,21 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
 import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
-import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
+import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
+// OATH-A (#1111): the pledge editor needs to know whether a merit is a
+// Swear By oath and what its requirement resolves to. edit-domain.js owns
+// both (it owns the write path); no cycle - edit-domain does not import
+// sheet.js.
+import { isSwearByOath, oathDotsRequired } from './edit-domain.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildSubCategoryMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 // N-1 (Concern #11): every read of m.attached_to goes through this normaliser.
 // N-4: getNecropolisInfectedTerritories drives the Trap Door Territory picker.
 // N-5: validateTrapDoorAnchor reports the render-time non-functional state.
-// N-7: hasNecropolisSepulcher + getNecropolisTargets drive the allocator stepper.
-import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, hasNecropolisSepulcher, getNecropolisTargets, freeOf, collectiveNecroDots, synthesiseCollectiveNecroNames } from '../data/rules-helpers.js';
+// COLLECTIVE-2 (#1110): getCollectiveCompounds + ownsCompound drive the
+// allocator stepper and the virtual-row synthesis for EVERY compound.
+// OATH-A (#1111, ADR-010 D1): buildPledgeIndex is the RENDER-TIME reverse
+// index (merit -> the oaths holding it). Never persisted; rebuilt per render.
+import { normaliseAttachedTo, getNecropolisInfectedTerritories, validateTrapDoorAnchor, getCollectiveCompounds, ownsCompound, freeOf, collectiveCompoundDots, synthesiseCollectiveCompoundNames, buildPledgeIndex, pledgeKeyFor, pledgeableDots, meritMatchesRef } from '../data/rules-helpers.js';
 import { getRulesCache } from './rule_engine/load-rules.js';
 // N-4 (MNEC, issue #696): White Ants Territory picker reads the live list.
 import { getStoredTerritories } from '../data/accessors.js';
@@ -35,8 +43,9 @@ import { auditCharacter } from '../data/audit.js';
 // Touchstone editor no longer needs the NPC list (DB-relational picker
 // removed; free-text Name + Description only).
 import { powersForDisc } from '../suite/sheet-helpers.js';
-import { markerFor } from './st-mod-popover.js';
+import { markerFor, applyAffordance } from './st-mod-popover.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+import { renderRulesExpander } from '../shared/rules-text.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -52,7 +61,10 @@ function _devDB() {
 function _meritDB() {
   const db = {};
   for (const r of getRulesByCategory('merit')) {
-    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category };
+    // Issue #994: carry rules_text/rules_source through so pact/oath drawers
+    // (the only consumer of this map for power-style rules-text display)
+    // can offer a "Full rules" expander.
+    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category, rules_text: r.rules_text || null, rules_source: r.rules_source || null };
   }
   return db;
 }
@@ -130,8 +142,12 @@ function _renderPoolCounters(c, category) {
   // steppers actually render. Pre-N-7a this filtered on 'general' (the
   // mistake that surfaced as part of the broader showNECRO-in-wrong-renderer
   // bug — the original N-7 wiring went into the general renderer too).
-  const necroPools = category === 'domain' ? (c._grant_pools || []).filter(p => p.category === 'necro') : [];
-  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...necroPools];
+  // COLLECTIVE-2 (issue #1110): every Collective Compound's pool, not just
+  // the Necropolis. Slugs come from the rules cache, so a fourth compound's
+  // counter appears without touching this filter.
+  const _poolCompoundSlugs = new Set(getCollectiveCompounds(getRulesCache()).map(cmp => cmp.slug));
+  const compoundPools = category === 'domain' ? (c._grant_pools || []).filter(p => _poolCompoundSlugs.has(p.category)) : [];
+  const allPools = [...pools, ...anyPools, ...vmPools, ...ohmPools, ...invPools, ...lkPools, ...compoundPools];
   if (!allPools.length) return '';
   let h = '<div class="grant-pools">';
   const seen = new Set();
@@ -146,8 +162,9 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'lk') { pTotal = p.amount; pUsed = lorekeeperUsed(c); }
     else if (p.category === 'ohm') { pTotal = p.amount; pUsed = ohmUsed(c); }
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
-    // N-7 (issue #760): necro pool — sum freeOf(m, 'necro') across all merits.
-    else if (p.category === 'necro') { pTotal = p.amount; pUsed = (c.merits || []).reduce((s, m) => s + freeOf(m, 'necro'), 0); }
+    // N-7 (issue #760): compound pool — sum freeOf(m, <slug>) across all
+    // merits. COLLECTIVE-2: the slug is the pool's own category.
+    else if (_poolCompoundSlugs.has(p.category)) { pTotal = p.amount; pUsed = (c.merits || []).reduce((s, m) => s + freeOf(m, p.category), 0); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
     h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
@@ -159,6 +176,49 @@ function _renderPoolCounters(c, category) {
 function _alertBadge(lvl) {
   if (!lvl) return '';
   return lvl === 'red' ? '<span class="sh-sec-alert red" title="Data error">!</span>' : '<span class="sh-sec-alert yellow" title="Unspent pool dots">&#9679;</span>';
+}
+
+/**
+ * OATH-B (#1111) — how an oath suspension renders. Peter's ruling, 2026-08-07.
+ *
+ * SUSPENDED DOTS VANISH FROM THE SOLID BAND.
+ *
+ *     Resources  ●●●●    owned 4, nothing suspended
+ *     Resources  ●       owned 4, suspended 3   + badge "Pledged 3 to ..."
+ *
+ * The dot row means WHAT YOU CAN USE RIGHT NOW, and nothing else. The
+ * "still yours" half is the badge's job, and the badge already exists from
+ * OATH-A — so no glyph carries two meanings and no new convention is
+ * invented.
+ *
+ * WHY NOT RENDER THEM HOLLOW — the obvious future question. `○` currently
+ * means "bonus" and nothing else. Reusing it for "suspended" would make it
+ * mean "bonus OR suspended" with nothing distinguishing the two at a glance.
+ * That is the same overloading objection that rejected the self-referential
+ * `exclusive` shim in ADR-010 D5: one glyph, one meaning.
+ *
+ * ONLY THE SOLID BAND SHRINKS. Bonus dots are not pledgeable — pledges are
+ * measured in `meritRating` terms, which counts owned dots — so they are not
+ * suspendable either. If a call site ever pushes a suspension into the
+ * hollow band, that is not a display question: it means something upstream
+ * is treating bonus dots as pledgeable, which is a bug. The floor below
+ * makes that impossible here, but the invariant is asserted in the suite so
+ * it fails loudly rather than silently absorbing into the hollow count.
+ *
+ * Every merit-dot display funnels its suspended COUNT through this one
+ * function rather than each learning a rendering rule, so the presentation
+ * lives in a single place.
+ */
+function shDotsSuspended(purchased, bonus, suspended) {
+  const n = Math.max(0, suspended || 0);
+  if (!n) return shDotsMixed(purchased, bonus);
+  // Solid shrinks; bonus is passed through untouched, never reduced.
+  return shDotsMixed(Math.max(0, purchased - n), bonus);
+}
+
+/** The suspended-dot count for a merit row, or 0. */
+function shSuspendedOf(m) {
+  return (m && m._suspended_dots) || 0;
 }
 
 /** Render merit dots split into purchased (full gold) and bonus (empty circle). */
@@ -481,9 +541,15 @@ export function shRenderAttributes(c, editMode) {
         const ao = c.attributes[a] || {}, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (ao.cp || 0), xd = xpToDots(ao.xp || 0, ab, 4), tot = ab + xd;
         h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + (tot + autoBonus + bonus) + '</span></div></div>';
-        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '';
+        { const src = BONUS_SOURCE[a] || '';
           if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src">+' + autoBonus + '</span></div>';
-          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button></div>'; }
+          // STM-14 (#1034): the manual +○/−○ bonus controls are retired — a
+          // direct unaudited write to c.attributes[X].bonus. Ad-hoc bonuses
+          // now go through the audited st_mods apply affordance on the
+          // rendered (non-edit) sheet below; this row is read-only and shown
+          // ONLY when a non-zero legacy persisted value exists (pending the
+          // 1034.2 migration) — suppressed at 0 to avoid functionless clutter.
+          if (bonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">+' + bonus + '</span></div>'; }
         h += '</div></div>';
       }); h += '</div>';
     });
@@ -516,7 +582,7 @@ export function shRenderAttributes(c, editMode) {
           title: `ST adjustment: ${a} (bonus) ${sign}${ovBonus.delta}. Click for details.`,
         };
       }
-      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus, opts) + '</div></div>';
+      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + applyAffordance(c, `attributes.${a}.bonus`, a) + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus, opts) + '</div></div>';
     }));
   }
   h += '</div></div>';
@@ -571,7 +637,13 @@ export function shRenderSkills(c, editMode) {
         h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
         const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd, skEff = st2 + bn + ptBn + mciBn;
         h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + skEff + '</span></div></div>'
-          + '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',-1)"' + (bn === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bn > 0 ? '+' + bn : '0') + '</span><button class="sh-stat-adj" onclick="shAdjSkillBonus(\'' + sE + '\',1)">&#x25B2;</button></div>';
+          // STM-14 (#1034): +○/−○ bonus controls retired — a direct
+          // unaudited write to c.skills[X].bonus. Ad-hoc bonuses now go
+          // through the audited st_mods apply affordance on the rendered
+          // (non-edit) sheet below; this row is read-only and shown ONLY when a
+          // non-zero legacy persisted value exists (pending the 1034.2
+          // migration) — suppressed at 0 to avoid functionless clutter.
+          + (bn > 0 ? '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><span class="bd-src">+' + bn + '</span></div>' : '');
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
         specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span class="sk-spec-aoe">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
@@ -606,7 +678,7 @@ export function shRenderSkills(c, editMode) {
           };
         }
         const dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn, opts) : '\u2013';
-        h += '<div class="sh-skill-row' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
+        h += '<div class="sh-skill-row' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + applyAffordance(c, `skills.${s}.bonus`, s) + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
       });
     }
   }
@@ -845,6 +917,8 @@ export function shRenderDisciplines(c, editMode) {
           + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">'
           + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '')
           + '<div class="disc-power-effect">' + esc(effect) + '</div>'
+          // Issue #994: "Full rules" expander from the oath/law rules doc.
+          + (dbEntry && dbEntry.rules_text ? renderRulesExpander('rte-' + gid, dbEntry.rules_text, dbEntry.rules_source) : '')
           + '</div></div>';
       }
     });
@@ -902,7 +976,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       } else {
         _areaHtml = _inflArea(m, idx, false);
       }
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + shDotsSuspended(_iPurch, Math.max(0, dd + (m.bonus || 0) - _iPurch), shSuspendedOf(m)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       const _isAttacheVariant = m.name?.startsWith('Attach\u00e9 (');
@@ -923,7 +997,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         return INFLUENCE_SPHERES.filter(sp => !used.has(sp) || sp === currentSel)
           .map(sp => '<option' + (currentSel === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
       };
-      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + '\u25CF'.repeat(baseDots) + '\u25CB'.repeat(Math.max(0, rating - baseDots)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
+      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + shDotsSuspended(baseDots, Math.max(0, rating - baseDots), shSuspendedOf(m)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       const _cKey = contactsEntry.area ? 'Contacts (' + contactsEntry.area + ')' : 'Contacts';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0, attachBonus: attacheBonusDots(c, _cKey) });
       const _cAttBonus = attacheBonusDots(c, _cKey);
@@ -947,14 +1021,20 @@ export function shRenderInfluenceMerits(c, editMode) {
       const displayArea = narrow ? (area ? area + ' — ' + narrow : narrow) : area;
       const iRIdx = c.merits.indexOf(m);
       const iPurch = (m.cp || 0) + (m.xp || 0), iBon = meritFreeSum(m) + attacheBonusDots(c, displayArea ? m.name + ' (' + displayArea + ')' : m.name) + (m.bonus || 0);
-      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
+      h += shRenderMeritRow((displayArea ? m.name + ' (' + displayArea + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsSuspended(iPurch, iBon, shSuspendedOf(m)));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
-      let totalPurch = 0, totalRating = 0;
+      // OATH-B (#1111): Contacts is displayed as ONE aggregate row summed
+      // across every instance, while a suspension is per-instance. So the
+      // suspension is summed over THE SAME instance set rather than applied
+      // to the aggregate afterwards — applying it to the total would be
+      // correct only when a single instance is pledged.
+      let totalPurch = 0, totalRating = 0, totalSusp = 0;
       ce.forEach(m => {
         totalPurch += (m.cp || 0) + (m.xp || 0);
         totalRating += (m.rating || 0);
+        totalSusp += shSuspendedOf(m);
       });
       // No 5-cap: engine bonuses (Attaché variant, OHM, PT, etc.) can lift
       // the effective Contacts rating past 5 and the renderer should show it.
@@ -967,7 +1047,7 @@ export function shRenderInfluenceMerits(c, editMode) {
         else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));
       });
       const sp = [...new Set(allSp)].join(', ');
-      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsMixed(cPurch, cBon));
+      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsSuspended(cPurch, cBon, totalSusp));
     }
     h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   }
@@ -1011,23 +1091,38 @@ export function shRenderDomainMerits(c, editMode) {
     // Necropolis targets (Catacombs / Caldarium / Garbage Pit / Labyrinth
     // Guardians / Dark Temple / White Ants) live in the domain section, so
     // domain-only wiring is sufficient.
-    const _hasNecroSep = hasNecropolisSepulcher(c);
-    // N-7b (issue #768): _necroTargets must populate UNCONDITIONALLY — option 3
-    // suppression is "categorically by merit name, regardless of Sepulcher
-    // ownership." The stepper render is still gated on _hasNecroSep below
-    // (showNECRO: _hasNecroSep && _isNecroTarget), but the hide-* flags fire
-    // even for non-Sepulcher characters who somehow have a Necropolis target
+    // COLLECTIVE-2 (issue #1110): every Collective Compound seeded in the
+    // rules cache, discovered by sharing_scope.type — no merit-name literal,
+    // no slug literal. A fourth compound is data-only.
+    const _compounds = getCollectiveCompounds(getRulesCache());
+    const _ownedCompounds = _compounds.filter(cmp => ownsCompound(c, cmp));
+    // N-7b (issue #768): the target-name set must populate UNCONDITIONALLY —
+    // option 3 suppression is "categorically by merit name, regardless of
+    // compound membership." The stepper render is still gated on membership
+    // below (compoundPools carries only OWNED compounds), but the hide-*
+    // flags fire even for non-members who somehow have a compound target
     // merit on their sheet.
-    const _necroTargets = getNecropolisTargets(getRulesCache());
-    // COLLECTIVE-1 (issue #800): synthesise the union of Necro target merit
-    // names ANY Sepulcher-owner allocates dots to. Used below to (a) augment
-    // the dot display on owned target rows with cumulative cross-owner dots,
-    // and (b) render virtual rows after the owned-merit loop for targets the
-    // current character doesn't own but another owner does. Returns [] for
-    // non-Sepulcher owners — they never see virtual rows (Sepulcher boundary
-    // per ADR-005 §D3 amendment, this PR).
-    const _collectiveNames = synthesiseCollectiveNecroNames(c, chars, _necroTargets);
-    const _ownedNecroSet = new Set(domM.filter(m => _necroTargets.includes(m.name)).map(m => m.name));
+    const _targetNames = new Set(_compounds.flatMap(cmp => cmp.targets));
+    // Every compound allocation channel — passed to meritBdRow so a target
+    // merit's bd-row total counts pool dots from ANY compound, not just the
+    // one whose stepper is showing.
+    const _compoundSlugs = _compounds.map(cmp => cmp.slug);
+    // Compounds that list `name` as a target. Ownership-independent, so a
+    // stray target on a non-member still renders its own dots (pre-#1110
+    // behaviour). Multi-compound (AC 6): a name claimed by two compounds
+    // returns both, and the row sums across them.
+    const _compoundsFor = (name) => _compounds.filter(cmp => cmp.targets.includes(name));
+    // COLLECTIVE-1 (issue #800): synthesise the union of target merit names
+    // ANY member of each owned compound allocates dots to. Used below to
+    // (a) augment the dot display on owned target rows with cumulative
+    // cross-owner dots, and (b) render virtual rows after the owned-merit
+    // loop for targets the current character doesn't own but another member
+    // does. Empty for non-members — they never see virtual rows (membership
+    // boundary per ADR-005 §D3 amendment).
+    const _collectiveNamesBy = new Map(
+      _ownedCompounds.map(cmp => [cmp, synthesiseCollectiveCompoundNames(c, chars, cmp)])
+    );
+    const _ownedTargetSet = new Set(domM.filter(m => _targetNames.has(m.name)).map(m => m.name));
     // COLLECTIVE-1: territory union string for White Ants. Reuses N-4's
     // getNecropolisInfectedTerritories. Flat union, no attribution (Peter
     // decision (a), 2026-06-16).
@@ -1049,15 +1144,17 @@ export function shRenderDomainMerits(c, editMode) {
     // affects render order, not c.merits or its filtered view.
     const _domIdxByMerit = new Map();
     domM.forEach((m, i) => _domIdxByMerit.set(m, i));
-    const _necroTargetSet = new Set(_necroTargets);
     const _sortedDom = [...domM].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    // Stray-target degradation: target merit present on a non-Sepulcher
-    // character (legacy/unexpected state). Render in alphabetical position
-    // and console.warn for QA visibility per the issue spec.
-    if (!_hasNecroSep) {
-      const _strays = _sortedDom.filter(m => _necroTargetSet.has(m.name));
+    // Stray-target degradation: target merit present on a character who is
+    // not a member of the compound that claims it (legacy/unexpected state).
+    // Render in alphabetical position and console.warn for QA visibility per
+    // the issue spec.
+    {
+      const _strays = _sortedDom.filter(m =>
+        _targetNames.has(m.name) && !_ownedCompounds.some(cmp => cmp.targets.includes(m.name))
+      );
       if (_strays.length) {
-        console.warn('[#793] Necropolis target merits present on non-Sepulcher character:',
+        console.warn('[#793] Collective Compound target merits present on a non-member character:',
           _strays.map(m => m.name).join(', '),
           '— rendering in alphabetical position (no inherited-card parent).');
       }
@@ -1101,15 +1198,19 @@ export function shRenderDomainMerits(c, editMode) {
             ? shDotsMixed(Math.min(_capSharedEff, _dPurch), Math.max(0, _capSharedEff - Math.min(_capSharedEff, _dPurch)))
             : shDotsMixed(Math.min(_capEff, _dPurch), Math.max(0, (_capStored || 0) - Math.min(_capEff, _dPurch))))
         : _totalDots;
-      // COLLECTIVE-1 (issue #800): Necropolis target rows show own (solid)
+      // COLLECTIVE-1 (issue #800): compound target rows show own (solid)
       // + cumulative cross-owner (hollow) dots. NOT capped at 5 \u2014 the spec
       // explicitly allows cumulative to exceed the per-instance rating_range.
       // Falls through to the default display for non-target merits.
-      const _isNecroTargetHere = _necroTargets.includes(m.name);
-      const _necroOwn = _isNecroTargetHere ? ((m.free_grants && m.free_grants.necro) || 0) : 0;
-      const _necroCumulative = _isNecroTargetHere ? collectiveNecroDots(chars, m.name) : 0;
-      const _necroPartner = Math.max(0, _necroCumulative - _necroOwn);
-      const _necroDotsHtml = shDotsMixed(_necroOwn, _necroPartner);
+      // COLLECTIVE-2 (issue #1110): summed across every compound claiming
+      // this merit name, each through its own free_grants slug (AC 6).
+      const _rowCompounds = _compoundsFor(m.name);
+      const _isCompoundTargetHere = _rowCompounds.length > 0;
+      const _cmpOwn = _rowCompounds.reduce((s, cmp) => s + freeOf(m, cmp.slug), 0);
+      const _cmpCumulative = _rowCompounds.reduce((s, cmp) => s + collectiveCompoundDots(chars, m.name, cmp), 0);
+      const _cmpPartner = Math.max(0, _cmpCumulative - _cmpOwn);
+      const _cmpDotsHtml = shDotsSuspended(_cmpOwn, _cmpPartner, shSuspendedOf(m));
+      const _cmpGateLbl = _rowCompounds.map(cmp => cmp.gateMerit).join(' + ');
       // Issue #827: subtitle for Haven / Mandragora Garden / White Ants
       // renders BEFORE the dots column inside the main row (LHS-justified),
       // keeping dots rightmost. Pre-#827 these subtitles emitted as sibling
@@ -1158,10 +1259,10 @@ export function shRenderDomainMerits(c, editMode) {
       const _grantTag843 = _grantSource843
         ? '<span class="gen-granted-tag">' + esc(_grantSource843) + '</span>'
         : '';
-      if (_isNecroTargetHere) {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_necroOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _necroDotsHtml + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      if (_isCompoundTargetHere) {
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_cmpOwn) + '</span><span class="dom-total-lbl" title="Cumulative across all ' + esc(_cmpGateLbl) + ' owners (\u25CF own, \u25CB partners)">Total: ' + _cmpDotsHtml + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       } else {
-        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd + (m.bonus || 0) - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+        h += '<div class="dom-edit-block"><div class="infl-edit-row' + _expClass + '"' + _expIdAttr + _expOnclick + '><select class="infl-type" onclick="' + _sp + '" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select>' + _subtitleInline + '<span class="dom-contrib-lbl">My dots: ' + shDotsSuspended(_dPurch, Math.max(0, dd + (m.bonus || 0) - _dPurch), shSuspendedOf(m)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + (_isCapped ? _capTotalDots : _totalDots) + '</span>' + _grantTag843 + _expArr + '<button class="dev-rm-btn" onclick="' + _sp + 'shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       }
       // Qualifier input for Safe Place / Feeding Grounds
       if (['Safe Place', 'Feeding Grounds'].includes(m.name)) {
@@ -1194,13 +1295,16 @@ export function shRenderDomainMerits(c, editMode) {
         }
       }
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd'; const _isVMMerit = m.name === 'Herd';
-      // N-7b (issue #768, Peter decision option 3, 2026-06-16): Necropolis
+      // N-7b (issue #768, Peter decision option 3, 2026-06-16): compound
       // target merits are pool-funded only. Suppress CP / XP / MCI / Bonus
-      // categorically by merit name (regardless of Sepulcher ownership —
-      // the row exists because the merit is on the sheet, but it must NEVER
-      // be hand-funded). The NECRO stepper is the only allocation surface.
-      const _isNecroTarget = _necroTargets.includes(m.name);
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isNecroTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showNECRO: _hasNecroSep && _isNecroTarget, hideCP: _isNecroTarget, hideXP: _isNecroTarget, hideMCI: _isNecroTarget, hideBonus: _isNecroTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      // categorically by merit name (regardless of membership — the row
+      // exists because the merit is on the sheet, but it must NEVER be
+      // hand-funded). The pool stepper is the only allocation surface.
+      const _isCompoundTarget = _targetNames.has(m.name);
+      // COLLECTIVE-2: one stepper per OWNED compound claiming this merit,
+      // each writing its own free_grants slug. Non-members get none.
+      const _rowPools = _rowCompounds.filter(cmp => _ownedCompounds.includes(cmp));
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0 && !_isCompoundTarget, showVM: _hasVM && _isVMMerit, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, compoundPools: _rowPools, compoundSlugs: _compoundSlugs, hideCP: _isCompoundTarget, hideXP: _isCompoundTarget, hideMCI: _isCompoundTarget, hideBonus: _isCompoundTarget, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       // N-4a (issue #781): White Ants Territory picker + Trap Door triple-anchor
       // picker. Both target merits are sub_category='domain', so the pickers
       // must render in the domain loop here — not in shRenderGeneralMerits.
@@ -1253,10 +1357,11 @@ export function shRenderDomainMerits(c, editMode) {
       h += '</div>';
     };
     // Virtual-row emitter \u2014 same pattern as _emitDomRow but for synthesised
-    // partner-only Necro target rows that the current character doesn't own.
-    // Materialisation routes through shAllocateNecroVirtual; no realIdx exists.
-    const _emitVirtualNecroRow = (vName) => {
-      const _vPartner = collectiveNecroDots(chars, vName);
+    // partner-only compound target rows that the current character doesn't
+    // own. Materialisation routes through shAllocateCompoundVirtual, which
+    // takes the compound's slug because no realIdx exists.
+    const _emitVirtualCompoundRow = (vName, compound) => {
+      const _vPartner = collectiveCompoundDots(chars, vName, compound);
       const _vOwn = 0;
       const _vDots = shDotsMixed(_vOwn, _vPartner);
       const _vSlug = vName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -1284,13 +1389,13 @@ export function shRenderDomainMerits(c, editMode) {
         + '<span class="infl-type infl-type--virtual" title="Partner-only \u2014 click NECRO to allocate your own dots">' + esc(vName) + '</span>'
         + _vSubtitle
         + '<span class="dom-contrib-lbl">My dots: </span>'
-        + '<span class="dom-total-lbl" title="Cumulative across all Sepulcher-owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
+        + '<span class="dom-total-lbl" title="Cumulative across all ' + esc(compound.gateMerit) + ' owners (\u25CF own, \u25CB partners)">Total: ' + _vDots + '</span>'
         + _vExpArr
         + '</div>'
         + '<div class="merit-bd-row">'
         + '<div class="bd-grp">'
-        + '<span class="bd-lbl bd-bonus-lbl" id="bd-necro-vlbl-' + _vSlug + '">NECRO</span>'
-        + '<input id="bd-necro-v-' + _vSlug + '" name="bd-necro-v-' + _vSlug + '" aria-label="Necropolis pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onclick="' + _vSp + '" onchange="shAllocateNecroVirtual(\'' + vName.replace(/'/g, "\\'") + '\',+this.value)">'
+        + '<span class="bd-lbl bd-bonus-lbl" id="bd-' + compound.slug + '-vlbl-' + _vSlug + '">' + esc(compound.slug.toUpperCase()) + '</span>'
+        + '<input id="bd-' + compound.slug + '-v-' + _vSlug + '" name="bd-' + compound.slug + '-v-' + _vSlug + '" aria-label="' + esc(compound.source) + ' pool allocation" class="merit-bd-input bd-bonus-input" type="number" min="0" value="0" onclick="' + _vSp + '" onchange="shAllocateCompoundVirtual(\'' + vName.replace(/'/g, "\\'") + '\',\'' + compound.slug + '\',+this.value)">'
         + '</div>'
         + '<div class="bd-eq"><span class="bd-val">' + _vPartner + ' partner dot' + (_vPartner === 1 ? '' : 's') + '</span></div>'
         + '</div>';
@@ -1302,59 +1407,80 @@ export function shRenderDomainMerits(c, editMode) {
       h += '</div>';
     };
     // Issue #793: sorted iteration with inherited-card grouping.
-    // - Necro target merits skip the main pass when char has Sepulcher
-    //   (they render inside the inherited card after Sepulcher's row).
-    // - Necro target merits on a non-Sepulcher character render in
-    //   alphabetical position (no parent to anchor under; degrades gracefully).
-    // - Sepulcher row triggers the inherited card if there's anything to show
-    //   (owned target merits + virtual target rows from COLLECTIVE-1).
-    const _virtualNecroNames = _collectiveNames.filter(n => !_ownedNecroSet.has(n));
-    const _ownedTargets = _sortedDom.filter(mm => _necroTargetSet.has(mm.name));
-    const _hasCardContent = _hasNecroSep && (_ownedTargets.length > 0 || _virtualNecroNames.length > 0);
-    const _emitInheritedCard = () => {
+    // - Target merits skip the main pass when the char is a member of the
+    //   claiming compound (they render inside that compound's inherited card
+    //   after the source merit's row).
+    // - Target merits on a non-member render in alphabetical position (no
+    //   parent to anchor under; degrades gracefully).
+    // - The source merit's row triggers its inherited card if there's
+    //   anything to show (owned target merits + COLLECTIVE-1 virtual rows).
+    // COLLECTIVE-2 (issue #1110): one card per owned compound. A target name
+    // claimed by two owned compounds is placed in the FIRST one only, so it
+    // renders once; its row still sums dots across both (AC 6).
+    const _cardPlacement = new Map(); // merit name \u2192 owning compound
+    for (const cmp of _ownedCompounds) {
+      for (const n of cmp.targets) {
+        if (!_cardPlacement.has(n)) _cardPlacement.set(n, cmp);
+      }
+    }
+    const _cardsByCompound = new Map(_ownedCompounds.map(cmp => {
+      const _virtualNames = (_collectiveNamesBy.get(cmp) || [])
+        .filter(n => !_ownedTargetSet.has(n) && _cardPlacement.get(n) === cmp);
+      const _ownedTargets = _sortedDom.filter(mm => _cardPlacement.get(mm.name) === cmp);
+      return [cmp, { virtualNames: _virtualNames, ownedTargets: _ownedTargets }];
+    }));
+    const _hasCardContentFor = (cmp) => {
+      const card = _cardsByCompound.get(cmp);
+      return !!card && (card.ownedTargets.length > 0 || card.virtualNames.length > 0);
+    };
+    const _emitInheritedCard = (cmp) => {
+      const card = _cardsByCompound.get(cmp);
       h += '<div class="dom-inherited-card">';
-      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      h += '<div class="dom-inherited-card-title">Inherited from ' + esc(cmp.source) + '</div>';
       // Combined alphabetical: owned target names + virtual names. Owned
       // rows render via _emitDomRow (full editor row with stepper); virtual
-      // rows render via _emitVirtualNecroRow (no realIdx).
+      // rows render via _emitVirtualCompoundRow (no realIdx).
       const _cardEntries = [
-        ..._ownedTargets.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
-        ..._virtualNecroNames.map(n => ({ kind: 'virtual', name: n })),
+        ...card.ownedTargets.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ...card.virtualNames.map(n => ({ kind: 'virtual', name: n })),
       ].sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of _cardEntries) {
         if (entry.kind === 'owned') {
           _emitDomRow(entry.m, _domIdxByMerit.get(entry.m));
         } else {
-          _emitVirtualNecroRow(entry.name);
+          _emitVirtualCompoundRow(entry.name, cmp);
         }
       }
       h += '</div>';
     };
-    let _cardRendered = false;
+    const _cardsRendered = new Set();
     for (const m of _sortedDom) {
       const di = _domIdxByMerit.get(m);
-      const _isTarget = _necroTargetSet.has(m.name);
-      if (_isTarget && _hasNecroSep) {
-        // Skip \u2014 will render inside the inherited card.
+      if (_cardPlacement.has(m.name)) {
+        // Skip \u2014 will render inside the claiming compound's inherited card.
         continue;
       }
-      // Sepulcher OR non-Necro-target OR stray target on non-owner: emit normally.
+      // Source merit OR non-target OR stray target on a non-member: emit normally.
       _emitDomRow(m, di);
-      // If we just rendered Sepulcher AND the character is an owner AND
-      // there's anything to show, emit the inherited card immediately after.
-      if (m.name === 'Necropolis Sepulcher' && _hasCardContent) {
-        _emitInheritedCard();
-        _cardRendered = true;
+      // If we just rendered a compound's source merit AND the character is a
+      // member AND there's anything to show, emit its card immediately after.
+      for (const cmp of _ownedCompounds) {
+        if (m.name !== cmp.source || _cardsRendered.has(cmp)) continue;
+        if (!_hasCardContentFor(cmp)) continue;
+        _emitInheritedCard(cmp);
+        _cardsRendered.add(cmp);
       }
     }
-    // Edge case: character has Sepulcher (anywhere \u2014 possibly mis-categorised
-    // as general on a legacy merit doc) but Sepulcher's instance isn't in
-    // domM, so the loop above never anchored the card. Emit at end so target
-    // merits + virtual rows still render. Production data should have
-    // Sepulcher in domM post-#770 (seed sub_category='domain'), but the
-    // editor must degrade gracefully on legacy / test-fixture shapes.
-    if (_hasCardContent && !_cardRendered) {
-      _emitInheritedCard();
+    // Edge case: character owns the source merit (anywhere \u2014 possibly
+    // mis-categorised as general on a legacy merit doc) but its instance
+    // isn't in domM, so the loop above never anchored the card. Emit at end
+    // so target merits + virtual rows still render. Production data should
+    // have the source merit in domM post-#770 (seed sub_category='domain'),
+    // but the editor must degrade gracefully on legacy / test-fixture shapes.
+    for (const cmp of _ownedCompounds) {
+      if (_cardsRendered.has(cmp) || !_hasCardContentFor(cmp)) continue;
+      _emitInheritedCard(cmp);
+      _cardsRendered.add(cmp);
     }
     // Issue #793: virtual rows now render inside the inherited card above.
     // The pre-#793 standalone virtual-row loop has been removed \u2014 it would
@@ -1371,9 +1497,18 @@ export function shRenderDomainMerits(c, editMode) {
     const _canShareView = ['Safe Place', 'Haven'];
     // COLLECTIVE-1 (issue #800): view-mode synthesis mirrors edit-mode logic.
     // Computed once outside the per-row loop.
-    const _necroTargetsView = getNecropolisTargets(getRulesCache());
-    const _collectiveNamesView = synthesiseCollectiveNecroNames(c, chars, _necroTargetsView);
-    const _ownedNecroSetView = new Set(domM.filter(m => _necroTargetsView.includes(m.name)).map(m => m.name));
+    // COLLECTIVE-2 (issue #1110): both renderers walk the SAME compound
+    // descriptors from getCollectiveCompounds. Wiring only one of the two is
+    // the silent failure mode this story exists to avoid — see the
+    // render-wiring-placement precedent in the story Dev Notes.
+    const _compoundsView = getCollectiveCompounds(getRulesCache());
+    const _ownedCompoundsView = _compoundsView.filter(cmp => ownsCompound(c, cmp));
+    const _targetNamesView = new Set(_compoundsView.flatMap(cmp => cmp.targets));
+    const _compoundsForView = (name) => _compoundsView.filter(cmp => cmp.targets.includes(name));
+    const _collectiveNamesByView = new Map(
+      _ownedCompoundsView.map(cmp => [cmp, synthesiseCollectiveCompoundNames(c, chars, cmp)])
+    );
+    const _ownedTargetSetView = new Set(domM.filter(m => _targetNamesView.has(m.name)).map(m => m.name));
     const _necroTerritoryUnionView = (() => {
       const slugs = getNecropolisInfectedTerritories(chars);
       if (!slugs.length) return '';
@@ -1389,10 +1524,6 @@ export function shRenderDomainMerits(c, editMode) {
     // target rows + virtual rows. Non-Sepulcher chars render any stray
     // target merits in alphabetical position (no card, no warn — read-only
     // path; the edit-mode warn is the appropriate surface for QA).
-    const _hasNecroSepView = (c.merits || []).some(m =>
-      m && m.name === 'Necropolis Sepulcher' && ((m.cp || 0) + (m.xp || 0)) >= 1
-    );
-    const _necroTargetSetView = new Set(_necroTargetsView);
     const _sortedDomView = domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const _emitViewRow = (m) => {
       const dp = _canShareView.includes(m.name) && m.shared_with && m.shared_with.length ? m.shared_with : null;
@@ -1406,15 +1537,19 @@ export function shRenderDomainMerits(c, editMode) {
       const _isCappedView = ['Haven', 'Mandragora Garden'].includes(m.name);
       // Dot display: for capped merits show solid up to eff, hollow for over-cap stored dots
       let dotHtml;
-      // COLLECTIVE-1 (issue #800): Necropolis target rows take precedence —
-      // own (free_grants.necro) solid + cumulative-other hollow. Bypasses
-      // _isCappedView / ssjB / etc. since target merits have none of those.
-      const _isNecroTargetView = _necroTargetsView.includes(m.name);
-      if (_isNecroTargetView) {
-        const _own = (m.free_grants && m.free_grants.necro) || 0;
-        const _cumul = collectiveNecroDots(chars, m.name);
+      // COLLECTIVE-1 (issue #800): compound target rows take precedence —
+      // own (the compound's free_grants slug) solid + cumulative-other
+      // hollow. Bypasses _isCappedView / ssjB / etc. since target merits
+      // have none of those.
+      // COLLECTIVE-2 (issue #1110): summed across every compound claiming
+      // this merit name — same arithmetic as the edit-mode row, routed
+      // through the same primitive so the two views cannot drift.
+      const _rowCompoundsView = _compoundsForView(m.name);
+      if (_rowCompoundsView.length > 0) {
+        const _own = _rowCompoundsView.reduce((s, cmp) => s + freeOf(m, cmp.slug), 0);
+        const _cumul = _rowCompoundsView.reduce((s, cmp) => s + collectiveCompoundDots(chars, m.name, cmp), 0);
         const _partner = Math.max(0, _cumul - _own);
-        dotHtml = shDotsMixed(_own, _partner);
+        dotHtml = shDotsSuspended(_own, _partner, shSuspendedOf(m));
       } else if (_isCappedView) {
         const _cPurch = Math.min(de, (m.cp || 0) + (m.xp || 0));
         dotHtml = shDotsMixed(_cPurch, Math.max(0, _viewStored - _cPurch));
@@ -1484,8 +1619,8 @@ export function shRenderDomainMerits(c, editMode) {
         h += '<div class="merit-plain">' + _viewInner + _viewCappedNote + '</div>';
       }
     };
-    const _emitVirtualViewRow = (vName) => {
-      const _vPartner = collectiveNecroDots(chars, vName);
+    const _emitVirtualViewRow = (vName, compound) => {
+      const _vPartner = collectiveCompoundDots(chars, vName, compound);
       const _vDots = shDotsMixed(0, _vPartner);
       // Issue #827: territory subtitle inline before dots on White Ants
       // virtual row too.
@@ -1516,40 +1651,59 @@ export function shRenderDomainMerits(c, editMode) {
         h += '<div class="merit-plain merit-plain--virtual">' + _vViewInner + '</div>';
       }
     };
-    const _virtualNamesView = _collectiveNamesView.filter(n => !_ownedNecroSetView.has(n));
-    const _ownedTargetsView = _sortedDomView.filter(mm => _necroTargetSetView.has(mm.name));
-    const _hasCardContentView = _hasNecroSepView && (_ownedTargetsView.length > 0 || _virtualNamesView.length > 0);
-    const _emitInheritedCardView = () => {
+    // COLLECTIVE-2 (issue #1110): one card per owned compound, same
+    // first-claim placement rule as edit mode.
+    const _cardPlacementView = new Map();
+    for (const cmp of _ownedCompoundsView) {
+      for (const n of cmp.targets) {
+        if (!_cardPlacementView.has(n)) _cardPlacementView.set(n, cmp);
+      }
+    }
+    const _cardsByCompoundView = new Map(_ownedCompoundsView.map(cmp => {
+      const virtualNames = (_collectiveNamesByView.get(cmp) || [])
+        .filter(n => !_ownedTargetSetView.has(n) && _cardPlacementView.get(n) === cmp);
+      const ownedTargets = _sortedDomView.filter(mm => _cardPlacementView.get(mm.name) === cmp);
+      return [cmp, { virtualNames, ownedTargets }];
+    }));
+    const _hasCardContentViewFor = (cmp) => {
+      const card = _cardsByCompoundView.get(cmp);
+      return !!card && (card.ownedTargets.length > 0 || card.virtualNames.length > 0);
+    };
+    const _emitInheritedCardView = (cmp) => {
+      const card = _cardsByCompoundView.get(cmp);
       h += '<div class="dom-inherited-card">';
-      h += '<div class="dom-inherited-card-title">Inherited from Necropolis Sepulcher</div>';
+      h += '<div class="dom-inherited-card-title">Inherited from ' + esc(cmp.source) + '</div>';
       const _cardEntries = [
-        ..._ownedTargetsView.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
-        ..._virtualNamesView.map(n => ({ kind: 'virtual', name: n })),
+        ...card.ownedTargets.map(mm => ({ kind: 'owned', name: mm.name, m: mm })),
+        ...card.virtualNames.map(n => ({ kind: 'virtual', name: n })),
       ].sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of _cardEntries) {
         if (entry.kind === 'owned') {
           _emitViewRow(entry.m);
         } else {
-          _emitVirtualViewRow(entry.name);
+          _emitVirtualViewRow(entry.name, cmp);
         }
       }
       h += '</div>';
     };
-    let _cardRenderedView = false;
+    const _cardsRenderedView = new Set();
     for (const m of _sortedDomView) {
-      const _isTarget = _necroTargetSetView.has(m.name);
-      if (_isTarget && _hasNecroSepView) continue; // rendered in card below
+      if (_cardPlacementView.has(m.name)) continue; // rendered in a card below
       _emitViewRow(m);
-      if (m.name === 'Necropolis Sepulcher' && _hasCardContentView) {
-        _emitInheritedCardView();
-        _cardRenderedView = true;
+      for (const cmp of _ownedCompoundsView) {
+        if (m.name !== cmp.source || _cardsRenderedView.has(cmp)) continue;
+        if (!_hasCardContentViewFor(cmp)) continue;
+        _emitInheritedCardView(cmp);
+        _cardsRenderedView.add(cmp);
       }
     }
-    // Edge-case fallback (mirror of edit mode): if Sepulcher isn't in domM
-    // but the character owns it (legacy mis-categorisation or test fixtures),
-    // still emit the card so target merits don't disappear.
-    if (_hasCardContentView && !_cardRenderedView) {
-      _emitInheritedCardView();
+    // Edge-case fallback (mirror of edit mode): if a compound's source merit
+    // isn't in domM but the character owns it (legacy mis-categorisation or
+    // test fixtures), still emit the card so target merits don't disappear.
+    for (const cmp of _ownedCompoundsView) {
+      if (_cardsRenderedView.has(cmp) || !_hasCardContentViewFor(cmp)) continue;
+      _emitInheritedCardView(cmp);
+      _cardsRenderedView.add(cmp);
     }
   }
   h += '</div></div>'; return h;
@@ -1567,7 +1721,7 @@ export function shRenderStandingMerits(c, editMode) {
     if (m.name === 'Mystery Cult Initiation') h += _renderMCI(c, m, si, rIdx, m, dd, editMode);
     else if (m.name === 'Professional Training') h += _renderPT(c, m, si, rIdx, m, dd, editMode, _standMciPool);
     else if (editMode) {
-      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + '\u25CF'.repeat(_stPurch) + '\u25CB'.repeat(Math.max(0, dd - _stPurch)) + '</span></div>';
+      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDotsSuspended(_stPurch, Math.max(0, dd - _stPurch), shSuspendedOf(m)) + '</span></div>';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 });
       h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
@@ -1576,7 +1730,7 @@ export function shRenderStandingMerits(c, editMode) {
         h += '<div class="derived-note">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsSuspended(_stPurch, Math.max(0, (m.rating || 0) - _stPurch), shSuspendedOf(m)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -1714,6 +1868,99 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   h += '</div>'; return h;
 }
 
+/**
+ * OATH-A (issue #1111, ADR-010 D1/D1b) — the pledge editor.
+ *
+ * Rendered under a Swear By oath's row in EDIT MODE only. Lists every merit
+ * the character owns that has dots free to pledge, plus the ones already
+ * pledged to THIS oath, each with a dot stepper. A running total against the
+ * requirement makes the parity rule visible before the player commits, and
+ * the Swear button re-validates server-side of the UI in `shSwearOath` — the
+ * display total is a convenience, never the check.
+ *
+ * Returns '' for any merit that is not a Swear By oath, so the oath family is
+ * the only thing that grows a pledge editor.
+ */
+/**
+ * OATH-A (#1111) — report that the edit just made was overridden by a
+ * pledge floor.
+ *
+ * EDIT-TIME FEEDBACK, not a status indicator. It renders only after an edit
+ * has set `_pledgeFloorNote`, so a freshly loaded over-committed character
+ * shows nothing — correct for an override notice, which has nothing to
+ * report when no edit happened. Its absence from the read-only renderer is
+ * likewise correct rather than the dual-renderer blind spot: there are no
+ * edits to override there.
+ *
+ * A standing "this character is over-committed" indicator is a different
+ * feature — render-time derived from pledges versus pool capacity, in both
+ * renderers, independent of any edit. Filed as #1122.
+ *
+ * `_pledgeFloorNote` is transient and `_`-prefixed, so both save paths strip
+ * it per merit and it never persists.
+ */
+function _pledgeFloorNote(m) {
+  if (!m || !m._pledgeFloorNote) return '';
+  return '<div class="dom-cap-warn">\u26A0 ' + esc(m._pledgeFloorNote) + '</div>';
+}
+
+function _oathPledgeEditor(c, m, rIdx) {
+  if (!isSwearByOath(m)) return '';
+  const required = oathDotsRequired(c, m);
+  const sb = m.sworn_by || null;
+  const current = sb && Array.isArray(sb.attachments) ? sb.attachments : [];
+  const currentOf = (cand) => {
+    const hit = current.find(a => meritMatchesRef(cand, a));
+    return hit ? (hit.dots || 0) : 0;
+  };
+
+  // Candidates: anything with spare dots, plus anything already pledged here
+  // (so an existing pledge can be reduced rather than only increased).
+  const candidates = (c.merits || []).filter(cand => {
+    if (cand === m) return false;               // an oath cannot pledge itself
+    if (cand.sworn_by) return false;            // nor can another oath be pledged
+    return pledgeableDots(c, cand, meritRating, m) > 0 || currentOf(cand) > 0;
+  });
+
+  const total = current.reduce((s, a) => s + (a.dots || 0), 0);
+  const parityCls = total === required ? 'sc-full' : total > required ? 'sc-over' : 'sc-val';
+
+  let h = '<div class="dom-edit-block oath-pledge-editor">';
+  h += '<div class="dom-inherited-card-title">Sworn by — pledge '
+     + required + ' dot' + (required === 1 ? '' : 's')
+     + ' <span class="' + parityCls + '">' + total + '/' + required + '</span></div>';
+
+  if (!candidates.length) {
+    h += '<div class="dom-cap-warn">⚠ No merits with dots free to pledge.</div>';
+  }
+
+  for (const cand of candidates) {
+    const label = cand.name + (cand.qualifier ? ' (' + cand.qualifier + ')' : '');
+    const spare = pledgeableDots(c, cand, meritRating, m);
+    const now = currentOf(cand);
+    const slug = (cand.name + '-' + (cand.qualifier || '')).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    h += '<div class="merit-bd-row"><div class="bd-grp">'
+      + '<span class="bd-lbl bd-bonus-lbl" id="bd-pledge-lbl-' + slug + '">' + esc(label) + '</span>'
+      + '<input id="bd-pledge-' + slug + '" name="bd-pledge-' + slug + '"'
+      + ' aria-label="Dots of ' + esc(label) + ' pledged to ' + esc(m.name) + '"'
+      + ' class="merit-bd-input bd-bonus-input" type="number" min="0" max="' + (spare + now) + '"'
+      + ' value="' + now + '"'
+      + ' onchange="shSetPledgeDots(' + rIdx + ',\'' + esc(cand.name).replace(/'/g, "\\'") + '\','
+      + (cand.qualifier ? '\'' + esc(cand.qualifier).replace(/'/g, "\\'") + '\'' : 'null')
+      + ',+this.value)">'
+      + '</div><div class="bd-eq"><span class="bd-val">' + (spare + now) + ' free</span></div></div>';
+  }
+
+  h += '<div class="dev-add-row">'
+    + '<button class="dev-add-btn" onclick="shCommitOath(' + rIdx + ')">'
+    + (sb ? 'Re-swear' : 'Swear') + '</button>';
+  if (sb) h += '<button class="dev-rm-btn" onclick="shReleaseOath(' + rIdx + ')" title="Release the pledge">&times;</button>';
+  h += '</div>';
+  if (m._oathError) h += '<div class="dom-cap-warn">⚠ ' + esc(m._oathError) + '</div>';
+  h += '</div>';
+  return h;
+}
+
 export function shRenderGeneralMerits(c, editMode) {
   const oM = (c.merits || []).filter(m => m.category === 'general');
   if (!editMode && !oM.length) return '';
@@ -1724,6 +1971,34 @@ export function shRenderGeneralMerits(c, editMode) {
   let _meritAlert = meritCPRem < 0 ? 'red' : null;
   for (const _p of (c._grant_pools || []).filter(_p2 => _p2.category === 'any')) { const _u = getMCIPoolUsed(c); if (_u > _p.amount) { _meritAlert = 'red'; break; } else if (_u < _p.amount && _meritAlert !== 'red') _meritAlert = 'yellow'; }
   const _meritBadge = editMode ? _alertBadge(_meritAlert) : '';
+  // -- OATH-A (issue #1111, ADR-010 D1/D2) -----------------------------
+  // Encumbrance is DISPLAY + EDIT GATE with zero accessor changes: the
+  // badge reports what is pledged and NOTHING here alters a dot sum. The
+  // pledged dots remain fully usable.
+  //
+  // Computed once for the whole renderer so BOTH the edit-mode branch and
+  // the view-mode branch read the same index. Wiring one and not the other
+  // is the silent failure mode this codebase has hit before.
+  const _pledgeIdx = buildPledgeIndex(c);
+  // "This merit is pledged" - shown on the ENCUMBERED merit.
+  const _pledgeBadge = (m) => {
+    const e = _pledgeIdx.get(pledgeKeyFor(m));
+    if (!e || !e.dots) return '';
+    const by = e.oaths.map(o => o.oath + ' (' + o.dots + ')').join(', ');
+    return '<span class="gen-granted-tag" title="Pledged to ' + esc(by)
+      + ' - still fully usable, but cannot be sold while the oath stands">Pledged '
+      + e.dots + '</span>';
+  };
+  // "This oath holds a pledge" - shown on the OATH row itself.
+  const _oathPledgeNote = (m) => {
+    const sb = m && m.sworn_by;
+    if (!sb || !Array.isArray(sb.attachments) || !sb.attachments.length) return '';
+    const what = sb.attachments
+      .map(a => a.name + (a.qualifier ? ' (' + a.qualifier + ')' : '') + ' ' + a.dots)
+      .join(', ');
+    return '<span class="gen-granted-tag" title="Sworn against ' + esc(what)
+      + '">Sworn ' + sb.dots_required + '</span>';
+  };
   let h = '<div class="sh-sec"><div class="sh-sec-title">Merits' + _meritBadge + '</div><div class="merit-list">';
   if (editMode) {
     const _bpXP = (c.bp_creation && c.bp_creation.xp) || 0, _bpLost = (c.bp_creation && c.bp_creation.lost) || 0;
@@ -1747,11 +2022,15 @@ export function shRenderGeneralMerits(c, editMode) {
       + '</div>';
     h += _renderPoolCounters(c, 'general') + _renderPoolCounters(c, 'influence') + _renderPoolCounters(c, 'domain');
     const _genMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
-    // N-7 (issue #760): Necropolis allocator wiring — _hasNecroSep gates the
-    // stepper render; _necroTargets sources the target merit list from the
-    // rule_grant doc (NOT hardcoded — picks up future pool_targets edits).
-    const _hasNecroSep = hasNecropolisSepulcher(c);
-    const _necroTargets = _hasNecroSep ? getNecropolisTargets(getRulesCache()) : [];
+    // N-7 (issue #760): Collective Compound allocator wiring — membership
+    // gates the stepper render; the target merit list comes off each
+    // compound's rule_grant doc (NOT hardcoded — picks up future
+    // pool_targets edits).
+    // COLLECTIVE-2 (issue #1110): all compounds, not just the Necropolis.
+    const _genCompounds = getCollectiveCompounds(getRulesCache());
+    const _genOwnedCompounds = _genCompounds.filter(cmp => ownsCompound(c, cmp));
+    const _genCompoundSlugs = _genCompounds.map(cmp => cmp.slug);
+    const _genPoolsFor = (name) => _genOwnedCompounds.filter(cmp => cmp.targets.includes(name));
     const _KERBEROS_ASPECTS = ['Monstrous', 'Competitive', 'Seductive'];
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
@@ -1762,7 +2041,7 @@ export function shRenderGeneralMerits(c, editMode) {
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
       const _gPurch = (m.cp || 0) + (m.xp || 0);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDotsSuspended(_gPurch, Math.max(0, dd - _gPurch), shSuspendedOf(m)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span>' + _pledgeBadge(m) + _oathPledgeNote(m) + '</div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs }); h += _pledgeFloorNote(m); h += _oathPledgeEditor(c, m, rIdx); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + shFightingMeritOptions(c) + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -1777,9 +2056,12 @@ export function shRenderGeneralMerits(c, editMode) {
           }
         } else if (_FREE_TEXT_QUAL.has(m.name) || m.qualifier) h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
         const _mBonus = m.bonus || 0;
-        h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd + _mBonus - _gPurch)) + '</span>'
+        h += '<span class="infl-dots-derived">' + shDotsSuspended(_gPurch, Math.max(0, dd + _mBonus - _gPurch), shSuspendedOf(m)) + '</span>'
+          + _pledgeBadge(m) + _oathPledgeNote(m)
           + '<button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>';
-        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, showNECRO: _hasNecroSep && _necroTargets.includes(m.name) });
+        h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0, compoundPools: _genPoolsFor(m.name), compoundSlugs: _genCompoundSlugs });
+        h += _pledgeFloorNote(m);
+        h += _oathPledgeEditor(c, m, rIdx);
         // N-4a (issue #781): White Ants + Trap Door pickers moved to
         // shRenderDomainMerits (their merits are sub_category='domain').
         // Calls removed here — would never have fired in the general renderer
@@ -1794,13 +2076,13 @@ export function shRenderGeneralMerits(c, editMode) {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
       const purch = (m.cp || 0) + (m.xp || 0), bon = meritFreeSum(m) + (m.bonus || 0);
-      const dotH = shDotsMixed(purch, bon);
+      const dotH = shDotsSuspended(purch, bon, shSuspendedOf(m));
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
-        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag);
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag + _pledgeBadge(m) + _oathPledgeNote(m));
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH, _pledgeBadge(m) + _oathPledgeNote(m)); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
@@ -2401,7 +2683,12 @@ export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
   const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');
-    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+    // Issue #994: "Full rules" expander from the merit's rules doc (meritLookup
+    // carries the full rule via db._rule). Reused by both the editor sheet and
+    // the suite sheet (shRenderInfluenceMerits/shRenderGeneralMerits etc. delegate here).
+    const _ruleDoc = db._rule || null;
+    const rulesExp = _ruleDoc && _ruleDoc.rules_text ? renderRulesExpander('rte-' + id2, _ruleDoc.rules_text, _ruleDoc.rules_source) : '';
+    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + rulesExp + '</div>';
   }
   return '<div class="merit-plain">' + _inner(false) + '</div>';
 }
@@ -2556,6 +2843,11 @@ function _trapDoorAnchorBlock(c, m, realIdx) {
 
 export function renderSheet(c, target = null) {
   _refreshLegacyDBs();
+  // STM (#1040): expose the rendered character for the st-mod popover's
+  // _resolveActiveCharacter fallback. The admin/editor sheet reads chars/editIdx
+  // from `state` (not window), so without this the popover no-ops on a fresh
+  // admin session. Mirrors suite/sheet.js and player.js.
+  window.__activeChar = c || null;
   const { editMode, chars, editIdx } = state;
   state.openExpId = null;
   const el = target || document.getElementById('sh-content');

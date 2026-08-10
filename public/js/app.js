@@ -37,14 +37,14 @@ import {
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shSetWhiteAntsTerritory,
   shSetTrapDoorAnchor,
-  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus, shAdjMeritBonus, shAdjSkillBonus,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjMeritBonus,
   shAddEquip, shRemoveEquip, shEquipBucketFilter,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
 import {
-  renderAttrsTab, clickAttrDot, adjAttrBonus,
-  clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  renderAttrsTab, clickAttrDot,
+  clickSkillDot, toggleNineAgain, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { devotions, rites, setStatusTerritories } from './data/accessors.js';
@@ -71,7 +71,6 @@ import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js'
 import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
 import { renderPrimerTab } from './tabs/primer-tab.js';
-import { renderTicketsTab } from './tabs/tickets-tab.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
 import { renderOfficeTab } from './tabs/office-tab.js';
@@ -107,7 +106,21 @@ import { applyOverlayToAll } from './data/st-mods.js';
 import { materialiseDerivedDefence } from './data/equipment-derivation.js';
 import { loadGlobalSettings, getGlobalSettings } from './data/app-settings.js';
 import { installStModPopover } from './editor/st-mod-popover.js';
-import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } from './suite/roll.js';
+// Roll tab: two parallel implementations gated by the localStorage flag
+// `tm-use-new-dice-roller` (issue #1018). Both modules export the same
+// symbols; whichever is active drives BOTH internal callers (below) AND
+// the inline-onclick window globals wired at the bottom of this file.
+// The inactive tab's DOM subtree is removed at boot in `boot()` so
+// getElementById() calls made anywhere (including external touch-points
+// like pickChar, shared/resist.js, contested-roll) target the visible tab.
+import * as rollV1 from './suite/roll.js';
+import * as rollV2 from './suite/roll-v2.js';
+const USE_NEW_ROLLER = localStorage.getItem('tm-use-new-dice-roller') === '1';
+const _roller = USE_NEW_ROLLER ? rollV2 : rollV1;
+const { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool, togEquipChip, updWeaponRef } = _roller;
+// setAgainSeg exists on rollV2 (slice A+D, #1024). Guarded so the tab
+// works when the flag is off and only rollV1 is active.
+const setAgainSeg = _roller.setAgainSeg || setAgain;
 import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -115,10 +128,9 @@ import { getPool } from './shared/pools.js';
 import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
-import { toast as _toast } from './suite/tracker.js';
+import { toast as _toast } from './suite/toast.js';
 // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
 import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
-import { openDiceModal, closeDiceModal } from './suite/dice-modal.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -140,6 +152,81 @@ function effectiveRole() {
 }
 
 // ══════════════════════════════════════════════
+//  SURFACE STYLESHEETS (ADR-008 D9 — scope separation)
+// ══════════════════════════════════════════════
+
+// An admin surface's rules are loaded *apart* from the player sheets rather than
+// reconciled with them. That option exists only because the two surfaces are
+// role-exclusive and need never co-render; it edits no declarations and makes no
+// design judgement, which is what separates it from reconcile and rename.
+//
+// Two gates, deliberately different (ADR-007 D3, authority vs visibility):
+//   injection   getRole()        authority  — should this session ever fetch it?
+//   application effectiveRole()  visibility — should it apply right now?
+//
+// The application gate is the co-render precondition: an ST who opens an admin
+// surface and then toggles player preview would otherwise have admin rules
+// applying to player markup. Enforced by toggling link.disabled in
+// applyRoleRestrictions(), which already runs on both the toggle and on boot.
+
+// applyRoleRestrictions() is the SOLE owner of that decision. This injector is
+// deliberately presentation-agnostic: it does not read _viewMode, effectiveRole()
+// or any other view state. A second site computing "should ST presentation
+// apply" would agree with effectiveRole() only for as long as effectiveRole()'s
+// condition stays exactly a _viewMode comparison — a third role, a dev-preview
+// mode or an impersonation flag would make them disagree silently, surfacing
+// only as wrongly-applied CSS.
+
+const _surfaceSheets = new Map();   // href -> promise
+
+function loadSurfaceSheet(href) {
+  // Cache the PROMISE, not the element. A presence-check on the <link> would
+  // pass a second caller while the sheet is still in flight, rendering that
+  // open unstyled — and only ever the second open, which is the hard one to see.
+  const cached = _surfaceSheets.get(href);
+  if (cached) return cached;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.dataset.surfaceSheet = href;
+  // Injected ENABLED, deliberately. `disabled` would couple application to
+  // fetching — a disabled stylesheet may never be fetched, so neither load nor
+  // error would fire and the promise below would never settle, leaving the
+  // surface blank with no error. Enabled, the fetch always proceeds and the
+  // promise always settles. applyRoleRestrictions() decides application.
+  //
+  // MUST stay synchronous with the applyRoleRestrictions() call at the end of
+  // this function: that is the only thing preventing a brief flash of ST
+  // styling in player preview, since the browser cannot paint between two
+  // synchronous statements. If it ever moves behind an await/setTimeout/rAF the
+  // failure is a visible flash — cosmetic, and preferred over the silent blank
+  // surface `disabled` would have produced from the same refactor (D9).
+
+  const promise = new Promise(resolve => {
+    // Degrade, never fail: a bad href costs styling, not the whole surface.
+    link.addEventListener('load', () => resolve(true), { once: true });
+    link.addEventListener('error', () => {
+      console.warn('[surface-sheet] failed to load, rendering unstyled:', href);
+      resolve(false);
+    }, { once: true });
+  });
+
+  _surfaceSheets.set(href, promise);
+  document.head.appendChild(link);
+  applyRoleRestrictions();   // single owner of the enabled/disabled decision
+  return promise;
+}
+
+function applySurfaceSheetVisibility(isSTView) {
+  // Queries the DOM rather than the promise cache, so this owns every surface
+  // sheet however it got there. disabled, not element removal — removal makes
+  // every view toggle refetch.
+  document.querySelectorAll('[data-surface-sheet]')
+    .forEach(l => { l.disabled = !isSTView; });
+}
+
+// ══════════════════════════════════════════════
 //  DIRTY STATE MANAGEMENT (editor)
 // ══════════════════════════════════════════════
 
@@ -153,6 +240,34 @@ function markDirty(idx) {
 function updDirtyBadge() {
   const el = document.getElementById('edit-dirty');
   if (el) el.classList.toggle('on', editorState.dirty.size > 0);
+}
+
+// ══════════════════════════════════════════════
+//  ST MOD OVERLAY REFRESH (Epic STM)
+// ══════════════════════════════════════════════
+
+// Re-apply the overlay for a single character (by id) and re-render
+// whichever of the two sheet views (suite / embedded ST editor) currently
+// has it open. Shared by the WS onStModUpdate handler and the sheet's own
+// audited apply-bonus affordance (STM-14, issue #1034 — installStModPopover's
+// onMutate callback) so both paths route through the same composition
+// sequence (single composition site, ADR-004 §D1/§D8).
+async function refreshCharacterOverlay(charId) {
+  const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
+  if (!target) return;
+  // Issue #879 (ADR-006 D4): re-materialise before re-applying so the
+  // armour-adjusted base is current at composition time.
+  materialiseDerivedDefence(target);
+  await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
+  if (String(suiteState.sheetChar?._id) === String(charId)) {
+    suiteRenderSheet();
+  }
+  // editorRenderSheet only ever renders for STs (openChar gates it on
+  // getRole() === 'st'); mirror that gate here so a player's WS-delivered
+  // update never touches the ST-only editor sheet container.
+  if (getRole() === 'st' && editorState.editIdx >= 0 && String(editorState.chars[editorState.editIdx]?._id) === String(charId)) {
+    editorRenderSheet(target);
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -271,6 +386,7 @@ const NAV_ALIAS = {
 const NAV_ITEMS = [
   // Sheet split into Stats / Skills / Powers for phone UX
   { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice' },
+  { id: 'roll',      label: 'Roll',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'roll' },
   { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
   { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
@@ -279,7 +395,7 @@ const NAV_ITEMS = [
   { id: 'whos-who',  label: 'World',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', goTab: 'whos-who' },
   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
   { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
-  { id: 'ordeals',   label: 'Ordeals',   icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
+  { id: 'ordeals',   label: 'XP',        icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
   { id: 'devlog',    label: 'Devlog',    icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', goTab: 'devlog' },
   { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
   { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
@@ -312,6 +428,9 @@ function renderBottomNav() {
     if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
     if (item.guide && !showGuides) continue;
+    // Roll v2 (#1018): swap 'dice' ↔ 'roll' based on the settings flag.
+    if (item.id === 'dice' && USE_NEW_ROLLER) continue;
+    if (item.id === 'roll' && !USE_NEW_ROLLER) continue;
     if (item.seasonal) {
       // Seasonal items hidden by default, shown by _updateSeasonalNav after lifecycle loads
       h += `<button class="nbtn nbtn-seasonal" id="n-${item.id}" onclick="goTab('${item.goTab}')" style="display:none">${item.icon}<span>${item.label}</span></button>`;
@@ -476,10 +595,8 @@ function goTab(t) {
     const el = document.getElementById('t-combat');
     if (el) initCombatTab(el);
   }
-  if (t === 'tickets') {
-    const el = document.getElementById('t-tickets');
-    if (el) renderTicketsTab(el);
-  }
+  if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
+  if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
   if (t === 'devlog') {
     const el = document.getElementById('t-devlog');
     if (el) renderDevlogTab(el);
@@ -509,6 +626,70 @@ function populateSuiteDropdowns(chars) {
       o.textContent = displayName(c);
       sel.appendChild(o);
     });
+  }
+}
+
+// Tickets surface (ADM-1 pilot, ADR-008 D4/D9). The ST ticket queue renders here
+// from the same module admin.html uses — admin/tickets-views.js is the surface,
+// not a reference implementation, so there is no second copy to drift.
+//
+// Gated on getRole(), NOT effectiveRole(): whether to fetch admin code is a
+// question of authority, and effectiveRole() reports 'player' for a real ST in
+// preview mode. Gating the fetch on it would strip an ST of their own admin code
+// the moment they toggle preview, and inverts the ADR-007 D3 contract.
+//
+// Module and stylesheet are fetched CONCURRENTLY and both awaited before render:
+// awaiting them in series would add a round trip, and rendering before the sheet
+// resolves would flash unstyled. Neither trade is necessary.
+// Spheres surface (ADM P1 surface 2, #1096). Same shape as Tickets with one
+// structural difference: initSpheresView() takes NO container argument and
+// calls document.getElementById('spheres-content') itself (spheres-view.js:29).
+// index.html therefore provides that id as a child of the tab container, which
+// is what keeps spheres-view.js unmodified — the property that made Tickets
+// clean. Do not add a container parameter to the module.
+async function initSpheresSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    // A surface declares the SET of sheets it needs, not one sheet (D9 Rev 13).
+    // admin-shared.css holds classes two or more admin surfaces emit; Downtime
+    // will inject the same sheet when it moves. loadSurfaceSheet is idempotent
+    // and promise-cached, so the second injection costs nothing and there is no
+    // ordering dependency between surfaces. Listed in source order for the
+    // cascade, though no cross-sheet conflict exists: the only cross-bucket
+    // co-occurrence is .sphere-card + .sphere-card-vacant, whose declarations
+    // are disjoint (background/border/padding vs opacity).
+    const [mod] = await Promise.all([
+      import('./admin/spheres-view.js'),
+      loadSurfaceSheet('css/admin-shared.css'),
+      loadSurfaceSheet('css/admin-spheres.css'),
+    ]);
+    await mod.initSpheresView();          // reads #spheres-content itself
+  } catch (err) {
+    console.error('[spheres] surface failed to load:', err);
+    // Write into the inner container, not the tab: replacing the tab would
+    // destroy #spheres-content and a retry could then never find it.
+    const target = el.querySelector('#spheres-content') || el;
+    target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
+  }
+}
+
+async function initTicketsSurface(el) {
+  if (!el) return;
+  const role = getRole();
+  if (role !== 'st' && role !== 'dev') return;
+
+  try {
+    const [mod] = await Promise.all([
+      import('./admin/tickets-views.js'),
+      loadSurfaceSheet('css/admin-tickets.css'),
+    ]);
+    await mod.initTicketsView(el);
+  } catch (err) {
+    console.error('[tickets] surface failed to load:', err);
+    el.innerHTML = '<div class="tk-empty">Tickets failed to load. Reload the page or check your connection.</div>';
   }
 }
 
@@ -1134,9 +1315,7 @@ Object.assign(window, {
   shSetPriority,
   shSetClanAttr,
   shEditAttrPt,
-  shAdjAttrBonus,
   shAdjMeritBonus,
-  shAdjSkillBonus,
   shSetSkillPriority,
   shEditSkillPt,
   shEditSpec,
@@ -1170,10 +1349,8 @@ Object.assign(window, {
 
   // Editor attributes & skills tab
   clickAttrDot,
-  adjAttrBonus,
   clickSkillDot,
   toggleNineAgain,
-  adjSkillBonus,
   updSkillSpec,
 
   // Editor identity tab
@@ -1199,6 +1376,7 @@ Object.assign(window, {
   chgMod,
   updPool,
   setAgain,
+  setAgainSeg,
   togMod,
   togSpec,
   doRoll,
@@ -1207,10 +1385,6 @@ Object.assign(window, {
   effPool,
   togEquipChip,
   updWeaponRef,
-
-  // Dice roller modal
-  openDiceModal,
-  closeDiceModal,
 
   // Suite sheet tab
   onSheetChar,
@@ -1267,6 +1441,15 @@ Object.assign(window, {
 // ══════════════════════════════════════════════
 
 async function boot() {
+  // Roll v2 (#1018): remove the inactive DICE/ROLL subtree so the
+  // duplicate inner IDs (`pval`, `mval`, `dice-area`, etc.) don't
+  // collide. getElementById() then resolves to the visible tab across
+  // roll.js/roll-v2.js AND every external touch-point (pickChar,
+  // renderLifecycleCards, applyRoleRestrictions, shared/resist.js,
+  // game/contested-roll.js) without any of them needing to be
+  // flag-aware.
+  document.getElementById(USE_NEW_ROLLER ? 't-dice' : 't-roll')?.remove();
+
   // Suppress iOS PWA edge-swipe creating blank split-view windows.
   // In standalone mode, touches starting within 20px of either edge are
   // consumed so iOS doesn't interpret them as back/forward navigation.
@@ -1381,22 +1564,9 @@ async function boot() {
           // (post-#413 D8 cache-entry invariant), so just re-running
           // applyOverlayToAll on the single char is enough for all
           // downstream surfaces to see the new state on next render.
-          onStModUpdate: async (charId) => {
-            const target = (suiteState.chars || []).find(c => String(c._id) === String(charId));
-            if (!target) return;
-            // Issue #879 (ADR-006 D4): re-materialise before re-applying so
-            // the armour-adjusted base is current at composition time.
-            materialiseDerivedDefence(target);
-            await applyOverlayToAll([target], getGlobalSettings()?.st_mods_enabled !== false);
-            // Issue #425: full suite sheet re-render (not just tracker
-            // repaint) so the modded dots + markers refresh. STM-9
-            // originally only repainted trackers here because the suite
-            // sheet wasn't yet STM-wired; #425 wires it, so the dots/
-            // markers now need the full render to reflect a remote change.
-            if (String(suiteState.sheetChar?._id) === String(charId)) {
-              suiteRenderSheet();
-            }
-          },
+          // Issue #425 / STM-14 (#1034): shared with the sheet's own
+          // apply-bonus affordance via refreshCharacterOverlay.
+          onStModUpdate: refreshCharacterOverlay,
           // ECM-4 (#871): on remote equipment_catalogue create/update/delete
           // (broadcast by the admin catalogue UI via server/ws.js's
           // broadcastCatalogueUpdate), refetch the cache. Next render of
@@ -1409,7 +1579,7 @@ async function boot() {
         // without this, suite-sheet markers emit data-stm-marker-path but
         // nothing opens the popover on click. Single listener on
         // document.body (idempotent across re-renders).
-        installStModPopover(document.body);
+        installStModPopover(document.body, refreshCharacterOverlay);
         return;
       } catch (err) {
         // Mid-flight failure: leave the user on the login screen with a
@@ -1456,6 +1626,11 @@ function applyRoleRestrictions() {
 
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();
+
+  // Surface stylesheets (ADR-008 D9): applied only while the *effective* role is
+  // ST, so an ST in player preview does not have admin rules apply to player
+  // markup. Reuses `role` above rather than calling effectiveRole() again.
+  applySurfaceSheetVisibility(role === 'st' || role === 'dev');
 
   // Contested Roll — ST only (Feeding is now in More grid)
   const btnContested = document.getElementById('btn-contested');
@@ -1527,8 +1702,9 @@ const MORE_APPS = [
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
   { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'st', stOnly: true },
-  // Tickets removed — submit form is in Settings
-  { id: 'challenge',    label: 'Challenge',   icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'player', playerOnly: true },
+  // The player-side Tickets tab was retired in ADM-1 Stage A; players submit via
+  // Settings. The ST queue below is the admin surface, merged in Stage B.
+  // Challenge tile hidden (#1015). The click-handler + modal (openChallengeModal) remain wired for future programmatic use.
   // ── Lore section (gated by show_guides setting) ──
   { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
   { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore', guide: true },
@@ -1536,6 +1712,8 @@ const MORE_APPS = [
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
+  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
+  { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
   { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
@@ -1676,11 +1854,17 @@ function renderSettingsTab() {
 
   // Show Guides toggle
   const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  const useNewRoller = localStorage.getItem('tm-use-new-dice-roller') === '1';
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Navigation</div>';
   h += '<label class="settings-checkbox-row">';
   h += `<input type="checkbox" id="settings-show-guides"${showGuides ? ' checked' : ''}>`;
   h += '<span>Show Primer, Guide &amp; Rules tabs</span>';
+  h += '</label>';
+  // Roll v2 (#1018): experimental new dice roller. Default OFF. Reload on change.
+  h += '<label class="settings-checkbox-row">';
+  h += `<input type="checkbox" id="settings-use-new-dice-roller"${useNewRoller ? ' checked' : ''}>`;
+  h += '<span>Use new dice roller</span>';
   h += '</label>';
   h += '</div>';
 
@@ -1751,6 +1935,13 @@ function renderSettingsTab() {
     localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
     renderBottomNav();
     if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
+  });
+
+  // Wire new-dice-roller toggle (#1018). Module + DOM subtree are chosen at
+  // boot, so the swap only takes effect after a reload.
+  el.querySelector('#settings-use-new-dice-roller')?.addEventListener('change', e => {
+    localStorage.setItem('tm-use-new-dice-roller', e.target.checked ? '1' : '0');
+    location.reload();
   });
 
   // Wire ticket submit
@@ -1999,6 +2190,7 @@ function renderDesktopSidebar() {
   // Primary tabs prepended to Game section — Dice/Sheet/Status are first game items
   const primaryTabs = [
     { id: 'dice',   label: 'Dice',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
+    { id: 'roll',   label: 'Roll',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
     { id: 'chars',  label: 'Sheet',  icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
     { id: 'status', label: 'Status', icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>' },
   ];
@@ -2027,6 +2219,9 @@ function renderDesktopSidebar() {
     // Prepend Dice/Sheet/Status to Game section
     if (hasPrimary) {
       for (const { id, label, icon } of primaryTabs) {
+        // Roll v2 (#1018): swap 'dice' ↔ 'roll' based on the settings flag.
+        if (id === 'dice' && USE_NEW_ROLLER) continue;
+        if (id === 'roll' && !USE_NEW_ROLLER) continue;
         const on = isActive(id) ? ' on' : '';
         h += `<button class="sidebar-app-tile${on}" onclick="goTab('${id}')" title="${label}">`;
         h += `<span class="sidebar-app-tile-icon">${icon}</span><span class="sidebar-app-tile-label">${label}</span></button>`;

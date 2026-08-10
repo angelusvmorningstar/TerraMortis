@@ -57,3 +57,7 @@ server/scripts/build-rubric-digests.js
 
 # One-off DB cleanup script backups — local-only audit trail
 server/scripts/_backups/
+
+# Python bytecode (specs/qa/harness instruments)
+__pycache__/
+*.pyc

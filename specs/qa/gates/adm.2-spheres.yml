@@ -1,0 +1,216 @@
+schema: 1
+story: "adm.2"
+stage: "P1 surface 2 — Spheres, with the family split by emitter set (ADR-008 D9 Rev 13)"
+story_title: "ADM-2 — merge the Spheres surface into index.html behind the role gate"
+gate: PASS
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-31"
+amended: "2026-07-31 (rev 3, was rev 2) — AC8 wording narrowed after ADR-008 Rev 14 confirmed 55 ST-only classes
+  already reach the player via components.css. Verdicts unchanged; the claims are stated at the width
+  they were actually checked. See scope_correction on the AC8 check."
+reviewed_commit: "f2d5f95c (PR #1098), base origin/dev"
+
+status_reason: >
+  Everything this PR could plausibly break is verified and clean. The split is a true relocation —
+  49 family blocks before, 49 after, as an identical (selector, declarations) multiset, with the
+  2405 non-family blocks in admin-layout.css byte-identical. Every class is in the right bucket by
+  EMITTER, checked independently and reaching zero misbucketed. The one surviving ordering
+  dependency, the .spheres-grid double definition, is safe by construction because both copies moved
+  into the same file in source order — and I confirmed the override actually wins in both documents
+  rather than assuming it. AC9, the regression all three of us named, does not occur: admin.html
+  renders 16 sphere cards and 91 pyramid nodes with all six stylesheets at 200 and zero errors. The
+  surface renders for an ST in index.html with both sheets injected on demand and nothing admin
+  fetched before that. One limb is NOT demonstrated and is recorded as such rather than passed: I
+  could not drive a player submission write through the DT form in the harness. It does not bear on
+  what this PR changes — see limits.
+
+waiver: { active: false }
+
+test_rig_disclosure: >
+  Statics and the two rendering checks ran against the reviewed tree UNMODIFIED. Only the final
+  player-write attempt used a fixture-data patch (newest cycle -> 'active', plus a seeded draft
+  submission), and app.js and admin-spheres.css were verified byte-identical to f2d5f95c before that
+  run. No product code was modified at any point. Every negative result below was taken only after
+  asserting session sanity — token set, role correct, 40 character elements rendered, no sign-in
+  screen — because a negative from a logged-out session is worthless.
+
+re_derivations:
+  - id: "1. integrity — 49 in, 49 out, nothing edited"
+    verdict: CONFIRMED
+    evidence: >
+      Parsed dev's admin-layout.css and all three post-split files with the project's own parser and
+      compared normalised declaration blocks as multisets.
+        family (class prefix .sph*) on dev, in admin-layout.css : 49
+        family now: admin-layout 18 + admin-shared 6 + admin-spheres 25 = 49
+        identical (selector, declarations) multiset : TRUE
+        lost 0 | authored or edited 0 | added to admin-layout 0
+        non-family blocks in admin-layout.css: 2405 -> 2405, identical
+      Note the family spans TWO prefixes, .sphere-* and .sph-*. My first pass used a .sphere-only
+      regex, produced numbers that disagreed with themselves, and I rebuilt the measure from the
+      buckets' actual contents rather than from a guessed prefix. Worth recording because it is the
+      naming-boundary trap the SM warned about, and it bit the reviewer as well as the authors.
+  - id: "2. bucket assignment — by emitter, not by name"
+    verdict: CONFIRMED — zero misbucketed
+    evidence: >
+      Scanned every non-mockup source under public/ with word-boundary matching, comments stripped.
+        shared            5 classes, ALL with exactly 2 emitting surfaces
+        spheres-exclusive 23 classes, ALL with exactly 1 (spheres-view.js)
+        left in layout    16 classes: 12 with zero emitters (dead), 4 emitted only by
+                          downtime-views.js — correctly left until that surface moves
+      The shared five are exactly sphere-card, sphere-head, sphere-name, sphere-total, spheres-grid,
+      each emitted by downtime-views.js and spheres-view.js. Derived independently; I did not inherit
+      the SM's or the Architect's numbers, as instructed.
+      MY OWN FALSE POSITIVE, recorded because it is the same shape as the one the dev documented:
+      my first scan reported sphere-card and sphere-card-vacant as also emitted by app.js, which
+      would have made one class misbucketed. The app.js "emission" is the dev's own COMMENT prose
+      describing the co-occurrence. Stripping comments removes it. A tempting-and-wrong method again,
+      and mine this time.
+  - id: "3. cascade — cross-bucket co-occurrence"
+    verdict: CONFIRMED, and the dev's method was better than my first one
+    evidence: >
+      Asked to check the correction rather than the conclusion, so I wrote my own same-element scan.
+      It initially returned ZERO cross-bucket pairs against his one — and mine was wrong. His pair is
+      emitted at spheres-view.js:193 as
+      `class="sphere-card${vacant ? ' sphere-card-vacant' : ''}"`, and my regex's character class
+      terminated on the single quotes inside the interpolation, truncating the capture. With an
+      interpolation-aware pattern I reproduce his result exactly:
+        same-element groups: 3 — [sph-apex, sph-vacant], [sph-high, sph-vacant], [sphere-card, sphere-card-vacant]
+        cross-bucket pairs : 1 — sphere-card + sphere-card-vacant
+        sphere-card        : background, border, border-radius, padding
+        sphere-card-vacant : opacity
+        overlapping properties: NONE — declarations disjoint, so injection order is free
+      The other two pairs are intra-bucket (both inside admin-spheres.css), so no cross-file ordering
+      question arises for them. I also reproduced the false-positive method he documented — comparing
+      any two rules that share a property name, ignoring whether the classes land on the same element
+      — and it reports 48 "conflicts" on this split. His instinct to record the wrong method was
+      right; it is the one a reviewer reaches for first.
+  - id: "4. AC8 negative limb — structural"
+    verdict: CONFIRMED
+    evidence: >
+      index.html references admin-layout.css ZERO times, so the file the split edited is not in the
+      player's cascade and there is no mechanism by which editing it could regress a player. It also
+      references admin-shared.css and admin-spheres.css zero times — they arrive only by injection
+      from the gated load path, never as static links. Behaviourally: a player session fetched NO
+      admin JS and NO admin CSS on boot, and none after opening the downtime form. Structural claim
+      and observation agree.
+
+behavioural_results:
+  environment: "headless Chromium via Playwright, local http-server + local API on :3000 with Atlas connected"
+  checks:
+    - id: "AC9 — admin.html Spheres domain (run FIRST, as the dev asked)"
+      verdict: PASS
+      evidence: >
+        The sphere rules now arrive from two new files rather than from admin-layout.css, which is
+        the regression the SM, the dev and I all named. It does not occur. admin.html renders 16
+        .sphere-card and 91 pyramid nodes; all six stylesheets return 200 (theme, components,
+        admin-layout, admin-shared, admin-spheres, admin-tickets) and all six are present in
+        document.styleSheets; zero pageErrors, zero console errors.
+    - id: "AC1 — Spheres renders in index.html for an ST"
+      verdict: PASS
+      evidence: >
+        Nothing under public/js/admin/ and neither new sheet is fetched before the surface is opened.
+        On goTab('spheres'): spheres-view.js, admin-shared.css and admin-spheres.css arrive together;
+        17 .sphere-card and 101 pyramid nodes render; #t-spheres > #spheres-content is present, which
+        is what lets spheres-view.js stay unmodified; both injected sheets report enabled.
+    - id: "THE PYRAMID — the one surviving ordering dependency"
+      verdict: PASS, and shown rather than assumed
+      evidence: >
+        .spheres-grid is defined twice, the second overriding grid-template-columns from
+        minmax(260px, 1fr) to minmax(380px, 1fr). Both copies moved into admin-shared.css in their
+        original relative order, so the dependency is INTRA-FILE and cannot be broken by link order
+        between sheets. Confirmed by computation rather than inspection: at the observed container
+        widths, auto-fill with a 260px floor would give 3 columns and with 380px would give 2.
+        Observed 2 columns in BOTH documents — admin.html 485.594px + 485.609px, index.html
+        430px + 430px. The override wins in both.
+    - id: "AC8 — no admin SHEET or MODULE reaches a player"
+      verdict: PASS for everything exercised, and narrower than the heading first read
+      evidence: >
+        Player session: NONE on boot, NONE after opening the Downtime tab with the form fully
+        rendered, zero elements carrying any .sphere-*/.sph-* class in the player DOM, zero injected
+        surface sheets. Session sanity asserted first.
+      scope_correction: >
+        AMENDED 2026-07-31 after ADR-008 Rev 14. What this verdict establishes is that no admin
+        STYLESHEET and no admin MODULE reaches a player. It does NOT establish that no ST-authored
+        RULE reaches a player, and those are different claims with a measured gap between them.
+        components.css is loaded by the player document and already contains 55 classes emitted only
+        by admin sources across 88 rule blocks — 45 of them the stm-audit-* family. I ran
+        `admin-collision-map.py --st-in-lib --check` on dev d818b4c0 myself rather than cite the
+        figure: exit 0, 55 classes, 88 blocks, no increase over the blessed baseline of 55. The tool
+        prints its own method limit — static emitter analysis treats a class the player side builds
+        by string concatenation as admin-only, so 55 is an UPPER BOUND.
+        MEMBERSHIP AMENDED 2026-07-31 (ADR-008 Rev 15). The COUNT above is unchanged and still correct
+        at 55, but the SET is not the one I measured: the emitter scan that produced it used a
+        quote-terminated regex, so `done` was a PHANTOM (a JS identifier captured out of
+        `${cond ? ' x' : ''}`) and leaves, while stm-mod-row--inactive was being missed and enters. The
+        Architect deleted and re-blessed rather than amending, on the grounds that a baseline
+        established by a defective instrument is not a baseline — and the ratchet refused his amendment
+        when he first tried it, which is the mechanism working against its own author. Re-verified on
+        dev 176ae0e4: exit 0, 55 classes, 88 blocks, upper-bound qualifier printed, and
+        st-in-lib-baseline.json holds 55 entries with `done` absent and stm-mod-row--inactive present.
+        AND A CORRECTION TO MY OWN CLAIM, which matters more than the membership. I wrote that I had
+        "verified the baseline rather than citing it". That was weaker than I presented it: I ran the
+        SAME INSTRUMENT its author ran. That is independence of EXECUTION, not of METHOD, and by the
+        correlated-checks rule I have applied to everyone else this epic it was one check run twice,
+        not two checks. The count survived only because the tokeniser defect happened to net to zero
+        across the set while changing which classes were in it. A second RUN would never have caught
+        that; only a second METHOD did, and it was the Architect's, not mine.
+        This PR neither adds to that set nor touches components.css, so the ratchet is unaffected; the
+        pre-existing gap is named and gated, not unknown. The correction is to the wording of the
+        claim, not to the result.
+    - id: "AC8 — the player-submits half"
+      verdict: NOT DEMONSTRATED — see limits, not a pass and not a failure
+      evidence: >
+        I could not make the DT form issue a submission write in the harness. The form renders and
+        accepts input (an action selection sticks), but no POST/PUT to /api/downtime_submissions was
+        observed and #dt-save-status never exists. Tried the unmodified tree, then the newest cycle
+        forced to 'active', then additionally a seeded draft submission for the harness character.
+        Stopped there rather than keep digging or overstate the result.
+
+gates_run:
+  - "admin-leak-gate.py --check -> exit 0 (captured directly, not through a pipe), 0 modules statically reachable, no increase over baseline. Third independent run."
+  - "write-path-inventory.py --touches origin/dev -> exit 0, DISPLAY-ONLY CERTIFIED. Note the wording is now file-granularity — 'the diff touches no file containing a write site' — which is stronger than the hunk-intersection form I raised as leak1075-02, and legitimately passes here because none of the four files carrying inventory sites is in this diff."
+
+findings: []
+
+limits:
+  - id: "1 — the player-submits half of AC8 is untested"
+    detail: >
+      It is a rig limitation, not a finding against the change, and it does not bear on what this PR
+      alters. The claim AC8 exists to protect is that no admin SHEET or MODULE reaches a player (see the
+      scope_correction on that check — it is not a claim about ST-authored RULES, of which 55 already
+      reach the player via components.css), and that narrower claim is demonstrated across boot and a
+      fully-rendered downtime form. A submission write exercises the DT
+      save path, which this diff does not touch: write-path-inventory certifies display-only at file
+      granularity, and none of the four files holding inventory write sites appears in the diff. So
+      the untested limb is orthogonal to the risk. It should still be closed the next time the DT save
+      path itself is in scope.
+  - id: "2 — two of my own measurements were wrong before they were right"
+    detail: >
+      The .sphere-only family regex, and the comment-prose false positive that briefly made
+      sphere-card-vacant look misbucketed. Both were caught by the results disagreeing with
+      themselves rather than by care, which is an argument for cross-checking a measurement against a
+      second derivation rather than trusting a single clean-looking number. Recorded because this
+      gate's whole subject is measuring at the right boundary.
+
+rig_carry_verdict: >
+  The marker I set after Tickets was that surface two's behavioural pass should be materially cheaper,
+  and that if it were not I would say so with the number rather than the impression. IT WAS CHEAPER,
+  and specifically: AC9, AC1 and the pyramid all landed on the FIRST attempt in a single script,
+  where the Tickets equivalents took several iterations to find the surface and its state. What
+  carried, unchanged: serving a copy of the tree with a byte-identical check on every file under
+  test, fixture-data-only patching, the session-sanity assertion before trusting a negative, role-
+  scoped network observation, and computed-style measurement to settle a rendering question.
+  What did NOT carry is the player-write path, and honestly it was never part of the rig — Tickets
+  wrote through tickets-views.js, and the DT form's autosave was solved in a different session under
+  fixture conditions I could not reproduce here. So the fair verdict is that the rig carried for the
+  class of work these ADM surfaces actually are (CSS split, gated loading, role isolation) and does
+  not yet cover DT-form writes. Building that is the outstanding rig debt.
+
+recommendation: >
+  PASS — merge. The split is a true relocation with nothing edited, every class is bucketed correctly
+  by emitter, the single cross-bucket co-occurrence has disjoint declarations so injection order is
+  free, and the one ordering dependency that survived is intra-file and demonstrably still resolving
+  in both documents. The regression everyone predicted in admin.html does not occur. An ST gets the
+  surface on demand and a player gets nothing. Both gates pass, run independently and captured
+  without a pipe. The single undemonstrated limb is orthogonal to what this PR changes and is
+  recorded as untested rather than passed.

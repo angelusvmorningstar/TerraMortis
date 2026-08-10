@@ -1,0 +1,286 @@
+schema: 1
+story: "adm.1"
+stage: "A (retire the dead player Tickets copy) — PR1 dereference + PR2 delete"
+story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate"
+gate: PASS
+scope_note: >
+  STAGE A ONLY, on the SM's instruction. Stage B is halted pre-implementation on the
+  admin-layout.css coverage blocker and is NOT in these PRs; nothing here adjudicates AC4-AC10 or
+  AC13. Story Status is deliberately left at 'Approved' by the dev rather than advanced, because
+  advancing it would signal whole-story completion when only Stage A exists. That is declared at the
+  top of the Dev Agent Record, I agree with it, and QA has not altered it.
+status_reason: >
+  Stage A is a pure deletion — 0 additions, 254 deletions across public/ — and every claim it rests
+  on re-derives cleanly. The three load-bearing assertions were checked independently rather than
+  accepted: the #t-tickets surface really was unreachable (this is now a THIRD independent check, and
+  I extended it to the one class of route the first two could not have caught); all 29 deleted
+  suite.css rule blocks are dead per-rule, not merely per-family; and the live Settings ticket form
+  is intact in both markup and wiring. All four invariants hold, three of them trivially because the
+  change adds nothing. Boot smoke passes both roles against the PR2 tree with zero pageErrors and
+  zero console errors. No HALT condition triggered. Stage A can merge independently of the Stage B
+  ruling: every resolution path to the Stage B CSS question still deletes these rules, so the
+  deletion is unconditionally correct — I reached that conclusion independently and it matches the
+  SM's and the dev's.
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-30"
+commit_provenance: >
+  IMPORTANT, and a live instance of the workdir hazard the SM flagged. This review was dispatched
+  against aa7e6c40, which `gh` reported as PR2's head, and all evidence below was gathered there.
+  On completing the review I found PR2's branch tip was 5dc5cbab and that aa7e6c40 is NOT an ancestor
+  of it — the branch had been REBASED under me mid-review, onto two new story commits (54184f3a
+  Stage B revised per ADR-008 Rev 4 scope separation + dual gating; faf6dd64 AC-numbering collision
+  fix). I re-verified rather than assuming: `git diff aa7e6c40 5dc5cbab -- public/` is EMPTY, so
+  every product file is byte-identical between the commit I gated and the current tip, and all code
+  verdicts carry over unchanged. What DID change is the story: Stage A AC1-3 are unchanged in
+  substance (AC2 now names the 31-line delivery explicitly, which strengthens that verdict), but the
+  invariants renumbered 11/12/13 -> 19/20/21 and Stage B grew from AC4-10 to AC4-18. This gate is
+  re-based onto 5dc5cbab and its AC numbering corrected to Rev 4. Anyone reading a gate that cites
+  AC11-13 as invariants is reading the pre-Rev-4 numbering.
+  Also note the dispatch briefed me on ADR-008 Rev 3; Rev 4 exists and adds D9.
+  SECOND PROVENANCE FINDING, on landing this gate — RESOLVED before this gate merged, recorded
+  because the sequence is the lesson. At the time Stage A merged, the STORY file on dev was still
+  Rev 3 while ADR-008 on dev was Rev 4. Commit 0d78620b merged the ADR alone (1 file, +47/-5); the Rev 4 story
+  revisions (54184f3a, faf6dd64) live only on piatra/issue-1068-adm-p1-tickets and its sub-branches
+  and did NOT reach dev through #1069/#1070. So dev currently carries a Rev 4 ADR beside a Rev 3
+  story: no AC11-18, invariants still at AC11-13, and AC2 still says "28 dead rules" rather than
+  naming the 31-line delivery. Because this gate may sit beside either version, every AC verdict
+  below is labelled with BOTH numberings (Rev3 x / Rev4 y). The Stage A verdicts are unaffected by
+  which one lands — AC1-3 are identical in substance in both revisions. Flagged for the SM: the
+  story on dev was brought to Rev 4 first (PR #1072), and only then was this gate landed, so it sits
+  beside the numbering it cites. Cause, per the SM: the Rev 4 story revisions were committed to the
+  story branch AFTER the PR head branches had been pushed, and were never propagated to them; the
+  rebase that carried them existed only in the dev's local worktree and never reached origin. Two
+  branches, one of them local-only, and nobody checked which one the PRs pointed at. The dual AC
+  labelling below is therefore belt-and-braces rather than load-bearing, and is retained
+  deliberately at the SM's request.
+
+waiver: { active: false }
+
+top_issues: []
+
+re_derivations:
+  - id: "1. the surface really is unreachable"
+    verdict: CONFIRMED
+    method: >
+      Checked against the PRE-PR1 tree (406b6d08^) via git grep, not against the post-deletion state,
+      so the question asked is the one that matters: could anything reach #t-tickets BEFORE the
+      dereference. Every case-insensitive 'tickets' occurrence in public/ (excluding tickets-tab.js
+      itself, admin/, node_modules, and the scraped netlify mirror) resolves to exactly six things:
+      admin.html's own separate Tickets domain (:60, :182-184) and admin.js's wiring for it (:42,
+      :325) — a different surface entirely, untouched; the suite.css section being deleted; the
+      index.html div being deleted; app.js:74 + :524-526, the two references PR1 removes; app.js:1564,
+      the epitaph comment "Tickets removed — submit form is in Settings"; app.js:1812, the LIVE
+      Settings POST; and the dev-fixtures/dt-proto-boot API mocks. No nav array entry, no More-grid
+      entry, no hardcoded goTab('tickets'), no NAV_ALIAS entry.
+    extension_beyond_prior_checks: >
+      A literal 'tickets' grep cannot rule out a GENERIC router, which would reach the tab without
+      ever naming it — so I checked that class separately, since it is the only way three independent
+      reviewers could all miss the same route. Result: there is no hashchange, popstate,
+      location.hash, or pathname-based tab routing anywhere in public/js. The only dynamic goTab call
+      sites are template-interpolated from nav metadata — goTab('${app.id}') from MORE_APPS,
+      goTab('${item.goTab}') from NAV_ITEMS, goTab('${id}') — plus goTab(currentTab). I enumerated
+      both arrays programmatically: MORE_APPS has 18 ids, NAV_ITEMS 48 entries (25 distinct ids),
+      and 'tickets' is in neither. goTab(currentTab) is the one that looked capable of it, but
+      currentTab is derived at app.js:1065 from document.querySelector('.tab.active')?.id — it reads
+      the tab that is ALREADY active from the DOM, not from localStorage or a URL, so it can only
+      re-enter a tab something else already opened. It cannot introduce one.
+    conclusion: >
+      #t-tickets was unreachable through the UI. window.goTab is exposed at app.js:2371 so a console
+      call would have rendered it, exactly as the story states; that is not a UI path. Note also the
+      div was EMPTY in index.html — all content came from renderTicketsTab — so even a console call
+      after PR1 and before PR2 would have produced a blank tab, which is precisely why the ADR-007 D8
+      two-step ordering is the right one here even though nothing reached the module.
+  - id: "2. the 31 deleted suite.css lines were all dead"
+    verdict: CONFIRMED, per-rule
+    method: >
+      Deliberately NOT done at family granularity — ADR-008 D8 rule 4, which exists because a
+      family-level sweep previously reported '11 dead .map-* rules' when only 1 was dead. Extracted
+      the deleted lines from the PR2 diff and worked per RULE BLOCK, splitting every comma-group into
+      its individual selectors. Line accounting reconciles the declared 31-vs-28: 1 section comment
+      + 1 #t-tickets.active + 28 .tk-* rules + 1 trailing blank = 31. That is 29 rule blocks.
+      For each block, extracted every tk- token and searched the whole tree with a true word boundary
+      ((?<![\w-])tk-…(?![\w-])), which is what distinguishes tk-body from the Settings form's
+      stk-body. Then classified each emitter by DOCUMENT reachability rather than mere existence,
+      because suite.css is linked by index.html and by nothing else (verified: index.html:19-22 loads
+      theme/layout/components/suite; admin.html:11-13 loads theme/components/admin-layout and never
+      suite.css).
+    result: >
+      29 of 29 rule blocks have ZERO index-reachable emitters. No rule has a surviving emitter, so
+      the HALT condition did not trigger. Independently confirms the dev's stronger claim: zero
+      word-boundary tk- tokens remain in app.js post-PR2, and I extended that sweep across every
+      index-reachable module (index.html, app.js, all of js/tabs/ and js/suite/) — all zero.
+    the_apparent_exceptions_resolved: >
+      Three sources emit these tokens and none is a reason to keep the suite copy.
+      (a) public/js/admin/tickets-views.js and public/css/admin-layout.css — this is the dev's
+      independent-dual-authoring finding and my scan reproduces it exactly: the same class names
+      defined once per document, admin-side. They are emitted into admin.html, which never loads
+      suite.css, so they cannot be styled by the deleted rules.
+      (b) public/mockups/font-test.html — checked specifically rather than dismissed as a mockup. It
+      is fully self-contained: its only <link> is the Google Fonts stylesheet and everything else is
+      an inline <style> block. It never loads suite.css, so its tk- tokens are styled by its own
+      inline CSS and are unaffected.
+      (c) The Settings form's stk-* IDs — substring noise, excluded correctly by the word boundary.
+  - id: "3. the Settings ticket form still works"
+    verdict: CONFIRMED
+    method: >
+      Checked both halves, not just the wiring the story cites. WIRING at app.js:1799 (the story says
+      :1807, the dev's record says :1807 after PR1's 5-line shift; it reads :1799 in the PR2 tree —
+      an immaterial line-number drift, the code is identical and intact): binds #stk-submit and reads
+      #stk-type, #stk-title, #stk-body, #stk-status, then awaits apiPost('/api/tickets', …). MARKUP at
+      app.js:1737 emits the button as class="settings-btn" id="stk-submit" — I traced this
+      deliberately, because if the form's markup had been emitted by the deleted tickets-tab.js the
+      wiring would survive with nothing to bind to. It was not: the deleted tickets-tab.js contains
+      zero stk- tokens. Both markup and wiring live in app.js, and PR2 does not touch app.js at all
+      (its diffstat is suite.css, index.html, tickets-tab.js, story only), while PR1 touches only
+      lines 74 and 524 — far from either site.
+    result: >
+      Form intact. Uses only #stk-* IDs, carries no .tk-* class (app.js has zero word-boundary tk-
+      tokens post-PR2), POST /api/tickets still wired. AC3 satisfied.
+
+invariants_checked:
+  - id: "ADR-007 D7.1 — no write-path inventory entry touched"
+    result: PASS
+    note: >
+      specs/architecture/usf-write-path-inventory.md lists its sites in public/js/admin.js (x5),
+      public/js/player/downtime-form.js, public/js/admin/feeding-tab.js and public/js/admin/story-tab.js.
+      Stage A touches none of those files — its complete file set is app.js, index.html, suite.css and
+      the deleted tickets-tab.js. The inventory names none of them. CAVEAT, flagged not blocking: the
+      architect is currently working on piatra/write-path-inventory-rev4, so this check is against the
+      version committed at aa7e6c40. If Rev 4 adds entries in app.js the check should be re-run,
+      though Stage A's app.js edits are an import removal and a dispatcher-branch removal, neither of
+      which is a write site under any plausible definition.
+  - id: "ADR-007 D7.2 — every new effectiveRole() call site is a review stop"
+    result: PASS (not triggered)
+    note: "Stage A has 0 additions across public/. No call site of any kind is added, effectiveRole() included."
+  - id: "ADR-004 — overlay / cache-entry invariant"
+    result: PASS
+    note: >
+      No overlay or stash code in the diff. The only JS change to a surviving file is PR1's removal of
+      an import at app.js:74 and a 4-line dispatcher branch at :520-524; applyStMods, stripOverlay and
+      charsForSave are untouched.
+  - id: "ADR-008 D5a / ADR-007 D8 — dereference before delete, as two merges"
+    result: PASS
+    note: >
+      PR1 (406b6d08) removes both static references; PR2 (stacked on PR1, not on dev) deletes the
+      module, the div and the CSS. Correct order and genuinely two merges. Keeping them separate was
+      right even though nothing reached the module, because app.js:74 and :524 were real static
+      references — had they shipped in one commit, a bisect landing mid-way would have had an import
+      of a deleted file.
+  - id: "ADR-008 AC13 — no components.css promotion"
+    result: PASS
+    note: "components.css is not in either diff. Nothing promoted anywhere; Stage A only deletes."
+
+ac_verdicts:
+  - ac: 1
+    text: "PR1: the app.js:74 import of renderTicketsTab and the app.js:524 if (t === 'tickets') branch are removed"
+    verdict: PASS
+    evidence: >
+      PR1 diff is exactly those two hunks and nothing else: -import { renderTicketsTab } from
+      './tabs/tickets-tab.js' and the 4-line dispatcher branch. 5 deletions, 0 additions, 1 file.
+  - ac: 2
+    text: "PR2: tickets-tab.js, the #t-tickets div, and the 28 dead .tk-* rules in suite.css are deleted"
+    verdict: PASS
+    evidence: >
+      tickets-tab.js deleted (217 lines, confirmed absent from the tree). index.html loses exactly
+      one line, the <div id="t-tickets" class="tab"></div>. suite.css loses 31 lines = the 28 rules
+      plus the declared scope addition. Post-delete brace balance 1442/1442 BALANCED, independently
+      recomputed and matching the dev's figure; section spacing preserved at the cut. Zero residual
+      references to renderTicketsTab / tickets-tab / t-tickets anywhere in public/.
+  - ac: 3
+    text: "The Settings ticket-submit form is unaffected (POST /api/tickets)"
+    verdict: PASS
+    evidence: "See re-derivation 3. Markup app.js:1737 and wiring app.js:1799 both intact; PR2 does not touch app.js."
+  - ac: "Rev3 4-10 / Rev4 4-18"
+    text: "Stage B acceptance criteria (merge the surface; plus, in Rev 4 only, surface stylesheet / D9 scope separation)"
+    verdict: NOT ADJUDICATED — out of scope
+    evidence: >
+      Stage B is halted pre-implementation and is not in these PRs. Gated separately when it lands;
+      Peter reviews it personally. Note AC11-18 did not exist when this review was dispatched — they
+      were added by story Rev 4 (ADR-008 D9) in response to the Stage A blocker. Nothing in Stage A
+      touches them: no admin-tickets.css is created, no rule is extracted, no load path is added.
+  - ac: "Rev3 11 / Rev4 19"
+    text: "D7.1 — no write-path inventory entry touched"
+    verdict: PASS
+    evidence: "See invariants. Inventory names none of the four files Stage A touches."
+  - ac: "Rev3 12 / Rev4 20"
+    text: "D7.2 — every new effectiveRole() call site is a review stop"
+    verdict: PASS (not triggered)
+    evidence: >
+      Zero additions in Stage A, so no call site of any kind is added. The one deliberate new call
+      site the invariant now anticipates (AC15, inside applyRoleRestrictions()) belongs to Stage B
+      and is not present here.
+  - ac: "Rev3 13 / Rev4 21"
+    text: "No components.css promotion in this story"
+    verdict: PASS
+    evidence: "components.css absent from both diffs. Stage A only deletes; nothing is promoted or extracted."
+
+evidence:
+  files_reviewed:
+    - public/js/app.js (PR1 diff; Settings form markup :1737 and wiring :1799; nav arrays; goTab)
+    - public/index.html (div deletion; stylesheet links :19-22)
+    - public/css/suite.css (31 deleted lines, per-rule; brace balance)
+    - public/js/tabs/tickets-tab.js (deleted — read at 406b6d08 to confirm it emitted no stk-)
+    - public/admin.html + public/js/admin.js + public/js/admin/tickets-views.js (separate surface, untouched)
+    - public/css/admin-layout.css (dual-authoring confirmation)
+    - public/mockups/font-test.html (self-contained; does not load suite.css)
+    - specs/architecture/usf-write-path-inventory.md
+  checks_run:
+    - "git grep -i tickets against the PRE-PR1 tree (406b6d08^) across public/ — six resolved classes of hit, no route"
+    - "generic-router sweep: no hashchange / popstate / location.hash / pathname tab routing exists"
+    - "MORE_APPS (18 ids) and NAV_ITEMS (48 entries) enumerated programmatically — 'tickets' in neither"
+    - "goTab(currentTab) provenance traced to app.js:1065 — reads .tab.active from the DOM, cannot introduce a tab"
+    - "per-rule emitter analysis, 29 rule blocks, word-boundary (?<![\\w-])tk-…(?![\\w-]) — 0 index-reachable emitters"
+    - "document-linkage check: suite.css linked only by index.html; admin.html never loads it; font-test.html self-contained"
+    - "zero word-boundary tk- tokens across index.html, app.js, js/tabs/*, js/suite/* post-PR2"
+    - "Settings form markup (:1737) and wiring (:1799) both located and confirmed intact; deleted module had 0 stk- tokens"
+    - "suite.css brace balance 1442/1442"
+    - "Stage A numstat across public/: 0 additions, 254 deletions (31+1+5+217)"
+    - "write-path inventory cross-check — none of the four touched files appears"
+    - "boot smoke usf-smoke.mjs against the PR2 tree, both roles — pass:true, pageErrors:[], meaningfulConsoleErrors:[], benignFiltered:0"
+
+notes:
+  - >
+    BOOT SMOKE WAS RUN WITH THE API UP, DELIBERATELY. Per usf.1-08(3) the harness's BENIGN console
+    filter includes /Failed to load resource/, broad enough to swallow a stylesheet or module 404 —
+    which is exactly the failure mode a delete-only change could produce. Running with the local API
+    connected drove benignFiltered to 0 for both roles, so nothing was filtered and the clean result
+    is not an artefact of the over-broad filter. I also confirmed the static server returns 404 for
+    /js/tabs/tickets-tab.js on the PR2 tree, i.e. the delete really is being served.
+  - >
+    ON THE 31-vs-28 SCOPE ADDITION. Declared by the dev and approved by the SM before I saw it, and I
+    agree with the reasoning independently: #t-tickets.active styles an id whose element dies in the
+    same PR, so leaving it would strand a rule for a non-existent element — the exact condition D8
+    exists to prevent. Worth recording that the declaration is what made this cheap to gate. An
+    undeclared 31-vs-28 discrepancy would have read as possible collateral and forced me to
+    reconstruct intent from the diff.
+  - >
+    THE DUAL-AUTHORING FINDING IS CORROBORATED, and I think it is the most consequential thing in
+    this shard for the remaining 16 surfaces. My per-rule scan independently reproduces it: the
+    classes emitted by admin/tickets-views.js are defined in admin-layout.css AND were defined in
+    suite.css, separately, with different values, one authoring per document. The reason this matters
+    for gating rather than only for design is that the usual reachability question — "is this rule
+    dead?" — has a different answer per document, and a tree-wide grep cannot express that. Any
+    emitter found in admin/ is irrelevant to whether a suite.css rule is dead, because the two
+    documents never load each other's stylesheet. A reviewer who greps the tree and finds
+    tickets-views.js emitting .tk-badge would wrongly conclude the suite.css .tk-badge rule is live.
+    That is the same failure shape as the .map-* family-granularity error and as USF-1's usf.1-07:
+    the measurement has to be scoped to the unit the decision applies to — here the DOCUMENT, not
+    the repository.
+  - >
+    This is the fourth surface in this codebase found live-in-source and unreachable-in-fact
+    (player.html, the 193 suite/player duplications, t-map #1067, now t-tickets). The third
+    independent check was proportionate rather than paranoid, and I would keep doing it — but I would
+    note that all three of us checked the same WAY (grep for the surface name). The generic-router
+    class of route is the one a name-grep structurally cannot find, so if a fifth instance is checked,
+    that is the check worth adding rather than a fourth pair of eyes on the same method.
+
+recommendation: >
+  PASS — Stage A can merge, and it can merge independently of the Stage B ruling. PR1 then PR2, in
+  that order; PR2 is stacked on PR1 and must not be retargeted to dev before PR1 lands. The change is
+  0 additions / 254 deletions, every load-bearing claim re-derives, all four invariants hold, no HALT
+  condition triggered, and boot smoke is clean on both roles with nothing hidden by the console
+  filter. On independence from Stage B: the Stage B question is which document should style the
+  merged surface, and every answer to it — promote to components.css, a per-surface admin-tickets.css,
+  or re-scope CSS to P2 — still requires suite.css's player-authored values to stop applying to
+  admin markup. So these rules are deleted on every path. I reached that independently and it agrees
+  with the dev's and the SM's reading. Stage B remains correctly halted and is not adjudicated here.

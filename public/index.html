@@ -216,6 +216,119 @@
       <!-- Feeding moved to More grid → Feeding app (nav-2-5) -->
     </div>
 
+    <!-- ═══ ROLL TAB (v2 — parallel dev surface, gated by
+             `tm-use-new-dice-roller` flag; issues #1018, #1024).
+
+             Slice A+D layout: effective-pool as the visual anchor;
+             segmented Again rule. The load-bearing "shared surface"
+             IDs (sc-*, roll-char-pools, weapon-ref, resist-*,
+             lifecycle-cards, btn-contested, effline, res-hdr,
+             dice-area, hlist, rote-c, wp-c, pval, mval, roll-btn) are
+             preserved so external touch-points (pickChar,
+             applyRoleRestrictions, renderLifecycleCards,
+             shared/resist.js, game/contested-roll.js) continue to
+             work unchanged. New rv2-* IDs drive the anchor + seg
+             control and are painted by roll-v2.js. ═══ -->
+    <div id="t-roll" class="tab">
+      <div id="lifecycle-cards" style="display:none"></div>
+      <div class="shortcut-row">
+        <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
+          <span class="sc-label" id="sc-char-lbl">Character</span>
+          <span class="sc-val" id="sc-char-val"></span>
+        </button>
+        <button class="sc-btn" id="sc-disc" onclick="openPanel('disc')">
+          <span class="sc-label" id="sc-disc-lbl">Discipline</span>
+          <span class="sc-val" id="sc-disc-val"></span>
+        </button>
+        <button class="sc-btn" id="sc-common" onclick="openPanel('common')">
+          <span class="sc-label">Common</span>
+        </button>
+        <button class="sc-btn sc-btn-auspex" id="sc-auspex" onclick="openPanel('auspex')" style="display:none">
+          <span class="sc-label">Auspex</span>
+        </button>
+      </div>
+      <div id="roll-char-pools" style="display:none"></div>
+
+      <!-- Anchor: huge effective pool + always-visible sub-line -->
+      <div class="rv2-anchor">
+        <div class="rv2-eff-wrap">
+          <span id="rv2-eff" class="rv2-eff">5</span>
+          <span id="rv2-eff-unit" class="rv2-eff-unit">dice</span>
+        </div>
+        <div id="rv2-sub" class="rv2-sub">base 5 &middot; 10-again</div>
+      </div>
+
+      <!-- Base + Mod compact steppers -->
+      <div class="rv2-steppers">
+        <div class="rv2-stepper">
+          <div class="rv2-stepper-lbl">Base</div>
+          <div class="rv2-stepper-row">
+            <button class="rv2-adj" onclick="chgPool(-1)">&minus;</button>
+            <span id="pval" class="rv2-stepper-val">5</span>
+            <button class="rv2-adj" onclick="chgPool(1)">+</button>
+          </div>
+        </div>
+        <div class="rv2-stepper">
+          <div class="rv2-stepper-lbl">Mod</div>
+          <div class="rv2-stepper-row">
+            <button class="rv2-adj" onclick="chgMod(-1)">&minus;</button>
+            <span id="mval" class="rv2-stepper-val">0</span>
+            <button class="rv2-adj" onclick="chgMod(1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="weapon-ref" style="display:none"></div>
+
+      <div id="resist-sec" style="display:none;">
+        <div class="slabel" id="resist-lbl">Resistance</div>
+        <select id="resist-sel" class="resist-sel" onchange="updResist()">
+          <option value="">&#8212; select target &#8212;</option>
+        </select>
+        <div id="resist-line" class="resist-line"></div>
+      </div>
+
+      <!-- Segmented Again rule — replaces a8/a9 buttons + na-c chip -->
+      <div class="rv2-again-wrap">
+        <div class="rv2-again-lbl">Again rule</div>
+        <div id="rv2-again-seg" class="rv2-again-seg">
+          <button type="button" data-again="10"   onclick="setAgainSeg('10')">10</button>
+          <button type="button" data-again="9"    onclick="setAgainSeg('9')">9</button>
+          <button type="button" data-again="8"    onclick="setAgainSeg('8')">8</button>
+          <button type="button" data-again="none" onclick="setAgainSeg('none')">None</button>
+        </div>
+      </div>
+
+      <!-- Rote + WP still compose with the Again rule -->
+      <div class="rv2-chip-row">
+        <button class="mchip" id="rote-c" onclick="togMod('rote')">Rote</button>
+        <button class="mchip wp-chip" id="wp-c" onclick="togMod('wp')">WP (+3)</button>
+      </div>
+
+      <!-- Full breakdown lives inside a disclosure so it's available but
+           not competing with the anchor for visual weight. -->
+      <details class="rv2-breakdown">
+        <summary>Pool breakdown</summary>
+        <div id="effline" class="effline">Effective pool: <span>5 dice</span></div>
+      </details>
+
+      <!-- Sticky bottom Roll button; label updates on every state change. -->
+      <button id="roll-btn" class="rv2-roll-btn" onclick="doRoll()">&#10022; ROLL 5 DICE</button>
+      <button id="btn-contested" onclick="openContestedRoll()" style="display:none">Contested Roll</button>
+
+      <div id="res-area">
+        <div id="res-hdr"></div>
+        <div id="dice-area"><div class="empty-d">No rolls yet</div></div>
+      </div>
+      <div>
+        <div class="hist-hdr">
+          <div class="slabel slabel-inline">History</div>
+          <button class="hist-clr" onclick="clrHist()">Clear</button>
+        </div>
+        <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
+      </div>
+    </div>
+
     <!-- ═══ TERRITORY TAB ═══ -->
     <div id="t-territory" class="tab">
       <div id="terr-root"></div>
@@ -252,6 +365,14 @@
     <div id="t-game-guide" class="tab"></div>
     <div id="t-ordeals" class="tab"></div>
     <div id="t-relationships" class="tab"></div>
+    <!-- ST Tickets queue (ADM-1). Filled by initTicketsSurface from
+         admin/tickets-views.js, gated on getRole(). -->
+    <!-- ST Spheres (#1096). The inner id is required: initSpheresView() takes no
+         container argument and looks up #spheres-content itself
+         (spheres-view.js:29). Providing the id here is what keeps that module
+         unmodified. Do not rename it or merge the two elements — goTab needs
+         the outer #t-spheres, the module needs the inner #spheres-content. -->
+    <div id="t-spheres" class="tab"><div id="spheres-content"></div></div>
     <div id="t-tickets" class="tab"></div>
     <div id="t-devlog" class="tab"></div>
     <div id="t-emergency" class="tab"></div>

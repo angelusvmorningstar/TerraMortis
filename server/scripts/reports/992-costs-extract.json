@@ -1,0 +1,62 @@
+[
+  {
+    "key": "feral-whispers",
+    "name": "Feral Whispers",
+    "cost_raw": "None"
+  },
+  {
+    "key": "iron-edict",
+    "name": "Iron Edict",
+    "cost_raw": "1 Vitae; none if victim is in Vinculum with the vampire"
+  },
+  {
+    "key": "awe",
+    "name": "Awe",
+    "cost_raw": "None"
+  },
+  {
+    "key": "confidant",
+    "name": "Confidant",
+    "cost_raw": "None"
+  },
+  {
+    "key": "loyalty",
+    "name": "Loyalty",
+    "cost_raw": "2 Vitae"
+  },
+  {
+    "key": "dread-presence",
+    "name": "Dread Presence",
+    "cost_raw": "None"
+  },
+  {
+    "key": "face-of-the-beast",
+    "name": "Face of the Beast",
+    "cost_raw": "1 Vitae **136** **Vampire: the Requiem**"
+  },
+  {
+    "key": "grand-delusion",
+    "name": "Grand Delusion",
+    "cost_raw": "2 Vitae"
+  },
+  {
+    "key": "waking-nightmare",
+    "name": "Waking Nightmare",
+    "cost_raw": "1 Vitae"
+  },
+  {
+    "key": "beasts-skin",
+    "name": "Beast's Skin",
+    "cost_raw": "2 Vitae"
+  },
+  {
+    "key": "predatory-aspect",
+    "name": "Predatory Aspect",
+    "cost_raw": "1 Vitae"
+  },
+  {
+    "key": "unmarked-grave",
+    "name": "Unmarked Grave",
+    "cost_raw": "Varies; 0 for soil or earth, otherwise Vitae equal to the Durability of the material."
+  }
+]

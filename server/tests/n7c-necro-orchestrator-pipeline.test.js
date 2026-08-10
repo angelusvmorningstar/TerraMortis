@@ -72,6 +72,11 @@ const NECRO_GRANT = {
     'Catacombs', 'Caldarium', 'Garbage Pit',
     'Labyrinth Guardians', 'Dark Temple', 'White Ants',
   ],
+  // COLLECTIVE-2 (#1110): the discovery predicate is
+  // sharing_scope.type === 'collective_owners_of_merit' (ADR-005 Rev 2 D3).
+  // Live tm_suite carries this on the Necropolis doc (story Task 0), so the
+  // fixture must too or the compound is invisible to the renderer.
+  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
 };
 
 function mkRulesCache() {
@@ -214,7 +219,9 @@ describe('N-7c — full pipeline: applyDerivedMerits → shRenderDomainMerits', 
     // a11y additions per N-7c secondary fix — id + aria-label so browsers
     // don't flag the form-field warning.
     expect(html).toMatch(/id="bd-necro-\d+"/);
-    expect(html).toContain('aria-label="Necropolis pool allocation"');
+    // COLLECTIVE-2 (#1110): aria-label is data-derived from the compound's
+    // source merit — 'Necropolis Sepulcher', not the hardcoded 'Necropolis'.
+    expect(html).toContain('aria-label="Necropolis Sepulcher pool allocation"');
   });
 
   it('pool counter reflects spent dots when free_grants.necro is set', () => {
@@ -240,9 +247,11 @@ describe('N-7c — orchestrator dispatch sanity guard', () => {
     expect(src).toMatch(/applyPoolRulesFromDb\(c,\s*getRulesBySource\(['"]Necropolis Sepulcher['"]\)\)/);
   });
 
-  it('NECRO stepper has id + aria-label for accessibility', () => {
+  it('compound stepper has id + aria-label for accessibility', () => {
     const src = read('public/js/editor/xp.js');
-    expect(src).toMatch(/id="bd-necro-/);
-    expect(src).toMatch(/aria-label="Necropolis pool allocation"/);
+    // COLLECTIVE-2 (#1110): both are interpolated from the compound
+    // descriptor now; the rendered form is asserted behaviourally above.
+    expect(src).toMatch(/id="bd-' \+ _cmp\.slug \+ '-/);
+    expect(src).toMatch(/aria-label="' \+ esc\(_cmp\.source \|\| _cmp\.slug\) \+ ' pool allocation"/);
   });
 });

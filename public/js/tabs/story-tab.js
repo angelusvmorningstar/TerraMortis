@@ -6,7 +6,13 @@
 import { apiGet, apiPost, apiPut, apiPatch } from '../data/api.js';
 import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { isSTRole, getPlayerInfo } from '../auth/discord.js';
-import { compilePushOutcome } from '../admin/downtime-story.js';
+
+// compilePushOutcome from '../admin/downtime-story.js' is NOT imported statically.
+// It is ST-only, used at one call site, and pulled in 214 KB of admin code on
+// every player page load (ADR-008 D4, #1075). It is loaded by dynamic import()
+// in handleSectionSave and prewarmed in handleSectionEditClick. Both use the
+// same specifier string so the module map serves one fetch, not two.
+// Re-adding a static import here fails specs/qa/harness/admin-leak-gate.py.
 
 // DTSR-4: chronicle context for inline ST edit on historical cycles. Set by
 // renderStoryTab on each render so click handlers can locate the active sub
@@ -972,6 +978,13 @@ function handleSectionEditClick(btn) {
   const container = _editorContainer(sectionEl);
   if (!container) return;
 
+  // Prewarm the ST-only recompiler (#1075). Deliberately NOT awaited: the fetch
+  // runs while the ST types, so the await in handleSectionSave resolves from the
+  // module map and the save never pauses on 200 KB. Rejection is swallowed on
+  // purpose — nothing is waiting on this, and the save path's await is what
+  // surfaces a genuine load failure. Reporting here would be spurious.
+  import('../admin/downtime-story.js').catch(() => {});
+
   container.dataset.originalHtml = container.innerHTML;
   const rows = isRumourLi ? 2 : 6;
   container.innerHTML =
@@ -1036,6 +1049,18 @@ async function handleSectionSave(btn) {
     const i = parseInt(sectionIdx, 10);
     sn[sectionKey] = sn[sectionKey] || [];
     sn[sectionKey][i] = { ...(sn[sectionKey][i] || {}), response: newText };
+  }
+
+  // Loaded on use, not on boot (#1075). Normally already resolved by the
+  // prewarm in handleSectionEditClick, so this awaits the module map rather
+  // than the network. If the prewarm failed, this is where the failure is
+  // surfaced, in the same shape as the apiPut catch below.
+  let compilePushOutcome;
+  try {
+    ({ compilePushOutcome } = await import('../admin/downtime-story.js'));
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `Failed: ${err?.message || 'could not load recompiler'}`;
+    return;
   }
 
   const recompiled = compilePushOutcome(sub, char);

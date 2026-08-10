@@ -17,7 +17,10 @@ import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEED
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
-import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+// OATH-B (#1111): applySuspensionTo is the single expression for what an
+// oath suspension does to a dot figure — used here by the three sites that
+// legitimately compute dots without going through meritEffectiveRating.
+import { freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
 import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
@@ -30,6 +33,8 @@ import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
 // other NPC-picker-driven UI under the suppression policy.
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { isMinimalComplete, missingMinimumPieces } from '../data/dt-completeness.js';
+// #1001: canonical in-game-phase test (game_phase wins over legacy status)
+import { isInGamePhase } from '../downtime/db.js';
 // ECM-4 (#871): catalogue dropdown sources from the shared cache module
 // ECM-5 (#872) introduced. App boot in app.js calls loadCatalogue; we read
 // synchronously here at render time. getCatalogueEntry resolves a
@@ -142,6 +147,17 @@ function _buildTerritoryOidMap() {
 function _terrOidForName(name) {
   const t = (_territories || []).find(t => t?.name === name);
   return t?._id ? String(t._id) : null;
+}
+
+// Issue #496 / #816: the REVERSE of _buildTerritoryOidMap. collectResponses()
+// remaps territory slugs to OIDs at the save boundary, so any renderer or
+// click handler that compares a saved value against TERRITORY_DATA's `slug`
+// must normalise first — otherwise it compares an OID to a slug and silently
+// never matches. Pass-through for values that are already slugs (or unknown).
+function _terrSlugFromSaved(val) {
+  if (!val || !/^[a-f0-9]{24}$/i.test(String(val))) return val || '';
+  const t = (_territories || []).find(t => String(t._id) === String(val));
+  return t?.slug || val;
 }
 
 function _terrGridVal(grid, displayName, legacyKey) {
@@ -272,7 +288,16 @@ function _clearLocalSnapshot() {
 /** Build a stable key for a merit (used as field prefix and toggle key). */
 function meritKey(merit) {
   const area = merit.area || merit.qualifier || '';
-  return `${merit.name}_${merit.rating}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  // OATH-B (#1111): a suspension changes the merit's EFFECTIVE dots while
+  // `rating` (owned) stays put, so without this the key would be stable
+  // across a breach and the cached form entry would go stale — a form field
+  // still keyed to dots the character can no longer use. Not a display, so
+  // no render assertion would ever catch it.
+  //
+  // Appended only WHEN suspended, so unsuspended merits keep byte-identical
+  // keys and no previously-saved downtime response is orphaned.
+  const susp = merit._suspended_dots ? `_susp${merit._suspended_dots}` : '';
+  return `${merit.name}_${merit.rating}${susp}_${area}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
 /** Format a merit for display: "Allies ●●● (Health)" using effective rating. */
@@ -1475,7 +1500,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       // Cap uses stored dots/rating (not effectiveDomainDots which requires
       // attached_to → Safe Place to compute the haven-cap override).
       const mgMerit = currentChar.merits?.find(m => m.category === 'domain' && m.name === 'Mandragora Garden');
-      const mgCap = mgMerit ? (mgMerit.dots || mgMerit.rating || parked.length) : parked.length;
+      // OATH-B (#1111): suspended dots are not available to seed slots with.
+      // Applied to the figure this site already computes rather than routing
+      // through meritEffectiveRating, which would additionally impose the
+      // haven cap and change behaviour beyond this story.
+      const mgCap = mgMerit
+        ? applySuspensionTo(mgMerit, mgMerit.dots || mgMerit.rating || parked.length)
+        : parked.length;
       const toSeed = parked.slice(0, mgCap);
       const seeded = { sorcery_slot_count: String(toSeed.length) };
       toSeed.forEach((rite, i) => {
@@ -1715,7 +1746,7 @@ function renderCycleGatePage() {
   }
   const label = esc(currentCycle.label || 'This cycle');
   const isPrep         = currentCycle.status === 'prep';
-  const isGame         = currentCycle.status === 'game';
+  const isGame         = isInGamePhase(currentCycle); // #1001: game_phase wins over legacy status
   const isClosed       = currentCycle.status === 'closed';
   const isDeadlinePast = !!(currentCycle.deadline_at && new Date(currentCycle.deadline_at) < new Date());
   const isPublished    = !!(responseDoc?.published_outcome);
@@ -2969,7 +3000,11 @@ function renderForm(container) {
       const targetKey = `project_${slot}_ambience_target`;
       const dirKey    = `project_${slot}_ambience_direction`;
       const baseResponses = (responseDoc && responseDoc.responses) || {};
-      const curTarget = baseResponses[targetKey] || '';
+      // Issue #496 / #816: normalise before comparing. `data-amb-target` is a
+      // slug, but after a collect the stored value is an OID — without this the
+      // same-arrow-twice case read as "new row" and re-set instead of toggling
+      // off, so the selection could never be cleared.
+      const curTarget = _terrSlugFromSaved(baseResponses[targetKey]);
       const curDir    = baseResponses[dirKey]    || '';
       let nextTarget;
       let nextDir;
@@ -3862,10 +3897,16 @@ function renderProjectSlots(saved, mode = 'advanced') {
       // Read selection. Backward-compat seed: if new fields are empty but
       // legacy `_target_terr` + `_ambience_dir` exist, derive selection
       // from those so pre-redesign drafts surface correctly on first render.
-      let savedTarget = saved[`project_${n}_ambience_target`] || '';
+      // Issue #496 / #816: normalise to a SLUG before the row-match below.
+      // collectResponses() OID-remaps `_ambience_target` at the save boundary
+      // (line ~770), so on every render after the first collect this value is
+      // a 24-hex OID while `t.slug` is a slug — the comparison never matched
+      // and every arrow rendered off. The hidden input keeps the normalised
+      // slug so the next collect remaps it cleanly.
+      let savedTarget = _terrSlugFromSaved(saved[`project_${n}_ambience_target`]);
       let savedDir    = saved[`project_${n}_ambience_direction`] || '';
       if (!savedTarget) {
-        const legacyTerr = saved[`project_${n}_target_terr`] || '';
+        const legacyTerr = _terrSlugFromSaved(saved[`project_${n}_target_terr`]);
         if (legacyTerr) savedTarget = legacyTerr;
       }
       if (!savedDir) {
@@ -5999,11 +6040,14 @@ function initConnectedCharsTypeaheads(container) {
       const selected = getSelectedIds();
       const q = query.trim().toLowerCase();
       const matches = others.filter(c =>
-        !selected.has(String(c.id)) && (!q || String(c.name).toLowerCase().includes(q))
+        !selected.has(String(c.id)) && (!q ||
+          String(c.name).toLowerCase().includes(q) ||
+          String(c.fullName).toLowerCase().includes(q) ||
+          String(c.player).toLowerCase().includes(q))
       );
       if (!matches.length) { dropdown.style.display = 'none'; return; }
       dropdown.innerHTML = '';
-      for (const c of matches.slice(0, 10)) {
+      for (const c of matches) {
         const item = document.createElement('div');
         item.className = 'dt-conn-dd-item';
         item.dataset.connId = String(c.id);
@@ -6630,7 +6674,8 @@ function renderMeritToggles(saved) {
     for (let n = 1; n <= maxContacts; n++) {
       const m = detectedMerits.contacts[n - 1];
       const area = m.area || m.qualifier || '— sphere unset —';
-      const dots = '\u25CF'.repeat(m.rating || 1);
+      // OATH-B (#1111): the displayed dots must reflect a suspension.
+      const dots = '\u25CF'.repeat(applySuspensionTo(m, m.rating || 1));
       const savedInfo = saved[`contact_${n}_info`] || '';
       const savedReq = saved[`contact_${n}_request`] || '';
       const isUsed = savedInfo || savedReq;

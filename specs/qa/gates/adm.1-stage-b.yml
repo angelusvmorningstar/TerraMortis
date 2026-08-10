@@ -1,0 +1,342 @@
+schema: 1
+story: "adm.1"
+stage: "B (merge the Tickets surface + D9 surface stylesheet)"
+story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate"
+gate: PASS
+reviewer: "Ma'at (Test Architect)"
+updated: "2026-07-30"
+amended: "2026-07-31 (rev 3, was rev 2) — AC8 wording narrowed after ADR-008 Rev 14. Verdict unchanged; see
+  scope_correction on the AC8 check."
+reviewed_commit: "548f956a (PR #1076, base dev 97eee188 / ADR-008 Rev 8)"
+
+scope_note: >
+  Stage B. Stage A was gated separately (PASS, specs/qa/gates/adm.1-stage-a.yml) and is on dev.
+  Every AC in the Rev 4 numbering is adjudicated here, AC8 included — it moved back into scope once
+  ADR-008 Rev 5 restated it from an unmeasurable absolute to attributable-plus-ratchet with a named
+  baseline, and gave it an instrument.
+
+status_reason: >
+  Every Stage B acceptance criterion passes on evidence, and the behavioural set was run in a real
+  headless Chromium against a served tree rather than reasoned about — which matters here, because
+  the dev had no browser and correctly ticked nothing. The extraction is a true relocation (47 blocks
+  in, 47 out, zero edited, zero authored, zero left behind), the custom-property closure holds from a
+  document-agnostic scope in both themes, the role gate sits below every entry path so the nav
+  enumeration is not load-bearing, and the leak gate returns the blessed baseline unchanged. The two
+  properties the Rev 8 injector was rewritten to guarantee are both confirmed by frame-level
+  sampling: no flash of ST styling into player preview, and the blank-surface failure is gone rather
+  than guarded. All five writes issue and persist. One item is recorded prominently and is NOT a
+  defect: expanded-row state is conveyed by exactly one property, a 1px border-left-color, which
+  satisfies AC9 as written and is a design judgement that belongs to Peter rather than to QA.
+  No HALT condition triggered.
+
+waiver: { active: false }
+
+test_rig_disclosure: >
+  Stated up front because it bounds every behavioural claim below. The dev-fixtures intercept
+  (public/js/dev-fixtures.js, active whenever tm_auth_token === 'local-test-token', which is the
+  only token the server's local bypass accepts) mocks GET /api/tickets as an empty array, so an
+  unmodified tree cannot exercise list, filter, expand or edit at all. I served a COPY of the tree
+  with ONLY the fixture ticket data replaced — four tickets spanning the four statuses, and a PUT
+  handler that persists into sessionStorage so "writes persist across reload" is actually testable.
+  Every file under test was verified byte-identical to the reviewed commit before each run:
+  app.js, admin-tickets.css, admin-layout.css, index.html, admin.html, admin/tickets-views.js.
+  No product code was modified for testing. AC10 is the exception and is stronger for it: admin.html
+  does not load dev-fixtures, so that surface was exercised against the real API and Atlas with 67
+  real tickets.
+
+re_derivations:
+  - id: "1. custom-property closure"
+    verdict: CONFIRMED, and stronger than the dev's claim
+    evidence: >
+      23 var() references in admin-tickets.css, all 23 resolving in theme.css, which both documents
+      load. Zero resolve only in admin-layout.css; zero resolve nowhere. Both alias chains hold:
+      --accent -> var(--crim) and --txt1 -> var(--txt), with the inner names also in theme.css.
+      BUT "present in theme.css" is not the property that matters, and I checked the one that is:
+      all 24 names (23 refs + 2 alias targets) are declared on :root, and the 14 that carry
+      [data-theme="dark"] overrides declare them there too. Both selectors are document-agnostic, so
+      the closure holds in BOTH documents and BOTH themes. A property present in theme.css but
+      declared under an admin-only selector would pass a name-presence check and still render
+      unstyled in index.html.
+    negative_control: >
+      The check was verified to FAIL on the real hazard in the real file, not merely to report clean.
+      admin-layout.css defines --ar-bdr, --ar-bg and --ar-c locally. Simulating an admin-tickets.css
+      that referenced --ar-bdr: references 23 -> 24, not-in-theme 0 -> 1, result HALT with the
+      property named. Note those three are declared under .ar-complete / .ar-pending / .ar-valid —
+      CLASS scopes, not :root — so the hazard has two dimensions, wrong file and wrong scope, and
+      only the first is visible to "is the name in theme.css". ADR-008 D9's precondition is now
+      worded as "resolves from a document-agnostic scope in a sheet both documents load" on the
+      strength of this.
+  - id: "2. byte-identical relocation"
+    verdict: CONFIRMED
+    evidence: >
+      Parsed both files with the project's own css-overlap parser and compared normalised
+      declaration blocks. 47 rule blocks removed from admin-layout.css, 47 present in
+      admin-tickets.css. Lost: 0. Added or newly authored: 0. Relocated with edited declarations: 0.
+      .tk- blocks left behind in admin-layout.css: 0. Both AC12 load-bearing assertions hold on the
+      source: comma groups mixing .tk- with non-.tk- = 0, .tk- blocks inside @media = 0. The 47-vs-48
+      reconciliation reproduces the Architect exactly — 47 blocks, 48 single selectors, delta exactly
+      the one all-.tk- comma group (.tk-select, .tk-input). Blocks is the right unit because
+      extraction moves whole rules; a mixed group could not be relocated without splitting it, and a
+      split is an edit, which would take this out of resolution class 3.
+  - id: "3. effectiveRole() call sites"
+    verdict: CONFIRMED — delta ZERO
+    evidence: >
+      13 real invocations on dev, 13 on this tree. Counted after stripping comments and block
+      comments, excluding the function definition. Raw grep is 14 -> 21 because the Rev 6/8 comments
+      document the authority-vs-visibility distinction in prose. My absolute differs from the dev's
+      (9) because I count invocation sites and lines such as
+      `effectiveRole() === 'st' || effectiveRole() === 'dev'` contain two. All three counts — 13, 9,
+      and raw 21 — are defensible answers to different questions and every one of them has a delta of
+      0, which is why D7.2 is being restated as a delta invariant. D7.2 not engaged.
+  - id: "4. gate placement (supersedes the nav enumeration)"
+    verdict: CONFIRMED — and this is the property the remaining surfaces should inherit
+    evidence: >
+      initTicketsSurface has exactly ONE call site, app.js:594 inside the goTab dispatcher, plus its
+      definition. The getRole() authority check is the third line of the function, ABOVE the
+      Promise.all that performs both the module import and the stylesheet load. So every entry path
+      — declared tile, runtime-computed id, a late push into MORE_APPS, a server-supplied nav config,
+      or a console goTab('tickets') — funnels through one dispatcher branch and meets the gate before
+      either fetch. The tile enumeration is therefore NOT load-bearing, which is a stronger property
+      than a complete tile list and does not decay as the nav changes. Corroborated from the other
+      direction: admin/tickets-views.js has ZERO static importers in index.html's graph (only
+      admin.js:42, which is admin.html's own graph, and the dynamic import at app.js:630).
+      The dev reached this after applying "three checks by the same method are one check" to his own
+      object-literal enumeration and concluding his own evidence was weak. He was right to, and the
+      replacement argument is sound.
+
+behavioural_results:
+  environment: "headless Chromium via Playwright, local http-server + local API on :3000 with Atlas connected"
+  checks:
+  - id: AC10
+    ran: FIRST, as the SM and dev both requested
+    verdict: PASS
+    detail: >
+      This was the regression all three of us named as likeliest, on the reasoning that admin.html
+      now depends on a second stylesheet for rules it previously had in one. It did not occur.
+      admin.html fetches all four stylesheets — theme.css, components.css, admin-layout.css,
+      admin-tickets.css — each 200, and admin-tickets.css is present in document.styleSheets. The
+      Tickets domain renders 67 REAL tickets from Atlas (this surface bypasses the fixture
+      intercept), 5 filter buttons, .tk-admin-split resolves to a genuine two-column grid
+      (493.594px 493.609px), .tk-badge is styled (bg rgba(200,150,50,0.2), radius 10px). Zero
+      pageErrors, zero console errors.
+  - id: "AC6 / AC16 — dynamic import, concurrent, both awaited"
+    verdict: PASS
+    detail: >
+      Before opening the surface, the only fetches under public/js/admin/ are the two pre-existing
+      leaked modules. On goTab('tickets') both admin/tickets-views.js AND css/admin-tickets.css
+      appear together. Nothing under admin/ is fetched for the surface until it is opened.
+  - id: "AC14/AC15 + Rev 8 property 1 — no flash of ST styling"
+    verdict: PASS, confirmed by frame-level sampling rather than argued
+    detail: >
+      "The browser cannot paint between two synchronous statements" is an argument; this is the
+      check. I hooked Element.prototype.appendChild to sample link.disabled at the exact moment of
+      insertion, then sampled it across 41 consecutive animation frames.
+      ST view: inserted enabled (disabledAtInsert false, correct for Rev 8), disabled === false
+      across all 41 frames, surface renders styled (grid), 4 rows.
+      PLAYER PREVIEW: inserted enabled, and disabled === TRUE across all 41 sampled frames — the
+      synchronous applyRoleRestrictions() call beats the first paint, so ST styling never applies,
+      not even for one frame. That is the exact property the Rev 8 comment protects, and it holds.
+  - id: "AC15 — application toggles without refetch"
+    verdict: PASS
+    detail: >
+      link.disabled sequence across a full toggle cycle: afterOpen false -> previewOn true ->
+      previewOff false, with exactly ONE network fetch of admin-tickets.css across the whole
+      sequence. The choice of `disabled` over element removal is verified behaviourally, not just
+      read.
+  - id: "AC17 — second open in one session"
+    verdict: PASS
+    detail: >
+      Opened Tickets, navigated away to chars, reopened. Both opens render 4 rows and a real grid;
+      exactly ONE <link data-surface-sheet> exists; exactly ONE network fetch occurred; exactly ONE
+      insertion was recorded. The promise cache behaves as specified and the presence-check bug it
+      was written to avoid — second caller passes the guard while the sheet is still in flight and
+      renders unstyled, only ever on the second open — does not occur.
+  - id: "AC18 — stylesheet failure degrades, does not fail"
+    verdict: PASS
+    detail: >
+      Redirected the injected href to a missing file. The surface still rendered 4 rows and 3544
+      characters of content; .tk-admin-split degraded from grid to block, i.e. unstyled rather than
+      absent. Zero pageErrors. A bad href costs styling and not the surface, as specified. Note this
+      is strictly more reliable under Rev 8 than it would have been under Rev 6: with the link
+      injected enabled the fetch always proceeds, so the error event always fires.
+  - id: "AC9 — list, filter, expand, edit, persist"
+    verdict: PASS (see judgement_for_peter for the distinguishability nuance)
+    detail: >
+      LIST: 4 rows, 5 filter buttons, split grid.
+      FILTER: clicking "open" narrows 4 -> 1 and returning to "all" restores 4. Active button
+      computes bg rgba(224,196,122,0.08), colour rgb(224,196,122), border rgb(224,196,122) against
+      inactive bg transparent, colour rgb(138,122,106), border rgba(201,169,98,0.18). Unambiguous.
+      EXPAND: the expanded row carries tk-admin-row-expanded and its detail controls are present.
+      FIVE WRITES: all five issued with correct bodies —
+        PUT /api/tickets/tkt001 {"status":"in_progress"}
+        PUT /api/tickets/tkt001 {"st_note":"QA note from Ma'at"}
+        PUT /api/tickets/tkt001 {"title":"QA edited title"}
+        PUT /api/tickets/tkt001 {"body":"QA edited body"}
+        PUT /api/tickets/tkt001 {"priority":"normal"}
+      PERSISTENCE: after a full page reload and reopening the surface, all five values were still
+      present on the ticket — title "QA edited title", body "QA edited body", note "QA note from
+      Ma'at", status in_progress, priority Normal.
+  - id: "AC8 — attributable + ratchet (leak gate)"
+    verdict: PASS
+    detail: >
+      admin-leak-gate.py --check on this tree, verbatim: 2 admin modules statically reachable,
+      214 KB, exit 0, "OK — no increase over baseline (2 modules)". The two are
+      admin/downtime-constants.js (14 KB) and admin/downtime-story.js (200 KB) — the pre-existing
+      leak, issue #1075. admin/tickets-views.js is ABSENT from the leaked set, which is the whole
+      attributability claim: the merged surface reaches its module through dynamic import() only.
+      --paths confirms the shape: three static routes to each, all converging on
+      story-tab.js -> downtime-story.js.
+    scope_correction: >
+      AMENDED 2026-07-31 after ADR-008 Rev 14. AC8 as gated here is about admin MODULES reaching the
+      player entry, and the D4 criterion this PR was measured against is attributable-plus-ratchet
+      over that module set. It does NOT establish that no ST-authored RULE reaches a player.
+      components.css is loaded by the player document and already contains 55 classes emitted only by
+      admin sources across 88 rule blocks, 45 of them stm-audit-*. Verified independently on dev
+      d818b4c0 with `admin-collision-map.py --st-in-lib --check`: exit 0, 55 classes, 88 blocks, no
+      increase over the blessed baseline of 55; the tool prints its own limit, that static emitter
+      analysis makes 55 an UPPER BOUND because a class the player side concatenates looks admin-only.
+      MEMBERSHIP AMENDED 2026-07-31 (ADR-008 Rev 15). The COUNT above is unchanged and still correct
+      at 55, but the SET is not the one I measured: the emitter scan that produced it used a
+      quote-terminated regex, so `done` was a PHANTOM (a JS identifier captured out of
+      `${cond ? ' x' : ''}`) and leaves, while stm-mod-row--inactive was being missed and enters. The
+      Architect deleted and re-blessed rather than amending, on the grounds that a baseline
+      established by a defective instrument is not a baseline — and the ratchet refused his amendment
+      when he first tried it, which is the mechanism working against its own author. Re-verified on
+      dev 176ae0e4: exit 0, 55 classes, 88 blocks, upper-bound qualifier printed, and
+      st-in-lib-baseline.json holds 55 entries with `done` absent and stm-mod-row--inactive present.
+      AND A CORRECTION TO MY OWN CLAIM, which matters more than the membership. I wrote that I had
+      "verified the baseline rather than citing it". That was weaker than I presented it: I ran the
+      SAME INSTRUMENT its author ran. That is independence of EXECUTION, not of METHOD, and by the
+      correlated-checks rule I have applied to everyone else this epic it was one check run twice,
+      not two checks. The count survived only because the tokeniser defect happened to net to zero
+      across the set while changing which classes were in it. A second RUN would never have caught
+      that; only a second METHOD did, and it was the Architect's, not mine.
+      Relevant to this story specifically: the D9 work here moved rules into a private per-surface
+      sheet rather than into components.css, so it is on the right side of that rule and does not add
+      to the baseline. AC13/AC21's "no components.css promotion" verdict is unaffected and is in fact
+      the invariant that keeps this gap from growing. The correction is to what the AC8 verdict
+      should be read as claiming, not to the result.
+
+instrument_verification:
+  note: >
+    Recorded because a gate I have only seen pass is a gate I have not seen work, and AC8's verdict
+    rests entirely on this instrument.
+  result: >
+    I did not take the leak gate's failure path on trust. Injected a REAL static leak by a method
+    different from the author's — added `import { initTicketsView } from '../admin/tickets-views.js'`
+    to tabs/primer-tab.js — and re-ran --check: modules 2 -> 3, weight 214 -> 224 KB, EXIT 1, the new
+    module named (+ public/js/admin/tickets-views.js), the causing path printed
+    (app.js -> primer-tab.js -> tickets-views.js), and the correct D4 attributability diagnosis.
+    Both ratchet halves also verified: --bless with the leak present REFUSED (exit 1, "would add:
+    …") and left the baseline file untouched; and the comparison is genuinely SET-based
+    (`added = names - base`, fail on any non-empty added; --bless gated on `names <= old`), so the
+    substitution hazard is properly closed — fix one leak, introduce a different one, count stays 2,
+    and it still fails. Leak reverted, nothing committed. This is a well-built instrument and I would
+    use it unmodified on the remaining fifteen surfaces.
+
+judgement_for_peter:
+  id: adm.1b-01
+  severity: none (not a defect — a design judgement outside QA's authority)
+  finding: >
+    Expanded-row state satisfies AC9 as written and rests on a single visual cue. Measured
+    like-for-like, an expanded row and a collapsed row have IDENTICAL background (rgb(22,18,16)),
+    IDENTICAL text colour (rgb(232,224,208)) and IDENTICAL border width (1px). The ONLY differing
+    computed property is border-left-color: rgb(224,196,122) gold when expanded against
+    rgba(201,169,98,0.18) when collapsed. I verified the same single-signal shape holds in
+    admin.html's Parchment theme, where it is crimson rgb(122,0,0) against rgba(120,90,40,0.2). So
+    the state IS distinguishable, in both documents and both themes, and AC9 passes — but on one
+    1px colour cue with no width, weight or background reinforcement.
+    Filter-active by contrast is reinforced across three properties (background, colour, border) and
+    is not in question.
+  why_it_is_yours_and_not_mine: >
+    "Distinguishable in a computed-style diff" and "distinguishable to a Storyteller at a table, on a
+    phone, in low light" are not the same claim, and only the second one matters at a game. QA can
+    establish the first and has; the second is a judgement about your players and your table. Raised
+    before merge rather than after so you can look for it deliberately when you review, instead of
+    being asked to ratify it retrospectively. If you want a second cue it becomes a components.css
+    question and returns to the Architect.
+
+invariants_checked:
+  - id: "ADR-008 AC19 / D7.1 — no write-path inventory entry touched"
+    result: PASS
+    note: >
+      The inventory's sites are in admin.js, player/downtime-form.js, admin/feeding-tab.js and
+      admin/story-tab.js. Stage B touches app.js, index.html, admin.html, admin-layout.css and the
+      new admin-tickets.css. No overlap.
+  - id: "ADR-008 AC20 / D7.2 — new effectiveRole() call sites"
+    result: PASS (not engaged)
+    note: >
+      Delta 0. The Rev 6 design anticipated one deliberate new site; the shipped shape adds none,
+      because applyRoleRestrictions already computes the role it needs and applySurfaceSheetVisibility
+      reuses it. Better than the design called for.
+  - id: "ADR-008 AC21 — no components.css promotion"
+    result: PASS
+    note: "components.css is not in the diff. The rules move to a private per-surface sheet, which D9 distinguishes from promotion."
+  - id: "ADR-008 AC13 (Rev 4) — index.html injects, admin.html static-links"
+    result: PASS
+    note: "admin.html:14 static <link>; index.html receives it by injection from the gated load path. Asymmetry is as specified and ends at P3."
+  - id: "ADR-004 — overlay / cache-entry invariant"
+    result: PASS
+    note: "No overlay or stash code in the diff."
+
+notes:
+  - >
+    THE REV 6 BLANK-SURFACE HAZARD WAS LIVE, NOT LATENT — and this is the one result here that
+    changed a decision. On the previous tip (0a15f70d, inject-disabled) I ran the dev's own question:
+    ST in player preview, console goTab('tickets'). Result: the tab became active, contentLen 0, zero
+    rows, the <link> was injected disabled, and admin-tickets.css produced NO NETWORK RESPONSE AT ALL
+    — never fetched. Neither load nor error fired, the promise never settled, Promise.all never
+    resolved, and the surface stayed blank with zero console output. The dev reasoned this out with
+    no browser and was right. I confirmed it by instrumenting network responses rather than inferring
+    from the blank tab, which is what distinguishes "it did not render" from "the fetch never
+    happened".
+    One further data point nobody asked for: IT RECOVERED. Toggling back to ST view enabled the link,
+    the fetch proceeded, the pending promise settled, and the surface rendered (4 rows, 3544 chars).
+    So the accurate description is silent-and-total-but-recoverable, not wedged. That bounds the
+    severity honestly and it must NOT be read as the old shape having been acceptable: a failure a
+    user escapes only by accidentally toggling a mode is still a silent total failure.
+    Rev 8 removes the cause rather than guarding it, and both Rev 8 properties are confirmed above.
+  - >
+    BOOKKEEPING, so this gate does not describe something that never existed: the
+    `if (link.disabled) return Promise.resolve(false)` guard was NEVER IN THE CODE. The dev offered
+    it in the record only, deliberately declining to change a specified shape while a ruling was
+    pending. Rev 8 is purely the removal of `link.disabled = true`. Verified: zero occurrences of
+    that guard in app.js at this commit, and zero `link.disabled =` assignments inside
+    loadSurfaceSheet.
+  - >
+    THE GENERAL RULE FROM D9 IS THE MOST TRANSFERABLE THING IN THIS STORY, and it generalises past
+    CSS. Under the refactor actually feared — someone moving the synchronous applyRoleRestrictions
+    call behind an await — inject-disabled fails as a blank surface with no error, and inject-enabled
+    fails as a brief flash of styling. Prefer the mechanism whose failure mode is cosmetic over the
+    one whose failure mode is silent and total. The Architect's note on himself, that disabled=true
+    was chosen because it READ as the safer default and is the more dangerous one, is the part worth
+    keeping: fail-safe naming attaches to whichever mechanism sounds defensive, not to the one whose
+    worst case is survivable. The same asymmetry graded usf.1-07 above a visible coverage gap in the
+    USF work — a check that fails silently while reporting a healthy number is worse than one that
+    obviously reports too little.
+  - >
+    METHOD LIMIT ON MY OWN BEHAVIOURAL EVIDENCE, stated so it is not over-read. Everything under
+    behavioural_results was run in Chromium only. The Rev 8 shape is correct independently of whether
+    a given engine fetches a disabled stylesheet — that is why the mechanism was removed rather than
+    guarded — but the specific Rev 6 hazard confirmation is a Chromium result and I did not test
+    Firefox or WebKit. It does not affect any verdict here, since nothing in the shipped shape
+    depends on that behaviour any more.
+  - >
+    NOT A DEFECT, FOR THE SM AT MERGE TIME: this branch is based on dev 97eee188 while dev has since
+    moved, and the story file is changed in both, so the PR needs a merge before it lands. The
+    Stage A QA Results section is not yet on this branch for the same reason. Flagged only so the
+    merge is expected; it is bookkeeping, not a finding.
+
+recommendation: >
+  PASS — Stage B is ready to merge, subject to Peter's review as the story specifies. Every AC in
+  scope passes on evidence: the extraction is a true relocation with both AC12 assertions holding,
+  the custom-property closure is document-agnostic in both themes and its check was verified able to
+  fail on the real hazard, the role gate sits below every entry path so the nav enumeration is not
+  load-bearing, the leak gate returns the blessed baseline with tickets-views.js absent and I
+  confirmed that instrument fails correctly rather than trusting it, and the full behavioural set
+  runs clean in a real browser including the five writes and their persistence across reload. The
+  two properties Rev 8 exists to guarantee are both confirmed by frame-level sampling rather than by
+  argument. One item goes to Peter as a judgement and not as a blocker: expanded-row state is
+  carried by a single 1px border-left-color and nothing else, which meets AC9 and may or may not be
+  enough at a table on a phone. That call is his. Nothing here should hold the merge if he is content
+  with it.
