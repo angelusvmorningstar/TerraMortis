@@ -74,8 +74,12 @@ vi.mock('../../public/js/data/constants.js', () => ({
   ARCHETYPES_DB: {},
   ALL_ATTRS: [],
   ALL_SKILLS: [],
+  // BL-3a (#1008): BLOODLINE_DISCS removed — downtime-form.js no longer
+  // imports it. CLAN_DISCS is kept for other importers in this mocked graph;
+  // note accessors.js is itself mocked wholesale below, so it reads neither.
+  // (The first version of this comment claimed accessors.js still read
+  // CLAN_DISCS here, which is false in this file.)
   CLAN_DISCS: {},
-  BLOODLINE_DISCS: {},
   CORE_DISCS: [],
   RITUAL_DISCS: [],
   SKILL_CATS: {},
@@ -108,6 +112,12 @@ vi.mock('../../public/js/data/accessors.js', () => ({
   discDots: () => 0,
   setStatusTerritories: vi.fn(),
   getSkillObj: () => ({ dots: 0, specs: [] }),
+  // BL-3a (#1008): downtime-form.js now imports these two, having dropped its
+  // own private in-clan check. Absent from the mock they resolve to undefined,
+  // and any future assertion that drives the render as far as the XP grid would
+  // fail with a confusing mock error rather than a result.
+  isInClanDisc: () => false,
+  clanDiscList: () => [],
 }));
 
 vi.mock('../../public/js/editor/xp.js', () => ({

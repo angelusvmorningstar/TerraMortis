@@ -222,6 +222,17 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-edit-input:focus{border-color:var(--gold);}
 .sh-edit-select{background:var(--surf2);border:1px solid var(--bdr2);border-radius:4px;padding:4px 8px;font-family:var(--ft);font-size:12px;color:var(--txt);outline:none;cursor:pointer;width:100%;}
 .sh-edit-select:focus{border-color:var(--gold);}
+/* BL-3a (#1008): the secondary select stacked under a primary one (the
+   bloodline picker beneath clan). Replaces an inline style="margin-top:3px;
+   font-size:10px" that violated the normalised-CSS rule, on a line this story
+   was editing anyway. */
+.sh-edit-select-sub{margin-top:3px;font-size:10px;}
+/* BL-3a review: the inline style this replaced had specificity 1,0,0,0 and beat
+   everything. A single class (0,1,0) loses to `.sh-desktop .sh-edit-select`
+   (0,2,0) at :921, which would have silently rendered the sub-select at 13px
+   on the admin character-detail sheet — the one surface it exists for. Matched
+   here at equal specificity, later in the cascade. */
+.sh-desktop .sh-edit-select-sub{font-size:10px;}
 .sh-edit-select option{background:var(--surf);color:var(--txt);}
 .sh-char-name .sh-edit-input{font-family:var(--fh);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:.02em;background:transparent;border-color:var(--bdr2);padding:2px 6px;}
 .sh-char-player .sh-edit-input{font-family:var(--fl);font-size:11px;color:var(--txt2);background:transparent;border-color:var(--bdr);padding:2px 6px;}

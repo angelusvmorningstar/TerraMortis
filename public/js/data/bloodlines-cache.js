@@ -117,6 +117,14 @@ export async function loadBloodlines() {
 
 export function isLoaded() { return _loaded; }
 export function loadFailed() { return _loadFailed; }
+/**
+ * True when the cache can actually answer a question about bloodlines.
+ * Added by BL-3a's review: three separate call sites were about to branch on
+ * their own combination of isLoaded/loadFailed/isEmpty, and one of them was a
+ * destructive write. One predicate, one meaning.
+ */
+export function bloodlinesResolvable() { return _loaded && !_loadFailed && _items.length > 0; }
+
 /** Loaded successfully but the collection is empty — almost certainly unseeded. */
 export function isEmpty() { return _loaded && _items.length === 0; }
 

@@ -16,10 +16,10 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS, MAINTENANCE_MERITS, FEED_VIOLENCE_DEFAULTS, ACTION_DESCRIPTIONS, ACTION_APPROACH_PROMPTS, SUBMIT_FINAL_MODAL_QUESTIONS } from './downtime-data.js';
 import { actionSpentSummary, formatActionSpentSummary } from '../data/dt-action-summary.js';
 import { computeBestFeedingPool } from '../data/feeding-pool.js';
-import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
+import { ALL_ATTRS, ALL_SKILLS, CORE_DISCS, RITUAL_DISCS, INFLUENCE_SPHERES } from '../data/constants.js';
 import { freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
 import { calcTotalInfluence, domMeritTotal, attacheBonusDots, effectiveInvictusStatus, ssjHerdBonus, flockHerdBonus, meritEffectiveRating, influenceBreakdown, domKey, canAllocateCarthianPull } from '../editor/domain.js';
-import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots } from '../data/accessors.js';
+import { calcVitaeMax, skTotal, riteCost, skillAcqPoolStr, getAttrEffective, getAttrTotal, discDots, isInClanDisc, clanDiscList } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq, isMeritExcluded } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -4106,13 +4106,13 @@ const XP_CATEGORIES = [
   { value: 'rite', label: 'Rite' },
 ];
 
-function isClanDisc(discName) {
-  const bl = currentChar.bloodline;
-  const clan = currentChar.clan;
-  if (bl && BLOODLINE_DISCS[bl]) return BLOODLINE_DISCS[bl].includes(discName);
-  if (clan && CLAN_DISCS[clan]) return CLAN_DISCS[clan].includes(discName);
-  return false;
-}
+// BL-3a (#1008): the private `isClanDisc` that used to live here is gone.
+// It read BLOODLINE_DISCS and fell through to the clan list on a miss — drift
+// pattern #15, on the surface that decides what a PLAYER is charged — and it
+// was a second implementation of a rule `isInClanDisc` already owns. Both call
+// sites now ask the accessor, so this form inherits BL-2's ruling: an
+// unresolved bloodline grants nothing, everything costs 4 XP per dot, and the
+// banner names the character.
 
 /** Parse merit rating string: "2" → { flat: true, min: 2, max: 2 }, "1–5" → { flat: false, min: 1, max: 5 } */
 function parseMeritRating(ratingStr) {
@@ -4127,7 +4127,7 @@ function getXpCost(category, item) {
   switch (category) {
     case 'attribute': return 4;
     case 'skill': return 2;
-    case 'discipline': return isClanDisc(item) ? 3 : 4;
+    case 'discipline': return isInClanDisc(currentChar, item) ? 3 : 4;
     case 'merit': {
       // Item format: "Name|flat|rating|0" or "Name|grad|currentDots|maxTarget"
       // For graduated, the actual dots purchased comes from the dots selector
@@ -4171,9 +4171,13 @@ function getItemsForCategory(category) {
       // Filter against canonical discipline names — defence-in-depth against legacy
       // data leaks (e.g. retired themes; see specs/stories/dtlt.3.*).
       const owned = Object.keys(c.disciplines || {});
-      const clanDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline])
-        || (c.clan && CLAN_DISCS[c.clan]) || [];
-      const bloodlineDiscs = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || [];
+      // BL-3a (#1008): both were BLOODLINE_DISCS lookups with a clan fallback.
+      // `clanDiscList` IS that expression, sourced from the collection, and it
+      // returns empty rather than the clan list when the bloodline does not
+      // resolve — so an unresolved character is offered no in-clan widening
+      // instead of a plausible wrong one.
+      const clanDiscs = clanDiscList(c);
+      const bloodlineDiscs = c.bloodline ? clanDiscList(c) : [];
       const validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS, ...bloodlineDiscs]);
       const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])]
         .filter(d => validDiscs.has(d))
@@ -4181,8 +4185,9 @@ function getItemsForCategory(category) {
       return all.map(d => {
         const dots = discDots(c, d);
         if (dots >= 5) return null;
-        const cost = isClanDisc(d) ? 3 : 4;
-        const tag = isClanDisc(d) ? 'clan' : 'out';
+        const inClan = isInClanDisc(c, d);
+        const cost = inClan ? 3 : 4;
+        const tag = inClan ? 'clan' : 'out';
         return { value: d, label: `${d} (${dots} → ${dots + 1}) [${tag}, ${cost} XP]` };
       }).filter(Boolean);
     }

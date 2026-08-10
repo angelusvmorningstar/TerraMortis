@@ -1,7 +1,10 @@
 /* Identity tab — edit view rendering and handlers */
 
 import state from '../data/state.js';
-import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
+import { MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
+// BL-3a (#1008): the approved list is DERIVED from the bloodlines collection,
+// so a bloodline added without a deploy appears here.
+import { approvedBloodlines } from '../data/bloodlines-cache.js';
 import { esc, displayName, cardName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
 // #837: XP totals are derived at render time; identity.js displays them
 // directly via xp.js rather than persisting them as character fields.
@@ -16,7 +19,16 @@ export function registerCallbacks(markDirty) {
 export function renderIdentityTab(c) {
   const el = document.getElementById('et-identity');
 
-  const bloodlineOpts = APPROVED_BLOODLINES.map(b => `<option${c.bloodline === b ? ' selected' : ''}>${b}</option>`).join('');
+  // BL-3a review: escape (names are DB-sourced, and BL-4 lets an ST write
+  // them), and never drop the character's OWN value. If the cache is unloaded,
+  // empty, or spells the name differently, an unlisted value leaves no option
+  // selected, the browser shows '(none)', and the next change commits that lie.
+  // Union the stored value in, matched case-insensitively.
+  const _blKey = s => String(s).trim().toLowerCase();
+  const _blNames = approvedBloodlines();
+  if (c.bloodline && !_blNames.some(b => _blKey(b) === _blKey(c.bloodline))) _blNames.push(c.bloodline);
+  const bloodlineOpts = _blNames.sort((x, y) => x.localeCompare(y))
+    .map(b => `<option${c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : ''}>${esc(b)}</option>`).join('');
   const maskOpts = MASKS_DIRGES.map(m => `<option${c.mask === m ? ' selected' : ''}>${m}</option>`).join('');
   const dirgeOpts = MASKS_DIRGES.map(m => `<option${c.dirge === m ? ' selected' : ''}>${m}</option>`).join('');
   const clanOpts = CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');

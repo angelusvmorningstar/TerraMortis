@@ -3,8 +3,13 @@
 import state from '../data/state.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { isInClanDisc, bloodlineUnresolved } from '../data/accessors.js';
+// BL-3a (#1008): the clan-change validity check reads the collection. NOTE:
+// BL-5 deletes this whole branch (clan is write-once, so it is unreachable);
+// rewired rather than left behind only because BL-3b cannot delete the
+// constant while any live path still reads it.
+import { bloodlinesByClan, bloodlinesResolvable } from '../data/bloodlines-cache.js';
 import {
-  CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
+  CLAN_BANES, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
   CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
@@ -99,9 +104,25 @@ export function shEdit(field, val) {
       if (ci >= 0) c.banes[ci] = { ...newCurse };
       else c.banes.unshift({ ...newCurse });
     }
-    // Clear bloodline if not valid for new clan
-    const validBLs = BLOODLINE_CLANS[val] || [];
-    if (c.bloodline && !validBLs.includes(c.bloodline)) c.bloodline = null;
+    // Clear bloodline if not valid for the new clan.
+    //
+    // BL-3a review: this is the ONLY destructive write in the rewiring, and
+    // moving it to an async source made it dangerous in a way the static
+    // constant never was. `bloodlinesByClan()` returns {} whenever the cache is
+    // unloaded, failed, OR the collection is empty — and empty is the live
+    // state until the seed is applied. An empty map means `validBLs` is [], so
+    // EVERY bloodline reads as invalid and the branch nulls a perfectly good
+    // one with no warning. The old constant was always populated, so the clear
+    // only ever fired on a genuine mismatch.
+    //
+    // Refuse to judge when the cache cannot answer. Comparison is on the same
+    // trimmed/case-folded key `bloodlineDiscs` uses, so a value that costs
+    // correctly is never deleted for a spelling difference.
+    if (c.bloodline && bloodlinesResolvable()) {
+      const key = s => String(s).trim().toLowerCase();
+      const validBLs = (bloodlinesByClan()[val] || []).map(key);
+      if (!validBLs.includes(key(c.bloodline))) c.bloodline = null;
+    }
     _renderSheet(c);
   }
 }
