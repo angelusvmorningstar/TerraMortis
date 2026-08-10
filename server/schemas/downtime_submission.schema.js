@@ -582,6 +582,16 @@ export const downtimeCycleSchema = {
     // CYCLE epic (#708) — manual game phase control. Replaces auto-derive when set.
     // null = derive from phase_signoff (legacy cycles). See deriveCycleStatus.
     game_phase: { type: ['string', 'null'], enum: ['game', 'downtime', 'processing', null] },
+
+    // CM-1 (#1028, cycle-model.md Rev 2 section 7) — phase order as data.
+    // `phase` is the new-vocabulary current phase; null = legacy (derive from
+    // the fields above). NOTE: 'prep' here is the game-prep window between
+    // processing and game, NOT the legacy status 'prep' (pre-downtime setup)
+    // and NOT phase_signoff.prep. The legacy game_phase enum above never
+    // gains 'prep'. Writes go through db.js setCyclePhase, which mirrors
+    // every phase to the legacy pair (public/js/downtime/cycle-phase.js).
+    phase:          { type: ['string', 'null'], enum: ['downtime', 'processing', 'prep', 'game', null] },
+    phase_sequence: { type: 'array', uniqueItems: true, items: { type: 'string', enum: ['downtime', 'processing', 'prep', 'game'] } },
     chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
     session_id: { type: ['string', 'null'] },  // ref to game_sessions _id as string
 

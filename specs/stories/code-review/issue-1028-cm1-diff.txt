@@ -1,0 +1,749 @@
+diff --git a/public/css/admin-layout.css b/public/css/admin-layout.css
+index 3be393f8..5c519cf8 100644
+--- a/public/css/admin-layout.css
++++ b/public/css/admin-layout.css
+@@ -10241,6 +10241,10 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
+ .cy-phase--game       { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
+ .cy-phase--downtime   { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
+ .cy-phase--processing { background: var(--accent-a8);      color: var(--accent);      border-color: var(--accent-a40); }
++/* CM-1 (#1028): prep, the game-prep window with feeding open. Green family,
++   deliberately lighter than game's --green-dk so the two read as related but
++   distinct states. */
++.cy-phase--prep       { background: var(--result-succ-bg); color: var(--result-succ); border-color: var(--result-succ-bdr); }
+ .cy-phase--none       { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
+ 
+ /* Tables */
+diff --git a/public/js/admin/cycle-views.js b/public/js/admin/cycle-views.js
+index 8b3aa99d..76c77f39 100644
+--- a/public/js/admin/cycle-views.js
++++ b/public/js/admin/cycle-views.js
+@@ -1,13 +1,24 @@
+ import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
+-import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage } from '../downtime/db.js';
++import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
+ 
+ const PHASE_LABELS = {
+   game:       'Game',
+   downtime:   'Downtime',
+   processing: 'Processing',
++  prep:       'Prep',
+ };
+ 
+-const PHASES = ['game', 'downtime', 'processing'];
++// CM-1 (#1028): buttons follow the cycle order (cycle-model.md Rev 2 section
++// 1): downtime, processing, prep, game. Prep is the game-prep window in which
++// feeding is open; setting it never resets the tracker (only Game does).
++const PHASES = ['downtime', 'processing', 'prep', 'game'];
++
++// The phase a row's UI reflects: the new `phase` field when set, else the
++// legacy game_phase override, else none. (game_phase's vocabulary is a subset
++// of phase's, so the labels map covers both.)
++function uiPhase(cy) {
++  return cy.phase || cy.game_phase || null;
++}
+ 
+ // Module-level view state so the status ribbon can refresh after any
+ // label / chapter / phase / add / delete mutation without a full re-fetch.
+@@ -83,8 +94,9 @@ function renderRibbon() {
+     ? view.chapters.find(ch => String(ch._id) === String(cy.chapter_id))
+     : null;
+   const chapterText = chapter ? `${chapter.number} — ${chapter.label}` : 'No chapter';
+-  const phaseText = cy.game_phase ? PHASE_LABELS[cy.game_phase] : 'No phase set';
+-  const phaseMod = cy.game_phase ? ` cy-phase--${cy.game_phase}` : ' cy-phase--none';
++  const _ribbonPhase = uiPhase(cy);
++  const phaseText = _ribbonPhase ? PHASE_LABELS[_ribbonPhase] : 'No phase set';
++  const phaseMod = _ribbonPhase ? ` cy-phase--${_ribbonPhase}` : ' cy-phase--none';
+ 
+   el.innerHTML = `
+     <div class="cy-ribbon-item">
+@@ -240,13 +252,11 @@ async function writePhase(cy, phaseOrNull) {
+       throw new Error('Tracker reset failed: ' + err.message);
+     }
+   }
+-  // #1001: write the derived legacy `status` alongside game_phase so raw
+-  // `status` readers (getActiveCycle, LIVE_STATUSES filters) stay consistent
+-  // with the phase while legacy status-based readers still exist.
+-  const status = deriveCycleStatus({ ...cy, game_phase: phaseOrNull });
+-  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull, status });
+-  cy.game_phase = phaseOrNull;
+-  cy.status = status;
++  // CM-1 (#1028): the canonical writer sets all three representations in one
++  // PUT (phase + game_phase + status, per the cycle-phase.js mirror table),
++  // absorbing the #1001 status-alongside fix and extending it to the new
++  // `phase` field. `null` clears to neutral, preserving #918 semantics.
++  await setCyclePhase(cy, phaseOrNull);
+   return true;
+ }
+ 
+@@ -263,20 +273,20 @@ function buildPhaseCell(cy) {
+ 
+   PHASES.forEach(phase => {
+     const btn = document.createElement('button');
+-    btn.className = 'cy-phase-btn' + (cy.game_phase === phase ? ' is-active' : '');
++    btn.className = 'cy-phase-btn' + (uiPhase(cy) === phase ? ' is-active' : '');
+     btn.textContent = PHASE_LABELS[phase];
+     btn.dataset.phase = phase;
+-    btn.title = cy.game_phase === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
++    btn.title = uiPhase(cy) === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
+ 
+     btn.addEventListener('click', async () => {
+       errEl.classList.remove('is-visible');
+       // Active phase toggles OFF to neutral; otherwise switch to the clicked phase.
+-      const target = (cy.game_phase === phase) ? null : phase;
++      const target = (uiPhase(cy) === phase) ? null : phase;
+       try {
+         const ok = await writePhase(cy, target);
+         if (!ok) return;
+         group.querySelectorAll('.cy-phase-btn').forEach(b => {
+-          const active = b.dataset.phase === cy.game_phase;
++          const active = b.dataset.phase === uiPhase(cy);
+           b.classList.toggle('is-active', active);
+           b.title = active ? 'Click to clear this phase' : `Set ${PHASE_LABELS[b.dataset.phase]} phase`;
+         });
+diff --git a/public/js/admin/downtime-views.js b/public/js/admin/downtime-views.js
+index 6e0aa2ae..8f0369ed 100644
+--- a/public/js/admin/downtime-views.js
++++ b/public/js/admin/downtime-views.js
+@@ -2717,7 +2717,9 @@ async function handleOpenGamePhase() {
+   if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
+   await openGamePhase(selectedCycleId);
+   const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+-  if (idx >= 0) allCycles[idx].status = 'game';
++  // CM-1 (#1028): openGamePhase now writes all three phase representations;
++  // keep the local copy in step so phase-aware readers see the same state.
++  if (idx >= 0) Object.assign(allCycles[idx], { status: 'game', game_phase: 'game', phase: 'game' });
+   await loadCycleById(selectedCycleId);
+ }
+ 
+diff --git a/public/js/downtime/db.js b/public/js/downtime/db.js
+index 04b2db60..cb02cbd0 100644
+--- a/public/js/downtime/db.js
++++ b/public/js/downtime/db.js
+@@ -4,6 +4,15 @@
+  */
+ 
+ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
++import {
++  cyclePhase as cyclePhasePure,
++  isFeedingOpen as isFeedingOpenPure,
++  phaseWrites,
++} from './cycle-phase.js';
++
++// CM-1 (#1028): the pure phase contract is re-exported here so existing
++// importers of db.js keep one import site. See cycle-phase.js for the model.
++export { CYCLE_PHASE_SEQUENCE, PHASE_MIRROR, statusToPhase, phaseIndex, FEEDING_ONLY_FIELDS } from './cycle-phase.js';
+ 
+ // ── Cycles ──────────────────────────────────────────────────────────────────
+ 
+@@ -49,11 +58,15 @@ export async function updateCycle(id, updates) {
+ }
+ 
+ export async function closeCycle(id) {
+-  return updateCycle(id, { status: 'closed', closed_at: new Date().toISOString() });
++  // CM-1 (#1028, the #1006 fix): closing writes all three phase representations
++  // together, not raw status alone, so deriveCycleStatus and the new phase
++  // field can never disagree about a closed cycle.
++  return updateCycle(id, { ...phaseWrites('processing'), closed_at: new Date().toISOString() });
+ }
+ 
+ export async function openGamePhase(id) {
+-  return updateCycle(id, { status: 'game', game_phase_at: new Date().toISOString() });
++  // CM-1 (#1028): same triple-write discipline on entering game phase.
++  return updateCycle(id, { ...phaseWrites('game'), game_phase_at: new Date().toISOString() });
+ }
+ 
+ // ── DTUX-1 sign-off model ────────────────────────────────────────────────
+@@ -139,6 +152,51 @@ export async function getGamePhaseCycle() {
+   return cycles.find(isInGamePhase) || null;
+ }
+ 
++// ── CM-1 (#1028): phase as data — canonical read/write ─────────────────────
++
++/**
++ * The canonical phase read, with full legacy fidelity: cycle.phase wins when
++ * set; otherwise the phase is derived from the legacy fields through
++ * deriveCycleStatus (game_phase override, manual_open latch, sign-off ladder).
++ */
++export function cyclePhase(cycle) {
++  return cyclePhasePure(cycle, deriveCycleStatus);
++}
++
++/** Is feeding open for this cycle? True in prep and game phases. */
++export function isFeedingOpen(cycle) {
++  return isFeedingOpenPure(cycle, deriveCycleStatus);
++}
++
++/**
++ * The cycle players feed from: the one whose phase is prep or game. On legacy
++ * documents (no phase field) this resolves exactly as getGamePhaseCycle does
++ * today, so pre-CM-1 cycles behave unchanged.
++ */
++export async function getFeedingCycle() {
++  const cycles = await getCycles();
++  return cycles.find(c => isFeedingOpen(c)) || null;
++}
++
++/**
++ * THE canonical phase writer (CM-1). Every phase transition goes through here:
++ * one PUT carrying the new `phase` plus its legacy mirror pair
++ * (cycle-phase.js PHASE_MIRROR), so the three representations cannot desync.
++ * `null` clears to neutral: both phase fields nulled and status re-derived
++ * from the legacy sign-off state, preserving #918's clear semantics exactly.
++ * Mutates the passed cycle in place, matching signoffPhase's pattern.
++ */
++export async function setCyclePhase(cycle, phaseOrNull, extra = {}) {
++  if (!cycle?._id) return null;
++  const writes = phaseOrNull === null
++    ? { phase: null, game_phase: null, status: deriveCycleStatus({ ...cycle, game_phase: null }) }
++    : phaseWrites(phaseOrNull);
++  const updates = { ...writes, ...extra };
++  await updateCycle(cycle._id, updates);
++  Object.assign(cycle, updates);
++  return cycle;
++}
++
+ /** Human-readable cycle name for dialogs. Label if set, else "Game N". */
+ export function cycleDisplayName(cycle) {
+   return cycle?.label || (cycle?.game_number != null ? 'Game ' + cycle.game_number : 'this cycle');
+diff --git a/public/js/tabs/feeding-tab.js b/public/js/tabs/feeding-tab.js
+index a7cd197d..22cd1077 100644
+--- a/public/js/tabs/feeding-tab.js
++++ b/public/js/tabs/feeding-tab.js
+@@ -9,7 +9,7 @@
+  */
+ 
+ import { apiGet, apiPut } from '../data/api.js';
+-import { getGamePhaseCycle } from '../downtime/db.js';
++import { getFeedingCycle } from '../downtime/db.js';
+ import { esc, displayName, hasAoE } from '../data/helpers.js';
+ import { getAttrEffective as getAttrVal, skDots, skTotal, skSpecStr, calcVitaeMax } from '../data/accessors.js';
+ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
+@@ -108,7 +108,10 @@ export async function renderFeedingTab(el, char) {
+   //   or deferred flag — covers the case where the game phase cycle has moved states
+   //   but the player already rolled.
+   let activeCycle = null;
+-  try { activeCycle = await getGamePhaseCycle(); } catch { /* offline */ }
++  // CM-1 (#1028): feeding opens on phase prep as well as game, so players can
++  // roll before the session (cycle-model.md Rev 2 section 2). Legacy cycles
++  // without a phase field resolve exactly as the old game-phase lookup did.
++  try { activeCycle = await getFeedingCycle(); } catch { /* offline */ }
+ 
+   if (currentChar !== charSnapshot) return;
+ 
+diff --git a/server/routes/downtime.js b/server/routes/downtime.js
+index 954b56ee..16563e5a 100644
+--- a/server/routes/downtime.js
++++ b/server/routes/downtime.js
+@@ -6,6 +6,10 @@ import { stripStReview } from '../helpers/strip-st-review.js';
+ import { validate } from '../middleware/validate.js';
+ import { downtimeSubmissionSchema, downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
+ import { sendDowntimePublishedEmail } from '../helpers/email.js';
++// CM-1 (#1028): the pure phase contract, shared verbatim with the client and
++// the tests (public/js/downtime/cycle-phase.js has no I/O and no browser
++// globals, so the server imports it directly).
++import { CYCLE_PHASE_SEQUENCE, FEEDING_ONLY_FIELDS, openCycleVerdict } from '../../public/js/downtime/cycle-phase.js';
+ 
+ // JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
+ // Mirrors JOINT_ELIGIBLE_ACTIONS in public/js/tabs/downtime-data.js.
+@@ -49,14 +53,22 @@ async function requireOpenCycle(req, res, next) {
+   if (!cycleOid) return next();
+   const cycle = await getCollection('downtime_cycles').findOne(
+     { _id: cycleOid },
+-    { projection: { status: 1, out_of_window_player_ids: 1 } }
++    { projection: { status: 1, phase: 1, out_of_window_player_ids: 1 } }
+   );
+-  if (cycle?.status === 'closed') {
+-    // Out-of-window access: characters ticked in out_of_window_player_ids may save
+-    // to a closed cycle (covers both early and late submissions — issue #295).
+-    const charIdStr = String(sub.character_id || '');
+-    const oowIds = (cycle.out_of_window_player_ids || []).map(String);
+-    if (charIdStr && oowIds.includes(charIdStr)) return next();
++  // CM-1 (#1028): phase-aware verdict, extracted pure so the matrix is
++  // unit-testable. Cycles carrying a known `phase` use the new lane (feeding
++  // fields writable in prep and game, general edits in downtime, ST always);
++  // cycles without one get the legacy status==='closed' gate byte-identical,
++  // including the out-of-window exception (issue #295).
++  const charIdStr = String(sub.character_id || '');
++  const oowIds = (cycle?.out_of_window_player_ids || []).map(String);
++  const verdict = openCycleVerdict({
++    cycle,
++    role: req.user?.role,
++    bodyKeys: Object.keys(req.body || {}),
++    oowMatch: !!charIdStr && oowIds.includes(charIdStr),
++  });
++  if (verdict === 'locked') {
+     return res.status(423).json({
+       error: 'CYCLE_CLOSED',
+       message: 'Cycle is closed; submissions are locked',
+@@ -81,6 +93,11 @@ cyclesRouter.get('/', async (req, res) => {
+ // POST /api/downtime_cycles — ST only
+ cyclesRouter.post('/', requireRole('st'), validate(downtimeCycleSchema), async (req, res) => {
+   const doc = req.body;
++  // CM-1 (#1028): every new cycle carries the phase order as data. `phase` is
++  // deliberately NOT defaulted; a new cycle starts with no phase (legacy null).
++  if (!Array.isArray(doc.phase_sequence) || doc.phase_sequence.length === 0) {
++    doc.phase_sequence = [...CYCLE_PHASE_SEQUENCE];
++  }
+   const result = await cycles().insertOne(doc);
+   const created = await cycles().findOne({ _id: result.insertedId });
+   res.status(201).json(created);
+@@ -800,9 +817,10 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
+     }
+ 
+     // Enforce cycle deadline — but allow feeding-related fields through,
+-    // since feeding rolls happen at game time (after the submission deadline).
+-    const FEEDING_FIELDS = new Set(['feeding_roll_player', 'feeding_vitae_allocation', 'feeding_deferred']);
+-    const allFieldsFeeding = Object.keys(req.body).every(k => FEEDING_FIELDS.has(k));
++    // since feeding rolls happen at game time (after the submission deadline;
++    // from CM-1 on, also during prep). Field list shared with the phase gate
++    // via cycle-phase.js so the two cannot drift.
++    const allFieldsFeeding = Object.keys(req.body).every(k => FEEDING_ONLY_FIELDS.includes(k));
+     if (!allFieldsFeeding && existing.cycle_id) {
+       const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
+       if (cycleOid) {
+diff --git a/server/schemas/downtime_submission.schema.js b/server/schemas/downtime_submission.schema.js
+index 5b3464bb..31b61029 100644
+--- a/server/schemas/downtime_submission.schema.js
++++ b/server/schemas/downtime_submission.schema.js
+@@ -582,6 +582,16 @@ export const downtimeCycleSchema = {
+     // CYCLE epic (#708) — manual game phase control. Replaces auto-derive when set.
+     // null = derive from phase_signoff (legacy cycles). See deriveCycleStatus.
+     game_phase: { type: ['string', 'null'], enum: ['game', 'downtime', 'processing', null] },
++
++    // CM-1 (#1028, cycle-model.md Rev 2 section 7) — phase order as data.
++    // `phase` is the new-vocabulary current phase; null = legacy (derive from
++    // the fields above). NOTE: 'prep' here is the game-prep window between
++    // processing and game, NOT the legacy status 'prep' (pre-downtime setup)
++    // and NOT phase_signoff.prep. The legacy game_phase enum above never
++    // gains 'prep'. Writes go through db.js setCyclePhase, which mirrors
++    // every phase to the legacy pair (public/js/downtime/cycle-phase.js).
++    phase:          { type: ['string', 'null'], enum: ['downtime', 'processing', 'prep', 'game', null] },
++    phase_sequence: { type: 'array', items: { type: 'string', enum: ['downtime', 'processing', 'prep', 'game'] } },
+     chapter_id: { type: ['string', 'null'] },  // ref to chapters collection _id as string
+     session_id: { type: ['string', 'null'] },  // ref to game_sessions _id as string
+ 
+diff --git a/public/js/downtime/cycle-phase.js b/public/js/downtime/cycle-phase.js
+new file mode 100644
+index 00000000..dbea1206
+--- /dev/null
++++ b/public/js/downtime/cycle-phase.js
+@@ -0,0 +1,145 @@
++/**
++ * cycle-phase.js — CM-1 (issue #1028): the cycle phase model as data.
++ *
++ * PURE MODULE: no imports, no I/O, no browser globals. Deliberately importable
++ * by the client (db.js), the server (routes/downtime.js), and the test suite
++ * directly, so there is exactly one implementation of the phase contract and
++ * no mirror copies to drift (the mirror-in-test convention exists only because
++ * db.js imports api.js, which touches `location` at module load; this module
++ * sidesteps that). Twin on the reader side: TM Wiki's
++ * server/downtime-cycle-phase.js (the 11-1 stub contract).
++ *
++ * Ruling document: D:/Terra Mortis/cycle-model.md Rev 2, sections 7 and 11.
++ *
++ * THE THREE MEANINGS OF "prep" (do not conflate):
++ *   - status: 'prep'        legacy enum value, "ST is setting the cycle up,
++ *                           downtime not yet open" (the START of the cycle).
++ *   - phase_signoff.prep    the first DTUX-1 sign-off checkbox.
++ *   - phase: 'prep'         THIS module's value: the game-prep window between
++ *                           processing and game (near the END of the cycle).
++ *                           Feeding is open during it.
++ * statusToPhase maps legacy status 'prep' to null, never to 'prep'.
++ */
++
++// The canonical phase order. A cycle's own phase_sequence wins when present.
++export const CYCLE_PHASE_SEQUENCE = Object.freeze(['downtime', 'processing', 'prep', 'game']);
++
++const PHASE_VALUES = new Set(CYCLE_PHASE_SEQUENCE);
++
++// Rev 2 section 7 mirror table: what the legacy fields say for each new phase,
++// so every pre-CM-1 reader (including a stale browser tab reading the API)
++// sees a coherent old-model state. prep mirrors to the PROCESSING pair, never
++// the game pair: nothing keyed to game-start may fire early (the vetoed
++// contamination), and the server's closed-cycle write gate stays closed to
++// everything except feeding fields (see openCycleVerdict).
++export const PHASE_MIRROR = Object.freeze({
++  downtime:   Object.freeze({ game_phase: 'downtime',   status: 'active' }),
++  processing: Object.freeze({ game_phase: 'processing', status: 'closed' }),
++  prep:       Object.freeze({ game_phase: 'processing', status: 'closed' }),
++  game:       Object.freeze({ game_phase: 'game',       status: 'game' }),
++});
++
++/**
++ * Map a legacy effective status to the new phase vocabulary.
++ * 'open' folds to 'downtime' (both mean the downtime window is open, matching
++ * the Wiki stub's treatment). Legacy 'prep' and anything unrecognised map to
++ * null: no phase, form closed, the safe default.
++ */
++export function statusToPhase(status) {
++  switch (status) {
++    case 'active':
++    case 'open':   return 'downtime';
++    case 'game':   return 'game';
++    case 'closed': return 'processing';
++    default:       return null;
++  }
++}
++
++/**
++ * The canonical phase read. `cycle.phase` wins when it is a known phase value;
++ * otherwise fall back to the legacy fields via `deriveStatus`.
++ *
++ * `deriveStatus` defaults to reading the raw `status` field. Client callers
++ * should pass db.js's deriveCycleStatus for full legacy fidelity (the #708
++ * game_phase override, the #231 manual_open latch, the sign-off ladder).
++ * Server callers only enter phase-aware branches when `phase` is a known
++ * value, so the fallback fidelity does not matter there.
++ */
++export function cyclePhase(cycle, deriveStatus) {
++  if (cycle && PHASE_VALUES.has(cycle.phase)) return cycle.phase;
++  const status = typeof deriveStatus === 'function' ? deriveStatus(cycle) : cycle?.status;
++  return statusToPhase(status);
++}
++
++/** Index of a phase in this cycle's sequence (its own phase_sequence wins). */
++export function phaseIndex(cycle, phase) {
++  const seq = Array.isArray(cycle?.phase_sequence) && cycle.phase_sequence.length
++    ? cycle.phase_sequence
++    : CYCLE_PHASE_SEQUENCE;
++  return seq.indexOf(phase);
++}
++
++/** Is feeding open? Rev 2 section 7: feeding opens on prep and stays open in game. */
++export function isFeedingOpen(cycle, deriveStatus) {
++  const p = cyclePhase(cycle, deriveStatus);
++  return p === 'prep' || p === 'game';
++}
++
++/**
++ * The update object for a non-null phase write: the new `phase` field plus its
++ * legacy mirror pair, written together in ONE update so the representations
++ * cannot desync (the 16 July 2026 failure mode). The null (clear-to-neutral)
++ * row needs the legacy sign-off derivation and therefore lives with
++ * setCyclePhase in db.js, which owns deriveCycleStatus.
++ */
++export function phaseWrites(phase) {
++  const mirror = PHASE_MIRROR[phase];
++  if (!mirror) throw new Error('phaseWrites: unknown phase "' + phase + '"');
++  return { phase, ...mirror };
++}
++
++// Fields a player may write to a submission outside the downtime window,
++// because the feed roll happens at game time (and, from CM-1 on, during prep).
++// Shared by the submissions PUT deadline check and openCycleVerdict.
++export const FEEDING_ONLY_FIELDS = Object.freeze([
++  'feeding_roll_player',
++  'feeding_vitae_allocation',
++  'feeding_deferred',
++]);
++
++/**
++ * The requireOpenCycle decision, extracted pure so the matrix is unit-testable
++ * without a database. Returns 'allow' or 'locked'.
++ *
++ * Phase-aware lane (cycle carries a known `phase`):
++ *   - ST/dev: always allowed. The processing phase IS the ST writing
++ *     resolutions to submissions (cycle-model.md Rev 2 section 2); a
++ *     phase-aware gate that locked the ST out of processing would break the
++ *     model it implements. (Deviation from the story's AC 5 literal text,
++ *     resolved in favour of the ruling document; recorded in the Dev Agent
++ *     Record.)
++ *   - Player, phase 'downtime': allowed (the downtime window).
++ *   - Player, phase 'prep' or 'game', body touches ONLY feeding fields:
++ *     allowed (this is what opens feeding during prep).
++ *   - Player, anything else: out-of-window exception, else locked.
++ *
++ * Legacy lane (no known `phase`): byte-identical to the pre-CM-1 gate —
++ * locked only when raw status is 'closed', with the out-of-window exception.
++ */
++export function openCycleVerdict({ cycle, role, bodyKeys, oowMatch }) {
++  const keys = Array.isArray(bodyKeys) ? bodyKeys : [];
++  const feedingOnly = keys.length > 0 && keys.every(k => FEEDING_ONLY_FIELDS.includes(k));
++
++  if (cycle && PHASE_VALUES.has(cycle.phase)) {
++    if (role === 'st' || role === 'dev') return 'allow';
++    const p = cycle.phase;
++    if (p === 'downtime') return 'allow';
++    if ((p === 'prep' || p === 'game') && feedingOnly) return 'allow';
++    return oowMatch ? 'allow' : 'locked';
++  }
++
++  if (cycle?.status === 'closed') {
++    return oowMatch ? 'allow' : 'locked';
++  }
++  return 'allow';
++}
+diff --git a/server/tests/cm1-cycle-phase.test.js b/server/tests/cm1-cycle-phase.test.js
+new file mode 100644
+index 00000000..c711fd98
+--- /dev/null
++++ b/server/tests/cm1-cycle-phase.test.js
+@@ -0,0 +1,268 @@
++/**
++ * CM-1 (#1028) — phase order as data, prep as a first-class phase.
++ *
++ * The phase contract lives in public/js/downtime/cycle-phase.js, a pure module
++ * with no I/O and no browser globals, so THIS SUITE IMPORTS IT DIRECTLY — no
++ * mirror copy to keep in lockstep (the mirror convention documented at
++ * derive-cycle-status.test.js:8-12 exists only because db.js imports api.js;
++ * the pure module deliberately sidesteps that).
++ *
++ * Wiring that lives in browser-coupled or DB-coupled files (db.js, the routes,
++ * the admin views) is asserted via source text, following the repo convention
++ * established by epic.708.1-cycle-schema-api.test.js.
++ *
++ * Ruling document: D:/Terra Mortis/cycle-model.md Rev 2, sections 7 and 11.
++ */
++import { describe, it, expect } from 'vitest';
++import fs from 'fs';
++import Ajv from 'ajv';
++
++import {
++  CYCLE_PHASE_SEQUENCE,
++  PHASE_MIRROR,
++  FEEDING_ONLY_FIELDS,
++  statusToPhase,
++  cyclePhase,
++  phaseIndex,
++  isFeedingOpen,
++  phaseWrites,
++  openCycleVerdict,
++} from '../../public/js/downtime/cycle-phase.js';
++
++import { downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
++
++const DB     = fs.readFileSync('../public/js/downtime/db.js', 'utf8');
++const ROUTES = fs.readFileSync('../server/routes/downtime.js', 'utf8');
++const VIEWS  = fs.readFileSync('../public/js/admin/cycle-views.js', 'utf8');
++const FEED   = fs.readFileSync('../public/js/tabs/feeding-tab.js', 'utf8');
++
++// ── The sequence and the mirror table ──────────────────────────────────────
++
++describe('cm1 — phase sequence and mirror table', () => {
++  it('canonical sequence is downtime, processing, prep, game', () =>
++    expect([...CYCLE_PHASE_SEQUENCE]).toEqual(['downtime', 'processing', 'prep', 'game']));
++
++  it('prep mirrors to the processing pair, never the game pair', () =>
++    expect(PHASE_MIRROR.prep).toEqual({ game_phase: 'processing', status: 'closed' }));
++
++  it('golden transition matrix: every settable phase writes all three representations', () => {
++    expect(phaseWrites('downtime')).toEqual({ phase: 'downtime', game_phase: 'downtime', status: 'active' });
++    expect(phaseWrites('processing')).toEqual({ phase: 'processing', game_phase: 'processing', status: 'closed' });
++    expect(phaseWrites('prep')).toEqual({ phase: 'prep', game_phase: 'processing', status: 'closed' });
++    expect(phaseWrites('game')).toEqual({ phase: 'game', game_phase: 'game', status: 'game' });
++  });
++
++  it('phaseWrites rejects unknown phases loudly', () =>
++    expect(() => phaseWrites('feeding')).toThrow());
++
++  it('feeding-only field list matches the historic FEEDING_FIELDS set', () =>
++    expect([...FEEDING_ONLY_FIELDS].sort()).toEqual(
++      ['feeding_deferred', 'feeding_roll_player', 'feeding_vitae_allocation']));
++});
++
++// ── statusToPhase ──────────────────────────────────────────────────────────
++
++describe('cm1 — statusToPhase', () => {
++  it("maps active and open to 'downtime'", () => {
++    expect(statusToPhase('active')).toBe('downtime');
++    expect(statusToPhase('open')).toBe('downtime');
++  });
++  it("maps game to 'game' and closed to 'processing'", () => {
++    expect(statusToPhase('game')).toBe('game');
++    expect(statusToPhase('closed')).toBe('processing');
++  });
++  it("maps legacy 'prep' (pre-downtime setup) to null, NEVER to phase 'prep'", () =>
++    expect(statusToPhase('prep')).toBeNull());
++  it('maps junk and absence to null', () => {
++    expect(statusToPhase('bogus')).toBeNull();
++    expect(statusToPhase(undefined)).toBeNull();
++  });
++});
++
++// ── cyclePhase ─────────────────────────────────────────────────────────────
++
++describe('cm1 — cyclePhase', () => {
++  it('a known phase field wins verbatim', () => {
++    expect(cyclePhase({ phase: 'prep', status: 'closed', game_phase: 'processing' })).toBe('prep');
++    expect(cyclePhase({ phase: 'game', status: 'active' })).toBe('game');
++  });
++
++  it('an unknown phase value falls back instead of leaking through', () =>
++    expect(cyclePhase({ phase: 'feeding', status: 'game' })).toBe('game'));
++
++  it('no phase field: falls back through the supplied derivation', () => {
++    // The desynced document that broke feeding night: stale status with a
++    // game_phase override. A deriveCycleStatus-shaped fn resolves it to game.
++    const deriveLike = c => (c?.game_phase === 'game' ? 'game' : c?.status);
++    expect(cyclePhase({ status: 'active', game_phase: 'game' }, deriveLike)).toBe('game');
++  });
++
++  it('no derivation supplied: falls back on raw status', () =>
++    expect(cyclePhase({ status: 'closed' })).toBe('processing'));
++
++  it('db.js binds the full legacy derivation (source check)', () =>
++    expect(DB).toMatch(/cyclePhasePure\(cycle,\s*deriveCycleStatus\)/));
++});
++
++// ── phaseIndex ─────────────────────────────────────────────────────────────
++
++describe('cm1 — phaseIndex', () => {
++  it('uses the default sequence when the cycle carries none', () =>
++    expect(phaseIndex({}, 'prep')).toBe(2));
++  it("a cycle's own phase_sequence wins", () =>
++    expect(phaseIndex({ phase_sequence: ['prep', 'game'] }, 'prep')).toBe(0));
++  it('unknown phase is -1', () =>
++    expect(phaseIndex({}, 'feeding')).toBe(-1));
++});
++
++// ── isFeedingOpen ──────────────────────────────────────────────────────────
++
++describe('cm1 — isFeedingOpen (feeding opens on prep, stays open in game)', () => {
++  it('true in prep and game, false in downtime and processing', () => {
++    expect(isFeedingOpen({ phase: 'prep' })).toBe(true);
++    expect(isFeedingOpen({ phase: 'game' })).toBe(true);
++    expect(isFeedingOpen({ phase: 'downtime' })).toBe(false);
++    expect(isFeedingOpen({ phase: 'processing' })).toBe(false);
++  });
++  it('legacy documents resolve exactly as the old game-phase lookup', () => {
++    expect(isFeedingOpen({ status: 'game' })).toBe(true);
++    expect(isFeedingOpen({ status: 'active' })).toBe(false);
++    expect(isFeedingOpen({ status: 'closed' })).toBe(false);
++  });
++});
++
++// ── openCycleVerdict (the requireOpenCycle decision) ───────────────────────
++
++describe('cm1 — openCycleVerdict, phase-aware lane', () => {
++  const feeding = ['feeding_roll_player', 'feeding_vitae_allocation'];
++  const general = ['responses'];
++
++  it('player feed-roll write during prep is ALLOWED (the point of this story)', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'prep', status: 'closed' }, role: 'player', bodyKeys: feeding, oowMatch: false }))
++      .toBe('allow'));
++
++  it('player general edit during prep is locked', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'prep', status: 'closed' }, role: 'player', bodyKeys: general, oowMatch: false }))
++      .toBe('locked'));
++
++  it('a mixed body (feeding plus general keys) does not slip through', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'prep', status: 'closed' }, role: 'player', bodyKeys: [...feeding, ...general], oowMatch: false }))
++      .toBe('locked'));
++
++  it('out-of-window exception survives in the phase lane', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'prep', status: 'closed' }, role: 'player', bodyKeys: general, oowMatch: true }))
++      .toBe('allow'));
++
++  it('feeding writes stay open in game phase', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'game', status: 'game' }, role: 'player', bodyKeys: feeding, oowMatch: false }))
++      .toBe('allow'));
++
++  it('the downtime window allows general player writes', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'downtime', status: 'active' }, role: 'player', bodyKeys: general, oowMatch: false }))
++      .toBe('allow'));
++
++  it('processing locks players out entirely (bar out-of-window)', () => {
++    expect(openCycleVerdict({ cycle: { phase: 'processing', status: 'closed' }, role: 'player', bodyKeys: feeding, oowMatch: false }))
++      .toBe('locked');
++    expect(openCycleVerdict({ cycle: { phase: 'processing', status: 'closed' }, role: 'player', bodyKeys: general, oowMatch: true }))
++      .toBe('allow');
++  });
++
++  it('the ST is never locked out in the phase lane (processing IS the ST writing resolutions)', () => {
++    expect(openCycleVerdict({ cycle: { phase: 'processing', status: 'closed' }, role: 'st', bodyKeys: general, oowMatch: false }))
++      .toBe('allow');
++    expect(openCycleVerdict({ cycle: { phase: 'prep', status: 'closed' }, role: 'dev', bodyKeys: general, oowMatch: false }))
++      .toBe('allow');
++  });
++});
++
++describe('cm1 — openCycleVerdict, legacy lane (byte-identical to the old gate)', () => {
++  it('locked only on raw closed status', () => {
++    expect(openCycleVerdict({ cycle: { status: 'closed' }, role: 'player', bodyKeys: ['responses'], oowMatch: false })).toBe('locked');
++    expect(openCycleVerdict({ cycle: { status: 'closed' }, role: 'st', bodyKeys: ['responses'], oowMatch: false })).toBe('locked');
++  });
++  it('out-of-window exception on a closed legacy cycle', () =>
++    expect(openCycleVerdict({ cycle: { status: 'closed' }, role: 'player', bodyKeys: ['responses'], oowMatch: true })).toBe('allow'));
++  it('every non-closed legacy status allows the write through to the handler', () => {
++    for (const status of ['prep', 'game', 'active', 'open']) {
++      expect(openCycleVerdict({ cycle: { status }, role: 'player', bodyKeys: ['responses'], oowMatch: false })).toBe('allow');
++    }
++  });
++  it('an unknown junk phase value drops to the legacy lane, not the phase lane', () =>
++    expect(openCycleVerdict({ cycle: { phase: 'feeding', status: 'closed' }, role: 'st', bodyKeys: [], oowMatch: false }))
++      .toBe('locked'));
++});
++
++// ── Schema matrix ──────────────────────────────────────────────────────────
++
++describe('cm1 — downtimeCycleSchema accepts the new fields, rejects misuse', () => {
++  const ajv = new Ajv({ allowUnionTypes: true, strict: false });
++  const check = ajv.compile(downtimeCycleSchema);
++
++  it("phase 'prep' is legal", () =>
++    expect(check({ label: 'x', phase: 'prep' })).toBe(true));
++
++  it('phase null is legal (legacy)', () =>
++    expect(check({ label: 'x', phase: null })).toBe(true));
++
++  it("phase 'feeding' is illegal (Rev 2 renamed it)", () =>
++    expect(check({ label: 'x', phase: 'feeding' })).toBe(false));
++
++  it("game_phase never gains 'prep'", () =>
++    expect(check({ label: 'x', game_phase: 'prep' })).toBe(false));
++
++  it('canonical phase_sequence is legal', () =>
++    expect(check({ label: 'x', phase_sequence: ['downtime', 'processing', 'prep', 'game'] })).toBe(true));
++
++  it("phase_sequence rejects 'feeding'", () =>
++    expect(check({ label: 'x', phase_sequence: ['downtime', 'processing', 'feeding', 'game'] })).toBe(false));
++});
++
++// ── Wiring (source-text checks, per the epic.708.1 convention) ─────────────
++
++describe('cm1 — wiring', () => {
++  it('requireOpenCycle routes through openCycleVerdict and fetches phase', () => {
++    expect(ROUTES).toContain('openCycleVerdict({');
++    expect(ROUTES).toMatch(/projection:\s*\{\s*status:\s*1,\s*phase:\s*1,\s*out_of_window_player_ids:\s*1\s*\}/);
++  });
++
++  it('cycle POST default-injects the canonical phase_sequence and never defaults phase', () => {
++    expect(ROUTES).toContain('doc.phase_sequence = [...CYCLE_PHASE_SEQUENCE]');
++    expect(ROUTES).not.toMatch(/doc\.phase\s*=/);
++  });
++
++  it('the submissions PUT deadline carve-out shares FEEDING_ONLY_FIELDS', () =>
++    expect(ROUTES).toContain('FEEDING_ONLY_FIELDS.includes(k)'));
++
++  it('closeCycle and openGamePhase write through the mirror (the #1006 fix)', () => {
++    expect(DB).toContain("phaseWrites('processing'), closed_at");
++    expect(DB).toContain("phaseWrites('game'), game_phase_at");
++  });
++
++  it('setCyclePhase null row re-derives status with game_phase nulled (#918 semantics)', () =>
++    expect(DB).toMatch(/phase:\s*null,\s*game_phase:\s*null,\s*status:\s*deriveCycleStatus\(\{\s*\.\.\.cycle,\s*game_phase:\s*null\s*\}\)/));
++
++  it('the admin phase buttons include Prep and route through setCyclePhase', () => {
++    expect(VIEWS).toContain("['downtime', 'processing', 'prep', 'game']");
++    expect(VIEWS).toContain('await setCyclePhase(cy, phaseOrNull)');
++  });
++
++  it('the tracker reset still fires only on entering game, never prep', () => {
++    const resetIdx = VIEWS.indexOf("apiDelete('/api/tracker_state')");
++    const guardIdx = VIEWS.indexOf("if (phaseOrNull === 'game')");
++    expect(guardIdx).toBeGreaterThan(-1);
++    expect(resetIdx).toBeGreaterThan(guardIdx);
++    expect(VIEWS).not.toMatch(/phaseOrNull === 'prep'[\s\S]{0,200}tracker_state/);
++  });
++
++  it('the feeding tab reads through getFeedingCycle', () => {
++    expect(FEED).toContain('getFeedingCycle');
++    expect(FEED).not.toContain('getGamePhaseCycle');
++  });
++
++  it('signoffPhase and setManualOpen are untouched by CM-1 (no phase writes)', () => {
++    const signoff = DB.slice(DB.indexOf('export async function signoffPhase'), DB.indexOf('export function isInGamePhase'));
++    expect(signoff).not.toContain('setCyclePhase');
++    expect(signoff).not.toMatch(/\bphase:\s/);
++  });
++});

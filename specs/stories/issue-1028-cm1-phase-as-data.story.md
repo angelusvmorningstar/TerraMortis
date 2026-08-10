@@ -1,6 +1,6 @@
 # Story CM-1: Phase order as data, `prep` as a first-class phase, feeding opens on prep
 
-Status: ready-for-dev
+Status: review
 
 > **Ruling document: `D:\Terra Mortis\cycle-model.md` (Rev 2, 2026-08-10) — §7 and §11. Read it
 > before implementing.** This story extends TM Suite issue #1028; where they differ, Rev 2 wins
@@ -106,22 +106,25 @@ running, and no pair of phase representations can ever desync again.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC 10): Reader/writer enumeration — grep all four repos for `status`, `game_phase`,
+- [x] Task 1 (AC 10): Reader/writer enumeration — grep all four repos for `status`, `game_phase`,
       `deriveCycleStatus`, `getGamePhaseCycle`, phase-string literals; write the classified
       artefact into this story's Dev Agent Record; diff against the Dev Notes seed; flag novelties.
-- [ ] Task 2 (AC 2): Pure module `cycle-phase.js` — move/implement `deriveCycleStatus` re-export
+- [x] Task 2 (AC 2): Pure module `cycle-phase.js` — move/implement `deriveCycleStatus` re-export
       or import strategy so client, server, tests share one implementation (keep
       `db.js.deriveCycleStatus` as the imported symbol so its 14-odd readers are untouched).
-- [ ] Task 3 (AC 1, 8): Schema fields + POST default-injection.
-- [ ] Task 4 (AC 3): `setCyclePhase` in `db.js` (client) writing via one `updateCycle` call.
-- [ ] Task 5 (AC 4): Rewire `writePhase`, `closeCycle`, `openGamePhase`; verify `signoffPhase` and
+- [x] Task 3 (AC 1, 8): Schema fields + POST default-injection.
+- [x] Task 4 (AC 3): `setCyclePhase` in `db.js` (client) writing via one `updateCycle` call.
+- [x] Task 5 (AC 4): Rewire `writePhase`, `closeCycle`, `openGamePhase`; verify `signoffPhase` and
       `setManualOpen` byte-identical.
-- [ ] Task 6 (AC 5): Phase-aware `requireOpenCycle` (server imports the pure module).
-- [ ] Task 7 (AC 6): Feeding gate + indicator rewiring.
-- [ ] Task 8 (AC 7): Admin Prep button.
-- [ ] Task 9 (AC 11): Tests.
+- [x] Task 6 (AC 5): Phase-aware `requireOpenCycle` (server imports the pure module).
+- [x] Task 7 (AC 6): Feeding gate + indicator rewiring.
+- [x] Task 8 (AC 7): Admin Prep button.
+- [x] Task 9 (AC 11): Tests.
 - [ ] Task 10 (AC 12): Run Symon's script on prod post-deploy; record results here.
+      *(DEPLOY-GATED: executable only after the Wednesday deploy; the script is written above and
+      ready. Deliberately left unchecked at review.)*
 - [ ] Task 11: PR to `main`; after merge + deploy, merge `main` back into `dev`.
+      *(GATED on Angelus's explicit word; never pushed or merged from a session without it.)*
 
 ## Symon Hand-Test Script (AC 12 — run on production, Wednesday, ~10 minutes)
 
@@ -230,10 +233,170 @@ Test cycle: create a THROWAWAY cycle via the admin Cycle tab (never the live Cha
 
 ### Agent Model Used
 
-### Reader Enumeration Artefact (Task 1 — fill before coding)
+Claude Fable 5 (claude-fable-5), session of 2026-08-10, via bmad-dev-story inside bmad-loop.
+
+### Reader Enumeration Artefact (Task 1 — completed 2026-08-10, before any code)
+
+Every reader/writer of a cycle's `status`/`game_phase`/phase surface, all four repos, classified.
+IMPORTANT CONTEXT: the Dev Notes seed was drawn partly from the stale June-era `ms` branch tree;
+this enumeration was re-run against the `origin/main`-based working tree and CORRECTS it.
+
+**Corrections to the seed (main had moved):**
+- `writePhase` (cycle-views) ALREADY dual-writes `status` alongside `game_phase` (#1001 landed);
+  the story's "writes game_phase alone" claim was stale. Remaining single-writers were only
+  `closeCycle` and `openGamePhase` — both now rewired.
+- `getGamePhaseCycle` ALREADY resolves through `isInGamePhase()`/`deriveCycleStatus` (#1001);
+  the raw `status === 'game'` read described in Dev Notes no longer existed.
+- `public/js/player.js` no longer exists (unified app absorbed it); the `player.js:450` seed
+  entry is void. No feeding indicator reader remains outside the feeding tab itself.
+- A #1003 zero-submission flip guard now exists in `writePhase` (preserved untouched).
+
+**TM Suite — rewired this story:** `db.js` `closeCycle`/`openGamePhase` (triple-write),
+new `setCyclePhase`/`cyclePhase`/`isFeedingOpen`/`getFeedingCycle`; `cycle-views.js` `writePhase`
+(routes through `setCyclePhase`), phase buttons (+Prep, highlight via `uiPhase()`), ribbon text;
+`feeding-tab.js:111` (`getFeedingCycle`); `routes/downtime.js` `requireOpenCycle` (verdict) +
+cycles POST (sequence inject) + PUT deadline carve-out (shared field list);
+`downtime-views.js:~2718` local patch after `openGamePhase`.
+
+**TM Suite — verified correct-under-mirror, untouched:**
+- `db.js:16` `getActiveCycle` (prep reads no-active: the downtime window IS over)
+- `db.js:40` `nextGameNumber`, `db.js:163` `zeroSubmissionFlipWarning` isClosed,
+  `db.js:199` `upsertCycle` (closed-count heuristics; prep counts as closed, consistent)
+- `downtime-views.js:1141` snapshot gate, `:1203` activeCycle, `:2702` close gate
+  (status==='active'), `:2711` open-game gate (status==='closed' — prep mirrors to closed, so
+  Game can still be opened from prep, which the model requires)
+- `downtime-views.js:1242-46` five-way status fan: during prep the admin badge reads "closed"
+  (cosmetic; see Completion Notes deferral)
+- `downtime-form.js:1731` isGame via isInGamePhase (prep is not game: correct)
+- `app.js:2370` (status open/active DT-form gate), `data/dt-hold-flag.js:43`, `city-views.js:63`
+- `signin-tab.js:85-88` last-cycle lookup (`status !== 'open'`, sorted by game_number): a
+  prep-phase cycle (status closed) IS included — required for Saturday's carry-over reads
+- Server: `routes/downtime.js:102` confirm-feeding 409-on-closed — callers are the DT form and
+  regency tab, both operating on the ACTIVE (downtime-window) cycle; regent confirmation is a
+  downtime-phase act, so prep never blocks it. `liveStatuses` joint-project gates (`:212`,
+  `:299`): joints closed during prep — correct, the downtime window is over.
+- Tests: `epic.708.1` asserts on db.js SOURCE TEXT for `deriveCycleStatus` — this is why the
+  function stays in db.js and the pure module wraps it via injection instead of absorbing it.
+
+**TM Wiki — follow-up in that repo (not this story's code):**
+`server/downtime-cycle-phase.js` reads `cycle.phase` verbatim; its local `CYCLE_PHASE_SEQUENCE`
+still says `'feeding'` where Rev 2 ruled `'prep'`. When Suite writes `phase:'prep'` the Wiki gate
+reads an unknown phase and fails SAFE (form closed). Update the constant when the Wiki form work
+resumes.
+
+**TM Cockpit — no live coupling found.** Full grep of `lib/`, `scripts/`, `server.mjs`: the only
+hit is a display echo in `scripts/set-cycle-deadline.mjs:81-86`. The feared feeding-window
+inference on `status === 'game'` does not exist in Cockpit code. The session-start guardrail
+block stands regardless.
+
+**TM Herald — no impact.** `services/announcements.js` announces only on status transitions to
+`open`/`closed`/`published`. Entering prep does not change `status` (processing and prep both
+mirror to closed), so no spurious announcement fires. Note for the Herald backlog: "feeding is
+open" is now a phase fact invisible to raw status polling; a prep announcement would need the
+`phase` field.
 
 ### Debug Log References
 
+- Targeted vitest (the only trusted signal; full suite untrusted per #1117):
+  `npx vitest run tests/cm1-cycle-phase.test.js tests/derive-cycle-status.test.js
+  tests/epic.708.1-cycle-schema-api.test.js` — **3 files, 80/80 passed**, 2026-08-10.
+- Known-red `epic.708.3-cycle-phase-controls.test.js` re-run: **3 failed | 11 passed**, and the
+  three failures are exactly #1116's documented stale assertions (`setGamePhase`, `data-phase`,
+  `gold2`). Baseline preserved; nothing new broken, nothing "fixed in passing".
+- `node --check` clean on all seven edited/created JS files.
+
 ### Completion Notes List
 
+1. **AC 5 deviation, resolved in favour of the ruling doc:** the AC's literal text allowed
+   general writes only in `downtime` with no role distinction, which would have locked the ST
+   out of writing resolutions during the `processing` phase — the phase that IS the ST writing
+   resolutions (`cycle-model.md` Rev 2 §2). `openCycleVerdict` therefore allows `st`/`dev`
+   unconditionally in the phase-aware lane. The legacy lane keeps today's both-directions
+   seal byte-identical. Flag for code review.
+2. **One intentional tightening:** in the phase lane, a player's general (non-feeding) edit
+   during `game` is locked (previously reachable because status `game` is not `closed`; the
+   deadline check inside the handler would almost always have 403'd it anyway).
+3. **Deferred cosmetic:** during prep, the admin DT processing header badge
+   (`downtime-views.js:1242-46`) reads "closed" (it reads raw status). Correct data, stale
+   word. Candidate follow-up story; not in AC scope.
+4. `epic.708.1`'s source-text coupling to db.js is the reason `deriveCycleStatus` did NOT move
+   into the pure module; `cyclePhase(cycle, deriveFn)` takes the derivation by injection and
+   db.js exports the bound version. One implementation, no mirrors, 708.1 untouched.
+5. The `.cy-phase--prep` badge uses the `--result-succ` token family (green, distinct from
+   game's `--green-dk`): tokens only, no bare hex, per the CSS standards.
+6. Tasks 10 and 11 are deploy-gated and deliberately unchecked: the Symon script needs the
+   Wednesday production deploy, and the PR/merge needs Angelus's explicit word.
+
+### Change Log
+
+- 2026-08-10: CM-1 implemented on branch `cm/issue-1028-phase-as-data` (base `origin/main`
+  `8ff0acf1`). Phase-as-data + prep + phase-aware write gate + feeding-on-prep + admin Prep
+  control + 46-test suite. Targeted suites 80/80 green; known-red 708.3 baseline unchanged.
+
+## Senior Developer Review
+
+**Reviewer: EXTERNAL — Codex (adversarial 3-pass, blind-first), 2026-08-10.** Findings at
+`specs/stories/code-review/issue-1028-cm1-codex-findings.md`; prompt and diff alongside it. Every
+finding below originated OUTSIDE this session; each was independently reproduced here before being
+accepted (the High and both sharpest Mediums via executable probes, the rest by direct code read).
+Reviewer's verdict was "blocking problem — do not ship as-is"; after the patch set below, all
+blocking and Medium items are resolved.
+
+| # | Finding (severity) | Triage | Resolution |
+|---|---|---|---|
+| H1 | `getFeedingCycle` selects by API/creation order; a stale `game_phase:'game'` doc with a newer `_id` captures feed rolls meant for the prep cycle | **patch** | Candidates now sorted by `game_number` desc (THE ordering field). Regression test reproduces the exact stale-wins scenario. PD: revert → test fails → restore. |
+| M1 | `closeCycle`/`openGamePhase` bypassed `setCyclePhase` (AC 3/4 literal violation; three writers, not one) | **patch** | Both now route through `setCyclePhase`; signatures take the cycle doc; call sites updated; the redundant local-state patch in `downtime-views.js` removed (the writer mutates in place). Guarded by source-regex tests. |
+| M2 | AC 6 readers: `app.js` lifecycle feeding card was date-only — advertised "roll ready" during processing and after a completed prep roll | **patch** | Card now requires an actual feeding-open cycle; during prep the player's roll state is read from that cycle's own submission. (`getGamePhaseCycle` deliberately keeps its game-only meaning; `getFeedingCycle` is the feeding contract — recorded as the AC 6 interpretation.) |
+| M3 | A junk `phase` value (e.g. `'feeding'`) dropped the doc into the permissive legacy lane, disabling phase rules on a `status:'game'` doc | **patch** | Verdict lane now triggers on ANY string phase and judges by the CANONICAL phase (fail-closed). Tests cover junk + empty-string cases. PD done. |
+| M4 | Dev Agent Record's "confirm-feeding callers are active-cycle-only" was FALSE; prep (mirror closed) would newly block regent rights-confirmation that the legacy feed window allowed | **patch** | Endpoint is phase-aware with legacy-parity semantics: allowed in downtime/prep/game, blocked in processing; legacy docs keep the raw-closed check byte-identical. |
+| M5 | Admin ribbon (`deriveCurrentCycle`) gave any stale `game_phase:'game'` precedence and ordered by `_id` | **patch** | Single ranking: highest `game_number` among phase-carrying cycles; `byIdDesc` deleted as dead code. |
+| M6 | `setCyclePhase`'s `extra` could override the mirror trio | **patch** | Writes built by pure `buildPhaseUpdate`, which strips `phase`/`game_phase`/`status` from extras. Directly tested; PD done. |
+| M7 | `phase_sequence` accepted duplicates and partial orders | **patch (partial)** | `uniqueItems: true` added and tested (PD done). Completeness constraint deliberately deferred (see deferred-work). |
+| L1 | Five-row writer test never invoked the writer | **patch** | `buildPhaseUpdate` extracted pure; full five-row table incl. the null row now executed, not source-matched. |
+| L2 | Reader enumeration incomplete (6 omissions) | **patch (record)** | All six verified and appended to the artefact below; one real parity wrinkle deferred (game-sessions deadline lookup). |
+| L3 | Empty-body PUT parity differs (phase-game locks; legacy-game allows) | **dismiss** | Accepted with evidence: an empty update has no payload; the sharpest mismatch is only in game phase, and fail-closed is the preferred direction. Recorded here as the deliberate contract. |
+| L4 | Junk phase leaked into admin labels/CSS class names | **patch** | `uiPhase` guarded by the label map; junk renders as "No phase set". |
+| L5 | Several wiring tests could pass vacuously | **patch** | Sign-off slice test now asserts its boundaries exist and the slice is non-trivial; the weakest source-text checks replaced by executable ones (H1, M6, L1). |
+
+**Gates after patches:** targeted suites **88/88** (cm1 grew 46 → 54); known-red 708.3 still exactly
+its three #1116 failures; `node --check` clean across all touched files. Prove-discrimination run
+with single-change reverts on H1, M3, M6, M7 (each produced exactly its expected failing test, then
+restored to green); M1's guard is a source-regex whose revert also fails imports, documented rather
+than exercised.
+
+### Corrections to the Dev Agent Record (found by the external review — the record below is
+preserved as written; these corrections supersede it)
+
+1. "`closeCycle`/`openGamePhase` both now rewired" was **overstated** at review time: they
+   triple-wrote but bypassed the canonical writer. Now genuinely routed (M1).
+2. "confirm-feeding callers operate on the ACTIVE cycle only" was **false**: both callers'
+   selectors admit `game` and legacy `prep` statuses, and the endpoint rejected only raw `closed`.
+   The conclusion (prep does not newly block regents) is now true by construction (M4), not by the
+   original argument.
+3. "The enumeration is complete" was **false**: six readers were missed — `game/tracker.js:186-190`
+   (sorts by game_number, includes a prep cycle as "last closed": correct and desirable),
+   `tabs/downtime-tab.js`, `tabs/story-tab.js`, `tabs/status-ranking.js` (player tabs; mirror-safe,
+   prep behaves as processing), `server/routes/territories.js:115` (active-only gate; prep parity
+   with old game window preserved — both skip), and `server/routes/game-sessions.js:42-49`
+   (**the one real wrinkle**: its deadline lookup includes live statuses only, so a prep cycle
+   drops out where the old early-game window was included; the deadline it reports is a past one
+   during prep anyway — deferred, see register).
+4. "No feeding indicator reader remains" was **wrong**: `app.js` lifecycle card was one (M2).
+
 ### File List
+
+- `public/js/downtime/cycle-phase.js` (new — the pure phase contract)
+- `public/js/downtime/db.js` (modified — setCyclePhase, cyclePhase, isFeedingOpen,
+  getFeedingCycle, closeCycle/openGamePhase triple-write, re-exports)
+- `public/js/admin/cycle-views.js` (modified — Prep button, uiPhase highlight, writePhase via
+  setCyclePhase, ribbon phase text)
+- `public/js/tabs/feeding-tab.js` (modified — getFeedingCycle)
+- `public/js/admin/downtime-views.js` (modified — openGamePhase local-state patch)
+- `public/css/admin-layout.css` (modified — .cy-phase--prep)
+- `server/schemas/downtime_submission.schema.js` (modified — phase, phase_sequence)
+- `server/routes/downtime.js` (modified — verdict-based requireOpenCycle, POST sequence inject,
+  shared feeding-field list)
+- `server/tests/cm1-cycle-phase.test.js` (new — 54 tests after review patches)
+- `public/js/app.js` (modified in review patches — lifecycle feeding card phase-aware)
+- `specs/stories/sprint-status.yaml` (modified — story status tracking)
+- `specs/stories/code-review/issue-1028-cm1-{codex-review,codex-findings,diff}.{md,txt}` (review artefacts)

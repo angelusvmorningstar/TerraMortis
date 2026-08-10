@@ -9,7 +9,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { getGamePhaseCycle } from '../downtime/db.js';
+import { getFeedingCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
 import { getAttrEffective as getAttrVal, skDots, skTotal, skSpecStr, calcVitaeMax } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
@@ -108,7 +108,10 @@ export async function renderFeedingTab(el, char) {
   //   or deferred flag — covers the case where the game phase cycle has moved states
   //   but the player already rolled.
   let activeCycle = null;
-  try { activeCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+  // CM-1 (#1028): feeding opens on phase prep as well as game, so players can
+  // roll before the session (cycle-model.md Rev 2 section 2). Legacy cycles
+  // without a phase field resolve exactly as the old game-phase lookup did.
+  try { activeCycle = await getFeedingCycle(); } catch { /* offline */ }
 
   if (currentChar !== charSnapshot) return;
 

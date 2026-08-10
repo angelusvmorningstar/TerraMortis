@@ -4,6 +4,15 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import {
+  cyclePhase as cyclePhasePure,
+  isFeedingOpen as isFeedingOpenPure,
+  buildPhaseUpdate,
+} from './cycle-phase.js';
+
+// CM-1 (#1028): the pure phase contract is re-exported here so existing
+// importers of db.js keep one import site. See cycle-phase.js for the model.
+export { CYCLE_PHASE_SEQUENCE, PHASE_MIRROR, statusToPhase, phaseIndex, FEEDING_ONLY_FIELDS } from './cycle-phase.js';
 
 // ── Cycles ──────────────────────────────────────────────────────────────────
 
@@ -48,12 +57,17 @@ export async function updateCycle(id, updates) {
   return apiPut('/api/downtime_cycles/' + id, updates);
 }
 
-export async function closeCycle(id) {
-  return updateCycle(id, { status: 'closed', closed_at: new Date().toISOString() });
+export async function closeCycle(cycle) {
+  // CM-1 (#1028, the #1006 fix): closing routes through THE canonical writer,
+  // so all three phase representations move together and any safeguard added
+  // to setCyclePhase covers this transition too (Codex review finding: the
+  // earlier direct phaseWrites call was a second writer in disguise).
+  return setCyclePhase(cycle, 'processing', { closed_at: new Date().toISOString() });
 }
 
-export async function openGamePhase(id) {
-  return updateCycle(id, { status: 'game', game_phase_at: new Date().toISOString() });
+export async function openGamePhase(cycle) {
+  // CM-1 (#1028): same single-writer discipline on entering game phase.
+  return setCyclePhase(cycle, 'game', { game_phase_at: new Date().toISOString() });
 }
 
 // ── DTUX-1 sign-off model ────────────────────────────────────────────────
@@ -137,6 +151,57 @@ export function isInGamePhase(cycle) {
 export async function getGamePhaseCycle() {
   const cycles = await getCycles();
   return cycles.find(isInGamePhase) || null;
+}
+
+// ── CM-1 (#1028): phase as data — canonical read/write ─────────────────────
+
+/**
+ * The canonical phase read, with full legacy fidelity: cycle.phase wins when
+ * set; otherwise the phase is derived from the legacy fields through
+ * deriveCycleStatus (game_phase override, manual_open latch, sign-off ladder).
+ */
+export function cyclePhase(cycle) {
+  return cyclePhasePure(cycle, deriveCycleStatus);
+}
+
+/** Is feeding open for this cycle? True in prep and game phases. */
+export function isFeedingOpen(cycle) {
+  return isFeedingOpenPure(cycle, deriveCycleStatus);
+}
+
+/**
+ * The cycle players feed from: the one whose phase is prep or game. On legacy
+ * documents (no phase field) this resolves exactly as getGamePhaseCycle does
+ * today, so pre-CM-1 cycles behave unchanged.
+ *
+ * Among multiple feeding-open candidates, the HIGHEST game_number wins -
+ * never API/_id order, which is creation order and is proven wrong for game
+ * order in this data (2,3,1,4,5; DT1 was re-imported). Codex review finding,
+ * 2026-08-10: a stale legacy cycle with game_phase 'game' and a newer _id
+ * would otherwise capture every feed roll meant for the current prep cycle.
+ */
+export async function getFeedingCycle() {
+  const cycles = await getCycles();
+  const open = cycles.filter(c => isFeedingOpen(c));
+  if (open.length === 0) return null;
+  return open.sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0];
+}
+
+/**
+ * THE canonical phase writer (CM-1). Every phase transition goes through here:
+ * one PUT carrying the new `phase` plus its legacy mirror pair (built by
+ * cycle-phase.js buildPhaseUpdate, which also defends the trio against
+ * conflicting extras), so the three representations cannot desync. `null`
+ * clears to neutral: both phase fields nulled and status re-derived from the
+ * legacy sign-off state, preserving #918's clear semantics exactly. Mutates
+ * the passed cycle in place, matching signoffPhase's pattern.
+ */
+export async function setCyclePhase(cycle, phaseOrNull, extra = {}) {
+  if (!cycle?._id) return null;
+  const updates = buildPhaseUpdate(cycle, phaseOrNull, extra, deriveCycleStatus);
+  await updateCycle(cycle._id, updates);
+  Object.assign(cycle, updates);
+  return cycle;
 }
 
 /** Human-readable cycle name for dialogs. Label if set, else "Game N". */

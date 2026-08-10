@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-08-10 (issue-1028-cm1-phase-as-data story created, ready-for-dev — cycle-model epic begins; ruling doc D:\Terra Mortis\cycle-model.md Rev 2)
+# last_updated: 2026-08-10 (issue-1028-cm1-phase-as-data DEV + EXTERNAL CODEX REVIEW COMPLETE, all High/Med patched, 88/88 targeted green, 708.3 baseline unchanged; awaiting commit + Symon hand-test post-Wed-deploy + Angelus's word on PR to main. Review artefacts in specs/stories/code-review/. Ruling doc D:\Terra Mortis\cycle-model.md Rev 2)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -890,6 +890,6 @@ development_status:
 
   issue-937-merit-dropdown-fighting-styles: review
 
-  issue-1028-cm1-phase-as-data: ready-for-dev              # CM-1 (cycle-model epic, Rev 2 §7/§11): phase_sequence + phase fields, prep first-class, cyclePhase/setCyclePhase canonical pair in a pure shared module, phase-aware requireOpenCycle (423 trap), feeding opens on prep|game, admin Prep button. Branch from main, PR to main, deploy Wed 2026-08-13. Story: issue-1028-cm1-phase-as-data.story.md
+  issue-1028-cm1-phase-as-data: review              # CM-1 (cycle-model epic, Rev 2 §7/§11): phase_sequence + phase fields, prep first-class, cyclePhase/setCyclePhase canonical pair in a pure shared module, phase-aware requireOpenCycle (423 trap), feeding opens on prep|game, admin Prep button. Branch from main, PR to main, deploy Wed 2026-08-13. Story: issue-1028-cm1-phase-as-data.story.md
 
   issue-939-personal-story-optional: review              # Make Personal Story (Off-Screen Life) optional: drop _hasPersonalStory from the minimum-complete gate in dt-completeness.js (isMinimalComplete L108 + missingMinimumPieces L126/L136-138); reword Personal Story intro to say optional; reword Vamping desc to say informational-only (no content back from STs). Frontend-only, no DB/server changes.        # Surface fighting styles + manoeuvres in the Merit dropdown (sheet) and downtime XP picker (under Merit category), routed to fighting_styles/fighting_picks (Direction A, storage unchanged); un-hide the 13 parent:'Style' merits; fix prereq.js merit-leaf to read c.fighting_styles by effective dots (unblocks Iron Skin). Decisions locked: both styles+manoeuvres, un-hide here, within Merit category. Frontend + shared prereq engine; no DB/server changes.

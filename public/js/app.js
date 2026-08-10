@@ -12,6 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
+import { isFeedingOpen } from './downtime/db.js';
 import { CLAN_ICON_KEY, covIcon, displayName, dropdownName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
@@ -2369,19 +2370,30 @@ async function _loadLifecycleData() {
     const activeCycle = Array.isArray(cycles)
       ? cycles.find(c => c.status === 'open' || c.status === 'active') || null
       : null;
+    // CM-1 (#1028): the cycle players feed from (phase prep or game), highest
+    // game_number first - so the feeding card can reflect the real feeding
+    // window and the player's actual roll state during prep (Codex review
+    // finding, 2026-08-10: the card was date-only and could keep advertising
+    // "roll ready" after the player had already rolled).
+    const feedingCycle = Array.isArray(cycles)
+      ? cycles.filter(c => isFeedingOpen(c)).sort((a, b) => (b.game_number || 0) - (a.game_number || 0))[0] || null
+      : null;
     editorState.activeCycleNum = activeCycle?.game_number ?? null;
     let mySubmission = null;
-    if (activeCycle) {
+    if (activeCycle || feedingCycle) {
       const subs = await apiGet('/api/downtime_submissions').catch(() => []);
       const char = _activeMoreChar();
       if (char && Array.isArray(subs)) {
-        mySubmission = subs.find(s => String(s.character_id) === String(char._id)) || null;
+        mySubmission = activeCycle
+          ? subs.find(s => String(s.character_id) === String(char._id)) || null
+          : subs.find(s => String(s.character_id) === String(char._id)
+              && String(s.cycle_id) === String(feedingCycle._id)) || null;
       }
     }
-    _lifecycleCache = { nextSession, activeCycle, mySubmission };
+    _lifecycleCache = { nextSession, activeCycle, feedingCycle, mySubmission };
     return _lifecycleCache;
   } catch {
-    return { nextSession: null, activeCycle: null, mySubmission: null };
+    return { nextSession: null, activeCycle: null, feedingCycle: null, mySubmission: null };
   }
 }
 
@@ -2391,13 +2403,16 @@ async function renderLifecycleCards() {
   const el = document.getElementById('lifecycle-cards');
   if (!el) return;
 
-  const { nextSession, activeCycle, mySubmission } = await _loadLifecycleData();
+  const { nextSession, activeCycle, feedingCycle, mySubmission } = await _loadLifecycleData();
   const today = new Date().toISOString().slice(0, 10);
 
   let h = '';
 
-  // Feeding card: game phase open AND player hasn't rolled yet
-  const feedingOpen = nextSession && nextSession.session_date >= today;
+  // Feeding card: the feeding window is actually open (cycle in prep or game
+  // phase) AND a session is upcoming AND the player hasn't rolled yet. The
+  // cycle check is CM-1 (#1028): date-only gating advertised a roll that the
+  // feeding tab would then refuse.
+  const feedingOpen = !!feedingCycle && nextSession && nextSession.session_date >= today;
   const hasRolled = mySubmission?.feeding_roll_player != null;
   if (feedingOpen && !hasRolled) {
     h += `<button class="lifecycle-card lifecycle-card-feeding" onclick="goTab('feeding')">
