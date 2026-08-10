@@ -10241,6 +10241,10 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 .cy-phase--game       { background: var(--green-dk-bg);    color: var(--green-dk);    border-color: var(--green-dk-bdr); }
 .cy-phase--downtime   { background: var(--warn-orange-bg); color: var(--warn-orange); border-color: var(--warn-orange-bdr); }
 .cy-phase--processing { background: var(--accent-a8);      color: var(--accent);      border-color: var(--accent-a40); }
+/* CM-1 (#1028): prep, the game-prep window with feeding open. Green family,
+   deliberately lighter than game's --green-dk so the two read as related but
+   distinct states. */
+.cy-phase--prep       { background: var(--result-succ-bg); color: var(--result-succ); border-color: var(--result-succ-bdr); }
 .cy-phase--none       { background: transparent;           color: var(--txt3);        border-color: var(--bdr2); }
 
 /* Tables */

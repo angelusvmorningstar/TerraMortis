@@ -1,20 +1,35 @@
 import { apiGet, apiPost, apiDelete, apiPut } from '../data/api.js';
-import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage } from '../downtime/db.js';
+import { createCycle, updateCycle, deleteCycle, deriveCycleStatus, getSubmissionsForCycle, zeroSubmissionFlipWarning, zeroSubmissionFlipMessage, setCyclePhase } from '../downtime/db.js';
 
 const PHASE_LABELS = {
   game:       'Game',
   downtime:   'Downtime',
   processing: 'Processing',
+  prep:       'Prep',
 };
 
-const PHASES = ['game', 'downtime', 'processing'];
+// CM-1 (#1028): buttons follow the cycle order (cycle-model.md Rev 2 section
+// 1): downtime, processing, prep, game. Prep is the game-prep window in which
+// feeding is open; setting it never resets the tracker (only Game does).
+const PHASES = ['downtime', 'processing', 'prep', 'game'];
+
+// The phase a row's UI reflects: the new `phase` field when set, else the
+// legacy game_phase override, else none. (game_phase's vocabulary is a subset
+// of phase's, so the labels map covers both.) Guarded against junk values
+// from hand-edited documents - anything outside the label map renders as
+// "no phase" rather than leaking into labels and CSS class names (Codex
+// review finding, 2026-08-10).
+function uiPhase(cy) {
+  const p = cy.phase || cy.game_phase || null;
+  return PHASE_LABELS[p] ? p : null;
+}
 
 // Module-level view state so the status ribbon can refresh after any
 // label / chapter / phase / add / delete mutation without a full re-fetch.
 const view = { chapters: [], cycles: [], sessions: [], charList: [], ribbonEl: null };
 
-// _id is a creation-order proxy (cycle docs lack created_at) — newest first.
-function byIdDesc(a, b) { return String(b._id) > String(a._id) ? 1 : -1; }
+// (byIdDesc removed by CM-1: _id is creation order, not game order - proven
+// wrong for ordering in this data. All cycle ordering uses game_number.)
 
 export async function initCycleView(charList) {
   const el = document.getElementById('cycle-content');
@@ -58,14 +73,20 @@ function buildRibbon() {
   return el;
 }
 
-/** Current cycle: the one in a set game phase, else newest non-closed. */
+/**
+ * Current cycle: the highest-game_number cycle carrying any phase, else the
+ * highest-game_number non-closed cycle. game_number is THE ordering field -
+ * never _id/creation order, which is proven wrong for game order in this
+ * data (2,3,1,4,5). Codex review finding, 2026-08-10: the previous
+ * game-phase-first, _id-ordered logic let any stale game_phase override
+ * outrank the actual current cycle in the ST's ribbon.
+ */
+const byGameNumberDesc = (a, b) => (b.game_number || 0) - (a.game_number || 0);
 function deriveCurrentCycle() {
   const cycles = view.cycles || [];
-  const inGame = cycles.find(c => c.game_phase === 'game');
-  if (inGame) return inGame;
-  const anyPhase = cycles.filter(c => c.game_phase).sort(byIdDesc)[0];
-  if (anyPhase) return anyPhase;
-  const nonClosed = cycles.filter(c => deriveCycleStatus(c) !== 'closed').sort(byIdDesc)[0];
+  const phased = cycles.filter(c => uiPhase(c)).sort(byGameNumberDesc)[0];
+  if (phased) return phased;
+  const nonClosed = cycles.filter(c => deriveCycleStatus(c) !== 'closed').sort(byGameNumberDesc)[0];
   return nonClosed || null;
 }
 
@@ -83,8 +104,9 @@ function renderRibbon() {
     ? view.chapters.find(ch => String(ch._id) === String(cy.chapter_id))
     : null;
   const chapterText = chapter ? `${chapter.number} — ${chapter.label}` : 'No chapter';
-  const phaseText = cy.game_phase ? PHASE_LABELS[cy.game_phase] : 'No phase set';
-  const phaseMod = cy.game_phase ? ` cy-phase--${cy.game_phase}` : ' cy-phase--none';
+  const _ribbonPhase = uiPhase(cy);
+  const phaseText = _ribbonPhase ? PHASE_LABELS[_ribbonPhase] : 'No phase set';
+  const phaseMod = _ribbonPhase ? ` cy-phase--${_ribbonPhase}` : ' cy-phase--none';
 
   el.innerHTML = `
     <div class="cy-ribbon-item">
@@ -240,13 +262,11 @@ async function writePhase(cy, phaseOrNull) {
       throw new Error('Tracker reset failed: ' + err.message);
     }
   }
-  // #1001: write the derived legacy `status` alongside game_phase so raw
-  // `status` readers (getActiveCycle, LIVE_STATUSES filters) stay consistent
-  // with the phase while legacy status-based readers still exist.
-  const status = deriveCycleStatus({ ...cy, game_phase: phaseOrNull });
-  await apiPut('/api/downtime_cycles/' + cy._id, { game_phase: phaseOrNull, status });
-  cy.game_phase = phaseOrNull;
-  cy.status = status;
+  // CM-1 (#1028): the canonical writer sets all three representations in one
+  // PUT (phase + game_phase + status, per the cycle-phase.js mirror table),
+  // absorbing the #1001 status-alongside fix and extending it to the new
+  // `phase` field. `null` clears to neutral, preserving #918 semantics.
+  await setCyclePhase(cy, phaseOrNull);
   return true;
 }
 
@@ -263,20 +283,20 @@ function buildPhaseCell(cy) {
 
   PHASES.forEach(phase => {
     const btn = document.createElement('button');
-    btn.className = 'cy-phase-btn' + (cy.game_phase === phase ? ' is-active' : '');
+    btn.className = 'cy-phase-btn' + (uiPhase(cy) === phase ? ' is-active' : '');
     btn.textContent = PHASE_LABELS[phase];
     btn.dataset.phase = phase;
-    btn.title = cy.game_phase === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
+    btn.title = uiPhase(cy) === phase ? 'Click to clear this phase' : `Set ${PHASE_LABELS[phase]} phase`;
 
     btn.addEventListener('click', async () => {
       errEl.classList.remove('is-visible');
       // Active phase toggles OFF to neutral; otherwise switch to the clicked phase.
-      const target = (cy.game_phase === phase) ? null : phase;
+      const target = (uiPhase(cy) === phase) ? null : phase;
       try {
         const ok = await writePhase(cy, target);
         if (!ok) return;
         group.querySelectorAll('.cy-phase-btn').forEach(b => {
-          const active = b.dataset.phase === cy.game_phase;
+          const active = b.dataset.phase === uiPhase(cy);
           b.classList.toggle('is-active', active);
           b.title = active ? 'Click to clear this phase' : `Set ${PHASE_LABELS[b.dataset.phase]} phase`;
         });

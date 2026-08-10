@@ -6,6 +6,10 @@ import { stripStReview } from '../helpers/strip-st-review.js';
 import { validate } from '../middleware/validate.js';
 import { downtimeSubmissionSchema, downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
 import { sendDowntimePublishedEmail } from '../helpers/email.js';
+// CM-1 (#1028): the pure phase contract, shared verbatim with the client and
+// the tests (public/js/downtime/cycle-phase.js has no I/O and no browser
+// globals, so the server imports it directly).
+import { CYCLE_PHASE_SEQUENCE, FEEDING_ONLY_FIELDS, openCycleVerdict, cyclePhase } from '../../public/js/downtime/cycle-phase.js';
 
 // JDT-2: action types eligible for the Solo/Joint toggle on a project slot.
 // Mirrors JOINT_ELIGIBLE_ACTIONS in public/js/tabs/downtime-data.js.
@@ -49,14 +53,22 @@ async function requireOpenCycle(req, res, next) {
   if (!cycleOid) return next();
   const cycle = await getCollection('downtime_cycles').findOne(
     { _id: cycleOid },
-    { projection: { status: 1, out_of_window_player_ids: 1 } }
+    { projection: { status: 1, phase: 1, out_of_window_player_ids: 1 } }
   );
-  if (cycle?.status === 'closed') {
-    // Out-of-window access: characters ticked in out_of_window_player_ids may save
-    // to a closed cycle (covers both early and late submissions — issue #295).
-    const charIdStr = String(sub.character_id || '');
-    const oowIds = (cycle.out_of_window_player_ids || []).map(String);
-    if (charIdStr && oowIds.includes(charIdStr)) return next();
+  // CM-1 (#1028): phase-aware verdict, extracted pure so the matrix is
+  // unit-testable. Cycles carrying a known `phase` use the new lane (feeding
+  // fields writable in prep and game, general edits in downtime, ST always);
+  // cycles without one get the legacy status==='closed' gate byte-identical,
+  // including the out-of-window exception (issue #295).
+  const charIdStr = String(sub.character_id || '');
+  const oowIds = (cycle?.out_of_window_player_ids || []).map(String);
+  const verdict = openCycleVerdict({
+    cycle,
+    role: req.user?.role,
+    bodyKeys: Object.keys(req.body || {}),
+    oowMatch: !!charIdStr && oowIds.includes(charIdStr),
+  });
+  if (verdict === 'locked') {
     return res.status(423).json({
       error: 'CYCLE_CLOSED',
       message: 'Cycle is closed; submissions are locked',
@@ -81,6 +93,11 @@ cyclesRouter.get('/', async (req, res) => {
 // POST /api/downtime_cycles — ST only
 cyclesRouter.post('/', requireRole('st'), validate(downtimeCycleSchema), async (req, res) => {
   const doc = req.body;
+  // CM-1 (#1028): every new cycle carries the phase order as data. `phase` is
+  // deliberately NOT defaulted; a new cycle starts with no phase (legacy null).
+  if (!Array.isArray(doc.phase_sequence) || doc.phase_sequence.length === 0) {
+    doc.phase_sequence = [...CYCLE_PHASE_SEQUENCE];
+  }
   const result = await cycles().insertOne(doc);
   const created = await cycles().findOne({ _id: result.insertedId });
   res.status(201).json(created);
@@ -99,7 +116,17 @@ cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
   // 1. Load cycle; must exist and not be closed
   const cycle = await cycles().findOne({ _id: oid });
   if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
-  if (cycle.status === 'closed') {
+  // CM-1 (#1028): phase-aware parity. Under the legacy model this gate only
+  // rejected raw 'closed', so regents could still confirm rights during the
+  // early game window (status 'game'). prep replaces that window but mirrors
+  // to status 'closed', which would have newly blocked them (Codex review
+  // finding, 2026-08-10). A phase-carrying cycle therefore allows
+  // confirmation in downtime, prep and game, and rejects it in processing -
+  // the same capability the legacy lane always had, stated in phase terms.
+  const confirmBlocked = (typeof cycle.phase === 'string' && cycle.phase !== '')
+    ? !['downtime', 'prep', 'game'].includes(cyclePhase(cycle))
+    : cycle.status === 'closed';
+  if (confirmBlocked) {
     return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is closed' });
   }
 
@@ -800,9 +827,10 @@ submissionsRouter.put('/:id', requireOpenCycle, async (req, res) => {
     }
 
     // Enforce cycle deadline — but allow feeding-related fields through,
-    // since feeding rolls happen at game time (after the submission deadline).
-    const FEEDING_FIELDS = new Set(['feeding_roll_player', 'feeding_vitae_allocation', 'feeding_deferred']);
-    const allFieldsFeeding = Object.keys(req.body).every(k => FEEDING_FIELDS.has(k));
+    // since feeding rolls happen at game time (after the submission deadline;
+    // from CM-1 on, also during prep). Field list shared with the phase gate
+    // via cycle-phase.js so the two cannot drift.
+    const allFieldsFeeding = Object.keys(req.body).every(k => FEEDING_ONLY_FIELDS.includes(k));
     if (!allFieldsFeeding && existing.cycle_id) {
       const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
       if (cycleOid) {

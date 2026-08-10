@@ -2701,7 +2701,7 @@ async function handleCloseCycle() {
   const cycle = allCycles.find(c => c._id === selectedCycleId);
   if (!cycle || cycle.status !== 'active') return;
   if (!confirm(`Close cycle "${cycle.label || 'Unnamed'}"? This cannot be undone.`)) return;
-  await closeCycle(selectedCycleId);
+  await closeCycle(cycle);
   await loadAllCycles();
 }
 
@@ -2715,9 +2715,10 @@ async function handleOpenGamePhase() {
     cycle, allCycles, async id => (await getSubmissionsForCycle(id)).length);
   if (warn && !confirm(zeroSubmissionFlipMessage(warn))) return;
   if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
-  await openGamePhase(selectedCycleId);
-  const idx = allCycles.findIndex(c => c._id === selectedCycleId);
-  if (idx >= 0) allCycles[idx].status = 'game';
+  // CM-1 (#1028): openGamePhase routes through setCyclePhase, which mutates
+  // the passed cycle object in place - and `cycle` here IS the entry in
+  // allCycles, so no separate local patch is needed.
+  await openGamePhase(cycle);
   await loadCycleById(selectedCycleId);
 }
 
