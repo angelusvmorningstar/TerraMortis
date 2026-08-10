@@ -52,6 +52,7 @@ export const BLOODLINE_DISCS = {
   'Apollinaire':['Animalism','Dominate','Resilience','Obfuscate'],
   'Bron':['Animalism','Auspex','Dominate','Resilience'],
   'Gorgons':['Animalism','Dominate','Protean','Resilience'],
+  'Hounds of Actaeon':['Animalism','Obfuscate','Protean','Resilience'],
   'Icelus':['Auspex','Dominate','Obfuscate','Resilience'],
   'Jharana':['Auspex','Celerity','Obfuscate','Vigour'],
   'Kerberos':['Animalism','Majesty','Protean','Resilience'],
@@ -84,7 +85,7 @@ export const APPROVED_BLOODLINES = Object.keys(BLOODLINE_DISCS).sort();
 
 export const BLOODLINE_CLANS = {
   Daeva:['Lidérc','Zelani'],
-  Gangrel:['Kerberos','Scions of the First City'],
+  Gangrel:['Hounds of Actaeon','Kerberos','Scions of the First City'],
   Mekhet:['Ankou','Jharana','Khaibit','Lygos','Mnemosyne','Morbus','Norvegi'],
   Nosferatu:['Nosoi','Order of Sir Martin','Vilseduire'],
   Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
