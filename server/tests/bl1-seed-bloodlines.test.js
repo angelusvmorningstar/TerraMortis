@@ -205,7 +205,7 @@ describe('BL-1 — checkIntegrity, failure modes', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BL-1 — buildSeedDocs', () => {
-  it('builds one schema-valid document per bloodline, active by default', () => {
+  it('builds one schema-valid document per bloodline', () => {
     const ajv = new Ajv({ allErrors: true, coerceTypes: false });
     const validate = ajv.compile(bloodlineSchema);
     const docs = buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS });
@@ -213,7 +213,6 @@ describe('BL-1 — buildSeedDocs', () => {
     expect(docs).toHaveLength(23);
     for (const d of docs) {
       expect(validate(d), `${d.name} failed schema: ${JSON.stringify(validate.errors)}`).toBe(true);
-      expect(d.active).toBe(true);
       expect(d.notes).toBeNull();
     }
   });
@@ -336,7 +335,7 @@ describe('BL-1 — main() against tm_suite_test', () => {
       getCollection('bloodlines').insertOne({
         name: 'Khaibit', slug: 'khaibit-2', clan: 'Mekhet',
         disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
-        active: true, notes: null,
+        notes: null,
       })
     ).rejects.toThrow(/duplicate key/i);
   });
@@ -397,7 +396,7 @@ describe('BL-1 — reconciliation with pre-existing documents', () => {
       slug: 'hounds-of-actaeon',
       clan: 'Mekhet',                                   // wrong: should be Gangrel
       disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'], // wrong list
-      active: true, notes: null,
+      notes: null,
     });
 
     const r = await main(['node', 's.js', '--apply'], { closeConnection: false });
@@ -417,7 +416,7 @@ describe('BL-1 — reconciliation with pre-existing documents', () => {
     await getCollection('bloodlines').insertOne({
       name: 'Malkavians', slug: 'malkavians', clan: 'Ventrue',
       disciplines: ['Auspex', 'Dominate', 'Obfuscate', 'Resilience'],
-      active: true, notes: null,
+      notes: null,
     });
     const r = await main(['node', 's.js'], { closeConnection: false });
     expect(r.orphans).toEqual(['Malkavians']);
@@ -440,7 +439,7 @@ describe('BL-1 — reconciliation with pre-existing documents', () => {
     const dupe = {
       name: 'Khaibit', slug: 'khaibit', clan: 'Mekhet',
       disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
-      active: true, notes: null,
+      notes: null,
     };
     await getCollection('bloodlines').insertMany([dupe, { ...dupe, slug: 'khaibit-2' }]);
 

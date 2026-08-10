@@ -34,7 +34,6 @@ async function seedBloodline(overrides = {}) {
     slug: 'zzz-test-bloodline',
     clan: 'Mekhet',
     disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
-    active: true,
     notes: null,
     created_at: now,
     updated_at: now,

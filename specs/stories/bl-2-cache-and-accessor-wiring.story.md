@@ -157,7 +157,7 @@ is specifically: a non-empty `c.bloodline` that the cache cannot resolve.
 - **No `wizard.js` work.** Dead, zero importers; belongs to #1095.
 - **No fix to the dead `app-status-banner`** in the rules-engine path. Registered as a finding; this
   story adds its own working surface rather than repairing an unrelated feature's.
-- **No `active` filtering decision.** See the open question in Dev Notes.
+- **No `active` handling of any kind.** The field no longer exists — see Dev Notes.
 
 ## Tasks / Subtasks
 
@@ -216,20 +216,17 @@ own promise half-works. Record this on BL-4's sprint-status line when BL-3 is sp
 - British English, no em-dashes in any string the app prints.
 - Branch from `main`; PR to `main`; no push or merge without Angelus's explicit word.
 
-### Open question for Angelus — answer before Task 3, it changes AC 3
+### The `active` question — CLOSED 2026-08-10, by deletion
 
-**Should an `active: false` bloodline resolve?** The schema has `active` so a bloodline can be
-retired without breaking historical characters, but `GET /api/bloodlines` applies no filter and
-`active` is not in `required` (so a document omitting it is indistinguishable from an active one).
-Two defensible readings:
+This story originally asked whether an `active: false` bloodline should still resolve for costing.
+Angelus ruled the premise away: **a bloodline cannot be retired. They are permanent.** `active` was
+therefore removed from BL-1's schema, seed and fixtures the same day, while BL-1 was still unmerged
+and unseeded. A schema test now rejects `active` as an unknown property.
 
-- **Resolve it** — a retired bloodline still costs its holders' disciplines correctly; `active`
-  only controls whether it appears in the *creation picker* (BL-3's dropdowns). Recommended: it
-  keeps existing characters working, which is the stated reason the field exists.
-- **Treat it as a miss** — retiring a bloodline should force the ST to deal with its holders.
-
-The recommendation is the first. If it stands, the cache resolves regardless of `active`, and
-`active` becomes purely a BL-3 dropdown filter — say so in the Dev Agent Record.
+**There is no soft-retire state and no `active` filter anywhere in this epic.** Every bloodline in
+the collection is live. Do not add an `active` check to the cache, the resolver or BL-3's dropdowns,
+and do not reintroduce the field as a BL-4 convenience — if the rule ever changes it comes back as a
+deliberate schema change plus a migration, not as a quietly-added boolean.
 
 ### References
 

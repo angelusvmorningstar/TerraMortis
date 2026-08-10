@@ -200,7 +200,6 @@ export function buildSeedDocs({ discs, clans, now = new Date().toISOString() }) 
       slug: deriveSlug(name),
       clan: clanOf[name],
       disciplines: [...discs[name]],
-      active: true,
       notes: null,
       created_at: now,
       updated_at: now,

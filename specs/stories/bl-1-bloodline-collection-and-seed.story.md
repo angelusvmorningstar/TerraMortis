@@ -458,6 +458,24 @@ that is a separate `description` field, as the equipment catalogue has.
 Covered by a test asserting `notes` is absent from both the list and the single read while still
 present in the stored document; proved to discriminate by reverting the projection.
 
+### A second ruling, and a field removed — 2026-08-10, after the review
+
+While answering BL-2's open question about whether an `active: false` bloodline should still resolve
+for costing, Angelus ruled the premise away: **a bloodline cannot be retired. They are permanent.**
+
+That makes `active` a boolean that can only ever hold one value — a claim the code makes and cannot
+keep, which is the same reasoning that deferred banes and kept the WS broadcast out of this story.
+So it is **removed**: from the schema, from the seed's built documents, and from every fixture. BL-1
+was committed but unmerged and unseeded, so this cost nothing; a week later it would have cost a
+migration. A test now asserts `active` is *rejected* as an unknown property, so it cannot drift back
+in as a BL-4 convenience.
+
+The BL-1 deferral "GET /api/bloodlines returns soft-retired entries with no filter" is void with it,
+and BL-2's open question is answered by deletion rather than by a rule.
+
+Note the knock-on for AC 1: the schema no longer matches the story's own AC-1 field list, which
+included `active`. That is deliberate and ruled, not an omission.
+
 ### Regression after patching
 
 `Test Files 7 passed (7) · Tests 147 passed (147)` — the three BL-1 suites (65 tests, up from 52)

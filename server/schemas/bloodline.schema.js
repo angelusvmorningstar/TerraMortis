@@ -60,8 +60,13 @@ export const bloodlineSchema = {
       items: { type: 'string', minLength: 1 },
     },
 
-    // Soft-retire rather than delete, so historical characters keep resolving.
-    active: { type: 'boolean' },
+    // NOTE: there is deliberately no `active` / soft-retire field. BL-1 shipped
+    // one; it was removed 2026-08-10 when Angelus ruled that a bloodline cannot
+    // be retired — they are permanent. A boolean that can only ever hold one
+    // value is a claim the code cannot keep, the same reasoning that deferred
+    // banes and kept the WS broadcast out of BL-1. If that rule ever changes,
+    // adding the field back is a one-line schema edit plus a trivial migration
+    // over ~23 documents.
 
     // ST bookkeeping, NOT player-facing flavour (ruled 2026-08-10). The public
     // reads in routes/bloodlines.js project it out; BL-4 adds an ST-gated read

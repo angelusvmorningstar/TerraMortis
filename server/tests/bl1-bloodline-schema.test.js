@@ -27,7 +27,6 @@ function doc(overrides = {}) {
     slug: 'khaibit',
     clan: 'Mekhet',
     disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
-    active: true,
     notes: null,
     created_at: now,
     updated_at: now,
@@ -49,8 +48,12 @@ describe('BL-1 — bloodline schema, valid shapes', () => {
     expect(validate(doc({ _id: 'anything-goes-here' }))).toBe(true);
   });
 
-  it('accepts a soft-retired bloodline (active false)', () => {
-    expect(validate(doc({ active: false }))).toBe(true);
+  it('rejects an `active` field — bloodlines are permanent and cannot be retired', () => {
+    // Ruled 2026-08-10. BL-1 originally shipped a soft-retire boolean; it was
+    // removed because it could only ever hold one value. This test is the
+    // guard against it drifting back in as a BL-4 convenience.
+    expect(validate(doc({ active: true }))).toBe(false);
+    expect((validate.errors || []).some(e => e.params?.additionalProperty === 'active')).toBe(true);
   });
 
   it('accepts a free-text note', () => {
