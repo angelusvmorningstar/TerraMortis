@@ -26,8 +26,23 @@ import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CLAN_DISCS } from '../../public/js/data/constants.js';
-import { buildSeedDocs } from '../scripts/seed-bloodlines.js';
+import { CLAN_DISCS } from '../../public/js/data/constants.js';
+import {
+  bloodlineFixtures,
+  fixtureDiscsByName,
+  fixtureNamesByClan,
+} from './helpers/bloodline-fixtures.js';
+import { stripComments } from './helpers/strip-comments.js';
+
+/**
+ * The 23 as MIGRATED, in the two shapes the deleted constants had. BL-3b
+ * deleted `BLOODLINE_DISCS`/`BLOODLINE_CLANS` and retired the seed builder to
+ * `scripts/archive/`; the fixture was captured from that builder immediately
+ * before the deletion, so these assertions still compare the cache against the
+ * data that was actually migrated.
+ */
+const MIGRATED_DISCS = fixtureDiscsByName();
+const MIGRATED_CLANS = fixtureNamesByClan();
 
 const api = vi.hoisted(() => ({ get: null }));
 vi.mock('../../public/js/data/api.js', () => ({ apiGet: async (...a) => api.get(...a) }));
@@ -39,23 +54,41 @@ globalThis.sessionStorage ??= { getItem: () => null, setItem() {}, removeItem() 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const read = rel => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-/** Source with comments stripped — a wiring grep must not pass on prose. */
-const code = rel => read(rel)
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/(^|[^:])\/\/.*$/gm, '$1');
+/**
+ * Source with comments stripped — a wiring grep must not pass on prose.
+ *
+ * Was a pair of regular expressions here. BL-3b's review replaced them with the
+ * quote-aware scanner in `helpers/strip-comments.js`: a regex cannot tell a
+ * comment from the same characters inside a string, so a `//` or a block-comment
+ * opener in a literal erased executable text and could have hidden a real
+ * offender from the empty allow-list below. Same reason as `bl3b`, same helper,
+ * and that helper is self-tested in `bl3b-constants-deleted.test.js`.
+ */
+const code = rel => stripComments(read(rel));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AC 1 — no live reader of the constants remains
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Files allowed to mention the bloodline constants after BL-3a. */
-const ALLOWED = new Set([
-  'public/js/data/constants.js',        // the definition itself
-  'public/js/data/bloodlines-cache.js', // comments only, names the thing it replaces
-  'public/js/data/accessors.js',        // comments only, names the old implementation
-  'public/js/dev-fixtures.js',          // BL-3b: derives the fixture from the constants
-  'public/js/tabs/wizard.js',           // dead, zero importers, belongs to #1095
-]);
+/**
+ * Files allowed to mention the bloodline constants IN CODE. Empty, and it must
+ * stay empty.
+ *
+ * BL-3a left five entries here — the definition itself, two comment-only
+ * mentions, `dev-fixtures.js` (which derived its fixture from the constants)
+ * and dead `wizard.js`. BL-3b deleted the definitions, froze the fixture into a
+ * `var BLOODLINES=` blob and rewired `wizard.js` to the cache, so every
+ * exception is gone. This also discharges the AC1-vs-AC7 contradiction BL-3a's
+ * review registered in `deferred-work.md`: with nothing to carve out, there is
+ * no contradiction left to inherit.
+ *
+ * Note `code()` above strips comments before matching, so the migration-history
+ * comments in `data/bloodlines-cache.js`, `data/accessors.js`,
+ * `tabs/downtime-form.js` and now `data/constants.js` itself are fine and are
+ * meant to stay: they are what tells the next reader where bloodlines went.
+ * Anything that needs to be ADDED to this set is a regression.
+ */
+const ALLOWED = new Set([]);
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -160,22 +193,18 @@ describe('BL-3a — AC 4: both bloodline dropdowns read the cache', () => {
 });
 
 describe('BL-3a — AC 5: a Mongo-only bloodline is selectable', () => {
-  it('the cache surfaces a name the constants have never heard of', async () => {
+  it('the cache surfaces a name that was never migrated', async () => {
     // The epic's actual promise, observable for the first time here.
     vi.resetModules();
     const invented = {
       _id: 'x', name: 'Zzz Invented Line', slug: 'zzz-invented-line',
       clan: 'Mekhet', disciplines: ['Auspex', 'Celerity', 'Obfuscate', 'Vigour'],
     };
-    api.get = async () => [
-      ...buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
-        .map(({ notes, ...d }, i) => ({ _id: String(i), ...d })),
-      invented,
-    ];
+    api.get = async () => [...bloodlineFixtures(), invented];
     const cache = await import('../../public/js/data/bloodlines-cache.js');
     await cache.loadBloodlines();
 
-    expect(BLOODLINE_DISCS['Zzz Invented Line']).toBeUndefined();
+    expect(MIGRATED_DISCS['Zzz Invented Line']).toBeUndefined();
     expect(cache.approvedBloodlines()).toContain('Zzz Invented Line');
     expect(cache.bloodlinesByClan().Mekhet).toContain('Zzz Invented Line');
 
@@ -185,21 +214,20 @@ describe('BL-3a — AC 5: a Mongo-only bloodline is selectable', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC 8 — unchanged for all 23 while the collection matches the constants
+// AC 8 — unchanged for all 23 as migrated
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BL-3a — AC 8: identical behaviour for the 23 seeded bloodlines', () => {
-  it('both derived dropdown sources match the constants exactly', async () => {
+  it('both derived dropdown sources match the migrated set exactly', async () => {
     vi.resetModules();
-    api.get = async () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
-      .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
+    api.get = async () => bloodlineFixtures();
     const cache = await import('../../public/js/data/bloodlines-cache.js');
     await cache.loadBloodlines();
 
-    expect(cache.approvedBloodlines()).toEqual(Object.keys(BLOODLINE_DISCS).sort((a, b) => a.localeCompare(b)));
+    expect(cache.approvedBloodlines()).toEqual(Object.keys(MIGRATED_DISCS).sort((a, b) => a.localeCompare(b)));
 
     const byClan = cache.bloodlinesByClan();
-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) {
+    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) {
       expect(byClan[clan], `clan ${clan}`).toEqual([...names].sort((a, b) => a.localeCompare(b)));
     }
   });
@@ -208,18 +236,17 @@ describe('BL-3a — AC 8: identical behaviour for the 23 seeded bloodlines', () 
     // Old: (bloodline && BLOODLINE_DISCS[bl]) || (clan && CLAN_DISCS[clan]) || []
     // New: clanDiscList(c) — which is the same thing while the two agree.
     vi.resetModules();
-    api.get = async () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
-      .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
+    api.get = async () => bloodlineFixtures();
     const cache = await import('../../public/js/data/bloodlines-cache.js');
     await cache.loadBloodlines();
     const { clanDiscList } = await import('../../public/js/data/accessors.js');
 
     const clanOf = {};
-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) for (const n of names) clanOf[n] = clan;
+    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) for (const n of names) clanOf[n] = clan;
 
-    for (const name of Object.keys(BLOODLINE_DISCS)) {
+    for (const name of Object.keys(MIGRATED_DISCS)) {
       const c = { clan: clanOf[name], bloodline: name };
-      const old = (c.bloodline && BLOODLINE_DISCS[c.bloodline]) || (c.clan && CLAN_DISCS[c.clan]) || [];
+      const old = (c.bloodline && MIGRATED_DISCS[c.bloodline]) || (c.clan && CLAN_DISCS[c.clan]) || [];
       expect(clanDiscList(c), `picker set for ${name}`).toEqual(old);
     }
 
@@ -245,8 +272,7 @@ describe('BL-3a review — the clan-change clear never fires on a cache it canno
     await cache.loadBloodlines();
     return { cache, state, edit };
   }
-  const seeded = () => buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
-    .map(({ notes, ...d }, i) => ({ _id: String(i), ...d }));
+  const seeded = () => bloodlineFixtures();
 
   it('does NOT null a bloodline when the collection is empty (today\'s live state)', async () => {
     // The whole rewiring's one destructive write. An empty map made every

@@ -8,9 +8,15 @@ import { prereqLabel } from '../data/prereq.js';
 import {
   CLANS, COVENANTS, MASKS_DIRGES,
   ATTR_CATS, SKILL_CATS,
-  CLAN_DISCS, BLOODLINE_CLANS,
+  CLAN_DISCS,
   PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS,
 } from '../data/constants.js';
+// BL-3b (#1008). This file has zero importers and is unreachable — #1095 owns
+// whether it lives at all — but it imported BLOODLINE_CLANS, which BL-3b
+// deleted. A dangling import of a deleted export is a landmine for whoever
+// revives it, so it is rewired to the cache exactly as `editor/edit.js` was.
+// It is NOT wired into any app and does NOT prime the cache.
+import { bloodlinesByClan } from '../data/bloodlines-cache.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -115,7 +121,7 @@ function renderStep() {
 // ── Step 1: Identity ─────────────────────────────────────────────────────
 
 function stepIdentity() {
-  const bloodlines = wiz.clan ? (BLOODLINE_CLANS[wiz.clan] || []) : [];
+  const bloodlines = wiz.clan ? (bloodlinesByClan()[wiz.clan] || []) : [];
 
   let h = '<h2 class="wiz-title">Identity</h2>';
   h += '<div class="wiz-fields">';

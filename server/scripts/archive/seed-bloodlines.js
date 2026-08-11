@@ -1,4 +1,37 @@
 /**
+ * ARCHIVED 2026-08-11 by BL-3b (issue #1008). Retired, but deliberately still
+ * runnable.
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *   What this script was, and why it is here rather than deleted
+ * ──────────────────────────────────────────────────────────────────────────
+ *
+ *   BL-1 wrote it to move 23 bloodlines out of `public/js/data/constants.js`
+ *   and into the `bloodlines` collection, once. The collection is now the
+ *   canonical definition of a bloodline: every costing surface reads it
+ *   through `public/js/data/bloodlines-cache.js` (BL-2, BL-3a), and BL-4's ST
+ *   admin screen is where a bloodline is added, edited or removed. That screen
+ *   is the writer. This script is not.
+ *
+ *   BL-3b then deleted `BLOODLINE_DISCS`, `BLOODLINE_CLANS` and
+ *   `APPROVED_BLOODLINES` from `constants.js`, so the two structures this
+ *   script reads are inlined below as frozen literals — captured from the
+ *   constants at the moment they were deleted, and never to be edited again.
+ *   Adding a bloodline here would recreate exactly the two-sources-of-truth
+ *   defect this epic was filed to remove: add it on the admin screen.
+ *
+ *   It stays runnable for one reason only. Production held zero bloodline
+ *   documents when this file was archived, and this remains the only bulk path
+ *   into a collection that has never been seeded. Typing 23 bloodlines into a
+ *   form is not a migration plan. Once production is seeded, this script's
+ *   remaining value is as a record of what was migrated.
+ *
+ *   Usage is unchanged apart from the path:
+ *     node scripts/archive/seed-bloodlines.js            # dry run (default)
+ *     node scripts/archive/seed-bloodlines.js --apply    # writes
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *
  * BL-1 (issue #1008) — seed the `bloodlines` collection from the static
  * constants, and put a unique index on `name`.
  *
@@ -6,9 +39,10 @@
  * the default, --apply is required to write, the run is idempotent, and dotenv
  * is loaded first per [[feedback_server_scripts_dotenv_path]].
  *
- * Source of truth for the seed is `public/js/data/constants.js`:
+ * Source of truth for the seed WAS `public/js/data/constants.js`:
  *   BLOODLINE_DISCS  — name -> four disciplines
  *   BLOODLINE_CLANS  — clan -> the names that clan claims
+ * Both now live at the top of this file, frozen (see the archive note above).
  *
  * ──────────────────────────────────────────────────────────────────────────
  *   Why the integrity gate comes first
@@ -36,13 +70,13 @@
  * none) and can point the write at an unintended database.
  *
  *   # preview (default — no writes):
- *   node scripts/seed-bloodlines.js
+ *   node scripts/archive/seed-bloodlines.js
  *
  *   # apply:
- *   node scripts/seed-bloodlines.js --apply
+ *   node scripts/archive/seed-bloodlines.js --apply
  *
  *   # target the test DB:
- *   MONGODB_DB=tm_suite_test node scripts/seed-bloodlines.js --apply
+ *   MONGODB_DB=tm_suite_test node scripts/archive/seed-bloodlines.js --apply
  *
  * NEVER run --apply against live during development; the real seed is an
  * operational act for the ST.
@@ -51,15 +85,60 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import Ajv from 'ajv';
-import { connectDb, getCollection, closeDb } from '../db.js';
-import { bloodlineSchema } from '../schemas/bloodline.schema.js';
-import { CLAN_NAMES } from '../schemas/character.schema.js';
-import { deriveSlug } from '../lib/bloodline-slug.js';
-import { ensureBloodlineNameIndex } from '../lib/bloodline-name-index.js';
-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CORE_DISCS, RITUAL_DISCS } from '../../public/js/data/constants.js';
+import { connectDb, getCollection, closeDb } from '../../db.js';
+import { bloodlineSchema } from '../../schemas/bloodline.schema.js';
+import { CLAN_NAMES } from '../../schemas/character.schema.js';
+import { deriveSlug } from '../../lib/bloodline-slug.js';
+import { ensureBloodlineNameIndex } from '../../lib/bloodline-name-index.js';
+// `CORE_DISCS` and `RITUAL_DISCS` are NOT part of this epic's deletion — they
+// are rule-system enums with live readers, and they stay in `constants.js`.
+// Only the three bloodline exports were removed, and those are frozen below.
+import { CORE_DISCS, RITUAL_DISCS } from '../../../public/js/data/constants.js';
 
 const COLLECTION = 'bloodlines';
 const REQUIRED_DISCIPLINES = 4;
+
+/**
+ * FROZEN 2026-08-11. Copied verbatim out of `public/js/data/constants.js` by
+ * BL-3b, in the same change that deleted them from it. Do not edit: the
+ * `bloodlines` collection is canonical, and BL-4's admin screen is where a
+ * bloodline is added. Editing these would put a second, competing definition
+ * back into the codebase, which is the whole defect #1008 was filed against.
+ */
+const BLOODLINE_DISCS = {
+  'Ankou':['Auspex','Celerity','Obfuscate','Vigour'],
+  'Apollinaire':['Animalism','Dominate','Resilience','Obfuscate'],
+  'Bron':['Animalism','Auspex','Dominate','Resilience'],
+  'Gorgons':['Animalism','Dominate','Protean','Resilience'],
+  'Hounds of Actaeon':['Animalism','Obfuscate','Protean','Resilience'],
+  'Icelus':['Auspex','Dominate','Obfuscate','Resilience'],
+  'Jharana':['Auspex','Celerity','Obfuscate','Vigour'],
+  'Kerberos':['Animalism','Majesty','Protean','Resilience'],
+  'Khaibit':['Auspex','Celerity','Obfuscate','Vigour'],
+  'Lasombra':['Animalism','Dominate','Nightmare','Resilience'],
+  'Lidérc':['Celerity','Majesty','Obfuscate','Vigour'],
+  'Lygos':['Auspex','Nightmare','Obfuscate','Vigour'],
+  'Malkovians':['Auspex','Dominate','Obfuscate','Resilience'],
+  'Mnemosyne':['Auspex','Celerity','Obfuscate','Dominate'],
+  'Morbus':['Animalism','Auspex','Celerity','Obfuscate'],
+  'Norvegi':['Auspex','Obfuscate','Celerity','Vigour'],
+  'Nosoi':['Dominate','Obfuscate','Protean','Resilience'],
+  'Order of Sir Martin':['Nightmare','Obfuscate','Resilience','Vigour'],
+  'Rotgrafen':['Animalism','Dominate','Protean','Resilience'],
+  'Scions of the First City':['Animalism','Auspex','Obfuscate','Resilience'],
+  'Vardyvle':['Dominate','Obfuscate','Protean','Resilience'],
+  'Vilseduire':['Majesty','Nightmare','Obfuscate','Resilience'],
+  'Zelani':['Celerity','Majesty','Auspex','Vigour']
+};
+
+/** FROZEN 2026-08-11 alongside BLOODLINE_DISCS above. Same rules apply. */
+const BLOODLINE_CLANS = {
+  Daeva:['Lidérc','Zelani'],
+  Gangrel:['Hounds of Actaeon','Kerberos','Scions of the First City'],
+  Mekhet:['Ankou','Jharana','Khaibit','Lygos','Mnemosyne','Morbus','Norvegi'],
+  Nosferatu:['Nosoi','Order of Sir Martin','Vilseduire'],
+  Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
+};
 
 /**
  * Every discipline a bloodline could legitimately grant. Checked by the
@@ -69,15 +148,6 @@ const REQUIRED_DISCIPLINES = 4;
  * the hand-maintained constants, which is where the drift actually happens.
  */
 const KNOWN_DISCIPLINES = [...CORE_DISCS, ...RITUAL_DISCS];
-
-/**
- * Re-exported so this script's existing callers and its own suite keep their
- * import site. The implementation moved to `server/lib/bloodline-slug.js` in
- * BL-4 (#1008), because the write route needs the identical derivation and
- * BL-3b retires this file to `scripts/archive/`. One implementation, two
- * importers, no copy left behind when the archive move happens.
- */
-export { deriveSlug };
 
 /**
  * Verify the two source structures agree with each other and with the clan

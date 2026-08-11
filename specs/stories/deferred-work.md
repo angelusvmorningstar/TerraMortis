@@ -159,3 +159,29 @@ The 8 patched findings are in the story's Senior Developer Review.
   Harmless while the collection has no such pair (production has none, and the collated index now
   prevents new ones), and it is the seed, which BL-3b retires to `scripts/archive/`. Left alone
   rather than edited on its way out.
+
+## Deferred from: bl-3b-delete-constants-and-seed external code review (Codex, 2026-08-11)
+
+- **Three more copies of the old regex-pair comment stripper are still in the test tree.** That
+  review replaced the stripper behind BL-3b's and BL-3a's source greps with a quote-aware scanner
+  (`server/tests/helpers/strip-comments.js`), because the regex pair cannot tell a comment from the
+  same characters inside a string and was measurably erasing executable text in 10 of 659 files
+  under `public/js` and `server`. The identical pair survives at
+  `server/tests/bl2-boot-priming.test.js:34`,
+  `server/tests/bl4-bloodlines-admin-view.test.js:267/378/401` and
+  `server/tests/bl4-bloodlines-write-api.test.js:48`. Lower risk than the two that were fixed: none
+  of them walks a directory tree, each strips one named file whose content is known, and they belong
+  to other stories' ACs. Repoint them at the shared helper the next time any of those three suites is
+  opened, rather than in a pass scoped to BL-3b.
+- **The test-tree file walkers still do not follow directory symlinks.** `walkJs` in
+  `server/tests/bl3b-constants-deleted.test.js`, and its twin `walk` in
+  `server/tests/bl3a-one-inclan-implementation.test.js`, skip a `.js` subtree reached only through a
+  symlink or junction, so a repo-wide absence proof would silently omit it. Confirmed
+  non-exploitable today: Codex's own `Get-ChildItem -Attributes ReparsePoint` over `public/js` and
+  `server` returned nothing. Recorded rather than fixed, so that a future decision to link a source
+  subtree into either tree knows it invalidates these guards.
+- **AC 9 is not deferred work, it is an open operational gate.** Named here only so it cannot be
+  mistaken for a review item that was quietly dropped. Production holds zero `bloodlines` documents;
+  merging the epic before the seed is applied puts all 13 bloodline-carrying characters on BL-2's
+  loud-miss path at once. It lives in the BL-3b story and its Senior Developer Review, and it is
+  Angelus's operational act, not a coding task.

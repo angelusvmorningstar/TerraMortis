@@ -13,8 +13,25 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BLOODLINE_DISCS, BLOODLINE_CLANS, CLAN_DISCS } from '../../public/js/data/constants.js';
-import { buildSeedDocs } from '../scripts/seed-bloodlines.js';
+import { CLAN_DISCS } from '../../public/js/data/constants.js';
+import {
+  bloodlineFixtures,
+  fixtureDiscsByName,
+  fixtureNamesByClan,
+} from './helpers/bloodline-fixtures.js';
+
+/**
+ * The 23 as MIGRATED, in the two shapes the deleted constants had.
+ *
+ * BL-3b deleted `BLOODLINE_DISCS` and `BLOODLINE_CLANS` and retired the seed to
+ * `scripts/archive/`, so these assertions can no longer say "matches the
+ * constant". They never really meant that: what they hold down is that the
+ * cache serves back exactly the 23 documents the migration wrote, which is the
+ * set every equivalence claim in this epic was made against. The fixture was
+ * captured by running the real seed builder immediately before the deletion.
+ */
+const MIGRATED_DISCS = fixtureDiscsByName();
+const MIGRATED_CLANS = fixtureNamesByClan();
 
 const api = vi.hoisted(() => ({ get: null }));
 vi.mock('../../public/js/data/api.js', () => ({
@@ -30,23 +47,22 @@ globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {}
 globalThis.sessionStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
 
 /**
- * The documents `GET /api/bloodlines` will actually serve once the seed runs.
+ * The documents `GET /api/bloodlines` actually serves.
  *
- * Built by the REAL seed builder rather than hand-rolled from the constants,
+ * Frozen by BL-3b from the REAL seed builder's output rather than hand-rolled,
  * with `notes` projected out exactly as `server/routes/bloodlines.js` does. The
  * first cut of this file constructed the documents itself, which made the
  * all-23 equivalence test a tautology — it proved the cache round-trips its own
  * input and would have stayed green against a seed that dropped a discipline.
- * This way the chain under test is seed builder → route shape → cache →
+ * This way the chain under test is migrated data → route shape → cache →
  * accessor, which is the chain that actually runs.
  */
-function docsFromConstants() {
-  return buildSeedDocs({ discs: BLOODLINE_DISCS, clans: BLOODLINE_CLANS })
-    .map(({ notes, ...served }, i) => ({ _id: String(i), ...served }));
+function servedDocs() {
+  return bloodlineFixtures();
 }
 
 /** Fresh module graph per test — the cache is module-level state. */
-async function freshModules({ payload = docsFromConstants(), load = true } = {}) {
+async function freshModules({ payload = servedDocs(), load = true } = {}) {
   vi.resetModules();
   api.get = typeof payload === 'function' ? payload : async () => payload;
   const cache = await import('../../public/js/data/bloodlines-cache.js');
@@ -157,21 +173,21 @@ describe('BL-2 — clanDiscList, cache unavailable', () => {
 // AC 8 — behaviour is identical for all 23 seeded bloodlines
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('BL-2 — equivalence with the constants across all 23', () => {
-  it('clanDiscList matches BLOODLINE_DISCS for every bloodline', async () => {
+describe('BL-2 — equivalence with the 23 as migrated', () => {
+  it('clanDiscList matches the migrated discipline list for every bloodline', async () => {
     const { accessors } = await freshModules();
-    const names = Object.keys(BLOODLINE_DISCS);
+    const names = Object.keys(MIGRATED_DISCS);
     expect(names).toHaveLength(23);
     for (const name of names) {
       expect(accessors.clanDiscList({ bloodline: name }), `mismatch for ${name}`)
-        .toEqual(BLOODLINE_DISCS[name]);
+        .toEqual(MIGRATED_DISCS[name]);
     }
   });
 
   it('isInClanDisc matches the old behaviour for every bloodline and every discipline', async () => {
     const { accessors } = await freshModules();
-    const allDiscs = [...new Set(Object.values(BLOODLINE_DISCS).flat())];
-    for (const [name, discs] of Object.entries(BLOODLINE_DISCS)) {
+    const allDiscs = [...new Set(Object.values(MIGRATED_DISCS).flat())];
+    for (const [name, discs] of Object.entries(MIGRATED_DISCS)) {
       for (const d of allDiscs) {
         expect(accessors.isInClanDisc({ bloodline: name }, d), `${name} / ${d}`)
           .toBe(discs.includes(d));
@@ -205,10 +221,10 @@ describe('BL-2 — the two-way regression the old fallback caused', () => {
   it('every bloodline that drops a clan discipline costs it out-of-clan', async () => {
     const { accessors } = await freshModules();
     const clanOf = {};
-    for (const [clan, names] of Object.entries(BLOODLINE_CLANS)) for (const n of names) clanOf[n] = clan;
+    for (const [clan, names] of Object.entries(MIGRATED_CLANS)) for (const n of names) clanOf[n] = clan;
 
     const droppers = [];
-    for (const [name, discs] of Object.entries(BLOODLINE_DISCS)) {
+    for (const [name, discs] of Object.entries(MIGRATED_DISCS)) {
       const dropped = (CLAN_DISCS[clanOf[name]] || []).filter(d => !discs.includes(d));
       if (dropped.length) droppers.push([name, dropped]);
     }
@@ -271,7 +287,7 @@ describe('BL-2 review — case and whitespace tolerance end to end', () => {
     // the character, so the tolerance matters more than it used to.
     const { cache, accessors } = await freshModules();
     expect(accessors.clanDiscList({ name: 'X', clan: 'Ventrue', bloodline: ' malkovians ' }))
-      .toEqual(BLOODLINE_DISCS.Malkovians);
+      .toEqual(MIGRATED_DISCS.Malkovians);
     expect(cache.getBloodlineMisses()).toEqual([]);
   });
 });

@@ -23,10 +23,31 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb } from './helpers/db-setup.js';
+import { BLOODLINE_FIXTURES } from './helpers/bloodline-fixtures.js';
+import { bloodlineSchema } from '../schemas/bloodline.schema.js';
 import { getCollection } from '../db.js';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/** Every `.js` under `dir`, skipping `node_modules`. */
+function walkJs(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) { if (e.name !== 'node_modules') walkJs(path.join(dir, e.name), out); }
+    else if (e.name.endsWith('.js')) out.push(path.join(dir, e.name));
+  }
+  return out;
+}
+
+/** A source grep must not pass (or fail) on prose. */
+const stripComments = src => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 let app;
 
@@ -611,10 +632,92 @@ describe('BL-4 AC 12 — GET /api/bloodlines/admin reports grant references', ()
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BL-4 AC 7 — deriveSlug has exactly one implementation', () => {
-  it('the shared module and the seed script export the same function', async () => {
-    const shared = await import('../lib/bloodline-slug.js');
-    const seed = await import('../scripts/seed-bloodlines.js');
-    expect(seed.deriveSlug).toBe(shared.deriveSlug);
+  /**
+   * BL-3b replacement for the old `seed.deriveSlug === shared.deriveSlug`
+   * identity check.
+   *
+   * That assertion imported `scripts/seed-bloodlines.js` for its re-export, and
+   * BL-3b deleted the re-export when it moved the script to `scripts/archive/`.
+   * Re-pointing it at the archived path would have asserted something weaker
+   * than it looks — that a retired file still re-exports — while the thing BL-4
+   * actually bought is that no SECOND derivation exists anywhere live. So walk
+   * `server/` and check for one, which is the assertion the identity check was
+   * standing in for.
+   */
+  it('no file under server/ outside scripts/archive defines a second slug derivation', () => {
+    const SERVER = path.join(REPO_ROOT, 'server');
+    const offenders = [];
+    for (const file of walkJs(SERVER)) {
+      const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
+      if (rel === 'server/lib/bloodline-slug.js') continue;       // the one implementation
+      if (rel.startsWith('server/scripts/archive/')) continue;    // retired, frozen, not live
+      const src = stripComments(fs.readFileSync(file, 'utf8'));
+      if (/(function|const|let|var)\s+deriveSlug\b/.test(src)) offenders.push(rel);
+    }
+    expect(offenders, 'deriveSlug must have exactly one live implementation').toEqual([]);
+  });
+
+  it('everything that CALLS deriveSlug imports the shared module', () => {
+    // Call sites, not mentions. BL-3a's post-mortem is the reason: a grep for
+    // the declaration passed while two live CALLS to a deleted function
+    // survived. The same discipline in the other direction here — a file that
+    // invokes `deriveSlug(...)` without importing it is either a second
+    // implementation or a ReferenceError waiting to happen.
+    const SERVER = path.join(REPO_ROOT, 'server');
+    const offenders = [];
+    for (const file of walkJs(SERVER)) {
+      const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
+      if (rel === 'server/lib/bloodline-slug.js') continue;
+      const src = stripComments(fs.readFileSync(file, 'utf8'));
+      if (!/(^|[^.\w])deriveSlug\s*\(/.test(src)) continue;
+      if (!/bloodline-slug\.js/.test(src)) offenders.push(rel);
+    }
+    expect(offenders, 'these call deriveSlug without importing lib/bloodline-slug.js').toEqual([]);
+  });
+
+  // ── Relocated from `bl1-seed-bloodlines.test.js` (BL-3b) ────────────────────
+  // That file retired with the script it tested, but this block never tested
+  // the script: `deriveSlug` moved to the live `server/lib/bloodline-slug.js`
+  // in BL-4, and it is what the write route derives every new bloodline's slug
+  // with. Losing the coverage with the retirement would have been a real gap,
+  // so it moves here, to the suite that owns the live module.
+
+  it('lowercases a single word', async () => {
+    const { deriveSlug } = await import('../lib/bloodline-slug.js');
+    expect(deriveSlug('Khaibit')).toBe('khaibit');
+  });
+
+  it('hyphenates spaces', async () => {
+    const { deriveSlug } = await import('../lib/bloodline-slug.js');
+    expect(deriveSlug('Order of Sir Martin')).toBe('order-of-sir-martin');
+    expect(deriveSlug('Scions of the First City')).toBe('scions-of-the-first-city');
+    expect(deriveSlug('Hounds of Actaeon')).toBe('hounds-of-actaeon');
+  });
+
+  it('strips diacritics rather than hyphenating through them', async () => {
+    // Naive non-alphanumeric replacement would give "lid-rc", which is a legal
+    // kebab string but a nonsense identifier.
+    const { deriveSlug } = await import('../lib/bloodline-slug.js');
+    expect(deriveSlug('Lidérc')).toBe('liderc');
+  });
+
+  it('collapses runs of separators and trims the ends', async () => {
+    const { deriveSlug } = await import('../lib/bloodline-slug.js');
+    expect(deriveSlug("  The O'Hara  Line  ")).toBe('the-o-hara-line');
+  });
+
+  it('derives a schema-legal slug for every migrated bloodline', async () => {
+    // Re-pointed at the frozen fixture: the constants this used to walk are
+    // deleted, and the 23 as migrated is what it always meant.
+    const { deriveSlug } = await import('../lib/bloodline-slug.js');
+    const slugPattern = new RegExp(bloodlineSchema.properties.slug.pattern);
+    expect(BLOODLINE_FIXTURES).toHaveLength(23);
+    for (const { name, slug } of BLOODLINE_FIXTURES) {
+      const derived = deriveSlug(name);
+      expect(slugPattern.test(derived), `slug "${derived}" from "${name}" is not schema-legal`).toBe(true);
+      // ...and it still agrees with the slug the migration actually wrote.
+      expect(derived, `derivation drifted for "${name}"`).toBe(slug);
+    }
   });
 
   it('the route derives the same slug the seed would', async () => {

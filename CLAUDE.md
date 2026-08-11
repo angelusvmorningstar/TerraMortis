@@ -113,9 +113,11 @@ Small fixed enums that genuinely belong in code (changing them is a rule change,
 - `COVENANTS` (5)
 - `MASKS_DIRGES` (26)
 - `CLAN_BANES` (per-clan free-text descriptions)
-- `BLOODLINE_DISCS` (per-bloodline discipline lists)
+- `CLAN_DISCS` (per-clan discipline lists)
 
 All of the above live in `public/js/data/constants.js`.
+
+**Bloodlines are not on this list any more.** `BLOODLINE_DISCS`, `BLOODLINE_CLANS` and `APPROVED_BLOODLINES` were deleted from `constants.js` by Epic BL (issue #1008); see below.
 
 ### Previously-static data now MongoDB-backed
 
@@ -123,6 +125,7 @@ The "everything in JS modules" pattern was the original shape, but most referenc
 
 - **Epic PP** moved `MERITS_DB`, `DEVOTIONS_DB`, `MAN_DB`, and the rules engine into MongoDB (`purchasable_powers` collection + `rule_*` per-category collections). Live reads go through `public/js/data/loader.js` (`getRuleByKey`, `getRulesByCategory`) and the rule-engine cache at `public/js/editor/rule_engine/load-rules.js`. Server-side: `server/routes/rules.js` + `server/routes/rules-engine.js`.
 - **Epic ECM** moved the equipment catalogue from `public/js/data/equipment-data.js` + `server/data/equipment-catalogue.js` (both deleted in ECM-7 #874) into the `equipment_catalogue` MongoDB collection. Live reads go through `public/js/data/equipment-catalogue-cache.js` (the shared cache module ECM-5 introduced; refetches on the `broadcastCatalogueUpdate` WS frame). Server-side: `server/routes/equipment-catalogue.js` + `server/schemas/equipment_catalogue.schema.js`. Admin CRUD lives at `public/js/admin/equipment-catalogue-admin.js`.
+- **Epic BL** (#1008) moved bloodlines out of `public/js/data/constants.js` (`BLOODLINE_DISCS`, `BLOODLINE_CLANS`, `APPROVED_BLOODLINES`, all deleted in BL-3b) into the `bloodlines` MongoDB collection. Live reads go through `public/js/data/bloodlines-cache.js` (`approvedBloodlines`, `bloodlinesByClan`, `discsForBloodline`; refetches on the bloodline WS frame), and `clanDiscList`/`isInClanDisc` in `public/js/data/accessors.js` are the only in-clan implementation. Server-side: `server/routes/bloodlines.js` + `server/schemas/bloodline.schema.js`. Admin CRUD lives at `public/js/admin/bloodlines-admin.js`. The one-time migration is retired at `server/scripts/archive/seed-bloodlines.js`, which carries the 23 original bloodlines as frozen literals; do not edit them, add a bloodline on the admin screen.
 
 ### Convention
 
