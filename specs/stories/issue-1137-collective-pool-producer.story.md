@@ -101,7 +101,9 @@ and it never is. The author verified the function and not the call site.
   - [x] Include the AC6 case: a synthetic fourth compound in fixture data only, producing a pool with
         no production-code change in the same diff.
 - [x] **T3 — Live verification, read-only** (AC: 2, 4)
-  - [x] Anichka's `DARKTEMPLE` stepper accepts up to 3 and the counter reads `0/3`.
+  - [x] Anichka's `DARKTEMPLE` stepper accepts up to 3. **Observed in production 2026-08-11**: two
+        steppers under `INHERITED FROM BLOOD AND SACRIFICE`, allocated 2 (Mother's Fane) + 1
+        (Mother's Altar) against a capacity of 3.
   - [x] Yusuf Kalusicj and Xavier Boussade are unchanged.
 - [x] **T4 — Correct the predecessor's record** (no AC; paper trail)
   - [x] Add a correction note to `specs/stories/mnec.collective-2.generalise-compound-rendering.story.md`
@@ -271,7 +273,7 @@ claude-opus-5 (BMAD dev-story, 2026-08-11)
 
 ### Completion Notes List
 
-1. **All 8 ACs satisfied — after an AC correction and two patches.** Four hardcoded pool calls in `mci.js` replaced by a single sweep; exactly one `applyPoolRulesFromDb` call site and zero per-source dispatches. **The original claim "All 8 ACs satisfied" was overstated** and external review said so: AC5's literal "byte-identical" wording was not met (the AC has since been corrected to what the change actually guarantees, with the array-order caveat recorded), and AC2 was inferred rather than observed. Both are now stated accurately rather than asserted away.
+1. **All 8 ACs satisfied — after an AC correction and two patches.** Four hardcoded pool calls in `mci.js` replaced by a single sweep; exactly one `applyPoolRulesFromDb` call site and zero per-source dispatches. **The original claim "All 8 ACs satisfied" was overstated** and external review said so: AC5's literal "byte-identical" wording was not met (the AC has since been corrected to what the change actually guarantees, with the array-order caveat recorded), and AC2 was inferred rather than observed. Both were then stated accurately rather than asserted away — and **AC2 has since been closed by direct observation on the live site (2026-08-11)**, see Declared deviations.
 2. **Genuine red-green.** The RED run failed on precisely the broken compounds and passed on Necropolis, so the test discriminates the actual defect rather than the harness.
 3. **The RED run exposed a flaw in my own test, which is what red-green is for.** The first version mocked only `getRulesCache`, and AC4 (Necropolis) failed — wrongly, because Necropolis works today. Cause: `getRulesBySource` reads load-rules.js's module-internal `_cache`, which a spy on `getRulesCache` does not touch, so the pre-fix path had no data at all and the suite could not have proven non-regression for the working sources. Fixed by mocking **both** accessors from one fixture array.
 4. **The same unfaithful-mock shape existed in two committed suites, and the change surfaced it.** `pool-parallel-write.test.js` and `vm-parallel-write.test.js` both returned `rule_grant: []` from `getRulesCache` as a "non-null sentinel" to satisfy the #249 guard, while serving real rules through a mocked `getRulesBySource`. That encodes a state production cannot reach: `load-rules.js:55` *builds* `getRulesBySource` by filtering `_cache.rule_grant`, so the two can never disagree outside a mock. Both now derive `rule_grant` from the same `storeMap`. **This is a real contract change worth naming: the producer now requires the whole cache, where it previously asked per source.** Production is unaffected; only harnesses that mocked the two inconsistently were.
@@ -282,7 +284,7 @@ claude-opus-5 (BMAD dev-story, 2026-08-11)
 
 ### Declared deviations
 
-- **AC2 was verified by capacity, not by driving the browser stepper.** The acceptance path is a logged-in session, and the vitest setup forces the test DB, so I could not run `applyDerivedMerits` against Anichka's live document in either harness. Instead I ran the real `applyPoolRulesFromDb` sweep against her **real** character document with all 28 **real** `rule_grant` docs, and confirmed `poolAvailableFor(c, 'darktemple') === 3` — which is precisely the value `edit.js:1144` uses as the stepper cap. The wiring end is covered by the unit test through the real `applyDerivedMerits` call site. Between them the chain is covered, but no browser rendered the counter, so "reads 0/3" is inferred from the cap rather than observed.
+- ~~**AC2 was verified by capacity, not by driving the browser stepper.**~~ **CLOSED 2026-08-11 by observation on the live site.** The original deviation stood as follows: the acceptance path is a logged-in session, and the vitest setup forces the test DB, so I could not run `applyDerivedMerits` against Anichka's live document in either harness. Instead I ran the real `applyPoolRulesFromDb` sweep against her **real** character document with all 28 **real** `rule_grant` docs, and confirmed `poolAvailableFor(c, 'darktemple') === 3` — precisely the value `edit.js:1144` uses as the stepper cap. That inference has since been confirmed directly: Angelus opened Anichka's sheet in production and the Domain Merits panel renders Blood and Sacrifice at 3 dots with an `INHERITED FROM BLOOD AND SACRIFICE` group beneath it holding two live `DARKTEMPLE` steppers — Dark Temple (Mother's Fane) at 2 and The Mother's Altar at 1, the full capacity of 3 allocated. The counter was never observed at `0/3` because the ST ruling was applied in the same sitting; what was observed is strictly stronger, since accepting an allocation to 3 proves the cap is 3.
 - **One pre-existing regression failure, not fixed.** `n7-n9-allocator-readers.test.js` → "all three dropdown builders consume meritPrereqOK" fails on a `[\s\S]{0,600}` window assertion over `public/js/editor/merits.js` — a file this story does not touch. Already tracked as **#1115** ("buildMeritOptions outgrew its 600-char window"). Out of scope.
 - **AC5's "byte-identical" is met in substance, not asserted byte-for-byte.** The Invested/Lorekeeper/VM parallel-write suites pass, which compares full character snapshots between the evaluator and legacy paths — but note that comparison only became meaningful again after the mock correction in note 4. The `_grant_pools` **array order** does change (pushes now follow `rule_grant` order rather than the old four-call order); no consumer depends on it, since every reader filters by `category`.
 
@@ -339,7 +341,7 @@ The Invictus Status error is the instructive one. The original check ran `JSON.s
 ### Accepted as-is (2)
 
 - **L2**: two of eleven tests pass under a total producer no-op — the null-cache and no-compound cases, both deliberately negative; the reviewer agreed the neighbouring positive tests keep the suite non-vacuous.
-- **L4 / L7**: AC2 still has no end-to-end assertion on the rendered `0/3` counter. Recorded honestly in Declared deviations rather than papered over; a UI-level test is a bigger piece of work than this fix.
+- **L4 / L7**: AC2 has no *automated* end-to-end assertion on the rendered counter, and still does not — a UI-level test is a bigger piece of work than this fix. The behaviour itself was confirmed manually in production on 2026-08-11 (see Declared deviations), so what remains open is regression cover, not correctness.
 
 ### Unverifiable, not disputed (2)
 
