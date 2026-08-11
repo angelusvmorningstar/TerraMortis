@@ -86,6 +86,28 @@ export function isFeedingOpen(cycle, deriveStatus) {
 }
 
 /**
+ * CM-5a: does entering `toPhase` from `fromPhase` reset the live tracker?
+ *
+ * The slate-wipe belongs at PREP entry - prep is the loading of game-starting
+ * state (Rev 2 section 2), so the wipe happens before carry-over lands, and
+ * feed rolls made during the prep week survive into the game. Entering game
+ * FROM prep is therefore non-destructive ("prep and game are deliberately
+ * seamless"). Entering game from anywhere else keeps the legacy reset, which
+ * is also the fallback path: skip prep and today's exact behaviour returns.
+ */
+export function resetOnTransition(fromPhase, toPhase) {
+  // Entering prep wipes the slate ONCE per chapter, and only from a phase
+  // that precedes it. Re-entering prep (toggled off and on, or corrected via
+  // another phase and back) would discard feeds already confirmed this prep
+  // week; entering prep FROM game would wipe live state mid-session. Both are
+  // reachable by one misclick on a button that sits beside Game, so they fail
+  // safe here rather than relying on the confirm dialog (review, 2026-08-10).
+  if (toPhase === 'prep') return fromPhase !== 'prep' && fromPhase !== 'game';
+  if (toPhase === 'game') return fromPhase !== 'prep';
+  return false;
+}
+
+/**
  * The update object for a non-null phase write: the new `phase` field plus its
  * legacy mirror pair, written together in ONE update so the representations
  * cannot desync (the 16 July 2026 failure mode).
