@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `commit` = `git commit` only. Nothing else.
 - `merge to main` = explicit instruction, one-time, in that message only.
 - A prior "commit and merge" in the same session does NOT carry forward.
-- Always work on `Morningstar` branch. If the session starts on `main`, switch to `Morningstar` before making any changes.
+- **Never work directly on `main`.** Cut a side branch from `main` first — see Branching below.
 - Each Netlify/Render deploy costs money. The user controls deploy cadence.
 
 ## Project Overview
@@ -20,29 +20,64 @@ Terra Mortis TM Suite is a browser-based character management system for a Vampi
 
 - **Local frontend:** `npx http-server public -p 8080`
 - **Local API:** `cd server && npm run dev` (needs `server/.env` with MongoDB URI + Discord credentials)
-- **No test framework.** Verify changes manually in-browser.
-- **Local hooks (recommended):** `git config core.hooksPath .githooks` after cloning. Enables a parse-check on staged `public/js/**/*.js` files; catches smart-quote-as-syntax and other parse-time errors before they reach `dev` / `main`. See `.githooks/README.md`.
+- **Local hooks (recommended):** `git config core.hooksPath .githooks` after cloning. Enables a parse-check on staged `public/js/**/*.js` files; catches smart-quote-as-syntax and other parse-time errors before they reach `main`. See `.githooks/README.md`.
+
+### Tests
+
+There **is** a test framework — two, in fact. Do not tell the user there isn't one, and do not skip
+running the affected suites because a change "looks safe".
+
+- **Unit / integration: vitest**, 171 suites in `server/tests/`. Run with `cd server && npm test`, or
+  a single suite with `npx vitest run tests/<name>.test.js`.
+  - Tests are forced onto `tm_suite_test` by the vitest setup file. They never touch live data.
+  - Several suites need a **local `mongod`**. Without one they **SKIP rather than fail** (#1117) —
+    a skipped suite is not a passing suite, so read the summary line, not just the exit code.
+- **E2E: Playwright**, ~150 specs in `tests/`. Run with `npx playwright test tests/<name>.spec.js`.
+  - Chromium may not be installed in a fresh checkout: `npx playwright install chromium`.
+  - **Never run two Playwright invocations concurrently** — they share port 8080 with
+    `reuseExistingServer`.
+- **Run the changed area's suites, not the whole thing.** Full runs are slow and bury the signal.
+- **Known pre-existing failures** — present at base, not caused by your change:
+  - `n7-n9-allocator-readers.test.js` — one 600-char source-window assertion over `merits.js` (#1115).
+    This is the "1" in every "N passed / 1 failed" figure in the story records.
+  - `tests/desktop-and-css.spec.js` (12) — `#btn-desktop-toggle` never becomes visible under the
+    stubbed API.
+  - `tests/post-game-1.spec.js` nav-1-3 (3) — `#n-more` has never existed in `NAV_ITEMS`.
+- Angelus **cannot run the app locally** to smoke-test. Anything needing a human look must be on a
+  deployed environment first.
 
 ## Deployment
 
 - **Frontend:** Netlify (`terramortissuite.netlify.app`), deploys from `main` branch
 - **API:** Render (`tm-suite-api.onrender.com`), deploys from `main` branch
 - **Database:** MongoDB Atlas (`tm_suite`)
-- **Branching:** Two developer branches feed into `dev`, which merges to `main` for production.
-  - `Morningstar` — Angelus's working branch
-  - `Piatra` — Peter's working branch
-  - `dev` — integration branch; both developers merge into here
-  - `main` — production; auto-deploys to Netlify + Render
+- **Staging:** Netlify (`terramortis-dev`), deploys from `dev`. Team-only. Note it proxies the
+  **production** Render API — so a server-side change cannot be smoke-tested there; it has to reach
+  `main` first.
 
-## Branch Sync Protocol
+## Branching
 
-**At the start of every significant work request**, before making any changes:
+**Short-lived side branch off `main`, PR straight back to `main`.** That is the whole flow.
 
-1. Check what's on `dev` that isn't in the current branch: `git log HEAD..origin/dev --oneline`
-2. If `dev` is ahead, merge it in: `git merge dev`
-3. Resolve any conflicts, then proceed with the work.
+1. Branch from up-to-date `main`: `git fetch origin && git switch -c ms/issue-<n>-<slug> origin/main`
+2. Commit to that branch.
+3. PR it to `main` — **only when the user says so**. Never through `dev`.
+4. After the merge lands, sync `main` back into `dev` so the two stop diverging.
 
-This keeps `Morningstar` and `Piatra` current with each other's merged work before new changes are layered on top.
+Naming: `ms/issue-<n>-<slug>` for Angelus's work (e.g. `ms/issue-1137-collective-pool-producer`).
+
+### What changed, so stale advice is recognisable
+
+- **`Morningstar` was deleted** (local and remote, 2026-08-11). It was fully contained in `main` —
+  0 unique commits, 281 behind. Anything telling you to work on it, switch to it, or merge it is out
+  of date. The `tm-gh-issue-pickup` skill still defaults its branch base to `dev`/`Morningstar`;
+  override to `main`.
+- **There is no dev-sync protocol any more.** Do not run `git merge dev` at session start, and do not
+  raise "dev is ahead/behind" as an action item unless asked. `dev` flows *from* `main` now, not into
+  it. Direction reversed after #1128.
+- **`Piatra` is Peter's branch and he stepped back from TM Suite dev (2026-08-09).** Angelus owns
+  code and schema; treat `dev` as a deploy target rather than an integration stream.
+- `dev` is permanent. Never delete it.
 
 ## Architecture
 
