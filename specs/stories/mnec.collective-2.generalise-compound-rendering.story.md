@@ -173,7 +173,13 @@ Stronger than the gate required: **no other `rule_grant` doc has `sharing_scope`
 
 Two incidental findings, neither acted on:
 - `rule_grant` contains duplicate seeds (MCI x5, OHM x4). None of the compounds are duplicated today, but `getCollectiveCompounds` de-duplicates on `source|slug` so a re-run seed cannot double a compound's rows.
-- The pool evaluator (`pool-evaluator.js:40`) was already fully generic — it creates a `_grant_pools` entry per pool grant keyed by `source_slug ?? category`. Crone and Sanctified owners have had correct pool *capacity* all along; only the *rendering* was Necropolis-bound.
+- The pool evaluator (`pool-evaluator.js:40`) was already fully generic — it creates a `_grant_pools` entry per pool grant keyed by `source_slug ?? category`. ~~Crone and Sanctified owners have had correct pool *capacity* all along; only the *rendering* was Necropolis-bound.~~
+
+  > **CORRECTION, 2026-08-11 (#1137). The struck sentence above is false, and leaving it unchallenged is why the bug recurred.**
+  >
+  > The evaluator is generic — that half is right. The conclusion is not. Capacity requires the evaluator to be **called**, and `mci.js` named its pool sources by hand: four `applyPoolRulesFromDb(c, getRulesBySource(...))` calls, none of them for Blood and Sacrifice or Prayer and Penance. So Crone and Sanctified owners had capacity **zero**, always, and their per-target steppers clamped to 0 via `poolAvailableFor`. Anichka (Blood and Sacrifice 3) was the first character to hold one and could not allocate a single dot.
+  >
+  > The reasoning error worth remembering: **this story verified the function and never checked the call site.** #1137 replaced the four hardcoded calls with one sweep over the whole `rule_grant` cache, and added `server/tests/issue-1137-pool-producer.test.js`, which asserts on `_grant_pools` — what was produced — rather than on rendered markup. The original text is left standing above so the mistake stays legible.
 
 ### Completion Notes
 

@@ -1,6 +1,12 @@
 /**
  * Pool grant evaluator — processes rule_grant docs with grant_type='pool'.
- * Generic: called once per source (Invested, Lorekeeper) from applyDerivedMerits.
+ *
+ * Called ONCE from applyDerivedMerits with the WHOLE rule_grant collection
+ * (#1137). It was previously called once per hardcoded source name, which is
+ * how two seeded compounds shipped with no pool at all: nobody added their
+ * call. Do not reintroduce per-source dispatch — this function already filters
+ * to grant_type='pool' + condition='merit_present' and checks merit presence
+ * per rule, so it needs no help identifying which rules apply.
  *
  * No external imports — pure function; safe to call in Node.js test contexts.
  */
@@ -11,7 +17,9 @@
  * a _grant_pools entry if the pool is non-zero.
  *
  * @param {object} c - character (mutated in place; _grant_pools cleared by applyDerivedMerits before first call)
- * @param {{ grants: object[] }} poolRules - grants for this source (getRulesBySource(sourceName))
+ * @param {{ grants: object[] }} poolRules - the whole rule_grant collection
+ *        (`getRulesCache().rule_grant`). A per-source subset still works, but
+ *        the production caller passes everything; see the header note.
  */
 export function applyPoolRulesFromDb(c, { grants = [] } = {}) {
   // condition:'merit_present' distinguishes Invested/Lorekeeper-style pools from

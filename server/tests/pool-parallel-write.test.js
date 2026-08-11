@@ -34,7 +34,17 @@ vi.mock('../../public/js/data/loader.js', () => ({
 vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
   preloadRules: async () => {},
   invalidateRulesCache: () => {},
-  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),  // #249 hotfix: non-null sentinel so applyDerivedMerits guard does not bail
+  // #249 hotfix: must be non-null so the applyDerivedMerits guard does not bail.
+  // #1137: `rule_grant` is now derived from the SAME storeMap that feeds
+  // getRulesBySource, because the pool producer sweeps the whole cache rather
+  // than asking per source. Returning an empty `rule_grant` here while
+  // getRulesBySource served real rules encoded a state production cannot reach
+  // — load-rules.js:55 builds getRulesBySource BY FILTERING _cache.rule_grant,
+  // so rules-present-but-rule_grant-empty is impossible outside this mock.
+  getRulesCache: () => ({
+    rule_grant: Object.values(storeMap).flatMap(v => v.grants),
+    rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [],
+  }),
   getRulesBySource: (source) =>
     storeMap[source] || { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null },
 }));
