@@ -142,7 +142,18 @@ and verified before deferral. Provenance:
   Collective Compound needs. **Consequence:** #1137's promise that a new compound needs no code
   change is true only for a direct DB seed script, not through the supported ST-facing surface. Worth
   its own issue: widen the enum in both places and add the compound metadata fields.
-- **Split-source compounds get UI but no pool.** `ownsCompound` treats a character as an owner based
+- ~~**Split-source compounds get UI but no pool.**~~ **RESOLVED 2026-08-11 by ST ruling — not a
+  defect, and not a decision that was ever open.** Angelus: *"you must have Blood and Sacrifice in
+  order to have merits in the Fane."* Membership, funding and prerequisite all run through the one
+  compound merit, so a compound with a separate way in and way of paying is not a shape this game
+  builds. **Already enforced in the data**, verified against `purchasable_powers`: all six Fane
+  targets (Dark Temple (Mother's Fane), Accursed Armory, Font of Corruption, The Mother's Altar,
+  Primal Mandragora, Occult Collection) carry `prereq: { all: [status Crone 1, merit "Blood and
+  Sacrifice" 1] }`. Nobody holds any of them yet. The scenario the review raised therefore cannot
+  occur: you cannot hold a Fane merit without the gate merit that funds it. **If a future compound is
+  ever seeded with `source` differing from `sharing_scope.merit`, that is a data error to reject, not
+  a funding model to support.** Original entry follows for the record.
+  `ownsCompound` treats a character as an owner based
   on `sharing_scope.merit`, while `applyPoolRulesFromDb` gates on `rule.source` and
   `rating_of_source` reads the same field. When those differ — which the existing
   `Silent Vigil` / `Keeper of the Ossuary` fixture in
