@@ -3,6 +3,8 @@ import { esc, displayName } from '../data/helpers.js';
 import { apiGet, apiPost } from '../data/api.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
+import { getCycles } from '../downtime/db.js';
+import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
 
 export function renderOfficeTab(el, char, chars = []) {
   if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
@@ -74,10 +76,21 @@ async function _wireHosActions(el, char, chars) {
   const btnArea     = el.querySelector('.office-action-btns');
   const msgEl       = el.querySelector('.office-action-msg');
 
-  // Fetch current game session
+  // Fetch current game session (budget grouping) and the live game-phase
+  // cycle. otc.2: Status Actions only fire while a game is actually live.
+  // Uses currentCycleInGamePhase directly (not db.js's getGamePhaseCycle,
+  // which reads phase via deriveCycleStatus's legacy-fallback derivation) so
+  // the client identifies "the current cycle" and reads its phase by the
+  // EXACT same canonical-only rule as the server (Codex review finding,
+  // 2026-08-12: the two disagreed on legacy/desynchronised documents when
+  // routed through different readers). Deliberately not getFeedingCycle,
+  // which is broader (prep|game) and gates feeding, not Status Actions.
   let session = null;
   try { session = await apiGet('/api/office_actions/latest_session'); } catch { /* ignore */ }
   const sessionId = session ? String(session._id) : null;
+
+  let liveCycle = null;
+  try { liveCycle = currentCycleInGamePhase(await getCycles()); } catch { /* ignore */ }
 
   // Load prior actions by this actor this session
   let priorActions = [];
@@ -96,6 +109,11 @@ async function _wireHosActions(el, char, chars) {
   }
 
   function renderBudget() {
+    if (!liveCycle) {
+      budgetLine.textContent = 'Available once the game session opens';
+      budgetLine.className = 'office-budget-line';
+      return;
+    }
     if (!sessionId) {
       budgetLine.textContent = `${budget} actions available per session — no active game session found`;
       budgetLine.className = 'office-budget-line';
@@ -129,7 +147,7 @@ async function _wireHosActions(el, char, chars) {
 
   function renderButtons() {
     btnArea.innerHTML = '';
-    if (!selectedChar || !sessionId) return;
+    if (!liveCycle || !selectedChar || !sessionId) return;
 
     const targetStatus = selectedChar.status?.city || 0;
     const alreadyPaid  = priorActions.some(
@@ -168,7 +186,7 @@ async function _wireHosActions(el, char, chars) {
   }
 
   async function doAction(actionType) {
-    if (!selectedChar || !sessionId) return;
+    if (!liveCycle || !selectedChar || !sessionId) return;
     msgEl.textContent = 'Saving…';
     try {
       const result = await apiPost('/api/office_actions', {

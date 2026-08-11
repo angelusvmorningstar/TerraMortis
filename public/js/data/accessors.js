@@ -287,12 +287,11 @@ export function calcVitaeMax(c) {
 // ── City Status (base + title bonus) ──
 
 import { TITLE_STATUS_BONUS } from './constants.js';
+import { calcEffectiveCityStatus, regentAmbienceBonusFor } from './city-status-calc.js';
 
 export function titleStatusBonus(c) {
   return TITLE_STATUS_BONUS[c.court_category] || 0;
 }
-
-const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
 
 // Module-level territories store, set by load sites via setStatusTerritories
 // (or implicitly kept in sync with the apps' own caches). Used by the City
@@ -326,13 +325,14 @@ export function getStoredTerritories() {
 // Bonus is regent-only by design; do not extend to lieutenant_id without an
 // explicit game-rules decision.
 export function regentAmienceBonus(c) {
-  return REGENT_AMBIENCE_BONUS[getRegentTerritoryFor(c)?.ambience] || 0;
+  return regentAmbienceBonusFor(getRegentTerritoryFor(c)?.ambience);
 }
 
-// Clamped to 10 per issue #13 Q-B (2026-05-05) — system cap on City Status.
-// Display dot tracks already cap at 10; this matches the calc to the display
-// so prereq checks and downstream consumers see the same value.
+// otc.2 (2026-08-12): the actual arithmetic (title bonus + regent-ambience
+// bonus + the 10-cap) now lives in the pure, server-importable
+// city-status-calc.js — the server's own budget check was silently using a
+// different, incomplete formula. This wrapper preserves the exact
+// single-argument signature every existing call site already uses.
 export function calcCityStatus(c) {
-  const raw = (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
-  return Math.min(raw, 10);
+  return calcEffectiveCityStatus(c, getRegentTerritoryFor(c)?.ambience);
 }

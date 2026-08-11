@@ -31,3 +31,35 @@ These stories are blocked on infrastructure that doesn't yet exist. Defined in `
 - **Retired characters can still flag** — product decision. Do we silence retired PCs across all player surfaces, or just this one?
 - **Test fixtures share `CREATED_FLAG_IDS[0]`/`[1]` by ordinal index** — brittle to vitest order changes; per-test fixtures would be cleaner.
 - **`getTestCharacterIds` auto-seeds `_test_seeded: true` characters in `tm_suite_test` with no cleanup path** — pre-existing helper concern.
+
+---
+
+## Deferred from: code review of otc-2-status-actions-server-hardening (2026-08-12)
+
+External Codex review (reasoning_effort=high, 3-pass) of the Status Actions server-hardening story
+surfaced several real, verified findings that predate this story (confirmed against the pre-diff
+code) and are out of its stated scope. Full record: `specs/stories/otc-2-status-actions-server-hardening.md`
+→ Senior Developer Review. **Filed as issue #1143.**
+
+- **No authorization check on `POST /api/office_actions`'s `actor_id`** (High) — any authenticated
+  user can submit any character as the acting officeholder, not just their own, and not restricted
+  to Head of State. Pre-existing since #691.
+- **`game_session_id` is a caller-supplied, unvalidated string** (High) — nothing binds it to a
+  real session or the live cycle, so an attacker can invent a fresh session id per request to reset
+  both the budget check and the per-target dedupe check. Pre-existing since #691; undercuts the
+  value of the otc.2 budget-formula fix, since the scoping key itself is spoofable.
+- **Budget check, dedupe check, and the eventual writes are not atomic** (High/Medium) — a real
+  concurrent-request race allows overspending the budget or double-acting on one target. Pre-existing
+  since #691; otc.2's two added DB round-trips were traced and confirmed not to widen this
+  particular window.
+- **Self-target check compares raw ObjectId strings, not resolved ObjectIds** (Medium) — an
+  uppercase/lowercase-hex pair of the same id bypasses the "cannot target yourself" rule.
+  Pre-existing, unchanged by otc.2.
+- **`server/tests/helpers/db-setup.js`'s `setupDb()`/`teardownDb()` don't skip cleanly on a failed
+  MongoDB connection** (Low) — produces a confusing double-error instead of the wholesale skip the
+  file's own header promises. Shared test infrastructure, affects every DB-backed suite in the
+  project, not scoped to any one story.
+- **`office-tab.js` cannot distinguish "no game is live" from a network/auth failure fetching
+  cycles** (Medium) — both render the same "Available once the game session opens" message.
+  Matches a pre-existing swallow-errors pattern already used one line above it; a real fix needs a
+  UX decision on what each state should actually say.

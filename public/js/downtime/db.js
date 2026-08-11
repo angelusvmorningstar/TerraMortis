@@ -8,6 +8,7 @@ import {
   cyclePhase as cyclePhasePure,
   isFeedingOpen as isFeedingOpenPure,
   buildPhaseUpdate,
+  currentCycleInGamePhase,
 } from './cycle-phase.js';
 
 // CM-1 (#1028): the pure phase contract is re-exported here so existing
@@ -147,10 +148,19 @@ export function isInGamePhase(cycle) {
   return deriveCycleStatus(cycle) === 'game';
 }
 
-/** Get the cycle currently in game phase (game_phase wins over legacy status). */
+/**
+ * Get the CURRENT cycle (highest game_number) if it is in game phase
+ * (game_phase wins over legacy status). otc.2 fix (2026-08-12): previously
+ * `cycles.find(isInGamePhase)` returned the first array-order match, so a
+ * stale historical cycle left in game phase could shadow a genuinely newer
+ * cycle that had moved on — the same class of bug found and fixed in
+ * server/routes/office-actions.js's phase gate via a Codex review. Had zero
+ * callers before this fix (confirmed via git grep), so this correction
+ * changes no other consumer's behaviour.
+ */
 export async function getGamePhaseCycle() {
   const cycles = await getCycles();
-  return cycles.find(isInGamePhase) || null;
+  return currentCycleInGamePhase(cycles, deriveCycleStatus);
 }
 
 // ── CM-1 (#1028): phase as data — canonical read/write ─────────────────────
