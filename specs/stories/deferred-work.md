@@ -130,3 +130,32 @@ and verified before deferral. Provenance:
   it does not under the spec's stubbed API. Both need a harness fix, not a product fix. A third test in
   that file (the Primer TOC css-audit, retired by #1135) was additionally **flaky**: two full runs of
   identical base code disagreed on it, failing by locator timeout in one and passing in the other.
+
+### Added by the issue-1137 external review (2026-08-11)
+
+- **The supported Rules Data authoring path cannot create a generic pool rule.** The producer admits
+  only `condition: 'merit_present'`, but that value is absent from BOTH the admin UI's condition
+  selector (`public/js/admin/rules-data-view.js`) and the API schema enum
+  (`server/schemas/rules/rule-grant.schema.js`). Choosing the UI default `always` saves a rule the
+  sweep ignores; POSTing `merit_present` directly is rejected by validation. The UI also has no
+  fields for `source_slug`, `category`, `partner_shareable` or `sharing_scope`, all of which a
+  Collective Compound needs. **Consequence:** #1137's promise that a new compound needs no code
+  change is true only for a direct DB seed script, not through the supported ST-facing surface. Worth
+  its own issue: widen the enum in both places and add the compound metadata fields.
+- **Split-source compounds get UI but no pool.** `ownsCompound` treats a character as an owner based
+  on `sharing_scope.merit`, while `applyPoolRulesFromDb` gates on `rule.source` and
+  `rating_of_source` reads the same field. When those differ — which the existing
+  `Silent Vigil` / `Keeper of the Ossuary` fixture in
+  `server/tests/collective-2-compound-generalisation.test.js` explicitly supports — a holder of the
+  membership gate who does not hold the funding source sees the compound rendered with capacity 0.
+  None of the three live compounds splits them, so nothing is broken today. Needs a **product
+  ruling** before code: is a split-source compound funded by the gate merit, the source merit, or
+  both? Do not guess.
+- **Duplicate pool rules multiply capacity.** `applyPoolRulesFromDb` pushes one `_grant_pools` entry
+  per matching rule with no de-duplication, so two `rule_grant` docs for the same source would double
+  a compound's allocation capacity. **Pre-existing** — the old per-source call had the same
+  behaviour, since `getRulesBySource` would have returned both — and #1137 does not introduce the
+  mechanism, only extends its reach to every admitted source. Verified 2026-08-11: live data has zero
+  duplicate dispatch keys among the six admitted pool rules (independently confirmed by the external
+  reviewer). `getCollectiveCompounds` already de-duplicates on `source|slug`; the producer does not.
+  Cheap guard if it ever bites: de-duplicate by `source|category` before the push.

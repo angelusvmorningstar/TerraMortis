@@ -27,7 +27,15 @@ vi.mock('../../public/js/data/loader.js', () => ({
 vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
   preloadRules: async () => {},
   invalidateRulesCache: () => {},
-  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),  // #249 hotfix: non-null sentinel so applyDerivedMerits guard does not bail
+  // #249 hotfix: must be non-null so the applyDerivedMerits guard does not bail.
+  // #1137: `rule_grant` is derived from the SAME storeMap that feeds
+  // getRulesBySource — the pool producer now sweeps the whole cache rather than
+  // asking per source, and production builds getRulesBySource by filtering
+  // _cache.rule_grant, so the two can never disagree outside a mock.
+  getRulesCache: () => ({
+    rule_grant: Object.values(storeMap).flatMap(v => v.grants),
+    rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [],
+  }),
   getRulesBySource: (source) =>
     storeMap[source] || { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null },
 }));

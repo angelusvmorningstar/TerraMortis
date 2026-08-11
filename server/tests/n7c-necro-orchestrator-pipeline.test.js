@@ -242,9 +242,24 @@ describe('N-7c — full pipeline: applyDerivedMerits → shRenderDomainMerits', 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('N-7c — orchestrator dispatch sanity guard', () => {
-  it('applyDerivedMerits contains the Necropolis Sepulcher pool dispatch', () => {
+  // #1137 rewrote this guard. It was added because N-7 shipped without the
+  // Necropolis producer call at all, and it asserted that one literal dispatch
+  // existed. That framing is what let the same bug recur: Blood and Sacrifice
+  // and Prayer and Penance were seeded with correct data, got no dispatch, and
+  // no guard noticed because the guard only ever looked for Necropolis.
+  //
+  // The producer is now a single data-driven sweep, so the guard asserts the
+  // property that actually matters — the dispatch exists AND is not per-source.
+  it('applyDerivedMerits sweeps the whole rule_grant cache for pools', () => {
     const src = read('public/js/editor/mci.js');
-    expect(src).toMatch(/applyPoolRulesFromDb\(c,\s*getRulesBySource\(['"]Necropolis Sepulcher['"]\)\)/);
+    expect(src).toMatch(/applyPoolRulesFromDb\(c,\s*\{\s*grants:\s*getRulesCache\(\)\?\.rule_grant/);
+  });
+
+  it('no hardcoded per-source pool dispatch has crept back in', () => {
+    const src = read('public/js/editor/mci.js');
+    // A relapse looks like applyPoolRulesFromDb(c, getRulesBySource('X')) —
+    // it silently excludes every compound nobody remembered to name.
+    expect(src).not.toMatch(/applyPoolRulesFromDb\(c,\s*getRulesBySource\(/);
   });
 
   it('compound stepper has id + aria-label for accessibility', () => {

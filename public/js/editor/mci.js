@@ -87,8 +87,43 @@ export function applyDerivedMerits(c, allChars = []) {
   // ── PT grant pools (evaluator reads from rule_grant / rule_nine_again / rule_skill_bonus) ──
   applyPTRulesFromDb(c, getRulesBySource('Professional Training'));
 
-  // ── VM grant pool (Allies, evaluator reads from rule_grant, condition='merit_present') ──
-  applyPoolRulesFromDb(c, getRulesBySource('Viral Mythology'));
+  // ── Grant pools, ALL of them (#1137) ──
+  // One sweep over every rule_grant doc, not a hardcoded list of sources.
+  // applyPoolRulesFromDb filters its input to grant_type='pool' +
+  // condition='merit_present' itself and then loops PER RULE, checking merit
+  // presence for each, so a single call covers Viral Mythology, Invested,
+  // Lorekeeper, Necropolis Sepulcher, Blood and Sacrifice, Prayer and Penance
+  // and anything seeded later — with no change here.
+  //
+  // This replaced four hardcoded calls. Blood and Sacrifice and Prayer and
+  // Penance were seeded 2026-08-06 with correct data and never got one, so
+  // their owners' pools were always empty and the per-target stepper clamped
+  // to 0. That was the SECOND time this shape of bug shipped: Necropolis was
+  // the first, and #1110 generalised the renderer while leaving the producer
+  // hardcoded. A generic evaluator is worth nothing if nothing calls it.
+  //
+  // Ordering: the four calls used to sit at different points, interleaved with
+  // OHM/Safe Word/MDB/OTS. Collapsing them is safe, but NOT for the reason it
+  // is tempting to give. Do not shorten this to "pools read purchased dots
+  // only" — that is false for two of the four bases. Go basis by basis
+  // (`_computeAmount`, pool-evaluator.js:48):
+  //   rating_of_source         → cp+xp of the source merit
+  //   rating_of_partner_merit  → cp+xp of the named partners, EXCEPT
+  //                              'Invictus Status', which reads c.covenant and
+  //                              c.status.covenant.Invictus. The live Invested
+  //                              rule DOES use it (partner_merit_names).
+  //   vm_pool                  → cp+xp of Allies/Herd PLUS free_grants.mci
+  //   flat                     → the rule's own amount
+  // So the real invariant is: nothing in this function mutates cp/xp, c.status,
+  // or free_mci after the point of this call. The MCI evaluator (the only
+  // writer of free_mci) runs above at :75, before both the old VM position and
+  // this one. OHM, Safe Word, MDB and OTS write other free_* channels and none
+  // of them touches c.status — OTS computes _ots_covenant_bonus for render time
+  // rather than flooring stored status. Verified 2026-08-11 (#1137 review).
+  //
+  // getRulesCache() is non-null here: applyDerivedMerits returns at the top
+  // when the cache is null (issue #249 guard above).
+  applyPoolRulesFromDb(c, { grants: getRulesCache()?.rule_grant || [] });
 
   // ── OHM: grants, FHP auto-create, and 9-again (evaluator reads from rule_grant / rule_nine_again) ──
   applyOHMRulesFromDb(c, getRulesBySource('Oath of the Hard Motherfucker'));
@@ -102,23 +137,8 @@ export function applyDerivedMerits(c, allChars = []) {
   }
   applySafeWordRulesFromDb(c, getRulesBySource('Oath of the Safe Word'), allChars);
 
-  // ── Invested grant pool (evaluator reads from rule_grant) ──
-  applyPoolRulesFromDb(c, getRulesBySource('Invested'));
-
   // ── MDB: free dots into chosen Crúac style = Mentor rating (evaluator reads from rule_grant, condition='merit_present') ──
   applyMDBRulesFromDb(c, getRulesBySource('The Mother-Daughter Bond'));
-
-  // ── Lorekeeper grant pool (evaluator reads from rule_grant) ──
-  applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
-
-  // ── Necropolis Sepulcher grant pool (N-7c, issue #771): pool=Sepulcher
-  //    rating, distributable across the six Collective Compound targets via
-  //    `free_grants.necro`. Same pool-evaluator dispatch shape as LK/Inv/VM —
-  //    its absence from N-7 left `_grant_pools` empty for necro, which silently
-  //    broke the domain counter render AND clamped the per-target stepper to 0
-  //    via poolAvailableFor. The helpers + write-path landed in N-7; this is
-  //    the producer call that fills the pool. ──
-  applyPoolRulesFromDb(c, getRulesBySource('Necropolis Sepulcher'));
 
   // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
   applyOTSRulesFromDb(c, getRulesBySource('Oath of the Scapegoat'));

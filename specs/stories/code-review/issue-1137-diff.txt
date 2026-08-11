@@ -1,0 +1,425 @@
+diff --git a/public/js/editor/mci.js b/public/js/editor/mci.js
+index d01ece36..ee1e7a9e 100644
+--- a/public/js/editor/mci.js
++++ b/public/js/editor/mci.js
+@@ -87,8 +87,31 @@ export function applyDerivedMerits(c, allChars = []) {
+   // ── PT grant pools (evaluator reads from rule_grant / rule_nine_again / rule_skill_bonus) ──
+   applyPTRulesFromDb(c, getRulesBySource('Professional Training'));
+ 
+-  // ── VM grant pool (Allies, evaluator reads from rule_grant, condition='merit_present') ──
+-  applyPoolRulesFromDb(c, getRulesBySource('Viral Mythology'));
++  // ── Grant pools, ALL of them (#1137) ──
++  // One sweep over every rule_grant doc, not a hardcoded list of sources.
++  // applyPoolRulesFromDb filters its input to grant_type='pool' +
++  // condition='merit_present' itself and then loops PER RULE, checking merit
++  // presence for each, so a single call covers Viral Mythology, Invested,
++  // Lorekeeper, Necropolis Sepulcher, Blood and Sacrifice, Prayer and Penance
++  // and anything seeded later — with no change here.
++  //
++  // This replaced four hardcoded calls. Blood and Sacrifice and Prayer and
++  // Penance were seeded 2026-08-06 with correct data and never got one, so
++  // their owners' pools were always empty and the per-target stepper clamped
++  // to 0. That was the SECOND time this shape of bug shipped: Necropolis was
++  // the first, and #1110 generalised the renderer while leaving the producer
++  // hardcoded. A generic evaluator is worth nothing if nothing calls it.
++  //
++  // Ordering: the four calls used to sit at different points, interleaved with
++  // OHM/Safe Word/MDB/OTS. Collapsing them is safe because pool amounts read
++  // purchased dots only (`_ratingOfPartner`, pool-evaluator.js:110 — "pool
++  // basis is purchased dots only, not free grants"), and those evaluators only
++  // write free_* channels. The one order-sensitive basis would be
++  // 'Invictus Status' (OTS floor, applied below), and no pool rule uses it.
++  //
++  // getRulesCache() is non-null here: applyDerivedMerits returns at the top
++  // when the cache is null (issue #249 guard above).
++  applyPoolRulesFromDb(c, { grants: getRulesCache()?.rule_grant || [] });
+ 
+   // ── OHM: grants, FHP auto-create, and 9-again (evaluator reads from rule_grant / rule_nine_again) ──
+   applyOHMRulesFromDb(c, getRulesBySource('Oath of the Hard Motherfucker'));
+@@ -102,24 +125,9 @@ export function applyDerivedMerits(c, allChars = []) {
+   }
+   applySafeWordRulesFromDb(c, getRulesBySource('Oath of the Safe Word'), allChars);
+ 
+-  // ── Invested grant pool (evaluator reads from rule_grant) ──
+-  applyPoolRulesFromDb(c, getRulesBySource('Invested'));
+-
+   // ── MDB: free dots into chosen Crúac style = Mentor rating (evaluator reads from rule_grant, condition='merit_present') ──
+   applyMDBRulesFromDb(c, getRulesBySource('The Mother-Daughter Bond'));
+ 
+-  // ── Lorekeeper grant pool (evaluator reads from rule_grant) ──
+-  applyPoolRulesFromDb(c, getRulesBySource('Lorekeeper'));
+-
+-  // ── Necropolis Sepulcher grant pool (N-7c, issue #771): pool=Sepulcher
+-  //    rating, distributable across the six Collective Compound targets via
+-  //    `free_grants.necro`. Same pool-evaluator dispatch shape as LK/Inv/VM —
+-  //    its absence from N-7 left `_grant_pools` empty for necro, which silently
+-  //    broke the domain counter render AND clamped the per-target stepper to 0
+-  //    via poolAvailableFor. The helpers + write-path landed in N-7; this is
+-  //    the producer call that fills the pool. ──
+-  applyPoolRulesFromDb(c, getRulesBySource('Necropolis Sepulcher'));
+-
+   // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
+   applyOTSRulesFromDb(c, getRulesBySource('Oath of the Scapegoat'));
+ 
+diff --git a/server/tests/n7c-necro-orchestrator-pipeline.test.js b/server/tests/n7c-necro-orchestrator-pipeline.test.js
+index 95f01eb9..0a921be8 100644
+--- a/server/tests/n7c-necro-orchestrator-pipeline.test.js
++++ b/server/tests/n7c-necro-orchestrator-pipeline.test.js
+@@ -242,9 +242,24 @@ describe('N-7c — full pipeline: applyDerivedMerits → shRenderDomainMerits',
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+ describe('N-7c — orchestrator dispatch sanity guard', () => {
+-  it('applyDerivedMerits contains the Necropolis Sepulcher pool dispatch', () => {
++  // #1137 rewrote this guard. It was added because N-7 shipped without the
++  // Necropolis producer call at all, and it asserted that one literal dispatch
++  // existed. That framing is what let the same bug recur: Blood and Sacrifice
++  // and Prayer and Penance were seeded with correct data, got no dispatch, and
++  // no guard noticed because the guard only ever looked for Necropolis.
++  //
++  // The producer is now a single data-driven sweep, so the guard asserts the
++  // property that actually matters — the dispatch exists AND is not per-source.
++  it('applyDerivedMerits sweeps the whole rule_grant cache for pools', () => {
+     const src = read('public/js/editor/mci.js');
+-    expect(src).toMatch(/applyPoolRulesFromDb\(c,\s*getRulesBySource\(['"]Necropolis Sepulcher['"]\)\)/);
++    expect(src).toMatch(/applyPoolRulesFromDb\(c,\s*\{\s*grants:\s*getRulesCache\(\)\?\.rule_grant/);
++  });
++
++  it('no hardcoded per-source pool dispatch has crept back in', () => {
++    const src = read('public/js/editor/mci.js');
++    // A relapse looks like applyPoolRulesFromDb(c, getRulesBySource('X')) —
++    // it silently excludes every compound nobody remembered to name.
++    expect(src).not.toMatch(/applyPoolRulesFromDb\(c,\s*getRulesBySource\(/);
+   });
+ 
+   it('compound stepper has id + aria-label for accessibility', () => {
+diff --git a/server/tests/pool-parallel-write.test.js b/server/tests/pool-parallel-write.test.js
+index 25317395..ba9df944 100644
+--- a/server/tests/pool-parallel-write.test.js
++++ b/server/tests/pool-parallel-write.test.js
+@@ -34,7 +34,17 @@ vi.mock('../../public/js/data/loader.js', () => ({
+ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
+   preloadRules: async () => {},
+   invalidateRulesCache: () => {},
+-  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),  // #249 hotfix: non-null sentinel so applyDerivedMerits guard does not bail
++  // #249 hotfix: must be non-null so the applyDerivedMerits guard does not bail.
++  // #1137: `rule_grant` is now derived from the SAME storeMap that feeds
++  // getRulesBySource, because the pool producer sweeps the whole cache rather
++  // than asking per source. Returning an empty `rule_grant` here while
++  // getRulesBySource served real rules encoded a state production cannot reach
++  // — load-rules.js:55 builds getRulesBySource BY FILTERING _cache.rule_grant,
++  // so rules-present-but-rule_grant-empty is impossible outside this mock.
++  getRulesCache: () => ({
++    rule_grant: Object.values(storeMap).flatMap(v => v.grants),
++    rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [],
++  }),
+   getRulesBySource: (source) =>
+     storeMap[source] || { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null },
+ }));
+diff --git a/server/tests/vm-parallel-write.test.js b/server/tests/vm-parallel-write.test.js
+index a1bebf2b..7b47ef23 100644
+--- a/server/tests/vm-parallel-write.test.js
++++ b/server/tests/vm-parallel-write.test.js
+@@ -27,7 +27,15 @@ vi.mock('../../public/js/data/loader.js', () => ({
+ vi.mock('../../public/js/editor/rule_engine/load-rules.js', () => ({
+   preloadRules: async () => {},
+   invalidateRulesCache: () => {},
+-  getRulesCache: () => ({ rule_grant: [], rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [] }),  // #249 hotfix: non-null sentinel so applyDerivedMerits guard does not bail
++  // #249 hotfix: must be non-null so the applyDerivedMerits guard does not bail.
++  // #1137: `rule_grant` is derived from the SAME storeMap that feeds
++  // getRulesBySource — the pool producer now sweeps the whole cache rather than
++  // asking per source, and production builds getRulesBySource by filtering
++  // _cache.rule_grant, so the two can never disagree outside a mock.
++  getRulesCache: () => ({
++    rule_grant: Object.values(storeMap).flatMap(v => v.grants),
++    rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [], rule_tier_budget: [],
++  }),
+   getRulesBySource: (source) =>
+     storeMap[source] || { grants: [], nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null },
+ }));
+diff --git a/specs/stories/mnec.collective-2.generalise-compound-rendering.story.md b/specs/stories/mnec.collective-2.generalise-compound-rendering.story.md
+index 99678a8e..ca11fb88 100644
+--- a/specs/stories/mnec.collective-2.generalise-compound-rendering.story.md
++++ b/specs/stories/mnec.collective-2.generalise-compound-rendering.story.md
+@@ -173,7 +173,13 @@ Stronger than the gate required: **no other `rule_grant` doc has `sharing_scope`
+ 
+ Two incidental findings, neither acted on:
+ - `rule_grant` contains duplicate seeds (MCI x5, OHM x4). None of the compounds are duplicated today, but `getCollectiveCompounds` de-duplicates on `source|slug` so a re-run seed cannot double a compound's rows.
+-- The pool evaluator (`pool-evaluator.js:40`) was already fully generic — it creates a `_grant_pools` entry per pool grant keyed by `source_slug ?? category`. Crone and Sanctified owners have had correct pool *capacity* all along; only the *rendering* was Necropolis-bound.
++- The pool evaluator (`pool-evaluator.js:40`) was already fully generic — it creates a `_grant_pools` entry per pool grant keyed by `source_slug ?? category`. ~~Crone and Sanctified owners have had correct pool *capacity* all along; only the *rendering* was Necropolis-bound.~~
++
++  > **CORRECTION, 2026-08-11 (#1137). The struck sentence above is false, and leaving it unchallenged is why the bug recurred.**
++  >
++  > The evaluator is generic — that half is right. The conclusion is not. Capacity requires the evaluator to be **called**, and `mci.js` named its pool sources by hand: four `applyPoolRulesFromDb(c, getRulesBySource(...))` calls, none of them for Blood and Sacrifice or Prayer and Penance. So Crone and Sanctified owners had capacity **zero**, always, and their per-target steppers clamped to 0 via `poolAvailableFor`. Anichka (Blood and Sacrifice 3) was the first character to hold one and could not allocate a single dot.
++  >
++  > The reasoning error worth remembering: **this story verified the function and never checked the call site.** #1137 replaced the four hardcoded calls with one sweep over the whole `rule_grant` cache, and added `server/tests/issue-1137-pool-producer.test.js`, which asserts on `_grant_pools` — what was produced — rather than on rendered markup. The original text is left standing above so the mistake stays legible.
+ 
+ ### Completion Notes
+ 
+diff --git a/server/tests/issue-1137-pool-producer.test.js b/server/tests/issue-1137-pool-producer.test.js
+new file mode 100644
+index 00000000..ad4dccf3
+--- /dev/null
++++ b/server/tests/issue-1137-pool-producer.test.js
+@@ -0,0 +1,262 @@
++/**
++ * #1137 — the Collective Compound pool PRODUCER runs for every seeded pool
++ * source, not a hardcoded list.
++ *
++ * This suite exists because `collective-2-compound-generalisation.test.js`
++ * exercises Blood and Sacrifice heavily and PASSES while its pool was never
++ * produced at all. That suite asserts on RENDERING; nothing asserted that
++ * `_grant_pools` was ever filled. #1110's own record drew the wrong conclusion
++ * from the same gap: "the pool evaluator was already fully generic ... Crone and
++ * Sanctified owners have had correct pool capacity all along". The evaluator is
++ * generic. Nothing called it for those sources, so capacity was always zero.
++ *
++ * Every assertion here is therefore on `_grant_pools` — what was PRODUCED —
++ * never on markup.
++ *
++ * Fixture grants are copied verbatim from live `tm_suite.rule_grant`
++ * (verified 2026-08-11), minus `_id`.
++ */
++
++// Browser shims — mci.js pulls the api.js location reference transitively.
++// Same pattern as COLLECTIVE-1/2 and N-7a/b/c.
++globalThis.location = {
++  origin: 'http://localhost:8080',
++  hostname: 'localhost',
++  href: 'http://localhost:8080/admin',
++};
++globalThis.localStorage = {
++  _store: {},
++  getItem(k) { return this._store[k] ?? null; },
++  setItem(k, v) { this._store[k] = String(v); },
++  removeItem(k) { delete this._store[k]; },
++  clear() { this._store = {}; },
++};
++globalThis.window = globalThis.window || globalThis;
++globalThis.document = globalThis.document || {
++  getElementById: () => null,
++  createElement: () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} } }),
++};
++
++import { describe, it, expect, beforeAll, vi } from 'vitest';
++import path from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++
++let applyDerivedMerits;
++let loadRulesMod;
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Fixtures — live rule_grant pool docs, verbatim
++// ─────────────────────────────────────────────────────────────────────────────
++
++const NECRO_GRANT = {
++  source: 'Necropolis Sepulcher', source_slug: 'necro', category: 'necro',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_source',
++  pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
++  partner_shareable: true,
++  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
++};
++
++const DARKTEMPLE_GRANT = {
++  source: 'Blood and Sacrifice', source_slug: 'darktemple', category: 'darktemple',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_source',
++  pool_targets: ["Dark Temple (Mother's Fane)", 'Accursed Armory', 'Font of Corruption', "The Mother's Altar", 'Primal Mandragora', 'Occult Collection'],
++  partner_shareable: true,
++  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Blood and Sacrifice', min_dots: 1 },
++};
++
++const BLACKCATHEDRAL_GRANT = {
++  source: 'Prayer and Penance', source_slug: 'blackcathedral', category: 'blackcathedral',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_source',
++  pool_targets: ['Black Cathedral', "Crusader's Cache", 'Black Sanctuary', 'Holy Relic', 'Midnight Mass', 'Cathedral of Damnation'],
++  partner_shareable: true,
++  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Prayer and Penance', min_dots: 1 },
++};
++
++// A compound that exists ONLY in this fixture — AC6. If it produces a pool,
++// the producer is genuinely data-driven, because no production file names it.
++const SYNTHETIC_GRANT = {
++  source: 'Rite of the Drowned Choir', source_slug: 'drownedchoir', category: 'drownedchoir',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_source',
++  pool_targets: ['Tidal Reliquary', 'Salt Vault'],
++  partner_shareable: true,
++  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Rite of the Drowned Choir', min_dots: 1 },
++};
++
++// Non-compound pool sources that must not change.
++const INVESTED_GRANT = {
++  source: 'Invested', source_slug: 'inv', category: 'inv',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_partner_merit',
++  partner_merits: ['Invictus Status'],
++  pool_targets: ['Allies', 'Contacts', 'Resources', 'Retainer'],
++};
++
++const LOREKEEPER_GRANT = {
++  source: 'Lorekeeper', source_slug: 'lk', category: 'lk',
++  grant_type: 'pool', condition: 'merit_present', amount_basis: 'rating_of_partner_merit',
++  partner_merits: ['Lorekeeper'],
++  pool_targets: ['Occult Library', 'Mentor'],
++};
++
++const ALL_GRANTS = [
++  NECRO_GRANT, DARKTEMPLE_GRANT, BLACKCATHEDRAL_GRANT,
++  INVESTED_GRANT, LOREKEEPER_GRANT,
++];
++
++function ruleCache(grants) {
++  return {
++    rule_grant: grants,
++    rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [],
++    rule_tier_budget: [], rule_disc_attr: [], rule_derived_stat_modifier: [],
++  };
++}
++
++/**
++ * BOTH accessors must be mocked from the same fixture set, and getting this
++ * wrong silently weakens the suite.
++ *
++ * `getRulesBySource` reads load-rules.js's module-internal `_cache` directly,
++ * which a spy on `getRulesCache` does not touch. Mocking only `getRulesCache`
++ * leaves the pre-fix hardcoded path (which calls `getRulesBySource`) with no
++ * data at all — so Necropolis appears broken too, and the suite loses its
++ * ability to prove the already-working sources are unaffected. Mocking both
++ * from one array means pre-fix behaviour is faithful: Necropolis/Invested/
++ * Lorekeeper produce pools, the two new compounds do not.
++ */
++function primeCache(grants) {
++  loadRulesMod.getRulesCache.mockReturnValue(ruleCache(grants));
++  loadRulesMod.getRulesBySource.mockImplementation((source) => ({
++    grants: grants.filter(r => r.source === source),
++    nineAgain: [], skillBonus: [], specialityGrants: [], tierBudget: null,
++  }));
++}
++
++beforeAll(async () => {
++  loadRulesMod = await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'editor', 'rule_engine', 'load-rules.js')).href);
++  vi.spyOn(loadRulesMod, 'getRulesCache');
++  vi.spyOn(loadRulesMod, 'getRulesBySource');
++  primeCache(ALL_GRANTS);
++  ({ applyDerivedMerits } = await import(pathToFileURL(path.resolve(REPO_ROOT, 'server', 'lib', 'rule_engine', '_legacy-bridge.js')).href));
++});
++
++function mkChar(merits) {
++  return {
++    _id: 'c-1137',
++    name: 'Pool Fixture',
++    clan: 'Nosferatu',
++    covenant: 'Circle of the Crone',
++    status: { city: 0, clan: 0, covenant: {} },
++    attributes: {}, skills: {}, disciplines: {}, powers: [], ordeals: [],
++    merits,
++  };
++}
++
++const gate = (name, dots) => ({ name, category: 'domain', rating: dots, cp: 0, xp: dots });
++
++/** All pool entries for one slug. */
++function poolsFor(c, slug) {
++  return (c._grant_pools || []).filter(p => p.category === slug);
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++
++describe('#1137 — every seeded pool source is produced', () => {
++  it('AC1: Blood and Sacrifice 3 produces a darktemple pool of 3', () => {
++    primeCache(ALL_GRANTS);
++    const c = mkChar([gate('Blood and Sacrifice', 3)]);
++    applyDerivedMerits(c);
++
++    const pools = poolsFor(c, 'darktemple');
++    expect(pools).toHaveLength(1);
++    expect(pools[0]).toMatchObject({ source: 'Blood and Sacrifice', category: 'darktemple', amount: 3 });
++    expect(pools[0].names).toContain("Dark Temple (Mother's Fane)");
++  });
++
++  it('AC3: Prayer and Penance 2 produces a blackcathedral pool of 2', () => {
++    primeCache(ALL_GRANTS.concat([BLACKCATHEDRAL_GRANT]).filter((g, i, a) => a.indexOf(g) === i));
++    const c = mkChar([gate('Prayer and Penance', 2)]);
++    applyDerivedMerits(c);
++
++    const pools = poolsFor(c, 'blackcathedral');
++    expect(pools).toHaveLength(1);
++    expect(pools[0]).toMatchObject({ source: 'Prayer and Penance', category: 'blackcathedral', amount: 2 });
++  });
++
++  it('AC4: Necropolis Sepulcher 5 still produces a necro pool of exactly 5', () => {
++    primeCache(ALL_GRANTS);
++    const c = mkChar([
++      gate('Necropolis Sepulcher', 5),
++      { name: 'Caldarium',   category: 'domain', rating: 1, cp: 0, xp: 0, free_grants: { necro: 1 } },
++      { name: 'Catacombs',   category: 'domain', rating: 1, cp: 0, xp: 0, free_grants: { necro: 1 } },
++      { name: 'Garbage Pit', category: 'domain', rating: 1, cp: 0, xp: 0, free_grants: { necro: 1 } },
++      { name: 'White Ants',  category: 'domain', rating: 2, cp: 0, xp: 0, free_grants: { necro: 2 } },
++    ]);
++    applyDerivedMerits(c);
++
++    const pools = poolsFor(c, 'necro');
++    expect(pools).toHaveLength(1);
++    expect(pools[0].amount).toBe(5);
++    // Yusuf and Xavier are both allocated to exactly 5/5 live, so any capacity
++    // drift in either direction would surface here as under/over allocation.
++    const allocated = c.merits.reduce((s, m) => s + (m.free_grants?.necro || 0), 0);
++    expect(allocated).toBe(5);
++  });
++
++  it('AC5: a character holding no compound gets no compound pool', () => {
++    primeCache(ALL_GRANTS);
++    const c = mkChar([{ name: 'Resources', category: 'influence', rating: 2, cp: 2, xp: 0 }]);
++    applyDerivedMerits(c);
++
++    expect(poolsFor(c, 'darktemple')).toHaveLength(0);
++    expect(poolsFor(c, 'necro')).toHaveLength(0);
++    expect(poolsFor(c, 'blackcathedral')).toHaveLength(0);
++  });
++
++  it('AC5: two compounds on one character each produce their own pool', () => {
++    primeCache(ALL_GRANTS);
++    const c = mkChar([gate('Blood and Sacrifice', 3), gate('Necropolis Sepulcher', 2)]);
++    applyDerivedMerits(c);
++
++    expect(poolsFor(c, 'darktemple')[0].amount).toBe(3);
++    expect(poolsFor(c, 'necro')[0].amount).toBe(2);
++  });
++
++  it('AC6: a compound present ONLY in fixture data produces a pool — no production file names it', () => {
++    primeCache(ALL_GRANTS.concat([SYNTHETIC_GRANT]));
++    const c = mkChar([gate('Rite of the Drowned Choir', 4)]);
++    applyDerivedMerits(c);
++
++    const pools = poolsFor(c, 'drownedchoir');
++    expect(pools).toHaveLength(1);
++    expect(pools[0]).toMatchObject({ source: 'Rite of the Drowned Choir', amount: 4 });
++  });
++
++  it('pool amount is purchased dots only — free grants never inflate it', () => {
++    primeCache(ALL_GRANTS);
++    const c = mkChar([
++      { name: 'Blood and Sacrifice', category: 'domain', rating: 3, cp: 1, xp: 2, free_mci: 2, free_vm: 1 },
++    ]);
++    applyDerivedMerits(c);
++
++    // cp 1 + xp 2 = 3. The free_* channels must contribute nothing
++    // (pool-evaluator.js:110 "pool basis is purchased dots only").
++    expect(poolsFor(c, 'darktemple')[0].amount).toBe(3);
++  });
++
++  it('AC7: a null rules cache is a no-op, not a throw and not a partial mutation', () => {
++    loadRulesMod.getRulesCache.mockReturnValue(null);
++    const c = mkChar([gate('Blood and Sacrifice', 3)]);
++    const before = JSON.stringify(c);
++
++    expect(() => applyDerivedMerits(c)).not.toThrow();
++
++    // issue #249: applyDerivedMerits bails BEFORE clearing anything, so the
++    // character must come back untouched — no _grant_pools, no cleared merits.
++    expect(c._grant_pools).toBeUndefined();
++    expect(JSON.stringify(c)).toBe(before);
++
++    primeCache(ALL_GRANTS); // restore for any later test
++  });
++});
