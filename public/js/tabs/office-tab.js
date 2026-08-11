@@ -41,7 +41,7 @@ export function renderOfficeTab(el, char, chars = []) {
 
   // Manoeuvres
   h += `<div class="office-section">`;
-  h += `<div class="office-section-hd">Manoeuvres <span style="font-size:10px;opacity:.6">(each costs 1 Influence)</span></div>`;
+  h += `<div class="office-section-hd">Manoeuvres</div>`;
   h += `<div class="office-manoeuvre-list">`;
   for (const m of data.manoeuvres) {
     h += `<div class="office-manoeuvre">`;

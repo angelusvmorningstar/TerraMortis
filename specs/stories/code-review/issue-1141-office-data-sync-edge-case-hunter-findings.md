@@ -1,0 +1,6 @@
+- **The Office tab falsely labels every rewritten manoeuvre as costing 1 Influence**
+  - **Severity**: Medium
+  - **Location**: `public/js/tabs/office-tab.js:44`
+  - **Triggering input or sequence**: Render any supported office—e.g. a Primogen using People Talk against a City Status 4 target, or an Enforcer viewing Perimeter.
+  - **Observable consequence**: The section header says “each costs 1 Influence,” while the rewritten effects specify variable, escalating, or unspecified costs. Players receive contradictory rules and may spend the wrong amount.
+  - **Confidence**: High. The label is unconditional, appears on every supported render, and directly contradicts numerous new effects. The focused suite passes 21/21 because it tests only `OFFICE_DATA`, not this consumer. No repository files were modified.
