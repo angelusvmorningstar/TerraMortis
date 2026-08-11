@@ -120,8 +120,9 @@ router.get('/directory', async (req, res) => {
 // `GET /api/npcs/for-character/:characterId` route (formerly DTOSL.2) was
 // removed. After PR #107 (closes #84, dt-form.33 NPC selector removal),
 // no client code calls it anywhere in `public/`. The companion
-// `/api/relationships/for-character/:characterId` route (NPCR.6) is
-// independently consumed by `relationships-tab.js` and is unaffected.
+// `/api/relationships/for-character/:characterId` route (NPCR.6) survives and is
+// unaffected. Its player-facing consumer `relationships-tab.js` went with #1135;
+// the route stays because the relationships data and its admin tooling stay.
 
 // NPCP-1: list endpoint is now player-readable but scoped at the Mongo
 // query level to NPCs linked to the caller's characters. ST/dev see the

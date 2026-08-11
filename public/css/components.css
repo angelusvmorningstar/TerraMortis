@@ -604,110 +604,12 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-picker-textarea{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;padding:4px 6px;min-height:50px;resize:vertical;}
 .sh-ts-picker-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
 
-/* ── NPCR.6 Player Relationships tab ── */
-.rel-tab{padding:14px 16px 40px;max-width:860px;margin:0 auto;}
-.rel-tab-head{border-bottom:1px solid var(--bdr);padding-bottom:10px;margin-bottom:12px;}
-.rel-tab-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-.rel-tab-title{font-family:var(--fh);font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin:0;}
-.rel-tab-sub{font-family:var(--ft);font-size:12px;color:var(--txt3);margin-top:3px;}
 
-/* NPCR.7 Add Relationship picker */
-.rel-add-btn{background:none;border:1px solid var(--accent);border-radius:4px;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;align-self:flex-start;}
-.rel-add-btn:hover{background:var(--gold2-a12);}
-.rel-add-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
-.rel-add-btn.primary:hover{opacity:.85;background:var(--accent);}
-.rel-add-btn.muted{border-color:var(--bdr);color:var(--txt3);}
-.rel-add-btn.muted:hover{border-color:var(--bdr2);color:var(--txt);background:var(--surf2);}
 
-.rel-add-form{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;}
-.rel-add-form-head{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding-bottom:6px;border-bottom:1px solid var(--bdr);}
-.rel-add-field{display:flex;flex-direction:column;gap:4px;}
-.rel-add-field-label{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
-.rel-add-input{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt);font-family:var(--ft);font-size:13px;padding:6px 10px;outline:none;}
-.rel-add-input:focus{border-color:var(--accent);}
-.rel-add-textarea{resize:vertical;min-height:60px;font-family:var(--ft);line-height:1.5;}
-.rel-add-loading{font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;padding:6px;}
-.rel-add-actions{display:flex;gap:8px;margin-top:4px;}
 
-.rel-disp-chips{display:flex;gap:6px;flex-wrap:wrap;}
-.rel-disp-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
-.rel-disp-chip:hover{border-color:var(--bdr2);color:var(--txt);}
-.rel-disp-chip.positive.on{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
-.rel-disp-chip.neutral.on{color:var(--txt);border-color:var(--bdr2);}
-.rel-disp-chip.negative.on{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
-.rel-disp-chip.clear.on{color:var(--accent);border-color:var(--accent);}
 
-/* NPCR.8 NPC-source mode toggle */
-.rel-add-mode-chips{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0;}
-.rel-add-mode-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:11px;letter-spacing:.06em;padding:5px 12px;}
-.rel-add-mode-chip:hover{border-color:var(--bdr2);color:var(--txt);}
-.rel-add-mode-chip.on{background:var(--gold2-a12);color:var(--accent);border-color:var(--accent);}
-.rel-add-hint{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;padding:0 2px;}
 
-/* NPCR.11 Flag-for-review */
-.rel-flag-btn{background:none;border:1px solid transparent;border-radius:10px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:12px;padding:1px 7px;line-height:1;}
-.rel-flag-btn:hover{color:var(--err);border-color:var(--err);}
-.rel-flag-chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
-.rel-flag-chip.flagged{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
-.rel-flag-chip.resolved{color:var(--accent);border-color:var(--accent);background:var(--gold2-a12);cursor:pointer;text-transform:none;font-size:10px;letter-spacing:.02em;}
-.rel-flag-chip.resolved:hover{background:var(--gold2-a25);}
 
-/* NPCR.10 Pending incoming banner */
-.rel-pending-banner{display:flex;align-items:center;gap:12px;background:var(--gold2-a12);border:1px solid var(--accent);border-radius:6px;padding:10px 12px;margin-bottom:10px;flex-wrap:wrap;}
-.rel-pending-text{flex:1;min-width:220px;font-family:var(--ft);font-size:13px;color:var(--txt);line-height:1.5;}
-.rel-pending-text strong{color:var(--accent);font-weight:700;}
-.rel-pending-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.rel-pending-state{font-family:var(--ft);font-size:12px;color:var(--txt2);font-style:italic;margin-top:4px;}
-.rel-pending-actions{display:flex;gap:6px;flex-wrap:wrap;}
-
-/* NPCR.9 Edit own-edge controls */
-.rel-edge-actions{display:flex;gap:6px;justify-content:flex-end;}
-.rel-edit-btn{background:none;border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
-.rel-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
-.rel-edge-card-editing{border-color:var(--accent);}
-.rel-edit-counter{font-family:var(--fl);font-size:10px;color:var(--txt3);text-align:right;}
-.rel-edit-counter.over-cap,.rel-add-input.over-cap,.rel-add-textarea.over-cap{color:var(--err);border-color:var(--err);}
-.rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
-.rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
-.rel-empty p{margin:0 0 6px;}
-.rel-empty-title{font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent);margin-bottom:8px !important;}
-.rel-empty strong{color:var(--accent);font-weight:700;}
-.rel-empty-hint{font-size:11px;color:var(--txt3);font-style:italic;}
-
-.rel-family{border:1px solid var(--bdr);border-radius:6px;margin-bottom:10px;background:var(--surf);overflow:hidden;}
-.rel-family-head{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;background:var(--surf2);border-bottom:1px solid var(--bdr);user-select:none;}
-.rel-family-head:hover{background:var(--surf3);}
-.rel-family-name{flex:1;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
-.rel-family-count{font-family:var(--fl);font-size:10px;color:var(--txt3);padding:1px 6px;border:1px solid var(--bdr);border-radius:10px;}
-.rel-family-caret{font-size:12px;color:var(--txt3);width:14px;text-align:center;}
-.rel-family-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
-.rel-family.collapsed .rel-family-body{display:none;}
-.rel-family.collapsed .rel-family-head{border-bottom:none;}
-
-.rel-edge-card{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;}
-.rel-edge-head{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
-.rel-edge-head-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px;}
-.rel-edge-name{font-family:var(--fh);font-size:14px;font-weight:700;color:var(--txt);}
-.rel-edge-kind{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
-.rel-edge-head-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
-
-.rel-disp{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
-.rel-disp.positive{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
-.rel-disp.neutral{color:var(--txt3);border-color:var(--bdr);background:var(--surf);}
-.rel-disp.negative{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
-
-.rel-status-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid var(--bdr);color:var(--txt3);background:var(--surf);}
-.rel-status-chip.pending{color:var(--warn-dk);border-color:var(--warn-dk);background:var(--warn-dk-bg);}
-.rel-status-chip.retired{opacity:.6;}
-.rel-status-chip.rejected{color:var(--err);border-color:var(--err);}
-
-.rel-new-badge{font-family:var(--fl);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--accent);color:var(--bg);}
-.rel-updated-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--gold2-a12);color:var(--accent);border:1px solid var(--accent);cursor:pointer;}
-.rel-updated-chip:hover{background:var(--gold2-a25);}
-
-.rel-edge-state{font-family:var(--ft);font-size:12px;color:var(--txt2);line-height:1.5;position:relative;}
-.rel-edge-state-more{background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:10px;padding:0 0 0 4px;text-decoration:underline;}
-.rel-edge-state-full{display:none;}
 
 /* Picker extras (NPCR.4) */
 .sh-ts-picker-head{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:4px;}
@@ -5311,9 +5213,12 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
 /* ════════════════════════════════════════════════════════════════════
    .npcr-modal — themed modal pattern (issue #93)
    Promoted from admin-layout.css so non-admin surfaces (player.html, suite)
-   that reference these classes (relationships-tab.js, dt-form.31 modal,
-   etc.) pick up the styling. Verbatim move; rule bodies unchanged.
-   Used by: relationships-tab.js, admin/npc-register.js, editor/edit.js.
+   that reference these classes (dt-form.31 modal, etc.) pick up the styling.
+   Verbatim move; rule bodies unchanged.
+   Used by: admin/npc-register.js, admin/relationship-editor.js, editor/edit.js,
+   tabs/downtime-form.js. (relationships-tab.js was also a user until #1135
+   deleted it; every npcr- class it touched is shared with those four, which is
+   why none of them could be removed with it.)
    ════════════════════════════════════════════════════════════════════ */
 /* Themed modal for resolve-note entry (replaces prompt()). */
 .npcr-modal-overlay {

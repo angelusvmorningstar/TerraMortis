@@ -411,8 +411,7 @@ test('nav-1-3 — More tab renders app grid for ST', async ({ page }) => {
   await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toBeVisible();
   await expect(page.locator('.more-app-icon[data-app="ordeals"]')).toBeVisible();
 
-  // Shared apps visible
-  await expect(page.locator('.more-app-icon[data-app="rules"]')).toBeVisible();
+  // Shared apps visible (the Rules tile went with #1135)
   await expect(page.locator('.more-app-icon[data-app="feeding"]')).toBeVisible();
 });
 
@@ -454,11 +453,14 @@ test('nav-1-3 — tapping More grid app navigates to that tab', async ({ page })
   await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
 
   await page.click('#n-more');
-  await page.waitForSelector('.more-app-icon[data-app="rules"]', { state: 'visible', timeout: 10000 });
-  await page.locator('.more-app-icon[data-app="rules"]').click();
+  // Exemplar tile switched from Rules to Feeding by #1135, which deleted the
+  // Rules tile. This test is about More-grid navigation in general, so it only
+  // needs a tile that still exists.
+  await page.waitForSelector('.more-app-icon[data-app="feeding"]', { state: 'visible', timeout: 10000 });
+  await page.locator('.more-app-icon[data-app="feeding"]').click();
 
-  // Rules tab should be active
-  await expect(page.locator('#t-rules')).toHaveClass(/active/, { timeout: 5000 });
+  // Target tab should be active
+  await expect(page.locator('#t-feeding')).toHaveClass(/active/, { timeout: 5000 });
   // More nav button should remain highlighted
   await expect(page.locator('#n-more')).toHaveClass(/on/);
 });

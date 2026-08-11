@@ -78,3 +78,55 @@ and verified before deferral. Provenance:
   font metrics), a heavier test shape than this codebase's existing string-comparison pattern — worth
   adding if `.infl-dots-derived` or `.trait-dots` sizing is touched again, not urgent enough to justify
   building fresh CI-layout-test infrastructure for this one column today.
+
+## From issue-1135-delete-eight-tabs (2026-08-11)
+
+- **`TAB_SUBTITLES` defines `territory` twice** — `public/js/app.js`, once in the legacy block and
+  again under "Unified nav tab names". Both values are the same string, so the duplicate is harmless
+  today (the second silently wins) and it is pre-existing, not a regression of #1135. Left alone
+  deliberately: #1135 was a deletion story and this key belongs to neither a deleted nor a surviving
+  tab's registration. Delete the earlier of the two next time that object is touched.
+- **`renderCityTab` is now an unreferenced export** — `public/js/tabs/city-tab.js` survives #1135
+  because `public/js/admin/city-views.js` imports `openCityMapOverlay` from it, but the `whos-who`
+  branch that called `renderCityTab` is gone, so that function (and whatever is exclusive to it) is
+  dead in production. Deliberately not removed: the story scoped `city-tab.js` as a file to leave
+  alone, and pruning a shared module's dead half is exactly the unreachable-surface work already
+  tracked in #1095. Fold it in there.
+- ~~**The `tickets` collection still holds 69 documents (19 open)**~~ — **RESOLVED 2026-08-11: collection
+  dropped** on Angelus's explicit authorisation, after the review closed and after he was told the 19 open
+  ones were real unfixed bugs. The drop was guarded on the live count matching the export (69 = 69) so the
+  export is a complete recovery path. Nothing further outstanding. Original entry follows for the record.
+  #1135 removed all ticket CODE
+  (route, schema, mount, admin view, stylesheet, player submit form) but deliberately did NOT drop
+  the collection, because dropping live data needs its own explicit go-ahead. Full export taken
+  first: `data/exports/tickets-full-export-2026-08-11.json` and `tickets-open-2026-08-11.md`. The 19
+  open ones include real unfixed bugs ("Incorrect 9-again on new dice roller", "Feed herd bonus
+  incorrectly calculated", "Shared merits require a minimum one dot investment"). They now have no
+  in-app home, so they want triaging into GitHub issues before the collection is dropped.
+- **The admin Primer surface is unstyled** — `public/js/admin/primer-admin.js` (live at
+  `admin.js`, domain `documents`) emits `primer-admin-shell`, `primer-file` and `primer-upload-*`,
+  and none of those classes is defined in ANY stylesheet. Pre-existing and unrelated to #1135, which
+  deleted only the disjoint `primer-content`/`primer-layout`/`primer-toc*` set belonging to the
+  removed player tab. Flagged because the two sets share a prefix and a future prefix-wide grep will
+  keep rediscovering it.
+
+### Added by the issue-1135 external review (2026-08-11)
+
+- **Three `_svg` icon entries were dead before #1135** — `_svg.status`, `_svg.whosWho` and
+  `_svg.dtReport` in `public/js/app.js` have zero references. Confirmed unreferenced at base
+  `40cee7fb`, so they are not #1135's doing (its own three orphans, `primer`/`guide`/`rules`, were
+  removed). Left alone for scope discipline. Delete next time that object is touched.
+- **No coordinator-role fixture in the targeted browser specs** — `tests/issue-1135-deleted-tabs.spec.js`
+  and `tests/fin-checkin-finance.spec.js` both authenticate only an ST. #1135's AC9 (a coordinator sees
+  the Finance tab gone, with no console error) and the coordinator half of AC10 (check-in still works)
+  therefore rest on construction plus static inspection, not on an exercised path: both removed Finance
+  entries were `coordinatorOnly`, so no role can render them. A regression that hit `role: 'coordinator'`
+  without hitting `'st'` would go undetected. Worth a coordinator fixture next time either spec is opened.
+- **Two pre-existing broken test harnesses, both confirmed broken at base `40cee7fb`** — not caused by
+  #1135 and deliberately not fixed by it. (a) `tests/post-game-1.spec.js` nav-1-3 (3 tests) waits on
+  `#n-more`, but `more` has no `NAV_ITEMS` entry, so that button has never existed in this nav.
+  (b) `tests/desktop-and-css.spec.js` (12 tests) waits on `#btn-desktop-toggle`, which stays hidden
+  because `#hdr-nav` is only revealed by `_applyDesktopMode` once `effectiveRole()` resolves to ST, and
+  it does not under the spec's stubbed API. Both need a harness fix, not a product fix. A third test in
+  that file (the Primer TOC css-audit, retired by #1135) was additionally **flaky**: two full runs of
+  identical base code disagreed on it, failing by locator timeout in one and passing in the other.

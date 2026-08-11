@@ -75,7 +75,6 @@ window.fetch = function shimFetch(url, opts = {}) {
     if (seg[0] === 'npc_personas') return ok([]);
     if (seg[0] === 'settings') return ok({});
     if (seg[0] === 'project_invitations') return ok([]);
-    if (seg[0] === 'tickets') return ok([]);
     if (seg[0] === 'tracker_state') return ok(null, 404);
     if (seg[0] === 'auth') return ok({ role: 'st', username: 'Proto ST' });
 

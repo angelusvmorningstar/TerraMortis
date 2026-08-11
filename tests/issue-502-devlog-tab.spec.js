@@ -1,30 +1,17 @@
 /**
- * E2E tests — Devlog tab / admin domain (issue #502)
+ * E2E tests — Devlog admin domain (issue #502)
  *
- * Player read:  GET /api/devlog rendered in the player portal sidebar tab
- * Admin CRUD:   admin.html Devlog domain — create, edit, delete entries
+ * Admin CRUD: admin.html Devlog domain — create, edit, delete entries.
  *
- * NOTE: player.html redirects to / (index.html) as a backwards-compat shim.
- * Player-side tab tests navigate to admin.html with a player role fixture
- * to test the API response shape, and to player.html where the tab panel
- * exists in the static HTML. If the redirect is in effect in the test env,
- * player.html tests will fail and the tab should be moved to index.html.
+ * The player-read half of this file was retired with #1135, which deleted the
+ * Devlog tab from the game app. The admin surface below is unchanged and must
+ * keep passing: it is still the only way devlog entries are authored, and they
+ * still reach players, via TM Herald's GET /api/devlog poll into Discord.
  */
 
 const { test, expect } = require('@playwright/test');
 
 // ── Fixtures ─────────────────────────────────────────────────────────────
-
-const PLAYER_USER = {
-  id: 'test-player-e2e',
-  username: 'test_player',
-  global_name: 'Test Player',
-  avatar: null,
-  role: 'player',
-  player_id: 'p-player-e2e',
-  character_ids: ['char-e2e-001'],
-  is_dual_role: false,
-};
 
 const ST_USER = {
   id: 'test-st-e2e',
@@ -90,39 +77,6 @@ async function loginAsAdmin(page) {
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
   await page.route('**/api/game_sessions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-}
-
-async function loginAsPlayer(page) {
-  await page.addInitScript(({ user }) => {
-    localStorage.setItem('tm_auth_token', 'fake-test-token');
-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
-  }, { user: PLAYER_USER });
-
-  await page.route('**/api/auth/me', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYER_USER) })
-  );
-  await page.route(/\/api\/characters$/, route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/characters/names', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/downtime_cycles*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/downtime_submissions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/game_sessions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/ordeal-responses*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/st_mods*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
   );
 }
@@ -208,125 +162,10 @@ test.describe('Admin — Devlog domain (AC#6)', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-//  PLAYER — Devlog tab in index.html / app.js (the unified game app)
+//  PLAYER — retired with #1135 (the devlog tab was deleted from the game app).
 //
-//  The devlog tab is wired into index.html via NAV_ITEMS + goTab() in
-//  app.js. The nav button is #n-devlog; the tab container is #t-devlog.
-//  renderDevlogTab() fetches /api/devlog and renders content into #t-devlog.
+//  The AC#7-10 describe block and its loginAsGameApp helper went with the tab.
+//  The ST authoring surface above survives and must keep passing. Devlog entries
+//  still reach players through Discord: TM Herald polls GET /api/devlog and
+//  announces new ones (TM Herald/services/announcements.js).
 // ══════════════════════════════════════════════════════════════════════════
-
-async function loginAsGameApp(page, user) {
-  await page.addInitScript(({ user }) => {
-    localStorage.setItem('tm_auth_token', 'fake-test-token');
-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
-  }, { user });
-
-  await page.route('**/api/auth/me', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
-  );
-  // Stub all boot-time API calls so the app reaches a ready state
-  await page.route(/\/api\/characters(\?|$)/, route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/characters/names', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/territories*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/downtime_cycles*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/downtime_submissions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/game_sessions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/st_mods*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-  await page.route('**/api/settings*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'global', st_mods_enabled: true }) })
-  );
-  await page.route('**/api/rules*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-  );
-}
-
-test.describe('Player — Devlog tab in game app (AC#7-10)', () => {
-  // goTab is on window (app.js:2283). Use page.evaluate to navigate —
-  // avoids fragility from bottom-nav being hidden in desktop-mode viewport.
-  async function goDevlog(page) {
-    await page.evaluate(() => window.goTab('devlog'));
-    await page.waitForSelector('#t-devlog.active', { timeout: 5000 });
-  }
-
-  test('Devlog nav button exists in the DOM', async ({ page }) => {
-    await loginAsGameApp(page, PLAYER_USER);
-    await page.route('**/api/devlog*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
-    );
-    await page.goto('/');
-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
-    // Button exists in DOM (may be in bottom nav or desktop sidebar depending on viewport)
-    await expect(page.locator('#n-devlog')).toHaveCount(1);
-    await expect(page.locator('#n-devlog')).toContainText('Devlog');
-  });
-
-  test('Devlog tab renders entries grouped by type', async ({ page }) => {
-    await loginAsGameApp(page, PLAYER_USER);
-    await page.route('**/api/devlog*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
-    );
-    await page.goto('/');
-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
-    await goDevlog(page);
-
-    await expect(page.locator('#t-devlog')).toContainText('Street Fighting rework');
-    await expect(page.locator('#t-devlog')).toContainText('Regency tracker');
-  });
-
-  test('Status shown as human-readable chip not raw enum (AC#8)', async ({ page }) => {
-    await loginAsGameApp(page, PLAYER_USER);
-    await page.route('**/api/devlog*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
-    );
-    await page.goto('/');
-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
-    await goDevlog(page);
-
-    await expect(page.locator('#t-devlog')).toContainText('Under Consideration');
-    await expect(page.locator('#t-devlog')).not.toContainText('considering');
-    await expect(page.locator('#t-devlog')).toContainText('In Progress');
-    await expect(page.locator('#t-devlog')).not.toContainText('in_progress');
-  });
-
-  test('Implemented entries in collapsed Resolved section (AC#9)', async ({ page }) => {
-    await loginAsGameApp(page, PLAYER_USER);
-    await page.route('**/api/devlog*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
-    );
-    await page.goto('/');
-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
-    await goDevlog(page);
-
-    const resolved = page.locator('#t-devlog details');
-    await expect(resolved).toBeVisible({ timeout: 3000 });
-    await resolved.click();
-    await expect(page.locator('#t-devlog')).toContainText('Dark mode for mobile');
-  });
-
-  test('Empty state shows "Nothing posted yet" (AC#7)', async ({ page }) => {
-    await loginAsGameApp(page, PLAYER_USER);
-    await page.route('**/api/devlog*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
-    await page.goto('/');
-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
-    await goDevlog(page);
-
-    await expect(page.locator('#t-devlog')).toContainText('Nothing posted yet');
-  });
-});

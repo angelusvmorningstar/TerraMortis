@@ -39,7 +39,6 @@ import { initDiceEngine } from './admin/dice-engine.js';
 import { initDataPortabilityView } from './admin/data-portability.js';
 import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
-import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
@@ -328,7 +327,6 @@ function switchDomain(domain) {
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
-  if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);

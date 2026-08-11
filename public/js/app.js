@@ -64,22 +64,19 @@ import { initWS } from './data/ws.js';
 // a page reload.
 import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
 import { initSignIn } from './game/signin-tab.js';
-import { initFinanceTab } from './game/finance-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initCombatTab } from './game/combat-tab.js';
-import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
+// The Rules TAB was deleted with #1135; the sheet's Rules button still opens the
+// overlay, so openRulesOverlay/closeRulesOverlay stay (exposed on window below).
+import { openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
 import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
-import { renderPrimerTab } from './tabs/primer-tab.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
 import { renderOfficeTab } from './tabs/office-tab.js';
-import { renderRelationshipsTab } from './tabs/relationships-tab.js';
-import { renderCityTab } from './tabs/city-tab.js';
 import { initArchiveTab } from './tabs/archive-tab.js';
 import { renderFeedingTab } from './tabs/feeding-tab.js';
-import { renderDevlogTab } from './tabs/devlog-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
@@ -96,7 +93,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
-import { apiGet, apiPost, apiPut } from './data/api.js';
+import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
 import { applyDerivedMerits } from './editor/mci.js';
@@ -352,7 +349,6 @@ const TAB_SUBTITLES = {
   sheets: 'Sheets',
   territory: 'Territory',
   tracker: 'Live Tracker',
-  rules: 'Rules Reference',
   // Unified nav tab names
   dice: 'Dice',
   sheet: 'Sheet',
@@ -364,7 +360,6 @@ const TAB_SUBTITLES = {
   territory: 'Territory',
   more: 'More',
   settings: 'Settings',
-  devlog: 'Devlog',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -393,20 +388,14 @@ const NAV_ITEMS = [
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
   { id: 'misc',      label: 'Info',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
-  { id: 'whos-who',  label: 'World',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', goTab: 'whos-who' },
   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
   { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
   { id: 'ordeals',   label: 'XP',        icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
-  { id: 'devlog',    label: 'Devlog',    icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', goTab: 'devlog' },
-  { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
-  { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
-  { id: 'rules',     label: 'Rules',     icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>', goTab: 'rules', guide: true },
   // ST only
   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
   { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>', goTab: 'tracker', stOnly: true },
   { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
   { id: 'signin',    label: 'Check-In',  icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', coordinatorOnly: true },
-  { id: 'finance',   label: 'Finance',   icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', goTab: 'finance', coordinatorOnly: true },
   { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', coordinatorOnly: true },
   // Conditional
   { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M6 5a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/><path d="M18 5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>', goTab: 'regency', condition: 'hasRegency' },
@@ -422,13 +411,11 @@ function renderBottomNav() {
   const isST = role === 'st' || role === 'dev';
   const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
-  const showGuides = localStorage.getItem('tm-show-guides') === '1';
   let h = '';
   for (const item of NAV_ITEMS) {
     if (item.stOnly && !isST) continue;
     if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
-    if (item.guide && !showGuides) continue;
     // Roll v2 (#1018): swap 'dice' ↔ 'roll' based on the settings flag.
     if (item.id === 'dice' && USE_NEW_ROLLER) continue;
     if (item.id === 'roll' && !USE_NEW_ROLLER) continue;
@@ -489,10 +476,8 @@ function goTab(t) {
   // Tab-specific init
   if (t === 'territory') mountTerr();
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
-  if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
-  if (t === 'finance') initFinanceTab(document.getElementById('t-finance'));
 
   // ── Unified nav tab init ──────────────────────────────────────────────────
   if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
@@ -540,10 +525,6 @@ function goTab(t) {
     const terrs = suiteState.territories || [];
     if (el && char) renderRegencyTab(el, char, terrs);
   }
-  if (t === 'whos-who') {
-    const el = document.getElementById('t-whos-who');
-    if (el && !el.innerHTML.trim()) renderCityTab(el, suiteState.territories || []);
-  }
   if (t === 'office') {
     const el = document.getElementById('t-office');
     const char = _activeMoreChar();
@@ -568,25 +549,10 @@ function goTab(t) {
   if (t === 'status') {
     // Status tab is also the primary nav #3 — handled above; this covers More grid access
   }
-  if (t === 'primer') {
-    const el = document.getElementById('t-primer');
-    if (el) renderPrimerTab(el);
-  }
-  if (t === 'game-guide') {
-    const el = document.getElementById('t-game-guide');
-    if (el && !el.innerHTML.trim()) {
-      el.innerHTML = '<div style="padding:32px 20px;max-width:480px;margin:0 auto"><p class="sh-sec-title">Game Guide</p><p style="font-family:var(--ft);font-size:14px;color:var(--txt2);line-height:1.7;margin-top:12px">Content coming soon. Ask your Storyteller.</p></div>';
-    }
-  }
   if (t === 'ordeals') {
     const el = document.getElementById('t-ordeals');
     const char = _activeMoreChar();
     if (el && char) initOrdeals(char, suiteState.chars, el);
-  }
-  if (t === 'relationships') {
-    const el = document.getElementById('t-relationships');
-    const char = _activeMoreChar();
-    if (el && char) renderRelationshipsTab(el, char);
   }
   if (t === 'emergency') {
     const el = document.getElementById('t-emergency');
@@ -597,11 +563,6 @@ function goTab(t) {
     if (el) initCombatTab(el);
   }
   if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
-  if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
-  if (t === 'devlog') {
-    const el = document.getElementById('t-devlog');
-    if (el) renderDevlogTab(el);
-  }
   if (t === 'chars') {
     // Sheet tab: ST sees 3-col character picker; player sees their own sheet
     const role = getRole();
@@ -630,9 +591,14 @@ function populateSuiteDropdowns(chars) {
   }
 }
 
-// Tickets surface (ADM-1 pilot, ADR-008 D4/D9). The ST ticket queue renders here
-// from the same module admin.html uses — admin/tickets-views.js is the surface,
-// not a reference implementation, so there is no second copy to drift.
+// Spheres surface (ADM P1 surface 2, #1096). This is now the REFERENCE
+// IMPLEMENTATION of the ADR-008 D4/D9 loading pattern: the Tickets pilot
+// established it, and #1135 scrapped the ticket system, so the pattern lives
+// here. Its one structural quirk: initSpheresView() takes NO container argument
+// and calls document.getElementById('spheres-content') itself
+// (spheres-view.js:29). index.html therefore provides that id as a child of the
+// tab container, which is what keeps spheres-view.js unmodified. Do not add a
+// container parameter to the module.
 //
 // Gated on getRole(), NOT effectiveRole(): whether to fetch admin code is a
 // question of authority, and effectiveRole() reports 'player' for a real ST in
@@ -642,12 +608,6 @@ function populateSuiteDropdowns(chars) {
 // Module and stylesheet are fetched CONCURRENTLY and both awaited before render:
 // awaiting them in series would add a round trip, and rendering before the sheet
 // resolves would flash unstyled. Neither trade is necessary.
-// Spheres surface (ADM P1 surface 2, #1096). Same shape as Tickets with one
-// structural difference: initSpheresView() takes NO container argument and
-// calls document.getElementById('spheres-content') itself (spheres-view.js:29).
-// index.html therefore provides that id as a child of the tab container, which
-// is what keeps spheres-view.js unmodified — the property that made Tickets
-// clean. Do not add a container parameter to the module.
 async function initSpheresSurface(el) {
   if (!el) return;
   const role = getRole();
@@ -674,23 +634,6 @@ async function initSpheresSurface(el) {
     // destroy #spheres-content and a retry could then never find it.
     const target = el.querySelector('#spheres-content') || el;
     target.innerHTML = '<p class="placeholder-msg">Spheres failed to load. Reload the page or check your connection.</p>';
-  }
-}
-
-async function initTicketsSurface(el) {
-  if (!el) return;
-  const role = getRole();
-  if (role !== 'st' && role !== 'dev') return;
-
-  try {
-    const [mod] = await Promise.all([
-      import('./admin/tickets-views.js'),
-      loadSurfaceSheet('css/admin-tickets.css'),
-    ]);
-    await mod.initTicketsView(el);
-  } catch (err) {
-    console.error('[tickets] surface failed to load:', err);
-    el.innerHTML = '<div class="tk-empty">Tickets failed to load. Reload the page or check your connection.</div>';
   }
 }
 
@@ -1673,9 +1616,6 @@ const _svg = {
   whosWho:  '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   dtReport: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
   feeding:  '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
-  primer:   '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
-  guide:    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  rules:    '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>',
   dtSubmit: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>',
   ordeals:  '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
   tracker:  '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>',
@@ -1685,12 +1625,14 @@ const _svg = {
   office:   '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
 };
 
-// section: 'game' | 'player' | 'lore' | 'st'
-// Render order: game → player (if visible) → lore → st (if visible)
+// section: 'game' | 'player' | 'st'
+// Render order: game → player (if visible) → st (if visible)
+// The 'lore' section went with #1135, which deleted its only three tiles
+// (Primer, Game Guide, Rules). Both render sites skip a section with no
+// visible apps, so an empty section never produces a bare header.
 const MORE_APPS = [
   // ── Game section ──
   // Note: Status is a primary nav tab — not duplicated here
-  { id: 'whos-who',     label: 'World',       icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', section: 'game' },
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
@@ -1702,33 +1644,22 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
-  { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'st', stOnly: true },
-  // The player-side Tickets tab was retired in ADM-1 Stage A; players submit via
-  // Settings. The ST queue below is the admin surface, merged in Stage B.
   // Challenge tile hidden (#1015). The click-handler + modal (openChallengeModal) remain wired for future programmatic use.
-  // ── Lore section (gated by show_guides setting) ──
-  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
-  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore', guide: true },
-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore', guide: true },
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
-  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
-  { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
   { id: 'archive',      label: 'Story',       icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', section: 'player' },
-  { id: 'devlog',      label: 'Devlog',      icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', section: 'player' },
 ];
 
 const MORE_SECTIONS = [
   { id: 'game',   label: 'Game' },
   { id: 'player', label: 'Player' },
-  { id: 'lore',   label: 'Lore' },
   { id: 'st',     label: 'Storyteller' },
 ];
 
@@ -1845,7 +1776,7 @@ function renderSettingsTab() {
   // Reading font size
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Reading Font Size</div>';
-  h += '<div class="settings-section-hint">Applies to Primer, Game Guide, and Rules tabs.</div>';
+  h += '<div class="settings-section-hint">Applies to Downtime, Story, Ordeals and other reading panes.</div>';
   h += '<div class="settings-toggle-row">';
   for (const fs of FONT_SIZES) {
     h += `<button class="settings-toggle-btn${currentFontSize === fs.value ? ' on' : ''}" data-fontsize="${fs.value}">${fs.label}</button>`;
@@ -1853,15 +1784,12 @@ function renderSettingsTab() {
   h += '</div>';
   h += '</div>';
 
-  // Show Guides toggle
-  const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  // #1135 removed the "Show Primer, Guide & Rules tabs" toggle: all three of its
+  // targets were deleted, so it persisted a preference that could not change
+  // anything visible.
   const useNewRoller = localStorage.getItem('tm-use-new-dice-roller') === '1';
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Navigation</div>';
-  h += '<label class="settings-checkbox-row">';
-  h += `<input type="checkbox" id="settings-show-guides"${showGuides ? ' checked' : ''}>`;
-  h += '<span>Show Primer, Guide &amp; Rules tabs</span>';
-  h += '</label>';
   // Roll v2 (#1018): experimental new dice roller. Default OFF. Reload on change.
   h += '<label class="settings-checkbox-row">';
   h += `<input type="checkbox" id="settings-use-new-dice-roller"${useNewRoller ? ' checked' : ''}>`;
@@ -1875,18 +1803,6 @@ function renderSettingsTab() {
     h += '<a href="/admin" class="settings-btn">ST Admin Panel</a>';
     h += '</div>';
   }
-
-  // Submit a Ticket
-  h += '<div class="settings-section">';
-  h += '<div class="settings-section-label">Submit a Ticket</div>';
-  h += '<div class="settings-ticket-form">';
-  h += '<select class="settings-input" id="stk-type"><option value="bug">Bug Report</option><option value="feature">Feature Request</option><option value="question">Question</option><option value="sheet">Sheet Issue</option><option value="other">Other</option></select>';
-  h += '<input class="settings-input" id="stk-title" type="text" placeholder="Short summary" maxlength="200">';
-  h += '<textarea class="settings-input" id="stk-body" rows="4" placeholder="Describe the issue or request..."></textarea>';
-  h += '<div id="stk-status" style="display:none"></div>';
-  h += '<button class="settings-btn" id="stk-submit">Submit Ticket</button>';
-  h += '</div>';
-  h += '</div>';
 
   h += '</div>';
   el.innerHTML = h;
@@ -1931,13 +1847,6 @@ function renderSettingsTab() {
     renderSettingsTab();
   });
 
-  // Wire show guides toggle
-  el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
-    localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
-    renderBottomNav();
-    if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
-  });
-
   // Wire new-dice-roller toggle (#1018). Module + DOM subtree are chosen at
   // boot, so the swap only takes effect after a reload.
   el.querySelector('#settings-use-new-dice-roller')?.addEventListener('change', e => {
@@ -1945,23 +1854,6 @@ function renderSettingsTab() {
     location.reload();
   });
 
-  // Wire ticket submit
-  el.querySelector('#stk-submit')?.addEventListener('click', async () => {
-    const type  = el.querySelector('#stk-type')?.value || 'other';
-    const title = el.querySelector('#stk-title')?.value?.trim();
-    const body  = el.querySelector('#stk-body')?.value?.trim();
-    const statusEl = el.querySelector('#stk-status');
-    if (!title) { statusEl.textContent = 'Title is required.'; statusEl.style.display = ''; statusEl.style.color = 'var(--crim)'; return; }
-    statusEl.textContent = 'Submitting\u2026'; statusEl.style.display = ''; statusEl.style.color = 'var(--txt3)';
-    try {
-      await apiPost('/api/tickets', { type, title, body: body || '' });
-      statusEl.textContent = 'Ticket submitted!'; statusEl.style.color = 'var(--green2)';
-      el.querySelector('#stk-title').value = '';
-      el.querySelector('#stk-body').value = '';
-    } catch (err) {
-      statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
-    }
-  });
 }
 
 async function _loadSafetyForm(container) {
@@ -2186,7 +2078,6 @@ function renderDesktopSidebar() {
 
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
-  const showGuides = localStorage.getItem('tm-show-guides') === '1';
 
   // Primary tabs prepended to Game section — Dice/Sheet/Status are first game items
   const primaryTabs = [
@@ -2207,7 +2098,6 @@ function renderDesktopSidebar() {
       if (app.stOnly && r !== 'st' && r !== 'dev') return false;
       if (app.coordinatorOnly && !isCoord) return false;
       if (app.playerOnly && (r === 'st' || r === 'dev')) return false;
-      if (app.guide && !showGuides) return false;
       if (app.condition && !_moreGridCondition(app)) return false;
       return true;
     });

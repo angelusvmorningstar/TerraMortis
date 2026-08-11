@@ -1,4 +1,11 @@
 schema: 1
+historical_note: >
+  The AC9 evidence below records six admin stylesheets loading, one of which was
+  admin-tickets.css. #1135 (2026-08-11) scrapped the ticket system entirely, so
+  that sheet no longer exists and admin.html now loads five. The evidence is left
+  verbatim because it was accurate when the gate was run; only the count has
+  since changed. Spheres itself is unaffected, and is now the reference
+  implementation of the ADR-008 D4/D9 loading pattern (see ADR-008 Rev 17).
 story: "adm.2"
 stage: "P1 surface 2 — Spheres, with the family split by emitter set (ADR-008 D9 Rev 13)"
 story_title: "ADM-2 — merge the Spheres surface into index.html behind the role gate"

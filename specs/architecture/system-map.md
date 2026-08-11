@@ -46,7 +46,6 @@ MongoDB Atlas                        → tm_suite database      All persistent d
 | `session_logs` | `/api/session_logs` | requireAuth + ST | |
 | `attendance` | `GET /api/attendance` | requireAuth | READ ONLY — no write endpoint |
 | `archive_documents` | `/api/archive_documents` | requireAuth | |
-| `tickets` | `/api/tickets` | requireAuth | |
 | `rules` | `/api/rules` | requireAuth | |
 | — | `GET /api/game_sessions/next` | PUBLIC | Website banner next game date |
 | — | `GET /api/health` | PUBLIC | DB health check |
