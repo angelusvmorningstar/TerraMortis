@@ -58,6 +58,7 @@ beforeAll(async () => {
       grant_type: 'pool',
       pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
       category: 'necro',
+      sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
     }],
     rule_nine_again: [],
     rule_skill_bonus: [],
@@ -218,24 +219,30 @@ describe('N-7b — meritBdRow hide-flag plumbing (static-analysis sanity)', () =
     expect(src).toMatch(/if \(opts\.showMCI && !opts\.hideMCI\)/);
   });
 
-  it('domain-renderer call site computes _isNecroTarget and threads all four hide-flags + AND-s showMCI', () => {
+  it('domain-renderer call site computes _isCompoundTarget and threads all four hide-flags + AND-s showMCI', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toMatch(/_isNecroTarget\s*=\s*_necroTargets\.includes\(m\.name\)/);
-    expect(src).toMatch(/showMCI:\s*_domMciPool > 0 && !_isNecroTarget/);
-    expect(src).toMatch(/hideCP:\s*_isNecroTarget/);
-    expect(src).toMatch(/hideXP:\s*_isNecroTarget/);
-    expect(src).toMatch(/hideMCI:\s*_isNecroTarget/);
-    expect(src).toMatch(/hideBonus:\s*_isNecroTarget/);
+    // COLLECTIVE-2 (#1110): _necroTargets (one compound's array) became
+    // _targetNames (a Set unioned across every compound). The categorical
+    // option-3 semantics are unchanged — only the source of the name set is.
+    expect(src).toMatch(/_isCompoundTarget\s*=\s*_targetNames\.has\(m\.name\)/);
+    expect(src).toMatch(/showMCI:\s*_domMciPool > 0 && !_isCompoundTarget/);
+    expect(src).toMatch(/hideCP:\s*_isCompoundTarget/);
+    expect(src).toMatch(/hideXP:\s*_isCompoundTarget/);
+    expect(src).toMatch(/hideMCI:\s*_isCompoundTarget/);
+    expect(src).toMatch(/hideBonus:\s*_isCompoundTarget/);
   });
 
-  it('_necroTargets is populated UNCONDITIONALLY (option 3 categorical) in shRenderDomainMerits', () => {
+  it('_targetNames is populated UNCONDITIONALLY (option 3 categorical) in shRenderDomainMerits', () => {
     const src = read('public/js/editor/sheet.js');
     const fnStart = src.indexOf('export function shRenderDomainMerits');
     const nextExport = src.indexOf('export function ', fnStart + 1);
     const body = src.slice(fnStart, nextExport > 0 ? nextExport : src.length);
     // The pre-N-7b shape was `_necroTargets = _hasNecroSep ? getNecropolisTargets(...) : []`.
-    // Option 3 requires this to NOT be Sepulcher-gated — must be unconditional.
-    expect(body).toMatch(/_necroTargets\s*=\s*getNecropolisTargets\(getRulesCache\(\)\)/);
-    expect(body).not.toMatch(/_necroTargets\s*=\s*_hasNecroSep\s*\?/);
+    // Option 3 requires this to NOT be membership-gated — must be unconditional.
+    // COLLECTIVE-2 (#1110): unioned across ALL compounds (_compounds), never
+    // the owned subset (_ownedCompounds), or a non-member's stray target row
+    // would become hand-fundable again.
+    expect(body).toMatch(/_targetNames\s*=\s*new Set\(_compounds\.flatMap\(cmp\s*=>\s*cmp\.targets\)\)/);
+    expect(body).not.toMatch(/_targetNames\s*=\s*new Set\(_ownedCompounds\./);
   });
 });

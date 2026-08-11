@@ -46,6 +46,11 @@ const NECRO_GRANT = {
   condition: 'merit_present',
   amount_basis: 'rating_of_source',
   pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
+  // COLLECTIVE-2 (#1110): the discovery predicate is
+  // sharing_scope.type === 'collective_owners_of_merit' (ADR-005 Rev 2 D3).
+  // Live tm_suite carries this on the Necropolis doc (story Task 0), so the
+  // fixture must too or the compound is invisible to the renderer.
+  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
 };
 
 beforeAll(async () => {
@@ -163,15 +168,15 @@ describe('#793 — inherited card structure (edit mode)', () => {
     expect(html).not.toContain('dom-inherited-card');
     // Catacombs still renders in alphabetical position — 2 dom-edit-block
     // markers (Catacombs first, then Safe Place — alphabetical, since C < S).
-    // The NECRO stepper is suppressed on non-Sepulcher chars (showNECRO gates
-    // on _hasNecroSep) but the row itself surfaces.
+    // The pool stepper is suppressed on non-member chars (compoundPools is
+    // filtered to _ownedCompounds) but the row itself surfaces.
     const blockCount = (html.match(/class="dom-edit-block(?!--virtual)/g) || []).length;
     expect(blockCount).toBe(2);
     // Order: Catacombs (domIdx 0) before Safe Place (domIdx 1) alphabetically.
     expect(html.indexOf('shRemoveDomMerit(0)')).toBeLessThan(html.indexOf('shRemoveDomMerit(1)'));
     // The warn must fire so QA sees the stray-state condition.
     expect(warnSpy).toHaveBeenCalled();
-    expect(warnSpy.mock.calls[0][0]).toContain('Necropolis target merits present on non-Sepulcher character');
+    expect(warnSpy.mock.calls[0][0]).toContain('Collective Compound target merits present on a non-member character');
     warnSpy.mockRestore();
   });
 });
@@ -318,7 +323,7 @@ describe('#793 — virtual rows render inside the inherited card', () => {
     const cardEnd = indexOf(html, 'dev-add-row');
     const cardSlice = html.slice(cardStart, cardEnd);
     expect(cardSlice).toContain('Labyrinth Guardians');
-    expect(cardSlice).toContain('shAllocateNecroVirtual'); // virtual row handler
+    expect(cardSlice).toContain('shAllocateCompoundVirtual'); // virtual row handler
     expect(cardSlice).toContain('bd-necro-v-labyrinth-guardians');
   });
 
@@ -362,7 +367,7 @@ describe('#793 — placement sanity guards', () => {
     expect(body).toMatch(/_sortedDom\s*=\s*\[\.\.\.domM\]\.sort/);
     expect(body).toMatch(/dom-inherited-card/);
     expect(body).toMatch(/_emitDomRow/);
-    expect(body).toMatch(/_emitVirtualNecroRow/);
+    expect(body).toMatch(/_emitVirtualCompoundRow/);
     // View-mode helpers
     expect(body).toMatch(/_emitViewRow/);
     expect(body).toMatch(/_emitVirtualViewRow/);
@@ -371,17 +376,20 @@ describe('#793 — placement sanity guards', () => {
 
   it('stray-target console.warn surface is present (graceful degradation)', () => {
     const src = read('public/js/editor/sheet.js');
-    expect(src).toContain('[#793] Necropolis target merits present on non-Sepulcher character');
+    expect(src).toContain('[#793] Collective Compound target merits present on a non-member character');
   });
 
-  it('NECRO_TARGETS sourced via getNecropolisTargets — no hardcoded duplicate', () => {
-    // Sanity: the renderer references _necroTargets from getNecropolisTargets,
-    // not a fresh hardcoded list. The set is computed once at the top of the
-    // edit block.
+  it('target names sourced via getCollectiveCompounds — no hardcoded duplicate', () => {
+    // Sanity: the renderer derives its target-name set from the compound
+    // descriptors, not a fresh hardcoded list. Computed once at the top of
+    // each render block.
+    // COLLECTIVE-2 (#1110): was `_necroTargetSet = new Set(_necroTargets)`
+    // off the single Necropolis pool_targets array.
     const src = read('public/js/editor/sheet.js');
     const fnStart = src.indexOf('export function shRenderDomainMerits');
     const nextExport = src.indexOf('export function ', fnStart + 1);
     const body = src.slice(fnStart, nextExport > 0 ? nextExport : src.length);
-    expect(body).toMatch(/_necroTargetSet\s*=\s*new Set\(_necroTargets\)/);
+    expect(body).toMatch(/_targetNames\s*=\s*new Set\(_compounds\.flatMap\(cmp\s*=>\s*cmp\.targets\)\)/);
+    expect(body).toMatch(/_targetNamesView\s*=\s*new Set\(_compoundsView\.flatMap\(cmp\s*=>\s*cmp\.targets\)\)/);
   });
 });

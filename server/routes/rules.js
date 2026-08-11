@@ -73,6 +73,13 @@ const UPDATABLE_FIELDS = new Set([
   'prereq', 'exclusive', 'sub_category', 'xp_fixed', 'bloodline',
   'offering',
   'cult',
+  // ADR-010 D8 (OATH-A, issue #1111): without these, STs cannot edit the
+  // oath fields in the admin Rule Data UI and the reference data becomes
+  // code-deploy-only — contradicting the MongoDB-backed convention in
+  // CLAUDE.md. `forfeiture`'s consumer is OATH-B, but it is allowlisted now
+  // for exactly that reason: a forward-declared field STs cannot edit is
+  // the `cost_model` failure repeating.
+  'cost_model', 'rating_basis', 'forfeiture',
 ]);
 
 // PUT /api/rules/:key — ST only, update existing power

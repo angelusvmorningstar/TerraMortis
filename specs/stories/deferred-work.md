@@ -50,3 +50,31 @@ and verified before deferral. Provenance: `specs/stories/code-review/issue-1028-
 - **Tracker reset is not atomic with the phase write** — in `cycle-views.js` `writePhase` the `DELETE /api/tracker_state` precedes `setCyclePhase`; a failed phase write leaves the tracker wiped and the phase unchanged, and the inline error says only "Phase change failed". Pre-existing shape (true of the legacy game reset), now reachable on prep entry too. Consider reversing the order or naming the wipe in the failure message.
 - **Tracker DELETE broadcasts nothing** — `server/routes/tracker.js:50-55` does `deleteMany({})` without `broadcastTrackerUpdate`, so an open tracker tab keeps its module-scope `_cache`/`_confirmed` and can re-upload pre-wipe values on its next save. Related: `game/tracker.js:111-127` migrates a legacy `tm_tracker_state` localStorage blob back into Mongo after a wipe, and the DELETE clears no localStorage. Part of the 5b tracker-hardening pass.
 - **`epic.708.3-cycle-phase-controls.test.js` is 3-red on stale assertions** (#1116: `setGamePhase`, `data-phase`, `gold2`). CM-1 and CM-5a both left it alone deliberately. It covers the exact UI these stories touch, so it is the highest-value stale suite to repair; do it before the next cycle-UI story rather than carrying the noise further.
+
+## Deferred from: issue-1128-oversized-merit-dots external code review (Codex, 2026-08-11)
+
+Both items pre-existing or deliberately out of the story's scope, surfaced by the external review
+and verified before deferral. Provenance:
+`specs/stories/code-review/issue-1128-oversized-merit-dots-codex-findings.md`.
+
+- **Compound-target "My dots:" never reflects a suspended oath, unlike its own adjacent Total** —
+  `public/js/editor/sheet.js:1303` (domain edit mode, compound-target branch). The label renders
+  `'●'.repeat(_cmpOwn)` directly, never calling `shSuspendedOf`/either dot-render helper, while the
+  same row's `.dom-total-lbl` two spans over correctly routes through `shDotsSuspended`. Break an
+  oath pledging dots from a compound-target merit's own contribution and the row shows contradictory
+  effective counts — Total reflects the suspension, "My dots:" doesn't. Confirmed pre-existing via
+  `git blame` (commit `92f2a4884`, predates both OATH-B and this fix); issue-1128 deliberately left
+  this branch untouched (it was already correctly bare, just not suspension-aware) and this is a
+  separate defect, not a regression of this story's own fix. Fix by routing `_cmpOwn` through
+  `_shSuspendBands`/`shSuspendedOf(m)` the same way the six repointed sites now do, next time the
+  compound-target rendering is touched.
+- **AC4's automated test checks glyph content, not actual layout fit** —
+  `server/tests/issue-1128-dot-wrapper.test.js` asserts the five-dot string is `●●●●●` and has
+  length 5, but never measures computed width against `.infl-dots-derived`'s 60px column. The real
+  fix was verified to fit via a live browser measurement (`clientWidth`/`scrollWidth` both 60px, both
+  themes — recorded in the story's Dev Agent Record item 6), but that check isn't automated, so a
+  future CSS change to `.infl-dots-derived`'s font-size/padding/letter-spacing could silently break
+  the fit again with this suite staying green. Would need a Playwright-based layout assertion (real
+  font metrics), a heavier test shape than this codebase's existing string-comparison pattern — worth
+  adding if `.infl-dots-derived` or `.trait-dots` sizing is touched again, not urgent enough to justify
+  building fresh CI-layout-test infrastructure for this one column today.

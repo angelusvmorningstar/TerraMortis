@@ -11,7 +11,7 @@ import { getRulesCache } from './rule_engine/load-rules.js';
 // reads correct across the N-1 → N-2 transition (pre-N-2 legacy populates;
 // post-N-2 the map populates). `meritFreeSum` delegates to the shared helper
 // so the 14-channel enumeration lives in exactly one place.
-import { meritFreeSum as _meritFreeSumHelper, freeOf, normaliseAttachedTo } from '../data/rules-helpers.js';
+import { meritFreeSum as _meritFreeSumHelper, freeOf, normaliseAttachedTo, applySuspensionTo } from '../data/rules-helpers.js';
 
 /* ══════════════════════════════════════════════════════
    Multi-instance domain type sets
@@ -78,6 +78,33 @@ function domMeritShareableSingle(m) {
  */
 function domMeritTotalSingle(c, m) {
   const own = domMeritContribSingle(c, m);
+    // OATH-B (#1111, ADR-010 Rev 4): TWO values, deliberately.
+    //
+    //   `own`    — UNSUSPENDED. The gate below asks "do you hold at least one
+    //              dot of your own", which is an OWNERSHIP question.
+    //   `ownEff` — SUSPENDED. The sum asks "how many dots do you have access
+    //              to", which is an ACCESS question.
+    //
+    // A suspension does not unmake ownership: the dots are still owned and
+    // the XP is still spent, which is exactly why suspension must not reach
+    // meritRating or xpSpent. The source text removes access to the PLEDGED
+    // dots — the owner's own — and says nothing about what a partner
+    // provides, so partners keep contributing even when the owner's own dots
+    // are suspended to zero.
+    //
+    // This is not a workaround for an awkward gate. It is the owned-vs-
+    // effective distinction that D2's hard boundary rests on, appearing at
+    // the one place both values are needed at once. Do not "simplify" them
+    // back into a single variable.
+    //
+    // The subtraction happens HERE, on the own term, before combination and
+    // before capping. It cannot be applied at meritEffectiveRating's exit
+    // instead: `domMeritTotal` ends `Math.min(cap, total)` with cap 5, so
+    // once own + partner exceeds 5 the total is compressed and subtracting
+    // the full pledge from the compressed figure takes more than the owner
+    // ever contributed (Safe Place own 4 + partner 3, pledge 4: the exit
+    // gives 1, below the partner's own 3; here it gives the correct 3).
+  const ownEff = applySuspensionTo(m, own);
   const partners = m.shared_with || [];
   const key = domKey(m);
   let partnerTotal = 0;
@@ -95,7 +122,7 @@ function domMeritTotalSingle(c, m) {
       partnerTotal = m._partner_dots;
     }
   }
-  return Math.min(5, own + partnerTotal);
+  return Math.min(5, ownEff + partnerTotal);
 }
 
 /**
@@ -195,6 +222,33 @@ export function domMeritTotal(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const own = domMeritContribSingle(c, m);
+    // OATH-B (#1111, ADR-010 Rev 4): TWO values, deliberately.
+    //
+    //   `own`    — UNSUSPENDED. The gate below asks "do you hold at least one
+    //              dot of your own", which is an OWNERSHIP question.
+    //   `ownEff` — SUSPENDED. The sum asks "how many dots do you have access
+    //              to", which is an ACCESS question.
+    //
+    // A suspension does not unmake ownership: the dots are still owned and
+    // the XP is still spent, which is exactly why suspension must not reach
+    // meritRating or xpSpent. The source text removes access to the PLEDGED
+    // dots — the owner's own — and says nothing about what a partner
+    // provides, so partners keep contributing even when the owner's own dots
+    // are suspended to zero.
+    //
+    // This is not a workaround for an awkward gate. It is the owned-vs-
+    // effective distinction that D2's hard boundary rests on, appearing at
+    // the one place both values are needed at once. Do not "simplify" them
+    // back into a single variable.
+    //
+    // The subtraction happens HERE, on the own term, before combination and
+    // before capping. It cannot be applied at meritEffectiveRating's exit
+    // instead: `domMeritTotal` ends `Math.min(cap, total)` with cap 5, so
+    // once own + partner exceeds 5 the total is compressed and subtracting
+    // the full pledge from the compressed figure takes more than the owner
+    // ever contributed (Safe Place own 4 + partner 3, pledge 4: the exit
+    // gives 1, below the partner's own 3; here it gives the correct 3).
+  const ownEff = applySuspensionTo(m, own);
   const partners = m.shared_with || [];
   let partnerTotal = 0;
   if (own >= 1) {
@@ -209,7 +263,7 @@ export function domMeritTotal(c, name) {
       partnerTotal = m._partner_dots;
     }
   }
-  const total = own + partnerTotal;
+  const total = ownEff + partnerTotal;
   // Herd can exceed 5 when Flock is present
   const cap = (name === 'Herd' && flockHerdBonus(c) > 0) ? Infinity : 5;
   return Math.min(cap, total);
@@ -318,7 +372,11 @@ export function meritEffectiveRating(c, m) {
       const effectiveStored = (cap > 0 && ownDots >= cap)
         ? ownDots
         : stored;
-      return Math.min(effectiveStored, cap || stored);
+      // OATH-B (#1111): no partner term on this path, so the suspension
+      // applies to the capped figure. The zero floor is REQUIRED rather than
+      // defensive — a capped merit can already return fewer dots than the
+      // character owns, so cap-minus-pledge is routinely negative.
+      return applySuspensionTo(m, Math.min(effectiveStored, cap || stored));
     }
     if (MULTI_INSTANCE_DOMAIN.has(m.name)) {
       return domMeritTotalSingle(c, m);
@@ -334,10 +392,14 @@ export function meritEffectiveRating(c, m) {
   // duplicate of meritFreeSum's body plus cp+xp — and silently summed every
   // free channel even on Necropolis target rows.
   const sum = (m.cp || 0) + (m.xp || 0) + meritFreeSum(m);
+  // OATH-B (#1111): no partner term here either. The MULTI_INSTANCE and
+  // shared branches above subtract inside their own combining helpers and
+  // return before reaching this point, so the suspension is applied exactly
+  // once on every path — never twice.
   if (m.name === 'Herd') {
-    return sum + ssjHerdBonus(c) + flockHerdBonus(c);
+    return applySuspensionTo(m, sum + ssjHerdBonus(c) + flockHerdBonus(c));
   }
-  return sum;
+  return applySuspensionTo(m, sum);
 }
 
 /**

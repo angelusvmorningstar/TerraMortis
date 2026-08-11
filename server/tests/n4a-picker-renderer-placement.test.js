@@ -59,6 +59,11 @@ const NECRO_GRANT = {
   amount_basis: 'rating_of_source',
   category: 'necro',
   pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
+  // COLLECTIVE-2 (#1110): the discovery predicate is
+  // sharing_scope.type === 'collective_owners_of_merit' (ADR-005 Rev 2 D3).
+  // Live tm_suite carries this on the Necropolis doc (story Task 0), so the
+  // fixture must too or the compound is invisible to the renderer.
+  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
 };
 
 beforeAll(async () => {

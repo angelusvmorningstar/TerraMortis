@@ -472,6 +472,123 @@ export const characterSchema = {
         // data into the map and unsets the flat fields. Slugs MUST be stable:
         // renaming a slug after N-1 ships requires a data migration.
         free_grants:    { type: 'object', additionalProperties: { type: 'integer', minimum: 0 } },
+        // ── ADR-010 D1 / D8 (OATH-A, issue #1111) ──
+        // The pledge made when a Swear By oath is sworn, persisted on the
+        // OATH's merit row — not on the merits it encumbers. Both ends live
+        // on the same character document, so one end must own it or they
+        // desynchronise; the oath owns it because every write is
+        // oath-triggered and dot-parity is a property of the oath.
+        //
+        // The reverse direction ("is this merit pledged, and to what?") is a
+        // RENDER-TIME index rebuilt from c.merits, never persisted — the
+        // project's never-store-derived rule applied to a relationship.
+        //
+        // Attachments reference merits by name + qualifier, NOT by array
+        // index: c.merits is array-indexed and indices move under splice.
+        // Name-based is the house convention (shared_with, attached_to).
+        //
+        // NOT `free_grants`: that is source-keyed with `minimum: 0` and
+        // means dots GIVEN. A pledge is the inverse (dots owed), and
+        // reusing free_grants would put pledged dots into every free-dot
+        // sum in the codebase.
+        sworn_by: {
+          type: ['object', 'null'],
+          required: ['dots_required', 'attachments'],
+          properties: {
+            // Snapshot of the oath's rating AT SWEAR TIME (D1b). Deliberately
+            // not recomputed: for the derived-rating oaths (D4) the basis
+            // moves, and a live-recomputed requirement would silently
+            // invalidate a standing oath's parity every time Blood Potency
+            // or Status changed.
+            dots_required: { type: 'integer', minimum: 0 },
+            attachments: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['name', 'dots'],
+                properties: {
+                  name:      { type: 'string', minLength: 1 },
+                  qualifier: { type: ['string', 'null'] },
+                  dots:      { type: 'integer', minimum: 1 },
+                },
+                additionalProperties: false,
+              },
+            },
+            sworn_at: {
+              type: ['object', 'null'],
+              properties: {
+                chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                iso:            { type: ['string', 'null'] },
+              },
+              additionalProperties: false,
+            },
+            // ADR-010 D6 — the append-only exit/restore log. OATH-A wrote an
+            // empty array; OATH-B is its consumer and types it here.
+            //
+            // Append-only: nothing rewrites an earlier entry. An oath can be
+            // sworn, broken, partly restored and re-sworn, and a single
+            // mutable status field would lose that history — which is what
+            // the deferred restoration work reconstructs the clock from.
+            //
+            // `chapter_number` is required on every event and may be null,
+            // never absent. Nothing reads it in the shipped scope, which is
+            // precisely why it is pinned at the schema: which chapter an oath
+            // broke in is UNRECOVERABLE after the fact, and typing it here is
+            // what makes the API round-trip prove it was persisted rather
+            // than merely written to an in-memory fixture.
+            //
+            // A CHAPTER IS A MONTH, so the whole mechanic anchors on this
+            // ordinal and there is no date arithmetic anywhere; `at` is a
+            // provenance stamp, never a computation input.
+            history: {
+              type: 'array',
+              items: {
+                oneOf: [
+                  {
+                    type: 'object',
+                    required: ['event', 'reason', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['exited'] },
+                      reason:         { type: 'string', enum: ['broken', 'abandoned', 'released_by_liege', 'fulfilled', 'st_void'] },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    type: 'object',
+                    required: ['event', 'dots', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['restored'] },
+                      dots:           { type: 'integer', minimum: 1 },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    // ADR-010 D6's example also shows a `sworn` entry. OATH-A
+                    // does not write one (it rebuilds sworn_by wholesale on
+                    // swear), but it is permitted so a future writer
+                    // following the ADR is not rejected.
+                    type: 'object',
+                    required: ['event', 'chapter_number'],
+                    properties: {
+                      event:          { type: 'string', enum: ['sworn'] },
+                      chapter_number: { type: ['integer', 'null'], minimum: 0 },
+                      at:             { type: ['string', 'null'] },
+                      by:             { type: ['object', 'null'], additionalProperties: true },
+                    },
+                    additionalProperties: false,
+                  },
+                ],
+              },
+            },
+          },
+          additionalProperties: false,
+        },
         carthian_sphere: { type: ['string', 'null'] }, // #510: single sphere a Carthian dot pushed into an augmented Contacts merit (legacy single-dot; read on strip)
         carthian_spheres: { type: 'array', items: { type: 'string' } }, // #522: spheres Carthian Pull dots pushed into an augmented Contacts merit (multi-dot; for clean strip)
         // `attached_to` accepts EITHER legacy string-form (single-target, pre-Rev-2,

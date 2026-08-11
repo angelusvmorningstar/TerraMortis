@@ -8,7 +8,7 @@
  * HTML contains the synthesised virtual rows + the cumulative dot markup.
  *
  * Coverage:
- *   - Helper unit tests: collectiveNecroDots, synthesiseCollectiveNecroNames
+ *   - Helper unit tests: collectiveCompoundDots, synthesiseCollectiveCompoundNames
  *   - Render assertions (edit mode): Yusuf's view shows Catacombs 1+1, virtual
  *     row for Labyrinth Guardians 0+1, no Dark Temple before Zanzibar joins
  *   - Render assertions (after Zanzibar joins): Dark Temple appears as virtual
@@ -48,8 +48,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 function read(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8'); }
 
-let collectiveNecroDots;
-let synthesiseCollectiveNecroNames;
+let collectiveCompoundDots;
+let synthesiseCollectiveCompoundNames;
+let getCollectiveCompounds;
+// COLLECTIVE-2 (#1110): the descriptor the primitives now take, derived from
+// the same NECRO_GRANT fixture the rules cache is primed with.
+let NECRO;
 let shRenderDomainMerits;
 let stateMod;
 let loadRulesMod;
@@ -62,17 +66,24 @@ const NECRO_GRANT = {
   condition: 'merit_present',
   amount_basis: 'rating_of_source',
   pool_targets: ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'],
+  // COLLECTIVE-2 (#1110): the discovery predicate is
+  // sharing_scope.type === 'collective_owners_of_merit' (ADR-005 Rev 2 D3).
+  // Live tm_suite carries this on the Necropolis doc (story Task 0), so the
+  // fixture must too or the compound is invisible to the renderer.
+  sharing_scope: { type: 'collective_owners_of_merit', merit: 'Necropolis Sepulcher', min_dots: 1 },
 };
 
 beforeAll(async () => {
   const helpersUrl = pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'data', 'rules-helpers.js')).href;
-  ({ collectiveNecroDots, synthesiseCollectiveNecroNames } = await import(helpersUrl));
+  ({ collectiveCompoundDots, synthesiseCollectiveCompoundNames, getCollectiveCompounds } = await import(helpersUrl));
+  NECRO = getCollectiveCompounds({ rule_grant: [NECRO_GRANT] })[0];
   const sheetUrl = pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'editor', 'sheet.js')).href;
   ({ shRenderDomainMerits } = await import(sheetUrl));
   stateMod = (await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'data', 'state.js')).href)).default;
   loadRulesMod = await import(pathToFileURL(path.resolve(REPO_ROOT, 'public', 'js', 'editor', 'rule_engine', 'load-rules.js')).href);
 
-  // Prime rules cache so getNecropolisTargets returns the 6 target names.
+  // Prime rules cache so getCollectiveCompounds discovers the compound with
+  // its 6 target names.
   vi.spyOn(loadRulesMod, 'getRulesCache').mockReturnValue({
     rule_grant: [NECRO_GRANT],
     rule_nine_again: [], rule_skill_bonus: [], rule_speciality_grant: [],
@@ -121,36 +132,38 @@ function zanzibar() {
 // Helper unit tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('COLLECTIVE-1 — collectiveNecroDots', () => {
+describe('COLLECTIVE-1 — collectiveCompoundDots', () => {
   it('sums free_grants.necro across all Sepulcher-owners', () => {
     const { yusuf, xavier } = yusufXavierFixture();
-    expect(collectiveNecroDots([yusuf, xavier], 'Catacombs')).toBe(2); // 1 + 1
-    expect(collectiveNecroDots([yusuf, xavier], 'Garbage Pit')).toBe(1); // only Yusuf
-    expect(collectiveNecroDots([yusuf, xavier], 'Labyrinth Guardians')).toBe(1); // only Xavier
-    expect(collectiveNecroDots([yusuf, xavier], 'Dark Temple')).toBe(0); // neither
-    expect(collectiveNecroDots([yusuf, xavier], 'White Ants')).toBe(4); // 2 + 2
+    expect(collectiveCompoundDots([yusuf, xavier], 'Catacombs', NECRO)).toBe(2); // 1 + 1
+    expect(collectiveCompoundDots([yusuf, xavier], 'Garbage Pit', NECRO)).toBe(1); // only Yusuf
+    expect(collectiveCompoundDots([yusuf, xavier], 'Labyrinth Guardians', NECRO)).toBe(1); // only Xavier
+    expect(collectiveCompoundDots([yusuf, xavier], 'Dark Temple', NECRO)).toBe(0); // neither
+    expect(collectiveCompoundDots([yusuf, xavier], 'White Ants', NECRO)).toBe(4); // 2 + 2
   });
 
   it('excludes non-Sepulcher characters from the sum', () => {
     const nonOwner = mkChar('NonOwner', [
       { name: 'Catacombs', category: 'domain', cp: 0, xp: 0, free_grants: { necro: 99 } },
     ]);
-    expect(collectiveNecroDots([nonOwner], 'Catacombs')).toBe(0); // not an owner
+    expect(collectiveCompoundDots([nonOwner], 'Catacombs', NECRO)).toBe(0); // not an owner
   });
 
   it('returns 0 for empty inputs or unknown merits', () => {
-    expect(collectiveNecroDots([], 'Catacombs')).toBe(0);
-    expect(collectiveNecroDots(null, 'Catacombs')).toBe(0);
-    expect(collectiveNecroDots([{ name: 'X' }], 'Catacombs')).toBe(0);
+    expect(collectiveCompoundDots([], 'Catacombs', NECRO)).toBe(0);
+    expect(collectiveCompoundDots(null, 'Catacombs', NECRO)).toBe(0);
+    expect(collectiveCompoundDots([{ name: 'X' }], 'Catacombs', NECRO)).toBe(0);
+    // COLLECTIVE-2 (#1110): a missing / malformed descriptor must not throw
+    // and must not silently sum some other compound's channel.
+    expect(collectiveCompoundDots([{ name: 'X' }], 'Catacombs', null)).toBe(0);
+    expect(collectiveCompoundDots([{ name: 'X' }], 'Catacombs', { slug: 'necro' })).toBe(0);
   });
 });
 
-describe('COLLECTIVE-1 — synthesiseCollectiveNecroNames', () => {
-  const TARGETS = ['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'Dark Temple', 'White Ants'];
-
+describe('COLLECTIVE-1 — synthesiseCollectiveCompoundNames', () => {
   it('returns target names ANY Sepulcher-owner allocates dots to, when c is also an owner', () => {
     const { yusuf, xavier } = yusufXavierFixture();
-    const names = synthesiseCollectiveNecroNames(yusuf, [yusuf, xavier], TARGETS);
+    const names = synthesiseCollectiveCompoundNames(yusuf, [yusuf, xavier], NECRO);
     expect(names).toEqual(expect.arrayContaining(['Catacombs', 'Caldarium', 'Garbage Pit', 'Labyrinth Guardians', 'White Ants']));
     expect(names).not.toContain('Dark Temple'); // no one has dots
   });
@@ -158,13 +171,13 @@ describe('COLLECTIVE-1 — synthesiseCollectiveNecroNames', () => {
   it('Sepulcher boundary: non-owner gets empty array', () => {
     const { yusuf, xavier } = yusufXavierFixture();
     const nonOwner = mkChar('NonOwner', [{ name: 'Catacombs', category: 'domain', cp: 0, xp: 0 }]);
-    expect(synthesiseCollectiveNecroNames(nonOwner, [yusuf, xavier, nonOwner], TARGETS)).toEqual([]);
+    expect(synthesiseCollectiveCompoundNames(nonOwner, [yusuf, xavier, nonOwner], NECRO)).toEqual([]);
   });
 
   it('after Zanzibar joins with Dark Temple, the union picks it up', () => {
     const { yusuf, xavier } = yusufXavierFixture();
     const z = zanzibar();
-    const names = synthesiseCollectiveNecroNames(yusuf, [yusuf, xavier, z], TARGETS);
+    const names = synthesiseCollectiveCompoundNames(yusuf, [yusuf, xavier, z], NECRO);
     expect(names).toContain('Dark Temple');
   });
 
@@ -173,7 +186,7 @@ describe('COLLECTIVE-1 — synthesiseCollectiveNecroNames', () => {
       { name: 'Necropolis Sepulcher', category: 'domain', cp: 1, xp: 0 },
       { name: 'Catacombs', category: 'domain', cp: 0, xp: 0, free_grants: {} }, // empty
     ]);
-    const names = synthesiseCollectiveNecroNames(owner, [owner], TARGETS);
+    const names = synthesiseCollectiveCompoundNames(owner, [owner], NECRO);
     expect(names).not.toContain('Catacombs');
   });
 });
@@ -196,14 +209,14 @@ describe('COLLECTIVE-1 — Yusuf + Xavier render (edit mode)', () => {
     const html = shRenderDomainMerits(yusuf, true);
     // The dom-total-lbl carries the NECRO cumulative title — find Catacombs's
     // total span. shDotsMixed renders ● for solid and ○ for hollow.
-    expect(html).toContain('Cumulative across all Sepulcher-owners');
+    expect(html).toContain('Cumulative across all Necropolis Sepulcher owners');
     // Owned Necro targets each carry a free_grants.necro stepper (Catacombs,
     // Garbage Pit, Caldarium, White Ants on Yusuf → 4 occurrences). Virtual
-    // rows route via shAllocateNecroVirtual (separate handler — counted below).
+    // rows route via shAllocateCompoundVirtual (separate handler — counted below).
     expect((html.match(/free_grants\.necro/g) || []).length).toBe(4);
-    // Virtual Labyrinth Guardians row uses shAllocateNecroVirtual (no
+    // Virtual Labyrinth Guardians row uses shAllocateCompoundVirtual (no
     // realIdx exists for a row whose merit isn't on c.merits yet).
-    expect(html).toContain("shAllocateNecroVirtual('Labyrinth Guardians'");
+    expect(html).toContain("shAllocateCompoundVirtual('Labyrinth Guardians','necro'");
   });
 
   it('Labyrinth Guardians appears as a VIRTUAL row on Yusuf (he does not own it)', () => {
@@ -213,7 +226,7 @@ describe('COLLECTIVE-1 — Yusuf + Xavier render (edit mode)', () => {
     expect(html).toContain('Labyrinth Guardians');
     // Virtual row's NECRO input uses the slug-based id, not realIdx.
     expect(html).toContain('id="bd-necro-v-labyrinth-guardians"');
-    expect(html).toContain('shAllocateNecroVirtual');
+    expect(html).toContain('shAllocateCompoundVirtual');
   });
 
   it('Dark Temple is ABSENT before Zanzibar joins', () => {
@@ -284,7 +297,7 @@ describe('COLLECTIVE-1 — Sepulcher boundary + source merit', () => {
     stateMod.editMode = true;
     const html = shRenderDomainMerits(nonOwner, true);
     expect(html).not.toContain('dom-edit-block--virtual');
-    expect(html).not.toContain('shAllocateNecroVirtual');
+    expect(html).not.toContain('shAllocateCompoundVirtual');
     // Issue #827: subtitle now uses dom-row-subtitle class. Non-Sepulcher
     // chars don't surface the territory subtitle (no _necroTerritoryUnion).
     expect(html).not.toContain('dom-row-subtitle');
@@ -299,7 +312,7 @@ describe('COLLECTIVE-1 — Sepulcher boundary + source merit', () => {
     // Sepulcher is NOT a target (it's the SOURCE) — its row should not have
     // the cumulative title. The Necropolis target rows DO have it. The
     // existence of at least one target ensures the title appears in HTML.
-    expect(html).toContain('Cumulative across all Sepulcher-owners');
+    expect(html).toContain('Cumulative across all Necropolis Sepulcher owners');
     // Sanity: Sepulcher itself still renders.
     expect(html).toMatch(/shEditDomMerit\(0,'name'/); // first merit's edit handler (Sepulcher is index 0)
   });
@@ -319,7 +332,7 @@ describe('COLLECTIVE-1 — view mode (read-only) synthesis', () => {
     expect(html).toContain('merit-plain--virtual');
     expect(html).toContain('Labyrinth Guardians');
     // No editor controls in view mode.
-    expect(html).not.toContain('shAllocateNecroVirtual');
+    expect(html).not.toContain('shAllocateCompoundVirtual');
   });
 
   it('view mode renders the territory union under White Ants', () => {
@@ -340,23 +353,32 @@ describe('COLLECTIVE-1 — view mode (read-only) synthesis', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('COLLECTIVE-1 — placement sanity guards', () => {
-  it('synthesiseCollectiveNecroNames + collectiveNecroDots exported from rules-helpers', () => {
+  it('synthesiseCollectiveCompoundNames + collectiveCompoundDots exported from rules-helpers', () => {
     const src = read('public/js/data/rules-helpers.js');
-    expect(src).toMatch(/export function collectiveNecroDots/);
-    expect(src).toMatch(/export function synthesiseCollectiveNecroNames/);
+    expect(src).toMatch(/export function collectiveCompoundDots/);
+    expect(src).toMatch(/export function synthesiseCollectiveCompoundNames/);
+    // COLLECTIVE-2 (#1110): the Necropolis-named primitives are RENAMED, not
+    // wrapped — an alias would leave two names for one call graph.
+    expect(src).not.toMatch(/export function collectiveNecroDots/);
+    expect(src).not.toMatch(/export function synthesiseCollectiveNecroNames/);
+    expect(src).not.toMatch(/export function getNecropolisTargets/);
   });
 
-  it('shAllocateNecroVirtual handler exists in edit-domain.js and routes via free_grants.necro', () => {
+  it('shAllocateCompoundVirtual handler exists in edit-domain.js and routes via free_grants[slug]', () => {
     const src = read('public/js/editor/edit-domain.js');
-    expect(src).toMatch(/export function shAllocateNecroVirtual/);
-    expect(src).toMatch(/existing\.free_grants\.necro\s*=\s*val/);
+    expect(src).toMatch(/export function shAllocateCompoundVirtual/);
+    // COLLECTIVE-2 (#1110): the write target is the compound's own slug, not
+    // a hardcoded `.necro` — a Crone row wired to the old handler would have
+    // credited the Necropolis pool.
+    expect(src).toMatch(/existing\.free_grants\[slug\]\s*=\s*val/);
+    expect(src).not.toMatch(/existing\.free_grants\.necro\s*=\s*val/);
   });
 
-  it('shAllocateNecroVirtual re-exported from edit.js and listed in admin.js global block', () => {
-    expect(read('public/js/editor/edit.js')).toContain('shAllocateNecroVirtual');
+  it('shAllocateCompoundVirtual re-exported from edit.js and listed in admin.js global block', () => {
+    expect(read('public/js/editor/edit.js')).toContain('shAllocateCompoundVirtual');
     const admin = read('public/js/admin.js');
     // Must appear in BOTH the import list AND the window-binding export
-    expect((admin.match(/shAllocateNecroVirtual/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((admin.match(/shAllocateCompoundVirtual/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 
   it('ADR-005 D3 inline amendment present in the architecture doc', () => {
