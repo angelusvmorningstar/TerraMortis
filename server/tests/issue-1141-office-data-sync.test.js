@@ -12,6 +12,13 @@
  * Administrator fallback firing) are proven by construction in the story's Dev
  * Notes, not re-tested here via a DOM harness this project doesn't have. This
  * file proves AC7's DATA precondition only (no Administrator entry exists).
+ *
+ * EXPECTED below is a deliberate byte-for-byte transcript of
+ * `content/rules/office-powers.md` (AC1-4 require office-data.js to match
+ * Symon's rewrite exactly), not a stand-in for a lighter structural check.
+ * Any future edit to that source doc must update EXPECTED in the same change,
+ * or this suite fails on a real drift — that's the point. Update both files
+ * together.
  */
 
 import { describe, it, expect } from 'vitest';

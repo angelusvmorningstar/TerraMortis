@@ -63,7 +63,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(html).toContain('Size Them Up');
       expect(html).toContain('Curry Favour');
       expect(html).toContain('Cacophony Savvy');
-      expect(html).not.toContain('Elan</div>'); // asset name must not appear as a merit chip
+      expect(html).not.toContain('<span class="office-merit-chip">Elan</span>'); // asset name must not appear as a merit chip
     }
     // Rendering one does not mutate or leak into the other's own render.
     expect(brandyHtml).not.toBe('');
