@@ -43,3 +43,31 @@ and verified before deferral. Provenance: `specs/stories/code-review/issue-1028-
 - **`phase_sequence` completeness constraint** — `uniqueItems` now enforced; the schema still accepts a partial order like `['game']`. A cycle with a partial sequence gives `phaseIndex` = -1 for missing phases. Tighten (minItems/const-set) as part of the CM-2 story that first consumes ordering, where the intended flexibility gets decided rather than guessed.
 - **`app.js` lifecycle submission lookup is cycle-unfiltered on the active-cycle path** — pre-existing: `_loadLifecycleData` matches the player's submission by character only when a downtime window is open, so a stale roll on an older submission could read as "rolled". The new prep-path added by CM-1's review patch IS cycle-filtered; the old path was left byte-identical to avoid a behaviour change inside a review pass. Align it next time the lifecycle cards are touched.
 - **Admin DT processing header badge reads "closed" during prep** — `downtime-views.js:1242-46` reads raw status for its badge; correct data, stale word. (Carried from the story's own completion notes; re-confirmed by the review.)
+
+## Deferred from: issue-1128-oversized-merit-dots external code review (Codex, 2026-08-11)
+
+Both items pre-existing or deliberately out of the story's scope, surfaced by the external review
+and verified before deferral. Provenance:
+`specs/stories/code-review/issue-1128-oversized-merit-dots-codex-findings.md`.
+
+- **Compound-target "My dots:" never reflects a suspended oath, unlike its own adjacent Total** —
+  `public/js/editor/sheet.js:1303` (domain edit mode, compound-target branch). The label renders
+  `'●'.repeat(_cmpOwn)` directly, never calling `shSuspendedOf`/either dot-render helper, while the
+  same row's `.dom-total-lbl` two spans over correctly routes through `shDotsSuspended`. Break an
+  oath pledging dots from a compound-target merit's own contribution and the row shows contradictory
+  effective counts — Total reflects the suspension, "My dots:" doesn't. Confirmed pre-existing via
+  `git blame` (commit `92f2a4884`, predates both OATH-B and this fix); issue-1128 deliberately left
+  this branch untouched (it was already correctly bare, just not suspension-aware) and this is a
+  separate defect, not a regression of this story's own fix. Fix by routing `_cmpOwn` through
+  `_shSuspendBands`/`shSuspendedOf(m)` the same way the six repointed sites now do, next time the
+  compound-target rendering is touched.
+- **AC4's automated test checks glyph content, not actual layout fit** —
+  `server/tests/issue-1128-dot-wrapper.test.js` asserts the five-dot string is `●●●●●` and has
+  length 5, but never measures computed width against `.infl-dots-derived`'s 60px column. The real
+  fix was verified to fit via a live browser measurement (`clientWidth`/`scrollWidth` both 60px, both
+  themes — recorded in the story's Dev Agent Record item 6), but that check isn't automated, so a
+  future CSS change to `.infl-dots-derived`'s font-size/padding/letter-spacing could silently break
+  the fit again with this suite staying green. Would need a Playwright-based layout assertion (real
+  font metrics), a heavier test shape than this codebase's existing string-comparison pattern — worth
+  adding if `.infl-dots-derived` or `.trait-dots` sizing is touched again, not urgent enough to justify
+  building fresh CI-layout-test infrastructure for this one column today.
