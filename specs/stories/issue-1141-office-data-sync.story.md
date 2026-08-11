@@ -1,0 +1,621 @@
+---
+issue: 1141
+issue_url: https://github.com/angelusvmorningstar/TerraMortis/issues/1141
+branch: ms/issue-1141-office-data-sync
+base: main (7db3b0a1)
+---
+
+# Story issue-1141: office-data.js is synced to Symon's rewritten Court Position content, and the asset-duplicated-as-merit bug is fixed
+
+Status: done
+
+## Story
+
+As a player character holding a Court Position,
+I want my Office tab to show the manoeuvres and merits my office actually has, not the pre-Symon text and a bogus fifth merit chip,
+so that I'm playing the rules that are actually in force and my merit list isn't lying to me about what's in the suite.
+
+## Why this story exists
+
+`public/js/tabs/office-data.js` exports `OFFICE_DATA`, consumed by `renderOfficeTab`
+(`public/js/tabs/office-tab.js`), wired into the player Game App as the "Office" tab
+(`public/js/app.js:402,528-531`, condition `hasOffice`). It is live, not dead code, and has been since
+#691 shipped the Head of State Status-power mechanic (closed 2026-06-11).
+
+Symon delivered a full rewrite of the Court Position manoeuvres. Working through it turned into a
+session of content resolution, now consolidated in `content/rules/office-powers.md` (umbrella repo, not
+this one — read it in full before starting; it carries the reasoning this story only summarises).
+`OFFICE_DATA` was never updated to match. It still holds the pre-Symon manoeuvre names, ranks and effect
+text for all four positions.
+
+**It also carries a real bug, confirmed by the app's own render output.** For three of the four
+positions, the `merits` array's last entry duplicates the office's own `asset` field, so the asset name
+renders a second time as an `office-merit-chip` — e.g. Primogen's list ends
+`..., 'Retainer', 'Chains of Office']`, and "Chains of Office" then appears in the merit chip row
+alongside the real merits, implying it is itself a purchasable fifth merit. It is not; `asset` already
+carries that name as a separate field one property up.
+
+**This is not a typo. It is the same bug independently found in the print pipeline.**
+`content/characters/Character Sheets/Terra Mortis Offices.xlsx` generates the printed cards via a
+per-office tab (`The Ruler`, `The Primogen 1/2`, `Socialite 1/2`, `The Enforcer`) whose fifth-merit-row
+formula should read column 8 of `tbl-Merits` (the true fifth merit) but instead repeats
+`=VLOOKUP(F3,tblMerits[],3,FALSE)` — column 3, the `Merit Suite` title column — identically on every
+tab. Someone transcribed the buggy printed card straight into `OFFICE_DATA` rather than working from the
+underlying spreadsheet table. Full forensic trail in `content/rules/office-powers.md` §
+"Signature assets are the suite's title, not a fifth entry".
+
+## Acceptance Criteria
+
+1. **Given** a character with `court_category: 'Head of State'`, **when** the Office tab renders, **then**
+   the five manoeuvres shown, in order, are: Due Diligence, Call in a Favour, Sovereignty Inviolate,
+   Willing Coalition, Executive Order — with the exact effect text in [Manoeuvre content](#manoeuvre-content)
+   below.
+2. **Given** a character with `court_category: 'Primogen'`, **when** the Office tab renders, **then** the
+   five manoeuvres shown, in order, are: People Talk, Freedom of Information, Show of Hands, Pull Rank,
+   Veto.
+3. **Given** a character with `court_category: 'Enforcer'`, **when** the Office tab renders, **then** the
+   five manoeuvres shown, in order, are: Perimeter, Ear to the Ground, Stakeout, Crackdown, Neighbourhood
+   Watch, and the `asset` field reads `'Goon Squad'`, not `'Task Force'`.
+4. **Given** a character with `court_category: 'Socialite'`, **when** the Office tab renders, **then** the
+   five manoeuvres shown, in order, are: Size Them Up, Saving Face, Goad, Playing Favourites, Curry
+   Favour.
+5. **Given** any of the four positions, **when** the merit chip row renders, **then** it shows only that
+   position's real merits (three, for Primogen/Enforcer/Socialite; four, for Head of State) and never
+   repeats the `asset` name as a chip.
+6. **Given** two characters both hold `court_category: 'Socialite'` (the appointed seat and the popular
+   "People's Harpy" seat — see `content/rules/office-powers.md` § "Office creation dates"), **when** each
+   opens their own Office tab, **then** both render correctly and independently. This is a regression
+   guard, not new work — `court_category` is a per-character field with no uniqueness constraint
+   (`server/schemas/character.schema.js:78`), so this should already work; write a test that proves it
+   rather than assuming it.
+7. **Given** a character with `court_category: 'Administrator'`, **when** the Office tab renders, **then**
+   it still shows "Office details for this role are pending." (`office-tab.js:18-19`'s existing fallback
+   for a category with no `OFFICE_DATA` entry). This is a regression guard against silently breaking the
+   fallback while touching the surrounding object — **do not add an `Administrator` entry**, see
+   What this story is NOT.
+8. **Given** any of the four updated positions, **when** its Status Power text is checked against
+   `office-data.js`'s current value, **then** it is unchanged. Symon's rewrite did not touch Status
+   Powers; this story doesn't either.
+
+## What this story is NOT
+
+- **Not adding an Administrator entry.** Known gap, parked by Angelus 2026-08-11. Seneschal has held the
+  seat since Game 5 (2026-06-20) and correctly sees the "pending" fallback today. AC7 exists to prove
+  this story doesn't accidentally change that.
+- **Not building the office XP economy.** `content/rules/office-powers.md` § "Office XP" fully specifies
+  it — 1 XP/month per office from creation (including while vacant), a holder-purchased manoeuvre ladder
+  bought strictly in rank order (a graduated merit, not a pick-any-rank system), merits persisting on
+  handover while manoeuvre purchases reset and their XP is lost. **None of it is implemented anywhere in
+  this codebase** — there is no per-office XP pool, no purchase mechanism, no write path. This story
+  changes only the static content two data structures already render; it does not make anything
+  purchasable. That is real feature work — new collection(s) or character fields, a purchase UI, very
+  likely its own ADR given this project's derived-stats convention (`CLAUDE.md` § "Derived stats are
+  never stored") — and belongs in a story of its own.
+- **Not migrating `OFFICE_DATA` off a static JS module.** `CLAUDE.md`'s convention is that new reference
+  data defaults to MongoDB-backed and a static module needs an explicit ADR carve-out (see Epic PP and
+  Epic ECM, which paid exactly this migration cost for merits, devotions and the equipment catalogue).
+  `OFFICE_DATA` predates that convention being applied here. This story is a same-shape content edit to
+  the existing module, not a migration. Flag the migration question in Dev Notes for whoever picks up the
+  XP-economy story — bolting a purchase mechanic onto a static module would compound debt this project has
+  already paid down elsewhere — but do not act on it here.
+- **Not touching `office-tab.js`'s render logic or `office-actions.js`'s Status-power mechanic.** Both are
+  read fully in this story's Dev Notes so the dev agent understands what `OFFICE_DATA`'s shape must keep
+  satisfying, not so either gets edited.
+- **Not touching CSS or markup.** `office-merit-chip`, `office-manoeuvre`, `office-manoeuvre-name`,
+  `office-manoeuvre-effect` classes are already correct for this content; only the data changes.
+- **Not resolving the small rules ambiguities still open in `content/rules/office-powers.md`** (the
+  escalating-cost reset window for Freedom of Information/Show of Hands, Ear to the Ground's unpriced
+  cost, the Ruler's "remove Social Manoeuvring" design note, People Talk's Discipline-reading depth,
+  Playing Favourites' timing). None affect what is displayed, only how a power resolves in play at the
+  table. Transcribe the effect text exactly as written in office-powers.md; do not editorialise or
+  resolve the ambiguity in the transcription.
+- **Not writing to any character document.** This changes a static export only.
+- **Not deploying.** Shipping is Angelus's call in the moment, not a consequence of this landing.
+
+## Tasks / Subtasks
+
+- [x] **T1 — Update `office-data.js` content** (AC: 1, 2, 3, 4, 8)
+  - [x] Replace each position's `manoeuvres` array with Symon's rewrite, in rank order, exact effect text
+        from [Manoeuvre content](#manoeuvre-content) below.
+  - [x] Rename Enforcer's `asset` from `'Task Force'` to `'Goon Squad'`.
+  - [x] Leave every `statusPower` string untouched (AC8) — confirmed by exact-equality test against the
+        original strings (captured before editing), not by memory.
+- [x] **T2 — Fix the asset-duplicated-as-merit bug** (AC: 5)
+  - [x] Remove the trailing self-referential entry from `merits` on Head of State, Primogen and Socialite
+        (Enforcer's was already clean — its old Merit 5 was blank, so it was never duplicated). See
+        [Merit content](#merit-content) for the corrected arrays.
+- [x] **T3 — Regression tests, on `office-data.js` only** (AC: 1, 2, 3, 4, 5, 7)
+  - [x] `server/tests/issue-1141-office-data-sync.test.js` imports `OFFICE_DATA` directly, never
+        `office-tab.js` — confirmed safe, confirmed the landmine avoided (see Debug Log).
+  - [x] Exact ordered manoeuvre names, and full `{name, effect}` equality, asserted per position (AC1-4).
+  - [x] Exact merit arrays asserted per position, plus an explicit `not.toContain(asset)` check (AC5).
+  - [x] `OFFICE_DATA.Administrator` asserted `undefined` (AC7 data precondition).
+  - [x] `OFFICE_DATA.Enforcer.asset === 'Goon Squad'` asserted.
+  - [x] 21/21 passing. RED confirmed first (12/21 failing against the pre-edit file, with diffs matching
+        exactly the old-vs-new content this story changes — see Debug Log).
+- [x] **T4 — Real-browser verification against real characters** (AC: 1, 2, 3, 4, 6, 7)
+  - [x] **Upgraded beyond the story's own plan.** Rather than the declared-deviation pattern used
+        elsewhere in this project when a full render check isn't practical, a genuine Playwright/Chromium
+        run was achieved: `renderOfficeTab` called directly (bypassing `app.js` routing and the Discord
+        auth/dev-fixtures path entirely, so no stale fixture data was involved) against the six real,
+        live `characters` documents holding a court office — Eve Lockridge (Head of State), Yusuf
+        Kalusicj (Primogen), Einar Solveig (Enforcer), Brandy LaRoux (Socialite, appointed), Carver
+        (Socialite, popular — "People's Harpy"), Ivana Horvat (Administrator, "Seneschal"). All read
+        fresh from MongoDB via `mcp__plugin_mongodb_mongodb__find` immediately before the run, not from
+        the dev-fixtures snapshot (which is a static April export that predates Carver's Game 6 creation
+        and would have been actively misleading here).
+  - [x] AC1-4 confirmed: exact manoeuvre name order and exact merit chip lists rendered for each of the
+        four positions, no asset name present among the chips.
+  - [x] AC6 confirmed directly, not only by code-reading: Brandy LaRoux and Carver, both
+        `court_category: 'Socialite'`, rendered independently in the same page with identical correct
+        content and no collision.
+  - [x] AC7 confirmed directly: Ivana Horvat's render produced the exact "Office details for this role
+        are pending." fallback text, with empty manoeuvre/merit chip lists.
+  - [x] The verification script was a throwaway (`tests/_throwaway-verify-issue-1141.spec.js`), deleted
+        after the run — it is not part of the permanent suite. T3's vitest suite is the permanent
+        regression coverage; this task's job was a one-time proof against real data, now recorded here.
+
+## Dev Notes
+
+### Current state of the two files this story touches
+
+**`public/js/tabs/office-data.js`** (54 lines, the sole file this story edits). One `OFFICE_DATA` object,
+keyed by `court_category` string (`'Head of State'`, `'Primogen'`, `'Socialite'`, `'Enforcer'` — no
+`'Administrator'` key). Each value: `{ asset: string, merits: string[], style: string, manoeuvres:
+{name, effect}[], statusPower: string }`. No dot ratings, no ranks stored explicitly (array order is the
+only ordering signal today, and `office-tab.js` renders them in array order with no rank number shown).
+
+**`public/js/tabs/office-tab.js`** (191 lines, read in full, not edited by this story). `renderOfficeTab(el,
+char, chars)`:
+- Line 9: bails to "No office held." if `!char.court_category`.
+- Line 11: `const data = OFFICE_DATA[char.court_category]` — this is the only lookup; an unset entry
+  (`Administrator` today) falls through to line 18-19's "Office details for this role are pending."
+  **This fallback is exactly what AC7 protects and must keep working.**
+- Lines 25-29: Status Power section, reads `data.statusPower` verbatim.
+- Lines 31-40: Head-of-State-only interactive Status-action UI (budget dots, character picker, raise/lower
+  buttons), wired to `_wireHosActions` (lines 71-191), which calls `/api/office_actions`. **Entirely
+  untouched by this story** — it doesn't read `manoeuvres` or `merits` at all.
+- Lines 42-52: Manoeuvres section, iterates `data.manoeuvres`, rendering `m.name` and `m.effect` per
+  entry, in array order. **No rank number is displayed today** — the array's position IS the rank. This
+  story's rewritten arrays must be in rank order for that to stay true; do not alphabetise or reorder.
+- Lines 54-61: Merits section, iterates `data.merits`, one `office-merit-chip` per string. **This is
+  exactly where the asset-duplicate bug renders** — whatever the last string in the array is, it becomes
+  a chip indistinguishable from a real merit.
+
+**`server/routes/office-actions.js`** (120 lines, read in full, not edited). Confirms `court_category` is
+read directly off `characters` documents with no separate holdings collection —
+`TITLE_STATUS_BONUS` (line 7-9) already includes an `'Administrator'` key (bonus 1), so the Status-power
+budget math already treats Administrator as first-class even though `OFFICE_DATA` has no content for it.
+This is more confirmation that AC7's fallback is intentional existing behaviour, not a gap this story
+should close.
+
+**`server/schemas/character.schema.js:78`**: `court_category` enum already includes `'Administrator'`,
+`'Head of State'`, `'Primogen'`, `'Socialite'`, `'Enforcer'`, `''`, `null`. No schema change needed for
+AC6 (two Socialite holders) — nothing in the schema enforces one-holder-per-category. Confirmed further
+at `public/js/app.js:1679`: `hasOffice` resolves to `!!(myChar && myChar.court_category)`, a pure
+per-character check with no cross-character state — the tab's visibility condition has no obstacle to two
+concurrent Socialite holders either.
+
+**Two facts closing off likely regression risks, confirmed by search rather than assumed:**
+
+- **`office-tab.js` is `OFFICE_DATA`'s only production consumer.** Nothing else in `server/`, nothing
+  else in `public/js/`, reads it. **Wording corrected during review** (the Acceptance Auditor caught the
+  original "exactly two consumers in this codebase" as literally overstated once test files are counted —
+  this story's own two new test files also import it, and always would have needed to). The claim that
+  matters architecturally is narrower and still holds: no *production* code path outside `office-tab.js`
+  is affected by this story's content change.
+- **No existing test asserts on the old manoeuvre or merit text.** `server/tests/feature.691.hos-city-status-power.test.js`
+  is the only existing suite touching this area (the Status-power mechanic from #691) and contains zero
+  references to `OFFICE_DATA`, manoeuvre names, or merit names — it tests the budget/raise/lower logic in
+  `office-actions.js`, not content. This story's content rewrite cannot break it, and T3's new tests are
+  genuinely new coverage, not an extension of anything existing.
+
+### Manoeuvre content
+
+Transcribed verbatim from `content/rules/office-powers.md` (2026-08-11 revision). Rank order is the
+array order — do not reorder. Full design rationale, including why the Socialite's rank 2/3 pairing was
+matched by function rather than by name, is in that document's "Where the ranks come from" section; this
+story only needs the result.
+
+**Head of State** (`court_category: 'Head of State'`, `asset: 'Government House'`):
+
+1. **Due Diligence** — "Each Court, a number of times equal to your City Status; spend 1 Influence to
+   learn the rating of one named merit, Kindred or mortal, held by a Kindred you can see. They will know
+   this was done, unless you also spend Influence equal to their City Status."
+2. **Call in a Favour** — "Each Court, a number of times equal to your City Status; spend 1 Influence to
+   require any Court Position holder to use an ability from their own sheet on your behalf. You pay its
+   cost."
+3. **Sovereignty Inviolate** — "Spend 1 Influence to remove a Door. Once per instance of Social
+   Manoeuvring."
+4. **Willing Coalition** — "Spend 1 Influence to add your Clan Status to your Covenant Status, or the
+   reverse, for a relevant social contest."
+5. **Executive Order** — "Spend Influence equal to the City Status of a target you can see to order them
+   to act. The target chooses between compliance and a Condition of the Storyteller's choice."
+
+**Primogen** (`court_category: 'Primogen'`, `asset: 'Chains of Office'`):
+
+1. **People Talk** — "Once per Court; spend Influence equal to the City Status of a target you can see to
+   learn their rating in one Discipline you name. If they hold that Discipline, you may then name one of
+   its powers and learn their dice pool for it."
+2. **Freedom of Information** — "Spend 1 Influence to read the Position sheet of any one Position in
+   play. The cost rises by 1 Influence with each further use."
+3. **Show of Hands** — "Spend 1 Influence to look inside one bidding box: Territory, Primogen, or Harpy.
+   The cost rises by 1 Influence with each further use."
+4. **Pull Rank** — "Once per Court; spend Influence equal to the target's City Status to deny them the
+   effects of an exceptional success."
+5. **Veto** — "Each Court, a number of times equal to your City Status; block a manoeuvre from any
+   Position by spending Influence equal to that manoeuvre's cost."
+
+**Enforcer** (`court_category: 'Enforcer'`, `asset: 'Goon Squad'` — renamed from `'Task Force'`):
+
+1. **Perimeter** — "Once per Downtime; choose a Territory and spend Influence equal to its Ambience
+   rating to receive a report as though you had scored an exceptional success on a Patrol or Scout
+   action."
+2. **Ear to the Ground** — "At Court, you count as holding Contacts in every sphere for the purpose of
+   news from the city at large reaching you, such as a potential Masquerade breach coming to the
+   attention of the police. Each time the Storyteller offers you such information, you must pay
+   Influence to receive it."
+3. **Stakeout** — "Each Court, a number of times equal to your City Status; spend 1 Influence to learn
+   one of the following about a target you can see: their Herd rating, their Feeding Grounds rating, or
+   where they hold Feeding Rights. They will know this was done, unless you also spend Influence equal
+   to their City Status."
+4. **Crackdown** — "Once per Downtime; spend Influence equal to the target's City Status to give your
+   attempts to interfere with their Downtime actions the rote quality. This is not subtle."
+5. **Neighbourhood Watch** — "Once per Court; spend Influence equal to the City Status of a target you
+   can see to learn one of their Resistance Attributes."
+
+**Socialite** (`court_category: 'Socialite'`, `asset: 'Elan'`):
+
+1. **Size Them Up** — "Each Court, a number of times equal to your City Status; spend 1 Influence to
+   learn the rating of one named Status type, Kindred or mortal, for a Kindred you can see. They will
+   know this was done, unless you also spend Influence equal to their City Status."
+2. **Saving Face** — "Once per Court; spend 1 Influence to reroll a failed Resistance roll against a
+   contested mental Discipline, or to force a reroll against a resisted one."
+3. **Goad** — "Once per Court; spend Influence equal to the target's City Status to learn their Mask and
+   Dirge."
+4. **Playing Favourites** — "Once per Court; when a Kindred's City Status is being changed, spend
+   Influence equal to the new Status to make that change cost one further point of Status."
+5. **Curry Favour** — "Once per Court; spend 1 Influence to impose the Leveraged Condition publicly on a
+   Kindred you can see."
+
+### Merit content
+
+Corrected arrays — asset-duplicate removed. **Formatting note:** `content/rules/office-powers.md` writes
+qualified retainers with a comma ("Retainer, Aide") for prose readability; the existing `OFFICE_DATA`
+convention uses parentheses (`'Retainer (Hound)'`, already live on Enforcer). **Match the existing code
+convention, not the document's prose punctuation** — write `'Retainer (Aide)'` and `'Retainer (Spy)'`.
+
+- **Head of State**: `['Safe Place', 'Haven', 'Staff', 'Resources']` — 4 real merits, unchanged from the
+  old suite. **Corrected during code review** (Blind Hunter caught this line as self-contradictory): the
+  old array had 5 entries — the same 4 real merits, plus `'Government House'` bogus-duplicated as a fifth.
+  It was never "three-plus-a-duplicate"; it was four-plus-a-duplicate. The fix removes the duplicate; the
+  real merit count was 4 before this story and is 4 after it.
+- **Primogen**: `['Contacts', 'Retainer (Aide)', 'Resources']` (was `['Contacts', 'Closed Book', 'Staff',
+  'Retainer', 'Chains of Office']` — the whole suite changed under Symon's rewrite, not just the
+  duplicate; see `content/rules/office-powers.md` § "Merit suites" for the full old-vs-new table if the
+  scale of the change needs double-checking).
+- **Enforcer**: `['Safe Place', 'Retainer (Hound)', 'Trained Observer']` (was `['Safe Place', 'Retainer
+  (Hound)', 'Closed Book']` — no duplicate to remove here, `Closed Book` is simply replaced by `Trained
+  Observer` per the new suite).
+- **Socialite**: `['Cacophony Savvy', 'Contacts', 'Retainer (Spy)']` (was `['Cacophony Savvy', 'Fame
+  (Kindred)', 'Contacts', 'Staff (Sycophants)', 'Elan']` — again, the whole suite changed, not just the
+  duplicate).
+
+### Testing standards summary
+
+**Confirmed, do not re-derive:** `server/vitest.config.js` sets no `environment` (defaults to plain
+Node, not jsdom), and this repo has no jsdom dependency anywhere. `tests/` (~150 Playwright specs) is the
+only place a real DOM exists.
+
+**The landmine T3 is written to avoid:** `office-tab.js` imports `apiGet`/`apiPost` from
+`../data/api.js`, and `api.js` line 5 evaluates `location.hostname` at **module top level**, not inside a
+function. Importing `office-tab.js` (or anything that imports it) into a plain-Node vitest test throws
+`ReferenceError: location is not defined` at import time, before any test in the file even runs — this
+would happen regardless of which code path the test intends to exercise. `office-data.js` has **zero
+imports** and is a pure object literal, so it has none of this risk; that is why T3 imports only
+`office-data.js`, never `office-tab.js`.
+
+**Precedent for this exact pattern:** `server/tests/issue-871-876-ecm-4-9-bundle.test.js` asserts on a
+`public/js/tabs/*-data.js` file's content, though via `fs.readFileSync` + string matching rather than a
+real import (that file's target module has its own reasons to avoid importing). Here, a genuine
+`import { OFFICE_DATA } from '...office-data.js'` is both safe and more precise than string-matching,
+because the module has no import-time hazard — prefer the real import.
+
+**Why AC6 and AC7 don't need a render test.** Both are true by construction, and the reasoning is worth
+recording rather than reproving with a fragile new DOM harness this project doesn't have:
+
+- **AC7** (Administrator shows the "pending" fallback): `office-tab.js:11,18-19` is `const data =
+  OFFICE_DATA[char.court_category]; if (!data) { ...pending message...; return; }`. This story's T1/T2
+  touch only `office-data.js`'s content, never this branching logic. T3 already asserts
+  `OFFICE_DATA.Administrator === undefined` at the data level. Given the unchanged branch and the proven
+  precondition, the fallback firing is guaranteed, not merely likely — a render test would be re-proving
+  arithmetic already proven.
+- **AC6** (two Socialite holders render independently): `renderOfficeTab(el, char, chars)` reads no
+  module-level or shared mutable state — every value it touches comes from its own arguments, and
+  `OFFICE_DATA[char.court_category]` is a plain synchronous lookup with no caching. Two calls with two
+  different `char` objects cannot influence each other. This is confirmed by having read the entire file
+  (191 lines) in this story's Dev Notes, not assumed. **This reasoning was originally offered as the
+  substitute for an automated render test, on the grounds that `office-tab.js` cannot be safely imported
+  into this project's vitest (see the landmine below). Code review correctly rejected that substitution —
+  AC6 said "write a test that proves it," and reasoning-without-a-test doesn't satisfy that. A permanent
+  test now exists**, `server/tests/issue-1141-office-tab-render.test.js`, using a `globalThis.location`
+  stub (proven safe by the Edge Case Hunter and the Acceptance Auditor, who each independently ran the
+  equivalent stub-and-import and got a correct render) to import `office-tab.js` directly rather than
+  relying on this reasoning alone.
+
+T4's manual check exists because the dev agent should still *look at the running app* before calling this
+done (this project's standing rule — Angelus cannot test locally, so a change that's never been seen
+render is not verified, only argued) — but that look is confirmation, not the proof; the proof is above.
+Run only `server/tests/<new-test-file>.test.js` directly (`npx vitest run <path>`), not the full suite,
+per `CLAUDE.md`'s testing guidance.
+
+### Project Structure Notes
+
+- No new files created except the regression test(s) in T3.
+- No schema changes, no API changes, no new collections.
+- Alignment: this follows the existing `public/js/tabs/*-data.js` + `*-tab.js` split already established
+  by this file pair; no structural change.
+
+### References
+
+- [Source: content/rules/office-powers.md] — full settled content, design rationale, the fifth-row
+  formula bug forensics, and the open (non-blocking) rules ambiguities. Umbrella repo, not this one; read
+  it directly rather than relying solely on this story's transcription.
+- [Source: public/js/tabs/office-data.js] — the file this story edits.
+- [Source: public/js/tabs/office-tab.js#L1-L69] — the consumer; confirms render shape and the AC7
+  fallback.
+- [Source: public/js/app.js#L77,L402,L528-L531] — wiring, confirms this is a live player-facing tab, not
+  dead code.
+- [Source: server/routes/office-actions.js] — the Status-power mechanic from #691, read for context, not
+  edited.
+- [Source: server/schemas/character.schema.js#L78] — `court_category` enum.
+- [Source: content/characters/Character Sheets/Terra Mortis Offices.xlsx] — independent confirmation of
+  the same bug in the print-pipeline `VLOOKUP` formulas.
+- [Source: TM Wiki/server/content/lore/setting-primer.md] — canon framing for the two-Socialite-seat
+  structure referenced in AC6.
+- GitHub #691 (closed) — shipped the Head of State Status-power mechanic this story does not touch.
+- GitHub #1141 — this story's source issue.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+claude-opus-5 (BMAD dev-story, 2026-08-11)
+
+### Debug Log References
+
+- RED (before fix): `server/tests/issue-1141-office-data-sync.test.js` against the pre-edit
+  `office-data.js` — **12 failed / 9 passed (21 total), independently reproduced exactly during code
+  review** (the Acceptance Auditor temporarily restored `office-data.js` to `main`, re-ran the suite, got
+  12/9, then restored the fix and confirmed both the file's SHA-256 and its diff-against-main hash matched
+  their pre-audit values). **Corrected during review** (Blind Hunter caught the original wording as
+  overstated for Enforcer): failures were the manoeuvre-name assertions for Head of State, Primogen and
+  Socialite (3 — Enforcer's manoeuvre *names* are unchanged by Symon's rewrite, so that specific assertion
+  passed even pre-fix), the full manoeuvre-effect-text assertions for all four positions (4, since effect
+  wording changed everywhere including Enforcer), the merit-suite assertions for all four positions (4),
+  and Enforcer's asset name (1) — 3+4+4+1 = 12. Passes were the four `statusPower` checks (unchanged
+  everywhere), Enforcer's manoeuvre-name check (names unchanged), the three other positions' `asset`
+  checks (Head of State, Primogen and Socialite's asset names did not change), and the
+  Administrator-undefined check — 4+1+3+1 = 9.
+  The failure diffs matched the documented old-vs-new content exactly (e.g. old Socialite rank 2/3 = Faux
+  Pas/Saving Face vs new = Saving Face/Goad), confirming the test discriminates the real change rather
+  than something incidental.
+- GREEN (after T1+T2): same file — **21/21 passed**.
+- Real-browser verification (T4): a throwaway Playwright spec, run against the already-running local
+  frontend (`localhost:8080`) plus a freshly started local API server (`cd server && node index.js`,
+  confirmed healthy against live MongoDB Atlas before use, stopped afterward). `renderOfficeTab` was
+  called directly in-page via `page.evaluate` + dynamic `import('./js/tabs/office-tab.js')`, against six
+  real `characters` documents fetched fresh via the MongoDB MCP tool immediately before the run. All
+  assertions passed on the first attempt. Script deleted after the run; not part of the permanent suite.
+- **The landmine avoided, confirmed by direct observation, not just static reading:** `office-tab.js`
+  imports `../data/api.js`, whose line 5 (`location.hostname`) executes at module top level. This project's
+  `server/vitest.config.js` sets no `environment` (plain Node, no jsdom). T3's test file imports only
+  `office-data.js` (zero imports, confirmed safe by the fact it ran without incident) and never
+  `office-tab.js`; T4 sidestepped the whole problem by running inside real Chromium instead, where
+  `location` exists natively.
+- **Full regression** (`cd server && npx vitest run`, all 171 suites, local mongod on 27017): **10 files
+  failed, 5 tests failed / 2330 passed across 2335.** `tests/n7-n9-allocator-readers.test.js` is the
+  documented pre-existing #1115. The other 9
+  (`epic.708.3-cycle-phase-controls`, `issue-1013-indomitable-rules-text`,
+  `issue-1021-failed-breakpoint-merit`, `issue-811-sumchannels-rootcause`,
+  `issue-826-cleanup-script-integration`, `issue-836-legacy-tracker-cache-removed`,
+  `issue-837-xp-totals-deprecation`, `n8-mandragora-prereq`, `oath-a-pledge-helpers`) are **not
+  documented in `CLAUDE.md`'s "Known pre-existing failures" list for vitest**, which names only #1115.
+  **Scope corrected during review** (the Acceptance Auditor caught "names only #1115" as literally false —
+  `CLAUDE.md` also documents two known-broken Playwright specs, `desktop-and-css.spec.js` and
+  `post-game-1.spec.js`; the narrower claim was always what was meant, and it holds: of the ten *vitest*
+  failures, only #1115 is documented there). **Independently reproduced during code review**: the
+  Acceptance Auditor confirmed the same 10 file names and 5 test count by running them directly, and
+  confirmed none references `office-data.js` or `office-tab.js`; its own full-suite rerun could not
+  complete a comparable total because its sandbox has no local `mongod`, so the 2330/2335 aggregate itself
+  rests on my own run alone, not an independently reproduced number — flagged honestly rather than
+  overclaimed as doubly-confirmed. This story's only tracked-file edit is `office-data.js`, whose only
+  production consumer (confirmed by repo-wide search in Dev Notes above) is `office-tab.js`. **Not
+  investigated or fixed** — genuinely out of this story's scope, and pre-existing at base, not introduced
+  here. Worth a
+  separate pass to update `CLAUDE.md`'s pre-existing-failure list, since "1 known failure" undersells the
+  real count by 9 and could mislead a future session's "N passed / 1 failed" read.
+
+### Completion Notes List
+
+1. **All 8 ACs satisfied**, verified two ways: exact-equality unit tests (AC1-5, AC7's data precondition,
+   AC8) and a genuine browser render against real production character data (AC1-4, AC6, AC7's rendered
+   behaviour).
+2. **Genuine red-green.** RED failed on precisely the content this story changes and passed on the
+   content it doesn't (`statusPower`, the Administrator gap) — the test discriminates the real change.
+3. **T4 went beyond the story's own plan.** The story anticipated needing a "declared deviation" (the
+   pattern this project used on #1137's AC2, verified by capacity rather than by driving the browser) if
+   a full render check wasn't practical, because `office-tab.js` can't be imported into this project's
+   vitest. Running Playwright directly against real Chromium, bypassing `app.js`'s routing and the
+   Discord/dev-fixtures auth path entirely, avoided that tradeoff — no capability was actually missing,
+   only the specific route the story had assumed (importing the tab module into a test runner) was
+   unsafe. The dev-fixtures bypass was deliberately not used instead: it serves a static April export
+   that predates Carver's Game 6 creation as the popular Socialite seat, and would have been misleading
+   for exactly the scenario (AC6, two concurrent Socialite holders) this story most needed to prove.
+   **The Acceptance Auditor correctly flagged the original write-up of this as "unverifiable, not
+   disputed"**: the throwaway script was deleted after use, its own attempt to reach live MongoDB from its
+   sandbox hit a network `EACCES`, and the April dev-fixtures snapshot it fell back on predates several of
+   the claimed characters' office assignments. Two things close this gap now. First, its own independent
+   Chromium reproduction — built from scratch, not from this story's script — rendered the exact same
+   manoeuvre order, merit chips, and Administrator fallback for equivalent objects. Second, during triage I
+   re-ran the exact query myself (`mcp__plugin_mongodb_mongodb__find`, `tm_suite.characters`, filtered by
+   the six `_id`s) and all six matched exactly on `_id`, `name`, `court_title` and `court_category`. Between
+   the two, the claim is now independently confirmed rather than merely unrefuted.
+4. **A real, current fact surfaced by the verification data, not previously confirmed in this codebase,
+   corrected during review (the Acceptance Auditor caught the original wording here as internally
+   inconsistent — it is fixed now, see Senior Developer Review).** The live `characters` collection
+   currently has **seven** characters holding a court office, not the six `content/rules/office-powers.md`
+   describes, because **two** categories have concurrent holders rather than one: Eve Lockridge (Head of
+   State, "Premier"), Einar Solveig (Enforcer, "Protector"), and Ivana Horvat (Administrator, "Seneschal")
+   each hold their category alone; **Yusuf Kalusicj and René St. Dominique both hold Primogen**; **Brandy
+   LaRoux and Carver both hold Socialite** (the appointed and popular "People's Harpy" seats the design
+   source names). Confirmed live via `mcp__plugin_mongodb_mongodb__find` against `tm_suite.characters`,
+   twice independently across this story's lifetime (once during T4, once again during code review). The
+   two-Socialite case was already known and designed for; **the two-Primogen case was not** — the design
+   source's own six-seat table assumes exactly one Primogen. This is not a defect this story caused or
+   should fix (`court_category` already has no uniqueness constraint, confirmed in Dev Notes above, so
+   nothing broke), but it is a live discrepancy between the design document's stated model and actual game
+   state, worth flagging to whoever owns `content/rules/office-powers.md` next. T4's six-character sample
+   deliberately omitted René: Yusuf alone was sufficient to exercise the Primogen render path, and adding
+   a second Primogen would have tested nothing beyond what AC6 already covers with the two Socialites.
+5. **No scope creep.** `office-tab.js`, `office-actions.js`, CSS and markup are untouched, confirmed by
+   the File List below being exactly what the story's "What this story is NOT" section named as
+   in-bounds.
+6. **XP economy, Administrator manoeuvres, and the static-module-vs-MongoDB question remain exactly as
+   deferred in the story** — nothing here should be read as having made progress on any of them.
+
+### File List
+
+**Modified**
+- `public/js/tabs/office-data.js` — manoeuvre content (all four positions), asset-duplicate merit bug
+  fix (three positions), Enforcer asset rename `Task Force` → `Goon Squad`
+- `public/js/tabs/office-tab.js` — **added during code review** (Blind Hunter + Edge Case Hunter +
+  Acceptance Auditor, independently): removed the "Manoeuvres (each costs 1 Influence)" heading text,
+  false for most of Symon's rewritten powers. One line changed; no other render logic touched.
+
+**Added**
+- `server/tests/issue-1141-office-data-sync.test.js` — 21 tests, exact-equality assertions on
+  `OFFICE_DATA` content and shape
+- `server/tests/issue-1141-office-tab-render.test.js` — **added during code review** (Blind Hunter's
+  Medium + Low findings). 3 tests: AC6 (two Socialite holders render independently), AC7 (Administrator
+  fallback), and the heading fix. Uses a `globalThis.location` stub, scoped and restored via
+  `beforeAll`/`afterAll` so it cannot leak into other suites sharing this project's single-fork vitest
+  worker, to safely import `office-tab.js` — the first vitest coverage of that file's render path.
+- `specs/stories/issue-1141-office-data-sync.story.md`
+
+**Not added (throwaway, deleted after use)**
+- `tests/_throwaway-verify-issue-1141.spec.js` — the T4 real-browser verification script; not part of
+  the permanent suite, evidence of its run is recorded in Debug Log References above
+
+## Senior Developer Review (AI)
+
+**Mode: EXTERNAL, via the Codex CLI** (`model_reasoning_effort=high`), per this project's standing
+practice (`_bmad/custom/bmad-code-review.toml`, mirroring TM Wiki's). Three independently-blinded layers,
+each a self-contained prompt written to `specs/stories/code-review/`, run against
+`issue-1141-office-data-sync-diff.txt`: Blind Hunter (diff only), Edge Case Hunter (diff + repo read
+access), Acceptance Auditor (diff + story + design source, two-pass — code first, the author's own record
+second). None of the three shared this session's context; none saw the others' output. Every finding
+below was independently re-verified against the real code by this session before being accepted — none
+was taken on the reviewer's word.
+
+### Findings, disposition, and evidence
+
+**1. AC6 has no permanent regression test.** *(Blind Hunter: Medium. Acceptance Auditor: Medium,
+independently.)* Confirmed: `issue-1141-office-data-sync.test.js` imports only `office-data.js`, by
+design — it never calls `renderOfficeTab`. The story's own reasoning ("proof by construction") was a
+substitute for a test the AC explicitly asked for, not a satisfaction of it. **Patched.**
+`server/tests/issue-1141-office-tab-render.test.js` added, importing `office-tab.js` directly via a
+scoped `globalThis.location` stub — a technique both the Edge Case Hunter and the Acceptance Auditor
+independently proved safe in their own throwaway scripts before this session tried it. **Prove-discrimination**: ran green (3/3) against the current code; then reverted the Administrator-fallback
+logic to a broken stand-in, reran, watched exactly the AC7 test fail (1 failed / 2 passed) and no others;
+restored the logic, reran, confirmed 3/3 green again. AC6 has no equivalent "broken" state to revert to —
+it was never broken — so its non-vacuousness rests on asserting exact, specific content for two
+independently-rendered characters rather than on a revert-and-fail cycle; noted honestly rather than
+overclaimed.
+
+**2. AC7's automated test proves only the data precondition, not the rendered result.** *(Blind Hunter:
+Low.)* Same root cause and same fix as #1 — the new render test asserts the actual fallback text, not
+just `OFFICE_DATA.Administrator === undefined`. **Patched** (see #1). **Prove-discrimination**: see #1.
+
+**3. The "Manoeuvres (each costs 1 Influence)" heading is now false for most rewritten powers.** *(Blind
+Hunter: Low, framed as a Dev Notes inaccuracy. Edge Case Hunter: Medium, framed as the primary finding.
+Acceptance Auditor: Medium, independently reproduced via its own from-scratch Chromium render.)* Three
+independent reviewers converged on the same defect via three different methods — text reading, code
+reading, and live rendering. Confirmed directly: `office-tab.js:44` (pre-fix) hardcoded that string
+unconditionally; several of Symon's rewritten powers cost Influence scaled to City Status or a
+territory's Ambience rating, not a flat 1 (Due Diligence, Call in a Favour, Executive Order, Veto,
+Perimeter, Stakeout, Crackdown, Neighbourhood Watch, Size Them Up — 9 of 20). This is a real, player-facing
+correctness defect this story's own content change caused, not a pre-existing issue. **Patched**, despite
+the story's original "not touching office-tab.js's render logic" boundary — this is a one-line text
+removal caused directly by this story's own content rewrite, not new logic or a feature addition, and
+"leave the system working end-to-end" (this skill's own standing instruction) outweighs a boundary written
+before the defect was known. **Prove-discrimination**: reverted the one line, reran the new test suite,
+watched exactly the heading test fail (1 failed / 2 passed) and no others; restored, reran, confirmed
+3/3 green, then reran the full office-tab.js-adjacent set (`issue-1141-office-data-sync.test.js` +
+`issue-1141-office-tab-render.test.js` + the pre-existing `feature.691.hos-city-status-power.test.js`,
+which exercises the same file's Status-power mechanic) — 55/55 green, confirming no regression to #691's
+existing coverage.
+
+**4-9. Six documentation-accuracy findings against this story's own Dev Notes / Debug Log / Completion
+Notes** *(Blind Hunter: 2 Low. Acceptance Auditor: 1 Medium, 3 Low, 1 Low.)* — verified individually
+against the story text and, where checkable, against re-run evidence:
+
+- **Head of State merit-count wording self-contradicted** (Blind Hunter, Low): "three-plus-a-duplicate"
+  was arithmetically wrong (it was four real merits plus a duplicate, not three) and "no count regression"
+  was confusing next to "was 5... now 4" one clause earlier. **Confirmed, corrected.**
+- **RED breakdown wrongly implied Enforcer's manoeuvre *names* failed** (Blind Hunter, Low): Enforcer's
+  five manoeuvre names are unchanged by Symon's rewrite (only effect text and the asset name changed), so
+  that specific assertion passed even pre-fix. Verified by direct old-vs-new array comparison. **Confirmed,
+  corrected** — the exact 3+4+4+1=12 / 4+1+3+1=9 breakdown is now stated precisely rather than
+  categorically.
+- **"Exactly two consumers" overstated once test files count** (Acceptance Auditor, Medium): true for
+  production code, false if the story's own new test files are counted as consumers too, which they
+  trivially are. **Confirmed, corrected** to "only production consumer."
+- **"All six office seats" is internally inconsistent** (Acceptance Auditor, Medium, highest-value finding
+  of the six): the note named seven people under a "six seats" claim without ever stating that Primogen,
+  like Socialite, now has two concurrent holders. **Confirmed independently** — re-ran the live query
+  myself (`mcp__plugin_mongodb_mongodb__find`), got the same seven documents with the same
+  `court_category` values. **Corrected** to state plainly: seven characters, not six, because two
+  categories (not one) have concurrent holders, and the design source's six-seat model is already stale
+  against live data — a fact worth surfacing to whoever owns `content/rules/office-powers.md` next, not a
+  defect this story caused or should fix.
+- **CLAUDE.md failure-list claim overstated** (Acceptance Auditor, Medium): "names only #1115" is false —
+  CLAUDE.md also documents two Playwright failures. The narrower, always-intended claim (of the ten
+  *vitest* failures, only #1115 is documented) is true. **Confirmed, corrected** to specify vitest.
+- **Two line-count claims off by one** (Acceptance Auditor, Low): `office-tab.js` is 191 lines not 192,
+  `office-actions.js` is 120 not 121. **Confirmed by direct count, corrected.**
+
+**10. T4's live-character claim was unverifiable from the Auditor's own sandbox, not disputed.**
+*(Acceptance Auditor: Medium.)* Its own Atlas connection attempt failed with a network `EACCES` (different
+egress than this session's), it has no local `mongod`, and its fallback to the April dev-fixtures snapshot
+correctly showed several characters without a `court_category` — expected, since that snapshot predates
+their office assignments, not evidence against the claim. **Closed** two ways: the Auditor's own
+independently-built Chromium script rendered the identical content this story claimed, and I re-ran the
+exact live query myself during this triage and got an exact match on all six `_id`s. The claim is now
+independently confirmed, not merely unrefuted.
+
+**11. The full-regression 2330/2335 aggregate could not be independently reproduced** *(Acceptance
+Auditor: Low.)* Its sandbox has no local `mongod`, so a comparable full run wasn't possible there; it did
+independently confirm the 10 named files, the 5 failing tests among them, and that none references the
+changed files. **Noted honestly** rather than claimed as doubly-confirmed — the aggregate total rests on
+this session's own run alone.
+
+**12. No Senior Developer Review section existed at audit time.** *(Acceptance Auditor: Low.)* True when
+observed — this section is the resolution.
+
+### Outcome
+
+**No unresolved High or Medium finding remains.** Two real code defects found (both Medium, from multiple
+independent reviewers): the missing AC6/AC7 render-level test, and the false cost heading — both patched,
+both prove-discriminated with a revert/restore cycle, both covered by permanent regression tests. Six
+documentation-accuracy findings against this story's own record, all confirmed and corrected in place
+rather than argued away. One finding (T4's live-data claim) closed with fresh independent evidence rather
+than left as "unverifiable." One finding (the full-regression aggregate) honestly left as
+singly-confirmed, since a second independent run wasn't achievable in the reviewer's environment.
+
+Full regression, changed area: `issue-1141-office-data-sync.test.js` + `issue-1141-office-tab-render.test.js`
++ `feature.691.hos-city-status-power.test.js` — **55/55 passing.** `node --check` clean on both modified
+files. Diff vs `main`: `office-data.js` unchanged from the pre-review fix (25 insertions / 25 deletions),
+`office-tab.js` one line changed.
+
+**Status → `done`.**
