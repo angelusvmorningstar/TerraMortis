@@ -1,9 +1,11 @@
 /**
- * E2E — FIN epic: Check-In (fin.3) + Finance (fin.4) tabs
+ * E2E — FIN epic: Check-In (fin.3)
  *
  * Covers:
  *   fin.3 — Check-In tab label, payment methods, amount input, DNA grey-out, footer total
- *   fin.4 — Finance tab renders; takings breakdown; add expense/transfer; balance formula
+ *
+ * The fin.4 Finance tab tests were retired with #1135, which deleted the Finance
+ * tab from the Game App. The check-in survives and is what this file now covers.
  */
 
 const { test, expect } = require('@playwright/test');
@@ -77,43 +79,4 @@ test('fin.3: payment method dropdown uses fin.2 enum values', async ({ page }) =
   expect(options.some(o => /Exiles/i.test(o))).toBe(true);
   expect(options.some(o => /Waived/i.test(o))).toBe(true);
   // 'Did Not Attend' was retired in FIN-6; canonical signal is the attended checkbox.
-});
-
-// ── fin.4 — Finance tab ─────────────────────────────────────────────────────
-
-test('fin.4: Finance tab renders session selector', async ({ page }) => {
-  await setup(page);
-  await page.locator('#n-finance').click();
-  await page.waitForSelector('#fin-session-sel', { timeout: 5000 });
-  await expect(page.locator('#fin-session-sel')).toBeVisible();
-});
-
-test('fin.4: Finance tab renders card structure', async ({ page }) => {
-  await setup(page);
-  await page.locator('#n-finance').click();
-  await page.waitForSelector('.fin-card-title', { timeout: 5000 });
-  const titles = await page.locator('.fin-card-title').allTextContents();
-  expect(titles).toContain('Takings');
-  expect(titles).toContain('Expenses');
-  expect(titles).toContain('Transfers');
-  expect(titles).toContain('Balance');
-});
-
-test('fin.4: Add expense button adds a new row', async ({ page }) => {
-  await setup(page);
-  await page.locator('#n-finance').click();
-  await page.waitForSelector('#fin-add-expense');
-  const beforeCount = await page.locator('[data-kind="expense"]').count();
-  await page.locator('#fin-add-expense').click();
-  await page.waitForFunction((n) => document.querySelectorAll('[data-kind="expense"]').length > n, beforeCount);
-  const afterCount = await page.locator('[data-kind="expense"]').count();
-  expect(afterCount).toBeGreaterThan(beforeCount);
-});
-
-test('fin.4: running totals panel visible', async ({ page }) => {
-  await setup(page);
-  await page.locator('#n-finance').click();
-  await page.waitForSelector('.fin-totals', { timeout: 5000 });
-  await expect(page.locator('.fin-totals')).toContainText('Cumulative budget');
-  await expect(page.locator('.fin-totals')).toContainText('Games funded');
 });

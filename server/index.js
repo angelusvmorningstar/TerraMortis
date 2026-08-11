@@ -25,7 +25,6 @@ import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
 import ordealRubricsRouter from './routes/ordeal-rubrics.js';
 import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
-import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
 import {
@@ -108,7 +107,6 @@ app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
 app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
 app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
 app.use('/api/archive_documents', requireAuth, noCache(), archiveDocumentsRouter);
-app.use('/api/tickets', requireAuth, noCache(), ticketsRouter);
 // Rules engine — must mount before /api/rules (purchasable_powers) so Express
 // routes /api/rules/grant etc. to the engine, not the /:key wildcard.
 //
@@ -162,7 +160,9 @@ app.use('/api/territories', requireAuth, CACHE_5MIN, territoriesRouter);
 // Issue #255: per-user state (own characters) and mutates on every roll → no-cache.
 app.use('/api/tracker_state', requireAuth, noCache(), trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), noCache(), sessionsRouter);
-// Coordinator tier: needs read/write for check-in (fin.3) and finance (fin.4).
+// Coordinator tier: needs read/write for check-in (fin.3). The finance UI (fin.4)
+// was deleted by #1135, but the route keeps this tier for the check-in and the
+// session finance fields it still writes.
 // requireRole('coordinator') implicitly allows st/dev too.
 // Issue #255: live session state → no-cache.
 app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), noCache(), gameSessionsRouter);

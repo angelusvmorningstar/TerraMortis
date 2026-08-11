@@ -1,0 +1,3789 @@
+diff --git a/public/admin.html b/public/admin.html
+index 315e8082..83b2d819 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -18,7 +18,6 @@
+      admin surfaces emit. Asymmetry ends at P3 with admin.html. -->
+ <link rel="stylesheet" href="css/admin-shared.css">
+ <link rel="stylesheet" href="css/admin-spheres.css">
+-<link rel="stylesheet" href="css/admin-tickets.css">
+ <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+ <!-- Theme init: run before body renders to prevent flash -->
+ <script>
+@@ -65,7 +64,6 @@
+       <button class="sidebar-btn" data-domain="attendance">Attendance</button>
+       <button class="sidebar-btn" data-domain="data">Data</button>
+       <button class="sidebar-btn" data-domain="documents">Documents</button>
+-      <button class="sidebar-btn" data-domain="tickets">Tickets</button>
+       <button class="sidebar-btn" data-domain="rules">Rule Data</button>
+       <button class="sidebar-btn" data-domain="rde">Rules Engine</button>
+       <button class="sidebar-btn" data-domain="equipment-catalogue">Equipment Catalogue</button>
+@@ -187,11 +185,6 @@
+       <div id="documents-content"></div>
+     </section>
+ 
+-    <section id="d-tickets" class="domain">
+-      <div class="domain-header"><h2>Tickets</h2></div>
+-      <div id="tickets-admin-content"></div>
+-    </section>
+-
+     <section id="d-rules" class="domain">
+       <div class="domain-header">
+         <h2>Rule Data</h2>
+diff --git a/public/css/admin-tickets.css b/public/css/admin-tickets.css
+deleted file mode 100644
+index bc34ff1e..00000000
+--- a/public/css/admin-tickets.css
++++ /dev/null
+@@ -1,66 +0,0 @@
+-/* ══════════════════════════════════════════════
+-   Tickets surface stylesheet (ADR-008 D9 — scope separation)
+-
+-   Extracted verbatim from admin-layout.css by story ADM-1 (#1068).
+-   Declarations are UNCHANGED: scope separation moves rules between
+-   documents, it edits no values and makes no design judgement. That is
+-   what distinguishes it from reconcile (ADR-007 D5) and rename (D13).
+-
+-   Loaded two ways, deliberately asymmetric until admin.html retires in P3:
+-     index.html  — injected by the gated load path in app.js, getRole()
+-     admin.html  — static <link>
+-
+-   47 rules. Counted as rule blocks (selector list + declaration block)
+-   via a brace-depth parse with comments stripped, not as lines: the
+-   block spans 48 lines because it carries one interior comment.
+-   ══════════════════════════════════════════════ */
+-
+-/* ── Tickets admin domain ── */
+-.tk-admin { padding: 0; }
+-.tk-admin-split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+-.tk-admin-queue-panel { min-width: 0; }
+-/* Shared ticket form styles (mirrors player-layout.css tk-* rules for admin page) */
+-.tk-submit-form { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 16px; }
+-.tk-submit-form h4 { font-family: var(--fl); font-size: 14px; color: var(--accent); margin: 0 0 12px; }
+-.tk-form-row { margin-bottom: 10px; }
+-.tk-form-label { display: block; font-size: 12px; color: var(--txt3); margin-bottom: 4px; }
+-.tk-select, .tk-input { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; }
+-.tk-textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; resize: vertical; }
+-.tk-btn-submit { background: none; border: 1px solid var(--accent); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 18px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+-.tk-btn-submit:hover { background: var(--accent-a8); }
+-.tk-error { color: var(--crim); font-size: 12px; margin-top: 6px; }
+-.tk-empty { color: var(--txt3); font-style: italic; font-size: 13px; padding: 20px 0; }
+-.tk-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
+-.tk-badge-open { background: var(--accent-a8); color: var(--accent); }
+-.tk-badge-in_progress { background: var(--tk-inprog-bg); color: var(--tk-inprog-fg); }
+-.tk-badge-resolved { background: var(--tk-resolved-bg); color: var(--tk-resolved-fg); }
+-.tk-badge-closed { background: rgba(120,120,120,0.15); color: var(--txt3); }
+-.tk-badge-bug { background: var(--tk-bug-bg); color: var(--tk-bug-fg); }
+-.tk-badge-feature { background: var(--tk-feature-bg); color: var(--tk-feature-fg); }
+-.tk-badge-question { background: var(--tk-question-bg); color: var(--tk-question-fg); }
+-.tk-badge-sheet { background: var(--tk-sheet-bg); color: var(--tk-sheet-fg); }
+-.tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
+-.tk-filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+-.tk-filter-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+-.tk-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+-.tk-filter-btn-on { border-color: var(--accent); color: var(--accent); background: var(--accent-a8); }
+-.tk-admin-list { display: flex; flex-direction: column; gap: 6px; }
+-.tk-admin-row { background: var(--surf); border: 1px solid var(--bdr); border-radius: 5px; overflow: hidden; }
+-.tk-admin-row:hover { border-color: var(--accent); }
+-.tk-admin-row-expanded { border-color: var(--accent); }
+-.tk-admin-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; flex-wrap: wrap; }
+-.tk-admin-title { font-size: 13px; font-weight: 600; color: var(--txt1); flex: 1; min-width: 0; }
+-.tk-admin-sub { font-size: 11px; color: var(--txt3); }
+-.tk-admin-detail { padding: 0 12px 12px; border-top: 1px solid var(--bdr); }
+-.tk-admin-body { font-size: 13px; color: var(--txt2); white-space: pre-wrap; padding: 10px 0 8px; }
+-.tk-admin-controls { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-top: 8px; }
+-.tk-admin-note { flex: 1; min-width: 200px; }
+-.tk-admin-note label { display: block; font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
+-.tk-admin-note textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 12px; box-sizing: border-box; resize: vertical; }
+-.tk-status-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 5px 8px; font-size: 12px; }
+-.tk-priority-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+-.tk-priority-high { border-color: var(--crim); color: var(--result-pend); }
+-.tk-admin-edit-row { margin-bottom: 8px; padding-top: 10px; }
+-.tk-admin-edit-row label { display: block; font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
+-.tk-admin-edit-title { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 13px; font-weight: 600; box-sizing: border-box; }
+-.tk-admin-edit-body { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 13px; box-sizing: border-box; resize: vertical; }
+diff --git a/public/css/components.css b/public/css/components.css
+index d270a1b2..f1ebe192 100644
+--- a/public/css/components.css
++++ b/public/css/components.css
+@@ -604,110 +604,12 @@ html:not([data-theme="dark"]) .edit-icon {
+ .sh-ts-picker-textarea{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;padding:4px 6px;min-height:50px;resize:vertical;}
+ .sh-ts-picker-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+ 
+-/* ── NPCR.6 Player Relationships tab ── */
+-.rel-tab{padding:14px 16px 40px;max-width:860px;margin:0 auto;}
+-.rel-tab-head{border-bottom:1px solid var(--bdr);padding-bottom:10px;margin-bottom:12px;}
+-.rel-tab-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+-.rel-tab-title{font-family:var(--fh);font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin:0;}
+-.rel-tab-sub{font-family:var(--ft);font-size:12px;color:var(--txt3);margin-top:3px;}
+-
+-/* NPCR.7 Add Relationship picker */
+-.rel-add-btn{background:none;border:1px solid var(--accent);border-radius:4px;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;align-self:flex-start;}
+-.rel-add-btn:hover{background:var(--gold2-a12);}
+-.rel-add-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+-.rel-add-btn.primary:hover{opacity:.85;background:var(--accent);}
+-.rel-add-btn.muted{border-color:var(--bdr);color:var(--txt3);}
+-.rel-add-btn.muted:hover{border-color:var(--bdr2);color:var(--txt);background:var(--surf2);}
+-
+-.rel-add-form{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;}
+-.rel-add-form-head{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);padding-bottom:6px;border-bottom:1px solid var(--bdr);}
+-.rel-add-field{display:flex;flex-direction:column;gap:4px;}
+-.rel-add-field-label{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+-.rel-add-input{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt);font-family:var(--ft);font-size:13px;padding:6px 10px;outline:none;}
+-.rel-add-input:focus{border-color:var(--accent);}
+-.rel-add-textarea{resize:vertical;min-height:60px;font-family:var(--ft);line-height:1.5;}
+-.rel-add-loading{font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;padding:6px;}
+-.rel-add-actions{display:flex;gap:8px;margin-top:4px;}
+-
+-.rel-disp-chips{display:flex;gap:6px;flex-wrap:wrap;}
+-.rel-disp-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:12px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
+-.rel-disp-chip:hover{border-color:var(--bdr2);color:var(--txt);}
+-.rel-disp-chip.positive.on{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
+-.rel-disp-chip.neutral.on{color:var(--txt);border-color:var(--bdr2);}
+-.rel-disp-chip.negative.on{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+-.rel-disp-chip.clear.on{color:var(--accent);border-color:var(--accent);}
+-
+-/* NPCR.8 NPC-source mode toggle */
+-.rel-add-mode-chips{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0;}
+-.rel-add-mode-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:11px;letter-spacing:.06em;padding:5px 12px;}
+-.rel-add-mode-chip:hover{border-color:var(--bdr2);color:var(--txt);}
+-.rel-add-mode-chip.on{background:var(--gold2-a12);color:var(--accent);border-color:var(--accent);}
+-.rel-add-hint{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;padding:0 2px;}
+-
+-/* NPCR.11 Flag-for-review */
+-.rel-flag-btn{background:none;border:1px solid transparent;border-radius:10px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:12px;padding:1px 7px;line-height:1;}
+-.rel-flag-btn:hover{color:var(--err);border-color:var(--err);}
+-.rel-flag-chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
+-.rel-flag-chip.flagged{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+-.rel-flag-chip.resolved{color:var(--accent);border-color:var(--accent);background:var(--gold2-a12);cursor:pointer;text-transform:none;font-size:10px;letter-spacing:.02em;}
+-.rel-flag-chip.resolved:hover{background:var(--gold2-a25);}
+-
+-/* NPCR.10 Pending incoming banner */
+-.rel-pending-banner{display:flex;align-items:center;gap:12px;background:var(--gold2-a12);border:1px solid var(--accent);border-radius:6px;padding:10px 12px;margin-bottom:10px;flex-wrap:wrap;}
+-.rel-pending-text{flex:1;min-width:220px;font-family:var(--ft);font-size:13px;color:var(--txt);line-height:1.5;}
+-.rel-pending-text strong{color:var(--accent);font-weight:700;}
+-.rel-pending-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+-.rel-pending-state{font-family:var(--ft);font-size:12px;color:var(--txt2);font-style:italic;margin-top:4px;}
+-.rel-pending-actions{display:flex;gap:6px;flex-wrap:wrap;}
+-
+-/* NPCR.9 Edit own-edge controls */
+-.rel-edge-actions{display:flex;gap:6px;justify-content:flex-end;}
+-.rel-edit-btn{background:none;border:1px solid var(--bdr);border-radius:4px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;}
+-.rel-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+-.rel-edge-card-editing{border-color:var(--accent);}
+-.rel-edit-counter{font-family:var(--fl);font-size:10px;color:var(--txt3);text-align:right;}
+-.rel-edit-counter.over-cap,.rel-add-input.over-cap,.rel-add-textarea.over-cap{color:var(--err);border-color:var(--err);}
+-.rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
+-.rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
+-.rel-empty p{margin:0 0 6px;}
+-.rel-empty-title{font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent);margin-bottom:8px !important;}
+-.rel-empty strong{color:var(--accent);font-weight:700;}
+-.rel-empty-hint{font-size:11px;color:var(--txt3);font-style:italic;}
+-
+-.rel-family{border:1px solid var(--bdr);border-radius:6px;margin-bottom:10px;background:var(--surf);overflow:hidden;}
+-.rel-family-head{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;background:var(--surf2);border-bottom:1px solid var(--bdr);user-select:none;}
+-.rel-family-head:hover{background:var(--surf3);}
+-.rel-family-name{flex:1;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
+-.rel-family-count{font-family:var(--fl);font-size:10px;color:var(--txt3);padding:1px 6px;border:1px solid var(--bdr);border-radius:10px;}
+-.rel-family-caret{font-size:12px;color:var(--txt3);width:14px;text-align:center;}
+-.rel-family-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+-.rel-family.collapsed .rel-family-body{display:none;}
+-.rel-family.collapsed .rel-family-head{border-bottom:none;}
+-
+-.rel-edge-card{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;}
+-.rel-edge-head{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+-.rel-edge-head-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px;}
+-.rel-edge-name{font-family:var(--fh);font-size:14px;font-weight:700;color:var(--txt);}
+-.rel-edge-kind{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+-.rel-edge-head-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+-
+-.rel-disp{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
+-.rel-disp.positive{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
+-.rel-disp.neutral{color:var(--txt3);border-color:var(--bdr);background:var(--surf);}
+-.rel-disp.negative{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+-
+-.rel-status-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid var(--bdr);color:var(--txt3);background:var(--surf);}
+-.rel-status-chip.pending{color:var(--warn-dk);border-color:var(--warn-dk);background:var(--warn-dk-bg);}
+-.rel-status-chip.retired{opacity:.6;}
+-.rel-status-chip.rejected{color:var(--err);border-color:var(--err);}
+-
+-.rel-new-badge{font-family:var(--fl);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--accent);color:var(--bg);}
+-.rel-updated-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--gold2-a12);color:var(--accent);border:1px solid var(--accent);cursor:pointer;}
+-.rel-updated-chip:hover{background:var(--gold2-a25);}
+-
+-.rel-edge-state{font-family:var(--ft);font-size:12px;color:var(--txt2);line-height:1.5;position:relative;}
+-.rel-edge-state-more{background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:10px;padding:0 0 0 4px;text-decoration:underline;}
+-.rel-edge-state-full{display:none;}
++
++
++
++
++
++
+ 
+ /* Picker extras (NPCR.4) */
+ .sh-ts-picker-head{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:4px;}
+@@ -5311,9 +5213,12 @@ html:not([data-theme="dark"]) .char-picker__pill { font-weight: 600; }
+ /* ════════════════════════════════════════════════════════════════════
+    .npcr-modal — themed modal pattern (issue #93)
+    Promoted from admin-layout.css so non-admin surfaces (player.html, suite)
+-   that reference these classes (relationships-tab.js, dt-form.31 modal,
+-   etc.) pick up the styling. Verbatim move; rule bodies unchanged.
+-   Used by: relationships-tab.js, admin/npc-register.js, editor/edit.js.
++   that reference these classes (dt-form.31 modal, etc.) pick up the styling.
++   Verbatim move; rule bodies unchanged.
++   Used by: admin/npc-register.js, admin/relationship-editor.js, editor/edit.js,
++   tabs/downtime-form.js. (relationships-tab.js was also a user until #1135
++   deleted it; every npcr- class it touched is shared with those four, which is
++   why none of them could be removed with it.)
+    ════════════════════════════════════════════════════════════════════ */
+ /* Themed modal for resolve-note entry (replaces prompt()). */
+ .npcr-modal-overlay {
+diff --git a/public/css/suite.css b/public/css/suite.css
+index 758d917b..01e29016 100644
+--- a/public/css/suite.css
++++ b/public/css/suite.css
+@@ -1141,36 +1141,6 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
+ .si-footer { padding: 10px 16px; border-top: 1px solid var(--bdr); font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); }
+ .si-session-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 12px; padding: 6px 8px; flex: 1; min-height: 36px; cursor: pointer; }
+ 
+-/* ── Finance Tab ── */
+-#t-finance.active { display: flex; flex-direction: column; overflow-y: auto; padding: 12px; }
+-.fin-loading, .fin-empty { padding: 32px 20px; color: var(--txt3); font-family: var(--fl); font-size: 13px; text-align: center; }
+-.fin-header { margin-bottom: 12px; }
+-.fin-session-picker { font-family: var(--fl); font-size: 12px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.08em; }
+-.fin-session-picker select { margin-left: 8px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; padding: 6px 8px; text-transform: none; letter-spacing: 0; min-height: 36px; }
+-.fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+-.fin-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 12px; }
+-.fin-card-wide { grid-column: 1 / -1; }
+-.fin-card-title { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 8px; }
+-.fin-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; color: var(--txt); }
+-.fin-row-dim { color: var(--txt3); font-size: 12px; }
+-.fin-row-total { border-top: 1px solid var(--bdr); margin-top: 6px; padding-top: 6px; font-weight: 600; }
+-.fin-placeholder { font-size: 12px; color: var(--txt3); font-style: italic; margin: 4px 0; }
+-.fin-item { display: grid; grid-template-columns: 1fr 70px 120px 1fr 28px; gap: 4px; margin-bottom: 6px; align-items: center; }
+-.fin-item input { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 3px; color: var(--txt); font-family: var(--ft); font-size: 12px; padding: 4px 6px; min-height: 32px; }
+-.fin-rm-btn { background: none; border: none; color: var(--txt3); font-size: 16px; cursor: pointer; padding: 0; line-height: 1; }
+-.fin-rm-btn:hover { color: var(--crim); }
+-.fin-btn { margin-top: 6px; background: none; border: 1px dashed var(--bdr); color: var(--accent); font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+-.fin-btn:hover { background: var(--surf2); }
+-.fin-balance { font-family: var(--fh); font-size: 28px; font-weight: 600; margin: 8px 0; }
+-.fin-balance.pos { color: var(--accent); }
+-.fin-balance.neg { color: var(--crim); }
+-.fin-notes { width: 100%; min-height: 60px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; padding: 8px; resize: vertical; }
+-.fin-totals { display: flex; gap: 12px; padding: 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; }
+-.fin-totals-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+-.fin-totals-label { font-family: var(--fl); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--txt3); }
+-.fin-totals-val { font-family: var(--fh); font-size: 20px; font-weight: 600; color: var(--txt); }
+-.fin-totals-val.pos { color: var(--accent); }
+-.fin-totals-val.neg { color: var(--crim); }
+ /* Roll tab pool chips */
+ #roll-char-pools { padding: 8px 0 4px; }
+ #roll-char-pools .gcp-pool-chip { min-height: 44px; }
+@@ -1467,39 +1437,6 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
+   filter: invert(1) sepia(1) hue-rotate(300deg) brightness(0.30);
+ }
+ 
+-/* ── Primer tab (css-3) ── */
+-#t-primer.active { display: flex; flex-direction: column; overflow-y: auto; }
+-.primer-layout { display: flex; gap: 32px; align-items: flex-start; min-height: 100%; padding: 16px; }
+-/* details wrapper for collapsible ToC */
+-.primer-toc-details { width: 220px; flex-shrink: 0; position: sticky; top: 0; }
+-.primer-toc-details > summary { display: block; list-style: none; cursor: pointer; }
+-.primer-toc-details > summary::-webkit-details-marker { display: none; }
+-.primer-toc { overflow-y: auto; padding: 4px 0; max-height: calc(100vh - 40px); }
+-.primer-toc-title { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); margin-bottom: 10px; padding: 0 6px; }
+-.primer-toc-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+-.primer-toc-item { padding: 0; }
+-.primer-toc-h2 { padding-left: 0; }
+-.primer-toc-h3 { padding-left: 14px; }
+-.primer-toc-link { display: block; font-family: var(--fl); font-size: 12px; color: var(--accent); text-decoration: none; padding: 4px 6px; border-radius: 3px; line-height: 1.4; transition: color .15s, background .15s; }
+-.primer-toc-link:hover { color: var(--txt); background: var(--surf2); }
+-.primer-toc-link.primer-toc-active { color: var(--accent); background: var(--surf2); }
+-.primer-content { flex: 1; min-width: 0; overflow-y: auto; }
+-.primer-content h1,.primer-content h2 { font-family: var(--fh); color: var(--accent); margin: 20px 0 8px; letter-spacing: .04em; }
+-.primer-content h3,.primer-content h4 { font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--label-secondary); margin: 16px 0 6px; }
+-.primer-content p { font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.7; margin: 0 0 12px; }
+-.primer-content ul,.primer-content ol { font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.6; padding-left: 20px; margin-bottom: 12px; }
+-@media (max-width: 768px) {
+-  .primer-layout { flex-direction: column; gap: 0; padding: 0; }
+-  .primer-toc-details { position: static; width: 100%; border-bottom: 1px solid var(--bdr); background: var(--surf2); }
+-  .primer-toc-details > summary { padding: 10px 16px; font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); }
+-  .primer-toc-details > summary::after { content: ' ▼'; font-size: 9px; }
+-  .primer-toc-details[open] > summary::after { content: ' ▲'; }
+-  .primer-toc { padding: 8px 16px 12px; max-height: none; }
+-  .primer-toc-list { flex-direction: row; flex-wrap: wrap; gap: 4px 10px; }
+-  .primer-toc-h3 { padding-left: 0; }
+-  .primer-content { padding: 16px; }
+-}
+-
+ /* ── Combat tab ── */
+ .cbt-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+ .cbt-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; background: var(--surf); }
+@@ -1588,7 +1525,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
+ /* ── Tab display and padding baseline (css-4) ── */
+ /* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
+ #t-status.active,#t-downtime.active,#t-feeding.active,
+-#t-ordeals.active,#t-whos-who.active,
++#t-ordeals.active,
+ #t-regency.active,#t-office.active,#t-map.active,
+ #t-emergency.active,#t-archive.active {
+   display: flex;
+@@ -1597,7 +1534,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
+ }
+ /* Padding wrapper for plain-content tabs */
+ #t-feeding > *,
+-#t-ordeals > *,#t-whos-who > *,#t-regency > *,
++#t-ordeals > *,#t-regency > *,
+ #t-office > *,#t-emergency > * {
+   padding: 0 0 80px;
+ }
+@@ -1662,23 +1599,14 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
+   .status-split { flex-direction: row; gap: 24px; }
+ }
+ 
+-/* ── DT Submission + Primer — dark theme override (css-audit follow-up) ── */
++/* ── DT Submission — dark theme override (css-audit follow-up) ── */
+ /* .reading-pane in game app = dark theme, not parchment */
+ #t-downtime .reading-pane,
+-#t-feeding .reading-pane,
+-#t-primer .reading-pane {
++#t-feeding .reading-pane {
+   background: var(--bg);
+   color: var(--txt);
+   border-color: var(--bdr);
+ }
+-/* Primer headings — re-apply dark-safe tokens (overrides undefined --rp-head) */
+-#t-primer .reading-pane h1,
+-#t-primer .reading-pane h2 { color: var(--accent); }
+-#t-primer .reading-pane h3,
+-#t-primer .reading-pane h4 { color: var(--txt2); }
+-#t-primer .reading-pane p,
+-#t-primer .reading-pane ul,
+-#t-primer .reading-pane ol { color: var(--txt); }
+ 
+ /* Override parchment form elements → dark theme tokens */
+ #t-downtime .qf-input,
+@@ -2330,7 +2258,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ .settings-checkbox-row input { accent-color: var(--accent); width: 18px; height: 18px; }
+ .settings-input { display: block; width: 100%; padding: 8px 10px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; box-sizing: border-box; margin-bottom: 8px; }
+ .settings-input:focus { outline: none; border-color: var(--accent); }
+-.settings-ticket-form { display: flex; flex-direction: column; }
+ 
+ /* Safety / Emergency Contact form */
+ .settings-safety-form { display: flex; flex-direction: column; }
+@@ -2349,61 +2276,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
+ /* ── Reading font size (tunable via Settings) ── */
+ :root { --reading-font-size: 15px; }
+ 
+-/* ── Devlog Tab (player-facing) ──
+-   Recovered from issue #502 (commit 30f0490, never merged). Status names
+-   reconciled to the live schema: the orphaned 'drafted' becomes 'in_progress'
+-   (same amber treatment). All colours are theme vars, so it works in both the
+-   dark and parchment themes. */
+-.devlog-tab { padding: 16px 18px 32px; max-width: 700px; }
+-.devlog-section { margin-bottom: 32px; }
+-.devlog-section-heading {
+-  font-family: var(--fl); font-size: 11px; font-weight: 700;
+-  text-transform: uppercase; letter-spacing: .14em; color: var(--gold2);
+-  border-bottom: 1px solid var(--bdr2); padding-bottom: 6px; margin: 0 0 14px;
+-}
+-.devlog-card {
+-  background: var(--surf2); border: 1px solid var(--bdr2);
+-  border-left: 3px solid var(--bdr3); border-radius: 6px;
+-  padding: 13px 16px 11px; margin-bottom: 10px;
+-}
+-.devlog-card-header {
+-  display: flex; align-items: flex-start; justify-content: space-between;
+-  gap: 10px; margin-bottom: 8px;
+-}
+-.devlog-title {
+-  font-family: var(--fh); font-size: 14px; font-weight: 600;
+-  color: var(--txt); line-height: 1.35; flex: 1;
+-}
+-.devlog-status {
+-  flex-shrink: 0; align-self: flex-start; display: inline-block;
+-  padding: 3px 9px; border-radius: 4px; font-family: var(--fl);
+-  font-size: 10px; font-weight: 700; text-transform: uppercase;
+-  letter-spacing: .4px; white-space: nowrap;
+-}
+-/* Left-border accent matches status colour. */
+-.devlog-card:has(.devlog-status--considering) { border-left-color: var(--crim); }
+-.devlog-card:has(.devlog-status--in_progress) { border-left-color: var(--warn-orange); }
+-.devlog-card:has(.devlog-status--confirmed)   { border-left-color: var(--green-dk); }
+-/* RAG status chips. */
+-.devlog-status--considering { background: var(--crim-a8);        color: var(--crim2);       border: 1px solid var(--crim-a15); }
+-.devlog-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border: 1px solid var(--warn-orange-bdr); }
+-.devlog-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
+-.devlog-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
+-.devlog-status--deferred    { background: transparent;           color: var(--txt3);        border: 1px solid var(--bdr2); }
+-.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; white-space: pre-wrap; }
+-.devlog-target { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .03em; }
+-.devlog-resolved { margin-top: 4px; border-top: 1px solid var(--bdr); padding-top: 16px; }
+-.devlog-resolved-toggle {
+-  font-family: var(--fl); font-size: 12px; color: var(--txt3);
+-  cursor: pointer; user-select: none; letter-spacing: .04em; padding-bottom: 10px;
+-}
+-.devlog-resolved .devlog-card { opacity: .68; border-left-color: var(--bdr2) !important; }
+-
+-/* "Recently Shipped" — prominent, full-opacity, gold-accented so just-shipped
+-   entries read as news rather than archive (issue: implemented = looks old). */
+-.devlog-recent-heading { color: var(--gold); }
+-.devlog-recent .devlog-card { border-left-color: var(--gold2); }
+-
+ /* ── Office tab (suite app — #691) ── */
+ /* Note: player-layout.css has these too but index.html only loads suite.css */
+ 
+diff --git a/public/index.html b/public/index.html
+index 86e3ecc4..92942385 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -344,37 +344,27 @@
+     <div id="t-tracker" class="tab"></div>
+ 
+     <!-- ═══ RULES TAB ═══ -->
+-    <div id="t-rules" class="tab"></div>
+ 
+     <!-- ═══ STATUS TAB ═══ -->
+     <div id="t-status" class="tab"></div>
+ 
+     <!-- ═══ SIGN-IN TAB (ST only) ═══ -->
+     <div id="t-signin" class="tab"></div>
+-    <div id="t-finance" class="tab"></div>
+ 
+     <!-- ═══ MORE TAB — app grid launcher (Story 1.3) ═══ -->
+     <div id="t-more" class="tab"></div>
+ 
+     <!-- ═══ MORE GRID APP CONTAINERS (Story 1.3) — content wired in Epic 2 ═══ -->
+     <div id="t-map" class="tab"></div>
+-    <div id="t-whos-who" class="tab"></div>
+     <div id="t-downtime" class="tab"></div>
+     <div id="t-feeding" class="tab"></div>
+-    <div id="t-primer" class="tab"></div>
+-    <div id="t-game-guide" class="tab"></div>
+     <div id="t-ordeals" class="tab"></div>
+-    <div id="t-relationships" class="tab"></div>
+-    <!-- ST Tickets queue (ADM-1). Filled by initTicketsSurface from
+-         admin/tickets-views.js, gated on getRole(). -->
+     <!-- ST Spheres (#1096). The inner id is required: initSpheresView() takes no
+          container argument and looks up #spheres-content itself
+          (spheres-view.js:29). Providing the id here is what keeps that module
+          unmodified. Do not rename it or merge the two elements — goTab needs
+          the outer #t-spheres, the module needs the inner #spheres-content. -->
+     <div id="t-spheres" class="tab"><div id="spheres-content"></div></div>
+-    <div id="t-tickets" class="tab"></div>
+-    <div id="t-devlog" class="tab"></div>
+     <div id="t-emergency" class="tab"></div>
+     <div id="t-combat" class="tab"></div>
+     <div id="t-regency" class="tab"></div>
+diff --git a/public/js/admin.js b/public/js/admin.js
+index 3c784c91..4a48dfde 100644
+--- a/public/js/admin.js
++++ b/public/js/admin.js
+@@ -39,7 +39,6 @@ import { initDiceEngine } from './admin/dice-engine.js';
+ import { initDataPortabilityView } from './admin/data-portability.js';
+ import { initOrdealsAdminView } from './admin/ordeals-admin.js';
+ import { initPrimerAdmin } from './admin/primer-admin.js';
+-import { initTicketsView } from './admin/tickets-views.js';
+ import { initRulesView } from './admin/rules-view.js';
+ import { initRulesDataView } from './admin/rules-data-view.js';
+ import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
+@@ -328,7 +327,6 @@ function switchDomain(domain) {
+   if (domain === 'data') initDataPortabilityView(chars);
+   if (domain === 'ordeals') initOrdealsAdminView(chars);
+   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
+-  if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
+   if (domain === 'rules') initRulesView(document.getElementById('rules-content'), chars);
+   if (domain === 'rde') initRulesDataView(document.getElementById('rde-content'));
+   if (domain === 'equipment-catalogue') initEquipmentCatalogueAdmin(document.getElementById('equipment-catalogue-content'), chars);
+diff --git a/public/js/admin/tickets-views.js b/public/js/admin/tickets-views.js
+deleted file mode 100644
+index 48cc98a0..00000000
+--- a/public/js/admin/tickets-views.js
++++ /dev/null
+@@ -1,298 +0,0 @@
+-/* Tickets admin view — ST queue management */
+-
+-import { apiGet, apiPost, apiPut } from '../data/api.js';
+-import { esc } from '../data/helpers.js';
+-
+-const TYPE_LABELS = {
+-  bug:      'Bug',
+-  feature:  'Feature',
+-  question: 'Question',
+-  sheet:    'Sheet Issue',
+-  other:    'Other',
+-};
+-
+-const STATUS_LABELS = {
+-  open:        'Open',
+-  in_progress: 'In Progress',
+-  resolved:    'Resolved',
+-  closed:      'Closed',
+-};
+-
+-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'closed'];
+-const FILTER_OPTIONS = ['all', 'open', 'in_progress', 'resolved', 'closed'];
+-
+-function formatDate(iso) {
+-  if (!iso) return '';
+-  const d = new Date(iso);
+-  const dd  = String(d.getDate()).padStart(2, '0');
+-  const mon = d.toLocaleString('en-GB', { month: 'short' });
+-  const yr  = d.getFullYear();
+-  return `${dd} ${mon} ${yr}`;
+-}
+-
+-function buildBadge(cls, label) {
+-  return `<span class="tk-badge ${esc(cls)}">${esc(label)}</span>`;
+-}
+-
+-const TYPE_OPTIONS = ['bug', 'feature', 'question', 'other'];
+-
+-export async function initTicketsView(containerEl) {
+-  if (!containerEl) return;
+-
+-  let allTickets   = [];
+-  let activeFilter = 'all';
+-  let expandedId   = null;
+-
+-  containerEl.innerHTML = `
+-    <div class="tk-admin-split">
+-      <div class="tk-submit-form">
+-        <h4>Submit a Ticket</h4>
+-        <div class="tk-form-row">
+-          <label class="tk-form-label" for="tk-adm-type">Type</label>
+-          <select class="tk-select" id="tk-adm-type">
+-            <option value="bug">Bug Report</option>
+-            <option value="feature">Feature Request</option>
+-            <option value="question">Question</option>
+-            <option value="sheet">Sheet Issue</option>
+-            <option value="other">Other</option>
+-          </select>
+-        </div>
+-        <div class="tk-form-row">
+-          <label class="tk-form-label" for="tk-adm-title">Title</label>
+-          <input class="tk-input" id="tk-adm-title" type="text" placeholder="Short summary" maxlength="200">
+-        </div>
+-        <div class="tk-form-row">
+-          <label class="tk-form-label" for="tk-adm-body">Details</label>
+-          <textarea class="tk-textarea" id="tk-adm-body" rows="5" placeholder="Describe the issue or request..."></textarea>
+-        </div>
+-        <div id="tk-adm-error" class="tk-error" style="display:none"></div>
+-        <button class="tk-btn-submit" id="tk-adm-submit">Submit</button>
+-      </div>
+-      <div class="tk-admin-queue-panel">
+-        <div id="tk-adm-inner"></div>
+-      </div>
+-    </div>`;
+-
+-  const typeEl   = containerEl.querySelector('#tk-adm-type');
+-  const titleEl  = containerEl.querySelector('#tk-adm-title');
+-  const bodyEl   = containerEl.querySelector('#tk-adm-body');
+-  const errorEl  = containerEl.querySelector('#tk-adm-error');
+-  const submitEl = containerEl.querySelector('#tk-adm-submit');
+-
+-  submitEl.addEventListener('click', async () => {
+-    errorEl.style.display = 'none';
+-    const title = titleEl.value.trim();
+-    const body  = bodyEl.value.trim();
+-    const type  = typeEl.value;
+-    if (!title) {
+-      errorEl.textContent = 'Title is required.';
+-      errorEl.style.display = '';
+-      return;
+-    }
+-    submitEl.disabled = true;
+-    try {
+-      await apiPost('/api/tickets', { title, body, type });
+-      titleEl.value = '';
+-      bodyEl.value  = '';
+-      typeEl.value  = 'bug';
+-      await load();
+-    } catch (err) {
+-      errorEl.textContent = err.message || 'Failed to submit ticket.';
+-      errorEl.style.display = '';
+-    } finally {
+-      submitEl.disabled = false;
+-    }
+-  });
+-
+-  const inner = containerEl.querySelector('#tk-adm-inner');
+-
+-  async function load() {
+-    try {
+-      allTickets = await apiGet('/api/tickets');
+-    } catch (err) {
+-      inner.innerHTML = `<p class="tk-empty">Failed to load tickets: ${esc(err.message)}</p>`;
+-      return;
+-    }
+-    render();
+-  }
+-
+-  function countByStatus(status) {
+-    if (status === 'all') return allTickets.length;
+-    return allTickets.filter(t => t.status === status).length;
+-  }
+-
+-  function filtered() {
+-    if (activeFilter === 'all') return allTickets;
+-    return allTickets.filter(t => t.status === activeFilter);
+-  }
+-
+-  function filterLabel(f) {
+-    if (f === 'all') return 'All';
+-    return STATUS_LABELS[f] || f;
+-  }
+-
+-  function render() {
+-    const tickets = filtered();
+-
+-    const filterBar = FILTER_OPTIONS.map(f => {
+-      const on = f === activeFilter ? ' tk-filter-btn-on' : '';
+-      const count = countByStatus(f);
+-      return `<button class="tk-filter-btn${on}" data-filter="${esc(f)}">${esc(filterLabel(f))} (${count})</button>`;
+-    }).join('');
+-
+-    let listHtml;
+-    if (!tickets.length) {
+-      listHtml = `<p class="tk-empty">No tickets.</p>`;
+-    } else {
+-      listHtml = `<div class="tk-admin-list">` + tickets.map(t => {
+-        const isExpanded = String(t._id) === expandedId;
+-        const typeBadge   = buildBadge(`tk-badge-${t.type}`,   TYPE_LABELS[t.type]   || esc(t.type));
+-        const statusBadge = buildBadge(`tk-badge-${t.status}`, STATUS_LABELS[t.status] || esc(t.status));
+-        const date        = formatDate(t.created_at);
+-        const priorityHigh = t.priority === 'high';
+-
+-        let detailHtml = '';
+-        if (isExpanded) {
+-          const statusOpts = STATUS_OPTIONS.map(s =>
+-            `<option value="${s}"${t.status === s ? ' selected' : ''}>${esc(STATUS_LABELS[s])}</option>`
+-          ).join('');
+-
+-          detailHtml = `
+-            <div class="tk-admin-detail">
+-              <div class="tk-admin-edit-row">
+-                <label>Title</label>
+-                <input class="tk-input tk-admin-edit-title" data-id="${esc(String(t._id))}" value="${esc(t.title)}" maxlength="200">
+-              </div>
+-              <div class="tk-admin-edit-row">
+-                <label>Body</label>
+-                <textarea class="tk-textarea tk-admin-edit-body" data-id="${esc(String(t._id))}" rows="4">${esc(t.body || '')}</textarea>
+-              </div>
+-              <div class="tk-admin-controls">
+-                <div class="tk-admin-note">
+-                  <label>ST Note</label>
+-                  <textarea rows="3" data-id="${esc(String(t._id))}" data-field="st_note">${esc(t.st_note || '')}</textarea>
+-                </div>
+-                <div style="display:flex;flex-direction:column;gap:8px;align-self:flex-end;">
+-                  <select class="tk-status-sel" data-id="${esc(String(t._id))}" data-field="status">${statusOpts}</select>
+-                  <button class="tk-priority-btn${priorityHigh ? ' tk-priority-high' : ''}" data-id="${esc(String(t._id))}" data-priority="${priorityHigh ? 'normal' : 'high'}">
+-                    Priority: ${priorityHigh ? 'High' : 'Normal'}
+-                  </button>
+-                </div>
+-              </div>
+-            </div>`;
+-        }
+-
+-        const rowClass = isExpanded ? ' tk-admin-row-expanded' : '';
+-        return `
+-          <div class="tk-admin-row${rowClass}" data-id="${esc(String(t._id))}">
+-            <div class="tk-admin-top" data-toggle="${esc(String(t._id))}">
+-              <span class="tk-admin-title">${esc(t.title)}</span>
+-              ${typeBadge}
+-              ${statusBadge}
+-              <span class="tk-admin-sub">${esc(t.submitted_by || '')} &middot; ${esc(date)}</span>
+-            </div>
+-            ${detailHtml}
+-          </div>`;
+-      }).join('') + `</div>`;
+-    }
+-
+-    inner.innerHTML = `
+-      <div class="tk-filter-bar">${filterBar}</div>
+-      ${listHtml}`;
+-
+-    bindEvents();
+-  }
+-
+-  function bindEvents() {
+-    // Filter buttons
+-    inner.querySelectorAll('.tk-filter-btn').forEach(btn => {
+-      btn.addEventListener('click', () => {
+-        activeFilter = btn.dataset.filter;
+-        render();
+-      });
+-    });
+-
+-    // Row expand/collapse
+-    inner.querySelectorAll('[data-toggle]').forEach(el => {
+-      el.addEventListener('click', () => {
+-        const id = el.dataset.toggle;
+-        expandedId = expandedId === id ? null : id;
+-        render();
+-      });
+-    });
+-
+-    // Status select — save on change
+-    inner.querySelectorAll('.tk-status-sel').forEach(sel => {
+-      sel.addEventListener('change', async () => {
+-        const id = sel.dataset.id;
+-        try {
+-          await apiPut(`/api/tickets/${id}`, { status: sel.value });
+-          const t = allTickets.find(x => String(x._id) === id);
+-          if (t) { t.status = sel.value; if (sel.value === 'resolved' || sel.value === 'closed') t.resolved_at = new Date().toISOString(); }
+-          render();
+-        } catch (err) {
+-          // Silently re-render to revert selection
+-          render();
+-        }
+-      });
+-    });
+-
+-    // ST Note textarea — save on blur
+-    inner.querySelectorAll('.tk-admin-note textarea').forEach(ta => {
+-      ta.addEventListener('blur', async () => {
+-        const id = ta.dataset.id;
+-        try {
+-          await apiPut(`/api/tickets/${id}`, { st_note: ta.value });
+-          const t = allTickets.find(x => String(x._id) === id);
+-          if (t) t.st_note = ta.value;
+-        } catch (_) {
+-          // No visible feedback needed — note will persist in textarea
+-        }
+-      });
+-    });
+-
+-    // Title input — save on blur
+-    inner.querySelectorAll('.tk-admin-edit-title').forEach(inp => {
+-      inp.addEventListener('blur', async () => {
+-        const id  = inp.dataset.id;
+-        const val = inp.value.trim();
+-        if (!val) { inp.value = allTickets.find(x => String(x._id) === id)?.title || ''; return; }
+-        try {
+-          await apiPut(`/api/tickets/${id}`, { title: val });
+-          const t = allTickets.find(x => String(x._id) === id);
+-          if (t) t.title = val;
+-        } catch (_) {}
+-      });
+-    });
+-
+-    // Body textarea — save on blur
+-    inner.querySelectorAll('.tk-admin-edit-body').forEach(ta => {
+-      ta.addEventListener('blur', async () => {
+-        const id = ta.dataset.id;
+-        try {
+-          await apiPut(`/api/tickets/${id}`, { body: ta.value });
+-          const t = allTickets.find(x => String(x._id) === id);
+-          if (t) t.body = ta.value;
+-        } catch (_) {}
+-      });
+-    });
+-
+-    // Priority toggle button
+-    inner.querySelectorAll('.tk-priority-btn').forEach(btn => {
+-      btn.addEventListener('click', async () => {
+-        const id       = btn.dataset.id;
+-        const newPriority = btn.dataset.priority;
+-        try {
+-          await apiPut(`/api/tickets/${id}`, { priority: newPriority });
+-          const t = allTickets.find(x => String(x._id) === id);
+-          if (t) t.priority = newPriority;
+-          render();
+-        } catch (_) {
+-          render();
+-        }
+-      });
+-    });
+-  }
+-
+-  await load();
+-}
+diff --git a/public/js/app.js b/public/js/app.js
+index 0dada9d3..4976296a 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -64,22 +64,19 @@ import { initWS } from './data/ws.js';
+ // a page reload.
+ import { loadCatalogue as loadEquipmentCatalogue, refetchCatalogue as refetchEquipmentCatalogue } from './data/equipment-catalogue-cache.js';
+ import { initSignIn } from './game/signin-tab.js';
+-import { initFinanceTab } from './game/finance-tab.js';
+ import { renderEmergencyTab } from './game/emergency-tab.js';
+ import { initCombatTab } from './game/combat-tab.js';
+-import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
++// The Rules TAB was deleted with #1135; the sheet's Rules button still opens the
++// overlay, so openRulesOverlay/closeRulesOverlay stay (exposed on window below).
++import { openRulesOverlay, closeRulesOverlay } from './game/rules.js';
+ // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
+ import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
+ import { renderStatusTab } from './tabs/status-tab.js';
+-import { renderPrimerTab } from './tabs/primer-tab.js';
+ import { initOrdeals } from './tabs/ordeals-view.js';
+ import { renderRegencyTab } from './tabs/regency-tab.js';
+ import { renderOfficeTab } from './tabs/office-tab.js';
+-import { renderRelationshipsTab } from './tabs/relationships-tab.js';
+-import { renderCityTab } from './tabs/city-tab.js';
+ import { initArchiveTab } from './tabs/archive-tab.js';
+ import { renderFeedingTab } from './tabs/feeding-tab.js';
+-import { renderDevlogTab } from './tabs/devlog-tab.js';
+ import { findRegentTerritory } from './data/helpers.js';
+ import { printSheet, printPDF, exportJSON } from './editor/print.js';
+ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
+@@ -96,7 +93,7 @@ import {
+   setImportCallbacks,
+ } from './suite/import.js';
+ import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
+-import { apiGet, apiPost, apiPut } from './data/api.js';
++import { apiGet, apiPut } from './data/api.js';
+ import { loadGameXP } from './data/game-xp.js';
+ import { loadDowntimeHoldFlag } from './data/dt-hold-flag.js';
+ import { applyDerivedMerits } from './editor/mci.js';
+@@ -352,7 +349,6 @@ const TAB_SUBTITLES = {
+   sheets: 'Sheets',
+   territory: 'Territory',
+   tracker: 'Live Tracker',
+-  rules: 'Rules Reference',
+   // Unified nav tab names
+   dice: 'Dice',
+   sheet: 'Sheet',
+@@ -364,7 +360,6 @@ const TAB_SUBTITLES = {
+   territory: 'Territory',
+   more: 'More',
+   settings: 'Settings',
+-  devlog: 'Devlog',
+ };
+ 
+ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
+@@ -393,20 +388,14 @@ const NAV_ITEMS = [
+   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
+   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
+   { id: 'misc',      label: 'Info',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
+-  { id: 'whos-who',  label: 'World',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', goTab: 'whos-who' },
+   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
+   { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
+   { id: 'ordeals',   label: 'XP',        icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
+-  { id: 'devlog',    label: 'Devlog',    icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', goTab: 'devlog' },
+-  { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
+-  { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
+-  { id: 'rules',     label: 'Rules',     icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>', goTab: 'rules', guide: true },
+   // ST only
+   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
+   { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>', goTab: 'tracker', stOnly: true },
+   { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
+   { id: 'signin',    label: 'Check-In',  icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', coordinatorOnly: true },
+-  { id: 'finance',   label: 'Finance',   icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', goTab: 'finance', coordinatorOnly: true },
+   { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', coordinatorOnly: true },
+   // Conditional
+   { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M6 5a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/><path d="M18 5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>', goTab: 'regency', condition: 'hasRegency' },
+@@ -489,10 +478,8 @@ function goTab(t) {
+   // Tab-specific init
+   if (t === 'territory') mountTerr();
+   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
+-  if (t === 'rules') initRules(document.getElementById('t-rules'));
+   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
+   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
+-  if (t === 'finance') initFinanceTab(document.getElementById('t-finance'));
+ 
+   // ── Unified nav tab init ──────────────────────────────────────────────────
+   if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
+@@ -540,10 +527,6 @@ function goTab(t) {
+     const terrs = suiteState.territories || [];
+     if (el && char) renderRegencyTab(el, char, terrs);
+   }
+-  if (t === 'whos-who') {
+-    const el = document.getElementById('t-whos-who');
+-    if (el && !el.innerHTML.trim()) renderCityTab(el, suiteState.territories || []);
+-  }
+   if (t === 'office') {
+     const el = document.getElementById('t-office');
+     const char = _activeMoreChar();
+@@ -568,26 +551,11 @@ function goTab(t) {
+   if (t === 'status') {
+     // Status tab is also the primary nav #3 — handled above; this covers More grid access
+   }
+-  if (t === 'primer') {
+-    const el = document.getElementById('t-primer');
+-    if (el) renderPrimerTab(el);
+-  }
+-  if (t === 'game-guide') {
+-    const el = document.getElementById('t-game-guide');
+-    if (el && !el.innerHTML.trim()) {
+-      el.innerHTML = '<div style="padding:32px 20px;max-width:480px;margin:0 auto"><p class="sh-sec-title">Game Guide</p><p style="font-family:var(--ft);font-size:14px;color:var(--txt2);line-height:1.7;margin-top:12px">Content coming soon. Ask your Storyteller.</p></div>';
+-    }
+-  }
+   if (t === 'ordeals') {
+     const el = document.getElementById('t-ordeals');
+     const char = _activeMoreChar();
+     if (el && char) initOrdeals(char, suiteState.chars, el);
+   }
+-  if (t === 'relationships') {
+-    const el = document.getElementById('t-relationships');
+-    const char = _activeMoreChar();
+-    if (el && char) renderRelationshipsTab(el, char);
+-  }
+   if (t === 'emergency') {
+     const el = document.getElementById('t-emergency');
+     if (el && !el.innerHTML.trim()) renderEmergencyTab(el);
+@@ -597,11 +565,6 @@ function goTab(t) {
+     if (el) initCombatTab(el);
+   }
+   if (t === 'spheres') initSpheresSurface(document.getElementById('t-spheres'));
+-  if (t === 'tickets') initTicketsSurface(document.getElementById('t-tickets'));
+-  if (t === 'devlog') {
+-    const el = document.getElementById('t-devlog');
+-    if (el) renderDevlogTab(el);
+-  }
+   if (t === 'chars') {
+     // Sheet tab: ST sees 3-col character picker; player sees their own sheet
+     const role = getRole();
+@@ -630,9 +593,14 @@ function populateSuiteDropdowns(chars) {
+   }
+ }
+ 
+-// Tickets surface (ADM-1 pilot, ADR-008 D4/D9). The ST ticket queue renders here
+-// from the same module admin.html uses — admin/tickets-views.js is the surface,
+-// not a reference implementation, so there is no second copy to drift.
++// Spheres surface (ADM P1 surface 2, #1096). This is now the REFERENCE
++// IMPLEMENTATION of the ADR-008 D4/D9 loading pattern: the Tickets pilot
++// established it, and #1135 scrapped the ticket system, so the pattern lives
++// here. Its one structural quirk: initSpheresView() takes NO container argument
++// and calls document.getElementById('spheres-content') itself
++// (spheres-view.js:29). index.html therefore provides that id as a child of the
++// tab container, which is what keeps spheres-view.js unmodified. Do not add a
++// container parameter to the module.
+ //
+ // Gated on getRole(), NOT effectiveRole(): whether to fetch admin code is a
+ // question of authority, and effectiveRole() reports 'player' for a real ST in
+@@ -642,12 +610,6 @@ function populateSuiteDropdowns(chars) {
+ // Module and stylesheet are fetched CONCURRENTLY and both awaited before render:
+ // awaiting them in series would add a round trip, and rendering before the sheet
+ // resolves would flash unstyled. Neither trade is necessary.
+-// Spheres surface (ADM P1 surface 2, #1096). Same shape as Tickets with one
+-// structural difference: initSpheresView() takes NO container argument and
+-// calls document.getElementById('spheres-content') itself (spheres-view.js:29).
+-// index.html therefore provides that id as a child of the tab container, which
+-// is what keeps spheres-view.js unmodified — the property that made Tickets
+-// clean. Do not add a container parameter to the module.
+ async function initSpheresSurface(el) {
+   if (!el) return;
+   const role = getRole();
+@@ -677,23 +639,6 @@ async function initSpheresSurface(el) {
+   }
+ }
+ 
+-async function initTicketsSurface(el) {
+-  if (!el) return;
+-  const role = getRole();
+-  if (role !== 'st' && role !== 'dev') return;
+-
+-  try {
+-    const [mod] = await Promise.all([
+-      import('./admin/tickets-views.js'),
+-      loadSurfaceSheet('css/admin-tickets.css'),
+-    ]);
+-    await mod.initTicketsView(el);
+-  } catch (err) {
+-    console.error('[tickets] surface failed to load:', err);
+-    el.innerHTML = '<div class="tk-empty">Tickets failed to load. Reload the page or check your connection.</div>';
+-  }
+-}
+-
+ async function loadAllData() {
+   const isST = getRole() === 'st';
+ 
+@@ -1690,7 +1635,6 @@ const _svg = {
+ const MORE_APPS = [
+   // ── Game section ──
+   // Note: Status is a primary nav tab — not duplicated here
+-  { id: 'whos-who',     label: 'World',       icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', section: 'game' },
+   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
+   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
+   // ── Player section (player role only) ──
+@@ -1702,33 +1646,22 @@ const MORE_APPS = [
+     }
+   },
+   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
+-  { id: 'relationships', label: 'NPCs', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'st', stOnly: true },
+-  // The player-side Tickets tab was retired in ADM-1 Stage A; players submit via
+-  // Settings. The ST queue below is the admin surface, merged in Stage B.
+   // Challenge tile hidden (#1015). The click-handler + modal (openChallengeModal) remain wired for future programmatic use.
+-  // ── Lore section (gated by show_guides setting) ──
+-  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
+-  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore', guide: true },
+-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore', guide: true },
+   // ── Storyteller section (ST role only) ──
+   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
+   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
+-  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>', section: 'st', stOnly: true },
+   { id: 'spheres',      label: 'Spheres',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>', section: 'st', stOnly: true },
+   { id: 'signin',       label: 'Check-In',    icon: _svg.signin,   section: 'st', coordinatorOnly: true },
+-  { id: 'finance',      label: 'Finance',     icon: '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', section: 'st', coordinatorOnly: true },
+   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
+   // ── Conditional apps (section determined by context) ──
+   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
+   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
+   { id: 'archive',      label: 'Story',       icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', section: 'player' },
+-  { id: 'devlog',      label: 'Devlog',      icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', section: 'player' },
+ ];
+ 
+ const MORE_SECTIONS = [
+   { id: 'game',   label: 'Game' },
+   { id: 'player', label: 'Player' },
+-  { id: 'lore',   label: 'Lore' },
+   { id: 'st',     label: 'Storyteller' },
+ ];
+ 
+@@ -1876,18 +1809,6 @@ function renderSettingsTab() {
+     h += '</div>';
+   }
+ 
+-  // Submit a Ticket
+-  h += '<div class="settings-section">';
+-  h += '<div class="settings-section-label">Submit a Ticket</div>';
+-  h += '<div class="settings-ticket-form">';
+-  h += '<select class="settings-input" id="stk-type"><option value="bug">Bug Report</option><option value="feature">Feature Request</option><option value="question">Question</option><option value="sheet">Sheet Issue</option><option value="other">Other</option></select>';
+-  h += '<input class="settings-input" id="stk-title" type="text" placeholder="Short summary" maxlength="200">';
+-  h += '<textarea class="settings-input" id="stk-body" rows="4" placeholder="Describe the issue or request..."></textarea>';
+-  h += '<div id="stk-status" style="display:none"></div>';
+-  h += '<button class="settings-btn" id="stk-submit">Submit Ticket</button>';
+-  h += '</div>';
+-  h += '</div>';
+-
+   h += '</div>';
+   el.innerHTML = h;
+ 
+@@ -1945,23 +1866,6 @@ function renderSettingsTab() {
+     location.reload();
+   });
+ 
+-  // Wire ticket submit
+-  el.querySelector('#stk-submit')?.addEventListener('click', async () => {
+-    const type  = el.querySelector('#stk-type')?.value || 'other';
+-    const title = el.querySelector('#stk-title')?.value?.trim();
+-    const body  = el.querySelector('#stk-body')?.value?.trim();
+-    const statusEl = el.querySelector('#stk-status');
+-    if (!title) { statusEl.textContent = 'Title is required.'; statusEl.style.display = ''; statusEl.style.color = 'var(--crim)'; return; }
+-    statusEl.textContent = 'Submitting\u2026'; statusEl.style.display = ''; statusEl.style.color = 'var(--txt3)';
+-    try {
+-      await apiPost('/api/tickets', { type, title, body: body || '' });
+-      statusEl.textContent = 'Ticket submitted!'; statusEl.style.color = 'var(--green2)';
+-      el.querySelector('#stk-title').value = '';
+-      el.querySelector('#stk-body').value = '';
+-    } catch (err) {
+-      statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
+-    }
+-  });
+ }
+ 
+ async function _loadSafetyForm(container) {
+diff --git a/public/js/dev-fixtures.js b/public/js/dev-fixtures.js
+index 4bca4ad3..7337d2c6 100644
+--- a/public/js/dev-fixtures.js
++++ b/public/js/dev-fixtures.js
+@@ -78,8 +78,6 @@ window.fetch=function devFix(url,opts){
+   if(method==='POST'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'){var b=opts.body?JSON.parse(opts.body):{};return _mock({_id:'flag_dev_'+Date.now(),section_key:b.section_key,section_idx:b.section_idx??null,category:b.category,reason:b.reason||'',created_at:new Date().toISOString(),player_id:'dev',status:'open',resolved_at:null,resolution_note:null},201);}
+   if(method==='PATCH'&&seg[0]==='downtime_submissions'&&seg[2]==='section-flag'&&seg[3]){var pb=opts.body?JSON.parse(opts.body):{};return _mock({_id:seg[3],status:pb.status||'resolved',resolution_note:pb.resolution_note||null,resolved_at:new Date().toISOString()});}
+   if(method==='GET'&&seg[0]==='game_sessions')return _mock(GAME_SESSIONS);
+-  if(method==='GET'&&seg[0]==='tickets')return _mock([]);
+-  if(method==='POST'&&seg[0]==='tickets')return _mock({_id:'tk_dev',status:'open'},201);
+   if(method==='GET'&&seg[0]==='archive_documents')return _mock([]);
+   if(method==='GET'&&seg[0]==='health')return _mock({ok:true});
+   if(method==='GET'&&seg[0]==='players'&&seg[1]==='display-names'){return _mock(CHARS.filter(function(c){return c.player;}).map(function(c){return{character_id:String(c._id),display_name:c.player};}));}
+diff --git a/public/js/dt-proto-boot.js b/public/js/dt-proto-boot.js
+index 47ade2ea..8f55858f 100644
+--- a/public/js/dt-proto-boot.js
++++ b/public/js/dt-proto-boot.js
+@@ -75,7 +75,6 @@ window.fetch = function shimFetch(url, opts = {}) {
+     if (seg[0] === 'npc_personas') return ok([]);
+     if (seg[0] === 'settings') return ok({});
+     if (seg[0] === 'project_invitations') return ok([]);
+-    if (seg[0] === 'tickets') return ok([]);
+     if (seg[0] === 'tracker_state') return ok(null, 404);
+     if (seg[0] === 'auth') return ok({ role: 'st', username: 'Proto ST' });
+ 
+diff --git a/public/js/game/finance-tab.js b/public/js/game/finance-tab.js
+deleted file mode 100644
+index ec792744..00000000
+--- a/public/js/game/finance-tab.js
++++ /dev/null
+@@ -1,295 +0,0 @@
+-/**
+- * finance-tab.js — Per-session finance view for coordinators and STs.
+- *
+- * Shows:
+- *   - Session selector dropdown (all sessions, newest first)
+- *   - Per-game panel: takings breakdown, expenses[], transfers[], balance, notes
+- *   - Running totals panel: cumulative budget, games funded
+- *
+- * All edits auto-save to /api/game_sessions/:id via PUT.
+- */
+-
+-import { apiGet, apiPut } from '../data/api.js';
+-import { esc } from '../data/helpers.js';
+-import { readPayment } from './payment-helpers.js';
+-
+-let _el = null;
+-let _sessions = [];
+-let _selectedId = null;
+-let _saveTimer = null;
+-let _pendingSession = null;
+-
+-// ── Lifecycle ────────────────────────────────────────────────────────────────
+-
+-export async function initFinanceTab(el) {
+-  _el = el;
+-  el.innerHTML = '<div class="fin-loading">Loading sessions…</div>';
+-  try {
+-    _sessions = await apiGet('/api/game_sessions');
+-    _sessions.sort((a, b) => (b.session_date || '').localeCompare(a.session_date || ''));
+-  } catch {
+-    el.innerHTML = '<div class="fin-empty">Could not load sessions.</div>';
+-    return;
+-  }
+-  if (!_sessions.length) {
+-    el.innerHTML = '<div class="fin-empty">No game sessions yet.</div>';
+-    return;
+-  }
+-  _selectedId = _selectedId || _sessions[0]._id;
+-  render();
+-}
+-
+-// ── Derived calculations ────────────────────────────────────────────────────
+-
+-function derivePayments(session) {
+-  const byMethod = { cash: 0, payid: 0, paypal: 0, transfer: 0, exiles: 0 };
+-  const counts  = { cash: 0, payid: 0, paypal: 0, transfer: 0, exiles: 0, waived: 0 };
+-  for (const entry of session.attendance || []) {
+-    const { method, amount } = readPayment(entry);
+-    if (!method) continue;
+-    counts[method] = (counts[method] || 0) + 1;
+-    if (byMethod[method] !== undefined) byMethod[method] += amount;
+-  }
+-  // Exiles is offset/credit, not real cash collected. Transfer is collected.
+-  const collected = byMethod.cash + byMethod.payid + byMethod.paypal + byMethod.transfer;
+-  return { byMethod, counts, collected };
+-}
+-
+-function deriveBalance(session) {
+-  const { collected } = derivePayments(session);
+-  const fin = session.finances || {};
+-  const expenseTotal = (fin.expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+-  const transferTotal = (fin.transfers || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+-  return { collected, expenseTotal, transferTotal, balance: collected - expenseTotal - transferTotal };
+-}
+-
+-function typicalVenueCost(sessions) {
+-  // _sessions is already newest-first; iterate as-is to return the most recent venue cost
+-  for (const s of sessions) {
+-    const venue = (s.finances?.expenses || []).find(e => e.category === 'venue');
+-    if (venue?.amount) return venue.amount;
+-  }
+-  // Fallback: largest single expense in the most recent session with any expense
+-  for (const s of sessions) {
+-    const exps = s.finances?.expenses || [];
+-    if (exps.length) return Math.max(...exps.map(e => Number(e.amount) || 0));
+-  }
+-  return 0;
+-}
+-
+-// ── Render ──────────────────────────────────────────────────────────────────
+-
+-function render() {
+-  if (!_el) return;
+-  const session = _sessions.find(s => String(s._id) === String(_selectedId)) || _sessions[0];
+-  if (!session) return;
+-
+-  const { byMethod, counts, collected } = derivePayments(session);
+-  const { expenseTotal, transferTotal, balance } = deriveBalance(session);
+-
+-  const sessionOpts = _sessions.map(s => {
+-    const label = (s.title ? s.title + ' — ' : '') + (s.session_date || 'Unknown');
+-    return `<option value="${esc(String(s._id))}"${String(s._id) === String(session._id) ? ' selected' : ''}>${esc(label)}</option>`;
+-  }).join('');
+-
+-  const exp = session.finances?.expenses || [];
+-  const expHtml = exp.length
+-    ? exp.map((e, i) => _renderExpenseRow(e, i)).join('')
+-    : '<p class="fin-placeholder">No expenses recorded.</p>';
+-
+-  const tr = session.finances?.transfers || [];
+-  const trHtml = tr.length
+-    ? tr.map((t, i) => _renderTransferRow(t, i)).join('')
+-    : '<p class="fin-placeholder">No transfers recorded.</p>';
+-
+-  const notes = session.finances?.notes || '';
+-
+-  // Running totals across all sessions
+-  const cumulative = _sessions.reduce((s, sess) => s + deriveBalance(sess).balance, 0);
+-  const venueCost = typicalVenueCost(_sessions);
+-  const gamesFunded = venueCost ? Math.floor(cumulative / venueCost) : 0;
+-
+-  _el.innerHTML = `
+-    <div class="fin-header">
+-      <label class="fin-session-picker">Session:
+-        <select id="fin-session-sel">${sessionOpts}</select>
+-      </label>
+-    </div>
+-
+-    <div class="fin-grid">
+-      <div class="fin-card">
+-        <div class="fin-card-title">Takings</div>
+-        <div class="fin-row"><span>Cash</span><span>$${byMethod.cash}</span></div>
+-        <div class="fin-row"><span>PayID</span><span>$${byMethod.payid}</span></div>
+-        <div class="fin-row"><span>PayPal</span><span>$${byMethod.paypal}</span></div>
+-        <div class="fin-row"><span>Transfer</span><span>$${byMethod.transfer}</span></div>
+-        <div class="fin-row fin-row-dim"><span>Exiles (offset)</span><span>${counts.exiles}</span></div>
+-        <div class="fin-row fin-row-dim"><span>Waived</span><span>${counts.waived}</span></div>
+-        <div class="fin-row fin-row-total"><span>Collected</span><span>$${collected}</span></div>
+-      </div>
+-
+-      <div class="fin-card">
+-        <div class="fin-card-title">Expenses</div>
+-        <div class="fin-list" id="fin-expenses">${expHtml}</div>
+-        <button class="fin-btn" id="fin-add-expense">+ Add expense</button>
+-        <div class="fin-row fin-row-total"><span>Total</span><span>$${expenseTotal}</span></div>
+-      </div>
+-
+-      <div class="fin-card">
+-        <div class="fin-card-title">Transfers</div>
+-        <div class="fin-list" id="fin-transfers">${trHtml}</div>
+-        <button class="fin-btn" id="fin-add-transfer">+ Add transfer</button>
+-        <div class="fin-row fin-row-total"><span>Total</span><span>$${transferTotal}</span></div>
+-      </div>
+-
+-      <div class="fin-card">
+-        <div class="fin-card-title">Balance</div>
+-        <div class="fin-balance ${balance >= 0 ? 'pos' : 'neg'}">$${balance}</div>
+-        <div class="fin-row fin-row-dim"><span>Collected − Expenses − Transfers</span></div>
+-      </div>
+-
+-      <div class="fin-card fin-card-wide">
+-        <div class="fin-card-title">Notes</div>
+-        <textarea id="fin-notes" class="fin-notes" placeholder="Notes for this session…">${esc(notes)}</textarea>
+-      </div>
+-    </div>
+-
+-    <div class="fin-totals">
+-      <div class="fin-totals-item">
+-        <span class="fin-totals-label">Cumulative budget</span>
+-        <span class="fin-totals-val${cumulative >= 0 ? ' pos' : ' neg'}">$${cumulative}</span>
+-      </div>
+-      <div class="fin-totals-item">
+-        <span class="fin-totals-label">Typical venue cost</span>
+-        <span class="fin-totals-val">${venueCost ? '$' + venueCost : '—'}</span>
+-      </div>
+-      <div class="fin-totals-item">
+-        <span class="fin-totals-label">Games funded</span>
+-        <span class="fin-totals-val">${gamesFunded}</span>
+-      </div>
+-    </div>
+-  `;
+-
+-  wireEvents(session);
+-}
+-
+-function _renderExpenseRow(e, i) {
+-  return `<div class="fin-item" data-kind="expense" data-idx="${i}">
+-    <input type="text"   class="fin-inp-cat"    data-field="category"  value="${esc(e.category || '')}"  placeholder="Category (e.g. venue)">
+-    <input type="number" class="fin-inp-amt"    data-field="amount"    value="${e.amount ?? ''}"        placeholder="$" min="0" step="1">
+-    <input type="date"   class="fin-inp-date"   data-field="date"      value="${esc((e.date || '').slice(0, 10))}">
+-    <input type="url"    class="fin-inp-proof"  data-field="proof_url" value="${esc(e.proof_url || '')}" placeholder="Proof URL">
+-    <button class="fin-rm-btn" data-kind="expense" data-idx="${i}" title="Remove">&times;</button>
+-  </div>`;
+-}
+-
+-function _renderTransferRow(t, i) {
+-  return `<div class="fin-item" data-kind="transfer" data-idx="${i}">
+-    <input type="text"   class="fin-inp-to"     data-field="to"        value="${esc(t.to || '')}"        placeholder="To (e.g. Conan)">
+-    <input type="number" class="fin-inp-amt"    data-field="amount"    value="${t.amount ?? ''}"        placeholder="$" min="0" step="1">
+-    <input type="date"   class="fin-inp-date"   data-field="date"      value="${esc((t.date || '').slice(0, 10))}">
+-    <input type="url"    class="fin-inp-proof"  data-field="proof_url" value="${esc(t.proof_url || '')}" placeholder="Proof URL">
+-    <button class="fin-rm-btn" data-kind="transfer" data-idx="${i}" title="Remove">&times;</button>
+-  </div>`;
+-}
+-
+-// ── Events ──────────────────────────────────────────────────────────────────
+-
+-function wireEvents(session) {
+-  _el.querySelector('#fin-session-sel')?.addEventListener('change', e => {
+-    flushSave();
+-    _selectedId = e.target.value;
+-    render();
+-  });
+-
+-  // Expense/transfer field edits
+-  _el.querySelectorAll('.fin-item input').forEach(inp => {
+-    inp.addEventListener('change', () => {
+-      const row = inp.closest('.fin-item');
+-      const kind = row.dataset.kind;
+-      const idx  = Number(row.dataset.idx);
+-      const field = inp.dataset.field;
+-      let value = inp.value;
+-      if (field === 'amount') value = Number(value) || 0;
+-      if ((field === 'date' || field === 'proof_url') && value === '') value = null;
+-
+-      session.finances = session.finances || {};
+-      const arr = kind === 'expense' ? 'expenses' : 'transfers';
+-      session.finances[arr] = session.finances[arr] || [];
+-      session.finances[arr][idx] = { ...(session.finances[arr][idx] || {}), [field]: value };
+-      scheduleSave(session);
+-    });
+-  });
+-
+-  // Add rows
+-  _el.querySelector('#fin-add-expense')?.addEventListener('click', () => {
+-    session.finances = session.finances || {};
+-    session.finances.expenses = session.finances.expenses || [];
+-    session.finances.expenses.push({ category: '', amount: 0 });
+-    scheduleSave(session);
+-    render();
+-  });
+-
+-  _el.querySelector('#fin-add-transfer')?.addEventListener('click', () => {
+-    session.finances = session.finances || {};
+-    session.finances.transfers = session.finances.transfers || [];
+-    session.finances.transfers.push({ to: '', amount: 0 });
+-    scheduleSave(session);
+-    render();
+-  });
+-
+-  // Remove rows
+-  _el.querySelectorAll('.fin-rm-btn').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      const kind = btn.dataset.kind;
+-      const idx  = Number(btn.dataset.idx);
+-      const arr  = kind === 'expense' ? 'expenses' : 'transfers';
+-      if (!session.finances?.[arr]) return;
+-      session.finances[arr].splice(idx, 1);
+-      scheduleSave(session);
+-      render();
+-    });
+-  });
+-
+-  // Notes
+-  _el.querySelector('#fin-notes')?.addEventListener('input', e => {
+-    session.finances = session.finances || {};
+-    session.finances.notes = e.target.value;
+-    scheduleSave(session);
+-  });
+-}
+-
+-// ── Save ────────────────────────────────────────────────────────────────────
+-
+-function scheduleSave(session) {
+-  clearTimeout(_saveTimer);
+-  _pendingSession = session;
+-  _saveTimer = setTimeout(() => {
+-    _saveTimer = null;
+-    const s = _pendingSession;
+-    _pendingSession = null;
+-    doSave(s);
+-  }, 600);
+-}
+-
+-// Synchronously fire any pending save. Called before session switch to prevent data loss.
+-function flushSave() {
+-  if (_saveTimer) {
+-    clearTimeout(_saveTimer);
+-    _saveTimer = null;
+-  }
+-  if (_pendingSession) {
+-    const s = _pendingSession;
+-    _pendingSession = null;
+-    doSave(s);
+-  }
+-}
+-
+-async function doSave(session) {
+-  try {
+-    const { _id, ...body } = session;
+-    await apiPut('/api/game_sessions/' + _id, body);
+-  } catch (err) {
+-    console.warn('Finance save failed:', err.message);
+-  }
+-}
+diff --git a/public/js/tabs/devlog-tab.js b/public/js/tabs/devlog-tab.js
+deleted file mode 100644
+index 741ecf15..00000000
+--- a/public/js/tabs/devlog-tab.js
++++ /dev/null
+@@ -1,79 +0,0 @@
+-import { apiGet } from '../data/api.js';
+-import { esc }    from '../data/helpers.js';
+-
+-const DEVLOG_STATUS_LABELS = {
+-  considering: 'Under Consideration',
+-  confirmed:   'Confirmed',
+-  in_progress: 'In Progress',
+-  implemented: 'Implemented',
+-  deferred:    'Deferred',
+-};
+-
+-export async function renderDevlogTab(el) {
+-  el.innerHTML = '<p class="placeholder-msg">Loading…</p>';
+-  let entries = [];
+-  try {
+-    entries = await apiGet('/api/devlog');
+-  } catch (err) {
+-    el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
+-    return;
+-  }
+-
+-  // Highlighted entries surface in a prominent "Recently Shipped" section at
+-  // the top regardless of status, instead of falling into the collapsed
+-  // Resolved group — so a just-implemented change reads as news. Everything
+-  // else partitions by status as before. Each entry appears in one place only.
+-  const highlighted = entries.filter(e => e.highlight);
+-  const rest        = entries.filter(e => !e.highlight);
+-  const active   = rest.filter(e => e.status !== 'implemented' && e.status !== 'deferred');
+-  const resolved = rest.filter(e => e.status === 'implemented' || e.status === 'deferred');
+-
+-  let h = '<div class="devlog-tab">';
+-
+-  if (highlighted.length) {
+-    h += `<div class="devlog-section devlog-recent">`;
+-    h += `<h3 class="devlog-section-heading devlog-recent-heading">Recently Shipped</h3>`;
+-    for (const entry of highlighted) h += _renderCard(entry);
+-    h += `</div>`;
+-  }
+-
+-  h += _renderSection('Rule Changes',    active.filter(e => e.type === 'rule_change'));
+-  h += _renderSection('App Development', active.filter(e => e.type === 'app_feature'));
+-
+-  if (resolved.length) {
+-    h += `<details class="devlog-resolved">`;
+-    h += `<summary class="devlog-resolved-toggle">Resolved (${resolved.length})</summary>`;
+-    h += _renderSection('Rule Changes',    resolved.filter(e => e.type === 'rule_change'));
+-    h += _renderSection('App Development', resolved.filter(e => e.type === 'app_feature'));
+-    h += `</details>`;
+-  }
+-
+-  if (!entries.length) {
+-    h += '<p class="placeholder-msg">Nothing posted yet.</p>';
+-  }
+-
+-  h += '</div>';
+-  el.innerHTML = h;
+-}
+-
+-function _renderSection(heading, items) {
+-  if (!items.length) return '';
+-  let h = `<div class="devlog-section">`;
+-  h += `<h3 class="devlog-section-heading">${esc(heading)}</h3>`;
+-  for (const entry of items) h += _renderCard(entry);
+-  h += `</div>`;
+-  return h;
+-}
+-
+-function _renderCard(entry) {
+-  const statusLabel = DEVLOG_STATUS_LABELS[entry.status] || entry.status;
+-  let h = `<div class="devlog-card">`;
+-  h += `<div class="devlog-card-header">`;
+-  h += `<span class="devlog-title">${esc(entry.title)}</span>`;
+-  h += `<span class="devlog-status devlog-status--${esc(entry.status)}">${esc(statusLabel)}</span>`;
+-  h += `</div>`;
+-  if (entry.body) h += `<p class="devlog-body">${esc(entry.body)}</p>`;
+-  if (entry.target_cycle) h += `<div class="devlog-target">Target: ${esc(entry.target_cycle)}</div>`;
+-  h += `</div>`;
+-  return h;
+-}
+diff --git a/public/js/tabs/primer-tab.js b/public/js/tabs/primer-tab.js
+deleted file mode 100644
+index 4f5ed8b1..00000000
+--- a/public/js/tabs/primer-tab.js
++++ /dev/null
+@@ -1,109 +0,0 @@
+-/* Primer tab — renders the static primer HTML converted from the repo's
+-   markdown source with a sticky table of contents + scroll-spy.
+-
+-   Source pipeline:
+-     public/primer/Terra_Mortis_Setting_Primer.md  (edited by hand)
+-       → `npm run primer:build` (uses marked, adds slug heading IDs)
+-       → public/primer/primer.html  (what the browser fetches below)
+-
+-   The old path fetched HTML from /api/archive_documents/primer (populated
+-   via a .docx upload flow). That endpoint still exists as a fallback and
+-   is kept wired so Storytellers can still upload via the admin UI; the
+-   static file takes precedence because it ships with the Netlify build. */
+-
+-export async function renderPrimerTab(el) {
+-  el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+-
+-  let html = '';
+-  try {
+-    const res = await fetch('/primer/primer.html', { cache: 'no-cache' });
+-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+-    html = await res.text();
+-  } catch (err) {
+-    el.innerHTML = '<p class="placeholder-msg">The primer is not yet available.</p>';
+-    return;
+-  }
+-
+-  // Build TOC entries from the heading IDs the converter already baked in.
+-  const parser = new DOMParser();
+-  const parsed = parser.parseFromString(html, 'text/html');
+-  const tocItems = [];
+-  parsed.querySelectorAll('h1[id], h2[id], h3[id]').forEach(h => {
+-    tocItems.push({
+-      id:    h.id,
+-      text:  h.textContent.trim(),
+-      level: parseInt(h.tagName[1], 10),
+-    });
+-  });
+-
+-  const isMobile = window.innerWidth <= 768;
+-  let h = '<div class="primer-layout">';
+-
+-  // Sticky TOC — collapsible on mobile via <details>
+-  h += `<details class="primer-toc-details"${isMobile ? '' : ' open'}>`;
+-  h += '<summary class="primer-toc-title">Contents</summary>';
+-  h += '<nav class="primer-toc" id="primer-toc">';
+-  if (tocItems.length) {
+-    h += '<ul class="primer-toc-list">';
+-    for (const item of tocItems) {
+-      h += `<li class="primer-toc-item primer-toc-h${item.level}">`;
+-      h += `<a class="primer-toc-link" href="#${item.id}">${item.text}</a>`;
+-      h += '</li>';
+-    }
+-    h += '</ul>';
+-  }
+-  h += '</nav>';
+-  h += '</details>';
+-
+-  // Content
+-  h += `<div class="primer-content reading-pane">${html}</div>`;
+-
+-  h += '</div>';
+-  el.innerHTML = h;
+-
+-  // The real scroll container for the player portal is #content (flex:1;
+-  // overflow-y:auto). #tab-primer has overflow-y:auto too, but since the
+-  // panel grows to fit its content it never overflows — its scrollTo is a
+-  // silent no-op, which is why the previous attempts to scroll `el` failed.
+-  const scrollRoot = document.getElementById('content') || document.scrollingElement || document.documentElement;
+-
+-  // Intercept every #slug anchor inside the tab — both the sticky sidebar
+-  // TOC and the markdown's own in-document Contents section. Use the
+-  // browser's own scrollIntoView, which handles finding the right scroll
+-  // ancestor automatically and respects scroll-margin-top for the gutter
+-  // above the heading (set on .primer-content headings in components.css).
+-  el.addEventListener('click', e => {
+-    const a = e.target.closest('a[href^="#"]');
+-    if (!a || !el.contains(a)) return;
+-    const href = a.getAttribute('href');
+-    if (!href || href.length < 2) return;
+-    const slug = href.slice(1);
+-    const sel  = '#' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug);
+-    const target = el.querySelector(sel);
+-    if (!target) return;
+-    e.preventDefault();
+-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+-  });
+-
+-  // Highlight active TOC link on scroll. Listen on #content (the real
+-  // scroll container) and compute positions via getBoundingClientRect
+-  // instead of scrollTop/offsetTop, which are brittle across flex + sticky
+-  // layouts. If the user leaves the primer tab we stop listening.
+-  const headings = [...el.querySelectorAll('.primer-content [id]')];
+-  const links    = [...el.querySelectorAll('.primer-toc-link')];
+-
+-  if (headings.length) {
+-    const onScroll = () => {
+-      // Only update highlights while the primer tab is the active one.
+-      if (!el.classList.contains('active')) return;
+-      let active = 0;
+-      for (let i = 0; i < headings.length; i++) {
+-        const hTop = headings[i].getBoundingClientRect().top;
+-        if (hTop <= 120) active = i;
+-      }
+-      links.forEach((l, i) => l.classList.toggle('primer-toc-active', i === active));
+-    };
+-    scrollRoot.addEventListener('scroll', onScroll, { passive: true });
+-    onScroll();
+-  }
+-}
+diff --git a/public/js/tabs/relationships-tab.js b/public/js/tabs/relationships-tab.js
+deleted file mode 100644
+index 08f2f936..00000000
+--- a/public/js/tabs/relationships-tab.js
++++ /dev/null
+@@ -1,1025 +0,0 @@
+-/* Player Relationships tab (NPCR.6 scaffold, NPCR.7 adds PC-to-NPC creation).
+- *
+- * NPCR.6: read-only list view of edges involving the active character,
+- * grouped by kind family. Server-side `_other_name` enrichment lets the
+- * tab render NPC and PC names without calling ST-only routes. "New" badge
+- * and dismissable "Updated" chip use localStorage per character.
+- *
+- * NPCR.7: "Add Relationship" picker lets the player POST a new PC-to-NPC
+- * edge. Picker draft state + loaded NPC directory + kind metadata live on
+- * module-scoped _tabState, rebuilt on character switch.
+- */
+-
+-import { apiGet, apiPost, apiRaw } from '../data/api.js';
+-import { esc } from '../data/helpers.js';
+-import { isSTRole } from '../auth/discord.js';
+-import {
+-  FAMILIES,
+-  RELATIONSHIP_KINDS,
+-  kindByCode,
+-} from '../data/relationship-kinds.js';
+-
+-// Per-character picker state: { charId, mode: 'closed'|'add', draft, npcs, error }
+-let _tabState = null;
+-
+-// Issue #232: non-ST users can no longer enter 'new' (NPC quick-add) mode.
+-// The chip + form are gated on isSTRole() in renderAddPanel; this helper
+-// determines the initial picker mode so a player session opens directly into
+-// the PC-to-PC ('pc') form without flashing the hidden new-NPC form.
+-function _defaultNpcMode() {
+-  return isSTRole() ? 'new' : 'pc';
+-}
+-
+-function resetTabState(charId) {
+-  _tabState = {
+-    charId: String(charId),
+-    mode: 'closed',
+-    // NPCR.7 + NPCR.8: picker has two sub-modes — pick an existing NPC or
+-    // quick-add a new pending one. npc_mode = 'new' | 'pc' (existing removed
+-    // from index.html — STs handle existing-NPC linking via admin.html).
+-    // Issue #232: default depends on role — see _defaultNpcMode().
+-    npc_mode: _defaultNpcMode(),
+-    draft: {
+-      npc_id: '',
+-      new_name: '',
+-      new_relationship_note: '',
+-      new_general_note: '',
+-      kind: '',
+-      disposition: '',
+-      state: '',
+-      custom_label: '',
+-    },
+-    npcs: null,
+-    error: null,
+-    submitting: false,
+-  };
+-}
+-
+-// Kinds players may create from the Relationships tab: anything with b='npc'
+-// or b='any'. Grouped by family for the picker dropdown.
+-function playerCreatableKinds() {
+-  return RELATIONSHIP_KINDS.filter(k => {
+-    const bType = k.typicalEndpoints?.b;
+-    return bType === 'npc' || bType === 'any';
+-  });
+-}
+-
+-// NPCR.10: PC-PC-eligible kinds are the subset where b can be 'any'
+-// (Lineage + Political + 'romantic' + 'other'). Mortal kinds that are
+-// b='npc'-only (family, contact, retainer, correspondent) stay excluded.
+-function playerPcPcKinds() {
+-  return RELATIONSHIP_KINDS.filter(k => k.typicalEndpoints?.b === 'any');
+-}
+-
+-const LAST_SEEN_PREFIX     = 'tm:rel_last_seen:';
+-const DISMISSED_PREFIX     = 'tm:rel_dismissed_updates:';
+-const COLLAPSED_PREFIX     = 'tm:rel_family_collapsed:';
+-const DISMISSED_FLAGS_PFX  = 'tm:rel_dismissed_flags:'; // NPCR.11: keyed by char; value { npc_id: resolved_at }
+-
+-function lastSeenKey(charId)   { return LAST_SEEN_PREFIX   + String(charId); }
+-function dismissedKey(charId)  { return DISMISSED_PREFIX   + String(charId); }
+-function collapsedKey(charId)  { return COLLAPSED_PREFIX   + String(charId); }
+-
+-function readLastSeen(charId) {
+-  try { return localStorage.getItem(lastSeenKey(charId)) || null; }
+-  catch { return null; }
+-}
+-
+-function writeLastSeen(charId, iso) {
+-  try { localStorage.setItem(lastSeenKey(charId), iso); } catch { /* quota etc */ }
+-}
+-
+-function readDismissed(charId) {
+-  try {
+-    const raw = localStorage.getItem(dismissedKey(charId));
+-    return raw ? JSON.parse(raw) : {};
+-  } catch { return {}; }
+-}
+-
+-function writeDismissed(charId, map) {
+-  try { localStorage.setItem(dismissedKey(charId), JSON.stringify(map)); } catch { /* */ }
+-}
+-
+-function readCollapsed(charId) {
+-  try {
+-    const raw = localStorage.getItem(collapsedKey(charId));
+-    return raw ? JSON.parse(raw) : {};
+-  } catch { return {}; }
+-}
+-
+-function writeCollapsed(charId, map) {
+-  try { localStorage.setItem(collapsedKey(charId), JSON.stringify(map)); } catch { /* */ }
+-}
+-
+-function dismissedFlagsKey(charId) { return DISMISSED_FLAGS_PFX + String(charId); }
+-function readDismissedFlags(charId) {
+-  try {
+-    const raw = localStorage.getItem(dismissedFlagsKey(charId));
+-    return raw ? JSON.parse(raw) : {};
+-  } catch { return {}; }
+-}
+-function writeDismissedFlags(charId, map) {
+-  try { localStorage.setItem(dismissedFlagsKey(charId), JSON.stringify(map)); } catch { /* */ }
+-}
+-
+-// NPCR.11: simple themed modal for the flag-reason prompt. Returns a Promise
+-// that resolves to the trimmed reason string on submit, or null on cancel.
+-function openFlagModal({ npcName }) {
+-  return new Promise(resolve => {
+-    const overlay = document.createElement('div');
+-    overlay.className = 'npcr-modal-overlay';
+-    overlay.innerHTML = `
+-      <div class="npcr-modal" role="dialog" aria-labelledby="rel-flag-modal-title">
+-        <div class="npcr-modal-title" id="rel-flag-modal-title">Flag ${esc(npcName)} for ST review</div>
+-        <div class="npcr-modal-body">
+-          <label class="npcr-field">
+-            <span class="npcr-field-label">What feels off? (required)</span>
+-            <textarea id="rel-flag-reason" class="npcr-textarea" rows="4" maxlength="2000" placeholder="The ST will read this and either edit the record or reply with a resolution note."></textarea>
+-          </label>
+-        </div>
+-        <div class="npcr-modal-actions">
+-          <button class="npcr-btn muted" data-act="cancel">Cancel</button>
+-          <button class="npcr-btn save" data-act="submit">Submit</button>
+-        </div>
+-      </div>
+-    `;
+-    document.body.appendChild(overlay);
+-    const textarea = overlay.querySelector('#rel-flag-reason');
+-    setTimeout(() => textarea?.focus(), 0);
+-
+-    function close(result) {
+-      overlay.remove();
+-      document.removeEventListener('keydown', onKey);
+-      resolve(result);
+-    }
+-    function onKey(e) {
+-      if (e.key === 'Escape') close(null);
+-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+-        const v = textarea.value.trim();
+-        if (v) close(v);
+-      }
+-    }
+-    document.addEventListener('keydown', onKey);
+-    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(null));
+-    overlay.querySelector('[data-act="submit"]').addEventListener('click', () => {
+-      const v = textarea.value.trim();
+-      if (!v) {
+-        textarea.focus();
+-        return;
+-      }
+-      close(v);
+-    });
+-    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+-  });
+-}
+-
+-// ── Derivation helpers ──────────────────────────────────────────────────────
+-
+-function edgeCreatedAt(edge) {
+-  return edge.created_at || edge.history?.[0]?.at || null;
+-}
+-
+-function lastStHistory(edge) {
+-  if (!Array.isArray(edge.history)) return null;
+-  for (let i = edge.history.length - 1; i >= 0; i--) {
+-    const h = edge.history[i];
+-    if (h?.by?.type === 'st') return h;
+-  }
+-  return null;
+-}
+-
+-function isNew(edge, lastSeenIso) {
+-  if (!lastSeenIso) return false; // first visit: don't badge everything
+-  const createdAt = edgeCreatedAt(edge);
+-  if (!createdAt) return false;
+-  return createdAt > lastSeenIso;
+-}
+-
+-function lastStUpdateSince(edge, lastSeenIso) {
+-  if (!lastSeenIso) return null;
+-  const st = lastStHistory(edge);
+-  if (!st || st.change === 'created') return null;
+-  if (!st.at || st.at <= lastSeenIso) return null;
+-  return st;
+-}
+-
+-function dispositionClass(d) {
+-  if (d === 'positive') return 'rel-disp positive';
+-  if (d === 'negative') return 'rel-disp negative';
+-  if (d === 'neutral')  return 'rel-disp neutral';
+-  return 'rel-disp unset';
+-}
+-
+-function dispositionLabel(d) {
+-  if (d === 'positive') return 'positive';
+-  if (d === 'negative') return 'negative';
+-  if (d === 'neutral')  return 'neutral';
+-  return '—';
+-}
+-
+-function statusChip(edge, char) {
+-  if (edge.status === 'active') return '';
+-  if (edge.status === 'pending_confirmation') {
+-    // If this char is endpoint a (the initiator), they're "awaiting" the
+-    // other PC. If they're endpoint b, the banner handles it; chip on the
+-    // card is a fallback.
+-    const isInitiator = edge.a?.type === 'pc' && String(edge.a?.id) === String(char?._id);
+-    const label = isInitiator
+-      ? 'Awaiting ' + (edge._other_name || 'other PC')
+-      : 'awaiting confirmation';
+-    return `<span class="rel-status-chip pending">${esc(label)}</span>`;
+-  }
+-  if (edge.status === 'retired') {
+-    return '<span class="rel-status-chip retired">retired</span>';
+-  }
+-  if (edge.status === 'rejected') {
+-    return '<span class="rel-status-chip rejected">declined</span>';
+-  }
+-  return '';
+-}
+-
+-// ── Public entry ────────────────────────────────────────────────────────────
+-
+-export async function renderRelationshipsTab(el, char) {
+-  if (!el || !char?._id) return;
+-  const charId = String(char._id);
+-
+-  // Rebuild picker state on character switch or first render.
+-  if (!_tabState || _tabState.charId !== charId) resetTabState(charId);
+-
+-  el.innerHTML = `
+-    <div class="rel-tab">
+-      <div class="rel-tab-head">
+-        <div class="rel-tab-head-row">
+-          <div>
+-            <h2 class="rel-tab-title">NPCs</h2>
+-            <div class="rel-tab-sub">Edges involving ${esc(char.moniker || char.name)}.</div>
+-          </div>
+-          <button class="rel-add-btn" type="button" data-act="open-add">+ Add Relationship</button>
+-        </div>
+-      </div>
+-      <div id="rel-add-panel"></div>
+-      <div id="rel-tab-body">
+-        <div class="rel-loading">Loading…</div>
+-      </div>
+-    </div>
+-  `;
+-
+-  // Wire the Add button now; the picker panel renders only when opened.
+-  el.querySelector('[data-act="open-add"]')?.addEventListener('click', () => openAddPicker(el, char));
+-  renderAddPanel(el, char);
+-
+-  const body = el.querySelector('#rel-tab-body');
+-  let edges;
+-  try {
+-    edges = await apiGet('/api/relationships/for-character/' + charId);
+-  } catch (err) {
+-    body.innerHTML = `<div class="rel-error" role="alert">Failed to load relationships: ${esc(err?.message || 'unknown error')}</div>`;
+-    return;
+-  }
+-
+-  const lastSeen = readLastSeen(charId);
+-  const dismissed = readDismissed(charId);
+-  const collapsed = readCollapsed(charId);
+-
+-  // Group by family
+-  const grouped = Object.fromEntries(FAMILIES.map(f => [f, []]));
+-  for (const e of edges) {
+-    const k = kindByCode(e.kind);
+-    const fam = k?.family || 'Other';
+-    grouped[fam].push(e);
+-  }
+-
+-  if (edges.length === 0) {
+-    body.innerHTML = `
+-      <div class="rel-empty">
+-        <p class="rel-empty-title">Start your first relationship</p>
+-        <p>Tap <strong>+ Add Relationship</strong> above to link your character to an NPC or propose a connection with another PC.</p>
+-        <p class="rel-empty-hint">When STs or fellow players connect you to someone, they'll appear here too.</p>
+-      </div>
+-    `;
+-    writeLastSeen(charId, new Date().toISOString());
+-    return;
+-  }
+-
+-  // NPCR.10: pending incoming banners — edges where this char is endpoint b
+-  // and status='pending_confirmation'. Rendered above the family sections so
+-  // the user sees actionable items first.
+-  const incoming = edges.filter(e =>
+-    e.status === 'pending_confirmation' &&
+-    e.b?.type === 'pc' &&
+-    String(e.b?.id) === String(char._id)
+-  );
+-  let html = '';
+-  for (const edge of incoming) {
+-    const kindLabel = kindByCode(edge.kind)?.label || edge.kind;
+-    const proposer = edge._other_name || '(another character)';
+-    const dispChip = edge.disposition
+-      ? `<span class="${dispositionClass(edge.disposition)}" title="Disposition: ${esc(edge.disposition)}">${esc(dispositionLabel(edge.disposition))}</span>`
+-      : '';
+-    html += `
+-      <div class="rel-pending-banner" role="alert" data-edge-id="${esc(String(edge._id))}">
+-        <div class="rel-pending-text">
+-          <div class="rel-pending-head">
+-            <strong>${esc(proposer)}</strong> wants to connect as <strong>${esc(kindLabel)}</strong>.
+-            ${dispChip}
+-          </div>
+-          ${edge.state ? `<div class="rel-pending-state">${esc(edge.state)}</div>` : ''}
+-        </div>
+-        <div class="rel-pending-actions">
+-          <button type="button" class="rel-add-btn primary" data-act="confirm-edge" data-edge-id="${esc(String(edge._id))}">Accept</button>
+-          <button type="button" class="rel-add-btn muted" data-act="decline-edge" data-edge-id="${esc(String(edge._id))}">Decline</button>
+-        </div>
+-      </div>
+-    `;
+-  }
+-
+-  for (const family of FAMILIES) {
+-    const bucket = grouped[family];
+-    if (bucket.length === 0) continue;
+-    const isCollapsed = !!collapsed[family];
+-    html += `
+-      <section class="rel-family${isCollapsed ? ' collapsed' : ''}" data-family="${esc(family)}">
+-        <header class="rel-family-head" data-act="toggle-family">
+-          <span class="rel-family-name">${esc(family)}</span>
+-          <span class="rel-family-count">${bucket.length}</span>
+-          <span class="rel-family-caret">${isCollapsed ? '▸' : '▾'}</span>
+-        </header>
+-        <div class="rel-family-body">
+-          ${bucket.map(e => renderEdgeCard(e, lastSeen, dismissed, char)).join('')}
+-        </div>
+-      </section>
+-    `;
+-  }
+-
+-  body.innerHTML = html;
+-
+-  attachHandlers(body, charId, char, edges);
+-
+-  // Mark the tab visited — future "New" badges key off this timestamp.
+-  // Persist AFTER render so "New" badges remain correct for this session.
+-  writeLastSeen(charId, new Date().toISOString());
+-}
+-
+-// ── Card rendering ──────────────────────────────────────────────────────────
+-
+-function canEditEdge(edge, char) {
+-  // NPCR.9 edit-rights gate: active edge owned by the active character.
+-  return edge.status === 'active'
+-    && String(edge.created_by_char_id || '') === String(char?._id || '');
+-}
+-
+-function renderEdgeCard(edge, lastSeen, dismissed, char) {
+-  const k = kindByCode(edge.kind);
+-  const kindLabel = k?.label || edge.kind;
+-  const custom = edge.kind === 'other' && edge.custom_label ? ` (${esc(edge.custom_label)})` : '';
+-  const otherName = edge._other_name || '(unknown)';
+-
+-  const showNew = isNew(edge, lastSeen);
+-  const stUpdate = lastStUpdateSince(edge, lastSeen);
+-  const dismissedTs = dismissed[String(edge._id)];
+-  const showUpdated = !!stUpdate && stUpdate.at !== dismissedTs;
+-
+-  const stateText = edge.state || '';
+-  const truncated = stateText.length > 180;
+-  const displayState = truncated ? stateText.slice(0, 180).trim() + '…' : stateText;
+-
+-  const dispChip = edge.disposition
+-    ? `<span class="${dispositionClass(edge.disposition)}" title="Disposition: ${esc(edge.disposition)}">${esc(dispositionLabel(edge.disposition))}</span>`
+-    : '';
+-
+-  const editable = canEditEdge(edge, char);
+-  const isEditing = editable && _tabState?.editing_edge_id === String(edge._id);
+-
+-  if (isEditing) {
+-    return renderEdgeEditForm(edge);
+-  }
+-
+-  // NPCR.11: flag state for NPC-endpoint edges. The "Other" side is either
+-  // b (when a=this char) or a (when b=this char). Only surface the flag
+-  // affordance when the other side is an NPC.
+-  const otherEp = String(edge.a?.id) === String(char?._id) ? edge.b : edge.a;
+-  const isNpcEdge = otherEp?.type === 'npc';
+-  const flagState = edge._flag_state;
+-  let flagAffordance = '';
+-  if (isNpcEdge) {
+-    const dismissed = readDismissedFlags(char._id);
+-    const npcId = String(otherEp.id);
+-    const dismissedAt = dismissed[npcId];
+-    if (flagState?.status === 'open') {
+-      flagAffordance = '<span class="rel-flag-chip flagged" title="Awaiting ST review">⚑ Flagged</span>';
+-    } else if (flagState?.status === 'resolved' && flagState.resolved_at !== dismissedAt) {
+-      flagAffordance = `<span class="rel-flag-chip resolved" data-act="dismiss-flag" data-npc-id="${esc(npcId)}" data-resolved-at="${esc(flagState.resolved_at || '')}" title="Click to dismiss">⚑ ST resolved · ${esc(flagState.resolution_note || '(no note)')} ✕</span>`;
+-    } else {
+-      flagAffordance = `<button type="button" class="rel-flag-btn" data-act="flag-npc" data-npc-id="${esc(npcId)}" title="Something off about this NPC?">⚑</button>`;
+-    }
+-  }
+-
+-  return `
+-    <article class="rel-edge-card" data-edge-id="${esc(String(edge._id))}">
+-      <header class="rel-edge-head">
+-        <div class="rel-edge-head-main">
+-          <span class="rel-edge-name">${esc(otherName)}</span>
+-          <span class="rel-edge-kind">${esc(kindLabel)}${custom}</span>
+-        </div>
+-        <div class="rel-edge-head-chips">
+-          ${dispChip}
+-          ${statusChip(edge, char)}
+-          ${showNew ? '<span class="rel-new-badge" title="Added since your last visit">New</span>' : ''}
+-          ${showUpdated ? `<span class="rel-updated-chip" data-act="dismiss-update" data-at="${esc(stUpdate.at)}" title="Dismiss">Updated ✕</span>` : ''}
+-          ${flagAffordance}
+-        </div>
+-      </header>
+-      ${stateText ? `
+-        <div class="rel-edge-state ${truncated ? 'truncated' : ''}" data-act="${truncated ? 'expand-state' : ''}">
+-          <span class="rel-edge-state-text">${esc(displayState)}</span>
+-          ${truncated ? '<button class="rel-edge-state-more" type="button">Show more</button>' : ''}
+-          <span class="rel-edge-state-full" hidden>${esc(stateText)}</span>
+-        </div>
+-      ` : ''}
+-      ${editable ? `
+-        <div class="rel-edge-actions">
+-          <button type="button" class="rel-edit-btn" data-act="start-edit" data-edge-id="${esc(String(edge._id))}">Edit</button>
+-        </div>
+-      ` : ''}
+-    </article>
+-  `;
+-}
+-
+-function renderEdgeEditForm(edge) {
+-  const draft = _tabState.edit_draft || {};
+-  const state = draft.state ?? edge.state ?? '';
+-  const disposition = draft.disposition !== undefined ? draft.disposition : (edge.disposition || '');
+-  const customLabel = draft.custom_label !== undefined ? draft.custom_label : (edge.custom_label || '');
+-  const showCustomLabel = edge.kind === 'other';
+-  const stateLen = String(state).length;
+-  const capClass = stateLen > 2000 ? ' over-cap' : '';
+-  const submitting = !!_tabState.editing_submitting;
+-
+-  return `
+-    <article class="rel-edge-card rel-edge-card-editing" data-edge-id="${esc(String(edge._id))}">
+-      <header class="rel-edge-head">
+-        <div class="rel-edge-head-main">
+-          <span class="rel-edge-name">${esc(edge._other_name || '(unknown)')}</span>
+-          <span class="rel-edge-kind">Editing · ${esc(kindByCode(edge.kind)?.label || edge.kind)}</span>
+-        </div>
+-      </header>
+-      ${_tabState.edit_error ? `<div class="rel-error" role="alert">${esc(_tabState.edit_error)}</div>` : ''}
+-      <label class="rel-add-field">
+-        <span class="rel-add-field-label">State</span>
+-        <textarea class="rel-add-input rel-add-textarea${capClass}" data-edit-field="state" rows="4" maxlength="2000">${esc(state)}</textarea>
+-        <span class="rel-edit-counter${capClass}">${stateLen} / 2000</span>
+-      </label>
+-      <div class="rel-add-field">
+-        <span class="rel-add-field-label">Disposition</span>
+-        <div class="rel-disp-chips" role="radiogroup">
+-          ${['positive', 'neutral', 'negative'].map(d => `
+-            <button type="button" class="rel-disp-chip ${d}${disposition === d ? ' on' : ''}" data-edit-disp="${d}">${d}</button>
+-          `).join('')}
+-          <button type="button" class="rel-disp-chip clear${!disposition ? ' on' : ''}" data-edit-disp="">clear</button>
+-        </div>
+-      </div>
+-      ${showCustomLabel ? `
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">Custom label</span>
+-          <input class="rel-add-input" data-edit-field="custom_label" value="${esc(customLabel)}" placeholder="Custom label" />
+-        </label>
+-      ` : ''}
+-      <div class="rel-add-actions">
+-        <button type="button" class="rel-add-btn primary" data-act="save-edit" data-edge-id="${esc(String(edge._id))}"${submitting ? ' disabled' : ''}>${submitting ? 'Saving…' : 'Save'}</button>
+-        <button type="button" class="rel-add-btn muted" data-act="cancel-edit"${submitting ? ' disabled' : ''}>Cancel</button>
+-      </div>
+-    </article>
+-  `;
+-}
+-
+-// ── Handlers ────────────────────────────────────────────────────────────────
+-
+-function attachHandlers(root, charId, char, edges) {
+-  root.querySelectorAll('[data-act="toggle-family"]').forEach(head => {
+-    head.addEventListener('click', () => {
+-      const section = head.closest('.rel-family');
+-      if (!section) return;
+-      const family = section.dataset.family;
+-      section.classList.toggle('collapsed');
+-      const isCollapsed = section.classList.contains('collapsed');
+-      const caret = head.querySelector('.rel-family-caret');
+-      if (caret) caret.textContent = isCollapsed ? '▸' : '▾';
+-      const map = readCollapsed(charId);
+-      if (isCollapsed) map[family] = true;
+-      else delete map[family];
+-      writeCollapsed(charId, map);
+-    });
+-  });
+-
+-  root.querySelectorAll('[data-act="dismiss-update"]').forEach(chip => {
+-    chip.addEventListener('click', e => {
+-      e.stopPropagation();
+-      const card = chip.closest('.rel-edge-card');
+-      if (!card) return;
+-      const edgeId = card.dataset.edgeId;
+-      const at = chip.dataset.at;
+-      const map = readDismissed(charId);
+-      map[edgeId] = at;
+-      writeDismissed(charId, map);
+-      chip.remove();
+-    });
+-  });
+-
+-  root.querySelectorAll('.rel-edge-state.truncated').forEach(wrap => {
+-    const moreBtn = wrap.querySelector('.rel-edge-state-more');
+-    const text = wrap.querySelector('.rel-edge-state-text');
+-    const full = wrap.querySelector('.rel-edge-state-full');
+-    if (!moreBtn || !text || !full) return;
+-    moreBtn.addEventListener('click', e => {
+-      e.stopPropagation();
+-      text.textContent = full.textContent;
+-      wrap.classList.remove('truncated');
+-      moreBtn.remove();
+-    });
+-  });
+-
+-  // NPCR.11 flag NPC for review
+-  root.querySelectorAll('[data-act="flag-npc"]').forEach(btn => {
+-    btn.addEventListener('click', async () => {
+-      const npcId = btn.dataset.npcId;
+-      const card = btn.closest('.rel-edge-card');
+-      const nameEl = card?.querySelector('.rel-edge-name');
+-      const npcName = nameEl?.textContent?.trim() || 'this NPC';
+-      const reason = await openFlagModal({ npcName });
+-      if (!reason) return;
+-      const { status, ok, body: resBody } = await apiRaw('POST', '/api/npc-flags', {
+-        npc_id: npcId,
+-        character_id: String(char._id),
+-        reason,
+-      });
+-      if (ok) {
+-        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-        return;
+-      }
+-      if (status === 409) {
+-        // Already an open flag — refresh to pick up the chip.
+-        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-      } else {
+-        const msg = resBody?.message || `Flag failed (HTTP ${status}).`;
+-        alert(msg);
+-      }
+-    });
+-  });
+-  root.querySelectorAll('[data-act="dismiss-flag"]').forEach(chip => {
+-    chip.addEventListener('click', () => {
+-      const npcId = chip.dataset.npcId;
+-      const at = chip.dataset.resolvedAt;
+-      const map = readDismissedFlags(char._id);
+-      map[npcId] = at;
+-      writeDismissedFlags(char._id, map);
+-      chip.remove();
+-    });
+-  });
+-
+-  // NPCR.10 accept/decline on incoming pending banners
+-  root.querySelectorAll('[data-act="confirm-edge"]').forEach(btn => {
+-    btn.addEventListener('click', async () => {
+-      const edgeId = btn.dataset.edgeId;
+-      btn.disabled = true;
+-      const { status, ok, body: resBody } = await apiRaw('POST', `/api/relationships/${edgeId}/confirm`, {});
+-      if (ok) {
+-        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-        return;
+-      }
+-      btn.disabled = false;
+-      const banner = btn.closest('.rel-pending-banner');
+-      if (banner && !banner.querySelector('.rel-error')) {
+-        const err = document.createElement('div');
+-        err.className = 'rel-error';
+-        err.setAttribute('role', 'alert');
+-        err.textContent = resBody?.message || `Accept failed (HTTP ${status}).`;
+-        banner.insertBefore(err, banner.firstChild);
+-      }
+-    });
+-  });
+-  root.querySelectorAll('[data-act="decline-edge"]').forEach(btn => {
+-    btn.addEventListener('click', async () => {
+-      const edgeId = btn.dataset.edgeId;
+-      btn.disabled = true;
+-      const { status, ok, body: resBody } = await apiRaw('POST', `/api/relationships/${edgeId}/decline`, {});
+-      if (ok) {
+-        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-        return;
+-      }
+-      btn.disabled = false;
+-      const banner = btn.closest('.rel-pending-banner');
+-      if (banner && !banner.querySelector('.rel-error')) {
+-        const err = document.createElement('div');
+-        err.className = 'rel-error';
+-        err.setAttribute('role', 'alert');
+-        err.textContent = resBody?.message || `Decline failed (HTTP ${status}).`;
+-        banner.insertBefore(err, banner.firstChild);
+-      }
+-    });
+-  });
+-
+-  // NPCR.9 edit controls
+-  root.querySelectorAll('[data-act="start-edit"]').forEach(btn => {
+-    btn.addEventListener('click', () => {
+-      const edgeId = btn.dataset.edgeId;
+-      const edge = (edges || []).find(e => String(e._id) === String(edgeId));
+-      if (!edge) return;
+-      _tabState.editing_edge_id = String(edgeId);
+-      _tabState.edit_draft = {
+-        state: edge.state || '',
+-        disposition: edge.disposition || '',
+-        custom_label: edge.custom_label || '',
+-      };
+-      _tabState.edit_error = null;
+-      _tabState.editing_submitting = false;
+-      // Re-render the whole tab to swap the card into edit mode.
+-      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-    });
+-  });
+-
+-  root.querySelectorAll('[data-edit-field]').forEach(input => {
+-    input.addEventListener('input', () => {
+-      if (!_tabState.edit_draft) _tabState.edit_draft = {};
+-      _tabState.edit_draft[input.dataset.editField] = input.value;
+-      // Live-update the counter next to the textarea.
+-      if (input.dataset.editField === 'state') {
+-        const counter = input.parentElement?.querySelector('.rel-edit-counter');
+-        const len = input.value.length;
+-        if (counter) {
+-          counter.textContent = `${len} / 2000`;
+-          counter.classList.toggle('over-cap', len > 2000);
+-          input.classList.toggle('over-cap', len > 2000);
+-        }
+-      }
+-    });
+-  });
+-
+-  root.querySelectorAll('[data-edit-disp]').forEach(chip => {
+-    chip.addEventListener('click', () => {
+-      if (!_tabState.edit_draft) _tabState.edit_draft = {};
+-      _tabState.edit_draft.disposition = chip.dataset.editDisp || '';
+-      const wrap = chip.closest('.rel-disp-chips');
+-      wrap?.querySelectorAll('.rel-disp-chip').forEach(c => c.classList.remove('on'));
+-      chip.classList.add('on');
+-    });
+-  });
+-
+-  root.querySelector('[data-act="cancel-edit"]')?.addEventListener('click', () => {
+-    delete _tabState.editing_edge_id;
+-    delete _tabState.edit_draft;
+-    delete _tabState.edit_error;
+-    renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-  });
+-
+-  root.querySelector('[data-act="save-edit"]')?.addEventListener('click', async (e) => {
+-    const edgeId = e.currentTarget.dataset.edgeId;
+-    const edge = (edges || []).find(e2 => String(e2._id) === String(edgeId));
+-    if (!edge) return;
+-    const draft = _tabState.edit_draft || {};
+-    const newState = String(draft.state ?? edge.state ?? '');
+-    if (newState.length > 2000) {
+-      _tabState.edit_error = 'State exceeds 2000 character limit.';
+-      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-      return;
+-    }
+-    if (edge.kind === 'other' && !String(draft.custom_label ?? edge.custom_label ?? '').trim()) {
+-      _tabState.edit_error = 'Custom label is required for kind=other.';
+-      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-      return;
+-    }
+-
+-    _tabState.editing_submitting = true;
+-    _tabState.edit_error = null;
+-    renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-
+-    const body = {
+-      a: edge.a, b: edge.b, kind: edge.kind,
+-      direction: edge.direction || 'a_to_b',
+-      st_hidden: !!edge.st_hidden,
+-      status: edge.status,
+-      state: newState,
+-    };
+-    if (draft.disposition !== undefined) body.disposition = draft.disposition || null;
+-    if (edge.kind === 'other') body.custom_label = String(draft.custom_label ?? edge.custom_label ?? '').trim();
+-
+-    const { status, ok, body: resBody } = await apiRaw('PUT', '/api/relationships/' + edgeId, body);
+-    if (ok) {
+-      delete _tabState.editing_edge_id;
+-      delete _tabState.edit_draft;
+-      delete _tabState.edit_error;
+-      _tabState.editing_submitting = false;
+-      renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-      return;
+-    }
+-    _tabState.editing_submitting = false;
+-    if (status === 403) {
+-      _tabState.edit_error = 'You can only edit relationships you created. Flag for ST review instead.';
+-    } else if (status === 400) {
+-      _tabState.edit_error = resBody?.message || 'Edit rejected by the server.';
+-    } else if (status === 409) {
+-      _tabState.edit_error = 'This edge was modified by someone else. Reload and retry.';
+-    } else {
+-      _tabState.edit_error = resBody?.message || `Save failed (HTTP ${status}).`;
+-    }
+-    renderRelationshipsTab(document.getElementById('t-relationships'), char);
+-  });
+-}
+-
+-// ── NPCR.7: Add Relationship picker ─────────────────────────────────────────
+-
+-async function openAddPicker(el, char) {
+-  _tabState.mode = 'add';
+-  // Issue #232: role-aware initial mode (mirrors resetTabState default).
+-  _tabState.npc_mode = _defaultNpcMode();
+-  _tabState.error = null;
+-  _tabState.submitting = false;
+-  _tabState.draft = {
+-    npc_id: '', pc_id: '',
+-    new_name: '', new_relationship_note: '', new_general_note: '',
+-    kind: '', disposition: '', state: '', custom_label: '',
+-  };
+-  renderAddPanel(el, char);
+-  if (!_tabState.npcs) {
+-    try {
+-      _tabState.npcs = await apiGet('/api/npcs/directory');
+-    } catch (err) {
+-      _tabState.error = 'Failed to load NPC list: ' + (err?.message || 'unknown error');
+-      _tabState.npcs = [];
+-    }
+-    renderAddPanel(el, char);
+-  }
+-  if (!_tabState.pcs) {
+-    try {
+-      _tabState.pcs = await apiGet('/api/characters/public');
+-    } catch (err) {
+-      console.warn('[relationships-tab] Failed to load PC directory:', err);
+-      _tabState.pcs = [];
+-    }
+-    renderAddPanel(el, char);
+-  }
+-}
+-
+-function setNpcMode(el, char, mode) {
+-  // Issue #232: non-ST users can never enter 'new' mode — the chip is hidden,
+-  // but coerce defensively in case a stale handler / cached DOM fires a click
+-  // with data-npc-mode="new". Not a security boundary (server-side
+-  // requireRole('st') on /api/npcs/quick-add is the actual gate); this is
+-  // state hygiene only.
+-  if (!isSTRole()) {
+-    _tabState.npc_mode = 'pc';
+-  } else {
+-    _tabState.npc_mode = (mode === 'pc') ? 'pc' : 'new';
+-  }
+-  _tabState.error = null;
+-  renderAddPanel(el, char);
+-}
+-
+-function closeAddPicker(el, char) {
+-  _tabState.mode = 'closed';
+-  _tabState.error = null;
+-  renderAddPanel(el, char);
+-}
+-
+-function renderAddPanel(el, char) {
+-  const panel = el.querySelector('#rel-add-panel');
+-  if (!panel) return;
+-  if (_tabState.mode !== 'add') { panel.innerHTML = ''; return; }
+-
+-  const loading = _tabState.npcs === null;
+-  const pcsLoading = _tabState.pcs === null;
+-  const draft = _tabState.draft;
+-  const npcMode = _tabState.npc_mode;
+-  // PC mode uses a different kind list (b='any' only). Other modes use the
+-  // broader PC-to-NPC list.
+-  const kinds = npcMode === 'pc' ? playerPcPcKinds() : playerCreatableKinds();
+-
+-  const npcOpts = (_tabState.npcs || [])
+-    .filter(n => n.status === 'active' || n.status === 'pending')
+-    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }))
+-    .map(n => `<option value="${esc(String(n._id))}"${String(draft.npc_id) === String(n._id) ? ' selected' : ''}>${esc(n.name || '(unnamed)')}${n.status === 'pending' ? ' (pending)' : ''}</option>`)
+-    .join('');
+-
+-  const kindGroups = FAMILIES.map(family => {
+-    const bucket = kinds.filter(k => k.family === family);
+-    if (bucket.length === 0) return '';
+-    const opts = bucket
+-      .map(k => `<option value="${esc(k.code)}"${draft.kind === k.code ? ' selected' : ''}>${esc(k.label)}</option>`)
+-      .join('');
+-    return `<optgroup label="${esc(family)}">${opts}</optgroup>`;
+-  }).join('');
+-
+-  const showCustomLabel = draft.kind === 'other';
+-  const saveLabel = _tabState.submitting ? 'Saving…' : 'Save';
+-
+-  panel.innerHTML = `
+-    <section class="rel-add-form" role="dialog" aria-label="Add relationship">
+-      <div class="rel-add-form-head">New relationship</div>
+-      ${_tabState.error ? `<div class="rel-error" role="alert">${esc(_tabState.error)}</div>` : ''}
+-
+-      ${isSTRole() ? `
+-        <div class="rel-add-mode-chips" role="radiogroup" aria-label="Connection target">
+-          <button type="button" class="rel-add-mode-chip${npcMode === 'new' ? ' on' : ''}" data-npc-mode="new">New NPC (pending)</button>
+-          <button type="button" class="rel-add-mode-chip${npcMode === 'pc' ? ' on' : ''}" data-npc-mode="pc">Another PC</button>
+-        </div>
+-      ` : ''}
+-
+-      ${npcMode === 'new' ? `
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">Name *</span>
+-          <input class="rel-add-input" data-field="new_name" value="${esc(draft.new_name)}" placeholder="NPC name" />
+-        </label>
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">Relationship note (optional)</span>
+-          <input class="rel-add-input" data-field="new_relationship_note" value="${esc(draft.new_relationship_note)}" placeholder="What's the situation with them?" />
+-        </label>
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">General note (optional)</span>
+-          <input class="rel-add-input" data-field="new_general_note" value="${esc(draft.new_general_note)}" placeholder="Short description for the register" />
+-        </label>
+-        <div class="rel-add-hint">The ST will review this NPC; it appears in your relationships immediately.</div>
+-      ` : `
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">Character *</span>
+-          ${pcsLoading
+-            ? '<div class="rel-add-loading">Loading characters…</div>'
+-            : `<select class="rel-add-input" data-field="pc_id">
+-                 <option value="">(pick a character)</option>
+-                 ${(_tabState.pcs || [])
+-                   .filter(p => String(p._id) !== String(char._id))
+-                   .sort((a, b) => String((a.moniker || a.name)).localeCompare(String(b.moniker || b.name), undefined, { sensitivity: 'base' }))
+-                   .map(p => {
+-                     const label = (p.honorific ? p.honorific + ' ' : '') + (p.moniker || p.name || '');
+-                     return `<option value="${esc(String(p._id))}"${String(draft.pc_id) === String(p._id) ? ' selected' : ''}>${esc(label.trim())}</option>`;
+-                   }).join('')}
+-               </select>`}
+-        </label>
+-        <div class="rel-add-hint">They will see this proposal in their own Relationships tab and can Accept or Decline. The edge stays in "awaiting confirmation" until they respond.</div>
+-      `}
+-
+-      <label class="rel-add-field">
+-        <span class="rel-add-field-label">Kind *</span>
+-        <select class="rel-add-input" data-field="kind">
+-          <option value="">(pick a kind)</option>
+-          ${kindGroups}
+-        </select>
+-      </label>
+-      <p class="rel-add-hint rel-add-touchstone-hint">Touchstones are added on the character sheet.</p>
+-      ${showCustomLabel ? `
+-        <label class="rel-add-field">
+-          <span class="rel-add-field-label">Custom label *</span>
+-          <input class="rel-add-input" data-field="custom_label" value="${esc(draft.custom_label)}" placeholder="e.g., blood-oath partner" />
+-        </label>
+-      ` : ''}
+-      <div class="rel-add-field">
+-        <span class="rel-add-field-label">Disposition (optional)</span>
+-        <div class="rel-disp-chips" role="radiogroup">
+-          ${['positive', 'neutral', 'negative'].map(d => `
+-            <button type="button" class="rel-disp-chip ${d}${draft.disposition === d ? ' on' : ''}" data-disp="${d}">${d}</button>
+-          `).join('')}
+-          <button type="button" class="rel-disp-chip clear${!draft.disposition ? ' on' : ''}" data-disp="">clear</button>
+-        </div>
+-      </div>
+-      <label class="rel-add-field">
+-        <span class="rel-add-field-label">State (optional)</span>
+-        <textarea class="rel-add-input rel-add-textarea" data-field="state" rows="3" placeholder="How does this relationship stand?">${esc(draft.state)}</textarea>
+-      </label>
+-      <div class="rel-add-actions">
+-        <button type="button" class="rel-add-btn primary" data-act="save-add"${_tabState.submitting ? ' disabled' : ''}>${esc(saveLabel)}</button>
+-        <button type="button" class="rel-add-btn muted" data-act="cancel-add"${_tabState.submitting ? ' disabled' : ''}>Cancel</button>
+-      </div>
+-    </section>
+-  `;
+-
+-  // Handlers
+-  panel.querySelectorAll('[data-field]').forEach(input => {
+-    const handler = () => {
+-      _tabState.draft[input.dataset.field] = input.value;
+-      if (input.dataset.field === 'kind') renderAddPanel(el, char);
+-    };
+-    input.addEventListener('change', handler);
+-    if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
+-      input.addEventListener('input', () => {
+-        _tabState.draft[input.dataset.field] = input.value;
+-      });
+-    }
+-  });
+-  panel.querySelectorAll('.rel-disp-chip').forEach(chip => {
+-    chip.addEventListener('click', () => {
+-      _tabState.draft.disposition = chip.dataset.disp || '';
+-      panel.querySelectorAll('.rel-disp-chip').forEach(c => c.classList.remove('on'));
+-      chip.classList.add('on');
+-    });
+-  });
+-  panel.querySelectorAll('.rel-add-mode-chip').forEach(chip => {
+-    chip.addEventListener('click', () => setNpcMode(el, char, chip.dataset.npcMode));
+-  });
+-  panel.querySelector('[data-act="cancel-add"]')?.addEventListener('click', () => closeAddPicker(el, char));
+-  panel.querySelector('[data-act="save-add"]')?.addEventListener('click', () => saveAddEdge(el, char));
+-}
+-
+-async function saveAddEdge(el, char) {
+-  if (_tabState.submitting) return; // Guard against double-click.
+-  const draft = _tabState.draft;
+-
+-  if (!draft.kind) { _tabState.error = 'Pick a kind before saving.'; renderAddPanel(el, char); return; }
+-  if (draft.kind === 'other' && !String(draft.custom_label).trim()) {
+-    _tabState.error = 'Custom label is required for kind=other.';
+-    renderAddPanel(el, char);
+-    return;
+-  }
+-
+-  // Validate target source up front.
+-  let targetType = 'npc';
+-  let targetIdForEdge = null;
+-  if (_tabState.npc_mode === 'existing') {
+-    if (!draft.npc_id) {
+-      _tabState.error = 'Pick an NPC before saving.';
+-      renderAddPanel(el, char);
+-      return;
+-    }
+-    targetIdForEdge = String(draft.npc_id);
+-  } else if (_tabState.npc_mode === 'new') {
+-    if (!String(draft.new_name || '').trim()) {
+-      _tabState.error = 'Name is required for a new NPC.';
+-      renderAddPanel(el, char);
+-      return;
+-    }
+-  } else if (_tabState.npc_mode === 'pc') {
+-    if (!draft.pc_id) {
+-      _tabState.error = 'Pick a character before proposing.';
+-      renderAddPanel(el, char);
+-      return;
+-    }
+-    if (String(draft.pc_id) === String(char._id)) {
+-      _tabState.error = 'You cannot propose a relationship with yourself.';
+-      renderAddPanel(el, char);
+-      return;
+-    }
+-    targetType = 'pc';
+-    targetIdForEdge = String(draft.pc_id);
+-  }
+-
+-  _tabState.submitting = true;
+-  _tabState.error = null;
+-  renderAddPanel(el, char);
+-
+-  try {
+-    if (_tabState.npc_mode === 'new') {
+-      const quickBody = {
+-        name: String(draft.new_name).trim(),
+-        relationship_note: String(draft.new_relationship_note || '').trim(),
+-        general_note: String(draft.new_general_note || '').trim(),
+-        character_id: String(char._id),
+-      };
+-      const { status: qs, ok: qok, body: qbody } = await apiRaw('POST', '/api/npcs/quick-add', quickBody);
+-      if (!qok) {
+-        if (qs === 429) {
+-          _tabState.error = qbody?.message || 'Please wait before creating another NPC.';
+-        } else if (qs === 403) {
+-          _tabState.error = 'You cannot create an NPC for that character.';
+-        } else if (qs === 400) {
+-          _tabState.error = qbody?.message || 'NPC name is required.';
+-        } else {
+-          _tabState.error = qbody?.message || `Quick-add failed (HTTP ${qs}).`;
+-        }
+-        _tabState.submitting = false;
+-        renderAddPanel(el, char);
+-        return;
+-      }
+-      targetIdForEdge = String(qbody._id);
+-      if (Array.isArray(_tabState.npcs)) _tabState.npcs.push(qbody);
+-    }
+-
+-    // Step 2: create the relationship edge.
+-    const edgeBody = {
+-      a: { type: 'pc',         id: String(char._id) },
+-      b: { type: targetType,   id: targetIdForEdge },
+-      kind: draft.kind,
+-      direction: 'a_to_b',
+-      state: String(draft.state || ''),
+-      st_hidden: false,
+-    };
+-    if (draft.disposition) edgeBody.disposition = draft.disposition;
+-    if (draft.kind === 'other') edgeBody.custom_label = String(draft.custom_label).trim();
+-
+-    const { status, ok, body: resBody } = await apiRaw('POST', '/api/relationships', edgeBody);
+-    if (ok && status === 201) {
+-      _tabState.submitting = false;
+-      closeAddPicker(el, char);
+-      renderRelationshipsTab(el, char);
+-      return;
+-    }
+-
+-    if (status === 409) {
+-      _tabState.error = resBody?.message || 'A relationship with this target and kind already exists.';
+-    } else if (status === 403) {
+-      _tabState.error = 'You do not have permission to create this relationship.';
+-    } else {
+-      _tabState.error = resBody?.message || `Edge save failed (HTTP ${status}).`;
+-    }
+-  } finally {
+-    _tabState.submitting = false;
+-    renderAddPanel(el, char);
+-  }
+-}
+diff --git a/server/index.js b/server/index.js
+index 6a94c94e..256c30c7 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -25,7 +25,6 @@ import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
+ import ordealRubricsRouter from './routes/ordeal-rubrics.js';
+ import attendanceRouter from './routes/attendance.js';
+ import archiveDocumentsRouter from './routes/archive-documents.js';
+-import ticketsRouter from './routes/tickets.js';
+ import rulesRouter from './routes/rules.js';
+ import officeActionsRouter from './routes/office-actions.js';
+ import {
+@@ -108,7 +107,6 @@ app.use('/api/ordeal_rubrics', requireAuth, noCache(), ordealRubricsRouter);
+ app.use('/api/attendance', requireAuth, noCache(), attendanceRouter);
+ app.use('/api/cyoa', requireAuth, noCache(), cyoaRouter);
+ app.use('/api/archive_documents', requireAuth, noCache(), archiveDocumentsRouter);
+-app.use('/api/tickets', requireAuth, noCache(), ticketsRouter);
+ // Rules engine — must mount before /api/rules (purchasable_powers) so Express
+ // routes /api/rules/grant etc. to the engine, not the /:key wildcard.
+ //
+diff --git a/server/routes/npcs.js b/server/routes/npcs.js
+index a9bec6e8..ba88b917 100644
+--- a/server/routes/npcs.js
++++ b/server/routes/npcs.js
+@@ -120,8 +120,9 @@ router.get('/directory', async (req, res) => {
+ // `GET /api/npcs/for-character/:characterId` route (formerly DTOSL.2) was
+ // removed. After PR #107 (closes #84, dt-form.33 NPC selector removal),
+ // no client code calls it anywhere in `public/`. The companion
+-// `/api/relationships/for-character/:characterId` route (NPCR.6) is
+-// independently consumed by `relationships-tab.js` and is unaffected.
++// `/api/relationships/for-character/:characterId` route (NPCR.6) survives and is
++// unaffected. Its player-facing consumer `relationships-tab.js` went with #1135;
++// the route stays because the relationships data and its admin tooling stay.
+ 
+ // NPCP-1: list endpoint is now player-readable but scoped at the Mongo
+ // query level to NPCs linked to the caller's characters. ST/dev see the
+diff --git a/server/routes/tickets.js b/server/routes/tickets.js
+deleted file mode 100644
+index 548a02a9..00000000
+--- a/server/routes/tickets.js
++++ /dev/null
+@@ -1,126 +0,0 @@
+-import { Router } from 'express';
+-import { ObjectId } from 'mongodb';
+-import { getCollection } from '../db.js';
+-import { validate } from '../middleware/validate.js';
+-import { isStRole } from '../middleware/auth.js';
+-import { ticketSchema } from '../schemas/ticket.schema.js';
+-
+-const router = Router();
+-const col = () => getCollection('tickets');
+-
+-const VALID_TYPES    = ['bug', 'feature', 'question', 'sheet', 'other'];
+-const VALID_STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
+-const VALID_PRIORITIES = ['normal', 'high'];
+-
+-function parseId(id) {
+-  try { return new ObjectId(id); } catch { return null; }
+-}
+-
+-// GET /api/tickets — players see only their own; STs see all
+-router.get('/', async (req, res) => {
+-  const filter = isStRole(req.user) ? {} : { player_id: req.user.player_id };
+-  const tickets = await col().find(filter).sort({ created_at: -1 }).toArray();
+-  res.json(tickets);
+-});
+-
+-// POST /api/tickets — create a ticket
+-router.post('/', validate(ticketSchema), async (req, res) => {
+-  const { title, body, type } = req.body || {};
+-
+-  if (!title || !String(title).trim()) {
+-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'title is required' });
+-  }
+-  if (!VALID_TYPES.includes(type)) {
+-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: `type must be one of: ${VALID_TYPES.join(', ')}` });
+-  }
+-
+-  const doc = {
+-    title:        String(title).trim(),
+-    body:         body ? String(body).trim() : '',
+-    type,
+-    player_id:    req.user.player_id,
+-    submitted_by: req.user.global_name || req.user.username,
+-    status:       'open',
+-    priority:     'normal',
+-    st_note:      '',
+-    created_at:   new Date().toISOString(),
+-    resolved_at:  null,
+-  };
+-
+-  const result = await col().insertOne(doc);
+-  const created = await col().findOne({ _id: result.insertedId });
+-  res.status(201).json(created);
+-});
+-
+-// PUT /api/tickets/:id — players can update body on their own open tickets; STs can update status/priority/st_note/body
+-router.put('/:id', async (req, res) => {
+-  const oid = parseId(req.params.id);
+-  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ticket ID' });
+-
+-  const ticket = await col().findOne({ _id: oid });
+-  if (!ticket) return res.status(404).json({ error: 'NOT_FOUND', message: 'Ticket not found' });
+-
+-  const isPlayer = req.user.role === 'player';
+-
+-  if (isPlayer) {
+-    // Players can only edit body on their own open tickets
+-    if (String(ticket.player_id) !== String(req.user.player_id)) {
+-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your ticket' });
+-    }
+-    if (ticket.status !== 'open') {
+-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Can only edit open tickets' });
+-    }
+-
+-    const $set = {};
+-    if (req.body.title !== undefined) {
+-      const t = String(req.body.title).trim();
+-      if (!t) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'title cannot be empty' });
+-      $set.title = t;
+-    }
+-    if (req.body.body !== undefined) $set.body = String(req.body.body).trim();
+-
+-    if (!Object.keys($set).length) {
+-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Nothing to update' });
+-    }
+-
+-    await col().updateOne({ _id: oid }, { $set });
+-  } else {
+-    // ST — can update status, priority, st_note, title, body
+-    const { status, priority, st_note, title, body } = req.body || {};
+-    const $set = {};
+-
+-    if (status !== undefined) {
+-      if (!VALID_STATUSES.includes(status)) {
+-        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+-      }
+-      $set.status = status;
+-      if (status === 'resolved' || status === 'closed') {
+-        $set.resolved_at = new Date().toISOString();
+-      }
+-    }
+-    if (priority !== undefined) {
+-      if (!VALID_PRIORITIES.includes(priority)) {
+-        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
+-      }
+-      $set.priority = priority;
+-    }
+-    if (st_note !== undefined) $set.st_note = String(st_note);
+-    if (title !== undefined) {
+-      const t = String(title).trim();
+-      if (!t) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'title cannot be empty' });
+-      $set.title = t;
+-    }
+-    if (body !== undefined)    $set.body    = String(body).trim();
+-
+-    if (!Object.keys($set).length) {
+-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Nothing to update' });
+-    }
+-
+-    await col().updateOne({ _id: oid }, { $set });
+-  }
+-
+-  const updated = await col().findOne({ _id: oid });
+-  res.json(updated);
+-});
+-
+-export default router;
+diff --git a/server/schemas/ticket.schema.js b/server/schemas/ticket.schema.js
+deleted file mode 100644
+index eb735a8e..00000000
+--- a/server/schemas/ticket.schema.js
++++ /dev/null
+@@ -1,60 +0,0 @@
+-/**
+- * JSON Schema (Draft-07) for TM Tickets, Archive Documents, and Tracker State.
+- * Collections: tickets, archive_documents, tracker_state
+- */
+-
+-export const ticketSchema = {
+-  $schema: 'http://json-schema.org/draft-07/schema#',
+-  title: 'TM Ticket',
+-  type: 'object',
+-  required: ['title', 'type'],
+-  additionalProperties: true,
+-
+-  properties: {
+-    title:        { type: 'string', minLength: 1 },
+-    body:         { type: 'string' },
+-    type:         { type: 'string', enum: ['bug', 'feature', 'question', 'sheet', 'other'] },
+-    player_id:    { type: 'string' },
+-    submitted_by: { type: 'string' },
+-    status:       { type: 'string', enum: ['open', 'in_progress', 'resolved', 'closed'] },
+-    priority:     { type: 'string', enum: ['normal', 'high'] },
+-    st_note:      { type: 'string' },
+-    created_at:   { type: 'string' },
+-    resolved_at:  { type: ['string', 'null'] },
+-  },
+-};
+-
+-export const archiveDocumentSchema = {
+-  $schema: 'http://json-schema.org/draft-07/schema#',
+-  title: 'TM Archive Document',
+-  type: 'object',
+-  required: ['type'],
+-  additionalProperties: true,
+-
+-  properties: {
+-    character_id:      { type: ['string', 'null'] },
+-    type:              { type: 'string', minLength: 1 },
+-    cycle:             { type: ['integer', 'null'] },
+-    title:             { type: 'string' },
+-    content_html:      { type: 'string' },
+-    visible_to_player: { type: 'boolean' },
+-    created_at:        { type: 'string' },
+-    updated_at:        { type: ['string', 'null'] },
+-  },
+-};
+-
+-export const trackerStateSchema = {
+-  $schema: 'http://json-schema.org/draft-07/schema#',
+-  title: 'TM Tracker State',
+-  type: 'object',
+-  required: ['character_id'],
+-  additionalProperties: true,
+-
+-  properties: {
+-    character_id: { type: 'string', minLength: 1 },
+-    health:       { type: 'integer', minimum: 0 },
+-    vitae:        { type: 'integer', minimum: 0 },
+-    wp:           { type: 'integer', minimum: 0 },
+-    inf:          { type: 'integer', minimum: 0 },
+-  },
+-};
+diff --git a/specs/architecture/adr-008-admin-merge.md b/specs/architecture/adr-008-admin-merge.md
+index 8130ca3c..32b1e078 100644
+--- a/specs/architecture/adr-008-admin-merge.md
++++ b/specs/architecture/adr-008-admin-merge.md
+@@ -26,6 +26,7 @@ related:
+ 
+ | Rev | Date | Change | Author |
+ |---|---|---|---|
++| 17 | 2026-08-11 | **The ADM-1 pilot surface no longer exists: #1135 deleted the Tickets tab and scrapped the ticket system entirely** (server route + schema + mount, admin view + sidebar + stylesheet, and the player Settings submit form). **Spheres (#1096) is now the reference implementation** of the D4/D9 loading pattern — it is live at `app.js` on the identical shape, and the "Same shape as Tickets" comment beside it records the one structural difference. Every Tickets citation below is therefore **historical**, and is deliberately left standing: D5/D5a record why the pilot was chosen and how the dead player-side copy was retired first, and Revs 4, 5 and 13 record findings that generalise past Tickets (D9's emitter-exclusivity precondition, the correlated-checks preamble, and the CSS-coverage failure that produced D4). Read them as the reasoning trail that produced the decisions, not as a description of a surface you can still open. | Claude (dev) |
+ | 16 | 2026-07-31 | Corrects Rev 15's attribution: the 56/77 was Khepri's own measurement, not Ma'at's, and she produced no competing figure — so I corrected Khepri, and the misattribution was relayed to the person it was about. Names the failure: **a number passed on without its provenance checked**. Adds the rule 7 corollary — **suspect an instrument before a convention** — and anchors it to `.sph`/`.sphere` rather than to 56/55, because that incident had no competing derivation and therefore does not demonstrate the rule. Records that **independence of execution is not independence of method**: the tokeniser defect netted to zero across the baseline while changing its membership, which no number of re-runs could have caught. | Imhotep (Architect) |
+ | 15 | 2026-07-31 | Adds **D8 rule 7: prefer syntax-aware extraction; parse or declare**, from Ma'at, diagnosing four boundary failures as one defect — a measurement whose tokeniser disagreed with the language it was reading. Applying it to this ADR's own instruments found the same defect in every emitter scan: a naive class-attribute regex truncates on `${...}` interpolation, both missing real classes and inventing phantom ones, across 385 interpolated attributes in 53 files. Corrects merge exposure **~118 → ~89** and player adoption **900 → 922**; the D9 baseline stays at 55 with changed membership and was re-blessed from scratch. | Imhotep (Architect) |
+ | 14 | 2026-07-31 | **Logs a pre-existing exception to D9's zero-ST-presentation rule** that Rev 4 and Rev 13 both stated as though absolute: 55 classes / 88 blocks in `components.css` are emitted only by admin, dominated by `stm-audit-*`. Rev 13's decision stands but its rationale is restated on cascade separability, which holds independently. Converted to a shrink-only ratchet gated by `--st-in-lib`. Records the emitter-exclusivity sweep — **no surface passes outright**, so `admin-shared.css` is the normal path, and `downtime-views.js` is the most common sharing partner despite being sequenced last. Adds a **fifth precondition**: no rule block may span two buckets; leave it behind rather than cut it. Names **structural demonstration** as the preferred form for D2's negative limb. | Imhotep (Architect) |
+diff --git a/specs/qa/gates/adm.1-stage-a.yml b/specs/qa/gates/adm.1-stage-a.yml
+index d8f668e6..5e4d8c59 100644
+--- a/specs/qa/gates/adm.1-stage-a.yml
++++ b/specs/qa/gates/adm.1-stage-a.yml
+@@ -1,4 +1,10 @@
+ schema: 1
++superseded_note: >
++  SUPERSEDED 2026-08-11 by #1135, which scrapped the ticket system entirely (server
++  route + schema + mount, admin view + sidebar + stylesheet, and the player Settings
++  submit form). The surface this gate adjudicated no longer exists. Spheres (#1096) is
++  now the reference implementation of the D4/D9 loading pattern. Gate verdict is kept
++  as the historical record; see ADR-008 Rev 17.
+ story: "adm.1"
+ stage: "A (retire the dead player Tickets copy) — PR1 dereference + PR2 delete"
+ story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate"
+diff --git a/specs/qa/gates/adm.1-stage-b.yml b/specs/qa/gates/adm.1-stage-b.yml
+index 83150b76..1ef262b1 100644
+--- a/specs/qa/gates/adm.1-stage-b.yml
++++ b/specs/qa/gates/adm.1-stage-b.yml
+@@ -1,4 +1,10 @@
+ schema: 1
++superseded_note: >
++  SUPERSEDED 2026-08-11 by #1135, which scrapped the ticket system entirely (server
++  route + schema + mount, admin view + sidebar + stylesheet, and the player Settings
++  submit form). The surface this gate adjudicated no longer exists. Spheres (#1096) is
++  now the reference implementation of the D4/D9 loading pattern. Gate verdict is kept
++  as the historical record; see ADR-008 Rev 17.
+ story: "adm.1"
+ stage: "B (merge the Tickets surface + D9 surface stylesheet)"
+ story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate"
+diff --git a/specs/stories/adm.1.p1-tickets-pilot.story.md b/specs/stories/adm.1.p1-tickets-pilot.story.md
+index 486f06f2..8de856ea 100644
+--- a/specs/stories/adm.1.p1-tickets-pilot.story.md
++++ b/specs/stories/adm.1.p1-tickets-pilot.story.md
+@@ -9,6 +9,8 @@ branch: piatra/issue-1068-adm-p1-tickets
+ 
+ # Story ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate
+ 
++> **Superseded 2026-08-11 by [#1135](https://github.com/angelusvmorningstar/TerraMortis/issues/1135).** The surface this story built no longer exists: the ticket system was scrapped entirely, server and admin included. **Spheres (#1096) is now the reference implementation** of the D4/D9 loading pattern this story piloted, so nothing is lost from the pattern itself. This record is kept because the *findings* outlived the surface — see ADR-008 Rev 17. Read it as history, not as a description of anything you can still open.
++
+ ## Status
+ 
+ Approved
+diff --git a/specs/stories/deferred-work.md b/specs/stories/deferred-work.md
+index 0924ece7..72c8b7ba 100644
+--- a/specs/stories/deferred-work.md
++++ b/specs/stories/deferred-work.md
+@@ -78,3 +78,30 @@ and verified before deferral. Provenance:
+   font metrics), a heavier test shape than this codebase's existing string-comparison pattern — worth
+   adding if `.infl-dots-derived` or `.trait-dots` sizing is touched again, not urgent enough to justify
+   building fresh CI-layout-test infrastructure for this one column today.
++
++## From issue-1135-delete-eight-tabs (2026-08-11)
++
++- **`TAB_SUBTITLES` defines `territory` twice** — `public/js/app.js`, once in the legacy block and
++  again under "Unified nav tab names". Both values are the same string, so the duplicate is harmless
++  today (the second silently wins) and it is pre-existing, not a regression of #1135. Left alone
++  deliberately: #1135 was a deletion story and this key belongs to neither a deleted nor a surviving
++  tab's registration. Delete the earlier of the two next time that object is touched.
++- **`renderCityTab` is now an unreferenced export** — `public/js/tabs/city-tab.js` survives #1135
++  because `public/js/admin/city-views.js` imports `openCityMapOverlay` from it, but the `whos-who`
++  branch that called `renderCityTab` is gone, so that function (and whatever is exclusive to it) is
++  dead in production. Deliberately not removed: the story scoped `city-tab.js` as a file to leave
++  alone, and pruning a shared module's dead half is exactly the unreachable-surface work already
++  tracked in #1095. Fold it in there.
++- **The `tickets` collection still holds 69 documents (19 open)** — #1135 removed all ticket CODE
++  (route, schema, mount, admin view, stylesheet, player submit form) but deliberately did NOT drop
++  the collection, because dropping live data needs its own explicit go-ahead. Full export taken
++  first: `data/exports/tickets-full-export-2026-08-11.json` and `tickets-open-2026-08-11.md`. The 19
++  open ones include real unfixed bugs ("Incorrect 9-again on new dice roller", "Feed herd bonus
++  incorrectly calculated", "Shared merits require a minimum one dot investment"). They now have no
++  in-app home, so they want triaging into GitHub issues before the collection is dropped.
++- **The admin Primer surface is unstyled** — `public/js/admin/primer-admin.js` (live at
++  `admin.js`, domain `documents`) emits `primer-admin-shell`, `primer-file` and `primer-upload-*`,
++  and none of those classes is defined in ANY stylesheet. Pre-existing and unrelated to #1135, which
++  deleted only the disjoint `primer-content`/`primer-layout`/`primer-toc*` set belonging to the
++  removed player tab. Flagged because the two sets share a prefix and a future prefix-wide grep will
++  keep rediscovering it.
+diff --git a/tests/desktop-and-css.spec.js b/tests/desktop-and-css.spec.js
+index 6daec56b..86b30730 100644
+--- a/tests/desktop-and-css.spec.js
++++ b/tests/desktop-and-css.spec.js
+@@ -3,7 +3,7 @@
+  *
+  * Covers:
+  *   - Desktop mode toggle (nav-desktop-mode)
+- *   - CSS audit: Primer styled, Archive styled, DT Submission dark theme
++ *   - CSS audit: Archive styled, DT Submission dark theme
+  *   - CSS audit: two-panel collapses on mobile
+  *   - Font harmonisation: buttons use Lato not Cinzel
+  */
+@@ -83,8 +83,10 @@ test('desktop-mode — sidebar has section labels', async ({ page }) => {
+ 
+   const navText = await page.locator('#desktop-sidebar-nav').textContent();
+   expect(navText).toMatch(/Game/i);
+-  expect(navText).toMatch(/Lore/i);
+   expect(navText).toMatch(/Storyteller/i);
++  // The Lore section went with #1135 (Primer, Game Guide and Rules were its only
++  // three tiles), and both render sites skip a section with no visible apps.
++  expect(navText).not.toMatch(/Lore/i);
+ });
+ 
+ test('desktop-mode — ST sees Tracker and Sign-In in sidebar', async ({ page }) => {
+@@ -163,43 +165,8 @@ test('desktop-mode — app width uncapped in desktop mode', async ({ page }) =>
+ 
+ // ── CSS audit tests ────────────────────────────────────────────────────────────
+ 
+-test('css-audit — Primer tab renders styled TOC (not bare blue links)', async ({ page }) => {
+-  await setupSuite(page);
+-
+-  await page.route('**/api/rules**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, pages: 0 }) }));
+-
+-  // Navigate to Primer via More grid
+-  await page.evaluate(() => window.goTab('more'));
+-  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
+-  await page.locator('.more-app-icon[data-app="primer"]').click();
+-  await page.waitForTimeout(800);
+-
+-  // Primer CSS should be applied — .primer-toc-link should NOT be default blue
+-  const linkColour = await page.evaluate(() => {
+-    const link = document.querySelector('.primer-toc-link');
+-    if (!link) return null;
+-    return window.getComputedStyle(link).color;
+-  });
+-
+-  // If null, the primer content hasn't loaded — that's OK for this test (no server)
+-  // The key check is that the CSS class EXISTS and doesn't render as browser-default blue (rgb(0,0,238))
+-  if (linkColour !== null) {
+-    expect(linkColour).not.toBe('rgb(0, 0, 238)');
+-  }
+-
+-  // .primer-layout class should be defined (CSS ported)
+-  const hasPrimerLayout = await page.evaluate(() => {
+-    for (const sheet of document.styleSheets) {
+-      try {
+-        for (const rule of sheet.cssRules) {
+-          if (rule.selectorText === '.primer-layout') return true;
+-        }
+-      } catch { /* cross-origin */ }
+-    }
+-    return false;
+-  });
+-  expect(hasPrimerLayout).toBe(true);
+-});
++// The Primer TOC css-audit test was retired with #1135: the Primer tab and its
++// primer-* rules were both deleted, so there is no TOC left to style.
+ 
+ test('css-audit — Archive CSS class is defined in suite.css', async ({ page }) => {
+   await setupSuite(page);
+diff --git a/tests/fin-checkin-finance.spec.js b/tests/fin-checkin-finance.spec.js
+index a32fa40b..d02d7b57 100644
+--- a/tests/fin-checkin-finance.spec.js
++++ b/tests/fin-checkin-finance.spec.js
+@@ -1,9 +1,11 @@
+ /**
+- * E2E — FIN epic: Check-In (fin.3) + Finance (fin.4) tabs
++ * E2E — FIN epic: Check-In (fin.3)
+  *
+  * Covers:
+  *   fin.3 — Check-In tab label, payment methods, amount input, DNA grey-out, footer total
+- *   fin.4 — Finance tab renders; takings breakdown; add expense/transfer; balance formula
++ *
++ * The fin.4 Finance tab tests were retired with #1135, which deleted the Finance
++ * tab from the Game App. The check-in survives and is what this file now covers.
+  */
+ 
+ const { test, expect } = require('@playwright/test');
+@@ -78,42 +80,3 @@ test('fin.3: payment method dropdown uses fin.2 enum values', async ({ page }) =
+   expect(options.some(o => /Waived/i.test(o))).toBe(true);
+   // 'Did Not Attend' was retired in FIN-6; canonical signal is the attended checkbox.
+ });
+-
+-// ── fin.4 — Finance tab ─────────────────────────────────────────────────────
+-
+-test('fin.4: Finance tab renders session selector', async ({ page }) => {
+-  await setup(page);
+-  await page.locator('#n-finance').click();
+-  await page.waitForSelector('#fin-session-sel', { timeout: 5000 });
+-  await expect(page.locator('#fin-session-sel')).toBeVisible();
+-});
+-
+-test('fin.4: Finance tab renders card structure', async ({ page }) => {
+-  await setup(page);
+-  await page.locator('#n-finance').click();
+-  await page.waitForSelector('.fin-card-title', { timeout: 5000 });
+-  const titles = await page.locator('.fin-card-title').allTextContents();
+-  expect(titles).toContain('Takings');
+-  expect(titles).toContain('Expenses');
+-  expect(titles).toContain('Transfers');
+-  expect(titles).toContain('Balance');
+-});
+-
+-test('fin.4: Add expense button adds a new row', async ({ page }) => {
+-  await setup(page);
+-  await page.locator('#n-finance').click();
+-  await page.waitForSelector('#fin-add-expense');
+-  const beforeCount = await page.locator('[data-kind="expense"]').count();
+-  await page.locator('#fin-add-expense').click();
+-  await page.waitForFunction((n) => document.querySelectorAll('[data-kind="expense"]').length > n, beforeCount);
+-  const afterCount = await page.locator('[data-kind="expense"]').count();
+-  expect(afterCount).toBeGreaterThan(beforeCount);
+-});
+-
+-test('fin.4: running totals panel visible', async ({ page }) => {
+-  await setup(page);
+-  await page.locator('#n-finance').click();
+-  await page.waitForSelector('.fin-totals', { timeout: 5000 });
+-  await expect(page.locator('.fin-totals')).toContainText('Cumulative budget');
+-  await expect(page.locator('.fin-totals')).toContainText('Games funded');
+-});
+diff --git a/tests/issue-502-devlog-tab.spec.js b/tests/issue-502-devlog-tab.spec.js
+index 2c4bf37a..c53cb668 100644
+--- a/tests/issue-502-devlog-tab.spec.js
++++ b/tests/issue-502-devlog-tab.spec.js
+@@ -1,31 +1,18 @@
+ /**
+- * E2E tests — Devlog tab / admin domain (issue #502)
++ * E2E tests — Devlog admin domain (issue #502)
+  *
+- * Player read:  GET /api/devlog rendered in the player portal sidebar tab
+- * Admin CRUD:   admin.html Devlog domain — create, edit, delete entries
++ * Admin CRUD: admin.html Devlog domain — create, edit, delete entries.
+  *
+- * NOTE: player.html redirects to / (index.html) as a backwards-compat shim.
+- * Player-side tab tests navigate to admin.html with a player role fixture
+- * to test the API response shape, and to player.html where the tab panel
+- * exists in the static HTML. If the redirect is in effect in the test env,
+- * player.html tests will fail and the tab should be moved to index.html.
++ * The player-read half of this file was retired with #1135, which deleted the
++ * Devlog tab from the game app. The admin surface below is unchanged and must
++ * keep passing: it is still the only way devlog entries are authored, and they
++ * still reach players, via TM Herald's GET /api/devlog poll into Discord.
+  */
+ 
+ const { test, expect } = require('@playwright/test');
+ 
+ // ── Fixtures ─────────────────────────────────────────────────────────────
+ 
+-const PLAYER_USER = {
+-  id: 'test-player-e2e',
+-  username: 'test_player',
+-  global_name: 'Test Player',
+-  avatar: null,
+-  role: 'player',
+-  player_id: 'p-player-e2e',
+-  character_ids: ['char-e2e-001'],
+-  is_dual_role: false,
+-};
+-
+ const ST_USER = {
+   id: 'test-st-e2e',
+   username: 'test_st',
+@@ -94,39 +81,6 @@ async function loginAsAdmin(page) {
+   );
+ }
+ 
+-async function loginAsPlayer(page) {
+-  await page.addInitScript(({ user }) => {
+-    localStorage.setItem('tm_auth_token', 'fake-test-token');
+-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+-  }, { user: PLAYER_USER });
+-
+-  await page.route('**/api/auth/me', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYER_USER) })
+-  );
+-  await page.route(/\/api\/characters$/, route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/characters/names', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/downtime_cycles*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/downtime_submissions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/game_sessions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/ordeal-responses*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/st_mods*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-}
+-
+ // ══════════════════════════════════════════════════════════════════════════
+ //  ADMIN — Devlog domain
+ // ══════════════════════════════════════════════════════════════════════════
+@@ -208,125 +162,10 @@ test.describe('Admin — Devlog domain (AC#6)', () => {
+ });
+ 
+ // ══════════════════════════════════════════════════════════════════════════
+-//  PLAYER — Devlog tab in index.html / app.js (the unified game app)
++//  PLAYER — retired with #1135 (the devlog tab was deleted from the game app).
+ //
+-//  The devlog tab is wired into index.html via NAV_ITEMS + goTab() in
+-//  app.js. The nav button is #n-devlog; the tab container is #t-devlog.
+-//  renderDevlogTab() fetches /api/devlog and renders content into #t-devlog.
++//  The AC#7-10 describe block and its loginAsGameApp helper went with the tab.
++//  The ST authoring surface above survives and must keep passing. Devlog entries
++//  still reach players through Discord: TM Herald polls GET /api/devlog and
++//  announces new ones (TM Herald/services/announcements.js).
+ // ══════════════════════════════════════════════════════════════════════════
+-
+-async function loginAsGameApp(page, user) {
+-  await page.addInitScript(({ user }) => {
+-    localStorage.setItem('tm_auth_token', 'fake-test-token');
+-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+-  }, { user });
+-
+-  await page.route('**/api/auth/me', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+-  );
+-  // Stub all boot-time API calls so the app reaches a ready state
+-  await page.route(/\/api\/characters(\?|$)/, route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/characters/names', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/territories*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/downtime_cycles*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/downtime_submissions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/game_sessions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/st_mods*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-  await page.route('**/api/settings*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ _id: 'global', st_mods_enabled: true }) })
+-  );
+-  await page.route('**/api/rules*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-  );
+-}
+-
+-test.describe('Player — Devlog tab in game app (AC#7-10)', () => {
+-  // goTab is on window (app.js:2283). Use page.evaluate to navigate —
+-  // avoids fragility from bottom-nav being hidden in desktop-mode viewport.
+-  async function goDevlog(page) {
+-    await page.evaluate(() => window.goTab('devlog'));
+-    await page.waitForSelector('#t-devlog.active', { timeout: 5000 });
+-  }
+-
+-  test('Devlog nav button exists in the DOM', async ({ page }) => {
+-    await loginAsGameApp(page, PLAYER_USER);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
+-    );
+-    await page.goto('/');
+-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+-    // Button exists in DOM (may be in bottom nav or desktop sidebar depending on viewport)
+-    await expect(page.locator('#n-devlog')).toHaveCount(1);
+-    await expect(page.locator('#n-devlog')).toContainText('Devlog');
+-  });
+-
+-  test('Devlog tab renders entries grouped by type', async ({ page }) => {
+-    await loginAsGameApp(page, PLAYER_USER);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
+-    );
+-    await page.goto('/');
+-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+-    await goDevlog(page);
+-
+-    await expect(page.locator('#t-devlog')).toContainText('Street Fighting rework');
+-    await expect(page.locator('#t-devlog')).toContainText('Regency tracker');
+-  });
+-
+-  test('Status shown as human-readable chip not raw enum (AC#8)', async ({ page }) => {
+-    await loginAsGameApp(page, PLAYER_USER);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
+-    );
+-    await page.goto('/');
+-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+-    await goDevlog(page);
+-
+-    await expect(page.locator('#t-devlog')).toContainText('Under Consideration');
+-    await expect(page.locator('#t-devlog')).not.toContainText('considering');
+-    await expect(page.locator('#t-devlog')).toContainText('In Progress');
+-    await expect(page.locator('#t-devlog')).not.toContainText('in_progress');
+-  });
+-
+-  test('Implemented entries in collapsed Resolved section (AC#9)', async ({ page }) => {
+-    await loginAsGameApp(page, PLAYER_USER);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DEVLOG_ENTRIES) })
+-    );
+-    await page.goto('/');
+-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+-    await goDevlog(page);
+-
+-    const resolved = page.locator('#t-devlog details');
+-    await expect(resolved).toBeVisible({ timeout: 3000 });
+-    await resolved.click();
+-    await expect(page.locator('#t-devlog')).toContainText('Dark mode for mobile');
+-  });
+-
+-  test('Empty state shows "Nothing posted yet" (AC#7)', async ({ page }) => {
+-    await loginAsGameApp(page, PLAYER_USER);
+-    await page.route('**/api/devlog*', route =>
+-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+-    );
+-    await page.goto('/');
+-    await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 10000 });
+-    await goDevlog(page);
+-
+-    await expect(page.locator('#t-devlog')).toContainText('Nothing posted yet');
+-  });
+-});
+diff --git a/tests/issue-7-world-tab.spec.js b/tests/issue-7-world-tab.spec.js
+deleted file mode 100644
+index 13c0508f..00000000
+--- a/tests/issue-7-world-tab.spec.js
++++ /dev/null
+@@ -1,248 +0,0 @@
+-/**
+- * Issue #7 — World tab: Court → Regencies → Who's Who order, BP/Humanity icons,
+- * unified row layout, vacant territory handling.
+- *
+- * Uses the Game App (index.html). Mocks /api/characters/public and
+- * /api/territories so tests run without a real API.
+- */
+-
+-const { test, expect } = require('@playwright/test');
+-
+-// ── Fixtures ──────────────────────────────────────────────────────────────────
+-
+-const PLAYER_USER = {
+-  id: '987654321', username: 'test_player', global_name: 'Test Player',
+-  avatar: null, role: 'player', player_id: 'p-002',
+-  character_ids: ['char-001'], is_dual_role: false,
+-};
+-
+-// Characters cover all icon-logic branches:
+-//   bp1_hum6  — BP 1 (plain icon), Humanity 6 (plain icon)
+-//   bp2_hum3  — BP 2 (✕ overlay), Humanity 3 (v overlay)
+-//   bp1_hum8  — BP 1 (plain), Humanity 8 (^ overlay)
+-//   court_char — court_category set → appears in Court section
+-const PUBLIC_CHARS = [
+-  {
+-    _id: 'c-001', name: 'Alice Vunder', moniker: null, honorific: null,
+-    clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Katherine H',
+-    blood_potency: 1, humanity: 6, court_category: null, regent_territory: null,
+-  },
+-  {
+-    _id: 'c-002', name: 'Brandy LaRoux', moniker: null, honorific: null,
+-    clan: 'Gangrel', covenant: 'Circle of the Crone', player: 'Ashley K',
+-    blood_potency: 2, humanity: 3, court_category: null, regent_territory: null,
+-  },
+-  {
+-    _id: 'c-003', name: 'Eve Lockridge', moniker: null, honorific: null,
+-    clan: 'Daeva', covenant: 'Carthian Movement', player: 'Jamie',
+-    blood_potency: 1, humanity: 8, court_category: null, regent_territory: null,
+-  },
+-  {
+-    _id: 'c-004', name: 'Lord Harkon', moniker: null, honorific: 'Lord',
+-    clan: 'Ventrue', covenant: 'Invictus', player: 'Marcus P',
+-    blood_potency: 3, humanity: 5, court_category: 'Head of State', regent_territory: null,
+-  },
+-];
+-
+-// Territory data: one with a regent (c-001), one vacant.
+-const TERRITORIES = [
+-  { _id: 't-001', name: 'The North Shore', regent_id: 'c-001' },
+-  { _id: 't-002', name: 'The Docklands', regent_id: null },
+-];
+-
+-// Characters list (minimal) returned by /api/characters for sheet loading
+-const CHARS_LIST = PUBLIC_CHARS.map(c => ({
+-  ...c,
+-  status: { city: 1, clan: 1, covenant: {} },
+-  attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
+-}));
+-
+-// ── Auth / route helper ───────────────────────────────────────────────────────
+-
+-async function loginAndOpenWorld(page) {
+-  await page.route('**/api/auth/me', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLAYER_USER) })
+-  );
+-  await page.route('**/api/characters/public', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PUBLIC_CHARS) })
+-  );
+-  await page.route('**/api/characters/game-xp', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/characters/combat', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/characters/names', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/characters', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CHARS_LIST) })
+-  );
+-  await page.route('**/api/territories*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(TERRITORIES) })
+-  );
+-  await page.route('**/api/game_sessions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/downtime_cycles*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/downtime_submissions*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/players*', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/rules/**', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/rules', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+-  );
+-  await page.route('**/api/tracker_state/**', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+-  );
+-  await page.route('**/api/tracker_state', route =>
+-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+-  );
+-
+-  await page.addInitScript(({ user }) => {
+-    localStorage.setItem('tm_auth_token', 'fake-test-token');
+-    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+-    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+-  }, { user: PLAYER_USER });
+-
+-  await page.goto('/index.html');
+-  await page.waitForSelector('#app:not([style*="display: none"])', { timeout: 35000 });
+-
+-  // Navigate to the World tab (bottom nav may be hidden in desktop viewport)
+-  await page.evaluate(() => goTab('whos-who'));
+-  await page.waitForSelector('#t-whos-who.active', { timeout: 8000 });
+-
+-  // Expand all sections so content is visible
+-  const sections = page.locator('#t-whos-who details.city-section');
+-  const count = await sections.count();
+-  for (let i = 0; i < count; i++) {
+-    await sections.nth(i).evaluate(el => el.setAttribute('open', ''));
+-  }
+-  await page.waitForTimeout(300);
+-}
+-
+-// ── Tests ─────────────────────────────────────────────────────────────────────
+-
+-test.describe('Issue #7: World tab layout and icons', () => {
+-
+-  test('sections render in order: Court → Regencies → Who\'s Who', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const summaries = page.locator('#t-whos-who details.city-section summary');
+-    await expect(summaries).toHaveCount(3);
+-
+-    const texts = await summaries.allTextContents();
+-    expect(texts[0]).toMatch(/^Court/);
+-    expect(texts[1]).toMatch(/^Regencies/);
+-    expect(texts[2]).toMatch(/^Who's Who/);
+-  });
+-
+-  test('Court section shows court holder with charRow layout', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const courtSection = page.locator('#t-whos-who details.city-section').nth(0);
+-    await expect(courtSection.locator('.city-char-row')).toHaveCount(1);
+-    await expect(courtSection.locator('.city-char-name')).toContainText('Harkon');
+-    await expect(courtSection.locator('.city-char-badge')).toContainText('Head of State');
+-  });
+-
+-  test('Court section shows clan icon and BP/Humanity icons per row', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const courtRow = page.locator('#t-whos-who details.city-section').nth(0).locator('.city-char-row').first();
+-    await expect(courtRow.locator('.city-char-right')).toBeVisible();
+-    await expect(courtRow.locator('.city-stat-icon')).toHaveCount(2);
+-  });
+-
+-  test('BP ≥ 2 row shows ✕ glyph on BP icon', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    // Brandy has BP 2 — find her row in Who's Who
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    const brandyRow = worldSection.locator('.city-char-row', { hasText: 'Brandy LaRoux' });
+-    const bpGlyph = brandyRow.locator('.city-stat-icon').first().locator('.city-stat-glyph');
+-    await expect(bpGlyph).toBeVisible();
+-    await expect(bpGlyph).toContainText('✕');
+-  });
+-
+-  test('BP < 2 row has no ✕ glyph on BP icon', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    const aliceRow = worldSection.locator('.city-char-row', { hasText: 'Alice Vunder' });
+-    const bpIcon = aliceRow.locator('.city-stat-icon').first();
+-    await expect(bpIcon.locator('.city-stat-glyph')).toHaveCount(0);
+-  });
+-
+-  test('Humanity < 4 row shows v glyph on Humanity icon', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    const brandyRow = worldSection.locator('.city-char-row', { hasText: 'Brandy LaRoux' });
+-    const humGlyph = brandyRow.locator('.city-stat-icon').nth(1).locator('.city-stat-glyph');
+-    await expect(humGlyph).toBeVisible();
+-    await expect(humGlyph).toContainText('v');
+-  });
+-
+-  test('Humanity ≥ 8 row shows ^ glyph on Humanity icon', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    const eveRow = worldSection.locator('.city-char-row', { hasText: 'Eve Lockridge' });
+-    const humGlyph = eveRow.locator('.city-stat-icon').nth(1).locator('.city-stat-glyph');
+-    await expect(humGlyph).toBeVisible();
+-    await expect(humGlyph).toContainText('^');
+-  });
+-
+-  test('Humanity 4–7 row has no glyph on Humanity icon', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    const aliceRow = worldSection.locator('.city-char-row', { hasText: 'Alice Vunder' });
+-    const humIcon = aliceRow.locator('.city-stat-icon').nth(1);
+-    await expect(humIcon.locator('.city-stat-glyph')).toHaveCount(0);
+-  });
+-
+-  test('Regencies section shows regent character row with territory badge', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const regenciesSection = page.locator('#t-whos-who details.city-section').nth(1);
+-    // Alice (c-001) is regent of The North Shore
+-    const regentRow = regenciesSection.locator('.city-char-row', { hasText: 'Alice Vunder' });
+-    await expect(regentRow).toBeVisible();
+-    await expect(regentRow.locator('.city-char-badge')).toContainText('The North Shore');
+-  });
+-
+-  test('Regencies section shows (vacant) for territories with no regent', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const regenciesSection = page.locator('#t-whos-who details.city-section').nth(1);
+-    const vacantRow = regenciesSection.locator('.city-char-row', { hasText: '(vacant)' });
+-    await expect(vacantRow).toBeVisible();
+-    await expect(vacantRow.locator('.city-char-badge')).toContainText('The Docklands');
+-  });
+-
+-  test('vacant row has no stat icons', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const regenciesSection = page.locator('#t-whos-who details.city-section').nth(1);
+-    const vacantRow = regenciesSection.locator('.city-char-row', { hasText: '(vacant)' });
+-    await expect(vacantRow.locator('.city-stat-icon')).toHaveCount(0);
+-  });
+-
+-  test('Who\'s Who section groups characters by covenant', async ({ page }) => {
+-    await loginAndOpenWorld(page);
+-
+-    const worldSection = page.locator('#t-whos-who details.city-section').nth(2);
+-    expect(await worldSection.locator('.city-cov-group').count()).toBeGreaterThan(0);
+-  });
+-
+-
+-});
+diff --git a/tests/issue-1135-deleted-tabs.spec.js b/tests/issue-1135-deleted-tabs.spec.js
+new file mode 100644
+index 00000000..1219cf6e
+--- /dev/null
++++ b/tests/issue-1135-deleted-tabs.spec.js
+@@ -0,0 +1,224 @@
++/**
++ * E2E — #1135: the eight deleted Game App tabs, and the scrapped ticket system.
++ *
++ * Covers:
++ *   - None of the eight appears in the More grid, the bottom nav, or the sidebar
++ *   - The LORE section is gone (its only three tiles were Primer/Game Guide/Rules)
++ *   - No container div survives, so the DOM-derived router at app.js:1202/:1248
++ *     can never re-enter a deleted tab
++ *   - goTab('<deleted>') neither throws nor activates anything
++ *   - The Settings Submit-a-Ticket form is gone
++ *   - The Rules OVERLAY still opens from the sheet button (the tab went, the
++ *     overlay stayed)
++ */
++
++const { test, expect } = require('@playwright/test');
++
++const DELETED = ['whos-who', 'primer', 'game-guide', 'rules', 'relationships', 'tickets', 'finance', 'devlog'];
++// The six that had a NAV_ITEMS entry (relationships and tickets never did).
++const DELETED_NAV = ['whos-who', 'primer', 'game-guide', 'rules', 'finance', 'devlog'];
++
++const ST_USER = {
++  id: '123456789', username: 'test_st', global_name: 'Test ST',
++  avatar: null, role: 'st', player_id: 'p-001', character_ids: [], is_dual_role: false,
++};
++
++// tm-show-guides='1' is deliberate: the guide flag gated Primer/Game Guide/Rules
++// out of the bottom nav and sidebar. With it OFF these assertions would pass even
++// if the tiles still existed, so the test would prove nothing.
++async function setupSuite(page, { width = 1280 } = {}) {
++  await page.addInitScript((u) => {
++    localStorage.setItem('tm-show-guides', '1');
++    localStorage.setItem('tm_auth_token', 'local-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 36000000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(u));
++  }, ST_USER);
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  await page.setViewportSize({ width, height: 900 });
++  await page.goto('/');
++  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
++}
++
++// ── Containers ───────────────────────────────────────────────────────────────
++
++test('#1135: no container div survives for any of the eight', async ({ page }) => {
++  await setupSuite(page);
++  for (const id of DELETED) {
++    await expect(page.locator(`#t-${id}`), `#t-${id} should not exist`).toHaveCount(0);
++  }
++});
++
++test('#1135: the surviving neighbours still have their containers', async ({ page }) => {
++  await setupSuite(page);
++  for (const id of ['spheres', 'signin', 'ordeals', 'feeding', 'combat', 'emergency']) {
++    await expect(page.locator(`#t-${id}`), `#t-${id} should still exist`).toHaveCount(1);
++  }
++});
++
++// ── More grid ────────────────────────────────────────────────────────────────
++
++test('#1135: none of the eight appears in the More grid', async ({ page }) => {
++  await setupSuite(page);
++  await page.evaluate(() => window.goTab('more'));
++  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
++
++  for (const id of DELETED) {
++    await expect(page.locator(`.more-app-icon[data-app="${id}"]`), `More grid tile ${id}`).toHaveCount(0);
++  }
++  // Sanity: the grid did render and still holds surviving tiles.
++  await expect(page.locator('.more-app-icon[data-app="spheres"]')).toHaveCount(1);
++});
++
++test('#1135: the More grid renders no Lore section', async ({ page }) => {
++  await setupSuite(page);
++  await page.evaluate(() => window.goTab('more'));
++  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
++
++  const labels = await page.locator('.more-section-label').allTextContents();
++  expect(labels.some(l => /lore/i.test(l))).toBe(false);
++  expect(labels.length).toBeGreaterThan(0);
++});
++
++// ── Bottom nav (phone width) ─────────────────────────────────────────────────
++
++test('#1135: no bottom-nav button for any deleted tab', async ({ page }) => {
++  await setupSuite(page, { width: 800 });
++  await page.waitForSelector('#bnav', { timeout: 10000 });
++
++  for (const id of DELETED_NAV) {
++    await expect(page.locator(`#n-${id}`), `bottom nav button ${id}`).toHaveCount(0);
++  }
++  // Sanity: the nav rendered, and the check-in (kept) is still there.
++  await expect(page.locator('#n-signin')).toHaveCount(1);
++});
++
++// ── Desktop sidebar ──────────────────────────────────────────────────────────
++
++test('#1135: desktop sidebar has no Lore section and no deleted tiles', async ({ page }) => {
++  await setupSuite(page, { width: 1280 });
++  await page.waitForSelector('#desktop-sidebar-nav', { timeout: 10000 });
++
++  const navText = await page.locator('#desktop-sidebar-nav').textContent();
++  expect(navText).not.toMatch(/Lore/i);
++  expect(navText).not.toMatch(/Primer/i);
++  expect(navText).not.toMatch(/Game Guide/i);
++  expect(navText).not.toMatch(/Tickets/i);
++  expect(navText).not.toMatch(/Finance/i);
++  expect(navText).not.toMatch(/Devlog/i);
++  expect(navText).not.toMatch(/NPCs/i);
++  // Sanity: the sidebar rendered its surviving sections.
++  expect(navText).toMatch(/Storyteller/i);
++});
++
++// ── goTab is inert for a deleted id ──────────────────────────────────────────
++
++test('#1135: goTab on a deleted id neither throws nor activates anything', async ({ page }) => {
++  await setupSuite(page);
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++
++  for (const id of DELETED) {
++    const activeAfter = await page.evaluate((tab) => {
++      window.goTab(tab);
++      return document.querySelectorAll('.tab.active').length;
++    }, id);
++    // goTab clears every .tab.active, then finds no container to re-activate.
++    expect(activeAfter, `goTab('${id}') should activate no tab`).toBe(0);
++  }
++  expect(errors, `goTab threw: ${errors.join(' | ')}`).toHaveLength(0);
++});
++
++// ── Ticket system ────────────────────────────────────────────────────────────
++
++test('#1135: Settings has no Submit-a-Ticket form', async ({ page }) => {
++  await setupSuite(page);
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++
++  await page.evaluate(() => window.goTab('settings'));
++  await page.waitForSelector('#t-settings.active', { timeout: 10000 });
++
++  for (const sel of ['#stk-submit', '#stk-type', '#stk-title', '#stk-body', '#stk-status', '.settings-ticket-form']) {
++    await expect(page.locator(sel), `${sel} should be gone`).toHaveCount(0);
++  }
++  const bodyText = await page.locator('#t-settings').textContent();
++  expect(bodyText).not.toMatch(/Submit a Ticket/i);
++  expect(errors, `Settings threw: ${errors.join(' | ')}`).toHaveLength(0);
++});
++
++// ── Admin side: Tickets gone, City and Devlog untouched ──────────────────────
++
++async function loginAsAdmin(page) {
++  await page.addInitScript((u) => {
++    localStorage.setItem('tm_auth_token', 'fake-test-token');
++    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
++    localStorage.setItem('tm_auth_user', JSON.stringify(u));
++  }, ST_USER);
++  // Order matters: Playwright uses the LAST matching route, so the broad
++  // catch-all is registered first and the auth stub second. Registered the other
++  // way round, /api/auth/me returns [] and admin.html bounces back to /.
++  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
++  await page.route('**/api/auth/me', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) }));
++  await page.goto('/admin.html');
++  await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 15000 });
++}
++
++test('#1135: admin has no Tickets domain, and no 404 for the deleted stylesheet', async ({ page }) => {
++  const failed = [];
++  page.on('requestfailed', r => failed.push(r.url()));
++  const notFound = [];
++  page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++
++  await loginAsAdmin(page);
++
++  await expect(page.locator('[data-domain="tickets"]')).toHaveCount(0);
++  await expect(page.locator('#d-tickets')).toHaveCount(0);
++  await expect(page.locator('#tickets-admin-content')).toHaveCount(0);
++
++  const badCss = [...failed, ...notFound].filter(u => /admin-tickets\.css/.test(u));
++  expect(badCss, `admin-tickets.css should not be requested at all: ${badCss.join(', ')}`).toHaveLength(0);
++  expect(errors, `admin threw: ${errors.join(' | ')}`).toHaveLength(0);
++});
++
++test('#1135: the admin Devlog domain still opens (authoring survives)', async ({ page }) => {
++  await loginAsAdmin(page);
++  await expect(page.locator('[data-domain="devlog"]')).toBeVisible();
++  await page.click('[data-domain="devlog"]');
++  await page.waitForSelector('#d-devlog.active', { timeout: 10000 });
++  await expect(page.locator('#devlog-admin-content')).toBeVisible();
++});
++
++test('#1135: the admin City domain still opens (city-tab.js untouched)', async ({ page }) => {
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++  await loginAsAdmin(page);
++  await expect(page.locator('[data-domain="city"]')).toBeVisible();
++  await page.click('[data-domain="city"]');
++  await page.waitForSelector('#d-city.active', { timeout: 10000 });
++  expect(errors, `City domain threw: ${errors.join(' | ')}`).toHaveLength(0);
++});
++
++// ── The Rules overlay survived the Rules tab ─────────────────────────────────
++
++test('#1135: the Rules overlay still opens and closes from the sheet button', async ({ page }) => {
++  await setupSuite(page);
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++
++  const opened = await page.evaluate(() => {
++    window.openRulesOverlay();
++    const el = document.getElementById('rules-overlay');
++    return el ? window.getComputedStyle(el).display : null;
++  });
++  expect(opened).toBe('flex');
++
++  const closed = await page.evaluate(() => {
++    window.closeRulesOverlay();
++    const el = document.getElementById('rules-overlay');
++    return el ? window.getComputedStyle(el).display : null;
++  });
++  expect(closed).toBe('none');
++  expect(errors, `rules overlay threw: ${errors.join(' | ')}`).toHaveLength(0);
++});

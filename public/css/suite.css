@@ -1141,36 +1141,6 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .si-footer { padding: 10px 16px; border-top: 1px solid var(--bdr); font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); }
 .si-session-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px; color: var(--txt); font-family: var(--fl); font-size: 12px; padding: 6px 8px; flex: 1; min-height: 36px; cursor: pointer; }
 
-/* ── Finance Tab ── */
-#t-finance.active { display: flex; flex-direction: column; overflow-y: auto; padding: 12px; }
-.fin-loading, .fin-empty { padding: 32px 20px; color: var(--txt3); font-family: var(--fl); font-size: 13px; text-align: center; }
-.fin-header { margin-bottom: 12px; }
-.fin-session-picker { font-family: var(--fl); font-size: 12px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.08em; }
-.fin-session-picker select { margin-left: 8px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; padding: 6px 8px; text-transform: none; letter-spacing: 0; min-height: 36px; }
-.fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.fin-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 12px; }
-.fin-card-wide { grid-column: 1 / -1; }
-.fin-card-title { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 8px; }
-.fin-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; color: var(--txt); }
-.fin-row-dim { color: var(--txt3); font-size: 12px; }
-.fin-row-total { border-top: 1px solid var(--bdr); margin-top: 6px; padding-top: 6px; font-weight: 600; }
-.fin-placeholder { font-size: 12px; color: var(--txt3); font-style: italic; margin: 4px 0; }
-.fin-item { display: grid; grid-template-columns: 1fr 70px 120px 1fr 28px; gap: 4px; margin-bottom: 6px; align-items: center; }
-.fin-item input { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 3px; color: var(--txt); font-family: var(--ft); font-size: 12px; padding: 4px 6px; min-height: 32px; }
-.fin-rm-btn { background: none; border: none; color: var(--txt3); font-size: 16px; cursor: pointer; padding: 0; line-height: 1; }
-.fin-rm-btn:hover { color: var(--crim); }
-.fin-btn { margin-top: 6px; background: none; border: 1px dashed var(--bdr); color: var(--accent); font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
-.fin-btn:hover { background: var(--surf2); }
-.fin-balance { font-family: var(--fh); font-size: 28px; font-weight: 600; margin: 8px 0; }
-.fin-balance.pos { color: var(--accent); }
-.fin-balance.neg { color: var(--crim); }
-.fin-notes { width: 100%; min-height: 60px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; padding: 8px; resize: vertical; }
-.fin-totals { display: flex; gap: 12px; padding: 12px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; }
-.fin-totals-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.fin-totals-label { font-family: var(--fl); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--txt3); }
-.fin-totals-val { font-family: var(--fh); font-size: 20px; font-weight: 600; color: var(--txt); }
-.fin-totals-val.pos { color: var(--accent); }
-.fin-totals-val.neg { color: var(--crim); }
 /* Roll tab pool chips */
 #roll-char-pools { padding: 8px 0 4px; }
 #roll-char-pools .gcp-pool-chip { min-height: 44px; }
@@ -1467,39 +1437,6 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   filter: invert(1) sepia(1) hue-rotate(300deg) brightness(0.30);
 }
 
-/* ── Primer tab (css-3) ── */
-#t-primer.active { display: flex; flex-direction: column; overflow-y: auto; }
-.primer-layout { display: flex; gap: 32px; align-items: flex-start; min-height: 100%; padding: 16px; }
-/* details wrapper for collapsible ToC */
-.primer-toc-details { width: 220px; flex-shrink: 0; position: sticky; top: 0; }
-.primer-toc-details > summary { display: block; list-style: none; cursor: pointer; }
-.primer-toc-details > summary::-webkit-details-marker { display: none; }
-.primer-toc { overflow-y: auto; padding: 4px 0; max-height: calc(100vh - 40px); }
-.primer-toc-title { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); margin-bottom: 10px; padding: 0 6px; }
-.primer-toc-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
-.primer-toc-item { padding: 0; }
-.primer-toc-h2 { padding-left: 0; }
-.primer-toc-h3 { padding-left: 14px; }
-.primer-toc-link { display: block; font-family: var(--fl); font-size: 12px; color: var(--accent); text-decoration: none; padding: 4px 6px; border-radius: 3px; line-height: 1.4; transition: color .15s, background .15s; }
-.primer-toc-link:hover { color: var(--txt); background: var(--surf2); }
-.primer-toc-link.primer-toc-active { color: var(--accent); background: var(--surf2); }
-.primer-content { flex: 1; min-width: 0; overflow-y: auto; }
-.primer-content h1,.primer-content h2 { font-family: var(--fh); color: var(--accent); margin: 20px 0 8px; letter-spacing: .04em; }
-.primer-content h3,.primer-content h4 { font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--label-secondary); margin: 16px 0 6px; }
-.primer-content p { font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.7; margin: 0 0 12px; }
-.primer-content ul,.primer-content ol { font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.6; padding-left: 20px; margin-bottom: 12px; }
-@media (max-width: 768px) {
-  .primer-layout { flex-direction: column; gap: 0; padding: 0; }
-  .primer-toc-details { position: static; width: 100%; border-bottom: 1px solid var(--bdr); background: var(--surf2); }
-  .primer-toc-details > summary { padding: 10px 16px; font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); }
-  .primer-toc-details > summary::after { content: ' ▼'; font-size: 9px; }
-  .primer-toc-details[open] > summary::after { content: ' ▲'; }
-  .primer-toc { padding: 8px 16px 12px; max-height: none; }
-  .primer-toc-list { flex-direction: row; flex-wrap: wrap; gap: 4px 10px; }
-  .primer-toc-h3 { padding-left: 0; }
-  .primer-content { padding: 16px; }
-}
-
 /* ── Combat tab ── */
 .cbt-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .cbt-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; background: var(--surf); }
@@ -1588,7 +1525,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 /* ── Tab display and padding baseline (css-4) ── */
 /* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
 #t-status.active,#t-downtime.active,#t-feeding.active,
-#t-ordeals.active,#t-whos-who.active,
+#t-ordeals.active,
 #t-regency.active,#t-office.active,#t-map.active,
 #t-emergency.active,#t-archive.active {
   display: flex;
@@ -1597,7 +1534,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 }
 /* Padding wrapper for plain-content tabs */
 #t-feeding > *,
-#t-ordeals > *,#t-whos-who > *,#t-regency > *,
+#t-ordeals > *,#t-regency > *,
 #t-office > *,#t-emergency > * {
   padding: 0 0 80px;
 }
@@ -1662,23 +1599,14 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   .status-split { flex-direction: row; gap: 24px; }
 }
 
-/* ── DT Submission + Primer — dark theme override (css-audit follow-up) ── */
+/* ── DT Submission — dark theme override (css-audit follow-up) ── */
 /* .reading-pane in game app = dark theme, not parchment */
 #t-downtime .reading-pane,
-#t-feeding .reading-pane,
-#t-primer .reading-pane {
+#t-feeding .reading-pane {
   background: var(--bg);
   color: var(--txt);
   border-color: var(--bdr);
 }
-/* Primer headings — re-apply dark-safe tokens (overrides undefined --rp-head) */
-#t-primer .reading-pane h1,
-#t-primer .reading-pane h2 { color: var(--accent); }
-#t-primer .reading-pane h3,
-#t-primer .reading-pane h4 { color: var(--txt2); }
-#t-primer .reading-pane p,
-#t-primer .reading-pane ul,
-#t-primer .reading-pane ol { color: var(--txt); }
 
 /* Override parchment form elements → dark theme tokens */
 #t-downtime .qf-input,
@@ -2330,7 +2258,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .settings-checkbox-row input { accent-color: var(--accent); width: 18px; height: 18px; }
 .settings-input { display: block; width: 100%; padding: 8px 10px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; box-sizing: border-box; margin-bottom: 8px; }
 .settings-input:focus { outline: none; border-color: var(--accent); }
-.settings-ticket-form { display: flex; flex-direction: column; }
 
 /* Safety / Emergency Contact form */
 .settings-safety-form { display: flex; flex-direction: column; }
@@ -2348,61 +2275,6 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 
 /* ── Reading font size (tunable via Settings) ── */
 :root { --reading-font-size: 15px; }
-
-/* ── Devlog Tab (player-facing) ──
-   Recovered from issue #502 (commit 30f0490, never merged). Status names
-   reconciled to the live schema: the orphaned 'drafted' becomes 'in_progress'
-   (same amber treatment). All colours are theme vars, so it works in both the
-   dark and parchment themes. */
-.devlog-tab { padding: 16px 18px 32px; max-width: 700px; }
-.devlog-section { margin-bottom: 32px; }
-.devlog-section-heading {
-  font-family: var(--fl); font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .14em; color: var(--gold2);
-  border-bottom: 1px solid var(--bdr2); padding-bottom: 6px; margin: 0 0 14px;
-}
-.devlog-card {
-  background: var(--surf2); border: 1px solid var(--bdr2);
-  border-left: 3px solid var(--bdr3); border-radius: 6px;
-  padding: 13px 16px 11px; margin-bottom: 10px;
-}
-.devlog-card-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 10px; margin-bottom: 8px;
-}
-.devlog-title {
-  font-family: var(--fh); font-size: 14px; font-weight: 600;
-  color: var(--txt); line-height: 1.35; flex: 1;
-}
-.devlog-status {
-  flex-shrink: 0; align-self: flex-start; display: inline-block;
-  padding: 3px 9px; border-radius: 4px; font-family: var(--fl);
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .4px; white-space: nowrap;
-}
-/* Left-border accent matches status colour. */
-.devlog-card:has(.devlog-status--considering) { border-left-color: var(--crim); }
-.devlog-card:has(.devlog-status--in_progress) { border-left-color: var(--warn-orange); }
-.devlog-card:has(.devlog-status--confirmed)   { border-left-color: var(--green-dk); }
-/* RAG status chips. */
-.devlog-status--considering { background: var(--crim-a8);        color: var(--crim2);       border: 1px solid var(--crim-a15); }
-.devlog-status--in_progress { background: var(--warn-orange-bg); color: var(--warn-orange); border: 1px solid var(--warn-orange-bdr); }
-.devlog-status--confirmed   { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
-.devlog-status--implemented { background: var(--green-dk-bg);    color: var(--green-dk);    border: 1px solid var(--green-dk-bdr); }
-.devlog-status--deferred    { background: transparent;           color: var(--txt3);        border: 1px solid var(--bdr2); }
-.devlog-body { font-size: 13px; color: var(--txt2); line-height: 1.65; margin: 0 0 8px; white-space: pre-wrap; }
-.devlog-target { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .03em; }
-.devlog-resolved { margin-top: 4px; border-top: 1px solid var(--bdr); padding-top: 16px; }
-.devlog-resolved-toggle {
-  font-family: var(--fl); font-size: 12px; color: var(--txt3);
-  cursor: pointer; user-select: none; letter-spacing: .04em; padding-bottom: 10px;
-}
-.devlog-resolved .devlog-card { opacity: .68; border-left-color: var(--bdr2) !important; }
-
-/* "Recently Shipped" — prominent, full-opacity, gold-accented so just-shipped
-   entries read as news rather than archive (issue: implemented = looks old). */
-.devlog-recent-heading { color: var(--gold); }
-.devlog-recent .devlog-card { border-left-color: var(--gold2); }
 
 /* ── Office tab (suite app — #691) ── */
 /* Note: player-layout.css has these too but index.html only loads suite.css */

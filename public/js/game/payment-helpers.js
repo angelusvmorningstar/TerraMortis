@@ -5,8 +5,9 @@
  * string, varied capitalisation, no amount). fin.2 uses `entry.payment:
  * { method, amount }` with a lowercase enum.
  *
- * Check-In and Finance tabs read via these helpers so legacy rows surface
- * in the UI without requiring a data migration.
+ * Check-In reads via these helpers so legacy rows surface in the UI without
+ * requiring a data migration. The Finance tab was the other consumer until
+ * #1135 deleted it; Check-In is now the only one.
  */
 
 /**
@@ -37,8 +38,8 @@ export function normalisePaymentMethod(val) {
  *
  * FIN-7 note: the row's `payment.amount` is a denormalised mirror of
  * `session.session_rate` for paid methods; signin-tab writes it on every
- * method change and on every rate change. Finance tab keeps reading from
- * the row, so changing that contract requires updating both call sites.
+ * method change and on every rate change. Since #1135 deleted the Finance tab,
+ * signin-tab is the only remaining call site for that contract.
  */
 export function readPayment(entry) {
   const p = entry?.payment;

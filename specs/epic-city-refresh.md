@@ -74,7 +74,7 @@ The fix: add `court_title` + `court_category` as proper fields. The `honorific` 
 1. City tab (ST admin) renders as two equal panels (~50% each)
 2. Ordeals & XP tab (player) has correct padding in both halves
 3. Story tab (player) renders correctly at full width
-4. Tickets tab (player) is redesigned as two-panel: submit form on left, ticket list on right
+4. ~~Tickets tab (player) is redesigned as two-panel: submit form on left, ticket list on right~~ — **dropped by #1135**, which scrapped the ticket system entirely (client, admin and server). Players raise issues with an ST directly.
 5. A shared CSS pattern (or documented convention) for two-panel layouts is established — no new custom `-split` class per tab needed
 
 ### Dev Notes

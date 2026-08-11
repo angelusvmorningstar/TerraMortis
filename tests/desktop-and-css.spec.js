@@ -3,7 +3,7 @@
  *
  * Covers:
  *   - Desktop mode toggle (nav-desktop-mode)
- *   - CSS audit: Primer styled, Archive styled, DT Submission dark theme
+ *   - CSS audit: Archive styled, DT Submission dark theme
  *   - CSS audit: two-panel collapses on mobile
  *   - Font harmonisation: buttons use Lato not Cinzel
  */
@@ -83,8 +83,10 @@ test('desktop-mode — sidebar has section labels', async ({ page }) => {
 
   const navText = await page.locator('#desktop-sidebar-nav').textContent();
   expect(navText).toMatch(/Game/i);
-  expect(navText).toMatch(/Lore/i);
   expect(navText).toMatch(/Storyteller/i);
+  // The Lore section went with #1135 (Primer, Game Guide and Rules were its only
+  // three tiles), and both render sites skip a section with no visible apps.
+  expect(navText).not.toMatch(/Lore/i);
 });
 
 test('desktop-mode — ST sees Tracker and Sign-In in sidebar', async ({ page }) => {
@@ -163,43 +165,8 @@ test('desktop-mode — app width uncapped in desktop mode', async ({ page }) => 
 
 // ── CSS audit tests ────────────────────────────────────────────────────────────
 
-test('css-audit — Primer tab renders styled TOC (not bare blue links)', async ({ page }) => {
-  await setupSuite(page);
-
-  await page.route('**/api/rules**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, pages: 0 }) }));
-
-  // Navigate to Primer via More grid
-  await page.evaluate(() => window.goTab('more'));
-  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
-  await page.locator('.more-app-icon[data-app="primer"]').click();
-  await page.waitForTimeout(800);
-
-  // Primer CSS should be applied — .primer-toc-link should NOT be default blue
-  const linkColour = await page.evaluate(() => {
-    const link = document.querySelector('.primer-toc-link');
-    if (!link) return null;
-    return window.getComputedStyle(link).color;
-  });
-
-  // If null, the primer content hasn't loaded — that's OK for this test (no server)
-  // The key check is that the CSS class EXISTS and doesn't render as browser-default blue (rgb(0,0,238))
-  if (linkColour !== null) {
-    expect(linkColour).not.toBe('rgb(0, 0, 238)');
-  }
-
-  // .primer-layout class should be defined (CSS ported)
-  const hasPrimerLayout = await page.evaluate(() => {
-    for (const sheet of document.styleSheets) {
-      try {
-        for (const rule of sheet.cssRules) {
-          if (rule.selectorText === '.primer-layout') return true;
-        }
-      } catch { /* cross-origin */ }
-    }
-    return false;
-  });
-  expect(hasPrimerLayout).toBe(true);
-});
+// The Primer TOC css-audit test was retired with #1135: the Primer tab and its
+// primer-* rules were both deleted, so there is no TOC left to style.
 
 test('css-audit — Archive CSS class is defined in suite.css', async ({ page }) => {
   await setupSuite(page);

@@ -1,6 +1,6 @@
 /**
  * feat.16  — ST city status edit popup (click chip → adjust inherent city status)
- * feat.17  — Rules reference: City Status + Territory sections present in game app
+ * feat.17  — Rules reference: City Status + Territory sections (Rules OVERLAY since #1135)
  * fix.44   — Attaché Invested gate (INV box only visible after first dot purchased)
  * tracker  — calcTotalInfluence row for all chars; re-fetch on tab open; retired filter
  * feeding  — ST confirm writes vitae to API and influence to localStorage; button feedback
@@ -261,12 +261,17 @@ async function openSuiteTrackerTab(page) {
   await page.waitForTimeout(1000);
 }
 
-async function openSuiteRulesTab(page) {
+// #1135 deleted the Rules TAB (#t-rules) from the game app. The rules CONTENT
+// survives unchanged behind the sheet's Rules button, which calls
+// window.openRulesOverlay() and renders the same renderSections() output into
+// #rules-overlay. These tests were converted rather than retired: they cover the
+// rules content, not the container it used to live in.
+async function openSuiteRulesOverlay(page) {
   await page.goto('/index.html');
   await page.waitForSelector('#app:not([style*="display: none"])');
   await page.waitForFunction(() => window._charNames !== undefined, { timeout: 10000 });
-  await page.evaluate(() => window.goTab('rules'));
-  await page.waitForSelector('#t-rules', { timeout: 5000 });
+  await page.evaluate(() => window.openRulesOverlay());
+  await page.waitForSelector('#rules-overlay', { timeout: 5000 });
   await page.waitForTimeout(600);
 }
 
@@ -403,31 +408,31 @@ test.describe('feat.16 — ST city status edit popup', () => {
 //  feat.17 — Rules reference sections
 // ══════════════════════════════════════════════════════════════════════════════
 
-test.describe('feat.17 — Rules reference City Status and Territory sections', () => {
+test.describe('feat.17 — Rules reference City Status and Territory sections (overlay)', () => {
 
-  test('Rules tab renders without JS errors', async ({ page }) => {
+  test('Rules overlay renders without JS errors', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await setupSuite(page, [INVICTUS_CHAR]);
-    await openSuiteRulesTab(page);
+    await openSuiteRulesOverlay(page);
     expect(errors).toHaveLength(0);
   });
 
-  test('City Status section is present in Rules tab', async ({ page }) => {
+  test('City Status section is present in the Rules overlay', async ({ page }) => {
     await setupSuite(page, [INVICTUS_CHAR]);
-    await openSuiteRulesTab(page);
+    await openSuiteRulesOverlay(page);
 
-    const rulesEl = page.locator('#t-rules');
+    const rulesEl = page.locator('#rules-overlay');
     await expect(rulesEl).toBeVisible({ timeout: 5000 });
     const html = await rulesEl.innerHTML();
     expect(html.toLowerCase()).toContain('city status');
   });
 
-  test('Territory section is present in Rules tab', async ({ page }) => {
+  test('Territory section is present in the Rules overlay', async ({ page }) => {
     await setupSuite(page, [INVICTUS_CHAR]);
-    await openSuiteRulesTab(page);
+    await openSuiteRulesOverlay(page);
 
-    const rulesEl = page.locator('#t-rules');
+    const rulesEl = page.locator('#rules-overlay');
     await expect(rulesEl).toBeVisible({ timeout: 5000 });
     const html = await rulesEl.innerHTML();
     expect(html.toLowerCase()).toContain('territory');
@@ -435,9 +440,9 @@ test.describe('feat.17 — Rules reference City Status and Territory sections', 
 
   test('City Status section is present and can be expanded', async ({ page }) => {
     await setupSuite(page, [INVICTUS_CHAR]);
-    await openSuiteRulesTab(page);
+    await openSuiteRulesOverlay(page);
 
-    const rulesEl = page.locator('#t-rules');
+    const rulesEl = page.locator('#rules-overlay');
     await expect(rulesEl).toBeVisible({ timeout: 5000 });
 
     // Section title is always rendered even when collapsed
@@ -453,9 +458,9 @@ test.describe('feat.17 — Rules reference City Status and Territory sections', 
 
   test('Rules sections are collapsible (have expand/collapse toggle)', async ({ page }) => {
     await setupSuite(page, [INVICTUS_CHAR]);
-    await openSuiteRulesTab(page);
+    await openSuiteRulesOverlay(page);
 
-    const rulesEl = page.locator('#t-rules');
+    const rulesEl = page.locator('#rules-overlay');
     await expect(rulesEl).toBeVisible({ timeout: 5000 });
     // Each section has a .rl-sec-hd button that toggles collapse
     const sectionBtns = rulesEl.locator('.rl-sec-hd');

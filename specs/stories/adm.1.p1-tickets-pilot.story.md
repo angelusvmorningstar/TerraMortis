@@ -9,6 +9,8 @@ branch: piatra/issue-1068-adm-p1-tickets
 
 # Story ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate
 
+> **Superseded 2026-08-11 by [#1135](https://github.com/angelusvmorningstar/TerraMortis/issues/1135).** The surface this story built no longer exists: the ticket system was scrapped entirely, server and admin included. **Spheres (#1096) is now the reference implementation** of the D4/D9 loading pattern this story piloted, so nothing is lost from the pattern itself. This record is kept because the *findings* outlived the surface — see ADR-008 Rev 17. Read it as history, not as a description of anything you can still open.
+
 ## Status
 
 Approved

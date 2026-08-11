@@ -1,4 +1,10 @@
 schema: 1
+superseded_note: >
+  SUPERSEDED 2026-08-11 by #1135, which scrapped the ticket system entirely (server
+  route + schema + mount, admin view + sidebar + stylesheet, and the player Settings
+  submit form). The surface this gate adjudicated no longer exists. Spheres (#1096) is
+  now the reference implementation of the D4/D9 loading pattern. Gate verdict is kept
+  as the historical record; see ADR-008 Rev 17.
 story: "adm.1"
 stage: "A (retire the dead player Tickets copy) — PR1 dereference + PR2 delete"
 story_title: "ADM-1 (P1 pilot): merge the Tickets surface into index.html behind the role gate"
