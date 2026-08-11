@@ -29,6 +29,10 @@ import { getRulesCache } from './rule_engine/load-rules.js';
 import { getStoredTerritories } from '../data/accessors.js';
 // BL-3a (#1008): clan-filtered bloodline options come from the collection.
 import { bloodlinesByClan } from '../data/bloodlines-cache.js';
+// BL-5 (#1008): the sheet header carries the SECOND clan/bloodline dropdown
+// pair. It locks from the same shared module the Identity tab does, keyed off
+// the character's own stored value and never off the cache.
+import { isLineageLocked, lineageLockAttr, lineageLockNoteHtml } from '../data/write-once.js';
 
 // BL-3a review: names are DB-sourced (BL-4 lets an ST write them), so they are
 // escaped; and the character's OWN value is always present and matched
@@ -2713,8 +2717,15 @@ export function renderSheet(c, target = null) {
   const _covBase = st.covenant?.[c.covenant] || 0;
   covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covBase, 'Cov.', 'covenant', _covBase, 0);
   if (editMode) {
-    const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = _blOptionNames(c), blO = bls.map(b => '<option' + (c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
-    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select sh-edit-select-sub" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
+    // BL-5 (#1008): both selects are locked once the character holds a value,
+    // and the clan select gains the "not set" placeholder it never had on the
+    // one path where it still matters. Two selects are built on the line below;
+    // locking one and missing the other is the exact failure this epic exists
+    // to stop, so both lock attributes are applied there and the reasons are
+    // rendered under them.
+    const _clanPlaceholder = isLineageLocked(c, 'clan') ? '' : '<option value=""' + (c.clan ? '' : ' selected') + '>(not set)</option>';
+    const cOpts = _clanPlaceholder + CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = _blOptionNames(c), blO = bls.map(b => '<option' + (c.bloodline && _blKey(c.bloodline) === _blKey(b) ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
+    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)"' + lineageLockAttr(c, 'clan') + '>' + cOpts + '</select><select class="sh-edit-select sh-edit-select-sub" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"' + lineageLockAttr(c, 'bloodline') + '><option value="">(no bloodline)</option>' + blO + '</select>' + lineageLockNoteHtml(c, 'clan') + lineageLockNoteHtml(c, 'bloodline'), '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   }
   else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   h += '</div></div></div>'; // end right, body, hdr

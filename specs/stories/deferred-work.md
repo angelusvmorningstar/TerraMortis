@@ -66,6 +66,17 @@ Senior Developer Review instead.
 
 ## Found during BL-2 data-lock follow-up (2026-08-10) — `characters.bloodline` is write-once and nothing enforces it
 
+> **DISCHARGED 2026-08-11 by BL-5** (`bl-5-character-bloodline-validation.story.md`, code-reviewed
+> the same day). All three bullets below are closed: the silent name-to-null was **deleted** rather
+> than guarded (with both now-dead cache imports, proved at the call sites); the false `(none)`
+> display was already closed by BL-3a's review fix 4 on **both** surfaces; and both editing surfaces
+> are now locked by **one** shared refusal called from `updField` **and** `shEdit`, backed by a
+> server-side 409 on `PUT /api/characters/:id`. Kept here as the record of what was found and when.
+> **One residue is genuinely still open:** the inline `style="..."` called out in the third bullet
+> was never on the bloodline select itself; the surviving inline style in `editor/sheet.js` is at
+> `:2688`, on the regent-territory label in the court row. Unrelated to lineage, still a
+> normalised-CSS violation, still worth fixing when that line is next touched.
+
 Angelus ruled 2026-08-10: *"Not every character has a bloodline but once they do it's forever. A new
 character can start without a bloodline and then get one."* So `null` to a name is allowed; name to a
 different name, and name to `null`, are not. Nothing enforces this — not the schema, not the route,

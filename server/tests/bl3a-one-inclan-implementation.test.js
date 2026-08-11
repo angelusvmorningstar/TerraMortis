@@ -176,10 +176,18 @@ describe('BL-3a — AC 4: both bloodline dropdowns read the cache', () => {
     expect(src).not.toMatch(/BLOODLINE_CLANS/);
   });
 
-  it('edit.js validates the clan-change against the cache, not the constant', () => {
+  it('edit.js no longer validates the clan-change at all — BL-5 deleted the branch', () => {
+    // BL-3a rewired this off the constant and onto the cache, explicitly on the
+    // reasoning that DELETING it was BL-5's job and BL-3b must not have to wait
+    // on BL-5. BL-5 collected that debt: clan is write-once and now enforced on
+    // both editing surfaces and at the API, so a clan can never change after
+    // its first set and "clear the bloodline when the clan changes" can never
+    // fire. The assertion inverts rather than being dropped, so the deletion
+    // stays proved from this side too.
     const src = code('public/js/editor/edit.js');
-    expect(src).toMatch(/bloodlinesByClan\(\)/);
     expect(src).not.toMatch(/BLOODLINE_CLANS/);
+    expect(src).not.toMatch(/bloodlinesByClan\(\)/);
+    expect(src).toMatch(/refuseLineageWrite\(/);
   });
 
   it('sheet.js no longer carries an inline style on the bloodline select', () => {
@@ -298,13 +306,22 @@ describe('BL-3a review — the clan-change clear never fires on a cache it canno
     expect(state.chars[0].bloodline).toBe('Malkovians');
   });
 
-  it('DOES null a genuinely mismatched bloodline when the cache can answer', async () => {
-    // The behaviour must survive the guard, or the guard is just a disable.
+  it('BL-5: no longer nulls a mismatched bloodline either, because the clan write is refused', async () => {
+    // This assertion USED to be "DOES null a genuinely mismatched bloodline
+    // when the cache can answer", and it was right for BL-3a: the clear was
+    // live, and the guard around it had to not become a blanket disable.
+    //
+    // BL-5 made clan write-once. The clan change is now refused before
+    // anything downstream of it runs, the clear is deleted, and a character's
+    // bloodline is never destroyed as a side effect of a clan edit by any path
+    // at all. That is a stronger guarantee than the old one, so the test
+    // asserts the stronger thing rather than being deleted.
     const { state, edit } = await editorWith(seeded());
     state.chars = [{ name: 'Cazz', clan: 'Ventrue', bloodline: 'Malkovians' }];
     state.editIdx = 0;
     edit.shEdit('clan', 'Mekhet');
-    expect(state.chars[0].bloodline).toBeNull();
+    expect(state.chars[0].clan).toBe('Ventrue');
+    expect(state.chars[0].bloodline).toBe('Malkovians');
   });
 
   it('keeps a bloodline that IS valid for the new clan', async () => {

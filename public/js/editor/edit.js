@@ -3,11 +3,12 @@
 import state from '../data/state.js';
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { isInClanDisc, bloodlineUnresolved } from '../data/accessors.js';
-// BL-3a (#1008): the clan-change validity check reads the collection. NOTE:
-// BL-5 deletes this whole branch (clan is write-once, so it is unreachable);
-// rewired rather than left behind only because BL-3b cannot delete the
-// constant while any live path still reads it.
-import { bloodlinesByClan, bloodlinesResolvable } from '../data/bloodlines-cache.js';
+// BL-5 (#1008): clan and bloodline are write-once, and the refusal is shared
+// with the Identity tab's `updField` so the rule has one implementation across
+// both editing surfaces. This import replaces BL-3a's `bloodlinesByClan` /
+// `bloodlinesResolvable` pair, which existed only to feed the clan-change
+// bloodline auto-clear that BL-5 deleted below.
+import { refuseLineageWrite } from '../data/write-once.js';
 import {
   CLAN_BANES, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
@@ -87,6 +88,10 @@ export function editFromSheet() {
 
 export function shEdit(field, val) {
   if (state.editIdx < 0) return;
+  // BL-5 (#1008): this guard MUST stay above the assignment on the next line,
+  // which is where the field is written. Enforced at the handler, not only in
+  // the markup, per data-map.md's own instruction on `characters.clan`.
+  if (refuseLineageWrite(state.chars[state.editIdx], field, val)) return;
   state.chars[state.editIdx][field] = val || null;
   _markDirty();
   // Re-render for fields that affect derived display (title bonus, clan bane)
@@ -104,25 +109,13 @@ export function shEdit(field, val) {
       if (ci >= 0) c.banes[ci] = { ...newCurse };
       else c.banes.unshift({ ...newCurse });
     }
-    // Clear bloodline if not valid for the new clan.
-    //
-    // BL-3a review: this is the ONLY destructive write in the rewiring, and
-    // moving it to an async source made it dangerous in a way the static
-    // constant never was. `bloodlinesByClan()` returns {} whenever the cache is
-    // unloaded, failed, OR the collection is empty — and empty is the live
-    // state until the seed is applied. An empty map means `validBLs` is [], so
-    // EVERY bloodline reads as invalid and the branch nulls a perfectly good
-    // one with no warning. The old constant was always populated, so the clear
-    // only ever fired on a genuine mismatch.
-    //
-    // Refuse to judge when the cache cannot answer. Comparison is on the same
-    // trimmed/case-folded key `bloodlineDiscs` uses, so a value that costs
-    // correctly is never deleted for a spelling difference.
-    if (c.bloodline && bloodlinesResolvable()) {
-      const key = s => String(s).trim().toLowerCase();
-      const validBLs = (bloodlinesByClan()[val] || []).map(key);
-      if (!validBLs.includes(key(c.bloodline))) c.bloodline = null;
-    }
+    // BL-5 (#1008): the "clear the bloodline if it is not valid for the new
+    // clan" block that used to sit here is DELETED, not guarded. Clan is
+    // write-once and now enforced both here and at the API, so a clan can never
+    // change after its first set and the branch could never fire. A guard is a
+    // thing that can be got subtly wrong later; a deletion is not. The bane
+    // assignment above stays, because it is still needed the first time a clan
+    // is set on a new character.
     _renderSheet(c);
   }
 }
