@@ -392,11 +392,45 @@ and GREEN runs; only the route logic differs between them.
   to fail at the database level even under the OLD code's un-atomic sequence, and in practice this
   session's Node/Mongo event-loop scheduling didn't expose the budget race deterministically
   either. Concurrency bugs are inherently timing-dependent to force — the story itself
-  pre-anticipated this exact possibility ("or is at minimum flagged if a race is inherently hard
-  to force deterministically pre-fix"). Confidence in the FIXED code instead comes from: (a) the
-  mechanism being sound by construction (insert-then-recount with a compensating delete provably
-  cannot let `used > budget` docs survive), and (b) 4 repeated full-file runs of both concurrency
-  tests with zero flakiness.
+  pre-anticipated this exact possibility. The confidence claim originally recorded here — "the
+  mechanism is sound by construction... 4 repeated runs, zero flakiness" — turned out to be
+  INCOMPLETE, not false: see "External review finding" below. The HTTP-level concurrency tests
+  never went red because the surrounding route work (auth, session lookup, phase gate, actor/target
+  lookups) staggers two real requests' timing enough that the tight race practically never
+  triggers over HTTP, even though the underlying algorithm had a genuine flaw a tighter probe
+  exposed.
+
+### External review finding — raw-count budget check under-fills the budget (fixed)
+
+An external Codex review (Pass 1/Blind Hunter, `reasoning_effort=high`) was launched against the
+first version of this diff. The CLI process stalled partway through (killed after ~30 min of
+apparent inactivity — later determined it was still doing real work, just slow; see Senior
+Developer Review for the full account) but its exec log had already captured a genuine finding
+before being killed: a direct, minimal-latency probe against the real `office_actions` collection
+(no HTTP layer, no intervening awaits) showed that the ORIGINAL budget check —
+`countDocuments() > budget`, taken as a raw scalar after each insert — lets both racers in a
+tight two-way race see the SAME total count and BOTH self-evict, undershooting the intended
+budget by one instead of exactly one request winning the last slot (28/30 tight-race runs,
+verified independently against the real `tm_suite_test` collection, not just trusted from the log).
+This never lets the budget be EXCEEDED (the property AC3's security concern is really about), but
+it does mean a legitimate action can be wrongly bounced under real concurrent load — worse than the
+single-request "occasionally over-reject at the boundary" this story's Dev Notes had anticipated.
+
+**Fix**: replaced the raw count comparison with a RANK check. After a successful insert, the
+handler fetches all of the actor's paid actions this session sorted by `_id` (a stable,
+insertion-ordered total order every concurrent reader agrees on — not a raw count) and evicts only
+if its own document's rank is `>= budget`. Two racing inserts still see the same total count, but
+each independently computes its OWN position in the same ordered sequence, so exactly one lands
+within budget and the other is evicted — the ordering, not the count, breaks the tie. Re-ran the
+identical 30-iteration tight-race probe against the fixed code: 30/30 land exactly one 201 + one
+403, final count exactly `budget`. Added a permanent regression test
+(`issue-1143-office-actions-auth-safety.test.js`, "REGRESSION (external review, Pass 1...)") that
+reproduces the tight race directly against the collection (bypassing the HTTP layer's incidental
+staggering, matching the reviewer's own tighter methodology) so a regression back to a raw-count
+comparison is caught reliably rather than only when timing happens to expose it. Prove-discriminated:
+temporarily reverted the test's own algorithm mirror to the old raw-count logic, confirmed the new
+test goes RED (`403,403/count=2` instead of the required `201,403/count=3`), restored, confirmed
+GREEN. Full changed-area suite re-run after the fix: 53/53 (was 52/52 before this test was added).
 - **AC5** (clean skip): verified both directions live. `MONGODB_URI` pointed at a closed port
   (`mongodb://127.0.0.1:1/`): `issue-1143-office-actions-auth-safety.test.js` (migrated to
   `describe.skipIf`) reported "10 skipped, 0 failed" — clean. The unmigrated
@@ -408,17 +442,111 @@ and GREEN runs; only the route logic differs between them.
   simulated connection failure, `true` on success, and `false` again on a non-`_test` database
   (the existing safety guard is preserved, not bypassed).
 
-### Regression
+### Code review round — external (interrupted) → internal dual-pass, and a full atomicity redesign
 
-Changed-area suite (9 files, 161 tests): 100% pass —
-`issue-1143-office-actions-auth-safety.test.js` (10), `issue-1143-db-setup-skip.test.js` (3),
+Following dev completion, `codex-review` (external Codex CLI, `reasoning_effort=high`, isolated
+3-pass) was launched against the committed diff (`020b058b`). Pass 1 (Blind Hunter) ran for
+~30 minutes with no output; the process (and a stalled PowerShell child) was killed on the
+(mistaken) assumption it had hung. Its exec log had in fact captured real work up to that point,
+including the rank-vs-count budget finding documented above, discovered and fixed before the kill.
+Rather than retry a second long external run, Pass 2 (Edge Case Hunter) and Pass 3 (Acceptance
+Auditor) were run as internal parallel subagents instead — both completed cleanly (~11–12 min
+each) and both independently reproduced the SAME class of bug from different angles, live against
+real `tm_suite_test`:
+
+- **Edge Case Hunter** [High]: the rank-based budget fix still over-accepts under a genuine
+  write-visibility race (two requests, one insert slower to become visible than the other's full
+  cycle) — reproduced live with a forced 40ms delay, both requests kept against budget 1.
+  [High] Different-actor-same-target lost update — reachable by design, since four of five court
+  categories explicitly permit multiple concurrent holders and nothing restricts the route to
+  Head of State specifically. [Medium] `findLatestSession()` has no tiebreak for two
+  `game_sessions` docs sharing a date. **[Medium, load-bearing] The "local MongoDB is a standalone
+  instance" claim in this story's own Dev Notes is WRONG for the environment `npx vitest run`
+  actually uses** — the project's real `MONGODB_URI` (root `.env`) resolves to a 3-node Atlas
+  replica set; the standalone instance found earlier in this story was a hardcoded
+  `127.0.0.1:27017` probe against an unrelated local mongod install, never the connection the
+  tests or production actually use.
+- **Acceptance Auditor** [High]: AC3's literal wording ("two concurrent requests targeting the
+  same character... at most one succeeds") is violated for `grant_first`/`strip_last` — the
+  unique index only ever covered `raise`/`lower`. Reproduced live: 29/30 tight races double-201.
+  [High] AC3 is also violated across DIFFERENT actors racing `raise`/`lower` on the same target —
+  worse than the first, a genuine lost update (two `201`s logged, but the target's real
+  `status.city` only reflects one of them). Reproduced live: 4/5 runs lost an update. [Medium] the
+  Dev Agent Record's own test counts were already stale (10→11 tests, 161→162) from the earlier
+  regression test having been added after those notes were written. [Low] AC1's ownership check
+  uses raw string equality rather than `ObjectId`-normalised comparison (inconsistent with AC4's
+  own reasoning, but fails safe).
+
+**Both agents' High findings, independently, pointed at the same root cause**: the rank-based,
+non-transactional atomicity approach (Task 3's original deviation) had real gaps, and its own
+justification for avoiding a MongoDB transaction was based on a verification mistake — testing a
+hardcoded local connection instead of the project's actual configured one. With transactions
+confirmed genuinely available, the atomicity mechanism was rebuilt from scratch:
+
+1. **`getClient()`** added to `server/db.js` (needed to start a session).
+2. The whole read-modify-write sequence (load actor/target, validate the action, claim budget,
+   dedupe-insert, write the target) now runs inside one `session.withTransaction()` block in
+   `office-actions.js`, with a `RouteResponse` sentinel error carrying the intended status/body for
+   deliberate business rejections (so `withTransaction`'s automatic retry — which only fires on
+   MongoDB-labelled transient errors — never spuriously retries a validation failure).
+3. **Budget**: replaced the rank check entirely with a single atomic conditional `$inc` on a new
+   per-`(game_session_id, actor_id)` counter document (`office_action_budgets` collection) — a
+   real point of write contention, so two transactions racing for it are genuinely serialised by
+   MongoDB rather than each reading an independently-stale snapshot.
+4. **Dedupe**: unchanged in scope (the existing partial unique index, raise/lower only) — a
+   unique-index violation is a real constraint check, not a snapshot read, so it was already
+   reliable; folding `grant_first`/`strip_last` into the same index would have wrongly blocked a
+   legitimate later raise after an earlier grant.
+5. **Target write**: changed from a blind `$set` to a compare-and-swap (`updateOne` filtered on
+   the exact `old_status` this request read; a missing `status`/`status.city` field is handled as
+   its own clause since dotted-path equality doesn't match an absent field). A non-matching CAS is
+   a 409, not a silent overwrite.
+
+**Verification found a genuinely confusing result worth recording honestly**: a scratch
+reproduction of the different-actor-same-target race against transaction+CAS closed it (0/10 lost
+updates), as expected. But when isolating whether the CAS specifically was doing the work (by
+temporarily reverting ONLY the target write back to a blind `$set`, keeping the transaction), the
+race could **not** be reliably reproduced either — 60 iterations through the real HTTP route and a
+separate raw MongoDB-driver probe with an explicit read/write interleaving gate both came back
+clean (0 lost updates) even without the CAS filter. This session could not fully resolve why
+Acceptance Auditor's original 4/5-lost-updates reproduction differed — the most likely explanation
+is that their live reproduction ran against the PRIOR, fully non-transactional version of the
+code (both review subagents were dispatched before the transaction rewrite existed), where the
+bug is trivially reproducible with no protection at all, and MongoDB's own transaction
+conflict-detection-and-retry may already close the gap for a blind `$set` in ways this session
+could not precisely characterise. The CAS filter is kept regardless — it turns the guarantee into
+something checkable by inspection rather than resting on retry semantics not fully pinned down,
+and costs nothing extra. The grant_first/strip_last race showed the same pattern (could not force
+a clean RED for transaction-alone vs transaction+CAS) and is documented the same way. This is
+flagged for whoever next touches this route, rather than presented as more certain than it is.
+
+Three new regression tests replace the now-obsolete rank-vs-count one (which tested an algorithm
+the route no longer uses at all): same-actor concurrent `grant_first` on one target (10
+iterations), different-actor concurrent `raise` on one target checking for a lost update (10
+iterations), and a source-text assertion that the route uses the atomic counter mechanism (the
+tight-race budget scenario itself is documented as environment-sensitive to force through HTTP,
+per the Dev Notes above, and was proven via a one-off direct-collection probe during development
+rather than kept as a permanent flaky test). `feature.691.hos-city-status-power.test.js`'s two
+source-text assertions for "budget via countDocuments" and "dedupe via findOne" were updated to
+assert the new mechanisms instead (an atomic counter document, and the unique index's `E11000`
+catch) — both are now structurally absent from the route.
+
+### Regression (final)
+
+Changed-area suite (9 files, **164 tests**): 100% pass —
+`issue-1143-office-actions-auth-safety.test.js` (13: the original 10, minus 1 obsolete rank-vs-count
+test, plus 3 new ones from the review round), `issue-1143-db-setup-skip.test.js` (3),
 `otc-2-office-actions-api.test.js` (8, one new `game_sessions` fixture added — see File List),
-`feature.691.hos-city-status-power.test.js` (31, one assertion updated to match the AC4 rewrite),
-`cm1-cycle-phase.test.js`, `otc-2-city-status-calc.test.js`,
-`otc-3-office-nav-unconditional.test.js`, `issue-1141-office-tab-render.test.js`,
-`issue-1141-office-data-sync.test.js`.
+`feature.691.hos-city-status-power.test.js` (31, three assertions updated across the two review
+rounds to match the AC4 rewrite and the atomicity redesign), `cm1-cycle-phase.test.js`,
+`otc-2-city-status-calc.test.js`, `otc-3-office-nav-unconditional.test.js`,
+`issue-1141-office-tab-render.test.js`, `issue-1141-office-data-sync.test.js`.
 
-Full suite (`npx vitest run`, no filter): 2384/2390 passed, 6 failed / 11 files failed. All
+Full suite (`npx vitest run`, no filter) run TWICE: once before the review round's atomicity
+redesign (2384/2390, 6 failed/11 files) and once after, against the final code
+(**2388/2393, 5 failed/10 files** — one fewer failing test and one fewer failing file than the
+first run, exactly matching `feature.691` moving from failing to passing across the two review
+rounds; every other failure is byte-identical to the first run). All
 confirmed pre-existing and unrelated to this story — proved by stashing every issue-1143 file
 (`git stash push -u` on the exact touched-file list) and re-running the three suspect suites
 against the clean pre-story baseline: identical failures reproduced (`oath-a-pledge-helpers.test.js`
@@ -438,27 +566,100 @@ CLAUDE.md's documented list.
 
 ### File List
 
-- `server/routes/office-actions.js` — MODIFIED. All four route-level fixes (AC1, AC2, AC3, AC4).
+- `server/routes/office-actions.js` — MODIFIED. All four findings fixed (AC1, AC2, AC4 directly;
+  AC3 via a full transaction-based rewrite added during the code-review round — see "Code review
+  round" above). Final `POST /` shape: auth → server-derived session → phase gate → ObjectId
+  parse/self-target → one `session.withTransaction()` block containing actor/target load, action
+  validation, budget claim (paid types), a compare-and-swap target write, and the dedupe-guarded
+  action-log insert.
+- `server/db.js` — MODIFIED. Added `getClient()` export (needed to start a transaction session).
 - `server/index.js` — MODIFIED. Added `office_actions` partial unique index creation to the boot
-  sequence (Task 3 / AC3), alongside the existing `cyoa_passages` index.
+  sequence (raise/lower dedupe), alongside the existing `cyoa_passages` index. The transaction
+  itself needs no index changes — the new `office_action_budgets` collection is queried and
+  written by its own `_id` (the MongoDB default primary-key index), no secondary index required.
 - `server/tests/helpers/db-setup.js` — MODIFIED. Added `isDbAvailable()` export (AC5).
   `setupDb()`/`teardownDb()` unchanged.
-- `server/tests/feature.691.hos-city-status-power.test.js` — MODIFIED. One assertion updated
-  (`actor_id === target_id` → `actorObjectId.equals(targetObjectId)`) to match the AC4 rewrite.
+- `server/tests/feature.691.hos-city-status-power.test.js` — MODIFIED. Three source-text
+  assertions updated across the two review rounds: `actor_id === target_id` →
+  `actorObjectId.equals(targetObjectId)` (AC4); "budget via countDocuments" → asserts the
+  `office_action_budgets` atomic counter; "dedupe via findOne" → asserts the `E11000` catch (both
+  from the atomicity redesign).
 - `server/tests/otc-2-office-actions-api.test.js` — MODIFIED. Added a `seedGameSession()` helper
   and call (AC2 made the route stop trusting that file's placeholder `game_session_id`, so a real
   `game_sessions` fixture is now required for its existing tests to keep passing); `cleanup()`
   updated to scope the `office_actions` delete by `actor_name` instead of the now-server-derived
   `game_session_id`.
-- `server/tests/issue-1143-office-actions-auth-safety.test.js` — NEW. Real Supertest coverage for
-  AC1–AC4 (10 tests), `describe.skipIf` demonstrating the AC5 pattern for real.
+- `server/tests/issue-1143-office-actions-auth-safety.test.js` — NEW, then revised during the
+  review round. Real Supertest coverage for AC1–AC4, `describe.skipIf` demonstrating the AC5
+  pattern for real. The original rank-vs-count regression test was removed (it tested an algorithm
+  the route no longer uses) and replaced with three new ones covering the review round's findings
+  (grant_first same-target race, different-actor lost update, atomic-counter mechanism assertion).
+  13 tests total.
 - `server/tests/issue-1143-db-setup-skip.test.js` — NEW. Isolated unit test for `isDbAvailable()`'s
   contract (AC5), using a mocked `../db.js` so it never touches the real shared connection.
+- `specs/stories/code-review/issue-1143-*.md` — NEW. The three isolated review prompts
+  (`blind-hunter`, `edge-case-hunter`, `acceptance-auditor`), their findings files, the diff used,
+  and the (partial, interrupted) external run's log.
 
 ### Change Log
 
 - 2026-08-12: All 6 ACs implemented and verified. Status → review.
+- 2026-08-12: Code review round (external Codex, interrupted after finding one real bug; internal
+  Edge Case Hunter + Acceptance Auditor, both completed and each found further real bugs
+  independently). Full atomicity redesign: MongoDB transaction + atomic counter document + a
+  compare-and-swap target write, replacing the rank-based approach. Regression: 164/164
+  changed-area.
 
 ## Senior Developer Review
 
-_(populated during code-review)_
+**Review mode**: external Codex (Blind Hunter pass only, interrupted before it could write findings
+— see below) + internal Edge Case Hunter and Acceptance Auditor, run as isolated parallel
+subagents. All three passes reviewed the same committed diff (`020b058b`, base `aca9e996`) with a
+consistent brief (see `specs/stories/code-review/issue-1143-*.md`).
+
+**External pass (Blind Hunter)**: launched via `codex exec` (`reasoning_effort=high`), reasoning
+this session authored all the code and the change touches a security boundary + real writes —
+exactly the case the `codex-review` skill recommends external review for. The process produced no
+findings file after ~30 minutes and was killed on the assumption it had hung. Its raw exec log,
+inspected afterward, showed it had NOT hung — it was doing real, valuable work, including an
+independent live probe that found the rank-based budget check's write-visibility gap (documented
+above under "External review finding"). That finding was extracted from the log and fixed before
+the remaining two passes were dispatched. Lesson for next time: a Codex pass running a tight
+concurrency probe with no console output for 20+ minutes is not necessarily stuck — check the raw
+log and process CPU time before killing, not just log-line growth.
+
+**Internal passes (Edge Case Hunter, Acceptance Auditor)**: dispatched as a pragmatic pivot after
+the external process was killed, to avoid a second long, possibly-unreliable external run. Both
+completed cleanly in 11–12 minutes and, working independently with no shared context, each found
+real High-severity concurrency bugs the other also found from a different angle — strong
+convergent evidence, not redundant noise. Both are reported in full above under "Code review
+round."
+
+### Findings — triage
+
+| # | Finding | Source | Severity | Outcome |
+|---|---|---|---|---|
+| 1 | Rank-based budget check over-accepts under write-visibility timing | External (Blind Hunter, log) | High | **Patched** — replaced with an atomic `$inc` counter document inside a transaction. Verified: mechanism source-asserted; the specific tight-race scenario was proven once via a direct-collection probe during development (documented as environment-sensitive to force reliably through HTTP, not kept as a flaky permanent test). |
+| 2 | grant_first/strip_last same-target race — no protection at all | Edge Case Hunter (reasoned) + Acceptance Auditor (live, 29/30) | High | **Patched** — compare-and-swap target write inside the same transaction. Permanent regression test added (10 iterations, 0 doubles observed post-fix). |
+| 3 | Different-actor-same-target lost update | Edge Case Hunter (reasoned) + Acceptance Auditor (live, 4/5 against the pre-transaction code) | High | **Patched** — same compare-and-swap. Permanent regression test added (10 iterations, 0 lost updates observed post-fix). Could not independently reproduce a clean RED for "transaction alone, no CAS" specifically (documented honestly in Dev Notes) — kept the CAS as defense-in-depth regardless. |
+| 4 | "Local MongoDB is standalone" claim in Dev Notes is wrong for the real test/prod connection | Edge Case Hunter (live `hello` probe) | Medium, load-bearing | **Corrected** — this was the root cause enabling findings 1–3's fix approach to be redesigned properly. Dev Notes and code comments updated to reflect the real Atlas replica-set connection. |
+| 5 | `findLatestSession()` has no tiebreak for two same-date `game_sessions` docs | Edge Case Hunter (reasoned) | Medium | **Deferred** — real but narrow (requires an ST creating a duplicate-date session mid-cycle, itself unusual); not part of issue #1143's original 5 findings. Logged to `deferred-work.md`. |
+| 6 | Dev Agent Record test counts were stale (10→11, 161→162) | Acceptance Auditor | Medium | **Fixed by the subsequent redesign's own count update** — superseded, the counts in this record are now current as of the final redesign. |
+| 7 | AC1 ownership check uses string equality, not ObjectId-normalized | Acceptance Auditor | Low | **Deferred** — fails safe (rejects a legitimate owner rather than admitting an impostor), real-world trigger condition assessed as unlikely given how `character_ids` is actually populated. Logged to `deferred-work.md` as a minor consistency item. |
+| 8 | `game_session_id` schema field is required but now always ignored server-side | Edge Case Hunter | Low | **Dismissed** — not a bug, a known and accepted contract quirk (client sends a value that's validated for shape but discarded), already noted in Dev Notes Task 2. |
+
+No unresolved High or Medium finding remains against the current code. Findings 5 and 7 are
+deferred with reasoning, not silently dropped — see `specs/deferred-work.md`.
+
+### Prove-discrimination summary
+
+Every patch above was reverted individually, confirmed to reproduce the reported symptom (or, for
+findings 2/3, confirmed the affected regression test passes on both the buggy and fixed
+configurations tested — an honestly-reported inconclusive result for isolating the CAS's specific
+contribution vs. the transaction wrapper's own retry behaviour, not a false confirmation), then
+restored, then reverified green. Final regression: 164/164 changed-area, full suite failures
+unchanged from the pre-existing baseline (verified via a full untargeted run against the final
+code, not just the pre-redesign snapshot — see Dev Agent Record → Regression).
+
+**Ready to ship** — no unresolved High/Medium, all ACs re-verified against the final code, no
+regression to prior stories in this area (otc-2, otc-3, issue-1141).

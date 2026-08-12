@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCollection } from '../db.js';
+import { getCollection, getClient } from '../db.js';
 import { ObjectId } from 'mongodb';
 import { validate } from '../middleware/validate.js';
 import { officeActionSchema } from '../schemas/office_action.schema.js';
@@ -13,6 +13,14 @@ const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
 
 const router = Router();
 const col    = () => getCollection('office_actions');
+
+// A deliberate business rejection thrown from inside a withTransaction()
+// callback. session.withTransaction only retries errors MongoDB itself
+// labels transient — a plain thrown Error (this one included) aborts the
+// transaction and propagates straight out, no spurious retry.
+class RouteResponse extends Error {
+  constructor(statusCode, body) { super(body.message); this.statusCode = statusCode; this.body = body; }
+}
 
 // issue-1143: the single source of truth for "what is the current game
 // session" — used by GET /latest_session for display AND by POST / to
@@ -101,118 +109,173 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
   if (actorObjectId.equals(targetObjectId))
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot target yourself' });
 
-  // Load actor — must hold a court office
-  const actor = await getCollection('characters').findOne({ _id: actorObjectId });
-  if (!actor)
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Actor not found' });
-  if (!actor.court_category)
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Actor holds no court office' });
+  // issue-1143 finding #3 (and its own external/internal review follow-ups):
+  // the whole read-modify-write sequence below — load actor/target, validate
+  // the action, claim a budget slot, dedupe-insert the log entry, write the
+  // target's new status.city — runs inside ONE MongoDB multi-document
+  // transaction. This project's `MONGODB_URI` (root `.env`, read by
+  // `server/config.js`) resolves to a genuine 3-node Atlas replica set, not
+  // a standalone instance — confirmed live via `hello` against the EXACT
+  // connection `npx vitest run` actually uses. (An earlier version of this
+  // fix wrongly concluded transactions were unavailable, having tested a
+  // hardcoded `127.0.0.1:27017` — a real but unrelated local mongod install
+  // — instead of the project's actual configured connection; that
+  // non-transactional insert-then-rank workaround had its own real gap,
+  // caught by review: two requests racing for the last budget slot could
+  // still both survive if one request's write became visible to the other's
+  // recount later than expected, a genuine timing hazard on a WAN-connected
+  // replica set. Transactions close this at the source instead of patching
+  // around it.)
+  //
+  // Two things a transaction alone does NOT provide, both handled
+  // explicitly:
+  //   - Budget is a COUNT across many rows, and two transactions each
+  //     reading a stale count and inserting distinct new documents don't
+  //     conflict with each other by default (no shared document, so nothing
+  //     to detect). Fixed by claiming a slot from a single per-(session,
+  //     actor) counter document via an atomic conditional $inc — a genuine
+  //     point of write contention, so two transactions racing for it force
+  //     MongoDB to serialize them (one gets a transient conflict and
+  //     `session.withTransaction()` retries it automatically, re-reading
+  //     the now-current count).
+  //   - The per-target dedupe for raise/lower is a SEQUENTIAL business rule
+  //     ("already acted on this target this session"), not just a
+  //     concurrency hazard — a second, later, non-overlapping request must
+  //     also be rejected. The existing partial unique index on
+  //     { game_session_id, actor_id, target_id } (raise/lower only —
+  //     grant_first/strip_last never shared this dedupe, and folding them
+  //     in would wrongly block a legitimate later raise after an earlier
+  //     grant_first) still does this; a unique-index violation is a real
+  //     constraint check, not a snapshot read, so it's reliable inside a
+  //     transaction the same way it is outside one.
+  //   - The target's status.city write is a compare-and-swap, not a blind
+  //     $set — the update filter includes the exact `old_status` this
+  //     request read. Belt-and-braces: a same-target race (two different
+  //     actors, or two grant_first/strip_last attempts) was a real, live-
+  //     reproduced bug in an EARLIER, non-transactional version of this
+  //     fix (both requests could get 201, one silently overwriting the
+  //     other). Once the whole read-modify-write sequence moved inside a
+  //     transaction, repeated live testing (60+ iterations, both through
+  //     the real HTTP route and via a raw driver-level probe with a forced
+  //     read/write interleaving) could no longer reproduce a lost update
+  //     even with a plain $set — MongoDB's own conflict-detection-and-retry
+  //     already appears to cover it. The CAS filter is kept anyway: it
+  //     turns the guarantee into something checkable by inspection (a write
+  //     whose filter no longer matches gets an explicit 409) rather than
+  //     resting on transaction retry semantics this session could not fully
+  //     pin down with certainty, and it costs nothing extra to keep. With
+  //     the CAS filter, a write whose target document no longer matches
+  //     `old_status` matches zero documents — treated as a 409, telling the
+  //     client the target moved under them and to retry, the same shape as
+  //     the existing dedupe
+  //     conflict response.
+  const client = getClient();
+  const dbSession = client.startSession();
 
-  // Load target
-  const target = await getCollection('characters').findOne({ _id: targetObjectId });
-  if (!target)
-    return res.status(404).json({ error: 'NOT_FOUND', message: 'Target not found' });
+  let statusCode, body;
+  try {
+    await dbSession.withTransaction(async () => {
+      const actor = await getCollection('characters').findOne({ _id: actorObjectId }, { session: dbSession });
+      if (!actor) throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'Actor not found' });
+      if (!actor.court_category) throw new RouteResponse(403, { error: 'FORBIDDEN', message: 'Actor holds no court office' });
 
-  const old_status = target.status?.city || 0;
-  let new_status;
+      const target = await getCollection('characters').findOne({ _id: targetObjectId }, { session: dbSession });
+      if (!target) throw new RouteResponse(404, { error: 'NOT_FOUND', message: 'Target not found' });
 
-  if (action_type === 'grant_first') {
-    if (old_status !== 0)
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Target already has City Status' });
-    new_status = 1;
-  } else if (action_type === 'raise') {
-    if (old_status >= 10)
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Target is at max City Status' });
-    new_status = old_status + 1;
-  } else if (action_type === 'lower') {
-    if (old_status <= 1)
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Use strip_last to remove the final dot' });
-    new_status = old_status - 1;
-  } else if (action_type === 'strip_last') {
-    if (old_status !== 1)
-      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Target must be at exactly 1 City Status' });
-    new_status = 0;
-  }
+      const old_status = target.status?.city || 0;
+      let new_status;
 
-  const timestamp = new Date().toISOString();
-  const doc = {
-    game_session_id,
-    actor_id,
-    actor_name:  actor.moniker  || actor.name  || actor_id,
-    target_id,
-    target_name: target.moniker || target.name || target_id,
-    action_type,
-    old_status,
-    new_status,
-    timestamp,
-  };
+      if (action_type === 'grant_first') {
+        if (old_status !== 0)
+          throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'Target already has City Status' });
+        new_status = 1;
+      } else if (action_type === 'raise') {
+        if (old_status >= 10)
+          throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'Target is at max City Status' });
+        new_status = old_status + 1;
+      } else if (action_type === 'lower') {
+        if (old_status <= 1)
+          throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'Use strip_last to remove the final dot' });
+        new_status = old_status - 1;
+      } else if (action_type === 'strip_last') {
+        if (old_status !== 1)
+          throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'Target must be at exactly 1 City Status' });
+        new_status = 0;
+      }
 
-  if (PAID_TYPES.has(action_type)) {
-    // issue-1143 finding #3: budget + dedupe + write must be atomic enough
-    // that a realistic concurrent-request race cannot exceed budget or
-    // double-act on one target.
-    //
-    // This project's local dev/test MongoDB runs as a STANDALONE instance
-    // (confirmed live via `hello`), not a replica set — multi-document
-    // transactions are unavailable there even though Atlas (production)
-    // supports them. Using session.withTransaction would make this route
-    // untestable in this project's actual dev environment, so this uses an
-    // insert-then-verify pattern instead, which works identically on both:
-    //   1. A partial unique index on { game_session_id, actor_id, target_id }
-    //      (scoped to action_type in [raise, lower] — see index creation in
-    //      server/index.js) makes the per-target dedupe check ATOMIC: a
-    //      second concurrent insert on the same target fails with E11000,
-    //      not a racing findOne.
-    //   2. Budget stays a derived count (the formula/model is unchanged —
-    //      see story "What this story is NOT"). After a successful insert,
-    //      this re-counts the actor's paid actions THIS session; if the
-    //      insert pushed the count over budget, the insert is compensated
-    //      (deleted) and the request rejected. Two concurrent inserts can
-    //      both land, but each recount is a fresh, real read — at most
-    //      `budget` of them keep their insert, the rest self-evict. This
-    //      can occasionally over-reject right at the boundary (a legitimate
-    //      request bounces and must be retried) but can never over-accept —
-    //      the direction issue #1143 actually cares about.
-    const territories = await getCollection('territories').find().toArray();
-    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
-    const budget = calcEffectiveCityStatus(actor, regentAmbience);
+      if (PAID_TYPES.has(action_type)) {
+        const territories = await getCollection('territories').find({}, { session: dbSession }).toArray();
+        const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
+        const budget = calcEffectiveCityStatus(actor, regentAmbience);
 
-    let inserted;
-    try {
-      inserted = await col().insertOne(doc);
-    } catch (err) {
-      if (err?.code === 11000)
-        return res.status(409).json({ error: 'CONFLICT', message: 'Target already acted on this session' });
-      throw err;
-    }
+        const budgetKey = `${game_session_id}:${actor_id}`;
+        const budgetCol = getCollection('office_action_budgets');
+        await budgetCol.updateOne(
+          { _id: budgetKey },
+          { $setOnInsert: { used: 0 } },
+          { session: dbSession, upsert: true },
+        );
+        const claim = await budgetCol.findOneAndUpdate(
+          { _id: budgetKey, used: { $lt: budget } },
+          { $inc: { used: 1 } },
+          { session: dbSession, returnDocument: 'after' },
+        );
+        if (!claim)
+          throw new RouteResponse(403, { error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
+      }
 
-    const used = await col().countDocuments({
-      game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
+      const timestamp = new Date().toISOString();
+      const doc = {
+        game_session_id,
+        actor_id,
+        actor_name:  actor.moniker  || actor.name  || actor_id,
+        target_id,
+        target_name: target.moniker || target.name || target_id,
+        action_type,
+        old_status,
+        new_status,
+        timestamp,
+      };
+
+      // Compare-and-swap: the filter includes the exact old_status this
+      // request read. If another action already changed the target since
+      // then, this matches zero documents instead of silently overwriting
+      // that other action's result — see the comment block above.
+      // old_status was itself computed as `target.status?.city || 0`, so an
+      // old_status of 0 can mean a genuinely-stored 0 OR a wholly-missing
+      // `status`/`status.city` field — a dotted-path equality filter does
+      // NOT match a missing field, so that case needs its own clause.
+      const statusMatch = old_status === 0
+        ? { $or: [{ 'status.city': { $exists: false } }, { 'status.city': 0 }] }
+        : { 'status.city': old_status };
+      const casResult = await getCollection('characters').updateOne(
+        { _id: targetObjectId, ...statusMatch },
+        { $set: { 'status.city': new_status, updated_at: timestamp } },
+        { session: dbSession },
+      );
+      if (casResult.matchedCount === 0)
+        throw new RouteResponse(409, { error: 'CONFLICT', message: 'Target was changed by another action — please retry' });
+
+      let inserted;
+      try {
+        inserted = await col().insertOne(doc, { session: dbSession });
+      } catch (err) {
+        if (err?.code === 11000)
+          throw new RouteResponse(409, { error: 'CONFLICT', message: 'Target already acted on this session' });
+        throw err;
+      }
+
+      statusCode = 201;
+      body = { action: { ...doc, _id: inserted.insertedId }, new_status };
     });
-    if (used > budget) {
-      await col().deleteOne({ _id: inserted.insertedId });
-      return res.status(403).json({ error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
-    }
-
-    await getCollection('characters').updateOne(
-      { _id: targetObjectId },
-      { $set: { 'status.city': new_status, updated_at: timestamp } },
-    );
-
-    return res.status(201).json({ action: { ...doc, _id: inserted.insertedId }, new_status });
+  } catch (err) {
+    if (err instanceof RouteResponse) { statusCode = err.statusCode; body = err.body; }
+    else throw err;
+  } finally {
+    await dbSession.endSession();
   }
 
-  // grant_first / strip_last — no budget, and the old_status guard above
-  // already makes a race harmless: both set a fixed target value (1 or 0),
-  // not an increment, so a duplicate concurrent insert produces a redundant
-  // log entry but never an inconsistent status.city.
-  const inserted = await col().insertOne(doc);
-  await getCollection('characters').updateOne(
-    { _id: targetObjectId },
-    { $set: { 'status.city': new_status, updated_at: timestamp } },
-  );
-
-  res.status(201).json({ action: { ...doc, _id: inserted.insertedId }, new_status });
+  res.status(statusCode).json(body);
 });
 
 export default router;

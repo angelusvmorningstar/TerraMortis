@@ -35,6 +35,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { readFileSync } from 'fs';
 import request from 'supertest';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
@@ -325,5 +326,101 @@ describe.skipIf(!dbAvailable)('issue-1143 AC3 — atomic budget + dedupe under c
       actor_id: String(actorId), target_id: String(targetId),
     });
     expect(finalCount, 'the unique partial index must prevent a duplicate action doc on the same target').toBe(1);
+  });
+
+  it('REGRESSION (2-round internal/external review, 2026-08-12): concurrent grant_first on one target — at most one succeeds', async () => {
+    // Two earlier versions of this route's atomicity fix (a non-transactional
+    // insert-then-rank pattern, then a first transaction-based rewrite using
+    // a blind `characters.updateOne($set)`) both left grant_first/strip_last
+    // completely unprotected against a same-target race: the shared unique
+    // index only ever covered raise/lower, and a blind $set inside a
+    // transaction does not create a write conflict — it just silently
+    // overwrites whatever the other transaction already committed. Verified
+    // live pre-fix: 29/30 tight races produced a double-201 (external Codex
+    // review + an internal Acceptance Auditor pass, both 2026-08-12). Fixed
+    // by making the target's status.city write a compare-and-swap (the
+    // update filter includes the exact old_status the request read), so a
+    // stale write matches zero documents and is rejected as a 409 instead of
+    // silently overwriting.
+    await seedGameSessionAndCycle();
+    let doubleWins = 0;
+    for (let i = 0; i < 10; i++) {
+      const actorId = await seedActor({ city: 3 });
+      const [targetId] = await seedTargets(1, 0);
+      const [r1, r2] = await Promise.all([
+        request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
+          game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'grant_first',
+        }),
+        request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
+          game_session_id: 'irrelevant', actor_id: String(actorId), target_id: String(targetId), action_type: 'grant_first',
+        }),
+      ]);
+      if ([r1.status, r2.status].filter(s => s === 201).length > 1) doubleWins++;
+    }
+    expect(doubleWins, `${doubleWins}/10 iterations let two concurrent grant_firsts both succeed on the same target`).toBe(0);
+  });
+
+  it('REGRESSION (Acceptance Auditor, 2026-08-12): two DIFFERENT actors racing the same target never lose an update', async () => {
+    // Two different Head-of-State-tier officers (a realistic scenario — this
+    // project's court model explicitly allows several categories to have
+    // multiple concurrent holders) both raising the SAME target concurrently
+    // used to silently lose one of the two increments: both read the same
+    // old_status before either wrote, both computed the same new_status, and
+    // a blind $set let the second writer overwrite the first with no error
+    // and no indication anything was wrong — the target ended one dot short
+    // of what two real raises should have produced, while BOTH actions still
+    // logged as successful. Verified live pre-fix: 4/5 runs lost an update.
+    // Fixed by the same compare-and-swap described above — the loser's CAS
+    // now fails to match (409), so at most one of the two raises actually
+    // lands, and if both land (because they didn't truly overlap) the
+    // second one reads the first one's already-committed result and stacks
+    // correctly rather than clobbering it.
+    await seedGameSessionAndCycle();
+    let lostUpdates = 0;
+    for (let i = 0; i < 10; i++) {
+      const actorA = await seedActor({ city: 3 });
+      const actorB = await seedActor({ city: 3 });
+      const [targetId] = await seedTargets(1, 3);
+      const [r1, r2] = await Promise.all([
+        request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
+          game_session_id: 'irrelevant', actor_id: String(actorA), target_id: String(targetId), action_type: 'raise',
+        }),
+        request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
+          game_session_id: 'irrelevant', actor_id: String(actorB), target_id: String(targetId), action_type: 'raise',
+        }),
+      ]);
+      const wins = [r1.status, r2.status].filter(s => s === 201).length;
+      const finalTarget = await getCollection('characters').findOne({ _id: targetId });
+      if (wins === 2 && finalTarget.status.city !== 5) lostUpdates++;
+    }
+    expect(lostUpdates, `${lostUpdates}/10 iterations lost an update when two different actors raised the same target`).toBe(0);
+  });
+
+  it('REGRESSION (external review, Pass 1, 2026-08-12): the budget claim must be a real atomic counter, not a derived count', async () => {
+    // The FIRST atomicity fix compared a raw countDocuments() total to
+    // budget after each insert. Under a real HTTP round trip (auth check,
+    // session lookup, phase gate query, actor/target lookups all awaited
+    // before the insert), two requests racing for the last slot rarely land
+    // close enough together to expose the flaw through this test's own
+    // harness — but an external Codex review's tighter, direct-to-collection
+    // probe (no intervening awaits) reproduced it in 28/30 runs: both
+    // concurrent inserts see the SAME total count after both land, so BOTH
+    // self-evict, undershooting the budget by one instead of exactly one
+    // winning. The current implementation replaces the derived count with a
+    // single atomic conditional $inc on a per-(session, actor) counter
+    // document (server/routes/office-actions.js, the `office_action_budgets`
+    // collection) — a real point of write contention that forces MongoDB's
+    // transaction machinery to serialize concurrent claims rather than
+    // letting two requests each read a stale snapshot. This asserts the
+    // route uses that mechanism (not a regression-proof of the race itself,
+    // since HTTP-level timing can't reliably force the old bug — see Dev
+    // Notes for why a tight direct-collection probe was used to originally
+    // prove it and to prove this fix, run once during development, not kept
+    // as a flaky permanent test).
+    const routeSource = readFileSync(
+      new URL('../routes/office-actions.js', import.meta.url), 'utf8',
+    );
+    expect(routeSource).toContain("getCollection('office_action_budgets')");
+    expect(routeSource).toContain('$inc');
   });
 });
