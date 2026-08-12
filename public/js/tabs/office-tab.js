@@ -230,20 +230,22 @@ async function _wireHosActions(el, char, chars) {
 
   async function doAction(actionType) {
     if (!liveCycle || !selectedChar || !sessionId) return;
-    msgEl.textContent = 'Saving…';
+    msgEl.textContent = 'Submitting…';
     try {
-      const result = await apiPost('/api/office_actions', {
+      // oaq.2: submitting no longer applies the action — it creates a
+      // pending record for ST review. Nothing about selectedChar's status
+      // or the budget display changes here; both only move once an ST
+      // accepts, which the client learns about on its next fetch of
+      // priorActions (GET /api/office_actions only ever returns APPLIED
+      // actions, never pending ones — see office-actions.js's GET / route),
+      // not from this response.
+      await apiPost('/api/office_actions', {
         game_session_id: sessionId,
         actor_id:        String(char._id),
         target_id:       String(selectedChar._id),
         action_type:     actionType,
       });
-      // Update local state so buttons and budget refresh without a reload
-      if (selectedChar.status) selectedChar.status.city = result.new_status;
-      else selectedChar.status = { city: result.new_status };
-      priorActions.push(result.action);
-      msgEl.textContent = `Done — ${displayName(selectedChar)} is now status ${result.new_status}.`;
-      renderBudget();
+      msgEl.textContent = `Submitted — ${displayName(selectedChar)}'s ${actionType.replace('_', ' ')} is pending ST review.`;
       renderButtons();
     } catch (err) {
       msgEl.textContent = err.message || 'Action failed.';
