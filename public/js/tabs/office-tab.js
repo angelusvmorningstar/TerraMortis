@@ -27,7 +27,11 @@ export function renderOfficeTab(el, char, chars = []) {
   // Status Power
   h += `<div class="office-section">`;
   h += `<div class="office-section-hd">Status Power</div>`;
-  h += `<div class="office-status-power">${esc(data.statusPower)}</div>`;
+  h += `<div class="office-status-power">`;
+  for (const para of data.statusPower) {
+    h += `<p>${esc(para)}</p>`;
+  }
+  h += `</div>`;
   h += `</div>`;
 
   // Interactive status actions — HoS only (phase 1)

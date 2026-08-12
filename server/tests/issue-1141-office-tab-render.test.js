@@ -96,4 +96,25 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     expect(html).toContain('<div class="office-section-hd">Manoeuvres</div>');
     expect(html).not.toContain('each costs 1 Influence');
   });
+
+  it('otc.1: Status Power renders as one <p> per paragraph, not one undifferentiated block (AC1)', () => {
+    // Deliberately not Head of State, for the same reason as the test above
+    // (_wireHosActions is async, fire-and-forget, and throws against this
+    // test's plain-object mock).
+    const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+    const html = render(yusuf);
+
+    // Primogen's statusPower is 2 paragraphs (specs/stories/otc-1-status-power-paragraph-rendering.md).
+    const matches = [...html.matchAll(/<div class="office-status-power">([\s\S]*?)<\/div>/g)];
+    expect(matches.length).toBe(1);
+    const block = matches[0][1];
+    const paragraphs = [...block.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => m[1]);
+    expect(paragraphs.length).toBe(2);
+    expect(paragraphs[0]).toContain('You may permanently sacrifice one of your own City Status dots');
+    // esc() (public/js/data/helpers.js) does not escape apostrophes, only &, <, >, " — the
+    // rendered text keeps its literal apostrophe.
+    expect(paragraphs[1]).toBe("Your decisions should be grounded in the City Deeds. If you can't justify a Status change, others will be justified in dropping yours.");
+    // The block must genuinely be two separate <p> tags, not one flat run of text.
+    expect(block).not.toBe(paragraphs.join(''));
+  });
 });
