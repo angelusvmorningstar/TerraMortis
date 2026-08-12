@@ -494,3 +494,22 @@ that had survived two prior review rounds because no existing test asserted the 
 concurrent-accept race gets a clean status code (oaq.2's own AC8 test only ever checked that exactly
 one side won, which a 500 on the other side would not have failed). All other findings patched or
 dismissed with recorded evidence; no unresolved High/Medium remains.
+
+## Post-script: moved to the game app (2026-08-12, same day)
+
+Angelus, after seeing the shipped result: "you put the approval queue in admin, can you instead
+put it on the main player app as a tab that only appears to STs?" Moved same day (PR #1148):
+
+- `public/js/admin/office-approvals.js` → `public/js/suite/office-approvals.js`.
+- Registered as an ST-only tab in `app.js`'s `MORE_APPS` (desktop sidebar) and `NAV_ITEMS` (mobile
+  bottom nav) — same `stOnly: true` gating pattern as Territory/Tracker/Combat/Spheres, never built
+  into the DOM at all for a non-ST viewer. Removed entirely from `admin.html`/`admin.js`.
+- **The CSS reuse decisions documented above are now stale**: `.dt-btn-gold`/`.dt-btn-danger` were
+  chosen specifically because `admin.html` doesn't load `suite.css`. Now that the module lives in
+  the game app, it uses `.ch-btn-accept`/`.ch-btn-decline` (challenge-notification.js's existing
+  accept/decline styling, same `contested_roll_requests` collection family) instead — a better
+  semantic fit than either option originally weighed, made available by the move itself.
+- Poll visibility check moved from `.domain.active` (admin app) to `.tab.active` (game app).
+- Regression: 24/24 changed-area (wiring tests rewritten for the new location), 145/145 broader,
+  full suite 2446/2451 byte-identical to baseline. Live-verified on prod: tile renders correctly
+  under Storyteller, queue loads with no console errors, confirmed gone from the admin sidebar.
