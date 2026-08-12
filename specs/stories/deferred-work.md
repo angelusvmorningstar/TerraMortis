@@ -103,7 +103,16 @@ and verified before deferral. Provenance:
   open ones include real unfixed bugs ("Incorrect 9-again on new dice roller", "Feed herd bonus
   incorrectly calculated", "Shared merits require a minimum one dot investment"). They now have no
   in-app home, so they want triaging into GitHub issues before the collection is dropped.
-- **The admin Primer surface is unstyled** — `public/js/admin/primer-admin.js` (live at
+- ~~**The admin Primer surface is unstyled**~~ — **RESOLVED 2026-08-12: the whole surface removed.**
+  A full admin-feature audit found `primer-admin.js` had no remaining consumer anywhere (the primer
+  players actually read is a separate static page, `public/primer/primer.html`, unrelated to the
+  `archive_documents` collection this panel wrote to) — the styling gap below was a symptom of dead
+  code, not a real gap to fix. Removed: the `documents` sidebar domain and section (`admin.html`),
+  `initPrimerAdmin`'s import/dispatch (`admin.js`), `public/js/admin/primer-admin.js` itself, and the
+  now-unreachable `primer`-type branches in `server/routes/archive-documents.js` (`GET /primer`, and
+  the `isPrimer` handling in `POST /` and `POST /upload`). The `dossier`/`history_submission`/
+  `downtime_response` types on the same route are untouched — those remain real, live features.
+  Original entry follows for the record. `public/js/admin/primer-admin.js` (live at
   `admin.js`, domain `documents`) emits `primer-admin-shell`, `primer-file` and `primer-upload-*`,
   and none of those classes is defined in ANY stylesheet. Pre-existing and unrelated to #1135, which
   deleted only the disjoint `primer-content`/`primer-layout`/`primer-toc*` set belonging to the

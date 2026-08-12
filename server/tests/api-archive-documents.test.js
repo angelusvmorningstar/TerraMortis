@@ -1,6 +1,6 @@
 /**
  * API tests — /api/archive_documents endpoint.
- * Covers player ownership gating, primer access, and ST-only routes.
+ * Covers player ownership gating and ST-only routes.
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -223,7 +223,7 @@ describe('POST /api/archive_documents', () => {
     expect(res.status).toBe(400);
   });
 
-  it('400 on missing character_id for non-primer', async () => {
+  it('400 on missing character_id', async () => {
     const res = await request(app)
       .post('/api/archive_documents')
       .set('X-Test-User', stUser())
