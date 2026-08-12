@@ -179,3 +179,20 @@ and verified before deferral. Provenance:
   duplicate dispatch keys among the six admitted pool rules (independently confirmed by the external
   reviewer). `getCollectiveCompounds` already de-duplicates on `source|slug`; the producer does not.
   Cheap guard if it ever bites: de-duplicate by `source|category` before the push.
+
+## Found during a TM Wiki cross-project audit, not a code review (2026-08-12)
+
+- **TM Suite's own live covenant-ordeal picker has two real bugs**, confirmed by direct read of
+  `public/js/tabs/covenant-data.js` and `public/js/tabs/ordeal-form.js` (both live, wired via
+  `app.js` → `initOrdeals`, in the player nav today). Surfaced while researching TM Wiki's Epic 30
+  (which built a parallel Ordeals authoring surface and sidestepped both bugs by design — auto-deriving
+  covenant from canon instead of offering a picker at all), not by a review of TM Suite code itself, so
+  no story exists to carry this. **Bug A** — the picked covenant is never actually persisted:
+  `covenant_choice` lives only in the separate `COVENANT_ROUTING` export, never inside the
+  `COVENANT_SECTIONS[cov]` array that `collectResponses()` in `ordeal-form.js` walks, so a draft saved
+  through the real picker UI never has `responses.covenant_choice` set. **Bug B** — every covenant
+  reuses the same question keys (`q2`..`q23`) with no covenant-discriminator field on the stored
+  `ordeal_responses` document; combined with Bug A, a character whose canon `covenant` changes after a
+  draft exists (a corrected record, or a genuine covenant-change RP arc) would silently show the OLD
+  covenant's answers as if they answered the NEW covenant's differently-worded questions at the same
+  keys, with no code path anywhere that detects or resets this. Not fixed this session — flagged only.
