@@ -33,6 +33,7 @@ import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { chaptersRouter } from '../../routes/chapters.js';
 import cyoaRouter from '../../routes/cyoa.js';
 import officeActionsRouter from '../../routes/office-actions.js';
+import contestedRollsRouter from '../../routes/contested-rolls.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -118,6 +119,9 @@ export function createTestApp() {
   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
   // Issue #691 / otc.2: office actions (Status Actions)
   app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
+  // oaq.2 review: needed to test contested-rolls.js's request_type guard
+  // against status_action documents sharing the same collection.
+  app.use('/api/contested_roll_requests', mockAuth, noCache(), contestedRollsRouter);
 
   return app;
 }

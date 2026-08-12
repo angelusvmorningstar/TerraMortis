@@ -214,6 +214,18 @@ async function start() {
         partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } },
       },
     );
+    // Ensure partial unique index on contested_roll_requests (oaq.2) —
+    // prevents a second concurrent PENDING status_action request for the
+    // same (session, actor, target); scoped to status:'pending' so a
+    // resolved/declined record never blocks a later resubmission.
+    getDb().collection('contested_roll_requests').createIndex(
+      { game_session_id: 1, actor_id: 1, target_id: 1 },
+      {
+        unique: true,
+        background: true,
+        partialFilterExpression: { request_type: 'status_action', status: 'pending' },
+      },
+    );
     await runRulesEngineGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);

@@ -122,8 +122,15 @@ router.put('/:id/void', requireRole('st'), async (req, res) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID format' });
   }
 
+  // oaq.2 review finding: this collection now also carries pending Status
+  // Actions (request_type: 'status_action'), which have their own
+  // accept/decline lifecycle in office-actions.js. Without this guard, an
+  // ST could void a pending Status Action here — a status neither route
+  // family recognizes, permanently orphaning the record (office-actions.js's
+  // own _findPending only ever matches status:'pending', so a 'voided'
+  // record becomes unreachable by either the correct accept or decline).
   const result = await col().updateOne(
-    { _id: oid },
+    { _id: oid, request_type: { $ne: 'status_action' } },
     { $set: { status: 'voided', updated_at: new Date().toISOString() } }
   );
   if (!result.matchedCount) return res.status(404).json({ error: 'NOT_FOUND' });
@@ -139,7 +146,11 @@ async function _findChallenge(req, res) {
     res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID format' });
     return null;
   }
-  const doc = await col().findOne({ _id: oid });
+  // oaq.2 review finding: exclude status_action requests — they have their
+  // own lifecycle (office-actions.js's accept/decline), and a status_action
+  // doc has no challenger/target_character_id fields for the caller-
+  // ownership check below to compare against anyway.
+  const doc = await col().findOne({ _id: oid, request_type: { $ne: 'status_action' } });
   if (!doc) { res.status(404).json({ error: 'NOT_FOUND' }); return null; }
   if (doc.status !== 'pending') {
     res.status(409).json({ error: 'CONFLICT', message: 'Challenge is no longer pending' });

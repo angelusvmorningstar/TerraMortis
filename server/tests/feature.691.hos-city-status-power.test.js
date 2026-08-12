@@ -123,6 +123,16 @@ describe('feature.691 — office tab', () => {
 
   it('self-excludes actor from picker via excludeIds', () =>
     expect(TAB).toContain('excludeIds'));
+
+  it('oaq.2: does not optimistically apply status.city on submit — a submission is now pending, not applied', () => {
+    // issue-1143's doAction used to set selectedChar.status.city from the
+    // POST response's new_status and show "Done — status now N". oaq.2
+    // makes POST / a submission, not an apply — the response no longer
+    // carries new_status at all, and showing an immediate "Done" would be
+    // a lie about what actually happened (nothing, until an ST accepts).
+    expect(TAB).not.toContain('selectedChar.status.city = result.new_status');
+    expect(TAB).toContain('pending ST review');
+  });
 });
 
 // ── Status tab log ─────────────────────────────────────────────────────────
