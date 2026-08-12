@@ -43,7 +43,6 @@ import { initRulesView } from './admin/rules-view.js';
 import { initRulesDataView } from './admin/rules-data-view.js';
 import { initEquipmentCatalogueAdmin } from './admin/equipment-catalogue-admin.js';
 import { initStModsAudit } from './admin/st-mods-audit.js';
-import { initOfficeApprovals } from './admin/office-approvals.js';
 import { initDevlogAdmin } from './admin/devlog-admin.js';
 import { initStModsPanel } from './admin/st-mods-panel.js';
 import { initCycleView } from './admin/cycle-views.js';
@@ -315,7 +314,6 @@ function switchDomain(domain) {
   if (domain === 'players') initPlayersView(chars);
   if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
   if (domain === 'city') initCityView();
-  if (domain === 'office-approvals') initOfficeApprovals(document.getElementById('office-approvals-content'));
   if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') {
     // DTUX-1: panel visibility is now driven by the phase ribbon inside

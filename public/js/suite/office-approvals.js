@@ -6,6 +6,11 @@
  * and code-reviewed under oaq.2. This module only submits/reads — it never
  * touches the transaction, budget, or precondition logic those routes own.
  *
+ * Lives in the main game app (app.js's goTab), not the ST admin app — moved
+ * here from public/js/admin/office-approvals.js so it's reachable from the
+ * same surface STs already run live at the table, gated stOnly in app.js's
+ * MORE_APPS/NAV_ITEMS (same pattern as Territory/Tracker/Combat/Spheres).
+ *
  * Delegated routing (per memory feedback_listener_routing_static_blind_spot,
  * mirroring public/js/admin/st-mods-audit.js): a single delegated click
  * listener on the container root, bound once at scaffold time. NO per-render
@@ -16,10 +21,11 @@
  * contested_roll_requests collection family). Race safety already exists
  * server-side (both accept/decline 409 if the record is no longer pending);
  * the poll is purely so a row resolved by another ST disappears without a
- * manual reload. Polling is skipped while this tab isn't the active domain,
- * to avoid needless requests — admin.js's switchDomain never unmounts a
- * domain section, it only toggles the `.active` class, so that class is the
- * only available "is this tab visible" signal.
+ * manual reload. Polling is skipped while this tab isn't the active one —
+ * app.js's goTab() never unmounts a tab, it only toggles the `.tab.active`
+ * class (public/css/suite.css), so that class is the "is this tab visible"
+ * signal here, same idea as the admin app's `.domain.active` this module
+ * used before the move.
  */
 
 import { apiGet, apiRaw } from '../data/api.js';
@@ -53,7 +59,7 @@ let _fetchGen = 0; // review finding: guards against an in-flight poll response 
                     // more recent accept/decline already changed state.rows, resurrecting a
                     // just-resolved row from a stale snapshot.
 
-/** init — called from admin.js switchDomain when 'office-approvals' activates.
+/** init — called from app.js's goTab() when 'office-approvals' activates.
  *  Idempotent: subsequent calls reuse the existing DOM scaffold. */
 export async function initOfficeApprovals(rootEl) {
   _rootEl = rootEl;
@@ -79,7 +85,7 @@ function renderScaffold() {
         <h2>Approval Queue</h2>
         <p class="stm-audit-sub">Pending Status Actions awaiting sign-off. Oldest first.</p>
       </header>
-      <div class="or-list" data-oaq-body>
+      <div class="oaq-queue-list" data-oaq-body>
         <p class="stm-audit-loading">Loading…</p>
       </div>
     </div>
@@ -89,7 +95,7 @@ function renderScaffold() {
 // ── Poll ─────────────────────────────────────────────────────────────
 
 function _pollTick() {
-  if (!_rootEl || !_rootEl.closest('.domain')?.classList.contains('active')) return;
+  if (!_rootEl || !_rootEl.closest('.tab')?.classList.contains('active')) return;
   _refetchAndRender();
 }
 
@@ -180,7 +186,7 @@ function _renderBody() {
   // that reads as a false all-clear when the real queue state is simply
   // unknown right now.
   if (state.fetchFailed && state.rows.length === 0) {
-    body.innerHTML = '<p class="dt-error-msg">Could not load the queue. Retrying automatically…</p>';
+    body.innerHTML = '<p class="ch-error">Could not load the queue. Retrying automatically…</p>';
     return;
   }
 
@@ -202,17 +208,19 @@ function _renderRow(r) {
   const when = r.created_at ? r.created_at.replace('T', ' ').replace(/\..*$/, '') : '';
 
   return `
-    <div class="oaq-row-wrap" data-oaq-row="${esc(id)}">
-      <div class="or-list-item">
-        <span class="or-list-name">${esc(redactCharName(r.actor_name || 'Unknown'))} → ${esc(redactCharName(r.target_name || 'Unknown'))}</span>
-        <div class="oaq-row-actions">
-          <span class="or-status-badge or-status-in_progress">${esc(label)}</span>
+    <div class="oaq-queue-row-wrap" data-oaq-row="${esc(id)}">
+      <div class="oaq-queue-row">
+        <span class="oaq-queue-name">${esc(redactCharName(r.actor_name || 'Unknown'))} → ${esc(redactCharName(r.target_name || 'Unknown'))}</span>
+        <div class="oaq-queue-actions">
+          <span class="dtl-badge">${esc(label)}</span>
           <span class="derived-note">${esc(when)}</span>
-          <button class="dt-btn dt-btn-gold" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Accept</button>
-          <button class="dt-btn dt-btn-danger" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
+          <div class="ch-modal-actions oaq-queue-btns">
+            <button class="ch-btn ch-btn-accept" data-oaq-action="accept" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Accept</button>
+            <button class="ch-btn ch-btn-decline" data-oaq-action="decline" data-oaq-id="${esc(id)}" ${busy ? 'disabled' : ''}>Decline</button>
+          </div>
         </div>
       </div>
-      ${error ? `<div class="dt-error-msg oaq-row-error">${esc(error)}</div>` : ''}
+      ${error ? `<div class="ch-error oaq-queue-error">${esc(error)}</div>` : ''}
     </div>
   `;
 }
