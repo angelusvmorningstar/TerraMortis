@@ -2309,6 +2309,20 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-merit-stepper.cs-edit-stepper { flex-direction: row; margin: 0; gap: 6px; }
 .office-merit-stepper .cs-step-btn { width: 26px; height: 26px; font-size: 12px; }
 
+/* Approval Queue (oaq.3) — moved into the game app; reuses .stm-audit-*
+   (scaffold shell, components.css), .dtl-badge (label), .ch-btn/.ch-error
+   (challenge-notification.js's existing accept/decline + error styling,
+   same contested_roll_requests collection family) rather than the
+   admin-app-only .dt-btn/.or-list/.or-status-badge classes this module
+   used before the move (admin-layout.css isn't loaded by index.html). */
+.oaq-queue-list { display: flex; flex-direction: column; gap: 8px; }
+.oaq-queue-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; }
+.oaq-queue-name { font-size: 13px; color: var(--txt); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oaq-queue-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.oaq-queue-btns { gap: 6px; }
+.oaq-queue-btns .ch-btn { padding: 6px 12px; }
+.oaq-queue-error { padding: 0 14px 8px; }
+
 /* HoS interactive actions */
 .office-budget-line { font-family: var(--fb); font-size: 14px; color: var(--txt); margin-bottom: 12px; }
 .office-budget-line.exhausted { color: var(--crim); }
