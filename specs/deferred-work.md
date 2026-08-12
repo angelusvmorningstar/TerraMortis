@@ -64,6 +64,25 @@ code) and are out of its stated scope. Full record: `specs/stories/otc-2-status-
   Matches a pre-existing swallow-errors pattern already used one line above it; a real fix needs a
   UX decision on what each state should actually say.
 
+---
+
+## Deferred from: code review of issue-1143-status-actions-auth-safety (2026-08-12)
+
+Internal Edge Case Hunter + Acceptance Auditor review (issue #1143's own fix). Full record:
+`specs/stories/issue-1143-status-actions-auth-safety.md` → Senior Developer Review.
+
+- **`findLatestSession()` has no tiebreak for two `game_sessions` docs sharing a date** (Medium) —
+  sorts only by `session_date`, no secondary key. If an ST creates a second session record for the
+  same date mid-cycle (a plausible correction), which one two different `POST /api/office_actions`
+  requests each resolve to as "the current session" is not guaranteed stable across requests,
+  which could split budget/dedupe scoping across two session buckets. Narrow trigger condition,
+  not part of issue #1143's original 5 findings — deferred rather than folded into that fix.
+- **AC1's actor-ownership check (`office-actions.js`) uses raw string equality, not
+  ObjectId-normalized comparison** (Low) — inconsistent with AC4's own reasoning for why the
+  self-target check needed ObjectId normalization. Fails safe (rejects a legitimate owner rather
+  than admitting an impostor); real-world trigger unlikely given how `character_ids` is populated
+  in this project's auth flow. Cosmetic/consistency fix if anyone touches this route again.
+
 **Update, 2026-08-12 (otc-3 review):** the "No authorization check on `actor_id`" finding above was
 re-confirmed live by otc-3's own Codex review (`server/routes/office-actions.js` is untouched by
 that story's diff). otc-3 opened the Office tab to every player regardless of whether they hold a

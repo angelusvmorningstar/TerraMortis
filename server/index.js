@@ -203,6 +203,17 @@ async function start() {
       { player_id: 1, story_id: 1 },
       { unique: true, background: true },
     );
+    // Ensure partial unique index on office_actions (issue #1143) — makes
+    // the per-target dedupe check for paid Status Actions (raise/lower)
+    // atomic at the database level instead of a racing findOne.
+    getDb().collection('office_actions').createIndex(
+      { game_session_id: 1, actor_id: 1, target_id: 1 },
+      {
+        unique: true,
+        background: true,
+        partialFilterExpression: { action_type: { $in: ['raise', 'lower'] } },
+      },
+    );
     await runRulesEngineGate();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);

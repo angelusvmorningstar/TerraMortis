@@ -22,13 +22,40 @@ import { ObjectId } from 'mongodb';
 
 let app;
 const NAME_PREFIX = 'OTC-2 Probe';
+// issue-1143: game_session_id is no longer client-trusted — the server
+// derives it itself from the game_sessions collection (findLatestSession()
+// in office-actions.js). This value is still SENT in request bodies below
+// (the schema requires the field) but the server ignores it for scoping; a
+// real game_sessions doc is seeded in beforeAll so the route has something
+// authoritative to resolve to. Kept only as a placeholder value now.
 const GAME_SESSION_ID = 'otc-2-test-session';
 
 async function cleanup() {
   await getCollection('characters').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('territories').deleteMany({ name: { $regex: `^${NAME_PREFIX}` } });
   await getCollection('downtime_cycles').deleteMany({ label: { $regex: `^${NAME_PREFIX}` } });
-  await getCollection('office_actions').deleteMany({ game_session_id: GAME_SESSION_ID });
+  await getCollection('game_sessions').deleteMany({ title: { $regex: `^${NAME_PREFIX}` } });
+  // Scoped by actor_name, not game_session_id — since issue-1143, the
+  // persisted game_session_id is the REAL server-derived session's _id, not
+  // this file's placeholder constant.
+  await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
+}
+
+async function seedGameSession() {
+  // issue-1143: clears ALL game_sessions with session_date <= today, not
+  // just this file's own prefixed ones — findLatestSession() picks the
+  // single most recent match across the WHOLE shared tm_suite_test
+  // collection, so a leftover session from another file with today's date
+  // could otherwise outrank (or tie with) this one. Mirrors the same
+  // defensive full-collection-clear already used for downtime_cycles below
+  // (Codex review finding, otc.2).
+  const today = new Date().toISOString().slice(0, 10);
+  await getCollection('game_sessions').deleteMany({ session_date: { $lte: today } });
+  await getCollection('game_sessions').insertOne({
+    title: `${NAME_PREFIX} Session`,
+    session_date: today,
+    game_number: 999,
+  });
 }
 
 async function seedActor({ city = 0, regentAmbience = null } = {}) {
@@ -74,6 +101,7 @@ beforeAll(async () => {
   await setupDb();
   app = createTestApp();
   await cleanup();
+  await seedGameSession();
 });
 
 afterAll(async () => {

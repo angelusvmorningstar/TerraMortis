@@ -23,13 +23,24 @@ describe('feature.691 — office_actions route', () => {
     expect(ROUTE).toContain("'/latest_session'"));
 
   it('validates actor !== target', () =>
-    expect(ROUTE).toContain('actor_id === target_id'));
+    // issue-1143 (AC4): rewritten from a raw string comparison
+    // (actor_id === target_id) to resolved-ObjectId equality, so a
+    // hex-case-variant pair of the same id is still caught as a self-target.
+    expect(ROUTE).toContain('actorObjectId.equals(targetObjectId)'));
 
-  it('enforces paid budget via countDocuments', () =>
-    expect(ROUTE).toContain('countDocuments'));
+  it('enforces paid budget via an atomic per-actor-per-session counter document', () =>
+    // issue-1143: rewritten from a countDocuments() derived count (which two
+    // concurrent requests could both read as under-budget) to a single
+    // atomic conditional $inc on a dedicated counter document — a real
+    // point of write contention MongoDB's transaction conflict detection
+    // serializes correctly.
+    expect(ROUTE).toContain("getCollection('office_action_budgets')"));
 
-  it('enforces paid uniqueness per target via findOne', () =>
-    expect(ROUTE).toMatch(/findOne\(\s*\{[\s\S]*?action_type.*\$in.*raise.*lower/));
+  it('enforces paid uniqueness per target via the partial unique index catching E11000 on insert', () =>
+    // issue-1143: rewritten from a racing findOne() dedupe check to relying
+    // on the partial unique index (server/index.js) rejecting a duplicate
+    // insert outright — a real constraint violation, not a snapshot read.
+    expect(ROUTE).toContain("err?.code === 11000"));
 
   it('atomically updates status.city on target character', () =>
     expect(ROUTE).toContain("'status.city'"));
