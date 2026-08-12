@@ -2,7 +2,7 @@
 id: oaq.2
 epic: oaq
 epic_file: specs/epic-oaq-office-approval-queue.md
-status: review
+status: done
 priority: high
 type: feature
 depends_on: [oaq.1]
@@ -364,6 +364,9 @@ pre-existing during issue-1143's own review). No new failures.
   corollary of the phase-gate decision, and confirmed correct-by-design as-is — no patch needed.
   Both structural fixes prove-discriminated. Full untargeted suite run twice post-fix: byte-identical
   to baseline both times, zero new failures. Status → review, ready to ship.
+- 2026-08-12: All review findings resolved (patched, dismissed with rationale, or confirmed
+  correct-by-design), no unresolved High/Medium remaining. Committed (`ab8145ad`, not pushed).
+  Status → done.
 
 ## Senior Developer Review
 
