@@ -953,9 +953,9 @@ development_status:
   # Generalises the existing contested_roll_requests pending lifecycle rather
   # than new infra. Depends on OTC.2 landing first. Epic file:
   # specs/epic-oaq-office-approval-queue.md
-  epic-oaq: backlog
+  epic-oaq: in-progress
 
-  oaq-1-data-lock-contested-roll-shape: backlog             # Dana's pass: confirm status-enum vs resolution-field-presence, whether a single-party action needs an action_type discriminator + payload sub-document, before extending contested_roll_requests.
+  oaq-1-data-lock-contested-roll-shape: done             # DONE 2026-08-12 — investigation spike, produces a decision record not code (di-3 precedent). Ran bmad-data-lock in full: (1) contested_roll_requests.status is a confirmed explicit enum (pending/resolved/declined/voided), not inferred from outcome presence (server/routes/contested-rolls.js). (2) Its write schema is additionalProperties:false with challenger/defender fields required — cannot accept a Status Action as-is, a real schema change is needed. (3) House precedent for the discriminator+payload question found: relationships.kind (KIND_ENUM + route-layer cross-field validation) is the pattern to reuse, not re-derive. (4) office_actions has zero pending lifecycle today — the gap Epic OAQ exists to close. (5) Zero cross-repo (TM Wiki/Cockpit) dependency on this collection's shape — safe to reshape. (6) Recommendation carried to oaq.2: reuse contested_roll_requests with a new request_type discriminator, default existing docs to 'contested_roll', no backfill needed. data-map.md updated with 3 new cited entries. Story: oaq-1-data-lock-contested-roll-shape.md
   oaq-2-pending-status-actions-accept-decline: backlog       # Extend the pattern from oaq.1. Resolve: does submitting spend budget immediately (refund on decline?) or only on approval - decide now, not mid-build.
   oaq-3-st-tab-approval-queue-view: backlog                  # New ST tab, pending-first sort so it isn't buried once/if Epic RLOG lands in the same tab. Race-safe for concurrent STs (3 exist) - "already actioned by [ST]" refresh state.
 
