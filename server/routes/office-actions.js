@@ -3,11 +3,12 @@ import { getCollection } from '../db.js';
 import { ObjectId } from 'mongodb';
 import { validate } from '../middleware/validate.js';
 import { officeActionSchema } from '../schemas/office_action.schema.js';
+import { calcEffectiveCityStatus } from '../../public/js/data/city-status-calc.js';
+import { findRegentTerritory } from '../../public/js/data/helpers.js';
+import { currentCycleInGamePhase } from '../../public/js/downtime/cycle-phase.js';
 
-const TITLE_STATUS_BONUS = {
-  'Head of State': 3, 'Primogen': 2, 'Socialite': 1, 'Enforcer': 1, 'Administrator': 1,
-};
 const PAID_TYPES = new Set(['raise', 'lower']);
+const GATED_TYPES = new Set(['raise', 'lower', 'grant_first', 'strip_last']);
 
 const router = Router();
 const col    = () => getCollection('office_actions');
@@ -40,6 +41,26 @@ router.get('/', async (req, res) => {
 router.post('/', validate(officeActionSchema), async (req, res) => {
   const { game_session_id, actor_id, target_id, action_type } = req.body;
 
+  // otc.2 (2026-08-12): Status Actions must only fire while a game is live.
+  // Checked first, before any other validation — a Status Action submitted
+  // outside game phase is rejected outright regardless of whether the actor,
+  // target, or budget would otherwise be valid. Mirrors the server-side
+  // convention already used elsewhere (server/routes/downtime.js): cyclePhase
+  // called with no second argument trusts the phase-aware lane only.
+  if (GATED_TYPES.has(action_type)) {
+    // otc.2 fix (2026-08-12, Codex review): identify the CURRENT cycle
+    // (highest game_number) first, THEN test its phase. The original
+    // filter-then-sort logic found the highest game_number AMONG
+    // GAME-PHASE CYCLES ONLY, so a stale cycle left in game phase could
+    // outrank a genuinely newer cycle that had moved on to prep/processing/
+    // downtime — a live Supertest probe reproduced a real 201 that should
+    // have been 403.
+    const cycles = await getCollection('downtime_cycles').find().toArray();
+    const liveCycle = currentCycleInGamePhase(cycles);
+    if (!liveCycle)
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'No game session is currently in progress' });
+  }
+
   if (actor_id === target_id)
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot target yourself' });
 
@@ -54,7 +75,12 @@ router.post('/', validate(officeActionSchema), async (req, res) => {
 
   // Budget + uniqueness checks for paid actions
   if (PAID_TYPES.has(action_type)) {
-    const budget = (actor.status?.city || 0) + (TITLE_STATUS_BONUS[actor.court_category] || 0);
+    // otc.2: was (actor.status.city + TITLE_STATUS_BONUS) only, silently
+    // dropping the regent-ambience bonus and the 10-cap the client already
+    // displays. Now the same effective-City-Status calculation as the client.
+    const territories = await getCollection('territories').find().toArray();
+    const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
+    const budget = calcEffectiveCityStatus(actor, regentAmbience);
     const used = await col().countDocuments({
       game_session_id, actor_id, action_type: { $in: ['raise', 'lower'] },
     });

@@ -71,9 +71,34 @@ const EXPECTED = {
   },
 };
 
-// Status Power text must be byte-identical to what shipped in #691 — Symon's
-// rewrite did not touch it, and neither does this story (AC8).
+// Status Power WORDING must be byte-identical to what shipped in #691 — Symon's
+// rewrite did not touch it, and neither does this story (AC8). What otc.1 DOES
+// change is the CONTAINER: each flat string is split into an array of paragraphs
+// (specs/stories/otc-1-status-power-paragraph-rendering.md), with no sentence
+// added, removed, or reworded. STATUS_POWER_UNCHANGED below holds those exact
+// splits; STATUS_POWER_FLAT reconstructs the original byte-identical string via
+// join(' ') as a second, independent content check.
 const STATUS_POWER_UNCHANGED = {
+  'Head of State': [
+    'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes).',
+    'You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost.',
+    'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+  ],
+  'Primogen': [
+    'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status.',
+    'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+  ],
+  'Enforcer': [
+    'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court.',
+    'If you overstep, others will be justified in dropping your own City Status.',
+  ],
+  'Socialite': [
+    'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously.',
+    'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+  ],
+};
+
+const STATUS_POWER_FLAT = {
   'Head of State': 'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes). You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
   'Primogen': 'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
   'Enforcer': 'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court. If you overstep, others will be justified in dropping your own City Status.',
@@ -102,8 +127,12 @@ describe('issue-1141 — office-data.js synced to Symon\'s rewrite', () => {
         expect(OFFICE_DATA[category].asset).toBe(EXPECTED[category].asset);
       });
 
-      it('has an unchanged Status Power (AC8)', () => {
-        expect(OFFICE_DATA[category].statusPower).toBe(STATUS_POWER_UNCHANGED[category]);
+      it('has an unchanged Status Power, split into paragraphs (AC8, otc.1)', () => {
+        expect(OFFICE_DATA[category].statusPower).toEqual(STATUS_POWER_UNCHANGED[category]);
+      });
+
+      it('the paragraphs reconstruct the exact original flat text (otc.1) — catches a dropped or reordered sentence a shape-only check would miss', () => {
+        expect(OFFICE_DATA[category].statusPower.join(' ')).toBe(STATUS_POWER_FLAT[category]);
       });
     });
   }

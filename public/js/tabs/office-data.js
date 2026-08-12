@@ -10,7 +10,11 @@ export const OFFICE_DATA = {
       { name: 'Willing Coalition',   effect: 'Spend 1 Influence to add your Clan Status to your Covenant Status, or the reverse, for a relevant social contest.' },
       { name: 'Executive Order',     effect: 'Spend Influence equal to the City Status of a target you can see to order them to act. The target chooses between compliance and a Condition of the Storyteller\'s choice.' },
     ],
-    statusPower: 'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes). You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    statusPower: [
+      'Each session, you can raise or lower another\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot raise or lower the same character more than once per session (but you can coordinate with your Socialite or other Court roles to stack changes).',
+      'You can strip a character\'s last dot of City Status, casting them out of the domain. You can grant the first dot of City Status to newcomers at no cost.',
+      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    ],
   },
   'Primogen': {
     asset: 'Chains of Office',
@@ -23,7 +27,10 @@ export const OFFICE_DATA = {
       { name: 'Pull Rank',              effect: 'Once per Court; spend Influence equal to the target\'s City Status to deny them the effects of an exceptional success.' },
       { name: 'Veto',                   effect: 'Each Court, a number of times equal to your City Status; block a manoeuvre from any Position by spending Influence equal to that manoeuvre\'s cost.' },
     ],
-    statusPower: 'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    statusPower: [
+      'Each session, you can raise or lower another character\'s City Status by 1, once. You may permanently sacrifice one of your own City Status dots to make a second Status change in the same session. You cannot affect your own City Status.',
+      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    ],
   },
   'Socialite': {
     asset: 'Elan',
@@ -36,7 +43,10 @@ export const OFFICE_DATA = {
       { name: 'Playing Favourites', effect: 'Once per Court; when a Kindred\'s City Status is being changed, spend Influence equal to the new Status to make that change cost one further point of Status.' },
       { name: 'Curry Favour',       effect: 'Once per Court; spend 1 Influence to impose the Leveraged Condition publicly on a Kindred you can see.' },
     ],
-    statusPower: 'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously. Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    statusPower: [
+      'Each session, you can raise or lower another character\'s City Status by 1. You can do this a number of times per session equal to your own Effective City Status. You cannot affect your own City Status, and you cannot hold another major court position simultaneously.',
+      'Your decisions should be grounded in the City Deeds. If you can\'t justify a Status change, others will be justified in dropping yours.',
+    ],
   },
   'Enforcer': {
     asset: 'Goon Squad',
@@ -49,6 +59,9 @@ export const OFFICE_DATA = {
       { name: 'Crackdown',           effect: 'Once per Downtime; spend Influence equal to the target\'s City Status to give your attempts to interfere with their Downtime actions the rote quality. This is not subtle.' },
       { name: 'Neighbourhood Watch', effect: 'Once per Court; spend Influence equal to the City Status of a target you can see to learn one of their Resistance Attributes.' },
     ],
-    statusPower: 'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court. If you overstep, others will be justified in dropping your own City Status.',
+    statusPower: [
+      'Each session, you can lower another character\'s City Status by 1 when they breach what you are charged to enforce. Your enforcement must conform to the norms of court.',
+      'If you overstep, others will be justified in dropping your own City Status.',
+    ],
   },
 };

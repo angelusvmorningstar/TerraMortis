@@ -28,6 +28,8 @@ import {
   phaseWrites,
   buildPhaseUpdate,
   openCycleVerdict,
+  currentCycle,
+  currentCycleInGamePhase,
 } from '../../public/js/downtime/cycle-phase.js';
 
 import { downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
@@ -348,5 +350,62 @@ describe('cm1 — wiring', () => {
     expect(signoff.length).toBeGreaterThan(200);
     expect(signoff).not.toContain('setCyclePhase');
     expect(signoff).not.toMatch(/\bphase:\s/);
+  });
+});
+
+// ── otc.2 (2026-08-12): currentCycle / currentCycleInGamePhase ─────────────
+// Codex external review (reasoning_effort=high) reproduced a real defect
+// live against MongoDB: office-actions.js's original phase gate filtered ALL
+// cycles for phase 'game' and took the highest game_number AMONG THOSE
+// MATCHES ONLY. A stale historical cycle left in game phase therefore
+// outranked a genuinely newer cycle that had moved on to prep/processing/
+// downtime, because the newer cycle was never in the filtered set at all.
+// A live Supertest probe got a real 201 for a grant_first submitted while
+// the true current cycle was in prep. These tests reproduce that exact
+// shape against the pure functions, red against the old filter-then-sort
+// logic, green against currentCycle/currentCycleInGamePhase.
+describe('otc.2 — currentCycle: highest game_number wins, never phase-filtered first', () => {
+  it('returns null for an empty or missing list', () => {
+    expect(currentCycle([])).toBeNull();
+    expect(currentCycle(undefined)).toBeNull();
+  });
+
+  it('picks the highest game_number regardless of array order', () => {
+    const a = { game_number: 3, phase: 'downtime' };
+    const b = { game_number: 7, phase: 'processing' };
+    const c = { game_number: 5, phase: 'game' };
+    expect(currentCycle([a, b, c])).toBe(b);
+    expect(currentCycle([c, a, b])).toBe(b);
+  });
+});
+
+describe('otc.2 — currentCycleInGamePhase: the stale-cycle regression', () => {
+  it('returns the cycle when the CURRENT (highest game_number) cycle is in game phase', () => {
+    const old = { game_number: 5, phase: 'downtime' };
+    const current = { game_number: 6, phase: 'game' };
+    expect(currentCycleInGamePhase([old, current])).toBe(current);
+  });
+
+  it('THE REGRESSION: returns null when an OLDER cycle is stuck in game phase but the CURRENT cycle has moved on', () => {
+    // This is the exact shape Codex reproduced live: game_number 5 left at
+    // phase 'game', game_number 6 (the true current cycle) advanced to
+    // 'prep'. The old filter-then-sort logic returned the stale cycle 5 and
+    // let a Status Action through; the correct answer is null (no live game).
+    const staleGame = { game_number: 5, phase: 'game' };
+    const currentPrep = { game_number: 6, phase: 'prep' };
+    expect(currentCycleInGamePhase([staleGame, currentPrep])).toBeNull();
+    // Order in the array must not matter - this must not accidentally pass
+    // only because the stale cycle happened to sort last.
+    expect(currentCycleInGamePhase([currentPrep, staleGame])).toBeNull();
+  });
+
+  it('returns null when the current cycle is in any non-game phase', () => {
+    expect(currentCycleInGamePhase([{ game_number: 1, phase: 'downtime' }])).toBeNull();
+    expect(currentCycleInGamePhase([{ game_number: 1, phase: 'processing' }])).toBeNull();
+    expect(currentCycleInGamePhase([{ game_number: 1, phase: 'prep' }])).toBeNull();
+  });
+
+  it('returns null for an empty list', () => {
+    expect(currentCycleInGamePhase([])).toBeNull();
   });
 });

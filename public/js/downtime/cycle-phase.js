@@ -71,6 +71,31 @@ export function cyclePhase(cycle, deriveStatus) {
   return statusToPhase(status);
 }
 
+/**
+ * The single current cycle: highest game_number wins, never API/_id/array
+ * order (creation order is proven wrong for game order in this data - see
+ * db.js's getFeedingCycle doc comment for the same rule applied elsewhere).
+ * Returns null for an empty/missing list.
+ */
+export function currentCycle(cycles) {
+  if (!Array.isArray(cycles) || !cycles.length) return null;
+  return cycles.reduce((best, c) => (!best || (c.game_number || 0) > (best.game_number || 0) ? c : best), null);
+}
+
+/**
+ * Is the CURRENT cycle (not just any cycle anywhere in the list) in game
+ * phase right now? otc.2 (2026-08-12) finding: filtering all cycles for
+ * phase 'game' and then taking the highest game_number AMONG THOSE MATCHES
+ * is wrong - a stale historical cycle left in game phase outranks a newer
+ * cycle that has since moved to prep/processing/downtime, because the newer
+ * cycle was never in the filtered set to begin with. Identify the current
+ * cycle FIRST, then test its phase.
+ */
+export function currentCycleInGamePhase(cycles, deriveStatus) {
+  const current = currentCycle(cycles);
+  return current && cyclePhase(current, deriveStatus) === 'game' ? current : null;
+}
+
 /** Index of a phase in this cycle's sequence (its own phase_sequence wins). */
 export function phaseIndex(cycle, phase) {
   const seq = Array.isArray(cycle?.phase_sequence) && cycle.phase_sequence.length

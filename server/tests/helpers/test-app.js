@@ -32,6 +32,7 @@ import devlogRouter from '../../routes/devlog.js';
 import buildEquipmentCatalogueRouter from '../../routes/equipment-catalogue.js';
 import { chaptersRouter } from '../../routes/chapters.js';
 import cyoaRouter from '../../routes/cyoa.js';
+import officeActionsRouter from '../../routes/office-actions.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -115,6 +116,8 @@ export function createTestApp() {
   app.use('/api/chapters', mockAuth, noCache(), chaptersRouter);
   // Issue #971: CYOA cross-project write-back
   app.use('/api/cyoa', mockAuth, noCache(), cyoaRouter);
+  // Issue #691 / otc.2: office actions (Status Actions)
+  app.use('/api/office_actions', mockAuth, noCache(), officeActionsRouter);
 
   return app;
 }
