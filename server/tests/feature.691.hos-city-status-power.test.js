@@ -82,8 +82,21 @@ describe('feature.691 — office tab', () => {
   it('accepts chars as third parameter', () =>
     expect(TAB).toMatch(/function renderOfficeTab\s*\(el,\s*char,\s*chars/));
 
-  it('gates interactive section on Head of State only', () =>
-    expect(TAB).toContain("court_category === 'Head of State'"));
+  it('gates interactive section on Head of State only, AND only your own office (otc.3)', () => {
+    // otc.3: browsing someone else's Head of State reference must not also
+    // gate on the raw category match alone — isOwnOffice must be part of it.
+    // Two independent sites carry this gate: the HTML-shell branch that emits
+    // the panel's markup, and the call that wires its interactivity. Codex
+    // review (Pass 1, 2026-08-12) found the previous unanchored regex only
+    // proved ONE of the two sites — a half-applied gate (markup gated,
+    // wiring not, or vice versa) would still have passed.
+    const gateMatches = [...TAB.matchAll(/category === 'Head of State' && isOwnOffice\)\s*\{/g)];
+    expect(gateMatches.length).toBe(2);
+
+    const [htmlGateIdx, wireGateIdx] = gateMatches.map(m => m.index);
+    expect(TAB.slice(htmlGateIdx, htmlGateIdx + 400)).toContain('office-budget-line');
+    expect(TAB.slice(wireGateIdx, wireGateIdx + 200)).toContain('_wireHosActions(el, char, chars)');
+  });
 
   it('wires HoS actions after innerHTML is set', () =>
     expect(TAB).toContain('_wireHosActions'));

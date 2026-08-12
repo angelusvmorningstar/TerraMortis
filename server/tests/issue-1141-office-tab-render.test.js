@@ -45,9 +45,9 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     }
   });
 
-  function render(char, chars = [char]) {
+  function render(char, chars = [char], viewCategory) {
     const el = { innerHTML: '' };
-    renderOfficeTab(el, char, chars);
+    renderOfficeTab(el, char, chars, viewCategory);
     return el.innerHTML;
   }
 
@@ -116,5 +116,104 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     expect(paragraphs[1]).toBe("Your decisions should be grounded in the City Deeds. If you can't justify a Status change, others will be justified in dropping yours.");
     // The block must genuinely be two separate <p> tags, not one flat run of text.
     expect(block).not.toBe(paragraphs.join(''));
+  });
+
+  describe('otc.3 — browsable reference mode', () => {
+    it('AC1/AC2: renders a category picker for all five offices, defaulting to your own held office', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf);
+
+      expect(html).toContain('id="office-category-select"');
+      for (const cat of ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator']) {
+        expect(html).toContain(`>${cat}`);
+      }
+      // Own office is selected by default and marked as such.
+      expect(html).toMatch(/<option value="Primogen" selected>Primogen \(yours\)<\/option>/);
+    });
+
+    it('AC3/AC5, the core security boundary: browsing an office you do NOT hold shows reference only — no Status Actions panel, even for Head of State', () => {
+      // Yusuf holds Primogen, not Head of State. Browsing Head of State's
+      // reference must NEVER expose the interactive panel a real Head of
+      // State would see — this is the exact gap this story exists to close.
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf, [yusuf], 'Head of State');
+
+      expect(html).not.toContain('office-budget-line');
+      expect(html).not.toContain('office-picker-mount');
+      expect(html).not.toContain('office-action-btns');
+      expect(html).not.toContain('office-action-msg');
+      // Reference content is still present — this is a browsing view, not an empty one.
+      expect(html).toContain('Due Diligence'); // a real Head of State manoeuvre name
+      expect(html).toContain('office-merit-chip');
+    });
+
+    it('AC5: the reference-view banner appears when browsing, and is absent on your own office', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const browsing = render(yusuf, [yusuf], 'Head of State');
+      const own = render(yusuf, [yusuf], 'Primogen');
+
+      expect(browsing).toContain('office-reference-banner');
+      expect(own).not.toContain('office-reference-banner');
+    });
+
+    it('AC4: your own office still renders exactly as before this story (no regression)', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf, [yusuf], 'Primogen');
+
+      expect(html).toContain('People Talk'); // a real Primogen manoeuvre name
+      expect(html).toContain('office-merit-chip');
+      expect(html).not.toContain('office-reference-banner');
+    });
+
+    it('AC6: selecting Administrator via the picker still hits the pending fallback', () => {
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+      const html = render(yusuf, [yusuf], 'Administrator');
+
+      expect(html).toContain('Office details for this role are pending.');
+      expect(html).not.toContain('office-manoeuvre-list');
+      expect(html).not.toContain('office-merit-chip');
+      // The picker itself must still be present so the viewer isn't stuck.
+      expect(html).toContain('id="office-category-select"');
+    });
+
+    it('the picker actually wires a change listener that re-renders on selection (Codex review, Pass 3b, 2026-08-12)', () => {
+      // Every other otc.3 test drives category switches by passing
+      // viewCategory directly, never through a real <select> change event —
+      // Codex proved via mutation that deleting `_wireCategoryPicker`'s
+      // addEventListener call left the whole suite green. This test builds a
+      // minimal fake <select> (no jsdom/happy-dom in this project) so the
+      // event actually fires through the real wiring path.
+      const yusuf = { _id: 'yusuf', name: 'Yusuf Kalusicj', court_category: 'Primogen', court_title: 'Primogen' };
+
+      const select = { value: '', _listeners: {} };
+      select.addEventListener = (evt, fn) => { (select._listeners[evt] ||= []).push(fn); };
+      select.dispatchEvent = (evt) => { (select._listeners[evt.type] || []).forEach(fn => fn(evt)); };
+
+      const el = {
+        _html: '',
+        get innerHTML() { return this._html; },
+        set innerHTML(v) {
+          this._html = v;
+          // Keep the fake <select>'s value synced to the freshly rendered
+          // markup, the way a real DOM element would be after a re-render.
+          const m = v.match(/<option value="([^"]*)" selected>/);
+          select.value = m ? m[1] : '';
+        },
+        querySelector: (sel) => (sel === '#office-category-select' ? select : null),
+      };
+
+      renderOfficeTab(el, yusuf, [yusuf]);
+      expect(el.innerHTML).toContain('People Talk'); // Primogen's own manoeuvre
+      expect(el.innerHTML).not.toContain('office-reference-banner');
+
+      // Simulate the user picking a different office in the real <select>.
+      select.value = 'Head of State';
+      select.dispatchEvent({ type: 'change' });
+
+      // A genuine re-render happened via the wired listener, not a direct call.
+      expect(el.innerHTML).toContain('office-reference-banner');
+      expect(el.innerHTML).toContain('Due Diligence'); // a real Head of State manoeuvre
+      expect(el.innerHTML).not.toContain('People Talk');
+    });
   });
 });

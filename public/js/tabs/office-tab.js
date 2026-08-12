@@ -6,21 +6,46 @@ import { charPicker, setCharPickerSources } from '../components/character-picker
 import { getCycles } from '../downtime/db.js';
 import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
 
-export function renderOfficeTab(el, char, chars = []) {
-  if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
-  if (!char.court_category) { el.innerHTML = '<div class="dtl-empty">No office held.</div>'; return; }
+// otc.3: the fixed order the picker lists offices in. All five Court
+// Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
+// still hits the existing pending-fallback branch below when selected).
+export const OFFICE_CATEGORIES = ['Head of State', 'Primogen', 'Enforcer', 'Socialite', 'Administrator'];
 
-  const data = OFFICE_DATA[char.court_category];
-  const title = esc(char.court_title || char.court_category);
-  const role  = esc(char.court_category);
+export function renderOfficeTab(el, char, chars = [], viewCategory) {
+  if (!el || !char) { if (el) el.innerHTML = '<div class="dtl-empty">No character loaded.</div>'; return; }
+
+  // otc.3: any player can browse any office as reference, not just one they
+  // hold. Default to the viewer's own held office; if they hold none, start
+  // on Head of State rather than an empty state.
+  const category = viewCategory || char.court_category || 'Head of State';
+  const isOwnOffice = category === char.court_category;
+
+  const data = OFFICE_DATA[category];
+  const title = isOwnOffice ? esc(char.court_title || category) : esc(category);
+  const role  = esc(category);
 
   let h = `<div class="office-tab">`;
   h += `<div class="office-header"><div class="office-title">${title}</div><div class="office-role">${role}</div></div>`;
+
+  h += `<div class="office-category-picker">`;
+  h += `<select class="form-select" id="office-category-select">`;
+  for (const cat of OFFICE_CATEGORIES) {
+    const sel = cat === category ? ' selected' : '';
+    const mine = cat === char.court_category ? ' (yours)' : '';
+    h += `<option value="${esc(cat)}"${sel}>${esc(cat)}${esc(mine)}</option>`;
+  }
+  h += `</select>`;
+  h += `</div>`;
+
+  if (!isOwnOffice) {
+    h += `<div class="office-reference-banner">Reference view. Showing what this office grants, not your own.</div>`;
+  }
 
   if (!data) {
     h += `<div class="dtl-empty">Office details for this role are pending.</div>`;
     h += `</div>`;
     el.innerHTML = h;
+    _wireCategoryPicker(el, char, chars);
     return;
   }
 
@@ -34,8 +59,10 @@ export function renderOfficeTab(el, char, chars = []) {
   h += `</div>`;
   h += `</div>`;
 
-  // Interactive status actions — HoS only (phase 1)
-  if (char.court_category === 'Head of State') {
+  // Interactive status actions — HoS only (phase 1), and only when browsing
+  // your OWN office. otc.3: a player browsing Head of State's reference must
+  // never see or trigger this panel just because the category matches.
+  if (category === 'Head of State' && isOwnOffice) {
     h += `<div class="office-section">`;
     h += `<div class="office-section-hd">Status Actions — this session</div>`;
     h += `<div class="office-budget-line">Loading…</div>`;
@@ -68,10 +95,22 @@ export function renderOfficeTab(el, char, chars = []) {
 
   h += `</div>`;
   el.innerHTML = h;
+  _wireCategoryPicker(el, char, chars);
 
-  if (char.court_category === 'Head of State') {
+  if (category === 'Head of State' && isOwnOffice) {
     _wireHosActions(el, char, chars);
   }
+}
+
+/** otc.3: the category picker is present on every render (own office or
+ *  browsing, including the pending-fallback branch) — wiring is shared. */
+function _wireCategoryPicker(el, char, chars) {
+  if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
+  const select = el.querySelector('#office-category-select');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    renderOfficeTab(el, char, chars, select.value);
+  });
 }
 
 async function _wireHosActions(el, char, chars) {

@@ -63,3 +63,14 @@ code) and are out of its stated scope. Full record: `specs/stories/otc-2-status-
   cycles** (Medium) — both render the same "Available once the game session opens" message.
   Matches a pre-existing swallow-errors pattern already used one line above it; a real fix needs a
   UX decision on what each state should actually say.
+
+**Update, 2026-08-12 (otc-3 review):** the "No authorization check on `actor_id`" finding above was
+re-confirmed live by otc-3's own Codex review (`server/routes/office-actions.js` is untouched by
+that story's diff). otc-3 opened the Office tab to every player regardless of whether they hold a
+court office, which removes the UI-level discovery barrier that previously meant only a Head of
+State browsing their own office ever saw the Status Actions panel at all. The API route itself was
+always directly reachable by any authenticated session regardless of tab visibility, so nothing new
+is exposed — but the pre-existing gap is now more discoverable/likely to be stumbled onto. Angelus
+reviewed this trade-off and approved shipping otc.3 as scoped rather than gating it on this fix
+landing first; this entry's priority is unchanged (High) but this note records the increased
+practical exposure for whoever picks up #1143.
