@@ -23,7 +23,10 @@ describe('feature.691 — office_actions route', () => {
     expect(ROUTE).toContain("'/latest_session'"));
 
   it('validates actor !== target', () =>
-    expect(ROUTE).toContain('actor_id === target_id'));
+    // issue-1143 (AC4): rewritten from a raw string comparison
+    // (actor_id === target_id) to resolved-ObjectId equality, so a
+    // hex-case-variant pair of the same id is still caught as a self-target.
+    expect(ROUTE).toContain('actorObjectId.equals(targetObjectId)'));
 
   it('enforces paid budget via countDocuments', () =>
     expect(ROUTE).toContain('countDocuments'));

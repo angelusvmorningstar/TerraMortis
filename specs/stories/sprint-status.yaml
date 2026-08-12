@@ -938,6 +938,15 @@ development_status:
 
   epic-otc-retrospective: optional
 
+  # ── Epic ISSUE-1143: Status Actions actor authorization + write safety ────
+  # Bundled from otc-2's deferred findings (2026-08-12 external Codex review).
+  # Single-story epic — see specs/stories/issue-1143-status-actions-auth-safety.md
+  epic-issue-1143: in-progress
+
+  issue-1143-status-actions-auth-safety: review   # DEV COMPLETE 2026-08-12, status review. Story created same day from #1143. All 5 findings fixed in server/routes/office-actions.js: actor_id/req.user authorization (isStRole + character_ids ownership, reusing the isRegentOfTerritory/npcs.js pattern), server-derived game_session_id (findLatestSession() shared by GET /latest_session and POST /, client value ignored), atomic budget/dedupe/write, ObjectId-resolved self-target check. Two of the issue's three open questions resolved with direct code evidence during story creation: (a) ownership-or-ST-role auth, no additional Head-of-State restriction needed since office-tab.js already gates the whole panel to that category; (b) game_session_id derives from game_sessions, not downtime_cycles. (c) DEVIATION found mid-implementation: local dev MongoDB is a standalone instance (confirmed via admin.hello), not a replica set, so the story's planned real MongoDB transaction was unusable (would fail every local/CI test run) — substituted a partial unique index on {game_session_id,actor_id,target_id} (scoped to raise/lower) for atomic dedupe, plus insert-then-recount-with-compensating-delete for atomic budget. Verified deterministic across 4 repeated runs. AC5 (db-setup.js clean skip): added isDbAvailable() as an ADDITIVE export, setupDb()/teardownDb() unchanged for other consumers (zero regression risk); applied via describe.skipIf to this story's own new test file only, verified live both directions (clean 10-skipped run vs the unmigrated otc-2 file still reproducing the original double-error under the same simulated-unreachable condition). otc-2-office-actions-api.test.js needed a game_sessions fixture added (AC2 regression) and feature.691's stale actor_id===target_id source-text assertion needed updating (AC4) — both fixed, both green. Changed-area regression 161/161 across 9 files. Full suite 2384/2390 (6 failed/11 files) — all confirmed pre-existing via stash-and-rerun against the clean baseline (identical failures reproduce with issue-1143's files removed); none reference the touched files. Story: issue-1143-status-actions-auth-safety.md
+
+  epic-issue-1143-retrospective: optional
+
   # ── Epic OAQ: ST Approval Queue for Status Actions ────────────────────────
   # Scoped 2026-08-12. Status Actions mutate City Status directly; Angelus
   # wants ST sign-off on every one (explicit, restated, not up for debate).
