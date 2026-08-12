@@ -254,76 +254,96 @@ describe.skipIf(!dbAvailable)('oaq.3 AC4/AC5 — resolved_by/declined_by capture
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Client wiring — admin sidebar, view module, dispatch (static-analysis, no
+// Client wiring — game-app tab (moved from the ST admin app to the main
+// player/game app, ST-only, per Angelus: "put it on the main player app as a
+// tab that only appears to STs"), view module, dispatch (static-analysis, no
 // browser harness in this repo — see issue-873-ecm-6-admin-sidebar.test.js)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('oaq.3 — admin sidebar wires Approval Queue domain', () => {
-  it('admin.html declares the sidebar button with data-domain="office-approvals"', () => {
-    const src = readFile('public/admin.html');
-    expect(src).toMatch(/data-domain="office-approvals"[^>]*>\s*Approval Queue/);
+describe('oaq.3 — game app wires the Approval Queue as an ST-only tab (moved from admin app)', () => {
+  it('index.html declares the tab panel with id="t-office-approvals"', () => {
+    const src = readFile('public/index.html');
+    expect(src).toMatch(/<div\s+id="t-office-approvals"\s+class="tab">/);
   });
 
-  it('admin.html declares the domain section with id="d-office-approvals"', () => {
-    const src = readFile('public/admin.html');
-    expect(src).toMatch(/<section\s+id="d-office-approvals"\s+class="domain"/);
-    expect(src).toMatch(/id="office-approvals-content"/);
+  it('app.js imports initOfficeApprovals from suite/office-approvals.js', () => {
+    const src = readFile('public/js/app.js');
+    expect(src).toMatch(/import\s+\{\s*initOfficeApprovals\s*\}\s+from\s+['"]\.\/suite\/office-approvals\.js['"]/);
   });
 
-  it('admin.js imports initOfficeApprovals', () => {
-    const src = readFile('public/js/admin.js');
-    expect(src).toMatch(/import\s+\{\s*initOfficeApprovals\s*\}\s+from\s+['"]\.\/admin\/office-approvals\.js['"]/);
+  it('app.js dispatches office-approvals in goTab()', () => {
+    const src = readFile('public/js/app.js');
+    expect(src).toMatch(/t === 'office-approvals'/);
+    expect(src).toMatch(/initOfficeApprovals\(el\)/);
   });
 
-  it('admin.js dispatches the office-approvals domain in switchDomain', () => {
-    const src = readFile('public/js/admin.js');
-    expect(src).toMatch(/domain\s*===\s*['"]office-approvals['"]\s*\)\s*initOfficeApprovals/);
+  it('is registered stOnly in both MORE_APPS (desktop sidebar) and NAV_ITEMS (mobile bottom nav) — never built into the DOM for a non-ST viewer', () => {
+    const src = readFile('public/js/app.js');
+    // Desktop sidebar entry
+    expect(src).toMatch(/id:\s*'office-approvals',\s*label:\s*'Approval Queue'[^}]*section:\s*'st',\s*stOnly:\s*true/);
+    // Mobile bottom-nav entry
+    expect(src).toMatch(/id:\s*'office-approvals',\s*label:\s*'Approvals'[^}]*goTab:\s*'office-approvals',\s*stOnly:\s*true/);
+  });
+
+  it('does NOT re-appear in the admin app — removed from admin.html/admin.js during the move', () => {
+    const adminHtml = readFile('public/admin.html');
+    const adminJs = readFile('public/js/admin.js');
+    expect(adminHtml).not.toMatch(/data-domain="office-approvals"/);
+    expect(adminHtml).not.toMatch(/id="d-office-approvals"/);
+    expect(adminJs).not.toMatch(/initOfficeApprovals/);
   });
 });
 
 describe('oaq.3 — view module file shape', () => {
-  it('public/js/admin/office-approvals.js exists', () => {
-    expect(fileExists('public/js/admin/office-approvals.js')).toBe(true);
+  it('public/js/suite/office-approvals.js exists (moved from public/js/admin/)', () => {
+    expect(fileExists('public/js/suite/office-approvals.js')).toBe(true);
+    expect(fileExists('public/js/admin/office-approvals.js')).toBe(false);
   });
 
   it('exports initOfficeApprovals', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/export\s+async\s+function\s+initOfficeApprovals\b/);
   });
 
   it('fetches GET /api/office_actions/pending and calls accept/decline via apiRaw (needs the full response body, not just a thrown message, to redact resolved_by/declined_by)', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/apiGet\(['"]\/api\/office_actions\/pending['"]\)/);
     expect(src).toMatch(/apiRaw\('PUT',\s*`\/api\/office_actions\/\$\{requestId\}\/\$\{action\}`/);
   });
 
   it('polls every 10 seconds, mirroring challenge-notification.js\'s POLL_MS', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/POLL_MS\s*=\s*10_000/);
     expect(src).toMatch(/setInterval\(/);
   });
 
+  it('the poll skip-check uses .tab.active, not the admin app\'s .domain.active (review-relevant: this broke silently once already when the module moved surfaces)', () => {
+    const src = readFile('public/js/suite/office-approvals.js');
+    expect(src).toMatch(/closest\('\.tab'\)/);
+    expect(src).not.toMatch(/closest\('\.domain'\)/);
+  });
+
   it('uses a single delegated listener, not per-render addEventListener (project convention)', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     const addListenerCalls = src.match(/addEventListener\(/g) || [];
     expect(addListenerCalls.length, 'exactly one delegated root listener, no per-row handlers').toBe(1);
   });
 
   it('renders an empty state when there is nothing pending', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/Nothing pending/);
   });
 
-  it('reuses existing component classes (dt-btn, or-list, derived-note) — no inline style attributes', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
-    expect(src).toMatch(/dt-btn dt-btn-gold/);
-    expect(src).toMatch(/dt-btn dt-btn-danger/);
-    expect(src).toMatch(/or-list-item/);
+  it('reuses existing game-app component classes (ch-btn, dtl-badge, derived-note — index.html does not load admin-layout.css, so the old dt-btn/or-list classes would render unstyled here) — no inline style attributes', () => {
+    const src = readFile('public/js/suite/office-approvals.js');
+    expect(src).toMatch(/ch-btn ch-btn-accept/);
+    expect(src).toMatch(/ch-btn ch-btn-decline/);
+    expect(src).toMatch(/dtl-badge/);
     expect(src).not.toMatch(/style="/);
   });
 
   it('REGRESSION (external review): redacts actor/target character names and the acting ST\'s username for the privacy-redacted dev role', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/import\s*\{[^}]*redactCharName[^}]*\}\s*from\s*['"]\.\.\/data\/helpers\.js['"]/);
     expect(src).toMatch(/import\s*\{[^}]*redactPlayer[^}]*\}\s*from\s*['"]\.\.\/data\/helpers\.js['"]/);
     expect(src).toMatch(/redactCharName\(r\.actor_name/);
@@ -332,7 +352,7 @@ describe('oaq.3 — view module file shape', () => {
   });
 
   it('REGRESSION (external review): a failed fetch never renders as an empty queue, and a stale poll response cannot resurrect a just-resolved row', () => {
-    const src = readFile('public/js/admin/office-approvals.js');
+    const src = readFile('public/js/suite/office-approvals.js');
     expect(src).toMatch(/fetchFailed/);
     expect(src).toMatch(/_fetchGen/);
     expect(src).toMatch(/gen\s*!==\s*_fetchGen/);
