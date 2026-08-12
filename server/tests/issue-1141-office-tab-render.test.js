@@ -62,8 +62,11 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
     for (const html of [brandyHtml, carverHtml]) {
       expect(html).toContain('Size Them Up');
       expect(html).toContain('Curry Favour');
-      expect(html).toContain('Cacophony Savvy');
-      expect(html).not.toContain('<span class="office-merit-chip">Elan</span>'); // asset name must not appear as a merit chip
+      // office-merit-dots: merit NAMES (e.g. Cacophony Savvy) now render
+      // async via _wireMeritDots against real dot state; this plain-object
+      // mock has no real querySelector, so only the section's synchronous
+      // loading placeholder is present here.
+      expect(html).toContain('data-office-merit-mount');
     }
     // Rendering one does not mutate or leak into the other's own render.
     expect(brandyHtml).not.toBe('');
@@ -144,7 +147,11 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       expect(html).not.toContain('office-action-msg');
       // Reference content is still present — this is a browsing view, not an empty one.
       expect(html).toContain('Due Diligence'); // a real Head of State manoeuvre name
-      expect(html).toContain('office-merit-chip');
+      // office-merit-dots: merit rows now render async via _wireMeritDots
+      // (fetches real dot state), which no-ops against this plain-object
+      // mock (no real querySelector) — the merit SECTION itself is still
+      // present synchronously as its loading placeholder.
+      expect(html).toContain('data-office-merit-mount');
     });
 
     it('AC5: the reference-view banner appears when browsing, and is absent on your own office', () => {
@@ -161,7 +168,7 @@ describe('issue-1141 — office-tab.js render-level regressions', () => {
       const html = render(yusuf, [yusuf], 'Primogen');
 
       expect(html).toContain('People Talk'); // a real Primogen manoeuvre name
-      expect(html).toContain('office-merit-chip');
+      expect(html).toContain('data-office-merit-mount'); // office-merit-dots: merit rows render async now
       expect(html).not.toContain('office-reference-banner');
     });
 
