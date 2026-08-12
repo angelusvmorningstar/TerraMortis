@@ -1,10 +1,11 @@
-import { OFFICE_DATA } from './office-data.js';
+import { OFFICE_DATA, MERIT_DOT_CAPS } from './office-data.js';
 import { esc, displayName } from '../data/helpers.js';
-import { apiGet, apiPost } from '../data/api.js';
+import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { charPicker, setCharPickerSources } from '../components/character-picker.js';
 import { getCycles } from '../downtime/db.js';
 import { currentCycleInGamePhase } from '../downtime/cycle-phase.js';
+import { getRole } from '../auth/discord.js';
 
 // otc.3: the fixed order the picker lists offices in. All five Court
 // Positions, even 'Administrator' (which has no OFFICE_DATA entry yet — it
@@ -84,18 +85,19 @@ export function renderOfficeTab(el, char, chars = [], viewCategory) {
   }
   h += `</div></div>`;
 
-  // Merits
+  // Merits — real per-merit dot ratings (ST-editable), not a flat
+  // "already granted" chip list. Epic OXP (full accrual/spend economy)
+  // isn't built yet, but STs need to be able to hand-set dots ahead of
+  // game — see the reference_office_powers_xp_economy memory.
   h += `<div class="office-section">`;
-  h += `<div class="office-section-hd">Granted Merits</div>`;
-  h += `<div class="office-merit-list">`;
-  for (const merit of data.merits) {
-    h += `<span class="office-merit-chip">${esc(merit)}</span>`;
-  }
-  h += `</div></div>`;
+  h += `<div class="office-section-hd">Merit Suite</div>`;
+  h += `<div class="office-merit-list" data-office-merit-mount>Loading…</div>`;
+  h += `</div>`;
 
   h += `</div>`;
   el.innerHTML = h;
   _wireCategoryPicker(el, char, chars);
+  _wireMeritDots(el, category, data.merits);
 
   if (category === 'Head of State' && isOwnOffice) {
     _wireHosActions(el, char, chars);
@@ -111,6 +113,74 @@ function _wireCategoryPicker(el, char, chars) {
   select.addEventListener('change', () => {
     renderOfficeTab(el, char, chars, select.value);
   });
+}
+
+/** Fetches current merit dots for every office category and renders this
+ *  category's merit suite with real dot ratings. STs (and dev, which is
+ *  treated as ST everywhere per this codebase's own equivalence) get +/-
+ *  stepper controls; everyone else sees a read-only dot display. Mirrors
+ *  _wireHosActions's own fetch-then-render-into-mount pattern below. */
+async function _wireMeritDots(el, category, meritNames) {
+  if (typeof el.querySelector !== 'function') return; // plain-object test mocks have no real DOM
+  const mount = el.querySelector('[data-office-merit-mount]');
+  if (!mount) return;
+
+  let dotsByCategory;
+  try {
+    dotsByCategory = await apiGet('/api/office_merit_dots');
+  } catch {
+    mount.innerHTML = '<p class="dtl-empty">Could not load merit dots.</p>';
+    return;
+  }
+
+  const dots = dotsByCategory[category] || {};
+  const isST = getRole() === 'st' || getRole() === 'dev';
+
+  const rowsHtml = meritNames.map((merit) => {
+    const n = dots[merit] || 0;
+    const cap = MERIT_DOT_CAPS[merit] || 5;
+    const dotsDisplay = '●'.repeat(n) + '○'.repeat(Math.max(0, cap - n));
+    let row = `<div class="office-merit-row">`;
+    row += `<span class="office-merit-chip">${esc(merit)}</span>`;
+    row += `<span class="office-merit-dots">${esc(dotsDisplay)}</span>`;
+    if (isST) {
+      row += `<div class="cs-edit-stepper office-merit-stepper">`;
+      row += `<button class="cs-step-btn" data-merit-up="${esc(merit)}"${n >= cap ? ' disabled' : ''}>▲</button>`;
+      row += `<button class="cs-step-btn" data-merit-down="${esc(merit)}"${n <= 0 ? ' disabled' : ''}>▼</button>`;
+      row += `</div>`;
+    }
+    row += `</div>`;
+    return row;
+  }).join('');
+
+  mount.innerHTML = rowsHtml;
+
+  if (isST) {
+    mount.querySelectorAll('[data-merit-up]').forEach((btn) => {
+      btn.addEventListener('click', () => _adjustMeritDots(el, category, meritNames, btn.dataset.meritUp, 1));
+    });
+    mount.querySelectorAll('[data-merit-down]').forEach((btn) => {
+      btn.addEventListener('click', () => _adjustMeritDots(el, category, meritNames, btn.dataset.meritDown, -1));
+    });
+  }
+}
+
+async function _adjustMeritDots(el, category, meritNames, merit, delta) {
+  // Re-fetch fresh rather than trusting DOM state — another ST could have
+  // changed this since the row was last rendered.
+  let dotsByCategory;
+  try { dotsByCategory = await apiGet('/api/office_merit_dots'); } catch { return; }
+  const current = (dotsByCategory[category] || {})[merit] || 0;
+  const cap = MERIT_DOT_CAPS[merit] || 5;
+  const next = Math.max(0, Math.min(cap, current + delta));
+  if (next === current) return;
+
+  try {
+    await apiPut(`/api/office_merit_dots/${encodeURIComponent(category)}`, { merit, dots: next });
+  } catch {
+    return; // silent no-op on failure — the displayed value simply stays put
+  }
+  await _wireMeritDots(el, category, meritNames);
 }
 
 async function _wireHosActions(el, char, chars) {

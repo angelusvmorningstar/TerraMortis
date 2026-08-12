@@ -27,6 +27,7 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import rulesRouter from './routes/rules.js';
 import officeActionsRouter from './routes/office-actions.js';
+import officeMeritDotsRouter from './routes/office-merit-dots.js';
 import {
   grantRouter, specialityGrantRouter, skillBonusRouter, nineAgainRouter, rulesAggregateRouter,
   discAttrRouter, derivedStatModRouter, tierBudgetRouter, statusFloorRouter,
@@ -183,6 +184,7 @@ app.use('/api/st_mod_audit', requireAuth, noCache(), stModAuditRouter);
 app.use('/api/settings', requireAuth, noCache(), appSettingsRouter);
 app.use('/api/devlog',         requireAuth, noCache(), devlogRouter);
 app.use('/api/office_actions', requireAuth, noCache(), officeActionsRouter);
+app.use('/api/office_merit_dots', requireAuth, noCache(), officeMeritDotsRouter);
 app.use('/api/chapters',       requireAuth, noCache(), chaptersRouter);
 
 // Start server first, then attempt DB connection
