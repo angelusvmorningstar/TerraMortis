@@ -6,7 +6,7 @@ branch: ms/issue-1143-status-actions-auth
 
 # Story issue.1143: Status Actions — actor authorization + write safety
 
-Status: review
+Status: done
 
 ## Story
 
