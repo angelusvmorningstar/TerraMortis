@@ -39,6 +39,22 @@ async function cleanup() {
   // persisted game_session_id is the REAL server-derived session's _id, not
   // this file's placeholder constant.
   await getCollection('office_actions').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
+  await getCollection('contested_roll_requests').deleteMany({ actor_name: { $regex: `^${NAME_PREFIX}` } });
+  await getCollection('office_action_budgets').deleteMany({});
+}
+
+// oaq.2: POST /api/office_actions now only SUBMITS (pending ST review) — it
+// no longer applies the effect or enforces budget. This helper submits then
+// immediately accepts as an ST, so this file's existing budget-formula
+// assertions (which predate oaq.2 and test calcEffectiveCityStatus's
+// correctness, not the pending workflow itself) keep testing the same
+// underlying property against the new two-step flow.
+async function submitAndAccept(actorId, targetId, actionType) {
+  const submitRes = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
+    game_session_id: GAME_SESSION_ID, actor_id: String(actorId), target_id: String(targetId), action_type: actionType,
+  });
+  if (submitRes.status !== 201) return submitRes;
+  return request(app).put(`/api/office_actions/${submitRes.body.request._id}/accept`).set('X-Test-User', stUser());
 }
 
 async function seedGameSession() {
@@ -250,27 +266,19 @@ describe('otc.2 — POST /api/office_actions budget = effective City Status (the
     // city 0 + Head of State title (+3) + Verdant ambience (+1) = 4.
     // The OLD formula (base + title only, no ambience) computed budget 3 —
     // the 4th raise below would have been rejected under the bug.
+    // oaq.2: budget is enforced at ACCEPT time, not submission — each
+    // raise below is submitted then immediately accepted by an ST.
     const actorId = await seedActor({ city: 0, regentAmbience: 'Verdant' });
     const targets = await seedTargets(4, 1);
 
     for (let i = 0; i < 4; i++) {
-      const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
-        game_session_id: GAME_SESSION_ID,
-        actor_id: String(actorId),
-        target_id: String(targets[i]),
-        action_type: 'raise',
-      });
-      expect(res.status, `raise #${i + 1} of 4 should succeed under the corrected budget of 4`).toBe(201);
+      const res = await submitAndAccept(actorId, targets[i], 'raise');
+      expect(res.status, `raise #${i + 1} of 4 should succeed under the corrected budget of 4`).toBe(200);
     }
 
-    // The 5th distinct target exceeds the real budget of 4 and must be rejected.
+    // The 5th distinct target exceeds the real budget of 4 and must be rejected at accept time.
     const [overBudgetTarget] = await seedTargets(1);
-    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
-      game_session_id: GAME_SESSION_ID,
-      actor_id: String(actorId),
-      target_id: String(overBudgetTarget),
-      action_type: 'raise',
-    });
+    const res = await submitAndAccept(actorId, overBudgetTarget, 'raise');
     expect(res.status).toBe(403);
   });
 
@@ -289,26 +297,17 @@ describe('otc.2 — POST /api/office_actions budget = effective City Status (the
     // raw, uncapped sum as the budget (11). The correct effective City
     // Status caps at 10 — the 11th raise below must be rejected under the
     // fix, where it would have been the OLD formula's still-valid 11th use.
+    // oaq.2: budget is enforced at ACCEPT time — submit then accept each.
     const actorId = await seedActor({ city: 8 });
     const targets = await seedTargets(10, 1);
 
     for (let i = 0; i < 10; i++) {
-      const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
-        game_session_id: GAME_SESSION_ID,
-        actor_id: String(actorId),
-        target_id: String(targets[i]),
-        action_type: 'raise',
-      });
-      expect(res.status, `raise #${i + 1} of 10 should succeed under the capped budget of 10`).toBe(201);
+      const res = await submitAndAccept(actorId, targets[i], 'raise');
+      expect(res.status, `raise #${i + 1} of 10 should succeed under the capped budget of 10`).toBe(200);
     }
 
     const [eleventhTarget] = await seedTargets(1);
-    const res = await request(app).post('/api/office_actions').set('X-Test-User', stUser()).send({
-      game_session_id: GAME_SESSION_ID,
-      actor_id: String(actorId),
-      target_id: String(eleventhTarget),
-      action_type: 'raise',
-    });
+    const res = await submitAndAccept(actorId, eleventhTarget, 'raise');
     expect(res.status, 'the 11th raise exceeds the capped budget of 10 and must be rejected').toBe(403);
   });
 });
