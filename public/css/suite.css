@@ -2299,8 +2299,15 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .office-manoeuvre-name { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: .04em; margin-bottom: 4px; }
 .office-manoeuvre-effect { font-family: var(--fb); font-size: 13px; color: var(--txt2); line-height: 1.5; }
 
-.office-merit-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.office-merit-list { display: flex; flex-direction: column; gap: 6px; }
 .office-merit-chip { font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; padding: 3px 8px; }
+
+/* Office merit-dot rows — real purchase-state display, ST-editable. */
+.office-merit-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.office-merit-row .office-merit-chip { flex-shrink: 0; min-width: 120px; }
+.office-merit-dots { font-family: var(--fh); font-size: 14px; color: var(--gold2); letter-spacing: 1px; }
+.office-merit-stepper.cs-edit-stepper { flex-direction: row; margin: 0; gap: 6px; }
+.office-merit-stepper .cs-step-btn { width: 26px; height: 26px; font-size: 12px; }
 
 /* HoS interactive actions */
 .office-budget-line { font-family: var(--fb); font-size: 14px; color: var(--txt); margin-bottom: 12px; }
