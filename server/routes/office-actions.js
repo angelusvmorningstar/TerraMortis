@@ -73,6 +73,20 @@ function computeNewStatus(action_type, old_status) {
   throw new RouteResponse(400, { error: 'VALIDATION_ERROR', message: 'Unknown action_type' });
 }
 
+// oaq.3: builds the enriched 409 body (names who already resolved/declined a
+// no-longer-pending record) from a freshly-read document. Shared by
+// _findPending's own check AND by the inner concurrent-race branches inside
+// accept/decline's transactions — a true simultaneous accept-vs-accept (or
+// accept-vs-decline) race passes _findPending's initial read before either
+// side has committed, so that check alone doesn't cover it; the loser's own
+// matchedCount===0 branch re-reads the document to enrich its 409 the same
+// way, closing the gap for the actual concurrent case (review finding).
+function _conflictBody(doc) {
+  const by = doc?.status === 'resolved' ? doc.resolved_by : doc?.status === 'declined' ? doc.declined_by : null;
+  const message = by ? `Request is no longer pending — already ${doc.status} by ${by}` : 'Request is no longer pending';
+  return { error: 'CONFLICT', message, resolved_by: doc?.resolved_by, declined_by: doc?.declined_by };
+}
+
 // oaq.2: shared lookup + pending-guard for the accept/decline routes,
 // mirroring contested-rolls.js's own _findChallenge shape (AC8's race
 // guard: reject 409 if the record is no longer pending by the time a
@@ -84,7 +98,7 @@ async function _findPending(req, res) {
   const doc = await pendingCol().findOne({ _id: oid, request_type: 'status_action' });
   if (!doc) { res.status(404).json({ error: 'NOT_FOUND' }); return null; }
   if (doc.status !== 'pending') {
-    res.status(409).json({ error: 'CONFLICT', message: 'Request is no longer pending' });
+    res.status(409).json(_conflictBody(doc));
     return null;
   }
   return doc;
@@ -96,6 +110,18 @@ async function _findPending(req, res) {
 router.get('/latest_session', async (req, res) => {
   const session = await findLatestSession();
   res.json(session || null);
+});
+
+// GET /api/office_actions/pending
+// oaq.3: ST-only. Lists every pending Status Action for the approval-queue
+// tab, oldest-first so nothing gets buried once a second pending-item type
+// (Epic OXP) starts sharing this same collection.
+router.get('/pending', requireRole('st'), async (req, res) => {
+  const docs = await pendingCol()
+    .find({ request_type: 'status_action', status: 'pending' })
+    .sort({ created_at: 1 })
+    .toArray();
+  res.json(docs);
 });
 
 // GET /api/office_actions?game_session_id=X[&actor_id=Y]
@@ -264,6 +290,26 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       const old_status = target.status?.city || 0;
       const new_status = computeNewStatus(pending.action_type, old_status);
 
+      // review finding (external, verified live): a TRUE concurrent accept
+      // race on the SAME pending record — both requests pass _findPending's
+      // read before either commits — used to reach the office_actions
+      // insertOne below on BOTH sides, and the second one crashed with an
+      // uncaught E11000 on the old issue-1143 unique index (a raw
+      // MongoServerError, not a RouteResponse, so it propagated as a bare
+      // 500). Claiming the pending record HERE, before any other write,
+      // means the losing side is rejected cleanly (its own updateOne
+      // legitimately matches 0 documents once the winner has committed) and
+      // never reaches the log insert or the budget/CAS writes at all.
+      const timestamp = new Date().toISOString();
+      const resolved_by = req.user.username;
+      const resolveResult = await pendingCol().updateOne(
+        { _id: pending._id, status: 'pending' },
+        { $set: { status: 'resolved', outcome: { old_status, new_status }, resolved_by, updated_at: timestamp } },
+        { session: dbSession },
+      );
+      if (resolveResult.matchedCount === 0)
+        throw new RouteResponse(409, { error: 'CONFLICT', message: 'Request is no longer pending', _needsEnrichment: true });
+
       if (PAID_TYPES.has(pending.action_type)) {
         const territories = await getCollection('territories').find({}, { session: dbSession }).toArray();
         const regentAmbience = findRegentTerritory(territories, actor)?.ambience;
@@ -285,7 +331,6 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
           throw new RouteResponse(403, { error: 'FORBIDDEN', message: 'Budget exhausted for this session' });
       }
 
-      const timestamp = new Date().toISOString();
       const statusMatch = old_status === 0
         ? { $or: [{ 'status.city': { $exists: false } }, { 'status.city': 0 }] }
         : { 'status.city': old_status };
@@ -310,23 +355,29 @@ router.put('/:id/accept', requireRole('st'), async (req, res) => {
       };
       const insertedLog = await actionsCol().insertOne(logDoc, { session: dbSession });
 
-      const resolveResult = await pendingCol().updateOne(
-        { _id: pending._id, status: 'pending' },
-        { $set: { status: 'resolved', outcome: { old_status, new_status }, updated_at: timestamp } },
-        { session: dbSession },
-      );
-      if (resolveResult.matchedCount === 0)
-        throw new RouteResponse(409, { error: 'CONFLICT', message: 'Request is no longer pending' });
-
       statusCode = 200;
       body = {
-        request: { ...pending, status: 'resolved', outcome: { old_status, new_status } },
+        request: { ...pending, status: 'resolved', outcome: { old_status, new_status }, resolved_by },
         action:  { ...logDoc, _id: insertedLog.insertedId },
         new_status,
       };
     });
   } catch (err) {
-    if (err instanceof RouteResponse) { statusCode = err.statusCode; body = err.body; }
+    if (err instanceof RouteResponse) {
+      statusCode = err.statusCode;
+      body = err.body;
+      // review finding: this branch fires on a true concurrent-accept race
+      // (both requests pass _findPending's read before either commits), so
+      // _findPending's own enrichment never ran for the loser. The winner's
+      // write is guaranteed committed by the time matchedCount is 0 (that's
+      // the only way this filtered update can fail to match), so a plain
+      // re-read here reliably sees it.
+      if (body._needsEnrichment) {
+        delete body._needsEnrichment;
+        const fresh = await pendingCol().findOne({ _id: pending._id });
+        Object.assign(body, _conflictBody(fresh));
+      }
+    }
     else throw err;
   } finally {
     await dbSession.endSession();
@@ -344,14 +395,20 @@ router.put('/:id/decline', requireRole('st'), async (req, res) => {
   if (!pending) return;
 
   const timestamp = new Date().toISOString();
+  const declined_by = req.user.username;
   const result = await pendingCol().updateOne(
     { _id: pending._id, status: 'pending' },
-    { $set: { status: 'declined', updated_at: timestamp } },
+    { $set: { status: 'declined', declined_by, updated_at: timestamp } },
   );
-  if (!result.matchedCount)
-    return res.status(409).json({ error: 'CONFLICT', message: 'Request is no longer pending' });
+  if (!result.matchedCount) {
+    // review finding: true concurrent race with another accept/decline —
+    // _findPending's own enrichment already ran before this update was
+    // attempted, so re-read fresh to name whoever actually won.
+    const fresh = await pendingCol().findOne({ _id: pending._id });
+    return res.status(409).json(_conflictBody(fresh));
+  }
 
-  res.json({ declined: true });
+  res.json({ declined: true, declined_by });
 });
 
 export default router;

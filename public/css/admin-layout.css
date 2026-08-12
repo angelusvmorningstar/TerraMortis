@@ -1703,6 +1703,12 @@ body {
 .dt-btn-gold { background: var(--accent); color: var(--bg); font-weight: 600; }
 .dt-btn-gold:hover { opacity: 0.9; border-color: var(--accent); }
 
+/* oaq.3: destructive one-shot action (Decline). Mirrors .btn-danger's
+   crimson-token treatment, as a .dt-btn variant since this module uses the
+   .dt-btn family (admin-app-wide base) rather than .btn-sm. */
+.dt-btn-danger { border-color: var(--crim2); color: var(--crim2); }
+.dt-btn-danger:hover { background: var(--crim-a15); }
+
 .dt-roll-badge {
   font-size: 13px;
   padding: 1px 8px;
@@ -3449,6 +3455,16 @@ body {
   background: var(--surf2);
   border-left-color: var(--accent);
 }
+
+/* oaq.3: approval-queue row action cluster (badge + timestamp + Accept/
+   Decline), grouped inside an .or-list-item's right-hand flex slot. */
+.oaq-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.oaq-row-error { padding: 0 14px 8px; }
+/* review finding: .or-list-item is styled elsewhere as a clickable
+   select-to-view row (Ordeals); this row isn't clickable — only its buttons
+   are — so override the inherited pointer cursor and hover highlight. */
+.oaq-row-wrap .or-list-item { cursor: default; }
+.oaq-row-wrap .or-list-item:hover { background: none; }
 
 .or-list-name {
   font-size: 13px;
