@@ -139,7 +139,7 @@ describe('POST /api/equipment_catalogue', () => {
     const res = await request(app)
       .post('/api/equipment_catalogue')
       .set('X-Test-User', stUser())
-      .send({ bucket: 'weapon', name: 'Glock 17', description: 'Pistol', availability: 2, damage_mod: 2 });
+      .send({ bucket: 'combat_gear', name: 'Glock 17', description: 'Pistol', availability: 2, damage_mod: 2, weapon_type: 'ranged' });
     expect(res.status).toBe(201);
     expect(res.body._id).toBeDefined();
     expect(res.body.name).toBe('Glock 17');

@@ -26,6 +26,7 @@ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
 import { getCatalogueEntry } from '../data/equipment-catalogue-cache.js';
+import { isCombatGearWeaponShaped, isEquipmentOnMe } from '../data/equipment-derivation.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -217,10 +218,12 @@ export function updPool() {
       // #752: 'active' is the strongest in-use state — treat it identically
       // to carried/worn for chip eligibility (Khepri's option (a) — preserves
       // 'active' as a semantically-stronger marker an ST may have already used).
-      return entry && entry.bucket === 'equipment' &&
+      // EQC-1 (#1152): old 'equipment' bucket -> 'skill_gear', unchanged meaning.
+      // EQC-2 (#1153): state check consolidated onto isEquipmentOnMe.
+      return entry && entry.bucket === 'skill_gear' &&
              entry.bonus_dice > 0 &&
              entry.skill_domain === pi.skill &&
-             (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+             isEquipmentOnMe(item);
     });
     if (equip.length) {
       html += '<div class="effpool-specs">' + equip.map(item => {
@@ -307,8 +310,13 @@ export function updWeaponRef() {
     // #752: 'active' is the strongest in-use state — include it in weapon-ref
     // eligibility (matches the chip predicate above).
     const entry = getCatalogueEntry(item.catalogue_id);
-    return entry && entry.bucket === 'weapon' &&
-           (item.state === 'carried' || item.state === 'worn' || item.state === 'active');
+    // EQC-1 (#1152): 'weapon' bucket merged into 'combat_gear'; weapon-shaped
+    // is identified via the shared isCombatGearWeaponShaped predicate (review
+    // patch: a single-field check missed legacy weapons whose weapon_type was
+    // null but damage_mod/damage_type were populated).
+    // EQC-2 (#1153): state check consolidated onto isEquipmentOnMe.
+    return entry && entry.bucket === 'combat_gear' && isCombatGearWeaponShaped(entry) &&
+           isEquipmentOnMe(item);
   });
   if (!weapons.length) {
     panel.style.display = 'none';

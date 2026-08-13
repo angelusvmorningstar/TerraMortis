@@ -12,6 +12,32 @@
  * — that's a separate bugfix. Bucket-specific fields are loosely typed (nullable
  * primitives) so the schema accepts every existing seed entry without further
  * coercion in ECM-2.
+ *
+ * EQC-1 (issue #1152, epic #1038) — bucket re-partition, 2026-08-13. The old
+ * four buckets (weapon/armour/equipment/asset) become FIVE new values:
+ *
+ *   combat_gear  — weapons AND armour, distinguished by which stat fields are
+ *                  populated (damage_mod/damage_type/weapon_type = weapon-shaped;
+ *                  armour_value/defence_penalty = armour-shaped). Both sets of
+ *                  fields stay on the schema for this bucket; a given item
+ *                  populates whichever subset applies and leaves the rest null.
+ *   skill_gear   — old `equipment` bucket, unchanged meaning (skill_domain +
+ *                  bonus_dice). Renamed only.
+ *   tool_utility — NEW. "Does a thing, no bonus" per the epic description —
+ *                  mechanical_effect (free text), no numeric bonus field.
+ *   narrative    — NEW. Purely descriptive; no bucket-specific stat fields.
+ *   container    — old `asset` bucket. "Assets are containers... no
+ *                  stat-stacking on the asset itself" (epic #1038) — holds
+ *                  other equipment (see character.schema.js's `container_id`)
+ *                  rather than granting a bonus of its own. mechanical_effect
+ *                  stays available for descriptive/narrative notes (e.g. what
+ *                  a haven confers), not a combat bonus.
+ *
+ * Migration: server/scripts/migrate-eqc1-bucket-taxonomy.mjs maps every live
+ * equipment_catalogue document from the old enum to the new one
+ * (weapon→combat_gear, armour→combat_gear, equipment→skill_gear,
+ * asset→container). Must run before/alongside this schema landing — see that
+ * script's own header for why the two cannot ship independently.
  */
 
 export const equipmentCatalogueSchema = {
@@ -26,7 +52,7 @@ export const equipmentCatalogueSchema = {
     _id: {},
 
     // ── Identity / core ──
-    bucket:       { type: 'string', enum: ['weapon', 'armour', 'equipment', 'asset'] },
+    bucket:       { type: 'string', enum: ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'] },
     name:         { type: 'string', minLength: 1 },
     description:  { type: ['string', 'null'] },
     availability: { type: ['integer', 'null'], minimum: 0, maximum: 5 },

@@ -87,12 +87,31 @@ describe('#879 — equipment-derivation.js module shape', () => {
   });
 
   it('filters by state === \'worn\' (positive predicate, not !==)', () => {
-    expect(src).toMatch(/item\.state\s*!==\s*['"]worn['"]/);
-    expect(src).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
+    // EQC-2 review patch (#1153): scoped to armourDefencePenalty's OWN
+    // function body, not the whole module source. The original whole-file
+    // regex assumed no code anywhere in this module would ever check
+    // `state === 'stashed'` literally - an assumption EQC-2's new
+    // equipmentLocationLabel (a different function, checking a DIFFERENT
+    // predicate for a DIFFERENT purpose) correctly breaks. The test's real
+    // intent - armourDefencePenalty itself uses a positive `worn` check, not
+    // a negative `stashed` exclusion - is preserved by scoping to it.
+    const fnStart = src.indexOf('export function armourDefencePenalty');
+    const fnEnd = src.indexOf('\nexport function', fnStart + 1);
+    const fnBody = src.slice(fnStart, fnEnd > -1 ? fnEnd : undefined);
+    expect(fnBody).toMatch(/item\.state\s*!==\s*['"]worn['"]/);
+    expect(fnBody).not.toMatch(/item\.state\s*===\s*['"]stashed['"]/);
   });
 
-  it('filters by bucket === \'armour\'', () => {
-    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]armour['"]/);
+  it('filters by bucket === \'combat_gear\' AND isCombatGearArmourShaped(entry) (EQC-1 #1152: armour merged into combat_gear, distinguished by populated stat fields; review patch broadened the single-field check to an OR-of-fields shared predicate)', () => {
+    expect(src).toMatch(/entry\.bucket\s*!==\s*['"]combat_gear['"]/);
+    expect(src).toMatch(/isCombatGearArmourShaped\(entry\)/);
+  });
+
+  it('isCombatGearArmourShaped/isCombatGearWeaponShaped are exported and OR across their respective fields, not a single-field check', () => {
+    expect(src).toMatch(/export\s+function\s+isCombatGearArmourShaped\b/);
+    expect(src).toMatch(/export\s+function\s+isCombatGearWeaponShaped\b/);
+    expect(src).toMatch(/armour_value\s*!=\s*null\s*\|\|\s*entry\.defence_penalty\s*!=\s*null/);
+    expect(src).toMatch(/weapon_type\s*!=\s*null\s*\|\|\s*entry\.damage_mod\s*!=\s*null\s*\|\|\s*entry\.damage_type\s*!=\s*null/);
   });
 });
 
@@ -243,8 +262,8 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'aaa1', bucket: 'armour', defence_penalty: 2 },
-      { _id: 'aaa2', bucket: 'armour', defence_penalty: 3 },
+      { _id: 'aaa1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
+      { _id: 'aaa2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'aaa1', state: 'carried' },
@@ -253,12 +272,17 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
   });
 
-  it('D1: filters by bucket === \'armour\' — ignores worn non-armour items', async () => {
+  it('D1: filters by bucket === \'combat_gear\' with isCombatGearArmourShaped(entry) — ignores worn non-combat_gear-shaped items', async () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'wep1', bucket: 'weapon', defence_penalty: 5 },   // not armour, ignored
-      { _id: 'arm1', bucket: 'armour', defence_penalty: 2 },
+      // A weapon-shaped item with NO armour fields populated at all (the
+      // realistic "genuinely not armour" case - a real weapon never carries
+      // a defence_penalty). Combining weapon_type AND defence_penalty on one
+      // fixture, as an earlier version of this test did, is not a realistic
+      // data shape and is no longer how this predicate is proven correct.
+      { _id: 'wep1', bucket: 'combat_gear', weapon_type: 'melee', damage_mod: 2, armour_value: null, defence_penalty: null },
+      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'wep1', state: 'worn' },
@@ -267,13 +291,53 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
   });
 
+  it('EQC-1 review patch (#1152, Codex external review HIGH finding): a legacy-migrated armour item with armour_value: null but defence_penalty populated still counts (single-field check was wrong)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    // Under the OLD (pre-EQC-1) schema, bucket-specific fields were
+    // independently nullable - a real legacy armour item could have set only
+    // defence_penalty and left armour_value unset. After migration to
+    // combat_gear, this item must STILL be recognised as armour-shaped.
+    const items = [{ _id: 'legacy-arm', bucket: 'combat_gear', armour_value: null, defence_penalty: 2 }];
+    const c = mkChar({ equipment: [{ catalogue_id: 'legacy-arm', state: 'worn' }] });
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(2);
+  });
+
+  it('EQC-1 review patch (#1152): a legacy-migrated weapon with weapon_type: null but damage_mod populated is still weapon-shaped (isCombatGearWeaponShaped)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_mod: 2 })).toBe(true);
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_type: 'lethal' })).toBe(true);
+    expect(mod.isCombatGearWeaponShaped({ bucket: 'combat_gear', weapon_type: null, damage_mod: null, damage_type: null })).toBe(false);
+    expect(mod.isCombatGearWeaponShaped(null)).toBe(false);
+  });
+
+  it('EQC-1 review patch (#1152): isCombatGearArmourShaped mirrors the same OR-of-fields shape', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isCombatGearArmourShaped({ armour_value: null, defence_penalty: 1 })).toBe(true);
+    expect(mod.isCombatGearArmourShaped({ armour_value: 1, defence_penalty: null })).toBe(true);
+    expect(mod.isCombatGearArmourShaped({ armour_value: null, defence_penalty: null })).toBe(false);
+    expect(mod.isCombatGearArmourShaped(null)).toBe(false);
+  });
+
+  it('EQC-1 (#1152): a non-combat_gear bucket is ignored even with armour_value populated', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const items = [
+      { _id: 'x1', bucket: 'narrative', armour_value: 3, defence_penalty: 9 },
+    ];
+    const c = mkChar({ equipment: [{ catalogue_id: 'x1', state: 'worn' }] });
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+  });
+
   it('D2: returns the MAX defence_penalty across multiple worn armour items (worst-case stacking)', async () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'arm1', bucket: 'armour', defence_penalty: 1 },
-      { _id: 'arm2', bucket: 'armour', defence_penalty: 3 },
-      { _id: 'arm3', bucket: 'armour', defence_penalty: 2 },
+      { _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 1 },
+      { _id: 'arm2', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 },
+      { _id: 'arm3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'arm1', state: 'worn' },
@@ -287,9 +351,9 @@ describe('#879 — armourDefencePenalty behaviour (D1 + D2)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'a1', bucket: 'armour', defence_penalty: null },
-      { _id: 'a2', bucket: 'armour', defence_penalty: undefined },
-      { _id: 'a3', bucket: 'armour', defence_penalty: 'bad' },
+      { _id: 'a1', bucket: 'combat_gear', armour_value: 1, defence_penalty: null },
+      { _id: 'a2', bucket: 'combat_gear', armour_value: 1, defence_penalty: undefined },
+      { _id: 'a3', bucket: 'combat_gear', armour_value: 1, defence_penalty: 'bad' },
     ];
     const c = mkChar({ equipment: items.map(it => ({ catalogue_id: it._id, state: 'worn' })) });
     expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
@@ -308,8 +372,8 @@ describe('#879 — wornArmourCount (drives the editor hint)', () => {
     if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
     const mod = await import('../../public/js/data/equipment-derivation.js');
     const items = [
-      { _id: 'a1', bucket: 'armour' }, { _id: 'a2', bucket: 'armour' },
-      { _id: 'a3', bucket: 'armour' }, { _id: 'w1', bucket: 'weapon' },
+      { _id: 'a1', bucket: 'combat_gear', armour_value: 1 }, { _id: 'a2', bucket: 'combat_gear', armour_value: 1 },
+      { _id: 'a3', bucket: 'combat_gear', armour_value: 1 }, { _id: 'w1', bucket: 'combat_gear', weapon_type: 'melee', armour_value: null },
     ];
     const c = mkChar({ equipment: [
       { catalogue_id: 'a1', state: 'worn' },
@@ -328,7 +392,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
     const accessors = await import('../../public/js/data/accessors.js');
     // calcDefence on the mkChar fixture: min(Dex=3, Wits=3) + Athletics=2 + discBonus=0 = 5.
     const c = mkChar({ equipment: [{ catalogue_id: 'arm1', state: 'worn' }] });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
     const result = mod.materialiseDerivedDefence(c, mkLookup(items));
     expect(result).toBe(accessors.calcDefence(c) - 2);
     expect(c.derived.defence).toBe(result);
@@ -343,7 +407,7 @@ describe('#879 — materialiseDerivedDefence (D3 + D4)', () => {
       skills: {},
       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
     });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 5 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 5 }];
     expect(mod.materialiseDerivedDefence(tinyChar, mkLookup(items))).toBe(0);
   });
 });
@@ -394,9 +458,223 @@ describe('#879 — defenceMechanicalBase (export-site helper)', () => {
       equipment: [{ catalogue_id: 'arm1', state: 'worn' }],
       derived: { defence: 99 },   // overlay-modded; should be ignored
     });
-    const items = [{ _id: 'arm1', bucket: 'armour', defence_penalty: 2 }];
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 2 }];
     const result = mod.defenceMechanicalBase(c, mkLookup(items));
     expect(result).toBe(Math.max(0, accessors.calcDefence(c) - 2));
     expect(result).not.toBe(99);
+  });
+});
+
+describe('#1153 EQC-2 — isEquipmentOnMe (on-me vs owned-elsewhere)', () => {
+  it('true for carried, worn, active', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe({ state: 'carried' })).toBe(true);
+    expect(mod.isEquipmentOnMe({ state: 'worn' })).toBe(true);
+    expect(mod.isEquipmentOnMe({ state: 'active' })).toBe(true);
+  });
+
+  it('false for stashed and lost', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe({ state: 'stashed' })).toBe(false);
+    expect(mod.isEquipmentOnMe({ state: 'lost' })).toBe(false);
+  });
+
+  it('false for a null/undefined item, never throws', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.isEquipmentOnMe(null)).toBe(false);
+    expect(mod.isEquipmentOnMe(undefined)).toBe(false);
+  });
+
+  it('AC #4: "on me" (carried) is independent of "bonus currently active" (worn) for armour — a carried-but-unworn item is on you but grants no AR', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const items = [{ _id: 'arm1', bucket: 'combat_gear', armour_value: 1, defence_penalty: 3 }];
+    const c = mkChar({ equipment: [{ catalogue_id: 'arm1', state: 'carried' }] });
+    // On you (carried counts for isEquipmentOnMe)...
+    expect(mod.isEquipmentOnMe(c.equipment[0])).toBe(true);
+    // ...but armourDefencePenalty's own worn-only gating is completely
+    // unaffected by this story — a carried-not-worn breastplate grants 0 AR.
+    expect(mod.armourDefencePenalty(c, mkLookup(items))).toBe(0);
+  });
+});
+
+describe('#1153 EQC-2 review patch — equipmentLocationLabel (Codex external review Low finding)', () => {
+  it("returns 'On you' for carried/worn/active", async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'carried' })).toBe('On you');
+    expect(mod.equipmentLocationLabel({ state: 'worn' })).toBe('On you');
+    expect(mod.equipmentLocationLabel({ state: 'active' })).toBe('On you');
+  });
+
+  it("returns 'Stored elsewhere' for the ONE known elsewhere state, stashed", async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'stashed' })).toBe('Stored elsewhere');
+  });
+
+  it('returns null (no label) for lost — the item is gone, not "elsewhere"', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'lost' })).toBeNull();
+  });
+
+  it('returns null (fails safe, no unsupported claim) for a missing or unrecognised state — the exact bug the review found', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentLocationLabel({ state: 'teleported' })).toBeNull();
+    expect(mod.equipmentLocationLabel({})).toBeNull();
+    expect(mod.equipmentLocationLabel(null)).toBeNull();
+  });
+});
+
+describe('#1154 EQC-3 — equipmentContainerLabel', () => {
+  it('returns null for an item with no container_id', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentContainerLabel({ container_id: null }, [])).toBeNull();
+    expect(mod.equipmentContainerLabel({}, [])).toBeNull();
+    expect(mod.equipmentContainerLabel(null, [])).toBeNull();
+  });
+
+  it('resolves "in: <name>" when the character still owns the referenced container', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { _id: 'haven1', bucket: 'container', name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    const allEquipment = [item, { catalogue_id: 'haven1', state: 'active' }];
+    const lookup = id => (id === 'haven1' ? haven : undefined);
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBe('(in: Test Haven)');
+  });
+
+  it('AC #4: returns null (renders as loose) when the referenced container is no longer owned — a dangling container_id after the container row was removed', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { _id: 'haven1', bucket: 'container', name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    // The character's equipment array no longer contains a haven1 row (it
+    // was removed) — only the contained item itself remains.
+    const allEquipment = [item];
+    const lookup = id => (id === 'haven1' ? haven : undefined);
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBeNull();
+  });
+
+  it('returns null when the container_id is genuinely unresolvable in the catalogue too (belt-and-braces)', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const item = { catalogue_id: 'knife1', container_id: 'ghost1' };
+    const allEquipment = [item, { catalogue_id: 'ghost1', state: 'active' }];
+    const lookup = () => undefined;
+    expect(mod.equipmentContainerLabel(item, allEquipment, lookup)).toBeNull();
+  });
+
+  it('does not match against itself — an item is never its own container', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const item = { catalogue_id: 'x1', container_id: 'x1' };
+    const lookup = () => ({ name: 'Should not resolve' });
+    expect(mod.equipmentContainerLabel(item, [item], lookup)).toBeNull();
+  });
+
+  it('returns the parenthesised "(in: X)" form per AC #4\'s literal text', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    const haven = { name: 'Test Haven' };
+    const item = { catalogue_id: 'knife1', container_id: 'haven1' };
+    const allEquipment = [item, { catalogue_id: 'haven1' }];
+    expect(mod.equipmentContainerLabel(item, allEquipment, () => haven)).toBe('(in: Test Haven)');
+  });
+});
+
+describe('#1154 EQC-3 review patch — containedLabel wired into the Containers section too', () => {
+  it('editor/sheet.js\'s Containers render block calls containedLabel(item) — a container-bucket item can itself be contained (Codex external review Medium finding: this was the only one of seven sections missing it)', () => {
+    const src = read('public/js/editor/sheet.js');
+    const sectionStart = src.indexOf('Containers (old "Assets" bucket');
+    expect(sectionStart).toBeGreaterThan(-1);
+    const sectionEnd = src.indexOf('Edit-mode add form', sectionStart);
+    const sectionBody = src.slice(sectionStart, sectionEnd > -1 ? sectionEnd : sectionStart + 2000);
+    expect(sectionBody).toMatch(/containedLabel\(item\)/);
+  });
+});
+
+describe('#1155 EQC-4 — equipmentTweakableField', () => {
+  it('returns null for a falsy entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField(null)).toBeNull();
+    expect(mod.equipmentTweakableField(undefined)).toBeNull();
+  });
+
+  it('returns "damage_mod" for a weapon-shaped combat_gear entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', weapon_type: 'melee', damage_mod: 1 })).toBe('damage_mod');
+    // Legacy-shaped: only damage_mod populated, same OR-of-fields discriminator EQC-1 established.
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', damage_mod: 1 })).toBe('damage_mod');
+  });
+
+  it('returns "armour_value" for an armour-shaped combat_gear entry', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', armour_value: 2 })).toBe('armour_value');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', defence_penalty: 1 })).toBe('armour_value');
+  });
+
+  it('returns null for a combat_gear entry that is neither weapon- nor armour-shaped', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear' })).toBeNull();
+  });
+
+  it('returns "bonus_dice" for a skill_gear entry with bonus_dice populated', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear', bonus_dice: 1 })).toBe('bonus_dice');
+  });
+
+  it('review patch (#1155): returns null for a skill_gear entry with NO bonus_dice — mirrors the combat_gear branch\'s populated-field guard, matches this function\'s own docstring ("no tweakable numeric bonus at all")', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'skill_gear', skill_domain: 'Athletics' })).toBeNull();
+  });
+
+  it('review patch (#1155): a dual-shaped combat_gear entry (both weapon AND armour fields populated — reachable via the catalogue-admin form, which exposes both field sets on one combat_gear item) deterministically prefers the weapon tweak, documented as a deliberate tie-break', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'combat_gear', damage_mod: 1, armour_value: 2 })).toBe('damage_mod');
+  });
+
+  it('returns null for tool_utility, narrative, and container entries — no primary numeric bonus field to tweak', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.equipmentTweakableField({ bucket: 'tool_utility' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'narrative' })).toBeNull();
+    expect(mod.equipmentTweakableField({ bucket: 'container' })).toBeNull();
+  });
+});
+
+describe('#1155 EQC-4 — tweakedAvailability', () => {
+  it('returns null when the entry is not tweakable', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'tool_utility', availability: 2 })).toBeNull();
+    expect(mod.tweakedAvailability(null)).toBeNull();
+  });
+
+  it('returns base availability + 1 (one dot of availability per shift, epic #1038 item 5) when tweakable', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'combat_gear', weapon_type: 'melee', availability: 2 })).toBe(3);
+    expect(mod.tweakedAvailability({ bucket: 'skill_gear', bonus_dice: 1, availability: 0 })).toBe(1);
+  });
+
+  it('treats a missing/non-integer availability as 0 before adding the shift', async () => {
+    if (typeof globalThis.location === 'undefined') globalThis.location = { hostname: '' };
+    const mod = await import('../../public/js/data/equipment-derivation.js');
+    expect(mod.tweakedAvailability({ bucket: 'skill_gear', bonus_dice: 1 })).toBe(1);
   });
 });

@@ -1199,12 +1199,18 @@ export async function shAddEquip() {
   const notes       = document.getElementById('eq-add-notes')?.value?.trim() || null;
   if (!catalogueId || !itemState) return;
   const cycle = parseInt(document.getElementById('eq-add-cycle')?.value ?? '0', 10) || 0;
+  // EQC-3 (issue #1154, epic #1038): "Place inside" — the picker only
+  // renders when the character owns at least one container (see
+  // editor/sheet.js's shRenderEquipment), so its absence from the DOM is the
+  // normal "no containers yet" case, not an error - containerId stays null.
+  const containerId = document.getElementById('eq-add-container')?.value || null;
   try {
     const result = await apiPost('/api/characters/' + charId + '/equipment', {
       catalogue_id:   catalogueId,
       state:          itemState,
       acquired_cycle: cycle,
       notes,
+      container_id:   containerId,
     });
     c.equipment = result.equipment;
     _renderSheet(c);

@@ -65,6 +65,8 @@ let char;
 let catKnife;
 let catFlashlight;
 let catRope;
+let catHaven;
+let catSafe;
 
 beforeAll(async () => {
   await setupDb();
@@ -73,6 +75,19 @@ beforeAll(async () => {
   catKnife      = await seedCatalogueItem({ name: 'Knife (test)',      bucket: 'weapon' });
   catFlashlight = await seedCatalogueItem({ name: 'Flashlight (test)', bucket: 'equipment' });
   catRope       = await seedCatalogueItem({ name: 'Rope (test)',       bucket: 'equipment' });
+  // EQC-3 (#1154): two container-bucket catalogue fixtures for container_id tests.
+  catHaven = await seedCatalogueItem({
+    name: 'Haven (test)', bucket: 'container',
+    damage_mod: null, damage_type: null, weapon_type: null,
+    armour_value: null, defence_penalty: null, skill_domain: null, bonus_dice: null,
+    mechanical_effect: 'A place to store things.',
+  });
+  catSafe = await seedCatalogueItem({
+    name: 'Safe (test)', bucket: 'container',
+    damage_mod: null, damage_type: null, weapon_type: null,
+    armour_value: null, defence_penalty: null, skill_domain: null, bonus_dice: null,
+    mechanical_effect: null,
+  });
 });
 
 afterAll(async () => {
@@ -210,6 +225,219 @@ describe('POST /api/characters/:id/equipment (ECM-3: ObjectId catalogue_id)', ()
     // No write occurred — the equipment array stays empty.
     const fresh = await getCollection('characters').findOne({ _id: char4._id }, { projection: { equipment: 1 } });
     expect(fresh.equipment || []).toHaveLength(0);
+  });
+});
+
+// ── POST /:id/equipment — container_id (EQC-3, issue #1154) ─────────────────
+//
+// container_id was introduced by EQC-1 (#1152) but never validated or even
+// accepted by this route until now — this is the first real consumer.
+
+describe('POST /api/characters/:id/equipment — container_id validation (EQC-3, #1154)', () => {
+  it('null/absent container_id — unchanged behaviour, stored as null', async () => {
+    const c = await seedChar({ name: 'EQC-3 no container' });
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.equipment[0].container_id).toBeNull();
+  });
+
+  it('valid container_id — accepted and stored as a string, referencing an already-owned container row', async () => {
+    const c = await seedChar({ name: 'EQC-3 with container' });
+    // First, the character must already own the container itself.
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catHaven._id), state: 'active', acquired_cycle: 0 });
+    // Now place a second item inside it.
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'stashed', acquired_cycle: 1, container_id: String(catHaven._id) });
+    expect(res.status).toBe(200);
+    const placed = res.body.equipment.find(e => String(e.catalogue_id) === String(catKnife._id));
+    expect(placed.container_id).toBe(String(catHaven._id));
+    // Stored as a plain string, not coerced to an ObjectId (unlike catalogue_id).
+    const stored = await getCollection('characters').findOne({ _id: c._id }, { projection: { equipment: 1 } });
+    const storedItem = stored.equipment.find(e => String(e.catalogue_id) === String(catKnife._id));
+    expect(typeof storedItem.container_id).toBe('string');
+  });
+
+  it('400 when container_id is not a 24-hex string — and no write occurs', async () => {
+    const c = await seedChar({ name: 'EQC-3 malformed container' });
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1, container_id: 'not-a-valid-id' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/container_id must be a 24-hex ObjectId string/);
+    // EQC-3 review patch (#1154, Codex external review Low finding): prove
+    // the rejection is genuinely PRE-write, not merely status/message-shaped.
+    const fresh = await getCollection('characters').findOne({ _id: c._id }, { projection: { equipment: 1 } });
+    expect(fresh.equipment || []).toHaveLength(0);
+  });
+
+  it('400 when container_id references an item this character does NOT already own (dangling) — and no write occurs', async () => {
+    const c = await seedChar({ name: 'EQC-3 dangling container' });
+    // Character owns nothing yet — catHaven is a real catalogue item, but this
+    // character never added it to their own equipment[].
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1, container_id: String(catHaven._id) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/does not reference an item this character already owns/);
+    const fresh = await getCollection('characters').findOne({ _id: c._id }, { projection: { equipment: 1 } });
+    expect(fresh.equipment || []).toHaveLength(0);
+  });
+
+  it('400 when container_id references an owned item whose catalogue bucket is NOT container — and no write occurs', async () => {
+    const c = await seedChar({ name: 'EQC-3 non-container target' });
+    // Character owns a knife (combat_gear, not a container).
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 0 });
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catRope._id), state: 'carried', acquired_cycle: 1, container_id: String(catKnife._id) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/must reference a container-bucket catalogue item/);
+    // Only the knife (added before the failed request) should be present.
+    const fresh = await getCollection('characters').findOne({ _id: c._id }, { projection: { equipment: 1 } });
+    expect(fresh.equipment || []).toHaveLength(1);
+  });
+
+  it('400 when container_id references a container that is itself already contained (single-level containment only) — and no write occurs', async () => {
+    const c = await seedChar({ name: 'EQC-3 nested container rejection' });
+    // Haven and Safe, with Safe placed inside Haven.
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catHaven._id), state: 'active', acquired_cycle: 0 });
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catSafe._id), state: 'active', acquired_cycle: 0, container_id: String(catHaven._id) });
+    // Attempting to place a third item inside the ALREADY-CONTAINED Safe must fail.
+    const res = await request(app)
+      .post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'stashed', acquired_cycle: 1, container_id: String(catSafe._id) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/single-level containment only/);
+    const fresh = await getCollection('characters').findOne({ _id: c._id }, { projection: { equipment: 1 } });
+    expect(fresh.equipment || []).toHaveLength(2); // Haven + Safe only, knife rejected.
+  });
+
+  it('a character can own TWO different containers and place items in each independently', async () => {
+    const c = await seedChar({ name: 'EQC-3 two containers' });
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catHaven._id), state: 'active', acquired_cycle: 0 });
+    await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catSafe._id), state: 'active', acquired_cycle: 0 });
+    const inHaven = await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catKnife._id), state: 'stashed', acquired_cycle: 1, container_id: String(catHaven._id) });
+    const inSafe = await request(app).post(`/api/characters/${c.id}/equipment`)
+      .set('X-Test-User', stUser())
+      .send({ catalogue_id: String(catRope._id), state: 'stashed', acquired_cycle: 1, container_id: String(catSafe._id) });
+    expect(inHaven.status).toBe(200);
+    expect(inSafe.status).toBe(200);
+    const knifeRow = inSafe.body.equipment.find(e => String(e.catalogue_id) === String(catKnife._id));
+    const ropeRow  = inSafe.body.equipment.find(e => String(e.catalogue_id) === String(catRope._id));
+    expect(knifeRow.container_id).toBe(String(catHaven._id));
+    expect(ropeRow.container_id).toBe(String(catSafe._id));
+  });
+});
+
+// ── PUT /:id and character-create — container_id validation (EQC-3 review
+// patch, #1154, Codex external review Medium finding) ───────────────────────
+//
+// The single-item POST /:id/equipment endpoint's container_id checks did
+// NOT originally run for PUT /:id (the main admin Save-to-DB path,
+// public/js/admin.js's buildSaveBody()) or the two character-create routes —
+// enforcement depended entirely on which endpoint a caller used. All three
+// now call the SAME shared validator.
+
+describe('PUT /api/characters/:id — container_id validation (EQC-3 review patch, #1154)', () => {
+  it('400 when the submitted equipment[] contains a container_id referencing an item NOT in the same array', async () => {
+    const c = await seedChar({ name: 'EQC-3 PUT dangling container' });
+    const res = await request(app)
+      .put(`/api/characters/${c.id}`)
+      .set('X-Test-User', stUser())
+      .send({
+        equipment: [
+          { catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1, container_id: String(catHaven._id) },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/does not reference an item this character already owns/);
+  });
+
+  it('400 when the submitted equipment[] contains a container_id targeting a non-container catalogue item', async () => {
+    const c = await seedChar({ name: 'EQC-3 PUT non-container target' });
+    const res = await request(app)
+      .put(`/api/characters/${c.id}`)
+      .set('X-Test-User', stUser())
+      .send({
+        equipment: [
+          { catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 0 },
+          { catalogue_id: String(catRope._id), state: 'carried', acquired_cycle: 1, container_id: String(catKnife._id) },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/must reference a container-bucket catalogue item/);
+  });
+
+  it('200 when the submitted equipment[] contains a valid, internally-consistent container relationship', async () => {
+    const c = await seedChar({ name: 'EQC-3 PUT valid container' });
+    const res = await request(app)
+      .put(`/api/characters/${c.id}`)
+      .set('X-Test-User', stUser())
+      .send({
+        equipment: [
+          { catalogue_id: String(catHaven._id), state: 'active', acquired_cycle: 0 },
+          { catalogue_id: String(catKnife._id), state: 'stashed', acquired_cycle: 1, container_id: String(catHaven._id) },
+        ],
+      });
+    expect(res.status).toBe(200);
+    const row = res.body.equipment.find(e => String(e.catalogue_id) === String(catKnife._id));
+    expect(row.container_id).toBe(String(catHaven._id));
+  });
+
+  it('200 unaffected when the submitted equipment[] has no container_id at all (unchanged behaviour)', async () => {
+    const c = await seedChar({ name: 'EQC-3 PUT no container' });
+    const res = await request(app)
+      .put(`/api/characters/${c.id}`)
+      .set('X-Test-User', stUser())
+      .send({ equipment: [{ catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1 }] });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('POST /api/characters — container_id validation on ST character creation (EQC-3 review patch, #1154)', () => {
+  it('400 when the created character\'s equipment[] contains an invalid container_id', async () => {
+    const res = await request(app)
+      .post('/api/characters')
+      .set('X-Test-User', stUser())
+      .send({
+        name: 'EQC-3 Create Dangling',
+        equipment: [
+          { catalogue_id: String(catKnife._id), state: 'carried', acquired_cycle: 1, container_id: String(catHaven._id) },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/does not reference an item this character already owns/);
+    if (res.body._id) seededIds.push(new ObjectId(res.body._id));
   });
 });
 

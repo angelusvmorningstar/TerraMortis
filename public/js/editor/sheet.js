@@ -16,7 +16,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 //
 // wornArmourCount drives the >1 worn armour editor hint (ADR-006 D2 + Concern
 // #8, wording locked).
-import { defenceForDisplay, wornArmourCount, effectiveAvailability } from '../data/equipment-derivation.js';
+import { defenceForDisplay, wornArmourCount, effectiveAvailability, isCombatGearWeaponShaped, isCombatGearArmourShaped, equipmentLocationLabel, equipmentContainerLabel } from '../data/equipment-derivation.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow, meritRating } from './xp.js';
 // OATH-A (#1111): the pledge editor needs to know whether a merit is a
 // Swear By oath and what its requirement resolves to. edit-domain.js owns
@@ -2565,9 +2565,19 @@ export function shRenderManoeuvres(c, editMode) {
 }
 
 // ── Equipment renderer (EQ-2, issue #656) ────────────────────────────────────
-// Renders catalogue-ref equipment[]. All four buckets (weapon/armour/equipment/asset)
-// flow through the same array as of 2026-06-19 (character.assets[] retired).
+// Renders catalogue-ref equipment[]. All buckets flow through the same array
+// as of 2026-06-19 (character.assets[] retired).
 // Edit mode shows the same view -- equipment is managed via the ST CRUD API (EQ-1).
+//
+// EQC-1 (issue #1152, epic #1038, 2026-08-13): re-partitioned from the old
+// four buckets (weapon/armour/equipment/asset) to five (combat_gear/
+// skill_gear/tool_utility/narrative/container). combat_gear merges the old
+// weapon+armour buckets -- the Weapons/Armour section split below is now
+// driven by which stat fields are POPULATED on the item (weapon_type/
+// damage_mod = weapon-shaped; armour_value/defence_penalty = armour-shaped),
+// not by a bucket comparison, since both shapes now share one bucket value.
+// An item with neither shape populated (an ST entry with no stats filled in
+// yet) falls to "Other Combat Gear" rather than being silently dropped.
 export function shRenderEquipment(c, editMode) {
   const equip  = c.equipment || [];
   if (!editMode && !equip.length) return '';
@@ -2577,22 +2587,48 @@ export function shRenderEquipment(c, editMode) {
   const WPNTYPE      = { melee: 'Melee', ranged: 'Ranged', thrown: 'Thrown' };
   const cycleLabel   = n  => n === 0 ? 'Pre-campaign' : `Cycle ${n}`;
   const stateChip    = st => `<span class="gen-granted-tag-view">${STATE_LABELS[st] || st}</span>`;
+  // EQC-2 (issue #1153, epic #1038): "on me" (bonus applies in game) vs
+  // "owned but elsewhere" (available in downtime only) — the epic's own
+  // display distinction. Rendered as a muted trait-qual fragment (this
+  // renderer's existing convention for secondary info, e.g. item.notes)
+  // rather than a second competing pill beside the state chip.
+  // EQC-2 review patch (#1153, Codex external review Low finding): the
+  // label logic itself now lives in equipmentLocationLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable — this alias just keeps the call sites below unchanged.
+  const locationLabel = equipmentLocationLabel;
+  // EQC-3 (issue #1154, epic #1038): "(in: <container name>)" for a
+  // contained item. Logic lives in equipmentContainerLabel
+  // (equipment-derivation.js), not a local closure here, so it's directly
+  // unit-testable - this alias just keeps the call sites below unchanged.
+  const containedLabel = item => equipmentContainerLabel(item, equip);
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
 
   // Group equipment items by bucket, preserving flat-array index for remove buttons
-  const byBucket = { weapon: [], armour: [], equipment: [], asset: [] };
+  const byBucket = { combat_gear: [], skill_gear: [], tool_utility: [], narrative: [], container: [] };
   for (let i = 0; i < equip.length; i++) {
     const item   = equip[i];
     const entry  = getCatalogueEntry(item.catalogue_id) || {};
-    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'equipment';
+    const bucket = (entry.bucket && byBucket[entry.bucket]) ? entry.bucket : 'skill_gear';
     byBucket[bucket].push({ item, entry, idx: i });
   }
 
+  // combat_gear sub-split by populated stat fields, not bucket (both shapes
+  // now share the combat_gear bucket). An item matching neither shape (no
+  // stats filled in) still renders, under "Other Combat Gear".
+  // EQC-1 review patch (#1152): use the shared predicates from
+  // equipment-derivation.js rather than a locally re-derived copy, so the
+  // weapon/armour discriminator can never drift out of sync between this
+  // renderer and armourDefencePenalty/the roll calculators again.
+  const combatWeapons = byBucket.combat_gear.filter(x => isCombatGearWeaponShaped(x.entry));
+  const combatArmour  = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && isCombatGearArmourShaped(x.entry));
+  const combatOther   = byBucket.combat_gear.filter(x => !isCombatGearWeaponShaped(x.entry) && !isCombatGearArmourShaped(x.entry));
+
   // ── Weapons ──
-  if (byBucket.weapon.length) {
+  if (combatWeapons.length) {
     h += '<div class="sh-sub-title">Weapons</div>';
-    for (const { item, entry, idx } of byBucket.weapon) {
+    for (const { item, entry, idx } of combatWeapons) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2601,6 +2637,8 @@ export function shRenderEquipment(c, editMode) {
         DMGTYPE[entry.damage_type] || entry.damage_type || null,
         WPNTYPE[entry.weapon_type] || entry.weapon_type || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual   = parts.join(' · ');
       const rmBtn  = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2612,7 +2650,7 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Armour ──
-  if (byBucket.armour.length) {
+  if (combatArmour.length) {
     h += '<div class="sh-sub-title">Armour</div>';
     // Issue #879 (ADR-006 D2 + Concern #8): soft non-blocking hint when
     // multiple armour items are in state==='worn'. Stacking rule is
@@ -2623,7 +2661,7 @@ export function shRenderEquipment(c, editMode) {
       h += '<div class="sh-armour-hint" style="font-size:0.85em;opacity:0.75;margin-bottom:6px;">Only one armour applies; highest defence_penalty wins.</div>';
     }
     const baseDefence = calcDefence(c);
-    for (const { item, entry, idx } of byBucket.armour) {
+    for (const { item, entry, idx } of combatArmour) {
       const name  = entry.name || item.catalogue_id;
       // #896: per-character effective availability (raw - Fixer reduction).
       const eff = entry.availability != null ? effectiveAvailability(entry, c) : null;
@@ -2631,6 +2669,8 @@ export function shRenderEquipment(c, editMode) {
         entry.armour_value    != null ? `AR ${entry.armour_value}` : null,
         entry.defence_penalty != null ? `Defence ${baseDefence}(${baseDefence - entry.defence_penalty})` : null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2641,10 +2681,26 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Equipment (tools / tech) ──
-  if (byBucket.equipment.length) {
-    h += '<div class="sh-sub-title">Equipment</div>';
-    for (const { item, entry, idx } of byBucket.equipment) {
+  // ── Other Combat Gear (combat_gear bucket, neither weapon- nor armour-shaped
+  // — e.g. an ST entry with no stat fields filled in yet) ──
+  if (combatOther.length) {
+    h += '<div class="sh-sub-title">Other Combat Gear</div>';
+    for (const { item, entry, idx } of combatOther) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const qual  = [eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Skill Gear (old "Equipment" bucket, unchanged meaning) ──
+  if (byBucket.skill_gear.length) {
+    h += '<div class="sh-sub-title">Skill Gear</div>';
+    for (const { item, entry, idx } of byBucket.skill_gear) {
       const name  = entry.name || item.catalogue_id;
       const pool  = (entry.skill_domain && entry.bonus_dice != null)
         ? `${entry.skill_domain} +${entry.bonus_dice} dice` : '';
@@ -2653,6 +2709,8 @@ export function shRenderEquipment(c, editMode) {
       const qualParts = [
         pool || null,
         eff != null ? `avail ${eff}` : null,
+        locationLabel(item),
+        containedLabel(item),
       ].filter(Boolean);
       const qual = qualParts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2663,16 +2721,58 @@ export function shRenderEquipment(c, editMode) {
     }
   }
 
-  // ── Assets (catalogue-backed since 2026-06-19) ──
-  if (byBucket.asset.length) {
-    h += '<div class="sh-sub-title">Assets</div>';
-    for (const { item, entry, idx } of byBucket.asset) {
+  // ── Tools / Utility (NEW bucket — "does a thing, no bonus") ──
+  if (byBucket.tool_utility.length) {
+    h += '<div class="sh-sub-title">Tools / Utility</div>';
+    for (const { item, entry, idx } of byBucket.tool_utility) {
+      const name  = entry.name || item.catalogue_id;
+      const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
+      const parts = [entry.mechanical_effect || null, eff != null ? `avail ${eff}` : null, locationLabel(item), containedLabel(item)].filter(Boolean);
+      const qual  = parts.join(' · ');
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (qual || item.notes ? `<div class="trait-sub">${qual ? `<span class="trait-qual">${esc(qual)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Narrative (NEW bucket — purely descriptive, no stat fields) ──
+  if (byBucket.narrative.length) {
+    h += '<div class="sh-sub-title">Narrative</div>';
+    for (const { item, entry, idx } of byBucket.narrative) {
+      const name  = entry.name || item.catalogue_id;
+      const loc   = [locationLabel(item), containedLabel(item)].filter(Boolean).join(' · ') || null;
+      const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
+      h += `<div class="merit-plain"><div class="trait-row">` +
+        `<div class="trait-main"><span class="trait-name">${esc(name)}</span><div class="trait-right">${stateChip(item.state)}${rmBtn}</div></div>` +
+        (entry.description ? `<div class="trait-sub"><span class="trait-qual">${esc(entry.description)}</span></div>` : '') +
+        (loc || item.notes ? `<div class="trait-sub">${loc ? `<span class="trait-qual">${esc(loc)}</span>` : ''}${item.notes ? `<span class="trait-qual dim">${esc(item.notes)}</span>` : ''}</div>` : '') +
+        `</div></div>`;
+    }
+  }
+
+  // ── Containers (old "Assets" bucket — catalogue-backed since 2026-06-19) ──
+  if (byBucket.container.length) {
+    h += '<div class="sh-sub-title">Containers</div>';
+    for (const { item, entry, idx } of byBucket.container) {
       const name  = entry.name || item.catalogue_id;
       const eff   = entry.availability != null ? effectiveAvailability(entry, c) : null;
       const parts = [
         entry.mechanical_effect || null,
         eff != null ? `avail ${eff}` : null,
         cycleLabel(item.acquired_cycle),
+        // EQC-3 review patch (#1154, Codex external review Medium finding):
+        // a container-bucket item can itself be placed inside ANOTHER
+        // container (a Safe inside a Haven — the epic's own example).
+        // Single-level containment forbids a container's CONTENTS from
+        // themselves holding further items, but says nothing against a
+        // container being contained — the write path now enforces that
+        // distinction (validateEquipmentContainerRefs). This section had
+        // never called containedLabel at all, so a real, stored, ST-visible
+        // nesting relationship was invisible here — the only one of the
+        // seven render sections missing it.
+        containedLabel(item),
       ].filter(Boolean);
       const qual  = parts.join(' · ');
       const rmBtn = editMode ? `<button class="sk-spec-rm" style="float:right;margin-top:2px" onclick="shRemoveEquip(${idx})" title="Remove">× Remove</button>` : '';
@@ -2685,24 +2785,45 @@ export function shRenderEquipment(c, editMode) {
   }
 
   // ── Edit-mode add form ──
-  // 2026-06-19: single add form covers all four buckets (weapon/armour/equipment/asset).
-  // Asset is now in the bucket dropdown; the separate free-text "Add Asset" form is gone
-  // along with character.assets[] — catalogue-ref is the single canonical storage shape.
+  // 2026-06-19: single add form covers all buckets. Asset (now "container") is
+  // in the bucket dropdown; the separate free-text "Add Asset" form is gone
+  // along with character.assets[] — catalogue-ref is the single canonical
+  // storage shape. EQC-1 (#1152, 2026-08-13): dropdown values updated to the
+  // new five-bucket taxonomy; labels use BUCKET_LABELS rather than a bare
+  // capitalise (combat_gear/skill_gear/tool_utility need real spacing).
   if (editMode) {
     const STATES   = ['carried', 'worn', 'stashed', 'active', 'lost'];
-    const BUCKETS  = ['weapon', 'armour', 'equipment', 'asset'];
+    const BUCKETS  = ['combat_gear', 'skill_gear', 'tool_utility', 'narrative', 'container'];
+    const BUCKET_LABELS = {
+      combat_gear: 'Combat Gear', skill_gear: 'Skill Gear', tool_utility: 'Tools / Utility',
+      narrative: 'Narrative', container: 'Container',
+    };
     const defCycle = state.activeCycleNum ?? 0;
 
     h += '<div class="sh-sub-title" style="margin-top:10px">Add Equipment Item</div>';
+    // EQC-3 (issue #1154, epic #1038): "Place inside" — sourced from the
+    // character's OWN current container-bucket rows (byBucket.container,
+    // already computed above for the Containers section). Default is no
+    // selection (loose item, unchanged behaviour). Not offered at all if the
+    // character owns no containers yet — an empty-but-present dropdown with
+    // only "— none —" would be a confusing no-op affordance.
+    const containerOptions = byBucket.container.map(({ item: ci, entry: ce }) =>
+      `<option value="${esc(ci.catalogue_id)}">${esc(ce.name || ci.catalogue_id)}</option>`
+    ).join('');
+
     h += '<div class="dev-add-row" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:4px 0">'
       + '<select id="eq-add-bucket" class="dev-add-btn" onchange="shEquipBucketFilter()">'
       + '<option value="">Bucket…</option>'
-      + BUCKETS.map(b => `<option value="${b}">${b.charAt(0).toUpperCase() + b.slice(1)}</option>`).join('')
+      + BUCKETS.map(b => `<option value="${b}">${BUCKET_LABELS[b]}</option>`).join('')
       + '</select>'
       + '<select id="eq-add-item" class="dev-add-btn"><option value="">-- select bucket first --</option></select>'
       + '<select id="eq-add-state" class="dev-add-btn">'
       + STATES.map(s => `<option value="${s}">${STATE_LABELS[s] || s}</option>`).join('')
       + '</select>'
+      + (containerOptions
+          ? '<select id="eq-add-container" class="dev-add-btn" title="Place inside a container you already own">'
+            + '<option value="">— none —</option>' + containerOptions + '</select>'
+          : '')
       + `<input id="eq-add-cycle" type="number" min="0" value="${defCycle}" style="width:60px" class="attr-bd-input" title="Acquired cycle">`
       + '<input id="eq-add-notes" type="text" placeholder="Notes (optional)" style="width:130px" class="spec-input">'
       + '<button class="sk-spec-add" onclick="shAddEquip()">Add</button>'

@@ -315,6 +315,39 @@ export const characterSchema = {
     // specs/epic-ecm-equipment-catalogue-migration.md and Khepri's ECM-3
     // dispatch for the rationale (the coercion is canonical Express+Mongo
     // hygiene, not transitional kludge — it stays after ECM-4/5 ship).
+    //
+    // `container_id` (EQC-1, issue #1152, epic #1038) — null/absent means
+    // this item is loose (carried on the character, not stored inside
+    // anything). When set, it is INTENDED to be the `catalogue_id` of ANOTHER
+    // entry in this SAME character's `equipment[]` array whose catalogue
+    // bucket is `container` (a haven, vehicle, safe, etc.) — "a property
+    // contains a security system... never a bonus on the asset".
+    // Single-level ONLY, as a stated design intent for v1 (the epic's own
+    // examples - a safe inside a haven - are all single-level, and recursive
+    // containment is real added complexity with no stated requirement yet) -
+    // but that intent is NOT currently enforced anywhere in code.
+    //
+    // NOT VALIDATED AS A REFERENCE ANYWHERE YET (Codex external review,
+    // 2026-08-13, confirmed by direct inspection of the PUT /:id and
+    // POST /:id/equipment write paths in server/routes/characters.js): a
+    // dangling reference, a self-reference, a reference to a non-container
+    // item, or a multi-level chain are all accepted and stored as-is today.
+    // This is currently harmless in practice because NOTHING reads
+    // `container_id` anywhere in this codebase yet (no containment-aware UI
+    // exists - that is EQC-3's job) - but the field is NOT "display-inert on
+    // bad data" by any enforced guarantee, only by the accident of having no
+    // reader yet. Whoever builds the first `container_id` consumer (EQC-3 or
+    // later) MUST add real reference/topology validation at that point,
+    // either at the write route or defensively at the read site - do not
+    // assume this comment's stated intent is already backed by code.
+    //
+    // Known modelling gap, not yet resolved: `catalogue_id` alone cannot
+    // distinguish two equipment-array entries that reference the SAME
+    // container catalogue item (e.g. two identical safes) - there is no
+    // per-instance identity on an equipment[] row. A future container-UI
+    // story will need to resolve this, likely by referencing the container's
+    // array INDEX or introducing a per-row instance id, not by continuing to
+    // key off catalogue_id.
     equipment: {
       type: 'array',
       default: [],
@@ -326,6 +359,7 @@ export const characterSchema = {
           state:           { type: 'string', enum: ['carried', 'worn', 'stashed', 'lost', 'active'] },
           acquired_cycle:  { type: 'integer', minimum: 0 },
           notes:           { type: ['string', 'null'] },
+          container_id:    { type: ['string', 'null'], pattern: '^[a-f0-9]{24}$' },
         },
         additionalProperties: false,
       },
