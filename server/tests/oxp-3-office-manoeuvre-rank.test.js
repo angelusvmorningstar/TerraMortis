@@ -12,11 +12,20 @@
  * backlog): no derived office XP, no spend cost, no OAQ approval routing, no
  * handover reset (oxp.5). The ST sets the rank directly.
  *
+ * oxp.11 (2026-08-13) RE-KEYED this collection from office category to SEAT,
+ * across all three verbs. `_id` is now a seat's own `office_seats._id` as a
+ * 24-hex string. The office's manoeuvre count — still the only source of the
+ * upper bound, still never hardcoded — is now read from the office of the
+ * RESOLVED SEAT rather than from the URL. The atomicity of the step route,
+ * which oxp.3's review round established to close a real lost-update race, is
+ * load-bearing and is re-proved below under the new keying.
+ *
  * DB-backed: real MongoDB required. See db-setup.js.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
+import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
@@ -30,6 +39,35 @@ function readFile(rel) { return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8
 
 const dbAvailable = await isDbAvailable();
 
+// oxp.11: explicit, known seat _ids so this suite deletes exactly its own
+// fixtures. `office_seats` is shared with oxp.1's and oxp.2's suites, so a
+// deleteMany({}) here would silently reach into theirs.
+const seatId = n => new ObjectId(`0f11${'0'.repeat(16)}${String(n).padStart(4, '0')}`);
+const SEAT_ENFORCER      = seatId(31);
+const SEAT_PRIMOGEN      = seatId(32);
+const SEAT_SOCIALITE     = seatId(33);
+const SEAT_ADMINISTRATOR = seatId(34);
+const SEAT_IDS = [SEAT_ENFORCER, SEAT_PRIMOGEN, SEAT_SOCIALITE, SEAT_ADMINISTRATOR];
+
+// A well-formed 24-hex id that deliberately matches no seat document.
+const SEAT_ABSENT = '0f11000000000000000000ff';
+
+const SEAT_FIXTURES = [
+  { _id: SEAT_ENFORCER,      office_category: 'Enforcer',      holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+  { _id: SEAT_PRIMOGEN,      office_category: 'Primogen',      holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+  { _id: SEAT_SOCIALITE,     office_category: 'Socialite',     holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+  // Administrator has no OFFICE_DATA entry yet (oxp.8), so it has no
+  // `manoeuvres` array to bound a rank against. Still a 400, expressed now as
+  // "a seat whose category has no OFFICE_DATA entry" rather than as a bare
+  // category name in the URL.
+  { _id: SEAT_ADMINISTRATOR, office_category: 'Administrator', holder_id: null, created_at: '2026-06-20', seat_label: null, notes: null },
+];
+
+const ENFORCER = String(SEAT_ENFORCER);
+const PRIMOGEN = String(SEAT_PRIMOGEN);
+const SOCIALITE = String(SEAT_SOCIALITE);
+const ADMINISTRATOR = String(SEAT_ADMINISTRATOR);
+
 let app;
 
 beforeAll(async () => {
@@ -41,38 +79,43 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!dbAvailable) return;
   await getCollection('office_manoeuvre_ranks').deleteMany({});
+  await getCollection('office_seats').deleteMany({ _id: { $in: SEAT_IDS } });
+  await getCollection('office_seats').insertMany(SEAT_FIXTURES.map(s => ({ ...s })));
 });
 
 afterAll(async () => {
   if (!dbAvailable) return;
   await getCollection('office_manoeuvre_ranks').deleteMany({});
+  await getCollection('office_seats').deleteMany({ _id: { $in: SEAT_IDS } });
   await teardownDb();
 });
 
 describe.skipIf(!dbAvailable)('oxp.3 — GET /api/office_manoeuvre_rank', () => {
-  it('AC3: returns {} when no office has ever had a rank set', async () => {
+  it('AC3: returns {} when no seat has ever had a rank set', async () => {
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({});
   });
 
-  it('AC3: reflects a prior PUT, keyed by category, value is the bare integer', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+  it('oxp.11: reflects a prior PUT, keyed by SEAT id, value is the bare integer', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 3 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body.Enforcer).toBe(3);
+    expect(res.body[ENFORCER]).toBe(3);
+    // The office category is never the key any more.
+    expect(res.body).not.toHaveProperty('Enforcer');
   });
 
-  it('AC3: a category with no document is simply absent — the client treats missing as 0', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+  it('AC3: a seat with no document is simply absent — the client treats missing as 0', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 2 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body.Enforcer).toBe(2);
-    expect(res.body).not.toHaveProperty('Primogen');
-    expect(res.body).not.toHaveProperty('Head of State');
+    expect(res.body[ENFORCER]).toBe(2);
+    expect(res.body).not.toHaveProperty(PRIMOGEN);
+    expect(res.body).not.toHaveProperty(SOCIALITE);
   });
 
   it('AC4: is readable by a player, not just an ST (reference info, not a secret)', async () => {
@@ -82,93 +125,124 @@ describe.skipIf(!dbAvailable)('oxp.3 — GET /api/office_manoeuvre_rank', () => 
   });
 });
 
-describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:category', () => {
-  it('AC5: an ST can set an office\'s manoeuvre rank, and it persists', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:seatId', () => {
+  it('AC5: an ST can set a seat\'s manoeuvre rank, and it persists', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 4 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(4);
 
-    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: 'Enforcer' });
+    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: ENFORCER });
     expect(stored.rank).toBe(4);
     expect(typeof stored.updated_at).toBe('string');
   });
 
-  it('AC3: setting one category does not disturb another', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+  it('oxp.11 AC1: the write denormalises office_category from the resolved seat, on every write', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+      .send({ rank: 2 });
+    let stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: ENFORCER });
+    expect(stored.office_category).toBe('Enforcer');
+
+    // Self-healing: corrupt the denormalised copy and a later write repairs it,
+    // because the seat is authoritative and the category is never trusted.
+    await getCollection('office_manoeuvre_ranks').updateOne(
+      { _id: ENFORCER }, { $set: { office_category: 'Primogen' } });
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+      .send({ rank: 3 });
+    stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: ENFORCER });
+    expect(stored.office_category).toBe('Enforcer');
+  });
+
+  it('AC3: setting one seat does not disturb another', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 5 });
-    await request(app).put('/api/office_manoeuvre_rank/Primogen').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_manoeuvre_rank/${PRIMOGEN}`).set('X-Test-User', stUser())
       .send({ rank: 1 });
 
     const res = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(res.body.Enforcer).toBe(5);
-    expect(res.body.Primogen).toBe(1);
+    expect(res.body[ENFORCER]).toBe(5);
+    expect(res.body[PRIMOGEN]).toBe(1);
   });
 
   it('AC5: rejects a player (403)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer')
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`)
       .set('X-Test-User', playerUser(['000000000000000000000001']))
       .send({ rank: 2 });
     expect(res.status).toBe(403);
   });
 
-  it('AC5: rejects an unknown office category (400)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/NotAnOffice').set('X-Test-User', stUser())
-      .send({ rank: 2 });
-    expect(res.status).toBe(400);
+  it('oxp.11 AC3: rejects a malformed seat id (400) — an office category name is now malformed', async () => {
+    for (const bad of ['Enforcer', 'NotAnOffice', 'zzzz', '0f11', `${ENFORCER}0`]) {
+      const res = await request(app).put(`/api/office_manoeuvre_rank/${encodeURIComponent(bad)}`)
+        .set('X-Test-User', stUser()).send({ rank: 2 });
+      expect(res.status, `seat id '${bad}' should be a 400`).toBe(400);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+    }
   });
 
-  it('AC5: rejects a category with no manoeuvres array — Administrator has no OFFICE_DATA entry yet', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Administrator').set('X-Test-User', stUser())
+  it('oxp.11 AC3: rejects a well-formed seat id with no seat behind it (404)', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${SEAT_ABSENT}`).set('X-Test-User', stUser())
+      .send({ rank: 2 });
+    expect(res.status).toBe(404);
+  });
+
+  it('oxp.11 AC3: the seat is resolved BEFORE the body is validated — a bad seat id beats a bad rank', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${SEAT_ABSENT}`).set('X-Test-User', stUser())
+      .send({ rank: 'not a rank' });
+    expect(res.status).toBe(404);
+  });
+
+  it('AC5: rejects a seat whose category has no OFFICE_DATA entry (400) — Administrator, until oxp.8', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ADMINISTRATOR}`).set('X-Test-User', stUser())
       .send({ rank: 1 });
     expect(res.status).toBe(400);
   });
 
-  it('AC5: rejects a rank above the office\'s own manoeuvre count (400)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+  it('AC5: rejects a rank above the resolved seat\'s own office\'s manoeuvre count (400)', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 6 });
     expect(res.status).toBe(400);
   });
 
   it('AC5: accepts a rank exactly equal to the office\'s manoeuvre count (the boundary is inclusive)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 5 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(5);
   });
 
   it('AC5: rejects a negative rank (400)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: -1 });
     expect(res.status).toBe(400);
   });
 
   it('AC5: rejects a non-integer rank (400)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 2.5 });
     expect(res.status).toBe(400);
   });
 
   it('AC5: rejects a null/missing rank rather than coercing it to 0', async () => {
-    const nullRes = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
-      .send({ rank: null });
-    expect(nullRes.status).toBe(400);
-
-    const missingRes = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
-      .send({});
-    expect(missingRes.status).toBe(400);
+    // oxp.11 must not lose oxp.3's stricter-than-its-sibling input validation:
+    // null, '', [] and booleans all become a valid-looking 0 under Number().
+    for (const body of [{ rank: null }, {}, { rank: '' }, { rank: [] }, { rank: true }]) {
+      const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
+        .send(body);
+      expect(res.status, `body ${JSON.stringify(body)} should be a 400`).toBe(400);
+    }
   });
 
   it('AC3: allows setting the rank back down to 0 (nothing purchased)', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 3 });
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 0 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(0);
 
     const get = await request(app).get('/api/office_manoeuvre_rank').set('X-Test-User', stUser());
-    expect(get.body.Enforcer).toBe(0);
+    expect(get.body[ENFORCER]).toBe(0);
   });
 });
 
@@ -183,73 +257,94 @@ describe.skipIf(!dbAvailable)('oxp.3 — PUT /api/office_manoeuvre_rank/:categor
 // in one aggregation-pipeline update, clamp included.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe.skipIf(!dbAvailable)('oxp.3: PUT /api/office_manoeuvre_rank/:category/step', () => {
+describe.skipIf(!dbAvailable)('oxp.3: PUT /api/office_manoeuvre_rank/:seatId/step', () => {
   it('AC7: concurrent steps from the same starting rank all land, none is lost', async () => {
     // Four at once rather than two: a read-then-write loses a step only when
     // two requests genuinely interleave, which two racers do not reliably do.
     // Four from 0 must land on 4, below Enforcer's cap of 5, so a short result
     // means lost steps and not a clamp.
     const results = await Promise.all([1, 2, 3, 4].map(() =>
-      request(app).put('/api/office_manoeuvre_rank/Enforcer/step').set('X-Test-User', stUser()).send({ delta: 1 })));
+      request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`).set('X-Test-User', stUser()).send({ delta: 1 })));
     for (const res of results) expect(res.status).toBe(200);
 
-    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: 'Enforcer' });
+    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: ENFORCER });
     expect(stored.rank).toBe(4);
   });
 
   it('AC7: opposing concurrent steps cancel out rather than clobbering each other', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 3 });
 
     await Promise.all([
-      request(app).put('/api/office_manoeuvre_rank/Enforcer/step').set('X-Test-User', stUser()).send({ delta: 1 }),
-      request(app).put('/api/office_manoeuvre_rank/Enforcer/step').set('X-Test-User', stUser()).send({ delta: -1 }),
+      request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`).set('X-Test-User', stUser()).send({ delta: 1 }),
+      request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`).set('X-Test-User', stUser()).send({ delta: -1 }),
     ]);
 
-    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: 'Enforcer' });
+    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: ENFORCER });
     expect(stored.rank).toBe(3);
   });
 
   it('AC3: steps up from nothing, upserting the document on the first click', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Primogen/step').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${PRIMOGEN}/step`).set('X-Test-User', stUser())
       .send({ delta: 1 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(1);
     expect(typeof res.body.updated_at).toBe('string');
   });
 
-  it('AC5: clamps at the office\'s own manoeuvre count, never above it', async () => {
-    await request(app).put('/api/office_manoeuvre_rank/Enforcer').set('X-Test-User', stUser())
+  it('oxp.11 AC3: the office_category $set composes with the pipeline update, including on the upsert path', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${PRIMOGEN}/step`).set('X-Test-User', stUser())
+      .send({ delta: 1 });
+    expect(res.status).toBe(200);
+    // Upserted by the pipeline itself, so the denormalised category has to
+    // survive the aggregation form of the update, not just the plain $set form.
+    expect(res.body.office_category).toBe('Primogen');
+    const stored = await getCollection('office_manoeuvre_ranks').findOne({ _id: PRIMOGEN });
+    expect(stored.office_category).toBe('Primogen');
+  });
+
+  it('AC5: clamps at the resolved seat\'s own office\'s manoeuvre count, never above it', async () => {
+    await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ rank: 5 });
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer/step').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`).set('X-Test-User', stUser())
       .send({ delta: 1 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(5);
   });
 
   it('AC5: clamps at 0, never below it, including on the upsert path', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Socialite/step').set('X-Test-User', stUser())
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${SOCIALITE}/step`).set('X-Test-User', stUser())
       .send({ delta: -1 });
     expect(res.status).toBe(200);
     expect(res.body.rank).toBe(0);
   });
 
   it('AC5: rejects a player (403)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer/step')
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`)
       .set('X-Test-User', playerUser(['000000000000000000000001']))
       .send({ delta: 1 });
     expect(res.status).toBe(403);
   });
 
-  it('AC5: rejects an unknown office category (400)', async () => {
-    const res = await request(app).put('/api/office_manoeuvre_rank/NotAnOffice/step').set('X-Test-User', stUser())
-      .send({ delta: 1 });
+  it('oxp.11 AC3: rejects a malformed seat id (400) and an unknown seat (404)', async () => {
+    const malformed = await request(app).put('/api/office_manoeuvre_rank/NotAnOffice/step')
+      .set('X-Test-User', stUser()).send({ delta: 1 });
+    expect(malformed.status).toBe(400);
+
+    const unknown = await request(app).put(`/api/office_manoeuvre_rank/${SEAT_ABSENT}/step`)
+      .set('X-Test-User', stUser()).send({ delta: 1 });
+    expect(unknown.status).toBe(404);
+  });
+
+  it('AC5: rejects a seat whose category has no OFFICE_DATA entry (400)', async () => {
+    const res = await request(app).put(`/api/office_manoeuvre_rank/${ADMINISTRATOR}/step`)
+      .set('X-Test-User', stUser()).send({ delta: 1 });
     expect(res.status).toBe(400);
   });
 
   it('AC5: rejects a missing, zero, or non-integer delta (400)', async () => {
     for (const body of [{}, { delta: 0 }, { delta: 1.5 }, { delta: null }, { delta: 'up' }, { delta: [] }]) {
-      const res = await request(app).put('/api/office_manoeuvre_rank/Enforcer/step').set('X-Test-User', stUser())
+      const res = await request(app).put(`/api/office_manoeuvre_rank/${ENFORCER}/step`).set('X-Test-User', stUser())
         .send(body);
       expect(res.status).toBe(400);
     }
@@ -264,10 +359,12 @@ describe.skipIf(!dbAvailable)('oxp.3: PUT /api/office_manoeuvre_rank/:category/s
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('oxp.3 — office-tab.js client wiring', () => {
-  it('AC7: fetches GET /api/office_manoeuvre_rank and PUTs via apiPut', () => {
+  it('AC7 / oxp.11: fetches GET /api/office_manoeuvre_rank and steps a SEAT id via apiPut', () => {
     const src = readFile('public/js/tabs/office-tab.js');
     expect(src).toMatch(/apiGet\(['"]\/api\/office_manoeuvre_rank['"]\)/);
-    expect(src).toMatch(/apiPut\(`\/api\/office_manoeuvre_rank\/\$\{encodeURIComponent\(category\)\}\/step`/);
+    expect(src).toMatch(/apiPut\(`\/api\/office_manoeuvre_rank\/\$\{encodeURIComponent\(outcome\.seatId\)\}\/step`/);
+    // The office category is no longer part of the write URL at all.
+    expect(src).not.toMatch(/office_manoeuvre_rank\/\$\{encodeURIComponent\(category\)\}/);
   });
 
   it('AC7: _adjustManoeuvreRank sends a relative step and never computes an absolute rank itself', () => {
@@ -283,7 +380,7 @@ describe('oxp.3 — office-tab.js client wiring', () => {
     // used to assert WAS the lost-update bug. Reading the rank, adding the
     // delta locally and writing the result back is a read-then-write race,
     // however fresh the read is. The delta goes to the server instead.
-    expect(body).toMatch(/apiPut\(`\/api\/office_manoeuvre_rank\/\$\{encodeURIComponent\(category\)\}\/step`,\s*\{ delta \}\)/);
+    expect(body).toMatch(/apiPut\(`\/api\/office_manoeuvre_rank\/\$\{encodeURIComponent\(outcome\.seatId\)\}\/step`,\s*\{ delta \}\)/);
     expect(body).not.toContain("apiGet('/api/office_manoeuvre_rank')");
     // No local arithmetic on the rank at all: no clamp, no addition, nothing
     // for a concurrent write to invalidate.
@@ -292,7 +389,7 @@ describe('oxp.3 — office-tab.js client wiring', () => {
 
   it('AC7: the step route does its read-modify-write atomically in MongoDB, not from a prior read', () => {
     const route = readFile('server/routes/office-manoeuvre-rank.js');
-    const rest = route.slice(route.indexOf("router.put('/:category/step'"));
+    const rest = route.slice(route.indexOf("router.put('/:seatId/step'"));
     // An aggregation-pipeline update: the clamp and the increment are one
     // operation against the stored value, so nothing is computed from a read
     // that another request could have invalidated.
@@ -340,9 +437,22 @@ describe('oxp.3 — office-tab.js client wiring', () => {
 
   it('AC5: the route gates its write with requireRole(\'st\')', () => {
     const route = readFile('server/routes/office-manoeuvre-rank.js');
-    expect(route).toMatch(/router\.put\(\s*['"]\/:category['"]\s*,\s*requireRole\(['"]st['"]\)/);
+    expect(route).toMatch(/router\.put\(\s*['"]\/:seatId['"]\s*,\s*requireRole\(['"]st['"]\)/);
+    expect(route).toMatch(/router\.put\(\s*['"]\/:seatId\/step['"]\s*,\s*requireRole\(['"]st['"]\)/);
     // GET is deliberately open to any authenticated user (AC4).
     expect(route).toMatch(/router\.get\(\s*['"]\/['"]\s*,\s*async/);
+  });
+
+  it('oxp.11: both purchase routes resolve the seat through the one shared helper, never their own regex', () => {
+    // A second, drifting copy of the 24-hex pattern is how one route would
+    // start accepting an id shape the other rejects.
+    const merits = readFile('server/routes/office-merit-dots.js');
+    const ranks  = readFile('server/routes/office-manoeuvre-rank.js');
+    for (const src of [merits, ranks]) {
+      expect(src).toMatch(/resolveOfficeSeat/);
+      expect(src).not.toMatch(/\[0-9a-f/i);
+      expect(src).not.toMatch(/new ObjectId\(/);
+    }
   });
 
   it('AC3: the route is mounted behind requireAuth + noCache, mirroring office_merit_dots', () => {

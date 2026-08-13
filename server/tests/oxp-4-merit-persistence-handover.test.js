@@ -6,18 +6,32 @@
  * still backlog). This suite exists to PROVE the merit half rather than
  * assert it from a source reading.
  *
- * The guarantee is structural, not procedural. `office_merit_dots` is keyed
- * purely by office category (`_id: 'Enforcer'`), with no character or holder
- * reference in the schema, the read path or the write path. Nothing about a
- * character's `court_category` changing can reach that collection, because
- * no code path connects the two. These tests exercise that chain end to end
- * through the real routes so a future refactor cannot quietly sever it.
+ * The guarantee is structural, not procedural — and oxp.11 changed WHY it
+ * holds without changing THAT it holds, so the proof is restated rather than
+ * assumed to have survived.
+ *
+ *   Before oxp.11: `office_merit_dots` was keyed by office category
+ *   (`_id: 'Enforcer'`). No character reference existed anywhere, so nothing
+ *   about a character's `court_category` changing could reach the collection.
+ *
+ *   After oxp.11: it is keyed by SEAT (`_id` is the seat's own
+ *   `office_seats._id` as a 24-hex string). A seat's `_id` is minted once by
+ *   MongoDB and never changes; a handover moves `office_seats.holder_id`, which
+ *   is never copied into a purchase document. So the same seat still resolves
+ *   to the same document before and after a handover — and now Primogen's two
+ *   seats are distinguishable from each other, which category-keying could not
+ *   express at all.
+ *
+ * AC9 (oxp.11) is what this file now proves: the handover chain, end to end
+ * through the real routes, with `office_seats.holder_id` genuinely repointed at
+ * a second character rather than only the character's `court_category` moving.
  *
  * DB-backed: real MongoDB required. See db-setup.js.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
+import { ObjectId } from 'mongodb';
 import { createTestApp, stUser, playerUser } from './helpers/test-app.js';
 import { setupDb, teardownDb, isDbAvailable } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
@@ -37,6 +51,19 @@ const FIXTURE_PREFIX = 'OXP4 Handover ';
 // by accident (review finding: an unescaped constant in a Mongo regex is a
 // latent fragility even when the current value has no metacharacters).
 const FIXTURE_PREFIX_RE = `^${FIXTURE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+
+// oxp.11: explicit, known seat _ids so this suite deletes exactly its own
+// fixtures. `office_seats` is shared with oxp.1's and oxp.2's suites, so a
+// deleteMany({}) here would silently reach into theirs.
+const seatId = n => new ObjectId(`0f11${'0'.repeat(16)}${String(n).padStart(4, '0')}`);
+const SEAT_ENFORCER  = seatId(41);
+const SEAT_PRIMOGEN  = seatId(42);
+const SEAT_SOCIALITE = seatId(43);
+const SEAT_IDS = [SEAT_ENFORCER, SEAT_PRIMOGEN, SEAT_SOCIALITE];
+
+const ENFORCER  = String(SEAT_ENFORCER);
+const PRIMOGEN  = String(SEAT_PRIMOGEN);
+const SOCIALITE = String(SEAT_SOCIALITE);
 
 let app;
 
@@ -58,6 +85,25 @@ async function setCourtCategory(id, courtCategory) {
   return res.body;
 }
 
+/** oxp.11 AC9: repoint a seat at a different character, which is the other
+ *  half of a real handover. Nothing in the app writes `holder_id` yet — oxp.1's
+ *  one-off seed script is its only writer and oxp.5 is unbuilt — so the test
+ *  does directly what oxp.5 will eventually do through a route. */
+async function repointSeat(seatObjectId, holderId) {
+  await getCollection('office_seats').updateOne(
+    { _id: seatObjectId },
+    { $set: { holder_id: holderId === null ? null : new ObjectId(holderId) } },
+  );
+}
+
+async function insertSeats() {
+  await getCollection('office_seats').insertMany([
+    { _id: SEAT_ENFORCER,  office_category: 'Enforcer',  holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+    { _id: SEAT_PRIMOGEN,  office_category: 'Primogen',  holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+    { _id: SEAT_SOCIALITE, office_category: 'Socialite', holder_id: null, created_at: '2026-02-21', seat_label: null, notes: null },
+  ]);
+}
+
 beforeAll(async () => {
   if (!dbAvailable) return;
   await setupDb();
@@ -67,40 +113,45 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!dbAvailable) return;
   await getCollection('office_merit_dots').deleteMany({});
+  await getCollection('office_seats').deleteMany({ _id: { $in: SEAT_IDS } });
+  await insertSeats();
   await getCollection('characters').deleteMany({ name: { $regex: FIXTURE_PREFIX_RE } });
 });
 
 afterAll(async () => {
   if (!dbAvailable) return;
   await getCollection('office_merit_dots').deleteMany({});
+  await getCollection('office_seats').deleteMany({ _id: { $in: SEAT_IDS } });
   await getCollection('characters').deleteMany({ name: { $regex: FIXTURE_PREFIX_RE } });
   await teardownDb();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC1 / AC2: the handover chain, end to end through the real routes.
+// AC1 / AC2 (oxp.4), restated as AC9 (oxp.11): the handover chain, end to end
+// through the real routes, under seat-keying.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder', () => {
-  it('AC1: vacating the office leaves the category\'s merit dots byte-identical', async () => {
+  it('AC1: vacating the office leaves the seat\'s merit dots byte-identical', async () => {
     const holderA = await createChar('Holder A', 'Enforcer');
+    await repointSeat(SEAT_ENFORCER, holderA);
 
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 3 }).expect(200);
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Retainer (Hound)', dots: 2 }).expect(200);
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Trained Observer', dots: 1 }).expect(200);
 
     const before = await request(app).get('/api/office_merit_dots').set('X-Test-User', stUser());
     expect(before.status).toBe(200);
-    expect(before.body.Enforcer).toEqual({
+    expect(before.body[ENFORCER]).toEqual({
       'Safe Place': 3,
       'Retainer (Hound)': 2,
       'Trained Observer': 1,
     });
     // Whole stored document, updated_at included, so any write at all shows up.
-    const storedBefore = await getCollection('office_merit_dots').findOne({ _id: 'Enforcer' });
+    const storedBefore = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
 
     // The handover: A stops holding the office, via the real character route.
     await setCourtCategory(holderA, null);
@@ -109,7 +160,7 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
     expect(after.status).toBe(200);
     expect(after.body).toEqual(before.body);
 
-    const storedAfter = await getCollection('office_merit_dots').findOne({ _id: 'Enforcer' });
+    const storedAfter = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
     expect(storedAfter).toEqual(storedBefore);
     // updated_at unchanged is the strongest available evidence that no code
     // path wrote to the document at all, not merely that it wrote the same
@@ -117,60 +168,79 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
     expect(storedAfter.updated_at).toBe(storedBefore.updated_at);
   });
 
-  it('AC2: a brand new holder inherits the same dots they never purchased', async () => {
+  it('AC9: a FULL handover — court_category moves AND the seat is repointed — changes nothing', async () => {
     const holderA = await createChar('Holder A', 'Enforcer');
     const holderB = await createChar('Holder B', null);
+    await repointSeat(SEAT_ENFORCER, holderA);
 
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 4 }).expect(200);
 
     const asHeldByA = await request(app).get('/api/office_merit_dots').set('X-Test-User', stUser());
-    expect(asHeldByA.body.Enforcer['Safe Place']).toBe(4);
+    expect(asHeldByA.body[ENFORCER]['Safe Place']).toBe(4);
+    const storedBefore = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
 
-    // Full handover: A vacates, B takes the seat. B has never touched the
-    // merit-dots write route, and never will in this test.
+    // Both halves of a real handover. B has never touched the merit-dots write
+    // route, and never will in this test.
     await setCourtCategory(holderA, null);
     await setCourtCategory(holderB, 'Enforcer');
+    await repointSeat(SEAT_ENFORCER, holderB);
 
     const asHeldByB = await request(app).get('/api/office_merit_dots').set('X-Test-User', stUser());
     expect(asHeldByB.body).toEqual(asHeldByA.body);
-    expect(asHeldByB.body.Enforcer['Safe Place']).toBe(4);
+    expect(asHeldByB.body[ENFORCER]['Safe Place']).toBe(4);
 
-    // And B genuinely sees them: the GET is reference info readable by the
-    // player who owns B, not an ST-only view.
+    // Byte-identical, updated_at included: repointing the seat did not so much
+    // as touch the purchase document.
+    const storedAfter = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
+    expect(storedAfter).toEqual(storedBefore);
+    expect(storedAfter.updated_at).toBe(storedBefore.updated_at);
+
+    // And B genuinely sees them from their own auth context: the GET is
+    // reference info readable by the player who owns B, not an ST-only view.
     const asB = await request(app).get('/api/office_merit_dots')
       .set('X-Test-User', playerUser([holderB]));
     expect(asB.status).toBe(200);
-    expect(asB.body.Enforcer['Safe Place']).toBe(4);
+    expect(asB.body[ENFORCER]['Safe Place']).toBe(4);
+
+    // The seat that carries the purchase state is the same seat throughout —
+    // its _id is its identity, and a handover cannot change it.
+    const seat = await getCollection('office_seats').findOne({ _id: SEAT_ENFORCER });
+    expect(String(seat._id)).toBe(ENFORCER);
+    expect(String(seat.holder_id)).toBe(holderB);
   });
 
-  it('a second, unrelated office category is equally untouched by the handover', async () => {
+  it('a second, unrelated office\'s seat is equally untouched by the handover', async () => {
     const holderA = await createChar('Holder A', 'Enforcer');
     await createChar('Primogen Holder', 'Primogen');
+    await repointSeat(SEAT_ENFORCER, holderA);
 
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 2 }).expect(200);
-    await request(app).put('/api/office_merit_dots/Primogen').set('X-Test-User', stUser())
+    await request(app).put(`/api/office_merit_dots/${PRIMOGEN}`).set('X-Test-User', stUser())
       .send({ merit: 'Resources', dots: 5 }).expect(200);
 
     await setCourtCategory(holderA, 'Socialite');
 
     const after = await request(app).get('/api/office_merit_dots').set('X-Test-User', stUser());
-    expect(after.body.Enforcer['Safe Place']).toBe(2);
-    expect(after.body.Primogen.Resources).toBe(5);
+    expect(after.body[ENFORCER]['Safe Place']).toBe(2);
+    expect(after.body[PRIMOGEN].Resources).toBe(5);
     // Moving A into Socialite did not conjure a Socialite document either.
-    expect(after.body.Socialite).toBeUndefined();
+    expect(after.body[SOCIALITE]).toBeUndefined();
   });
 
-  it('the stored document carries no character or holder reference at all', async () => {
+  it('AC9 companion: the stored document carries no character or holder reference at all', async () => {
     const holderA = await createChar('Holder A', 'Enforcer');
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await repointSeat(SEAT_ENFORCER, holderA);
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 1 }).expect(200);
 
-    const stored = await getCollection('office_merit_dots').findOne({ _id: 'Enforcer' });
-    // This is the whole mechanism oxp.4 exists to pin: category-only keying.
-    expect(stored._id).toBe('Enforcer');
-    expect(Object.keys(stored).sort()).toEqual(['_id', 'dots', 'updated_at']);
+    const stored = await getCollection('office_merit_dots').findOne({ _id: ENFORCER });
+    // This is the whole mechanism: the key is a SEAT's identity, not a
+    // person's. `office_category` is a denormalised copy for legibility, never
+    // the key and never authoritative.
+    expect(stored._id).toBe(ENFORCER);
+    expect(Object.keys(stored).sort()).toEqual(['_id', 'dots', 'office_category', 'updated_at']);
 
     const serialised = JSON.stringify(stored);
     expect(serialised).not.toContain(holderA);
@@ -180,7 +250,8 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
 
   it('deletes of the holder character leave the office merit suite intact', async () => {
     const holderA = await createChar('Holder A', 'Enforcer');
-    await request(app).put('/api/office_merit_dots/Enforcer').set('X-Test-User', stUser())
+    await repointSeat(SEAT_ENFORCER, holderA);
+    await request(app).put(`/api/office_merit_dots/${ENFORCER}`).set('X-Test-User', stUser())
       .send({ merit: 'Safe Place', dots: 3 }).expect(200);
 
     // The hard-delete cascade in characters.js sweeps every collection that
@@ -189,33 +260,60 @@ describe.skipIf(!dbAvailable)('oxp.4 merit dots survive a change of officeholder
     await request(app).delete(`/api/characters/${holderA}`).set('X-Test-User', stUser()).expect(204);
 
     const after = await request(app).get('/api/office_merit_dots').set('X-Test-User', stUser());
-    expect(after.body.Enforcer['Safe Place']).toBe(3);
+    expect(after.body[ENFORCER]['Safe Place']).toBe(3);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC3: the client half of the same guarantee. Static source analysis, matching
-// office-merit-dots.test.js's own "client wiring" describe (no browser harness
-// in this repo). The server tests above prove nothing reaches the collection
-// from the character side; these prove nothing reaches it from the client side
-// either, because the client never has a character to send.
+// AC3 (oxp.4), restated for oxp.11: the client half of the same guarantee.
+// Static source analysis, matching office-merit-dots.test.js's own "client
+// wiring" describe (no browser harness in this repo).
+//
+// What is still guaranteed, exactly:
+//
+//   - No character id ever reaches the `office_merit_dots` API. The merit-dot
+//     functions do not take a character, do not read one, and send nothing but
+//     a seat id in the URL and `{ merit, dots }` in the body.
+//   - No `holder_id` is ever stored in a purchase document (proved server-side
+//     above, by the serialised-form assertion).
+//
+// What is NEW and is stated rather than denied: the client DOES read
+// `office_seats.holder_id`, legitimately, to work out which seat the viewer's
+// own office corresponds to. That read is confined to one function, it happens
+// before either merit-dot function is called, and its result is a seat id. So
+// the contract is not "the client never touches a holder" any more — it is
+// "the holder is used to CHOOSE a seat and never travels any further".
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Source text of _wireMeritDots + _adjustMeritDots only, excluding neighbours. */
+/** Source text of _wireMeritDots + _adjustMeritDots only, excluding neighbours.
+ *  The end anchor is the next function after the pair, so the slice really is
+ *  the two merit-dot functions and nothing else. */
 function meritDotsBlock() {
   const src = readFile('public/js/tabs/office-tab.js');
   const start = src.indexOf('async function _wireMeritDots');
-  const end = src.indexOf('async function _wireHosActions');
+  const end = src.indexOf('async function _wireManoeuvreRank');
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return src.slice(start, end);
 }
 
-describe('oxp.4 client wiring: office-tab.js merit-dot calls are category-keyed only', () => {
-  it('extracts a block containing both merit-dot functions', () => {
+/** Source text of the seat-resolution entry point and its helpers. */
+function seatResolutionBlock() {
+  const src = readFile('public/js/tabs/office-tab.js');
+  const start = src.indexOf('async function _wirePurchaseState');
+  const end = src.indexOf('async function _wireMeritDots');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return src.slice(start, end);
+}
+
+describe('oxp.4 client wiring: no character id reaches the office_merit_dots API', () => {
+  it('extracts a block containing both merit-dot functions and neither neighbour', () => {
     const block = meritDotsBlock();
     expect(block).toContain('async function _wireMeritDots');
     expect(block).toContain('async function _adjustMeritDots');
+    expect(block).not.toContain('async function _wirePurchaseState');
+    expect(block).not.toContain('async function _wireManoeuvreRank');
   });
 
   it('reads the whole collection with no character-scoped query string', () => {
@@ -223,31 +321,54 @@ describe('oxp.4 client wiring: office-tab.js merit-dot calls are category-keyed 
     expect(block).toMatch(/apiGet\(['"]\/api\/office_merit_dots['"]\)/);
     // No query parameters of any kind: nothing to smuggle a holder id into.
     expect(block).not.toMatch(/\/api\/office_merit_dots\?/);
-    // The category filter happens client-side, off the returned map.
-    expect(block).toMatch(/dotsByCategory\[category\]/);
+    // The seat filter happens client-side, off the returned map.
+    expect(block).toMatch(/dotsBySeat\[outcome\.seatId\]/);
   });
 
-  it('writes with the office category in the URL and only merit/dots in the body', () => {
+  it('oxp.11: writes with the SEAT id in the URL and only merit/dots in the body', () => {
     const block = meritDotsBlock();
     expect(block).toMatch(
-      /apiPut\(`\/api\/office_merit_dots\/\$\{encodeURIComponent\(category\)\}`,\s*\{\s*merit,\s*dots:\s*next\s*\}\)/
+      /apiPut\(`\/api\/office_merit_dots\/\$\{encodeURIComponent\(outcome\.seatId\)\}`,\s*\{\s*merit,\s*dots:\s*next\s*\}\)/
     );
   });
 
   it('never references a character, a character id, or a holder in either function', () => {
     const block = meritDotsBlock();
     // If either function ever grows a `char` parameter or a `char.*` read, the
-    // structural guarantee proven by AC1/AC2 above stops being structural.
+    // structural guarantee proven by AC1/AC9 above stops being structural.
     expect(block).not.toMatch(/\bchars?\b/);
     expect(block).not.toMatch(/\bchar\./);
     expect(block).not.toMatch(/character_id/);
     expect(block).not.toMatch(/holder/i);
-    expect(block).not.toMatch(/\b_id\b/);
   });
 
-  it('takes no character argument in either function signature', () => {
+  it('takes the resolved seat, never a character, in either function signature', () => {
     const block = meritDotsBlock();
-    expect(block).toMatch(/async function _wireMeritDots\(el, category, meritNames\)/);
-    expect(block).toMatch(/async function _adjustMeritDots\(el, category, meritNames, merit, delta\)/);
+    expect(block).toMatch(/async function _wireMeritDots\(el, outcome, meritNames, gen\)/);
+    expect(block).toMatch(/async function _adjustMeritDots\(el, outcome, meritNames, merit, delta\)/);
+  });
+
+  it('oxp.11: a seat\'s holder_id is READ in exactly one place, only to CHOOSE a seat', () => {
+    // Deliberately `\bs\.holder_id` — a real property read off a seat object —
+    // rather than the bare word, which also appears in the comments that
+    // explain the dependency. Prose about it is not a use of it.
+    const READ = /\bs\.holder_id\b/g;
+    const src = readFile('public/js/tabs/office-tab.js');
+    const everywhere = [...src.matchAll(READ)].length;
+    expect(everywhere).toBeGreaterThan(0); // the dependency is real, not denied
+
+    const inResolution = [...seatResolutionBlock().matchAll(READ)].length;
+    expect(inResolution).toBe(everywhere);
+  });
+
+  it('oxp.11: seat resolution reduces the holder match to a seat id before anything else sees it', () => {
+    const block = seatResolutionBlock();
+    // The comparison itself, and the fact that what leaves this block is a
+    // seat id rather than the seat, the holder, or the character.
+    expect(block).toMatch(/String\(s\.holder_id\)\s*===\s*String\(char\._id\)/);
+    expect(block).toMatch(/seatId:\s*String\(seat\._id\)/);
+    // Only ever a read of office_seats — this block writes to no API at all.
+    expect(block).toMatch(/apiGet\(['"]\/api\/office_seats['"]\)/);
+    expect(block).not.toMatch(/apiPut|apiPost/);
   });
 });
