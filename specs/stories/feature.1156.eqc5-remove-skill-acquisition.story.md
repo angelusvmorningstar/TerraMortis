@@ -1,6 +1,6 @@
 # Story feature.1156: EQC-5 — Remove Skill-Based Acquisition
 
-## Status: review
+## Status: done
 
 ---
 issue: 1156
@@ -111,8 +111,8 @@ base — including nothing, including something — passes through untouched.
   unchanged, they continue to behave identically before and after this story's changes. Run them to
   confirm rather than editing them.
   **Correction, confirmed during implementation (branch-isolation check via `git stash`)**:
-  `fix-493-skill-acq-outcome-summary.spec.js` (4/4 tests) and one test in
-  `fix-player-skill-acq-outcome.spec.js` (1/8) were ALREADY FAILING before this story touched anything
+  `fix-493-skill-acq-outcome-summary.spec.js` (4 of its 5 tests) and one of
+  `fix-player-skill-acq-outcome.spec.js`'s 3 tests were ALREADY FAILING before this story touched anything
   — root cause is stale fixtures that place skill-acquisition outcome data at
   `acquisitions_resolved[0]`, the pre-fix.914 slot; fix.914 (2026, later than these two files) moved
   Skill Acquisition to slot `[1]` (Resources kept `[0]`), and these two files' own fixtures were never
@@ -142,9 +142,16 @@ base — including nothing, including something — passes through untouched.
    `renderAcquisitionsSection` are removed as dead weight from the same cut.
 4. Every click/change delegated-event handler that exists ONLY to serve the removed Skill sub-table is
    deleted: the "Skill acquisition spec chip toggle" block (`[data-skill-acq-spec]`, already-dead code
-   predating dt-form.29 — confirmed via grep that `_renderSkillRow` never emits that attribute) and the
+   predating dt-form.29 — confirmed via grep that `_renderSkillRow` never emits that attribute), the
    `[data-acq-skill]` change-handler block (`downtime-form.js` ~2961-2974, re-renders on skill-dropdown
-   change — its target selector no longer exists anywhere once `_renderSkillRow` is gone). The shared
+   change — its target selector no longer exists anywhere once `_renderSkillRow` is gone), **and the
+   `[data-acq-skill-spec]` click handler (`acqSkillSpec`)** — the live spec-chip toggle
+   `_renderSkillRow` itself emitted (`data-acq-skill-spec`/`data-acq-skill-spec-hidden`), distinct from
+   the already-dead `data-skill-acq-spec` handler named above; provably dead by the identical reasoning
+   once `_renderSkillRow` is gone. **(Amended post-external-review: this handler was correctly deleted
+   during implementation but not originally named in this AC's enumerated list — the AC text is
+   corrected here to match, per this project's own "reconcile the AC text" convention rather than
+   leaving a disclosed deviation undocumented in the acceptance criteria themselves.)** The shared
    Add/Remove/dot/unknown/spec-chip handlers that serve BOTH sub-tables via a `rowKey` parameter are
    left in place (Resources still uses them); their now-unreachable `rowKey === 'skill'` ternary
    branches in the Add/Remove handlers may be simplified as adjacent cleanup, at the implementer's
@@ -169,7 +176,7 @@ base — including nothing, including something — passes through untouched.
    tests/fix-493-skill-acq-outcome-summary.spec.js tests/fix-player-skill-acq-outcome.spec.js
    tests/fix-914-acquisition-outcome-field-slot.spec.js` — unmodified. `fix-491` and `fix-914` fully
    green, confirming the historical-cycle read side genuinely still works after the write-side removal.
-   `fix-493` (4/4) and one test in `fix-player-skill-acq-outcome` (1/8) show the SAME failures as the
+   `fix-493` (4 of 5 tests) and one of `fix-player-skill-acq-outcome`'s 3 tests show the SAME failures as the
    pre-this-story baseline (confirmed via `git stash` isolation) — a pre-existing stale-fixture bug
    (post-fix.914 slot `[1]` never backported into these two files' fixtures), unrelated to this story
    and out of its scope to fix. Logged in `deferred-work.md`.
@@ -213,7 +220,7 @@ base — including nothing, including something — passes through untouched.
         baseline (capture the baseline first, per this file's own established practice in every prior
         EQC story's Debug Log).
   - [x] Ran the four named Playwright specs (unmodified). `fix-491` + `fix-914` fully green (14/14).
-        `fix-493` (4/4) + 1 test in `fix-player-skill-acq-outcome` failed — confirmed via `git stash`
+        `fix-493` (4 of 5) + 1 of `fix-player-skill-acq-outcome`'s 3 failed — confirmed via `git stash`
         isolation these are pre-existing (identical failures on the pre-EQC-5 baseline), a stale-fixture
         bug unrelated to this story. Logged in `deferred-work.md`; AC #8 amended to match.
   - [x] Confirm zero diff under TM Wiki, TM Cockpit, TM Herald.
@@ -284,19 +291,21 @@ Claude Sonnet 5, via `bmad-dev-story`.
 ### Debug Log References
 
 - Full scoped regression (`npx vitest run server/tests`) before this story's changes: 100 failed
-  suites / 79 passed, 2 failed tests, 1169 passed, 1153 skipped (181 files) — matches the two documented
-  pre-existing failures (`n7-n9-allocator-readers.test.js`, `oath-a-pledge-helpers.test.js`) and the
-  100 pre-existing DB-connection guard trips exactly.
-- Post-change full scoped regression: 100 failed suites / 80 passed (+1, the new test file), 2 failed
-  tests (SAME two pre-existing, unrelated) / 1191 passed (+22, matching the new test file's 22 tests) /
-  1153 skipped. Zero new failures.
+  suites / 79 passed / 2 skipped (181 test files); 2 failed / 1169 passed / 1153 skipped (2322 tests) —
+  matches the two documented pre-existing failures (`n7-n9-allocator-readers.test.js`,
+  `oath-a-pledge-helpers.test.js`) and the 100 pre-existing DB-connection guard trips exactly.
+- Post-change full scoped regression: 100 failed suites / 80 passed (+1, the new test file) / 2 skipped
+  (182 test files); 2 failed tests (SAME two pre-existing, unrelated) / 1191 passed (+22, matching the
+  new test file's original 22-test count) / 1153 skipped (2346 tests). Zero new failures. (This count
+  grew to 25 tests in the same file after the code-review patch round below; final post-patch numbers
+  are in that section.)
 - The new test file's first run caught a real self-inflicted bug: two of my own explanatory comments
   (added while deleting the skill-acquisition code) literally spelled out the code-shaped strings
   `` `rowKey === 'skill'` `` and `` `data-skill-acq-spec` `` as prose, which is indistinguishable from
   live code to a substring-match regression guard. Reworded both comments to describe the removed
   pattern without reproducing its exact syntax; re-ran green.
-- Playwright: ran the four named specs and found `fix-493-skill-acq-outcome-summary.spec.js` (4/4) and
-  one test in `fix-player-skill-acq-outcome.spec.js` (1/8) failing. Isolated via `git stash` (reverting
+- Playwright: ran the four named specs and found `fix-493-skill-acq-outcome-summary.spec.js` (4 of its
+  5 tests) and one of `fix-player-skill-acq-outcome.spec.js`'s 3 tests failing. Isolated via `git stash` (reverting
   to the EQC-4 tip, re-running, then `git stash pop`) — identical failures exist on the pre-EQC-5
   baseline. Root cause: both files' fixtures place skill-acquisition outcome data at
   `acquisitions_resolved[0]`, the pre-fix.914 slot; fix.914 moved Skill Acquisition to slot `[1]` and
@@ -348,7 +357,7 @@ Claude Sonnet 5, via `bmad-dev-story`.
 ### File List
 
 - `public/js/tabs/downtime-data.js` (modified — removed `skill_acquisitions` question, updated section
-  title)
+  title; review-patched — `has_acquisitions` gate label no longer mentions Skills)
 - `public/js/tabs/downtime-form.js` (modified — removed `_renderSkillRow`, `_readSkillRows`, the Skill
   sub-table block, all skill-only mirror-builder writes and delegated event handlers, the `skillAcqPoolStr`
   import)
@@ -356,11 +365,109 @@ Claude Sonnet 5, via `bmad-dev-story`.
   `acq_skill_rows` field comments annotated `[legacy]`; no field deleted or retyped)
 - `schemas/downtime_submission.schema.md` (modified — Skill-Based Acquisition table annotated legacy)
 - `server/tests/issue-1156-eqc5-remove-skill-acquisition.test.js` (new — 22 static-analysis regression
-  tests: write-side removal, read-side/schema untouched)
-- `specs/deferred-work.md` (modified — logged the pre-existing stale-fixture finding)
-- `specs/stories/feature.1156.eqc5-remove-skill-acquisition.story.md` (this story — AC #8 and its
-  Background reference amended in place to match the verified-true post-implementation state)
+  tests: write-side removal, read-side/schema untouched; review-patched — 3 more tests added, see
+  Senior Developer Review)
+- `specs/deferred-work.md` (modified — logged the pre-existing stale-fixture finding; review-patched —
+  corrected per-file Playwright test-count wording)
+- `specs/stories/feature.1156.eqc5-remove-skill-acquisition.story.md` (this story — AC #4 and #8 and
+  their supporting references amended in place; see Senior Developer Review for the external-review
+  patch round)
+- `specs/stories/code-review/issue-1156-eqc5-diff.txt`,
+  `specs/stories/code-review/issue-1156-eqc5-codex-review.md`,
+  `specs/stories/code-review/issue-1156-eqc5-codex-findings.md`,
+  `specs/stories/code-review/issue-1156-eqc5-codex-raw-output.txt` (new — external review artefacts)
 
 ## Senior Developer Review (AI)
 
-_To be filled in during code review._
+**Review path**: Codex external CLI-direct review (the epic's established default), single combined
+3-pass session (Blind Hunter → Edge Case Hunter → Acceptance Auditor), `model_reasoning_effort=high`,
+run against commit `e619f4f4` (base `061f6ce6`, the EQC-4 tip) with the diff scoped to source + the new
+test file only — the story spec and `deferred-work.md` deliberately excluded so Passes 1–2 stayed
+blind. Prompt and raw findings preserved at
+`specs/stories/code-review/issue-1156-eqc5-codex-{review,findings,raw-output}.*`. Every finding below
+was independently re-verified against the real code/tests in this session before triage — none was
+accepted on the reviewer's word alone (baseline calibration: roughly half of any external review's
+confident-sounding findings have turned out false on this project before; none of this pass's did, but
+each was checked regardless).
+
+**Tripwires**: gate numbers in the reviewer's own report (100 failed / 80 passed / 2 skipped, 182 files;
+2 failed / 1191 passed / 1153 skipped, 2346 tests) matched a fresh local run exactly at review time —
+review is genuinely about this change. Pass isolation confirmed distinct file sets per pass in the
+Validation notes (Pass 1: diff only; Pass 2: diff + repo, no story; Pass 3a: diff + spec headings +
+named sections only, no Dev Agent Record; Pass 3b: full record) — no evidence of collapsed passes.
+
+**Findings and dispositions** (0 High, 1 Medium, 6 Low — no blocking runtime defect):
+
+- **[Medium, Pass 3a, patched]** AC #4 enumerated two handlers for deletion (`[data-skill-acq-spec]`,
+  `[data-acq-skill]`) but the implementation correctly also deleted a third, distinct, equally-dead
+  handler (`[data-acq-skill-spec]`/`acqSkillSpec`) that wasn't in the AC's literal list — a real,
+  confirmed AC-text/implementation mismatch (the Completion Notes had disclosed the deviation but never
+  amended the AC itself, which this project's own convention treats as insufficient — a disclosure
+  alone doesn't reconcile the acceptance text). **Patched**: AC #4 amended in place to name the third
+  handler explicitly and record why. No code change — the implementation was already correct; the
+  spec text was wrong.
+- **[Low, Pass 1, patched]** The "Add/Remove row handlers hardcode acq_resource_rows" test only
+  asserted the OLD `rowKey === 'skill'` ternary was absent (a negative, whole-file check) — it never
+  positively proved either handler still reads/writes `acq_resource_rows`, so a regression that broke
+  Resources acquisitions entirely could still pass this test. **Patched**: added two new tests slicing
+  each handler's own body and asserting both the read and the write. Prove-discriminated (renamed the
+  key to `acq_BROKEN_rows` in the Add handler only, confirmed exactly the new Add-handler test failed
+  and nothing else, restored, confirmed 24/24 green).
+- **[Low, Pass 1, patched]** The "no data-acq-skill markup" test's regex (`/data-acq-skill[="[]/`)
+  cannot match a trailing hyphen, so it silently never covered `data-acq-skill-spec`/`-hidden` — the
+  attributes `_renderSkillRow` actually emitted. The second assertion checked `data-skill-acq-spec`
+  (reversed word order — the OLDER, already-dead pre-dt-form.29 handler's name), not the live
+  `data-acq-skill-spec`. **Patched**: added direct, explicit assertions for `data-acq-skill=`,
+  `data-acq-skill-spec`, and `data-acq-skill-spec-hidden` by name. Prove-discriminated (temporarily
+  reintroduced a `data-acq-skill-spec="x"` string near the top of the file, confirmed exactly the new
+  assertion failed, restored, confirmed green).
+- **[Low, Pass 1, patched]** The schema `[legacy]` annotation test checked for a single `[legacy]`
+  token anywhere in a 1,400-character slice — one field losing its annotation while a sibling field kept
+  theirs would still pass. **Patched**: rewrote as a per-field loop, one regex per key, matching the
+  same discipline already used by the neighbouring "still declared" test. Prove-discriminated (stripped
+  `[legacy]` from `skill_acq_merits` only, confirmed exactly the new test failed and named that field,
+  restored, confirmed green).
+- **[Low, Pass 2, patched]** `DOWNTIME_GATES`'s `has_acquisitions` entry — a separate array from the
+  Acquisitions section's own `questions[]`, missed during the original story-creation research — still
+  read *"Do you want to use Resources or Skills to attempt to acquire anything?"* Confirmed dormant (no
+  renderer in `downtime-form.js` reads `gate.label`, only `gate.key` — both call sites verified by grep),
+  so zero current player-facing effect, but stale/contradictory source-of-truth text describing a
+  channel this story just removed. **Patched**: label updated to drop "or Skills"; added a regression
+  test. First version of the test itself had a bug — `src.indexOf('DOWNTIME_GATES')` matched the FILE'S
+  HEADER COMMENT (line 5, which also mentions the name) rather than the actual `export const
+  DOWNTIME_GATES` array (line 438), so the assertion passed even with the stale label still present
+  in a repro check. Caught during this review's own prove-discrimination step (the "revert and confirm
+  it fails" check exposed it), fixed to anchor on `'export const DOWNTIME_GATES'` instead, re-confirmed
+  the prove-discrimination sequence correctly fails-then-passes.
+- **[Low, Pass 3b, patched]** The Dev Agent Record's per-file Playwright denominators were wrong:
+  `fix-493-skill-acq-outcome-summary.spec.js` has 5 tests (4 failed, 1 passed), not "4/4"; the record
+  had also mis-attributed the two-file COMBINED total (8 tests) to
+  `fix-player-skill-acq-outcome.spec.js` alone as "1/8", when that file has only 3 tests (1 failed, 2
+  passed). Confirmed by `grep -c` against both spec files. Root cause of the claimed failure (stale
+  pre-fix.914 `acquisitions_resolved[0]` slot) was correct and unaffected — only the denominators were
+  wrong. **Patched**: corrected every occurrence (4 locations across the story and 1 in
+  `deferred-work.md`) to "4 of its 5 tests" / "one of ... 3 tests" phrasing.
+- **[Low, Pass 3b, patched]** The full-gate Debug Log entry reported passed/failed suite and test
+  counts but omitted the file-level skipped count and total file count, and stated tests-skipped without
+  its own total. **Patched**: rewrote both baseline and post-change lines with complete `X failed / Y
+  passed / Z skipped (N test files)` and `X failed / Y passed / Z skipped (N tests)` figures.
+- **[Low, Pass 3b, dismissed — environmental, not a defect]** The live "5 affected active-cycle
+  submissions" claim and the "confirmed via git-stash baseline execution" claim were both flagged as
+  unverifiable in the REVIEWER's own sandbox (no outbound MongoDB network access; a worktree
+  `index.lock` permission error blocked detaching to the base commit). Both were genuinely,
+  successfully executed in THIS session with real output already captured in the Debug Log (the live
+  query returned 5 real character IDs; the `git stash`/`stash pop` cycle ran cleanly and reproduced the
+  identical failures at both commits). Codex's own alternate verification — identical git blob IDs for
+  every read-side file and both spec files between `061f6ce6` and `e619f4f4` — independently
+  corroborates rather than contradicts the claim. No record change needed; this is a disclosed
+  reviewer-side environment limitation, not a false claim (matches this project's own established
+  triage precedent for exactly this class of finding).
+
+**Post-patch verification**: `npx vitest run server/tests` — 100 failed suites / 80 passed / 2 skipped
+(182 test files); 2 failed tests (the same two pre-existing, unrelated failures) / 1194 passed (+3 over
+the pre-review-patch count, the three new/strengthened regression tests) / 1153 skipped (2349 tests).
+Matches the pre-patch baseline exactly on suite/failure counts, zero new failures. Every patch
+prove-discriminated individually (single-change revert → confirm the exact expected test fails and
+nothing else → restore → confirm green) before this final run, including catching and fixing a bug in
+one of the review's OWN patches (the `DOWNTIME_GATES` test's index anchor) during that same
+prove-discrimination step.

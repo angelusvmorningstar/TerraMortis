@@ -97,9 +97,9 @@ practical exposure for whoever picks up #1143.
 ## Deferred from: EQC-5 (issue #1156, dev-story implementation 2026-08-13)
 
 - **Two skill-acquisition Playwright specs have stale fixtures, unrelated to EQC-5** (Low, found not
-  caused) — `tests/fix-493-skill-acq-outcome-summary.spec.js` (4/4 tests) and one test in
-  `tests/fix-player-skill-acq-outcome.spec.js` (1/8, "AC-1: skill acquisition outcome_summary appears
-  in player Resources group") fail on `main`/pre-EQC-5 exactly as they do after EQC-5's changes
+  caused) — `tests/fix-493-skill-acq-outcome-summary.spec.js` (4 of its 5 tests) and one of
+  `tests/fix-player-skill-acq-outcome.spec.js`'s 3 tests ("AC-1: skill acquisition outcome_summary
+  appears in player Resources group") fail on `main`/pre-EQC-5 exactly as they do after EQC-5's changes
   (confirmed via `git stash` isolation during this story's implementation). Root cause: both files'
   fixtures place skill-acquisition outcome data at `acquisitions_resolved[0]`, but fix.914 (a later
   story) moved Skill Acquisition to slot `[1]` (Resources kept `[0]`) and these two files' fixtures were

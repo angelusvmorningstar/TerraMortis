@@ -54,6 +54,17 @@ describe('#1156 — downtime-data.js Acquisitions section', () => {
     expect(block).toMatch(/title:\s*'Acquisition: Resources'/);
     expect(block).not.toMatch(/Skills/);
   });
+
+  it('the has_acquisitions gate label no longer advertises a Skills channel', () => {
+    // Codex external review (Low, Pass 2): DOWNTIME_GATES is a separate array
+    // from the acquisitions section's own questions[] — its label was missed
+    // in the original pass. Confirmed dormant (no renderer reads gate.label,
+    // only gate.key), but stale/misleading as source-of-truth data regardless.
+    const gateIdx = src.indexOf('export const DOWNTIME_GATES');
+    expect(gateIdx).toBeGreaterThan(-1);
+    const gateBlock = src.slice(gateIdx, gateIdx + 300);
+    expect(gateBlock).not.toMatch(/Skills/);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,7 +99,16 @@ describe('#1156 — downtime-form.js Skill sub-table removed', () => {
   });
 
   it('no data-acq-skill or data-skill-acq-spec markup/handlers remain', () => {
-    expect(src).not.toMatch(/data-acq-skill[="[]/);
+    // Codex external review (Low, Pass 1): the original two checks here left
+    // a real gap — data-acq-skill[="[]" cannot match a trailing hyphen, so it
+    // never covered data-acq-skill-spec/-hidden (the LIVE attributes
+    // _renderSkillRow actually emitted), and the second check named
+    // data-skill-acq-spec (word order reversed — the OLDER, already-dead
+    // pre-dt-form.29 handler's attribute), not data-acq-skill-spec. Assert
+    // every real spelling by name.
+    expect(src).not.toMatch(/data-acq-skill=/);
+    expect(src).not.toMatch(/data-acq-skill-spec/);
+    expect(src).not.toMatch(/data-acq-skill-spec-hidden/);
     expect(src).not.toMatch(/data-skill-acq-spec/);
   });
 
@@ -133,6 +153,26 @@ describe('#1156 — collectResponses no longer writes skill-acquisition keys', (
     // is gone — Resources is the only remaining acquisition row kind.
     expect(src).not.toMatch(/rowKey === 'skill'/);
   });
+
+  it('the Add handler body reads and writes acq_resource_rows directly', () => {
+    // Positive assertion (Codex external review, Low, Pass 1): the negative
+    // check above only proves the OLD ternary is gone, not that the Add
+    // handler still actually reads/writes the right key. Slice the handler
+    // body itself and assert both operations are present in it.
+    const idx = src.indexOf("e.target.closest('[data-acq-add-row]')");
+    expect(idx).toBeGreaterThan(-1);
+    const body = src.slice(idx, src.indexOf('return;', idx));
+    expect(body).toMatch(/cur\['acq_resource_rows'\]/);
+    expect(body).toMatch(/JSON\.parse\(cur\['acq_resource_rows'\]/);
+  });
+
+  it('the Remove handler body reads and writes acq_resource_rows directly', () => {
+    const idx = src.indexOf("e.target.closest('[data-acq-row-remove]')");
+    expect(idx).toBeGreaterThan(-1);
+    const body = src.slice(idx, src.indexOf('return;', idx));
+    expect(body).toMatch(/cur\['acq_resource_rows'\]/);
+    expect(body).toMatch(/JSON\.parse\(cur\['acq_resource_rows'\]/);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,9 +216,17 @@ describe('#1156 — schema still declares (not deletes) the legacy skill_acq_* f
     }
   });
 
-  it('the skill_acq_* fields are annotated [legacy]', () => {
-    const idx = src.indexOf('acq_skill_rows:');
-    const block = src.slice(idx, idx + 1400);
-    expect(block).toMatch(/\[legacy\]/);
+  it('every skill_acq_* / skill_acquisitions field is individually annotated [legacy]', () => {
+    // Codex external review (Low, Pass 1): the original version of this test
+    // only checked that SOME [legacy] token appeared somewhere in a 1400-char
+    // slice, so one field losing its annotation while another kept theirs
+    // would still pass. Assert each field's own line carries the tag.
+    for (const key of [
+      'skill_acq_description', 'skill_acq_pool_attr', 'skill_acq_pool_skill',
+      'skill_acq_pool_spec', 'skill_acq_availability', 'skill_acq_merits',
+      'skill_acquisitions', 'acq_skill_rows',
+    ]) {
+      expect(src).toMatch(new RegExp(`${key}:\\s*\\{ type: 'string' \\},\\s*//\\s*\\[legacy\\]`));
+    }
   });
 });

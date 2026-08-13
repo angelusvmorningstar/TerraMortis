@@ -438,7 +438,7 @@ export const SUBMIT_FINAL_MODAL_QUESTIONS = [
 export const DOWNTIME_GATES = [
   {
     key: 'has_acquisitions',
-    label: 'Do you want to use Resources or Skills to attempt to acquire anything?',
+    label: 'Do you want to use Resources to attempt to acquire anything?',
     type: 'radio',
     options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
   },
