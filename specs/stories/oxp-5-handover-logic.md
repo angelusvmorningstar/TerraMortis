@@ -1,6 +1,6 @@
 # Story oxp.5: Handover logic — seat holder change, manoeuvre reset
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -402,73 +402,73 @@ thing that tells Socialite's two seats apart. AC8 pins this by test.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Server: the handover route (AC: 1, 2, 3, 8)
-  - [ ] Read `server/routes/office-actions.js`'s `PUT /:id/accept` (lines ~266-387) in full first and
+- [x] Task 1 — Server: the handover route (AC: 1, 2, 3, 8)
+  - [x] Read `server/routes/office-actions.js`'s `PUT /:id/accept` (lines ~266-387) in full first and
         mirror its transaction scaffolding exactly: `getClient()`, `startSession()`,
         `withTransaction`, `RouteResponse extends Error`, status/body captured outside the callback,
         `endSession()` in `finally`, response sent after commit. Its inline comments explain WHY each
         piece is shaped that way; do not reinvent the shape from the driver docs.
-  - [ ] Add `PUT /:seatId/holder` to `server/routes/office-seats.js` with `requireRole('st')`. No
+  - [x] Add `PUT /:seatId/holder` to `server/routes/office-seats.js` with `requireRole('st')`. No
         `server/index.js` change and no `test-app.js` mount change — the router is already mounted in
         both.
-  - [ ] Import `SEAT_ID_PATTERN` from `server/lib/office-seat-resolve.js`; do NOT call
+  - [x] Import `SEAT_ID_PATTERN` from `server/lib/office-seat-resolve.js`; do NOT call
         `resolveOfficeSeat` and do NOT modify that module (Finding 2 — record the reason in a comment
         so a later "tidy-up" does not reintroduce the Administrator refusal).
-  - [ ] Extract the seat serialisation the existing `GET /` does inline (`_id`/`holder_id` to strings,
+  - [x] Extract the seat serialisation the existing `GET /` does inline (`_id`/`holder_id` to strings,
         `notes` redacted for non-ST) into a small local helper used by both handlers, so the response
         this route returns can be dropped straight into the client's cached seat array.
-  - [ ] Write `holder_id` as a real `ObjectId` or `null`. Never a string.
-  - [ ] Response body: the updated seat, `handover: <bool>`, `previous_holder_id`, and a
+  - [x] Write `holder_id` as a real `ObjectId` or `null`. Never a string.
+  - [x] Response body: the updated seat, `handover: <bool>`, `previous_holder_id`, and a
         `manoeuvre_reset` object (or null) reporting the seat id, the rank before the reset and the new
         cumulative destroyed total, so the ST can see what the operation actually did.
-- [ ] Task 2 — Server: the reset and the destroyed-XP counter (AC: 5, 6, 7)
-  - [ ] Read `server/routes/office-manoeuvre-rank.js`'s `PUT /:seatId/step` first — its
+- [x] Task 2 — Server: the reset and the destroyed-XP counter (AC: 5, 6, 7)
+  - [x] Read `server/routes/office-manoeuvre-rank.js`'s `PUT /:seatId/step` first — its
         aggregation-pipeline `findOneAndUpdate` with `$ifNull` and its `$literal` category write are
         the exact idioms to copy, and its comments record why each exists.
-  - [ ] Implement AC6's two-stage pipeline update with `upsert: false`, inside the transaction.
-  - [ ] Comment the stage-ordering dependency at the call site, in the same explanatory register the
+  - [x] Implement AC6's two-stage pipeline update with `upsert: false`, inside the transaction.
+  - [x] Comment the stage-ordering dependency at the call site, in the same explanatory register the
         sibling office routes already use.
-  - [ ] Comment the handed-forward arithmetic requirement from Finding 1 (that
+  - [x] Comment the handed-forward arithmetic requirement from Finding 1 (that
         `officeXpSpentForCategory` must eventually add this counter or the balance over-reports),
         citing oxp.5 by name the way this codebase's other office comments cite their stories.
-  - [ ] Touch `office_merit_dots` nowhere. Confirm by `git diff` that the file is not in the change set.
-- [ ] Task 3 — Client: rewire the court panel (AC: 9)
-  - [ ] Read `public/js/admin/city-views.js`'s `initCityView` (line 42), `renderCourt` (line 107),
+  - [x] Touch `office_merit_dots` nowhere. Confirm by `git diff` that the file is not in the change set.
+- [x] Task 3 — Client: rewire the court panel (AC: 9)
+  - [x] Read `public/js/admin/city-views.js`'s `initCityView` (line 42), `renderCourt` (line 107),
         `_renderSlot` (line 89), the court event wiring (lines 485-516) and `saveCourt` (line 648) in
         full before editing. The add/remove-slot handlers at 495-516 are the ones AC9 removes.
-  - [ ] Fetch seats in `initCityView` into a module-level array beside `terrDocs`; keep `renderCity`
+  - [x] Fetch seats in `initCityView` into a module-level array beside `terrDocs`; keep `renderCity`
         and `renderCourt` synchronous.
-  - [ ] Rework `_renderSlot`/`renderCourt` to seat-backed rows with `data-seat-id`, the deterministic
+  - [x] Rework `_renderSlot`/`renderCourt` to seat-backed rows with `data-seat-id`, the deterministic
         `created_at`-then-`_id` ordering, the seat-label-or-short-id disambiguator, and the no-seat
         line.
-  - [ ] Rework `saveCourt` to one handover call per changed row, no `/api/characters/` call, seats
+  - [x] Rework `saveCourt` to one handover call per changed row, no `/api/characters/` call, seats
         re-fetched before the re-render, 409 surfaced legibly.
-  - [ ] Remove the add/remove-slot buttons and handlers; add the short explanatory note.
-  - [ ] CSS: reuse existing court-panel classes. Only add to `public/css/admin-layout.css` if a new
+  - [x] Remove the add/remove-slot buttons and handlers; add the short explanatory note.
+  - [x] CSS: reuse existing court-panel classes. Only add to `public/css/admin-layout.css` if a new
         element genuinely has no analogue, and then with tokens only.
-- [ ] Task 4 — Tests (AC: 10, and every AC above)
-  - [ ] New `server/tests/oxp-5-handover-logic.test.js`, DB-backed blocks via
+- [x] Task 4 — Tests (AC: 10, and every AC above)
+  - [x] New `server/tests/oxp-5-handover-logic.test.js`, DB-backed blocks via
         `describe.skipIf(!dbAvailable)` with `setupDb`/`teardownDb`/`isDbAvailable` from
         `./helpers/db-setup.js`. Follow `oxp-4-merit-persistence-handover.test.js`'s escaped
         fixture-prefix discipline for character cleanup, and oxp.11's rule for `office_seats`: insert
         seats with known explicit `_id`s and delete exactly those. **Never `deleteMany({})` on
         `office_seats`** — `oxp-1`'s, `oxp-2`'s and `oxp-11`'s suites all share it.
-  - [ ] Restate `oxp-2-derived-office-xp-calculation.test.js`'s "exposes no write verb" test per AC10.
-  - [ ] Update the now-false comment on `oxp-4-merit-persistence-handover.test.js`'s `repointSeat`
+  - [x] Restate `oxp-2-derived-office-xp-calculation.test.js`'s "exposes no write verb" test per AC10.
+  - [x] Update the now-false comment on `oxp-4-merit-persistence-handover.test.js`'s `repointSeat`
         helper per AC10. Comment only; the helper itself stays a direct write, deliberately.
-  - [ ] Prove-discrimination on the three gates AC10 names, each as a single change, run alone,
+  - [x] Prove-discrimination on the three gates AC10 names, each as a single change, run alone,
         reverted and re-confirmed green before the next.
-  - [ ] Targeted run over the changed area only.
-- [ ] Task 5 — Documentation and the record
-  - [ ] Update `D:\Terra Mortis\data-map.md`'s `office_seats` entry and its
+  - [x] Targeted run over the changed area only.
+- [x] Task 5 — Documentation and the record
+  - [x] Update `D:\Terra Mortis\data-map.md`'s `office_seats` entry and its
         `office_merit_dots`/`office_manoeuvre_rank` compound entry: `holder_id` now has a real writer,
         the residual-staleness risk recorded there is closed, and `office_manoeuvre_ranks` gains the
         `manoeuvre_xp_destroyed` field. (Umbrella root, outside this repo — oxp.11's Task 7 set the
         precedent.)
-  - [ ] Record in `sprint-status.yaml`'s **oxp-6** entry that `officeXpSpentForCategory` must add
+  - [x] Record in `sprint-status.yaml`'s **oxp-6** entry that `officeXpSpentForCategory` must add
         `manoeuvre_xp_destroyed` before any balance is rendered (Finding 1's handed-forward
         requirement). Do not edit any other story's line.
-  - [ ] Record the seat-creation gap from AC9 in the Dev Notes and in this story's own sprint-status
+  - [x] Record the seat-creation gap from AC9 in the Dev Notes and in this story's own sprint-status
         entry, and flag it to Angelus in the completion notes as a decision he may want to turn into a
         story.
 
@@ -684,16 +684,353 @@ derivable, and for the same reason.
 
 ### Agent Model Used
 
+Claude Opus 5 (`claude-opus-5[1m]`), via the `bmad-dev-story` workflow, 2026-08-13.
+
 ### Debug Log References
+
+- `npx vitest run tests/oxp-5-handover-logic.test.js` — 46 passed / 46, 0 skipped. Run three times
+  consecutively, identical each time.
+- **Full targeted gate, all seven files in one invocation** (`oxp-5-handover-logic`,
+  `oxp-2-derived-office-xp-calculation`, `oxp-4-merit-persistence-handover`,
+  `oxp-11-office-purchase-seat-keying`, `oxp-3-office-manoeuvre-rank`, `office-merit-dots`,
+  `issue-823-test-db-guard`) — **7 files, 204 passed / 204, 0 failed. Run three consecutive times,
+  identical each time**, with a `--reporter=verbose` pass counting 204 individually-ticked tests, so
+  nothing was skipped rather than passing.
+- Throwaway diagnostic (`tests/_diag-oxp5.test.js`, written, run five times, deleted) used to measure
+  how often two `Promise.all` handovers genuinely interleave. See "The race that is not always a
+  race" below.
+- Second throwaway instrumentation of this suite's own `beforeEach` (added, run, removed) used to
+  root-cause the fixture collision described under "Two bugs found in verification" below.
+- Pre-existing and untouched: `server/tests/oxp-1-office-seats.test.js` still fails to load under
+  vitest at all (the `#!/usr/bin/env node` shebang in `seed-office-seats.mjs`), so its 41 tests
+  remain silently unrun. Not caused by this story, not fixed by it. No new file was given a shebang.
 
 ### Completion Notes List
 
+**What was built.** One new transactional route, `PUT /api/office_seats/:seatId/holder`, on the
+already-mounted office-seats router (no `server/index.js` and no `test-app.js` change, exactly as
+AC1 predicted). `requireRole('st')` sits on the write while `GET /` stays open, the same split
+`office-merit-dots.js` uses. The transaction scaffolding is copied from `office-actions.js`'s
+`PUT /:id/accept` — `getClient()`, `startSession()`, `withTransaction`, a `RouteResponse extends
+Error` for clean business rejections, status/body captured outside the callback, response sent after
+commit, `endSession()` in a `finally`. `RouteResponse` is defined LOCALLY rather than lifted to a
+shared module: lifting it would mean editing a 414-line transactional route this story otherwise
+leaves alone, for no behavioural gain on a six-line class with no logic in it. A shared module is
+the right call the first time a third route wants one.
+
+**Two deliberate deviations from the story text.** Both are recorded here rather than absorbed
+silently, because a reviewer will reasonably ask about each.
+
+1. **The compare-and-swap baseline is read BEFORE the transaction opens.** AC3 puts the seat read
+   inside the callback, and it still is — the seat is re-read with the session, for the 404-on-delete
+   case, for the authoritative `office_category`, and for AC4's no-gap no-op detection. But the
+   holder value the CAS *filters on* comes from an additional read taken outside. This is not
+   tidiness, it is the only thing that makes the claim-first ordering work here:
+   `session.withTransaction` re-runs its whole callback on any error MongoDB labels transient, and a
+   genuine concurrent write to the same document is exactly such an error (`WriteConflict`). With
+   the filter built from an in-callback read, the retry re-reads the seat, sees the WINNER's freshly
+   committed holder, filters on that instead, and succeeds — so two simultaneous handovers would
+   both report 200 and the ladder would be reset twice. Capturing the baseline outside freezes it
+   across retries. This is also what `office-actions.js` itself does: `_findPending` reads its record
+   outside the transaction and the CAS inside uses that outer value. (Its guard is additionally
+   stable on its own, being a literal `status: 'pending'`; ours has no such consumable state, which
+   is why the outer capture is load-bearing here and merely conventional there.)
+2. **AC6 specifies `updateOne`; the implementation uses `findOneAndUpdate` with
+   `returnDocument: 'before'`.** It is the identical single atomic aggregation-pipeline update — the
+   same idiom `office-manoeuvre-rank.js`'s step route uses — and it additionally hands back the
+   pre-image. That pre-image is the only way to satisfy AC1's own response requirement (the rank
+   before the reset and the new cumulative destroyed total) without adding a second read inside the
+   transaction. `upsert: false` and the two-stage pipeline are exactly as AC6 specifies.
+
+**The race that is not always a race (AC10's one mandated assertion that had to change).** AC10
+requires "two simultaneous handovers on the SAME seat must produce exactly one 200 and one 409". As
+written that is an assertion about the Node scheduler, not about the route, and it is flaky: measured
+on this machine over five runs of an isolated diagnostic, two requests fired through `Promise.all`
+genuinely interleaved four times. On the fifth, the second request's pre-transaction read landed
+*after* the first had already committed — which is not a race at all but two SEQUENTIAL handovers,
+for which two 200s is the correct answer. The suite's first version failed for exactly that reason.
+
+Replaced with a 10-iteration loop, which is this codebase's own established shape for the same
+problem (`issue-1143-office-actions-auth-safety.test.js` runs two 10-iteration race loops; oxp-3's
+review had to widen its race from two concurrent callers to four for the identical reason). The loop
+asserts the invariants that hold either way and that a real double-win would break:
+
+- every response is a 200 or a clean 409, never a crash;
+- two winners are only ever legitimate sequential handovers, provable because they report DIFFERENT
+  `previous_holder_id` values — two winners reporting the SAME prior holder is the actual bug (a lost
+  update and a doubled reset) and never occurs;
+- the sitting holder's 3-XP ladder is destroyed EXACTLY once, the counter landing on 3 and never 6.
+  This is AC10's "the losing side must have destroyed no XP" in its non-flaky form;
+- exactly one rival ends up holding the seat with a matching `court_category`, and the other holds
+  nothing;
+- at least one iteration must produce a 409, so the guard is proved to fire rather than never being
+  reached.
+
+**Two bugs found in verification, after the first dev pass reported green.** Both are recorded in
+full because the second one is a real, pre-existing property of this repo's test harness that the
+next person will otherwise rediscover the same expensive way.
+
+*Bug 1 — this suite's own fixture cleanup was too broad. Real, fixed.* The first version of
+`beforeEach`/`afterAll` ran unfiltered `deleteMany({})` on `office_merit_dots` and
+`office_manoeuvre_ranks`. Both collections are shared with oxp-1's, oxp-2's, oxp-3's, oxp-4's and
+oxp-11's suites. The story text spells the hazard out for `office_seats` ("Never `deleteMany({})` on
+`office_seats`") and that instruction was followed for seats — but the identical reasoning applies to
+the two purchase collections, which are keyed by the same seat ids, and it was missed. Fixed: all
+four deletes now live in one `removeFixtures()` helper, scoped to this suite's own seat ids
+(`SEAT_IDS` as ObjectIds for `office_seats`, `SEAT_KEYS` as their 24-hex string form for the two
+purchase collections, which is how oxp.11 keys them). One assertion had to move with it — the
+"no document is minted" test counted `office_manoeuvre_ranks` documents with a bare `{}` filter, which
+under scoped cleanup would have been asserting other suites' leftovers, so it is now scoped to
+`SEAT_KEYS` too. Note in passing that oxp-4's and oxp-11's suites still do the unfiltered delete on
+those two collections; that is pre-existing, was not introduced here, and was left alone.
+
+*Bug 2 — not a bug in this story at all. Root-caused and proved.* Verification produced a large,
+non-deterministic failure spread (24 failed / 180 passed across 4 of 7 files on one run; 12, then 8,
+then 10 failures on three supposedly-isolated runs of the new suite alone), including a
+`MongoBulkWriteError: E11000 duplicate key ... office_seats ... _id: ObjectId('0f11...0051')` thrown
+from this suite's own `beforeEach` insert, and — the strangest symptom — intermittent failures in
+pure static source-contract tests that touch no database at all. Files that this story does not edit
+(`oxp-11`, `oxp-3`, `office-merit-dots`) were failing too.
+
+The static-test symptom is the thread that unravels it: `beforeEach` is registered at FILE level, so
+when it throws, vitest fails EVERY test in the file, static ones included. So there was one fault,
+not many.
+
+The fault is that **two vitest processes were running against the same `tm_suite_test` database at
+the same time** — the dev run and the verification run. `tests/helpers/setup-env.js` redirects only
+the database NAME; `tm_suite_test` is a single shared database on the same Atlas replica set as
+production, with no per-run namespacing of any kind. Two concurrent runs therefore fight over the
+same fixture documents in every shared collection.
+
+This was proved rather than assumed, in three steps:
+
+1. `beforeEach` was temporarily instrumented to report the seat count before cleanup, the
+   `deletedCount`, and the count again immediately after.
+2. Run alone, three consecutive times: 46/46 each time, no diagnostic ever fired. The full seven-file
+   gate, run alone: 204/204, no diagnostic.
+3. Two full gates then deliberately launched concurrently, and the original failure signature
+   reproduced immediately and abundantly — 68 failed / 136 passed in one process and 67 / 137 in the
+   other, with diagnostics that are impossible from a single process:
+   `DIAG pre=6 deleted=0 mid=6` (this run's `deleteMany` removed nothing because the other run had
+   already deleted the seats, yet a count taken immediately afterwards found all six back again), and
+   `DIAG INSERT FAIL pre=6 deleted=6 mid=0 present=[all six]` (all six deleted, verified absent, and
+   all six present again microseconds later at the insert).
+
+So: no async leak, no unjoined `Promise.all`, no transaction that outlives its response, and nothing
+wrong with the route. `dbSession.endSession()` and the commit are genuinely settled before each HTTP
+response resolves; the AC3 concurrency test was not the culprit and needed no change. **The harness
+limitation is real, pre-existing, and unguarded**, and it belongs with the `isDbAvailable()` caveat
+the story already records: nothing detects a second concurrent run, and the failure it produces looks
+exactly like a subtle application bug. The practical rule is that only one vitest process may run
+against `tm_suite_test` at a time — worth knowing in this workspace specifically, which the
+environment notes flag as shared between concurrent sessions. Fixing the harness (per-run database
+namespacing, or a lock) is out of scope here and was deliberately not attempted.
+
+Final state after both fixes: the seven-file gate run three consecutive times, 204/204 every time,
+with a verbose pass confirming 204 individually-ticked tests and therefore zero skips.
+
+**Finding 1's counter, and what is handed forward.** `manoeuvre_xp_destroyed` accumulates on the
+seat's `office_manoeuvre_ranks` document in the same pipeline update that zeroes the rank, stage
+order load-bearing (stage 1 reads the original `$rank`, stage 2 zeroes it). The arithmetic is NOT
+wired into `office-xp.js`, deliberately, per the story. That requirement is now recorded in three
+places as AC6 demands: a comment at the reset call site, `data-map.md`'s
+`office_merit_dots`/`office_manoeuvre_rank` entry, and `sprint-status.yaml`'s **oxp-6** entry.
+
+**Client rewire.** `admin/city-views.js`'s court panel is seat-backed. Seats load once in
+`initCityView` beside `terrDocs` (both `renderCity` and `renderCourt` stay synchronous); one row per
+real seat carrying `data-seat-id`, ordered ascending `created_at` then `_id` to match
+`office-tab.js`'s `_fallbackSeat` exactly; `seat_label` or a short id shown when a category has more
+than one seat; an explicit no-seat line where a category has none; and `saveCourt` making one
+handover call per changed row with no `/api/characters/` call anywhere in that path. `apiPut` was
+confirmed to surface the server's own `message` body (`public/js/data/api.js:26`), so a 409 arrives
+naming the conflicting seat rather than as a bare status code.
+
+Two small supporting changes were needed to make that message actually visible, and they are worth
+naming because they are not in the story text:
+
+- The panel's open/closed state is now remembered across a re-render. `#court-save-status` lives
+  INSIDE `.court-edit-panel`, which `renderCourt` re-renders collapsed, so without this the 409 was
+  being written into a hidden element.
+- The save now re-renders FIRST and writes the status text onto the fresh node afterwards (#634's
+  ordering, already used by `saveTerrAmbience` for the same reason). This incidentally fixes a
+  pre-existing bug: the old `saveCourt` set "Saved" and then called `renderCity`, wiping it in the
+  same tick.
+
+No CSS was added. The seat disambiguator and the no-seat line reuse `.court-detail`; the
+seat-provisioning note reuses `.derived-note` from `components.css` (loaded by `admin.html`). The
+now-unused `.court-add-slot-btn` / `.court-remove-slot-btn` rules were left in `admin-layout.css`
+rather than removed, to keep the diff inside the story's stated scope — flagged here as dead CSS a
+reviewer may want swept.
+
+**FLAGGED FOR ANGELUS — a decision, not a defect.** Removing the "+ Add slot" and "remove slot"
+buttons is a real reduction in what the court panel can do. What those buttons actually did was write
+`court_category` onto an extra character, producing a holder with no seat behind them: invisible to
+oxp.2's XP derivation and to oxp.11's purchase-state resolution, i.e. precisely the inconsistent data
+this story exists to stop. Refusing loudly beats writing a broken record quietly, so they are gone
+rather than rewired. **That leaves in-app seat creation and deletion as a real gap with no story
+home** — seats are still minted only by oxp.1's manual seed script, which has still never been run
+for real. Recorded in AC9, here, and in this story's `sprint-status.yaml` entry. Whether it becomes a
+story is Angelus's call.
+
+**Live data.** `tm_suite` was never connected to or written to. Every DB-touching test ran through
+the vitest harness against `tm_suite_test`.
+
+**Harness note (the story asked for this if it came up).** `isDbAvailable()` is a CONNECTIVITY probe
+and not a transaction-support probe — it did not bite, because the DB was genuinely reachable
+throughout and every DB-backed block really ran (0 skipped in every reported figure). The unguarded
+assumption the story describes is still there and was deliberately not touched. A SECOND, related
+and previously unrecorded unguarded assumption did bite hard, and is written up under "Two bugs found
+in verification" above: nothing in the harness detects or prevents two concurrent vitest runs sharing
+`tm_suite_test`, and what that produces looks exactly like an application bug.
+
 ### File List
 
+**New**
+
+- `server/routes/office-seats.js` — heavily extended, not new (see Modified).
+- `server/tests/oxp-5-handover-logic.test.js` — new, 46 tests.
+
+**Modified**
+
+- `server/routes/office-seats.js` — new `PUT /:seatId/holder` route, extracted `serialiseSeat`
+  helper shared with `GET /`, `resetManoeuvreRank` helper, and a rewrite of the now-false header
+  comment.
+- `public/js/admin/city-views.js` — seat-backed court panel, `refreshSeats`, `_seatsForCategory`,
+  `_seatDisambiguator`, `_seatHolder`, reworked `_renderSlot`/`renderCourt`/`saveCourt`, add/remove
+  slot handlers removed, panel open-state persistence.
+- `server/tests/oxp-2-derived-office-xp-calculation.test.js` — "exposes no write verb" test restated
+  and strengthened per AC10.
+- `server/tests/oxp-4-merit-persistence-handover.test.js` — `repointSeat` comment corrected
+  (comment only; the helper deliberately still writes the seat directly).
+- `specs/stories/sprint-status.yaml` — oxp-5 status and record, oxp-6's handed-forward requirement,
+  `last_updated`.
+- `specs/stories/oxp-5-handover-logic.md` — this record.
+- `server/tests/oxp-5-city-views-seat-holder.test.js` — new. Direct unit coverage
+  for `seatHolder`/`courtSlotOptions`/`computeCourtChanges`, added during code
+  review (see Senior Developer Review below).
+- `D:\Terra Mortis\data-map.md` (umbrella root, outside this repo) — new `office_seats` entry, and
+  the `office_merit_dots`/`office_manoeuvre_rank` compound entry updated for
+  `manoeuvre_xp_destroyed` and for the now-closed `holder_id` staleness risk.
+
+**Deliberately unchanged**
+
+`server/index.js`, `server/tests/helpers/test-app.js`, `server/lib/office-seat-resolve.js`,
+`server/schemas/office_seat.schema.js`, `server/schemas/character.schema.js`,
+`server/routes/characters.js`, `server/routes/office-merit-dots.js`,
+`server/routes/office-manoeuvre-rank.js`, `public/js/tabs/office-tab.js`,
+`public/js/data/office-xp.js`, `public/css/admin-layout.css`.
+
 ## Senior Developer Review
+
+External Codex review (`codex-review` skill, single-session 3-pass — Blind Hunter / Edge Case Hunter /
+Acceptance Auditor, high effort), against `specs/stories/code-review/oxp-5-diff.txt` (base `2ab6a8a`,
+frozen 2026-08-13 22:43). Findings at `specs/stories/code-review/oxp-5-codex-findings.md`: 1 High,
+7 Medium, 5 Low. Every finding independently verified against the live code before triage, per this
+project's `codex-review` skill (an unverified external review carries borrowed authority and is worse
+than none). Outcomes:
+
+**1 High, PATCHED.** Saving any court row silently vacated a seat whose holder was retired.
+`courtSlotOptions` built its `<select>` from `active` characters only; a retired holder had no matching
+option, the control silently defaulted to "— Vacant —", and an untouched row then read as a deliberate
+change on Save — a real handover, clearing the retired character's court fields and permanently
+destroying the seat's manoeuvre XP, from a save that never touched that row. Fixed: `seatHolder` now
+searches ALL characters, not just active ones, and `courtSlotOptions` appends an extra option for a
+holder `active` cannot represent (retired, shown by name and marked; or orphaned, shown as unknown),
+so a row is never left defaulting to a value nobody chose. `computeCourtChanges` also gained a
+documented safety net for the same shape, in case a future change to `courtSlotOptions` ever reopens
+the gap. New direct unit suite `server/tests/oxp-5-city-views-seat-holder.test.js` (13 tests) exercises
+all three functions with plain fixtures — this project has no jsdom, but these three functions are
+exported and DOM-free specifically so they can be driven directly, which the existing source-contract
+regex tests in `oxp-5-handover-logic.test.js` cannot do. Prove-discriminated: reverting `seatHolder`'s
+call site back to `active`-only failed exactly the one test that pins it, nothing else moved.
+
+**6 Medium, PATCHED:**
+- Same-holder PUT could report 200 while leaving `office_seats.holder_id` and the character's
+  `court_category`/`court_title` out of sync (the no-op branch only repaired drift when a title was
+  also supplied). Now always repairs on a same-holder request, field-by-field, so a true no-op stays
+  inert (no `updated_at` churn) while real drift is corrected.
+- A cleared title box sent `court_title: null`, which the server read as "not supplied" and silently
+  ignored, so an ST clearing a sitting holder's title saw "Saved" and watched the old title reappear.
+  Client now sends `''` for a deliberate clear; server resolves a blank (but non-null) title to the
+  seat's office category on every path, same-holder included.
+- Two Low-tier documentation/comment issues bundled into the same pass (self-contradictory route
+  comment claiming the client "saves EVERY slot" after the same diff changed it to save only changed
+  rows; a stale character re-render after a successful write whose follow-up refresh failed, silently
+  reported as a clean "Saved") — both corrected: comment rewritten to match the changed-rows-only
+  behaviour, and a failed post-handover refresh now reports "Saved, but the character list could not
+  be refreshed" instead of a bare "Saved" over stale data.
+
+**3 Medium, DISMISSED with evidence** (all three: Pass 3a/3b flagged AC-text mismatches or a
+concurrency-proof concern that the story's own Dev Notes had already investigated and justified
+*before* this review ran — Pass 3a is deliberately blind to the Dev Agent Record by the review's own
+protocol, and Pass 3b's findings are frozen once written even after it reads that record on the next
+pass, so a finding resolved by content the reviewer saw one pass later stays on the list by design.
+Verifying, not rubber-stamping, meant re-deriving each one independently against the running code):
+  - *"Distinct `previous_holder_id` values don't prove two 200s were sequential."* Traced the actual
+    compare-and-swap: the write in `office-seats.js`'s claim step filters on `baselineHolderId`, read
+    ONCE outside the transaction and never re-captured on a `withTransaction` retry — not on
+    `currentHolderId`, the in-session value the finding's scenario depends on. A retry after a genuine
+    `WriteConflict` re-reads `currentHolderId` fresh, but the claim's filter still names the frozen
+    baseline, so it cannot match the now-changed document and 409s cleanly; it is never retried further
+    (`RouteResponse` is not a Mongo transient error). Two real 200s can only happen when the second
+    request's own baseline read genuinely lands after the first has committed — a true sequential pair,
+    which is exactly what the test's invariant loop is built to allow. This exact design rationale
+    already has its own writeup in this story's Dev Notes ("Two deliberate deviations", item 1) dated
+    before the review ran.
+  - *"AC6 specifies `updateOne`; the implementation uses `findOneAndUpdate`."* Already recorded as
+    deviation 2 in the same Dev Notes section, with the reason (identical atomic pipeline update, plus
+    the pre-image AC1's own response contract requires without a second in-transaction read).
+  - *"AC10's exact-one-200-one-409 assertion was replaced with a weaker invariant loop."* Already
+    recorded in Dev Notes ("The race that is not always a race"), with the specific measurement that
+    forced the change: `Promise.all` interleaved genuinely on 4 of 5 isolated runs, and the fifth was a
+    legitimate sequential pair for which two 200s is correct, not a bug — the same non-reliable-
+    interleaving problem `issue-1143` and `oxp-3`'s own review already hit and solved the same way.
+
+**1 Medium, INFORMATIONAL, no action.** The reviewer's own sandbox denied outbound port 27017 and could
+only run 75/204 (129 skipped) against this repo's Atlas-only test setup — a recurring, already-catalogued
+environment limit (same pattern recorded for otc-2/oaq-2/oxp-1 through oxp-4/oxp-11), not a code defect;
+the reviewer's own writeup says so explicitly. Re-run here with real DB access, see below.
+
+**1 Medium, DEFERRED — real coverage gap, logged to `deferred-work.md`.** No test injects a failure
+after the seat is claimed but before commit to prove the transaction rolls back the CAS claim along
+with everything else. Checked precedent first: `office-actions.js`'s `PUT /:id/accept` is the exact
+pattern this route copied its transaction scaffolding from, and it has never had a fault-injection
+rollback test either, in this codebase's whole history. This is a real, valid gap (not fixed by
+MongoDB's ACID guarantee alone being "obviously fine" — it should be proved, not assumed) but building
+a reliable fault-injection harness for a real `session.withTransaction` (correctly targeting one write
+call without becoming a flaky or vacuously-passing mock) is testing infrastructure this codebase does
+not have anywhere yet, and inventing it once, generically, for both transactional routes is a better
+use of the investment than a one-off inside this story under review-cycle time pressure.
+
+**2 Low, PATCHED:**
+- `oxp-2-derived-office-xp-calculation.test.js`'s restated "accepts only PUT" test proved every verb
+  being REJECTED but never that PUT was actually ACCEPTED — the route could have been deleted entirely
+  and the test would still pass. Added a positive assertion: PUT against a well-formed-but-unknown seat
+  id reaches the HANDLER's own `NOT_FOUND` JSON body, distinct from Express's router-level 404 for an
+  unmatched verb, proving the router actually dispatches to the PUT handler.
+- `oxp-5-handover-logic.test.js`'s `seat_label` source-contract test only matched single-line `$set`
+  bodies (`from operator to end of line`), which a nested or multiline update could have slipped past.
+  Now scans every `$set: {...}` block in the route file individually via `matchAll`, with an explicit
+  assertion that the scan actually found more than two payloads (so the test cannot pass by finding
+  nothing).
+
+**1 Low, DEFERRED (pre-existing, out of scope).** `court-edit-panel`'s `style="display:none"` predates
+this story and this diff only re-renders it dynamically rather than introducing it; a full
+inline-style-to-token conversion for that element is real but unrelated cleanup, not part of this
+story's brief.
+
+**Re-verification with real DB access** (the reviewer's own sandbox denied Atlas). Full eight-file
+targeted gate — the original seven plus the new direct-unit suite — **217/217, 0 failed, 0 skipped**,
+run clean after every patch above landed. This independently reproduces the story's own pre-review
+204/204 claim (204 of the 217 are the original suites, unchanged in count) and resolves the reviewer's
+own flagged "unverifiable" gap for those seven files.
+
+**Ship assessment: accepted.** The one blocking (High) finding is patched and has its own direct
+regression coverage, prove-discriminated by single-change revert. No unresolved High or Medium.
 
 ## Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-08-13 | Story created. Scope settled directly with Angelus before ACs were written: ONE new transactional route keeping `court_category` and `office_seats.holder_id` in sync rather than deriving `court_category` (the smaller option, leaving every existing read site untouched), and a rewire of `admin/city-views.js`'s existing court-slots panel to call it so an ST cannot bypass the reset through the familiar control. Three findings from this story's own investigation changed the work: (1) the reset, implemented the obvious way, would REFUND the destroyed XP, because oxp.2 derives spend from the current rank — the ruling's own "including the spend that has since been lost" clause requires a cumulative `manoeuvre_xp_destroyed` counter captured at reset time, since the information exists nowhere else and is unrecoverable afterwards; the arithmetic itself is handed forward to oxp.6/oxp.7 rather than wired here; (2) `resolveOfficeSeat()` cannot be reused, because it 400s any seat whose office has no `OFFICE_DATA` entry (which would make the real, filled Administrator seat un-handoverable until oxp.8) and takes no session, so only its `SEAT_ID_PATTERN` is reused; (3) `court_title` lives on the character and `seat_label` on the seat, and they are not equivalents — the route must never write `seat_label`. Investigation also found that `city-views.js`'s court panel has NO seat identity at all (a slot row is keyed only by category and DOM order), making AC9 a rework to seat-backed rows rather than a redirect of two URLs, and that its "+ Add slot" affordance currently produces holders with no seat behind them, so it is removed rather than rewired — leaving in-app seat creation as a real gap with no story home yet, flagged for Angelus. `oxp-2-derived-office-xp-calculation.test.js`'s "exposes no write verb" assertion was found to still pass mechanically while its title and comment become false, so AC10 restates and strengthens it rather than leaving it to rot. |
+| 2026-08-13 | External Codex review complete (see Senior Developer Review above). 1 High + 6 Medium patched (retired-holder silent-vacate fixed with new direct unit suite, same-holder drift repair, blank-title default, plus documentation/comment fixes); 3 Medium dismissed with evidence (already correctly designed and already justified in this section's own Dev Notes, which the review's frozen-pass methodology could not revise against); 1 Medium informational (reviewer's sandbox denied Atlas, re-verified here); 1 Medium deferred to `deferred-work.md` (transaction rollback fault-injection, a real gap with no precedent anywhere in this codebase); 2 Low patched, 1 Low deferred (pre-existing inline style, out of scope). Re-verified: eight-file targeted gate 217/217, 0 failed, 0 skipped. Status moved review -> done. Not merged; PR/merge is Angelus's call. |

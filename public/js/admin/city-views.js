@@ -33,6 +33,16 @@ const COVENANTS = ['Carthian Movement', 'Circle of the Crone', 'Invictus', 'Lanc
 
 let chars = [];
 let terrDocs = [];           // territory documents from /api/territories
+// oxp.5: seat documents from /api/office_seats. The court edit panel is now
+// SEAT-backed rather than category-backed, so this is loaded once in
+// initCityView beside terrDocs and read synchronously by renderCourt (both
+// renderCity and renderCourt must stay synchronous).
+let seatDocs = [];
+// oxp.5: the court edit panel's open/closed state, kept across a re-render.
+// saveCourt re-renders on both success and failure, and #court-save-status
+// lives INSIDE the panel — without this, a 409 from the handover route would be
+// written into a hidden element and the ST would see nothing at all.
+let _courtPanelOpen = false;
 let _terrExpanded = new Set(); // territory ids currently expanded
 let _feedingEdits = {};      // terrId -> charId[] (working copy while editing)
 let prestigeView = 0; // 0-3 for the four views
@@ -56,6 +66,11 @@ export async function initCityView() {
     terrDocs = await apiGet('/api/territories');
     setStatusTerritories(terrDocs); // keep City Status calc in sync (issue #13 Surface 2)
   } catch { terrDocs = []; setStatusTerritories([]); }
+
+  // oxp.5: seats, fetched once here so renderCourt can stay synchronous. An
+  // empty array on failure renders the explicit no-seat line for every
+  // category rather than a row of selectable controls that would write nowhere.
+  await refreshSeats();
 
   try {
     const cycles = await apiGet('/api/downtime_cycles');
@@ -86,20 +101,163 @@ function renderCity(container) {
 //  COURT (editable)
 // ══════════════════════════════════════
 
-function _renderSlot(cat, active, holder) {
-  const multiOk = cat !== 'Head of State';
-  let h = '<div class="court-slot-row">';
-  h += `<select class="court-edit-sel" data-court-category="${esc(cat)}">`;
-  h += '<option value="">— Vacant —</option>';
+/** oxp.5: reload the seat array. Called on boot and again after every save,
+ *  because a handover changes `holder_id` and the panel's baseline comparison
+ *  is taken from these documents. */
+async function refreshSeats() {
+  try {
+    const docs = await apiGet('/api/office_seats');
+    seatDocs = Array.isArray(docs) ? docs : [];
+  } catch { seatDocs = []; }
+}
+
+/** oxp.5: this office's seats, in the SAME deterministic order office-tab.js's
+ *  `_fallbackSeat` uses (ascending created_at, then ascending _id as the
+ *  tie-break). Matching it matters: if the admin panel and the office tab
+ *  ordered seats differently they would disagree about which seat is "first",
+ *  and an ST editing "the first Primogen" here would be editing a different
+ *  seat from the one a holder sees over there. */
+function _seatsForCategory(cat) {
+  return seatDocs
+    .filter(s => s && s.office_category === cat)
+    .sort((a, b) => {
+      const ca = String(a.created_at ?? '');
+      const cb = String(b.created_at ?? '');
+      if (ca !== cb) return ca < cb ? -1 : 1;
+      const ia = String(a._id ?? '');
+      const ib = String(b._id ?? '');
+      return ia < ib ? -1 : ia > ib ? 1 : 0;
+    });
+}
+
+/** oxp.5: what distinguishes one seat of an office from another on screen.
+ *  Socialite's two seats have real labels ('Harpy', "People's Harpy");
+ *  Primogen's two have neither a label nor any other distinguishing field, so a
+ *  short form of the id is the only thing that separates them. Same shape as
+ *  office-tab.js's `_seatNote`. */
+function _seatDisambiguator(seat) {
+  return seat.seat_label ? String(seat.seat_label) : `seat ${String(seat._id).slice(-6)}`;
+}
+
+/**
+ * oxp.5: the character currently holding a seat, or null if it is vacant.
+ *
+ * Searched across ALL characters, never only the active ones. Codex review
+ * finding (High): this used to search `active` alone, so a seat held by a
+ * RETIRED character resolved to null, the row rendered with nothing selected,
+ * and the `<select>` silently fell back to its first option, "Vacant". An
+ * unrelated save then read that row as a deliberate change and fired a real
+ * handover, vacating a live seat and destroying its manoeuvre ladder. A holder
+ * being retired is not the same fact as a seat being vacant, and this function
+ * is where the two used to get confused.
+ */
+export function seatHolder(seat, allChars = []) {
+  if (!seat || seat.holder_id == null) return null;
+  return allChars.find(c => String(c._id) === String(seat.holder_id)) || null;
+}
+
+/**
+ * oxp.5: the option list for one seat's holder `<select>`, as pure data.
+ *
+ * Exported and DOM-free so it can be tested directly — this project has no
+ * jsdom, and the bug this function exists to prevent is a rendering decision,
+ * not a string of markup.
+ *
+ * Every active character is offered. On top of that, if the seat's real holder
+ * is NOT among them, an extra option is appended for that holder specifically,
+ * so the row can always represent the truth:
+ *
+ *   - a retired holder is shown by name, marked retired;
+ *   - a `holder_id` that resolves to no character at all (the hard-delete
+ *     cascade in characters.js sweeps several collections but never
+ *     `office_seats`, so this is reachable) is shown as an unknown holder.
+ *
+ * The extra option exists only on the row for the seat that holder actually
+ * holds, so a retired character never becomes generally assignable.
+ */
+export function courtSlotOptions(seat, active = [], allChars = []) {
+  const holderId = !seat || seat.holder_id == null ? '' : String(seat.holder_id);
+  const options = [{ value: '', label: '— Vacant —', selected: holderId === '' }];
+
+  let representsHolder = holderId === '';
   for (const c of active) {
-    const sel = holder && String(holder._id) === String(c._id) ? ' selected' : '';
-    h += `<option value="${esc(c._id)}"${sel}>${esc(c.moniker || c.name)}</option>`;
+    const value = String(c._id);
+    if (value === holderId) representsHolder = true;
+    options.push({ value, label: c.moniker || c.name, selected: value === holderId });
+  }
+
+  if (!representsHolder) {
+    const held = seatHolder(seat, allChars);
+    const label = held
+      ? `${held.moniker || held.name}${held.retired ? ' (retired)' : ''}`
+      : `Unknown character (id ${holderId.slice(-6)})`;
+    options.push({ value: holderId, label, selected: true });
+  }
+
+  return options;
+}
+
+/**
+ * oxp.5: which rows the save should actually send, as pure data.
+ *
+ * `rows` is `[{ seatId, selectedHolder, title, optionValues }]`, read off the
+ * DOM by saveCourt. Kept DOM-free and exported for the same reason as
+ * courtSlotOptions: the invariant below is the one a code review found broken,
+ * and it deserves a real test rather than a source-contract assertion.
+ *
+ * THE INVARIANT: a row nobody touched must never fire a handover. A handover is
+ * destructive — it clears a character's court fields and permanently destroys
+ * the seat's manoeuvre XP — so "I could not represent this seat's current
+ * state" must never be silently indistinguishable from "the ST chose Vacant".
+ */
+export function computeCourtChanges(rows = [], seats = [], allChars = []) {
+  const changes = [];
+  for (const row of rows) {
+    const seat = seats.find(s => String(s._id) === String(row.seatId));
+    if (!seat) continue;
+
+    const currentHolder = seat.holder_id == null ? '' : String(seat.holder_id);
+    const currentTitle = currentHolder ? (seatHolder(seat, allChars)?.court_title || '') : '';
+    const selectedHolder = row.selectedHolder || '';
+    const title = (row.title || '').trim();
+
+    // Safety net for the invariant above. With courtSlotOptions the holder is
+    // always representable, so this cannot fire today; it is here because the
+    // consequence of it ever firing again is destructive and silent. Scoped
+    // narrowly to the exact shape of the original bug — an unrepresentable
+    // holder sitting at the select's default — so a deliberate choice is never
+    // swallowed.
+    const representsCurrent = !currentHolder || (row.optionValues || []).includes(currentHolder);
+    if (!representsCurrent && selectedHolder === '') continue;
+
+    if (selectedHolder === currentHolder && title === currentTitle) continue;
+    changes.push({ seatId: String(row.seatId), holderId: selectedHolder, title });
+  }
+  return changes;
+}
+
+/**
+ * oxp.5: one editable row per REAL SEAT.
+ *
+ * Before this story a slot row was keyed only by its category and its position
+ * in the DOM, with no seat identity anywhere in the markup, and "+ Add slot"
+ * conjured another one out of nothing. Rows are now backed by an
+ * `office_seats` document and carry its id, which is what lets saveCourt call
+ * the single transactional handover route instead of writing `court_category`
+ * onto characters directly.
+ */
+function _renderSlot(cat, active, seat, showDisambiguator) {
+  const holder = seatHolder(seat, chars);
+  let h = `<div class="court-slot-row" data-seat-id="${esc(String(seat._id))}">`;
+  if (showDisambiguator) {
+    h += `<span class="court-detail">${esc(_seatDisambiguator(seat))}</span>`;
+  }
+  h += `<select class="court-edit-sel" data-court-category="${esc(cat)}">`;
+  for (const opt of courtSlotOptions(seat, active, chars)) {
+    h += `<option value="${esc(opt.value)}"${opt.selected ? ' selected' : ''}>${esc(opt.label)}</option>`;
   }
   h += '</select>';
   h += `<input type="text" class="court-title-input" data-court-title placeholder="${esc(cat)}" value="${esc(holder?.court_title || '')}">`;
-  if (multiOk) {
-    h += `<button class="court-remove-slot-btn" title="Remove slot">&times;</button>`;
-  }
   h += '</div>';
   return h;
 }
@@ -122,28 +280,40 @@ function renderCourt() {
   }
   h += '</div>';
 
-  // Edit section
+  // Edit section — oxp.5: seat-backed.
   h += '<div class="court-edit">';
   h += '<button class="city-edit-toggle" id="court-edit-toggle">Edit Court Positions</button>';
-  h += '<div class="court-edit-panel" id="court-edit-panel" style="display:none">';
+  h += `<div class="court-edit-panel" id="court-edit-panel"${_courtPanelOpen ? '' : ' style="display:none"'}>`;
   h += '<div class="court-edit-grid">';
   for (const cat of COURT_CATEGORIES) {
-    const holders = active.filter(c => c.court_category === cat);
-    const slots = holders.length ? holders : [null];
-    const multiOk = cat !== 'Head of State';
+    const seats = _seatsForCategory(cat);
+    // Only worth showing when there is more than one seat to tell apart.
+    const showDisambiguator = seats.length > 1;
     h += `<div class="court-edit-category" data-category="${esc(cat)}">`;
     h += `<span class="court-edit-label">${esc(cat)}</span>`;
     h += `<div class="court-slot-list">`;
-    for (const holder of slots) {
-      h += _renderSlot(cat, active, holder);
+    if (!seats.length) {
+      // An office with no seat gets a plain statement of fact, not an empty
+      // selectable row. A row here would look editable and write nowhere:
+      // the handover route is addressed by seat id, and there is no seat.
+      h += `<span class="court-detail">No seat exists for this office, so nobody can be assigned to it.</span>`;
+    } else {
+      for (const seat of seats) {
+        h += _renderSlot(cat, active, seat, showDisambiguator);
+      }
     }
     h += '</div>';
-    if (multiOk) {
-      h += `<button class="court-add-slot-btn" data-add-category="${esc(cat)}">+ Add ${esc(cat)}</button>`;
-    }
     h += '</div>';
   }
   h += '</div>';
+  // oxp.5: "+ Add slot" and "remove slot" are gone, deliberately. They created
+  // and destroyed a HOLDING by writing court_category onto an extra character,
+  // which produced a holder with no seat behind them: invisible to the office
+  // XP derivation and to the office tab's purchase-state resolution, i.e.
+  // exactly the inconsistent data this route exists to stop. In-app seat
+  // creation is a real gap with no home yet; refusing loudly beats writing a
+  // broken record quietly.
+  h += '<p class="derived-note">Seats are provisioned ST-side. Creating or removing a seat is not yet available in the app.</p>';
   h += '<button class="city-save-btn" id="court-save">Save Court</button>';
   h += '<span class="city-save-status" id="court-save-status"></span>';
   h += '</div></div>';
@@ -482,39 +652,22 @@ function wireEvents(container) {
     openCityMapOverlay({ chars, territories: terrDocs });
   });
 
-  // Court edit toggle
+  // Court edit toggle. oxp.5: the open state is remembered across re-renders
+  // so a save (and, more importantly, a failed save) leaves the panel and its
+  // status line visible.
   container.querySelector('#court-edit-toggle')?.addEventListener('click', () => {
     const panel = document.getElementById('court-edit-panel');
-    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    _courtPanelOpen = panel.style.display === 'none';
+    panel.style.display = _courtPanelOpen ? '' : 'none';
   });
 
   // Court save
   container.querySelector('#court-save')?.addEventListener('click', saveCourt);
 
-  // Add slot
-  container.querySelector('#court-edit-panel')?.addEventListener('click', e => {
-    const addBtn = e.target.closest('[data-add-category]');
-    if (addBtn) {
-      const cat = addBtn.dataset.addCategory;
-      const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-      const list = addBtn.previousElementSibling;
-      const div = document.createElement('div');
-      div.innerHTML = _renderSlot(cat, active, null);
-      list.appendChild(div.firstElementChild);
-    }
-    const rmBtn = e.target.closest('.court-remove-slot-btn');
-    if (rmBtn) {
-      const row = rmBtn.closest('.court-slot-row');
-      const list = row.parentElement;
-      if (list.querySelectorAll('.court-slot-row').length > 1) {
-        row.remove();
-      } else {
-        row.querySelector('.court-edit-sel').value = '';
-        row.querySelector('.court-title-input').value = '';
-      }
-    }
-  });
-
+  // oxp.5: the add-slot / remove-slot handlers that used to live here are gone
+  // along with their buttons — see renderCourt's note. Rows are now backed by
+  // real office_seats documents, and nothing in this panel creates or destroys
+  // one.
 
   // Prestige view switcher
   container.querySelectorAll('[data-prestige-view]').forEach(btn => {
@@ -645,47 +798,99 @@ async function saveFeedingRights(terrId) {
   }
 }
 
+/**
+ * oxp.5: save the court panel through the single transactional handover route.
+ *
+ * This function makes NO call to /api/characters/ at all any more. It used to
+ * do two independent passes of raw character writes — a clear-pass setting
+ * court_category to null on whoever dropped out, then an assign-pass setting it
+ * on whoever came in — with no atomicity, no seat awareness and no manoeuvre
+ * reset. Both halves of a reassignment are the same event, and
+ * PUT /api/office_seats/:seatId/holder does both of them, plus the seat's own
+ * holder_id and the manoeuvre reset, inside one transaction.
+ *
+ * One call per row whose selected holder or title differs from that seat's
+ * current state. Rows that have not changed are skipped entirely, which is why
+ * the route's same-holder no-op exists as a 200 rather than an error: an ST
+ * correcting one title should not collect four rejections.
+ */
 async function saveCourt() {
-  const status = document.getElementById('court-save-status');
-
-  // Collect all slot rows: { charId, category, title }
-  const newSlots = [];
+  // Read every row off the DOM as plain data, then let computeCourtChanges
+  // decide which ones actually changed. The decision is deliberately kept out
+  // of here: it carries the "an untouched row never fires a handover"
+  // invariant, and it is unit-tested directly.
+  const rows = [];
   document.querySelectorAll('.court-slot-row').forEach(row => {
     const sel = row.querySelector('.court-edit-sel');
-    const titleInput = row.querySelector('.court-title-input');
-    const cat = sel?.dataset.courtCategory;
-    const charId = sel?.value;
-    const title = titleInput?.value.trim() || cat;
-    if (cat && charId) newSlots.push({ charId, category: cat, title });
+    rows.push({
+      seatId: row.dataset.seatId,
+      selectedHolder: sel?.value || '',
+      title: row.querySelector('.court-title-input')?.value || '',
+      // What the select could actually offer. computeCourtChanges uses this to
+      // tell "the ST chose Vacant" apart from "this row could not represent its
+      // own holder", which are the same empty string otherwise.
+      optionValues: Array.from(sel?.options || []).map(o => o.value),
+    });
   });
+  const changes = computeCourtChanges(rows, seatDocs, chars);
 
+  let message = 'Saved';
   try {
-    const active = chars.filter(c => !c.retired);
-    // Clear characters no longer in any slot
-    for (const c of active) {
-      if (!c.court_category) continue;
-      const kept = newSlots.some(s => s.charId === String(c._id));
-      if (!kept) {
-        await apiPut(`/api/characters/${c._id}`, { court_category: null, court_title: null });
-        c.court_category = null;
-        c.court_title = null;
-      }
+    for (const { seatId, holderId, title } of changes) {
+      await apiPut(`/api/office_seats/${encodeURIComponent(seatId)}/holder`, {
+        holder_id: holderId || null,
+        // A CLEARED title box is sent as the empty string, not as null, and the
+        // server resolves it to the seat's own office category. Codex review
+        // finding 5: this used to send `title || null`, which the server read as
+        // "no title supplied" and therefore ignored, so an ST clearing a sitting
+        // holder's title saw "Saved" and then watched the old title reappear.
+        // Vacating ignores the title entirely, server-side.
+        court_title: holderId ? title : null,
+      });
     }
-    // Write new assignments
-    for (const { charId, category, title } of newSlots) {
-      const c = active.find(x => String(x._id) === charId);
-      if (!c) continue;
-      if (c.court_category !== category || c.court_title !== title) {
-        await apiPut(`/api/characters/${c._id}`, { court_category: category, court_title: title });
-        c.court_category = category;
-        c.court_title = title;
-      }
-    }
-    if (status) status.textContent = 'Saved';
-    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
-    renderCity(document.getElementById('city-content'));
   } catch (err) {
-    if (status) status.textContent = 'Failed: ' + err.message;
+    // apiPut throws with the SERVER's own message body (see data/api.js), so a
+    // 409 from the conflicting-seat refusal arrives here naming the seat the
+    // target already holds, not as a bare status code.
+    message = 'Failed: ' + err.message;
+  }
+
+  // Re-fetch before re-rendering: holder_id has changed on the server, and so
+  // has court_category/court_title on up to two characters per handover. Done
+  // on the failure path too, since earlier rows in the loop may have committed
+  // before a later one was refused.
+  //
+  // Codex review finding: a failed character refresh used to be swallowed
+  // silently while the status still read "Saved", so the panel could re-render
+  // the NEW seat holder alongside the OLD court titles and look authoritative.
+  // The write did commit, so this is not a failure, but it must not be reported
+  // as a clean save either.
+  let charsRefreshed = true;
+  try {
+    const fresh = await apiGet('/api/characters');
+    chars = fresh;
+    chars.forEach(c => applyDerivedMerits(c));
+  } catch {
+    charsRefreshed = false; // keep the stale array rather than blanking the view
+  }
+  await refreshSeats();
+  if (charsRefreshed === false && !message.startsWith('Failed')) {
+    message = 'Saved, but the character list could not be refreshed. Reload to see current titles.';
+  }
+
+  // #634's ordering, for the same reason it was needed there: re-render FIRST
+  // (it rebuilds the status span from the template), THEN write the feedback
+  // onto the fresh node.
+  renderCity(document.getElementById('city-content'));
+  const status = document.getElementById('court-save-status');
+  if (status) {
+    status.textContent = message;
+    if (message === 'Saved') {
+      setTimeout(() => {
+        const s = document.getElementById('court-save-status');
+        if (s) s.textContent = '';
+      }, 2000);
+    }
   }
 }
 

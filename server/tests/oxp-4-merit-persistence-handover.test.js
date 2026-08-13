@@ -86,9 +86,21 @@ async function setCourtCategory(id, courtCategory) {
 }
 
 /** oxp.11 AC9: repoint a seat at a different character, which is the other
- *  half of a real handover. Nothing in the app writes `holder_id` yet — oxp.1's
- *  one-off seed script is its only writer and oxp.5 is unbuilt — so the test
- *  does directly what oxp.5 will eventually do through a route. */
+ *  half of a real handover.
+ *
+ *  This used to say "nothing in the app writes `holder_id` yet... so the test
+ *  does directly what oxp.5 will eventually do through a route". That is no
+ *  longer true: oxp.5 shipped PUT /api/office_seats/:seatId/holder, which is
+ *  now the real writer.
+ *
+ *  The direct write is KEPT anyway, deliberately, and that is the point of this
+ *  comment. oxp.4's guarantee is that merit dots survive a change of
+ *  officeholder. If this suite proved it by driving oxp.5's route, the proof
+ *  would be circular: it would show only that one particular route happens not
+ *  to touch `office_merit_dots` today. Writing the seat directly keeps the
+ *  guarantee independent of any route, so it still holds for a future writer
+ *  that has not been built yet. oxp.5's own suite proves its route's behaviour
+ *  separately (see oxp-5-handover-logic.test.js, AC7). */
 async function repointSeat(seatObjectId, holderId) {
   await getCollection('office_seats').updateOne(
     { _id: seatObjectId },
